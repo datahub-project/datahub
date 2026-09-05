@@ -21,6 +21,7 @@ const Container = styled.div<{
 }>`
     display: flex;
     flex-direction: row;
+    align-items: center;
     justify-content: space-between;
     padding: ${(props) => (props.$padding ? props.$padding : '8px 13px 8px 8px')};
     gap: 8px;
@@ -55,19 +56,35 @@ const DisplayNameHoverFromSelf = styled(DisplayName)`
 const DisplayNameWrapper = styled.div`
     white-space: nowrap;
     color: ${(props) => props.theme.colors.text};
+    line-height: 20px;
 
     a {
         color: inherit;
+    }
+
+    & span,
+    & div {
+        line-height: inherit;
     }
 `;
 
 const SubtitleAndMatchesWrapper = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};
+    line-height: 18px;
+
+    & > div {
+        line-height: inherit;
+    }
+
+    &:empty {
+        display: none;
+    }
 `;
 
 const ContentContainer = styled.div`
     display: flex;
     flex-direction: row;
+    align-items: center;
     gap: 16px;
     overflow: hidden;
 `;
@@ -75,9 +92,9 @@ const ContentContainer = styled.div`
 const DescriptionContainer = styled.div`
     display: flex;
     flex-direction: column;
+    gap: 0;
     overflow: hidden;
     width: 100%;
-    align-self: center;
 `;
 
 const IconContainer = styled.div<{ $variant?: EntityItemVariant }>`
@@ -174,9 +191,8 @@ export default function AutoCompleteEntityItem({
                 <DisplayNameHoverComponent
                     displayName={displayName}
                     highlight={query}
-                    color={variantProps?.nameColor}
-                    colorLevel={variantProps?.nameColorLevel}
                     weight={variantProps?.nameWeight}
+                    fontSize={variantProps?.nameFontSize}
                 />
             </div>
         );
@@ -186,9 +202,8 @@ export default function AutoCompleteEntityItem({
                 <DisplayNameHoverComponent
                     displayName={displayName}
                     highlight={query}
-                    color={variantProps?.nameColor}
-                    colorLevel={variantProps?.nameColorLevel}
                     weight={variantProps?.nameWeight}
+                    fontSize={variantProps?.nameFontSize}
                 />
             </Link>
         );
@@ -197,9 +212,8 @@ export default function AutoCompleteEntityItem({
             <DisplayName
                 displayName={displayName}
                 highlight={query}
-                color={variantProps?.nameColor}
-                colorLevel={variantProps?.nameColorLevel}
                 weight={variantProps?.nameWeight}
+                fontSize={variantProps?.nameFontSize}
                 showNameTooltipIfTruncated
             />
         );
@@ -244,18 +258,20 @@ export default function AutoCompleteEntityItem({
                         </HoverEntityTooltip>
                     )}
 
-                    <SubtitleAndMatchesWrapper>
-                        {!hideSubtitle && <EntitySubtitle entity={entity} />}
+                    {(!hideSubtitle || !hideMatches) && (
+                        <SubtitleAndMatchesWrapper>
+                            {!hideSubtitle && <EntitySubtitle entity={entity} />}
 
-                        {!hideMatches && (
-                            <Matches
-                                matchedFields={matchedFields}
-                                entity={entity}
-                                query={query}
-                                displayName={displayName}
-                            />
-                        )}
-                    </SubtitleAndMatchesWrapper>
+                            {!hideMatches && (
+                                <Matches
+                                    matchedFields={matchedFields}
+                                    entity={entity}
+                                    query={query}
+                                    displayName={displayName}
+                                />
+                            )}
+                        </SubtitleAndMatchesWrapper>
+                    )}
                 </DescriptionContainer>
             </ContentContainer>
 

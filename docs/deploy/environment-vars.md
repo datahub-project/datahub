@@ -638,7 +638,6 @@ Reference Links:
 | `KAFKA_CONSUMER_MCL_FINE_GRAINED_LOGGING_ENABLED` | `false`                           | Enable fine-grained logging for MCL        | GMS, MAE Consumer                                         |
 | `KAFKA_CONSUMER_MCL_ASPECTS_TO_DROP`              | ``                                | Aspects to drop for MCL                    | GMS, MAE Consumer                                         |
 | `KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET`             | `latest`                          | PE consumer auto offset reset              | GMS, PE Consumer                                          |
-| `KAFKA_CONSUMER_PERCENTILES`                      | `0.5,0.95,0.99,0.999`             | Consumer percentiles                       | GMS, MAE Consumer, MCE Consumer, PE Consumer, PE Consumer |
 | `KAFKA_CONSUMER_SERVICE_LEVEL_OBJECTIVES`         | `300,1800,3000,10800,21600,43200` | Consumer SLOs in seconds                   | GMS, MAE Consumer, MCE Consumer, PE Consumer, PE Consumer |
 | `KAFKA_CONSUMER_MAX_EXPECTED_VALUE`               | `86000`                           | Maximum expected consumer value in seconds | GMS, MAE Consumer, MCE Consumer, PE Consumer, PE Consumer |
 
@@ -707,38 +706,39 @@ Full operations guide: [GMS Rate Limiting](./gms-rate-limiting.md).
 
 Rate limiting is **off by default**. Enable one or both limiter types — there is no single master switch.
 
-| Environment Variable                                   | Default                             | YAML path / effect                                                                                                                                                     | Components |
-| ------------------------------------------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `RATE_LIMITS_FAIL_OPEN`                                | `true`                              | `rateLimits.failOpen` — allow requests when limiter errors occur                                                                                                       | GMS        |
-| `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                                | `rateLimits.minRetryAfterSeconds` — minimum `Retry-After` on 429 (capacity uses as-is; endpoint uses as floor)                                                         | GMS        |
-| `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                                | `rateLimits.retryAfterJitterPercent` — random jitter added to endpoint `Retry-After` (`0` disables)                                                                    | GMS        |
-| `RATE_LIMITS_EXCLUDED_PATHS`                           | health, prometheus, rate-limits API | `rateLimits.excludedPaths` — Ant patterns never limited                                                                                                                | GMS        |
-| `RATE_LIMITS_ENABLED`                                  | `true`                              | `rateLimits.enabled` — master kill switch; `false` bypasses every limiter                                                                                              | GMS        |
-| `RATE_LIMITS_TENANT_ID`                                | _(empty)_                           | `rateLimits.tenantId` — namespaces tenant-scoped bucket keys (set to the deployment's `global.id`)                                                                     | GMS        |
-| `RATE_LIMITS_CONFIG_FILE`                              | _(unset)_                           | Spring resource URI of an override policy file layered on the bundled defaults in `application.yaml`; must include a prefix, e.g. `file:/etc/datahub/rate-limits.yaml` | GMS        |
-| `RATE_LIMITS_SCOPED_ENABLED`                           | `false`                             | `rateLimits.scoped.enabled` — enable the per-actor → class → global scoped chain                                                                                       | GMS        |
-| `RATE_LIMITS_SCOPED_REFUND_DISABLED`                   | `false`                             | `rateLimits.scoped.refundDisabled` — when `true`, do not refund upstream buckets on a later-stage deny                                                                 | GMS        |
-| `RATE_LIMITS_SCOPED_ACTOR_CAPACITY`                    | `2000`                              | `rateLimits.scoped.actor.capacity` — per-actor bucket size                                                                                                             | GMS        |
-| `RATE_LIMITS_SCOPED_BROWSER_CAPACITY`                  | `5000`                              | `rateLimits.scoped.browser.capacity` — browser-class bucket size                                                                                                       | GMS        |
-| `RATE_LIMITS_SCOPED_SDK_CAPACITY`                      | `500`                               | `rateLimits.scoped.sdk.capacity` — SDK/non-browser-class bucket size                                                                                                   | GMS        |
-| `RATE_LIMITS_SCOPED_GLOBAL_CAPACITY`                   | `20000`                             | `rateLimits.scoped.global.capacity` — fleet-wide (cross-tenant) ceiling                                                                                                | GMS        |
-| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_TOKENS`            | _(= bucket capacity)_               | `rateLimits.scoped.<bucket>.refillTokens` for `ACTOR`/`BROWSER`/`SDK`/`GLOBAL`; defaults to that bucket's capacity                                                     | GMS        |
-| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_PERIOD_SECONDS`    | `60`                                | `rateLimits.scoped.<bucket>.refillPeriodSeconds` for `ACTOR`/`BROWSER`/`SDK`/`GLOBAL`                                                                                  | GMS        |
-| `RATE_LIMITS_CLIENT_CLASS_ENABLED`                     | `false`                             | `rateLimits.clientClassEnabled` — select rules by browser vs non-browser classification                                                                                | GMS        |
-| `RATE_LIMITS_CAPACITY_ENABLED`                         | `false`                             | `rateLimits.capacity.enabled` — Gradient2 in-flight limits                                                                                                             | GMS        |
-| `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                              | `rateLimits.capacity.default.enabled` (requires `capacity.enabled=true`)                                                                                               | GMS        |
-| `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                               | `rateLimits.capacity.default.initialLimit`                                                                                                                             | GMS        |
-| `RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.default.minLimit`                                                                                                                                 | GMS        |
-| `RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT`               | `5000`                              | `rateLimits.capacity.default.maxLimit`                                                                                                                                 | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED`                 | `true`                              | `rateLimits.capacity.graphql.enabled` (requires `capacity.enabled=true`)                                                                                               | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN`            | `/api/graphql`                      | `rateLimits.capacity.graphql.pathPattern`                                                                                                                              | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED` | `true`                              | `rateLimits.capacity.graphql.operationRulesEnabled`                                                                                                                    | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT`           | `100`                               | `rateLimits.capacity.graphql.initialLimit`                                                                                                                             | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.graphql.minLimit`                                                                                                                                 | GMS        |
-| `RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT`               | `2000`                              | `rateLimits.capacity.graphql.maxLimit`                                                                                                                                 | GMS        |
-| `RATE_LIMITS_ENDPOINT_ENABLED`                         | `false`                             | `rateLimits.endpoint.enabled` — Bucket4j token buckets (cluster-wide; requires Hazelcast when enabled)                                                                 | GMS        |
-| `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets`       | `rateLimits.endpoint.hazelcastMapName`                                                                                                                                 | GMS        |
-| `RATE_LIMITS_METRICS_DETAILED`                         | `false`                             | Sample detailed rate-limit metrics on hot path                                                                                                                         | GMS        |
+| Environment Variable                                   | Default                             | YAML path / effect                                                                                                 | Components |
+| ------------------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------- |
+| `RATE_LIMITS_FAIL_OPEN`                                | `true`                              | `rateLimits.failOpen` — allow requests when limiter errors occur                                                   | GMS        |
+| `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                                | `rateLimits.minRetryAfterSeconds` — minimum `Retry-After` on 429 (capacity uses as-is; endpoint uses as floor)     | GMS        |
+| `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                                | `rateLimits.retryAfterJitterPercent` — random jitter added to endpoint `Retry-After` (`0` disables)                | GMS        |
+| `RATE_LIMITS_EXCLUDED_PATHS`                           | health, prometheus, rate-limits API | `rateLimits.excludedPaths` — Ant patterns never limited                                                            | GMS        |
+| `RATE_LIMITS_ENABLED`                                  | `true`                              | `rateLimits.enabled` — master kill switch; `false` bypasses every limiter                                          | GMS        |
+| `RATE_LIMITS_TENANT_ID`                                | _(empty)_                           | `rateLimits.tenantId` — namespaces tenant-scoped bucket keys (set to the deployment's `global.id`)                 | GMS        |
+| `RATE_LIMITS_CONFIG_FILE`                              | `rate-limit-config.yaml`            | Policy file that **replaces** bundled classpath YAML; `file:/etc/datahub/rate-limits.yaml` or a bare path          | GMS        |
+| `RATE_LIMITS_CONFIG_JSON`                              | _(unset)_                           | JSON overlay merged after the chosen policy file (lists replace; maps merge)                                       | GMS        |
+| `RATE_LIMITS_SCOPED_ENABLED`                           | `false`                             | `rateLimits.scoped.enabled` — enable the per-actor → class → global scoped chain                                   | GMS        |
+| `RATE_LIMITS_SCOPED_REFUND_DISABLED`                   | `false`                             | `rateLimits.scoped.refundDisabled` — when `true`, do not refund upstream buckets on a later-stage deny             | GMS        |
+| `RATE_LIMITS_SCOPED_ACTOR_CAPACITY`                    | `2000`                              | `rateLimits.scoped.actor.capacity` — per-actor bucket size                                                         | GMS        |
+| `RATE_LIMITS_SCOPED_BROWSER_CAPACITY`                  | `5000`                              | `rateLimits.scoped.browser.capacity` — browser-class bucket size                                                   | GMS        |
+| `RATE_LIMITS_SCOPED_SDK_CAPACITY`                      | `500`                               | `rateLimits.scoped.sdk.capacity` — SDK/non-browser-class bucket size                                               | GMS        |
+| `RATE_LIMITS_SCOPED_GLOBAL_CAPACITY`                   | `20000`                             | `rateLimits.scoped.global.capacity` — fleet-wide (cross-tenant) ceiling                                            | GMS        |
+| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_TOKENS`            | _(= bucket capacity)_               | `rateLimits.scoped.<bucket>.refillTokens` for `ACTOR`/`BROWSER`/`SDK`/`GLOBAL`; defaults to that bucket's capacity | GMS        |
+| `RATE_LIMITS_SCOPED_<BUCKET>_REFILL_PERIOD_SECONDS`    | `60`                                | `rateLimits.scoped.<bucket>.refillPeriodSeconds` for `ACTOR`/`BROWSER`/`SDK`/`GLOBAL`                              | GMS        |
+| `RATE_LIMITS_CLIENT_CLASS_ENABLED`                     | `false`                             | `rateLimits.clientClassEnabled` — select rules by browser vs non-browser classification                            | GMS        |
+| `RATE_LIMITS_CAPACITY_ENABLED`                         | `false`                             | `rateLimits.capacity.enabled` — Gradient2 in-flight limits                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                              | `rateLimits.capacity.default.enabled` (requires `capacity.enabled=true`)                                           | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                               | `rateLimits.capacity.default.initialLimit`                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.default.minLimit`                                                                             | GMS        |
+| `RATE_LIMITS_CAPACITY_DEFAULT_MAX_LIMIT`               | `5000`                              | `rateLimits.capacity.default.maxLimit`                                                                             | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_ENABLED`                 | `true`                              | `rateLimits.capacity.graphql.enabled` (requires `capacity.enabled=true`)                                           | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_PATH_PATTERN`            | `/api/graphql`                      | `rateLimits.capacity.graphql.pathPattern`                                                                          | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_OPERATION_RULES_ENABLED` | `true`                              | `rateLimits.capacity.graphql.operationRulesEnabled`                                                                | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT`           | `100`                               | `rateLimits.capacity.graphql.initialLimit`                                                                         | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT`               | `20`                                | `rateLimits.capacity.graphql.minLimit`                                                                             | GMS        |
+| `RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT`               | `2000`                              | `rateLimits.capacity.graphql.maxLimit`                                                                             | GMS        |
+| `RATE_LIMITS_ENDPOINT_ENABLED`                         | `false`                             | `rateLimits.endpoint.enabled` — Bucket4j token buckets (cluster-wide; requires Hazelcast when enabled)             | GMS        |
+| `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets`       | `rateLimits.endpoint.hazelcastMapName`                                                                             | GMS        |
+| `RATE_LIMITS_METRICS_DETAILED`                         | `false`                             | Sample detailed rate-limit metrics on hot path                                                                     | GMS        |
 
 ### Entity graph cache
 
@@ -810,54 +810,55 @@ Reference Links:
 - **Dataset Usage**: [Dataset Usage & Query History](../features/dataset-usage-and-query-history.md)
 - **MCP Server**: [DataHub MCP Server](../features/feature-guides/mcp.md)
 
-| Environment Variable                    | Default | Description                                                                                     | Components |
-| --------------------------------------- | ------- | ----------------------------------------------------------------------------------------------- | ---------- |
-| `SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT`   | `false` | Show simplified homepage with just datasets, charts and dashboards                              | GMS        |
-| `LINEAGE_SEARCH_CACHE_ENABLED`          | `true`  | Enable in-memory cache for searchAcrossLineage query                                            | GMS        |
-| `GRAPH_SERVICE_DIFF_MODE_ENABLED`       | `true`  | Enable diff mode for graph writes                                                               | GMS        |
-| `POINT_IN_TIME_CREATION_ENABLED`        | `false` | Enable creation of point in time snapshots for scroll API                                       | GMS        |
-| `ALWAYS_EMIT_CHANGE_LOG`                | `false` | Always emit MCL even when no changes detected                                                   | GMS        |
-| `SEARCH_SERVICE_DIFF_MODE_ENABLED`      | `true`  | Enable diff mode for search document writes                                                     | GMS        |
-| `READ_ONLY_MODE_ENABLED`                | `false` | Enable read only mode for instance                                                              | GMS        |
-| `ASSET_SUMMARY_PAGE_V1`                 | `false` | Enable Asset Summary pages for Domains, Data Products, Glossary Terms, and Glossary Term Groups | GMS        |
-| `SHOW_ACCESS_MANAGEMENT`                | `false` | Show AccessManagement tab in UI                                                                 | GMS        |
-| `SHOW_SEARCH_FILTERS_V2`                | `true`  | Show search filters V2 experience                                                               | GMS        |
-| `SHOW_BROWSE_V2`                        | `true`  | Show browse v2 sidebar experience                                                               | GMS        |
-| `PLATFORM_BROWSE_V2`                    | `true`  | Enable platform browse experience                                                               | GMS        |
-| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `true`  | Circumvent Kafka for UI changes                                                                 | GMS        |
-| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `false` | Reprocess UI sourced events asynchronously                                                      | GMS        |
-| `SHOW_ACRYL_INFO`                       | `false` | Show CTAs around moving to DataHub Cloud                                                        | GMS        |
-| `ER_MODEL_RELATIONSHIP_FEATURE_ENABLED` | `false` | Enable Join Tables Feature                                                                      | GMS        |
-| `NESTED_DOMAINS_ENABLED`                | `true`  | Enable nested Domains feature                                                                   | GMS        |
-| `SCHEMA_FIELD_ENTITY_FETCH_ENABLED`     | `true`  | Enable fetching schema field entities                                                           | GMS        |
-| `BUSINESS_ATTRIBUTE_ENTITY_ENABLED`     | `false` | Enable business attribute entity                                                                | GMS        |
-| `DATA_CONTRACTS_ENABLED`                | `true`  | Enable Data Contracts feature                                                                   | GMS        |
-| `DATASET_SUMMARY_PAGE_V1`               | `false` | Enable Asset Summary pages for Datasets                                                         | GMS        |
-| `ALTERNATE_MCP_VALIDATION`              | `false` | Enable alternate MCP validation flow                                                            | GMS        |
-| `THEME_V2_ENABLED`                      | `true`  | Allow theme v2 to be turned on                                                                  | GMS        |
-| `THEME_V2_DEFAULT`                      | `true`  | Set default theme for users                                                                     | GMS        |
-| `THEME_V2_TOGGLEABLE`                   | `false` | Allow theme v2 to be toggled (Acryl only)                                                       | GMS        |
-| `SCHEMA_FIELD_CLL_ENABLED`              | `false` | Enable schema field-level lineage links                                                         | GMS        |
-| `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`    | `true`  | Ignore schema field status in lineage                                                           | GMS        |
-| `SHOW_SEPARATE_SIBLINGS`                | `false` | Separate siblings with no combined view                                                         | GMS        |
-| `EDITABLE_DATASET_NAME_ENABLED`         | `false` | Enable editing dataset name in UI                                                               | GMS        |
-| `SHOW_MANAGE_STRUCTURED_PROPERTIES`     | `true`  | Show manage structured properties button                                                        | GMS        |
-| `HIDE_DBT_SOURCE_IN_LINEAGE`            | `false` | Hide dbt sources in lineage                                                                     | GMS        |
-| `SHOW_NAV_BAR_REDESIGN`                 | `true`  | Show newly designed nav bar                                                                     | GMS        |
-| `SHOW_AUTO_COMPLETE_RESULTS`            | `true`  | Show auto complete results in search bar                                                        | GMS        |
-| `ENTITY_VERSIONING_ENABLED`             | `false` | Enable entity versioning APIs                                                                   | GMS        |
-| `SHOW_HAS_SIBLINGS_FILTER`              | `false` | Show "has siblings" filter in search                                                            | GMS        |
-| `SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN` | `false` | Show redesigned search bar autocomplete                                                         | GMS        |
-| `SHOW_MANAGE_TAGS`                      | `true`  | Allow users to manage tags in UI                                                                | GMS        |
-| `SHOW_INTRODUCE_PAGE`                   | `true`  | Show introduce page in V2 UI                                                                    | GMS        |
-| `SHOW_INGESTION_PAGE_REDESIGN`          | `true`  | Show re-designed Ingestion page                                                                 | GMS        |
-| `SHOW_LINEAGE_EXPAND_MORE`              | `true`  | Show expand more button in lineage graph                                                        | GMS        |
-| `SHOW_HOME_PAGE_REDESIGN`               | `true`  | Show re-designed home page                                                                      | GMS        |
-| `SHOW_PRODUCT_UPDATES`                  | `true`  | Show in-product update popover                                                                  | GMS        |
-| `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                                                   | GMS        |
-| `MULTIPLE_DATA_PRODUCTS_PER_ASSET`      | `true`  | Allow assets to belong to multiple Data Products simultaneously                                 | GMS        |
-| `SHOW_HOMEPAGE_USER_ROLE`               | `false` | Display homepage user role underneath name                                                      | GMS        |
-| `VIEWS_ENABLED`                         | `true`  | Enable views feature                                                                            | GMS        |
+| Environment Variable                    | Default | Description                                                                                                     | Components |
+| --------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------- | ---------- |
+| `SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT`   | `false` | Show simplified homepage with just datasets, charts and dashboards                                              | GMS        |
+| `LINEAGE_SEARCH_CACHE_ENABLED`          | `true`  | Enable in-memory cache for searchAcrossLineage query                                                            | GMS        |
+| `GRAPH_SERVICE_DIFF_MODE_ENABLED`       | `true`  | Enable diff mode for graph writes                                                                               | GMS        |
+| `POINT_IN_TIME_CREATION_ENABLED`        | `false` | Enable creation of point in time snapshots for scroll API                                                       | GMS        |
+| `ALWAYS_EMIT_CHANGE_LOG`                | `false` | Always emit MCL even when no changes detected                                                                   | GMS        |
+| `SEARCH_SERVICE_DIFF_MODE_ENABLED`      | `true`  | Enable diff mode for search document writes                                                                     | GMS        |
+| `READ_ONLY_MODE_ENABLED`                | `false` | Enable read only mode for instance                                                                              | GMS        |
+| `ASSET_SUMMARY_PAGE_V1`                 | `false` | Enable Asset Summary pages for Domains, Data Products, Glossary Terms, and Glossary Term Groups                 | GMS        |
+| `SHOW_ACCESS_MANAGEMENT`                | `false` | Show AccessManagement tab in UI                                                                                 | GMS        |
+| `SHOW_SEARCH_FILTERS_V2`                | `true`  | Show search filters V2 experience                                                                               | GMS        |
+| `SHOW_BROWSE_V2`                        | `true`  | Show browse v2 sidebar experience                                                                               | GMS        |
+| `PLATFORM_BROWSE_V2`                    | `true`  | Enable platform browse experience                                                                               | GMS        |
+| `PRE_PROCESS_HOOKS_UI_ENABLED`          | `true`  | Circumvent Kafka for UI-sourced index updates (GraphQL `appSource=ui`). Set the same value on GMS and MAE       | GMS, MAE   |
+| `PRE_PROCESS_HOOKS_REPROCESS_ENABLED`   | `false` | Reprocess UI-sourced events in MAE `UpdateIndicesHook`. Falls back to `PRE_PROCESS_HOOKS_UI_ENABLED` when unset | GMS, MAE   |
+| `SHOW_ACRYL_INFO`                       | `false` | Show CTAs around moving to DataHub Cloud                                                                        | GMS        |
+| `ER_MODEL_RELATIONSHIP_FEATURE_ENABLED` | `false` | Enable Join Tables Feature                                                                                      | GMS        |
+| `NESTED_DOMAINS_ENABLED`                | `true`  | Enable nested Domains feature                                                                                   | GMS        |
+| `SCHEMA_FIELD_ENTITY_FETCH_ENABLED`     | `true`  | Enable fetching schema field entities                                                                           | GMS        |
+| `BUSINESS_ATTRIBUTE_ENTITY_ENABLED`     | `false` | Enable business attribute entity                                                                                | GMS        |
+| `DATA_CONTRACTS_ENABLED`                | `true`  | Enable Data Contracts feature                                                                                   | GMS        |
+| `DATASET_SUMMARY_PAGE_V1`               | `false` | Enable Asset Summary pages for Datasets                                                                         | GMS        |
+| `ALTERNATE_MCP_VALIDATION`              | `false` | Enable alternate MCP validation flow                                                                            | GMS        |
+| `THEME_V2_ENABLED`                      | `true`  | Allow theme v2 to be turned on                                                                                  | GMS        |
+| `THEME_V2_DEFAULT`                      | `true`  | Set default theme for users                                                                                     | GMS        |
+| `THEME_V2_TOGGLEABLE`                   | `false` | Allow theme v2 to be toggled (DataHub Cloud only)                                                               | GMS        |
+| `THEME_DARK_MODE_ENABLED`               | `false` | Show the light/dark mode toggle and apply the dark color theme                                                  | GMS        |
+| `SCHEMA_FIELD_CLL_ENABLED`              | `false` | Enable schema field-level lineage links                                                                         | GMS        |
+| `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`    | `true`  | Ignore schema field status in lineage                                                                           | GMS        |
+| `SHOW_SEPARATE_SIBLINGS`                | `false` | Separate siblings with no combined view                                                                         | GMS        |
+| `EDITABLE_DATASET_NAME_ENABLED`         | `false` | Enable editing dataset name in UI                                                                               | GMS        |
+| `SHOW_MANAGE_STRUCTURED_PROPERTIES`     | `true`  | Show manage structured properties button                                                                        | GMS        |
+| `HIDE_DBT_SOURCE_IN_LINEAGE`            | `false` | Hide dbt sources in lineage                                                                                     | GMS        |
+| `SHOW_NAV_BAR_REDESIGN`                 | `true`  | Show newly designed nav bar                                                                                     | GMS        |
+| `SHOW_AUTO_COMPLETE_RESULTS`            | `true`  | Show auto complete results in search bar                                                                        | GMS        |
+| `ENTITY_VERSIONING_ENABLED`             | `false` | Enable entity versioning APIs                                                                                   | GMS        |
+| `SHOW_HAS_SIBLINGS_FILTER`              | `false` | Show "has siblings" filter in search                                                                            | GMS        |
+| `SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN` | `false` | Show redesigned search bar autocomplete                                                                         | GMS        |
+| `SHOW_MANAGE_TAGS`                      | `true`  | Allow users to manage tags in UI                                                                                | GMS        |
+| `SHOW_INTRODUCE_PAGE`                   | `true`  | Show introduce page in V2 UI                                                                                    | GMS        |
+| `SHOW_INGESTION_PAGE_REDESIGN`          | `true`  | Show re-designed Ingestion page                                                                                 | GMS        |
+| `SHOW_LINEAGE_EXPAND_MORE`              | `true`  | Show expand more button in lineage graph                                                                        | GMS        |
+| `SHOW_HOME_PAGE_REDESIGN`               | `true`  | Show re-designed home page                                                                                      | GMS        |
+| `SHOW_PRODUCT_UPDATES`                  | `true`  | Show in-product update popover                                                                                  | GMS        |
+| `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                                                                   | GMS        |
+| `MULTIPLE_DATA_PRODUCTS_PER_ASSET`      | `true`  | Allow assets to belong to multiple Data Products simultaneously                                                 | GMS        |
+| `SHOW_HOMEPAGE_USER_ROLE`               | `false` | Display homepage user role underneath name                                                                      | GMS        |
+| `VIEWS_ENABLED`                         | `true`  | Enable views feature                                                                                            | GMS        |
 
 ## System Updates
 
@@ -916,6 +917,13 @@ Reference Links:
 | `BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ENABLED`    | `true`  | Enable browse paths V2 updates    | System Update |
 | `BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_BATCH_SIZE` | `5000`  | Browse paths V2 batch size        | System Update |
 | `REPROCESS_DEFAULT_BROWSE_PATHS_V2`                  | `false` | Reprocess default browse paths V2 | System Update |
+
+### Data Product Assets Configuration
+
+| Environment Variable                                     | Default | Description                                                                                                                          | Components    |
+| -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| `REPROCESS_DATA_PRODUCT_ASSETS`                          | `false` | Force a re-upsert sweep of all Data Products so `DataProductAssetsSideEffect` re-mirrors membership (missing ADDs and stale REMOVEs) | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_BATCH_SIZE` | `1000`  | Batch size when scrolling Data Products during the optional reprocess step                                                           | System Update |
 
 ### Ingestion Indices Configuration
 
@@ -1157,23 +1165,26 @@ See [Monitoring — API usage aggregation metrics](../advanced/monitoring.md#api
 
 ### GraphQL Configuration
 
-| Environment Variable                            | Default                                                    | Description                                      | Components |
-| ----------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------ | ---------- |
-| `GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL`      | `false`                                                    | Enable separate thread pool for GraphQL          | GMS        |
-| `GRAPHQL_CONCURRENCY_STACK_SIZE`                | `256000`                                                   | GraphQL thread pool stack size                   | GMS        |
-| `GRAPHQL_CONCURRENCY_CORE_POOL_SIZE`            | `-1`                                                       | GraphQL core pool size (default 5 \* cores)      | GMS        |
-| `GRAPHQL_CONCURRENCY_MAX_POOL_SIZE`             | `-1`                                                       | GraphQL max pool size (default 100 \* cores)     | GMS        |
-| `GRAPHQL_CONCURRENCY_KEEP_ALIVE`                | `60`                                                       | GraphQL thread keep alive time                   | GMS        |
-| `GRAPHQL_QUERY_COMPLEXITY_LIMIT`                | `2000`                                                     | GraphQL query complexity limit                   | GMS        |
-| `GRAPHQL_QUERY_DEPTH_LIMIT`                     | `50`                                                       | GraphQL query depth limit                        | GMS        |
-| `GRAPHQL_QUERY_INTROSPECTION_ENABLED`           | `true`                                                     | Enable GraphQL introspection                     | GMS        |
-| `GRAPHQL_METRICS_ENABLED`                       | `true`                                                     | Enable GraphQL metrics collection                | GMS        |
-| `GRAPHQL_PERCENTILES`                           | `0.5,0.75,0.95,0.98,0.99,0.999`                            | GraphQL percentiles                              | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_ENABLED`           | `false`                                                    | Enable field-level GraphQL metrics               | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_OPERATIONS`        | `getSearchResultsForMultiple,searchAcrossLineageStructure` | GraphQL field-level operations                   | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_PATH_ENABLED`      | `false`                                                    | Include field path in GraphQL metrics            | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_PATHS`             | ``                                                         | GraphQL field-level paths                        | GMS        |
-| `GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED` | `false`                                                    | Include trivial data fetchers in GraphQL metrics | GMS        |
+| Environment Variable                            | Default                                                    | Description                                                     | Components |
+| ----------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------- | ---------- |
+| `GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL`      | `false`                                                    | Enable separate thread pool for GraphQL                         | GMS        |
+| `GRAPHQL_CONCURRENCY_SCALE_WITH_PROCESSORS`     | `false`                                                    | Restore CPU-scaled pool sizes and SynchronousQueue              | GMS        |
+| `GRAPHQL_CONCURRENCY_STACK_SIZE`                | `256000`                                                   | GraphQL thread pool stack size                                  | GMS        |
+| `GRAPHQL_CONCURRENCY_CORE_POOL_SIZE`            | `40`                                                       | GraphQL core pool size (`< 0` = 5 \* cores)                     | GMS        |
+| `GRAPHQL_CONCURRENCY_MAX_POOL_SIZE`             | `800`                                                      | GraphQL max pool size, 8-core cap (`<= 0` = 100 \* cores)       | GMS        |
+| `GRAPHQL_CONCURRENCY_QUEUE_SIZE`                | `0`                                                        | `<= 0` SynchronousQueue (blocking fan-out); `> 0` bounded queue | GMS        |
+| `GRAPHQL_CONCURRENCY_KEEP_ALIVE`                | `60`                                                       | GraphQL thread keep alive time                                  | GMS        |
+| `GRAPHQL_QUERY_COMPLEXITY_LIMIT`                | `2000`                                                     | GraphQL query complexity limit                                  | GMS        |
+| `GRAPHQL_QUERY_DEPTH_LIMIT`                     | `50`                                                       | GraphQL query depth limit                                       | GMS        |
+| `GRAPHQL_QUERY_INTROSPECTION_ENABLED`           | `true`                                                     | Enable GraphQL introspection                                    | GMS        |
+| `GRAPHQL_METRICS_ENABLED`                       | `true`                                                     | Enable GraphQL metrics collection                               | GMS        |
+| `GRAPHQL_PERCENTILES`                           | `0.5,0.75,0.95,0.98,0.99,0.999`                            | GraphQL percentiles                                             | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_ENABLED`           | `false`                                                    | Enable field-level GraphQL metrics                              | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_OPERATIONS`        | `getSearchResultsForMultiple,searchAcrossLineageStructure` | GraphQL field-level operations                                  | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_PATH_ENABLED`      | `false`                                                    | Include field path in GraphQL metrics                           | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_PATHS`             | ``                                                         | GraphQL field-level paths                                       | GMS        |
+| `GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED` | `false`                                                    | Include trivial data fetchers in GraphQL metrics                | GMS        |
+| `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED`           | `true`                                                     | Load only aspects the query selection needs                     | GMS        |
 
 ### Chrome Extension Configuration
 
@@ -1207,6 +1218,8 @@ Lag-based MCP / Kafka ingest throttling (`MCP_*` throttle flags below) is docume
 | `MCP_SIDE_EFFECTS_SCHEMA_FIELD_DOMAIN_ENABLED`    | `false`    | When schema-field side effects are on, mirror dataset `domains` onto each schemaField (upsert and cascade delete). Changing this flag updates the `schemaFieldsFromSchemaMetadata` upgrade fingerprint so the next SystemUpdateNonBlocking run backfills field `domains` when enabled. Disabling stops further mirroring and does **not** delete leftover field aspects. Set `SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED=true` for the backfill run. | GMS, MCE Consumer, System Update |
 | `MCP_SIDE_EFFECTS_SCHEMA_FIELD_OWNERSHIP_ENABLED` | `false`    | When schema-field side effects are on, mirror dataset `ownership` onto each schemaField (upsert and cascade delete). Same fingerprint / backfill behavior as the domain sub-flag (disabling does not delete leftover field `ownership`).                                                                                                                                                                                                                           | GMS, MCE Consumer, System Update |
 | `MCP_SIDE_EFFECTS_DATA_PRODUCT_UNSET_ENABLED`     | `true`     | Enable data product unset side effects                                                                                                                                                                                                                                                                                                                                                                                                                             | GMS, MCE Consumer                |
+| `MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_ENABLED`    | `true`     | Enable mirroring of Data Product membership onto member assets' `dataProducts` aspect for search filtering/faceting                                                                                                                                                                                                                                                                                                                                                | GMS, MCE Consumer, System Update |
+| `MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_MAX_FANOUT` | `500`      | Batch size for reading existing asset-side `dataProducts` during sync and for search scroll pages during reprocess; unsynced ADD patches are emitted in one side-effect pass (apply is Kafka-batched at 500)                                                                                                                                                                                                                                                       | GMS, MCE Consumer, System Update |
 | `MCP_THROTTLE_UPDATE_INTERVAL_MS`                 | `60000`    | MCP throttle update interval                                                                                                                                                                                                                                                                                                                                                                                                                                       | GMS, MCE Consumer                |
 | `MCP_MCE_CONSUMER_THROTTLE_ENABLED`               | `false`    | Enable MCE consumer throttling                                                                                                                                                                                                                                                                                                                                                                                                                                     | GMS, MCE Consumer                |
 | `MCP_API_REQUESTS_THROTTLE_ENABLED`               | `false`    | Enable API requests throttling                                                                                                                                                                                                                                                                                                                                                                                                                                     | GMS, MCE Consumer                |

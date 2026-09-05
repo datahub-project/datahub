@@ -28,6 +28,7 @@ entities:
       - storageFeatures
       - operation
       - domains
+      - dataProducts
       - applications
       - schemaMetadata
       - status
@@ -73,6 +74,7 @@ entities:
       - datahubIngestionRunSummary
       - datahubIngestionCheckpoint
       - domains
+      - dataProducts
       - applications
       - deprecation
       - versionInfo
@@ -101,6 +103,7 @@ entities:
     searchGroup: primary
     aspects:
       - domains
+      - dataProducts
       - applications
       - deprecation
       - versionInfo
@@ -158,6 +161,7 @@ entities:
       - embed
       - browsePaths
       - domains
+      - dataProducts
       - applications
       - container
       - deprecation
@@ -179,6 +183,7 @@ entities:
     searchGroup: primary
     aspects:
       - domains
+      - dataProducts
       - applications
       - container
       - deprecation
@@ -217,6 +222,7 @@ entities:
       - browsePaths
       - institutionalMemory
       - domains
+      - dataProducts
       - applications
       - subTypes
       - dataPlatformInstance
@@ -296,6 +302,7 @@ entities:
       - browsePaths # unclear if this will be used
       - status
       - domains
+      - dataProducts
       - applications
       - browsePathsV2
       - structuredProperties
@@ -362,6 +369,7 @@ entities:
       - status
       - ownership
       - domains
+      - dataProducts
       - structuredProperties
       - subTypes
       - dataPlatformInstance
@@ -432,6 +440,7 @@ entities:
       - glossaryTerms
       - editableMlModelProperties
       - domains
+      - dataProducts
       - applications
       - ownership
       - mlModelProperties
@@ -455,6 +464,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - versionProperties
       - subTypes
       - container
@@ -467,6 +477,7 @@ entities:
       - glossaryTerms
       - editableMlModelGroupProperties
       - domains
+      - dataProducts
       - applications
       - mlModelGroupProperties
       - ownership
@@ -503,6 +514,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureTableProperties
       - domains
+      - dataProducts
       - applications
       - mlFeatureTableProperties
       - ownership
@@ -516,6 +528,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - subTypes
       - documentation
   - name: mlFeature
@@ -526,6 +539,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureProperties
       - domains
+      - dataProducts
       - applications
       - mlFeatureProperties
       - ownership
@@ -539,6 +553,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - subTypes
       - documentation
   - name: mlPrimaryKey
@@ -549,6 +564,7 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
+      - dataProducts
       - applications
       - mlPrimaryKeyProperties
       - ownership
@@ -603,6 +619,7 @@ entities:
       - schemaFieldAliases
       - documentation
       - testResults
+      - incidentsSummary
       - deprecation
       - subTypes
       - logicalParent

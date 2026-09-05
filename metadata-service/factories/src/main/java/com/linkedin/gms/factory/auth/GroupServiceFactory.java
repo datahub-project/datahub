@@ -4,6 +4,7 @@ import com.datahub.authentication.group.GroupService;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -20,7 +21,8 @@ public class GroupServiceFactory {
   protected GroupService getInstance(
       @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient,
       @Lazy @Qualifier("entityService") final EntityService<?> entityService,
-      @Lazy @Qualifier("graphClient") final GraphClient graphClient) {
-    return new GroupService(systemEntityClient, entityService, graphClient);
+      @Lazy @Qualifier("graphClient") final GraphClient graphClient,
+      @Lazy @Qualifier("graphService") final GraphService graphService) {
+    return new GroupService(systemEntityClient, entityService, graphClient, graphService);
   }
 }

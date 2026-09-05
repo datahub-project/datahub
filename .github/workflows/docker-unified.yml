@@ -29,6 +29,7 @@ on:
       - ".github/workflows/resusable-playwright-tests.yml"
       - ".github/actions/ci-optimization"
       - ".github/actions/restore-dependency-caches"
+      - ".github/actions/configure-fast-apt-mirror"
       - ".github/scripts/check_python_package.py"
       - ".github/scripts/parse_failed_pytest_tests.py"
       - ".github/scripts/docker_logs.sh"
@@ -50,6 +51,7 @@ on:
       - ".github/workflows/resusable-playwright-tests.yml"
       - ".github/actions/ci-optimization"
       - ".github/actions/restore-dependency-caches"
+      - ".github/actions/configure-fast-apt-mirror"
       - ".github/scripts/check_python_package.py"
       - ".github/scripts/parse_failed_pytest_tests.py"
       - ".github/scripts/docker_logs.sh"
@@ -430,7 +432,7 @@ jobs:
             build_modules_flag=("-PbuildModules=$IMAGE_BUILD_MODULES")
           fi
           echo "Using build task: $BUILD_TASK"
-          ./gradlew --max-workers="$(nproc)" $BUILD_TASK "${build_modules_flag[@]}" -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
+          ./gradlew --max-workers="$(nproc)" "$BUILD_TASK" "${build_modules_flag[@]}" -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         # Push immutable tags (sha-*, pr*, release v*) to the registry during the coordinated depot bake.
@@ -458,14 +460,14 @@ jobs:
             ${{ github.workspace }}/build/build-metadata.json
             ${{ github.workspace }}/build/bake-spec-allImages.json
 
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
@@ -481,7 +483,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Upsert PR image comment
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PR_TAG: ${{ needs.setup.outputs.tag }}
           SHORT_SHA: ${{ needs.setup.outputs.short_sha }}
@@ -696,6 +698,9 @@ jobs:
             }
           }'
 
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
 
@@ -713,7 +718,7 @@ jobs:
 
       - name: Upload Java SDK V2 coverage to Codecov
         if: ${{ always() }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/metadata-integration/java/datahub-client/
@@ -736,7 +741,7 @@ jobs:
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -907,6 +912,9 @@ jobs:
             }
           }'
 
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
       - name: Install dependencies
         if: steps.retry-check.outputs.parse_result != 'all_passed'
         run: ./metadata-ingestion/scripts/install_deps.sh
@@ -1022,19 +1030,19 @@ jobs:
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: ${{ github.ref == 'refs/heads/master' && matrix.batch == '0' }}
         with:
           path: ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: ${{ github.ref == 'refs/heads/master' && matrix.batch == '0' }}
         with:
           path: ~/.cache/yarn

@@ -4,11 +4,13 @@ import logging
 from typing import Any, Optional
 
 import sqlalchemy as sa
-from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
-from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+    PlatformAdapter,
+    ProfilingConnection,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +108,7 @@ class RedshiftAdapter(PlatformAdapter):
         return True
 
     def get_estimated_row_count(
-        self, table: sa.Table, conn: Connection
+        self, table: sa.Table, conn: ProfilingConnection
     ) -> Optional[int]:
         """
         Get fast row count estimate using Redshift system tables.
@@ -140,7 +142,9 @@ class RedshiftAdapter(PlatformAdapter):
                 .where(svv_table_info.c.table == table_name)
             )
 
-            result = conn.execute(query).scalar()
+            # Deliberately not single-row: filtered on schema+table, so a table
+            # absent from svv_table_info yields zero rows.
+            result = conn.execute_rows(query).scalar()
             return int(result) if result is not None else None
 
         except SQLAlchemyError as e:

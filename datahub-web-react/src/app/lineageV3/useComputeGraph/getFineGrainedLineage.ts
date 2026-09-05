@@ -79,7 +79,9 @@ export default function getFineGrainedLineage(
         const upstreamRef = createColumnRef(upstreamUrn, upstreamField);
         const downstreamRef = createColumnRef(downstreamUrn, downstreamField);
 
-        // Drop ghost edges and self edges
+        // Drop ghost edges and self edges. Edges between the same column on two siblings are kept:
+        // siblings are drawn as separate nodes (e.g. a dbt model as a transformation node), so the
+        // edge is drawable, and it lets column lineage pass through a hidden sibling.
         if (!nodes.has(upstreamUrn) || !nodes.has(downstreamUrn) || upstreamRef === downstreamRef) return;
 
         // Validate that both upstream and downstream schema fields actually exist in their datasets

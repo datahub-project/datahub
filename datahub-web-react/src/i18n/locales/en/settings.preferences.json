@@ -1,6 +1,8 @@
 {
     "appearance.subTitle": "Manage your appearance settings.",
     "appearance.title": "Appearance",
+    "darkMode.description": "Use a dark color theme throughout DataHub.",
+    "darkMode.title": "Dark mode",
     "language.description": "Choose your preferred display language",
     "language.title": "User interface language",
     "noSettings": "No appearance settings found.",

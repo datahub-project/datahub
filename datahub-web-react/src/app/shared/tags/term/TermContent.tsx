@@ -1,4 +1,4 @@
-import { BookOutlined } from '@ant-design/icons';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
@@ -11,16 +11,27 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useRemoveTermMutation } from '@graphql/mutations.generated';
 import { EntityType, GlossaryTermAssociation, SubResourceType } from '@types';
 
-const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean }>`
+const StyledTag = styled(Tag)<{ fontSize?: number; $highlightTerm?: boolean; $showOneAndCount?: boolean }>`
     &&& {
         ${(props) =>
-            props.highlightTerm &&
+            props.$highlightTerm &&
             `
                 background: ${props.theme.colors.bgSurfaceBrand};
                 border: 1px solid ${props.theme.colors.borderBrand};
             `}
     }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
+    color: ${(props) => props.theme.colors.textSecondary};
+    font-weight: 400;
+    ${(props) =>
+        props.$showOneAndCount &&
+        `
+            width: 100%;
+            max-width: max-content;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        `}
 `;
 
 interface Props {
@@ -33,6 +44,7 @@ interface Props {
     fontSize?: number;
     onOpenModal?: () => void;
     refetch?: () => Promise<any>;
+    showOneAndCount?: boolean;
 }
 
 export default function TermContent({
@@ -45,6 +57,7 @@ export default function TermContent({
     fontSize,
     onOpenModal,
     refetch,
+    showOneAndCount,
 }: Props) {
     const { t } = useTranslation('shared.tags');
     const { t: tc } = useTranslation('common.actions');
@@ -100,9 +113,12 @@ export default function TermContent({
                 removeTerm(term);
             }}
             fontSize={fontSize}
-            highlightTerm={highlightTerm}
+            $highlightTerm={highlightTerm}
+            $showOneAndCount={showOneAndCount}
         >
-            <BookOutlined style={{ marginRight: '4px' }} />
+            <BookmarkSimple
+                style={{ fill: theme.colors.icon, marginRight: '4px', marginBottom: 4, verticalAlign: 'middle' }}
+            />
             <Highlight style={{ marginLeft: 0 }} matchStyle={highlightMatchStyle} search={highlightText}>
                 {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
             </Highlight>

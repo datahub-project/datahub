@@ -11,6 +11,7 @@ const EXTERNAL_LINK_ICON =
 // /features page EXCEPT 0.13.1, which has no features page in the archive and
 // so points to its version home instead.
 const ARCHIVED_VERSIONS = [
+  ["1.6.0", "1.6.0/features"],
   ["1.5.0", "1.5.0/features"],
   ["1.3.0", "1.3.0/features"],
   ["1.1.0", "1.1.0/features"],
@@ -305,7 +306,7 @@ module.exports = {
           lastVersion: "current",
           versions: {
             current: {
-              label: "1.6.0",
+              label: "1.7.0",
               banner: 'none',
             },
           },
@@ -335,8 +336,10 @@ module.exports = {
             '**/_*/**',
             '**/*.test.{js,jsx,ts,tsx}',
             '**/__tests__/**',
-            // Our additions
-            'metadata-ingestion/**/CLAUDE.md',
+            // Agent context files — not public docs (see generateDocsDir.ts filter_patterns)
+            '**/CLAUDE.md',
+            '**/CLAUDE.MD',
+            '**/AGENTS.md',
           ],
         },
         blog: {
@@ -393,6 +396,10 @@ module.exports = {
           {
             from: '/docs/managed-datahub/observe/smart-assertions',
             to: '/docs/managed-datahub/observe/anomaly-detection',
+          },
+          {
+            from: '/docs/features/feature-guides/observe',
+            to: '/docs/managed-datahub/observe/overview',
           },
         ],
       },

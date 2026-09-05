@@ -39,7 +39,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn
 from tests.utilities.domains import Domain
-from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
+from tests.utils import ingest_file_via_rest, unique_suffix, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
 
@@ -718,14 +718,20 @@ class Scenario(BaseModel):
                 for dataset_urn in self.get_downstream_dataset_urns(hop_index):
                     assert graph.exists(dataset_urn) is True
 
-            if self.lineage_style == Scenario.LineageStyle.DATASET_JOB_DATASET:
-                assert graph.exists(self.get_transformation_job_urn(hop_index)) is True
-                assert graph.exists(self.get_transformation_flow_urn(hop_index)) is True
+                if self.lineage_style == Scenario.LineageStyle.DATASET_JOB_DATASET:
+                    assert (
+                        graph.exists(self.get_transformation_job_urn(hop_index)) is True
+                    )
+                    assert (
+                        graph.exists(self.get_transformation_flow_urn(hop_index))
+                        is True
+                    )
 
-            if self.lineage_style == Scenario.LineageStyle.DATASET_QUERY_DATASET:
-                assert (
-                    graph.exists(self.get_transformation_query_urn(hop_index)) is True
-                )
+                if self.lineage_style == Scenario.LineageStyle.DATASET_QUERY_DATASET:
+                    assert (
+                        graph.exists(self.get_transformation_query_urn(hop_index))
+                        is True
+                    )
 
             wait_for_writes_to_sync(mcp_only=True)  # Wait for the graph to update
             # We would like to check that lineage is correct for all datasets and schema fields for all values of hops and for all directions of lineage exploration
@@ -824,11 +830,15 @@ class Scenario(BaseModel):
 def test_lineage_via_node(
     graph_client: DataHubGraph, lineage_style: Scenario.LineageStyle, graph_level: int
 ) -> None:
+    ns = unique_suffix()
     scenario: Scenario = Scenario(
         hop_platform_map={0: "mysql", 1: "snowflake"},
         lineage_style=lineage_style,
         num_hops=graph_level,
-        default_dataset_prefix=f"{lineage_style.value}.",
+        default_dataset_prefix=f"{lineage_style.value}.{ns}.",
+        transformation_job=f"job1_{ns}",
+        transformation_flow=f"flow1_{ns}",
+        query_id=f"guid-guid-guid-{ns}",
     )
 
     # Create an emitter to the GMS REST API.

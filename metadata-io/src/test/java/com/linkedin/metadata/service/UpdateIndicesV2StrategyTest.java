@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -30,6 +31,8 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -39,6 +42,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -383,6 +387,46 @@ public class UpdateIndicesV2StrategyTest {
   }
 
   @Test
+  public void testUpdateIndexMappings_OneIndexFailureDoesNotAbortRemaining() throws Exception {
+    // A property declaring multiple entity types produces one mapping update per entity index.
+    // A failure applying the first index's mapping must not prevent the remaining indexes'
+    // mapping updates (their values would otherwise stay unindexed under dynamic:false).
+    AspectSpec spdSpec = mock(AspectSpec.class);
+    when(spdSpec.getName()).thenReturn(Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+    EntitySpec spEntitySpec = mock(EntitySpec.class);
+    when(spEntitySpec.getName()).thenReturn(Constants.STRUCTURED_PROPERTY_ENTITY_NAME);
+
+    StructuredPropertyDefinition def =
+        new StructuredPropertyDefinition()
+            .setVersion("00000000000001")
+            .setQualifiedName("multiTypeProp")
+            .setEntityTypes(
+                new UrnArray(
+                    UrnUtils.getUrn("urn:li:entityType:datahub.dataset"),
+                    UrnUtils.getUrn("urn:li:entityType:datahub.chart")))
+            .setValueType(UrnUtils.getUrn("urn:li:logicalType:STRING"));
+
+    ReindexConfig failing = mock(ReindexConfig.class);
+    when(failing.name()).thenReturn("datasetindex_v2");
+    ReindexConfig succeeding = mock(ReindexConfig.class);
+    when(succeeding.name()).thenReturn("chartindex_v2");
+    when(elasticSearchService.buildReindexConfigsWithNewStructProp(
+            any(OperationContext.class), any(Urn.class), any(StructuredPropertyDefinition.class)))
+        .thenReturn(List.of(failing, succeeding));
+
+    ESIndexBuilder mockIndexBuilder = mock(ESIndexBuilder.class);
+    when(elasticSearchService.getIndexBuilder()).thenReturn(mockIndexBuilder);
+    doThrow(new IOException("index unavailable"))
+        .when(mockIndexBuilder)
+        .applyMappings(any(OperationContext.class), eq(failing), eq(false));
+
+    strategy.updateIndexMappings(operationContext, testUrn, spEntitySpec, spdSpec, def, null);
+
+    // The second index's mapping update must still have been applied.
+    verify(mockIndexBuilder).applyMappings(any(OperationContext.class), eq(succeeding), eq(false));
+  }
+
+  @Test
   public void testGetIndexMappings() {
     // Execute
     Collection<MappingsBuilder.IndexMapping> mappings = strategy.getIndexMappings(operationContext);
@@ -699,6 +743,62 @@ public class UpdateIndicesV2StrategyTest {
     verify(elasticSearchService)
         .deleteDocumentByIndexName(
             eq(operationContext), eq("datasetindex_v2_semantic"), anyString());
+  }
+
+  @Test
+  public void testDeleteSearchData_NonKeyAspectDualWritesSemanticIndex() throws Exception {
+    // Setup: Create strategy with semantic search enabled
+    SemanticSearchConfiguration semanticConfig = mock(SemanticSearchConfiguration.class);
+    when(semanticConfig.isEnabled()).thenReturn(true);
+    when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.getEntityIndexNameSemantic(operationContext, "dataset"))
+        .thenReturn("datasetindex_v2_semantic");
+    when(elasticSearchService.indexExists(
+            any(OperationContext.class), eq("datasetindex_v2_semantic")))
+        .thenReturn(true);
+
+    UpdateIndicesV2Strategy strategyWithSemantic =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            semanticConfig,
+            indexConvention,
+            false,
+            mockMappingsBuilder,
+            null);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(true),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+    when(mockSearchDocument.toString()).thenReturn("{\"semanticText\": null}");
+
+    // Execute with isKeyAspect = false (single-aspect delete)
+    strategyWithSemantic.deleteSearchData(
+        operationContext,
+        testUrn,
+        "dataset",
+        mockAspectSpec,
+        mockAspect,
+        false, // isKeyAspect
+        mockAuditStamp);
+
+    // Verify: the delete-shaped document must reach BOTH indices. Deleting a semantic
+    // aspect (semanticText override, semanticContent embeddings) has to clear/restamp
+    // the semantic index too, not just the base V2 index.
+    verify(elasticSearchService)
+        .upsertDocument(eq(operationContext), eq("dataset"), anyString(), anyString());
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq("datasetindex_v2_semantic"), anyString(), anyString());
   }
 
   // ==================== processBatch coalescing tests ====================
@@ -1031,10 +1131,9 @@ public class UpdateIndicesV2StrategyTest {
     // Two MCLs in the same batch on the same structured-property URN:
     //   MCL 1: prev entityTypes [] -> new [X]
     //   MCL 2 (survivor): prev [X] -> new [X, Y]
-    // Pre-coalesce, X's mapping was applied by MCL 1 and Y's by MCL 2. Under coalesce we fire
-    // updateIndexMappings only for the survivor, so the diff baseline must be the oldest
-    // predecessor's previousRecordTemplate ([]) — not the survivor's previous ([X]) — otherwise
-    // X's mapping is silently dropped.
+    // Under coalesce we fire updateIndexMappings only for the survivor. The mapping update now
+    // applies the survivor's FULL declared entity-type set ([X, Y]) — put_mapping is idempotent —
+    // so both X and Y are covered regardless of the coalesced diff baseline.
     AspectSpec spdSpec = mock(AspectSpec.class);
     when(spdSpec.getName()).thenReturn(Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
     when(spdSpec.isTimeseries()).thenReturn(false);
@@ -1430,5 +1529,176 @@ public class UpdateIndicesV2StrategyTest {
     when(mcl.getChangeType()).thenReturn(changeType);
     when(event.getMetadataChangeLog()).thenReturn(mcl);
     return event;
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // resolvedTextSha256 stamping (semantic-index staleness provenance)
+  // ---------------------------------------------------------------------------------------------
+
+  private static ObjectNode objectNode() {
+    return com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+  }
+
+  private OperationContext contextWithRetriever(
+      com.linkedin.metadata.aspect.AspectRetriever retriever) {
+    OperationContext ctx = mock(OperationContext.class);
+    when(ctx.getAspectRetriever()).thenReturn(retriever);
+    return ctx;
+  }
+
+  private static com.linkedin.entity.Aspect aspectOf(Map<String, Object> data) {
+    return new com.linkedin.entity.Aspect(new DataMap(data));
+  }
+
+  @Test
+  public void testResolvedTextSha256_BodyOnlyDocument() {
+    com.linkedin.metadata.aspect.AspectRetriever retriever =
+        mock(com.linkedin.metadata.aspect.AspectRetriever.class);
+    when(retriever.getLatestAspectObject(
+            any(OperationContext.class), any(Urn.class), eq(Constants.SEMANTIC_TEXT_ASPECT_NAME)))
+        .thenReturn(null);
+    OperationContext ctx = contextWithRetriever(retriever);
+
+    ObjectNode doc = objectNode();
+    doc.put("text", "hello world");
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.DOCUMENT_INFO_ASPECT_NAME, doc);
+
+    org.testng.Assert.assertEquals(
+        doc.get("resolvedTextSha256").asText(), UpdateIndicesV2Strategy.sha256Hex("hello world"));
+  }
+
+  @Test
+  public void testResolvedTextSha256_OverrideFetchedOnBodyProjection() {
+    // A documentInfo projection carries only the body; the override must be fetched and win --
+    // deriving from the partial document would permanently mis-stamp write-once overrides.
+    com.linkedin.metadata.aspect.AspectRetriever retriever =
+        mock(com.linkedin.metadata.aspect.AspectRetriever.class);
+    when(retriever.getLatestAspectObject(
+            any(OperationContext.class), any(Urn.class), eq(Constants.SEMANTIC_TEXT_ASPECT_NAME)))
+        .thenReturn(aspectOf(Map.of("text", "curated override")));
+    OperationContext ctx = contextWithRetriever(retriever);
+
+    ObjectNode doc = objectNode();
+    doc.put("text", "churning body");
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.DOCUMENT_INFO_ASPECT_NAME, doc);
+
+    org.testng.Assert.assertEquals(
+        doc.get("resolvedTextSha256").asText(),
+        UpdateIndicesV2Strategy.sha256Hex("curated override"));
+  }
+
+  @Test
+  public void testResolvedTextSha256_OverrideProjectionUsesOwnValue() {
+    com.linkedin.metadata.aspect.AspectRetriever retriever =
+        mock(com.linkedin.metadata.aspect.AspectRetriever.class);
+    OperationContext ctx = contextWithRetriever(retriever);
+
+    ObjectNode doc = objectNode();
+    doc.put("semanticText", "curated override");
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.SEMANTIC_TEXT_ASPECT_NAME, doc);
+
+    org.testng.Assert.assertEquals(
+        doc.get("resolvedTextSha256").asText(),
+        UpdateIndicesV2Strategy.sha256Hex("curated override"));
+    // Override present on the projected document itself: nothing to fetch.
+    verify(retriever, never())
+        .getLatestAspectObject(any(OperationContext.class), any(Urn.class), anyString());
+  }
+
+  @Test
+  public void testResolvedTextSha256_EmptyOverrideFallsBackToFetchedBody() {
+    com.linkedin.metadata.aspect.AspectRetriever retriever =
+        mock(com.linkedin.metadata.aspect.AspectRetriever.class);
+    when(retriever.getLatestAspectObject(
+            any(OperationContext.class), any(Urn.class), eq(Constants.DOCUMENT_INFO_ASPECT_NAME)))
+        .thenReturn(aspectOf(Map.of("contents", new DataMap(Map.of("text", "the body")))));
+    OperationContext ctx = contextWithRetriever(retriever);
+
+    ObjectNode doc = objectNode();
+    doc.put("semanticText", "");
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.SEMANTIC_TEXT_ASPECT_NAME, doc);
+
+    org.testng.Assert.assertEquals(
+        doc.get("resolvedTextSha256").asText(), UpdateIndicesV2Strategy.sha256Hex("the body"));
+  }
+
+  @Test
+  public void testResolvedTextSha256_NonEmbedAspectUntouched() {
+    com.linkedin.metadata.aspect.AspectRetriever retriever =
+        mock(com.linkedin.metadata.aspect.AspectRetriever.class);
+    OperationContext ctx = contextWithRetriever(retriever);
+
+    ObjectNode doc = objectNode();
+    doc.put("removed", false);
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.STATUS_ASPECT_NAME, doc);
+
+    // doc_as_upsert merging preserves any existing stamp; nothing derived, nothing fetched.
+    org.testng.Assert.assertNull(doc.get("resolvedTextSha256"));
+    verify(retriever, never())
+        .getLatestAspectObject(any(OperationContext.class), any(Urn.class), anyString());
+  }
+
+  @Test
+  public void testResolvedTextSha256_NonDocumentEntityUntouched() {
+    OperationContext ctx = mock(OperationContext.class);
+    ObjectNode doc = objectNode();
+    doc.put("text", "dataset description");
+    strategy.withResolvedTextSha256(ctx, testUrn, "dataset", "datasetProperties", doc);
+    org.testng.Assert.assertNull(doc.get("resolvedTextSha256"));
+  }
+
+  @Test
+  public void testResolvedTextSha256_RetrieverFailureClearsStamp() {
+    com.linkedin.metadata.aspect.AspectRetriever retriever =
+        mock(com.linkedin.metadata.aspect.AspectRetriever.class);
+    when(retriever.getLatestAspectObject(any(OperationContext.class), any(Urn.class), anyString()))
+        .thenThrow(new RuntimeException("retriever unavailable"));
+    OperationContext ctx = contextWithRetriever(retriever);
+
+    ObjectNode doc = objectNode();
+    doc.put("text", "hello world");
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, Constants.DOCUMENT_INFO_ASPECT_NAME, doc);
+
+    // Explicit null (not absent): doc_as_upsert would otherwise preserve a stale stamp.
+    assertTrue(doc.get("resolvedTextSha256").isNull());
+  }
+
+  @Test
+  public void testResolvedTextSha256_SemanticContentProjectionStamps() {
+    // The embedding pipeline's own semanticContent write carries neither text field, but must
+    // still stamp (via fetches) so re-embedding refreshes pre-existing index documents.
+    com.linkedin.metadata.aspect.AspectRetriever retriever =
+        mock(com.linkedin.metadata.aspect.AspectRetriever.class);
+    when(retriever.getLatestAspectObject(
+            any(OperationContext.class), any(Urn.class), eq(Constants.SEMANTIC_TEXT_ASPECT_NAME)))
+        .thenReturn(null);
+    when(retriever.getLatestAspectObject(
+            any(OperationContext.class), any(Urn.class), eq(Constants.DOCUMENT_INFO_ASPECT_NAME)))
+        .thenReturn(aspectOf(Map.of("contents", new DataMap(Map.of("text", "the body")))));
+    OperationContext ctx = contextWithRetriever(retriever);
+
+    ObjectNode doc = objectNode();
+    doc.set("embeddings", objectNode());
+    strategy.withResolvedTextSha256(
+        ctx, testUrn, Constants.DOCUMENT_ENTITY_NAME, "semanticContent", doc);
+
+    org.testng.Assert.assertEquals(
+        doc.get("resolvedTextSha256").asText(), UpdateIndicesV2Strategy.sha256Hex("the body"));
+  }
+
+  @Test
+  public void testSha256Hex_CrossLanguageVector() {
+    // Pinned vector shared with the Python pipeline test
+    // (test_source_text_sha256_cross_language_vector): both sides must produce identical
+    // digests for identical unicode text (non-BMP emoji + CRLF).
+    org.testng.Assert.assertEquals(
+        UpdateIndicesV2Strategy.sha256Hex("h\u00e9llo \uD83D\uDE80\r\nworld"),
+        "f319ae6318b99bf8c83d79fe08bdcbc42928dc83c0d9e23145440c83141321a9");
   }
 }

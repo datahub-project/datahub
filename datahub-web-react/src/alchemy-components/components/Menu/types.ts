@@ -13,6 +13,7 @@ export interface MenuItemType extends BaseItemType {
     icon?: React.ComponentType<any>;
     description?: string;
     tooltip?: string;
+    tooltipPlacement?: 'top' | 'bottom' | 'left' | 'right';
     disabled?: boolean;
     danger?: boolean;
     children?: ItemType[];
@@ -22,14 +23,14 @@ export interface MenuItemType extends BaseItemType {
     render?: (item: MenuItemType) => React.ReactNode;
 }
 
-export interface GroupItemType extends BaseItemType {
+interface GroupItemType extends BaseItemType {
     type: 'group';
     title: string;
     children?: ItemType[];
     render?: (item: GroupItemType) => React.ReactNode;
 }
 
-export interface DividerType extends BaseItemType {
+interface DividerType extends BaseItemType {
     type: 'divider';
 }
 
