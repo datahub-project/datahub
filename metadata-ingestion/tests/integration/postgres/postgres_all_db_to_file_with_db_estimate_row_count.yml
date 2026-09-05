@@ -8,6 +8,11 @@ source:
     username: 'postgres'
     password: 'example'
     include_view_lineage: True
+    # Several special_types columns (box, polygon, ...) have no equality
+    # operator, so field-level profiling cannot run distinct counts on them.
+    profile_pattern:
+      deny:
+        - .*special_types
     profiling:
       enabled: true
       profile_table_row_count_estimate_only: true
