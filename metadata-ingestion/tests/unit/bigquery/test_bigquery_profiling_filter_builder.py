@@ -8,6 +8,9 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
     FilterBuilder,
 )
+from datahub.ingestion.source.bigquery_v2.profiling.security import (
+    validate_filter_expression,
+)
 
 
 class TestFilterBuilderNumericTypes:
@@ -33,10 +36,12 @@ class TestFilterBuilderEdgeCases:
     """Test FilterBuilder edge cases and error handling."""
 
     def test_quote_escaping_in_string_values(self):
-        """Test that single quotes in values are properly escaped."""
+        """Single quotes are backslash-escaped (\\'), which is the only quote escape
+        BigQuery GoogleSQL accepts — a doubled quote ('') reads as two adjacent
+        literals and fails at query time."""
         filter_expr = FilterBuilder.create_safe_filter("name", "O'Brien", "STRING")
-        assert filter_expr == "`name` = 'O''Brien'"
-        assert filter_expr.count("'") == 4  # Opening, 2 escaped, closing
+        assert filter_expr == "`name` = 'O\\'Brien'"
+        assert filter_expr.count("'") == 3  # opening, backslash-escaped, closing
 
     def test_invalid_numeric_value_raises(self):
         # A string value on a numeric column would build an invalid INT64 = STRING filter.
@@ -499,3 +504,12 @@ class TestFilterBuilderStringEscaping:
             FilterBuilder.create_safe_filter("path", "a\\b", "STRING")
             == "`path` = 'a\\\\b'"
         )
+
+    def test_quote_with_punctuation_is_backslash_escaped_and_validates(self):
+        # A value carrying both a quote and a statement/comment character must escape
+        # the quote as \' (not ''), otherwise BigQuery rejects the doubled-quote literal
+        # while the security validator masks it and lets it through. Verify the emitted
+        # predicate uses \' and still passes validate_filter_expression.
+        filter_expr = FilterBuilder.create_safe_filter("col", "a';DROP", "STRING")
+        assert filter_expr == "`col` = 'a\\';DROP'"
+        assert validate_filter_expression(filter_expr) is True
