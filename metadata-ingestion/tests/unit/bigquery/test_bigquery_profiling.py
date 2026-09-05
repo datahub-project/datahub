@@ -1004,6 +1004,49 @@ def test_strategic_candidate_path_emits_half_open_range_for_timestamp():
     ]
 
 
+def test_failed_columns_lookup_with_clean_probe_skips_table():
+    """When the COLUMNS lookup fails but the fallback probe runs cleanly (no
+    require_partition_filter error), the partition state is still unknown: a partitioned
+    table with require_partition_filter=FALSE probes cleanly too. The table must be
+    skipped (None), never treated as unpartitioned ([]) and full-scanned.
+    """
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        raise RuntimeError("INFORMATION_SCHEMA unavailable")
+
+    # Default _probe_required_partition_columns stub returns (set(), None): a clean probe
+    # that discovered no columns. That must not be read as "unpartitioned".
+    discovery = PartitionDiscovery(make_config())
+
+    filters = discovery.get_required_partition_filters(
+        make_table(name="failed_columns_clean_probe"), "proj", "ds", execute
+    )
+
+    assert filters is None
+
+
+def test_partition_column_types_backfills_pseudo_columns():
+    """INFORMATION_SCHEMA.COLUMNS never lists the ingestion-time pseudo-columns, so
+    get_partition_column_types must backfill their fixed BigQuery types
+    (_PARTITIONTIME -> TIMESTAMP) rather than leaving the pseudo-column untyped, which
+    would force a string point-equality instead of a typed half-open range downstream.
+    """
+    info_schema = InfoSchemaQueries()
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return [SimpleNamespace(column_name="region", data_type="STRING")]
+
+    types = info_schema.get_partition_column_types(
+        make_table(name="ingestion_time"),
+        "test-project-123456",
+        "ds",
+        ["region", "_PARTITIONTIME"],
+        execute,
+    )
+
+    assert types == {"region": "STRING", "_PARTITIONTIME": "TIMESTAMP"}
+
+
 def test_range_partition_uses_max_bucket_not_most_recently_modified():
     """INFORMATION_SCHEMA.PARTITIONS is ordered by last-modified, not bucket value. For a
     RANGE partition the lower-bound scan `col >= floor` must anchor on the MAX bucket floor

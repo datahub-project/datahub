@@ -16,6 +16,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
 from datahub.ingestion.source.bigquery_v2.profiling import queries
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     PARTITIONING_COLUMN_FLAG,
+    PSEUDO_PARTITION_COLUMN_TYPES,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
     FilterBuilder,
@@ -118,7 +119,15 @@ class InfoSchemaQueries:
             query_results = execute_query_func(
                 query, job_config, "partition column types"
             )
-            return {row.column_name: row.data_type for row in query_results}
+            type_map = {row.column_name: row.data_type for row in query_results}
+            # INFORMATION_SCHEMA.COLUMNS never lists the ingestion-time pseudo-columns
+            # (_PARTITIONTIME/_PARTITIONDATE), so backfill their fixed BigQuery types for
+            # any requested here; otherwise convert_partition_id_to_filters would emit a
+            # string point-equality instead of a typed half-open range on the pseudo-column.
+            for col in partition_columns:
+                if col not in type_map and col in PSEUDO_PARTITION_COLUMN_TYPES:
+                    type_map[col] = PSEUDO_PARTITION_COLUMN_TYPES[col]
+            return type_map
         except Exception as e:
             warn(
                 self.report,
