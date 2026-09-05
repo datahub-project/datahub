@@ -33,3 +33,20 @@ metric_registry:
       distinct_key: usage_identity
       value_unit: count
       emit_when: writer_activity_allowlist
+
+  system_usage:
+    entity_count_active:
+      merge_kind: latest
+      value_unit: count
+      emit_when: always
+    entity_count_soft_deleted:
+      merge_kind: latest
+      value_unit: count
+      emit_when: always
+
+  datahub_usage:
+    event_count:
+      merge_kind: additive
+      value_unit: count
+      emit_when: always
+

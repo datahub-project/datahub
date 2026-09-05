@@ -74,7 +74,8 @@ public class PgQueueMaePollerSourcesConfiguration {
                     processor.consume(logicalTopic, batch);
                     ctx.commit(batch.stream().map(QueueReceivedMessage::handle).toList());
                   } catch (Exception e) {
-                    log.error("Usage pgQueue batch failed; leases expire for retry", e);
+                    log.error("Usage pgQueue batch failed; releasing leases for retry", e);
+                    ctx.release(batch.stream().map(QueueReceivedMessage::handle).toList());
                   }
                 }));
   }

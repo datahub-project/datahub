@@ -35,6 +35,16 @@ public final class PgQueuePollContext {
     }
   }
 
+  /**
+   * Unlock leased messages for immediate retry without advancing the consumer offset. Safe to call
+   * from handler failure paths.
+   */
+  public void release(@Nonnull List<QueueMessageHandle> handles) {
+    if (!handles.isEmpty()) {
+      store.releaseForGroup(consumerGroupId, handles);
+    }
+  }
+
   @Nonnull
   public GenericRecord decodeAvro(
       @Nonnull QueueReceivedMessage message, @Nonnull String topicNameForSerde) {

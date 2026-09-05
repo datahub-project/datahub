@@ -4,9 +4,10 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.context.OperationFingerprint;
-import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.DefaultAnalyticsService;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.PlatformAnalyticsConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -62,6 +63,9 @@ public class DailyReportTest {
     when(mockIndexConvention.getEntityIndexName(any(OperationFingerprint.class), anyString()))
         .thenAnswer(invocation -> invocation.getArgument(1) + "index_v2");
     when(mockGitVersion.getVersion()).thenReturn("test-version");
+    // Default path: Elasticsearch analytics (not pgAnalytics).
+    when(mockConfigurationProvider.getPlatformAnalytics())
+        .thenReturn(new PlatformAnalyticsConfiguration());
   }
 
   /**
@@ -421,7 +425,7 @@ public class DailyReportTest {
     DailyReport dailyReport = createDailyReportForTesting();
     Map<String, Integer> counts =
         dailyReport.collectEntityCounts(
-            new AnalyticsService(mockElasticClient, mockIndexConvention));
+            new DefaultAnalyticsService(mockElasticClient, mockIndexConvention));
 
     org.mockito.ArgumentCaptor<SearchRequest> captor =
         org.mockito.ArgumentCaptor.forClass(SearchRequest.class);
@@ -448,7 +452,7 @@ public class DailyReportTest {
     DailyReport dailyReport = createDailyReportForTesting();
     Map<String, Integer> counts =
         dailyReport.collectEntityCounts(
-            new AnalyticsService(mockElasticClient, mockIndexConvention));
+            new DefaultAnalyticsService(mockElasticClient, mockIndexConvention));
 
     assertEquals(counts.size(), 1, "only the non-zero type should be reported");
     assertTrue(counts.containsKey("DATASET"));
@@ -475,7 +479,7 @@ public class DailyReportTest {
     DailyReport dailyReport = createDailyReportForTesting();
     Map<String, Integer> counts =
         dailyReport.collectEntityCounts(
-            new AnalyticsService(mockElasticClient, mockIndexConvention));
+            new DefaultAnalyticsService(mockElasticClient, mockIndexConvention));
 
     org.mockito.ArgumentCaptor<SearchRequest> captor =
         org.mockito.ArgumentCaptor.forClass(SearchRequest.class);

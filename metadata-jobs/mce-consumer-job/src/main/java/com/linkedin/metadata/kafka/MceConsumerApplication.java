@@ -34,6 +34,7 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.secret",
       "com.linkedin.gms.factory.timeseries",
+      "com.linkedin.gms.factory.analytics",
       "com.linkedin.restli.server",
       "com.linkedin.metadata.restli",
       "com.linkedin.metadata.kafka",

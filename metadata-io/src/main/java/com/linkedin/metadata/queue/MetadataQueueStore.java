@@ -129,6 +129,15 @@ public interface MetadataQueueStore {
     throw new UnsupportedOperationException("commitForGroup is not supported by this store");
   }
 
+  /**
+   * Unlock leased messages for immediate redelivery without advancing the consumer offset. Does not
+   * mark messages as acked.
+   */
+  default int releaseForGroup(
+      @Nonnull String consumerGroup, @Nonnull List<QueueMessageHandle> handles) {
+    throw new UnsupportedOperationException("releaseForGroup is not supported by this store");
+  }
+
   default int extendVisibilityForGroup(
       @Nonnull String consumerGroup,
       @Nonnull List<QueueMessageHandle> handles,

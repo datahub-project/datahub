@@ -1,0 +1,34 @@
+# Instructions to add additional entry or update on the target system
+# 1. Edit this file
+# 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+#
+# UPSERT matches datahub-gc: the template is applied once per bootstrap name/version
+# (or DATAHUB_ANALYTICS_COMPACTION_BOOTSTRAP_REVISION), not on every system-update.
+# Persist operator customizations via DATAHUB_ANALYTICS_COMPACTION_BOOTSTRAP_VALUES
+# (mustache keys below). UI-only edits are overwritten the next time this template
+# is applied. See docs/pganalytics-design.md and docs/advanced/bootstrap-mcps.md.
+- entityType: dataHubIngestionSource
+  entityUrn: urn:li:dataHubIngestionSource:datahub-analytics-compaction
+  aspectName: dataHubIngestionSourceInfo
+  changeType: UPSERT
+  aspect:
+    type: 'datahub-analytics-compaction'
+    name: '{{ingestion.name}}{{^ingestion.name}}datahub-analytics-compaction{{/ingestion.name}}'
+    schedule:
+      timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
+      interval: '{{schedule.interval}}{{^schedule.interval}}0 * * * *{{/schedule.interval}}'
+    config:
+      # Default to the executor image's prebuilt venv. A numeric CLI version would pip-install a
+      # published wheel that may not include this source yet.
+      version: '{{ingestion.version}}{{^ingestion.version}}bundled{{/ingestion.version}}'
+      recipe:
+        source:
+          type: datahub-analytics-compaction
+          config: { }
+      debugMode: false
+      extraArgs:
+        extra_env_vars: '{{&ingestion.extra_env_vars}}{{^ingestion.extra_env_vars}}{}{{/ingestion.extra_env_vars}}'
+      executorId: default
+    source:
+      type: {{source}}{{^source}}SYSTEM{{/source}}
+  headers: {}

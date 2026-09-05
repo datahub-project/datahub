@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.sqlsetup;
 
 import com.linkedin.datahub.upgrade.config.OpenTelemetryConfig;
+import com.linkedin.gms.factory.analytics.PgAnalyticsConfigOverlay;
 import com.linkedin.gms.factory.common.LocalEbeanConfigFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.system_telemetry.CacheInstrumentationFactory;
@@ -45,7 +46,8 @@ import org.springframework.context.annotation.Import;
   ConfigurationProvider.class,
   LocalEbeanConfigFactory.class,
   OpenTelemetryConfig.class,
-  PgTimeseriesConfigOverlay.class
+  PgTimeseriesConfigOverlay.class,
+  PgAnalyticsConfigOverlay.class
 })
 @ComponentScan(
     basePackages = {

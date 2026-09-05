@@ -62,6 +62,7 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.secret",
       "com.linkedin.gms.factory.timeseries",
+      "com.linkedin.gms.factory.analytics",
       "com.linkedin.gms.factory.plugins",
       "com.linkedin.gms.factory.change",
       "com.datahub.event.hook",
