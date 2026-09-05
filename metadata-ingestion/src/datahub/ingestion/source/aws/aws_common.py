@@ -1,4 +1,5 @@
 import logging
+import threading
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from http import HTTPStatus
@@ -11,6 +12,7 @@ from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
 from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
 from botocore.utils import fix_s3_host
+from pydantic import PrivateAttr
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
@@ -271,6 +273,12 @@ class AwsConnectionConfig(ConfigModel):
 
     _credentials_expiration: Optional[datetime] = None
     _cached_credentials: Optional[dict] = None
+    # boto3 clients are thread-safe (Sessions are not), so cached clients may be
+    # shared across threads; only construction is guarded by the lock.
+    _s3_client_cache: Dict[Optional[Union[bool, str]], "S3Client"] = PrivateAttr(
+        default_factory=dict
+    )
+    _s3_client_lock: threading.Lock = PrivateAttr(default_factory=threading.Lock)
 
     aws_access_key_id: Optional[str] = Field(
         default=None,
@@ -461,12 +469,32 @@ class AwsConnectionConfig(ConfigModel):
     def get_s3_client(
         self, verify_ssl: Optional[Union[bool, str]] = None
     ) -> "S3Client":
-        return self.get_session().client(
-            "s3",
-            endpoint_url=self.aws_endpoint_url,
-            config=self._aws_config(),
-            verify=verify_ssl,
-        )
+        # Building a session + client per call is expensive (fresh TLS pool and
+        # credential resolution, ~seconds with an SSO profile), so memoize the
+        # client per verify_ssl value. Manually-assumed role credentials are
+        # static, so drop cached clients once those credentials need a refresh.
+        # This invalidation only covers the manual assume-role path; profile,
+        # instance-profile, ECS task-role, and explicit-key sessions self-refresh
+        # inside botocore's cached client and need no invalidation here.
+        with self._s3_client_lock:
+            # _cached_credentials is set only when a role was actually assumed (see
+            # get_session); that is the one path whose static creds expire. Guard on
+            # it rather than on aws_role merely being configured, else a role that
+            # matches the ambient identity (never assumed, so no expiry recorded)
+            # would rebuild the client on every call.
+            if (
+                self._cached_credentials is not None
+                and self._should_refresh_credentials()
+            ):
+                self._s3_client_cache.clear()
+            if verify_ssl not in self._s3_client_cache:
+                self._s3_client_cache[verify_ssl] = self.get_session().client(
+                    "s3",
+                    endpoint_url=self.aws_endpoint_url,
+                    config=self._aws_config(),
+                    verify=verify_ssl,
+                )
+            return self._s3_client_cache[verify_ssl]
 
     def get_s3_resource(
         self, verify_ssl: Optional[Union[bool, str]] = None
