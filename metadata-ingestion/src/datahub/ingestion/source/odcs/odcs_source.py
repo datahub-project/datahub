@@ -1287,6 +1287,13 @@ class ODCSSource(StatefulIngestionSourceBase):
             return by_id
 
         by_name = self._data_products_named(raw)
+        if by_name is None:
+            # The name search failed rather than coming back empty. A failure is
+            # not proof the product is absent, so leave the contract unresolved
+            # instead of seeding a duplicate at the id-derived urn. The failure
+            # was already warned about in `_data_products_named`.
+            self.report.data_products_unresolved += 1
+            return None
         if len(by_name) == 1:
             self.report.data_products_resolved_by_name += 1
             return by_name[0]
@@ -1326,11 +1333,14 @@ class ODCSSource(StatefulIngestionSourceBase):
         )
         return None
 
-    def _data_products_named(self, name: str) -> List[str]:
+    def _data_products_named(self, name: str) -> Optional[List[str]]:
         """Urns of every Data Product whose display name equals `name`.
 
-        Search word-grams are a prefilter; each candidate is confirmed against
-        the persisted `dataProductProperties.name`.
+        Returns None when the search itself fails (a graph error) so the caller
+        can distinguish that from a definitive empty result and never seed a
+        product off the back of a failed lookup. The server-side filter is a
+        prefilter; each candidate is confirmed against the persisted
+        `dataProductProperties.name`.
         """
         graph = self.ctx.graph
         if graph is None:
@@ -1338,13 +1348,15 @@ class ODCSSource(StatefulIngestionSourceBase):
         wanted = name.casefold()
         matches: List[str] = []
         try:
-            # Exact server-side name match (EQUAL). A relevance-ranked full-text
-            # `query=name` searches every field and, once capped, can rank the
-            # true `dataProductProperties.name` match past the cap and miss it.
+            # Case-insensitive exact name match (IEQUAL). A relevance-ranked
+            # full-text `query=name` searches every field and, once capped, can
+            # rank the true `dataProductProperties.name` match past the cap and
+            # miss it; a plain EQUAL is case-sensitive, but the match is
+            # documented as case-insensitive.
             candidates = graph.get_urns_by_filter(
                 entity_types=[DataProductUrn.ENTITY_TYPE],
                 extraFilters=[
-                    {"field": "name", "condition": "EQUAL", "values": [name]}
+                    {"field": "name", "condition": "IEQUAL", "values": [name]}
                 ],
             )
             for urn in candidates:
@@ -1365,7 +1377,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 context=f"dataProduct={name}",
                 exc=e,
             )
-            return []
+            return None
 
     def _emit_data_product_output_ports(self) -> Iterable[MetadataWorkUnit]:
         for product_urn, entry in self._data_product_ports.items():

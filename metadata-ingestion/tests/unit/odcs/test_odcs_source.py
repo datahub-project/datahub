@@ -888,6 +888,39 @@ def test_data_product_created_when_verification_disabled(
     ]
 
 
+def test_data_product_name_search_failure_does_not_seed(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A failed name search must not be mistaken for 'no such product'. Even with
+    verification off, a graph error while searching by name leaves the contract
+    unresolved rather than seeding a duplicate at the id-derived urn."""
+    graph = MagicMock()
+    graph.exists.side_effect = lambda urn: not urn.startswith("urn:li:dataProduct:")
+    graph.get_urns_by_filter.side_effect = RuntimeError("search backend down")
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(
+        _DATA_PRODUCT_BODY.replace(
+            "dataProduct: orders_product", "dataProduct: Orders"
+        ),
+        encoding="utf-8",
+    )
+    src = _make_source(
+        tmp_path,
+        graph=graph,
+        path=str(contract_file),
+        emit_data_product_association=True,
+        verify_data_product_exists=False,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert _data_product_ops(workunits) == {}
+    assert src.report.data_products_unresolved == 1
+    assert any(
+        "Could not search Data Products by name" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
 def test_multiple_files_emit_all_logical_datasets(
     tmp_path: pathlib.Path,
 ) -> None:
