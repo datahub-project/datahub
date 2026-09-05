@@ -262,6 +262,49 @@ def test_ingestion_time_partition_datetime_override_applies():
     assert ">=" in filters[0]
 
 
+def test_failed_columns_lookup_with_clean_probe_skips_table():
+    """When the COLUMNS lookup fails but the fallback probe runs cleanly (no
+    require_partition_filter error), the partition state is still unknown: a partitioned
+    table with require_partition_filter=FALSE probes cleanly too. The table must be
+    skipped (None), never treated as unpartitioned ([]) and full-scanned.
+    """
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        raise RuntimeError("INFORMATION_SCHEMA unavailable")
+
+    # Default _probe_required_partition_columns stub returns (set(), None): a clean probe
+    # that discovered no columns. That must not be read as "unpartitioned".
+    discovery = PartitionDiscovery(make_config())
+
+    filters = discovery.get_required_partition_filters(
+        make_table(name="failed_columns_clean_probe"), "proj", "ds", execute
+    )
+
+    assert filters is None
+
+
+def test_partition_column_types_backfills_pseudo_columns():
+    """INFORMATION_SCHEMA.COLUMNS never lists the ingestion-time pseudo-columns, so
+    get_partition_column_types must backfill their fixed BigQuery types
+    (_PARTITIONTIME -> TIMESTAMP) rather than leaving the pseudo-column untyped, which
+    would force a string point-equality instead of a typed half-open range downstream.
+    """
+    info_schema = InfoSchemaQueries()
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return [SimpleNamespace(column_name="region", data_type="STRING")]
+
+    types = info_schema.get_partition_column_types(
+        make_table(name="ingestion_time"),
+        "test-project-123456",
+        "ds",
+        ["region", "_PARTITIONTIME"],
+        execute,
+    )
+
+    assert types == {"region": "STRING", "_PARTITIONTIME": "TIMESTAMP"}
+
+
 def test_partition_filter_validation_rejects_injection():
     """Partition filters that contain SQL injection patterns must be rejected by
     validate_and_filter_expressions before they reach the custom_sql.
