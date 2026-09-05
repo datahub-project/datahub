@@ -20,7 +20,14 @@ from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
-SUPPORTED_FILE_TYPES: List[str] = ["csv", "tsv", "json", "parquet", "avro"]
+SUPPORTED_FILE_TYPES: List[str] = [
+    "csv",
+    "tsv",
+    "json",
+    "jsonl",
+    "parquet",
+    "avro",
+]
 
 # These come from the smart_open library.
 SUPPORTED_COMPRESSIONS: List[str] = [
@@ -197,9 +204,13 @@ class PathSpec(ConfigModel):
         ext = os.path.splitext(path)[1].strip(".")
 
         if not ignore_ext:
-            if (ext == "" and self.default_extension is None) and (
-                ext != "*" and ext not in self.file_types
-            ):
+            if self.enable_compression and ext in SUPPORTED_COMPRESSIONS:
+                ext = os.path.splitext(os.path.splitext(path)[0])[1].strip(".")
+
+            if ext == "":
+                if self.default_extension is None:
+                    return False
+            elif ext != "*" and ext not in self.file_types:
                 return False
 
         return True

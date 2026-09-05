@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.data_lake_common.path_spec import (
+    SUPPORTED_COMPRESSIONS,
     SUPPORTED_FILE_TYPES,
     FolderTraversalMethod,
     PathSpec,
@@ -257,16 +258,31 @@ def test_allowed_with_exclude_patterns() -> None:
 def test_allowed_with_file_extension_filter() -> None:
     """Test allowed method with file extension filtering."""
     path_spec = PathSpec(
-        include="s3://bucket/{table}/*.csv", file_types=["csv", "json"]
+        include="s3://bucket/{table}/*", file_types=["csv", "json", "jsonl"]
     )
 
-    assert path_spec.allowed("s3://bucket/table/file.csv") is True
-    # Test with different include pattern for json
-    path_spec_json = PathSpec(
-        include="s3://bucket/{table}/*.json", file_types=["csv", "json"]
+    assert path_spec.allowed("s3://bucket/table/file.csv")
+    assert path_spec.allowed("s3://bucket/table/file.json")
+    assert path_spec.allowed("s3://bucket/table/file.jsonl")
+    assert not path_spec.allowed("s3://bucket/table/file.htm")
+
+
+@pytest.mark.parametrize("compression", SUPPORTED_COMPRESSIONS)
+def test_allowed_with_compressed_file_extension_filter(compression: str) -> None:
+    path_spec = PathSpec(include="s3://bucket/{table}/*", file_types=["csv", "jsonl"])
+
+    assert path_spec.allowed(f"s3://bucket/table/file.csv.{compression}")
+    assert path_spec.allowed(f"s3://bucket/table/file.jsonl.{compression}")
+    assert not path_spec.allowed(f"s3://bucket/table/file.htm.{compression}")
+
+    compression_disabled_path_spec = PathSpec(
+        include="s3://bucket/{table}/*",
+        file_types=["csv"],
+        enable_compression=False,
     )
-    assert path_spec_json.allowed("s3://bucket/table/file.json") is True
-    assert path_spec.allowed("s3://bucket/table/file.parquet") is False
+    assert not compression_disabled_path_spec.allowed(
+        f"s3://bucket/table/file.csv.{compression}"
+    )
 
 
 def test_allowed_with_default_extension() -> None:
@@ -279,6 +295,10 @@ def test_allowed_with_default_extension() -> None:
         path_spec.allowed("s3://bucket/table/file") is True
     )  # No extension, uses default
     assert path_spec.allowed("s3://bucket/table/file.csv") is True
+    assert not path_spec.allowed("s3://bucket/table/file.json")
+
+    for compression in SUPPORTED_COMPRESSIONS:
+        assert path_spec.allowed(f"s3://bucket/table/file.{compression}")
 
 
 def test_allowed_ignore_extension() -> None:
