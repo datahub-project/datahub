@@ -5,6 +5,7 @@ long-lived executor process. They handle venv activation, secret masking
 registration, envelope parsing, and datahub capability detection.
 """
 
+import enum
 import json
 import os
 import re
@@ -100,21 +101,48 @@ def register_secrets_for_masking(secrets: dict[str, str]) -> None:
         )
 
 
-def check_cli_flag_support(datahub_binary: Path, flag: str) -> bool:
-    """Check if the datahub CLI supports a given flag on `ingest run`."""
+class FlagSupport(enum.Enum):
+    """Outcome of probing the CLI for a flag.
+
+    PROBE_FAILED is distinct from UNSUPPORTED on purpose: a CLI that cannot answer
+    is broken, not old, and callers that would otherwise degrade gracefully need to
+    tell those apart. Collapsing them is how a broken venv gets reported as an old
+    CLI version.
+    """
+
+    SUPPORTED = "supported"
+    UNSUPPORTED = "unsupported"
+    PROBE_FAILED = "probe_failed"
+
+
+def check_cli_flag_support(datahub_binary: Path, flag: str) -> FlagSupport:
+    """Check whether the datahub CLI supports a given flag on `ingest run`."""
     try:
         result = subprocess.run(
             [str(datahub_binary), "ingest", "run", "--help"],
             capture_output=True,
             text=True,
         )
-        return flag in result.stdout
     except Exception as e:
         print(
             f"Warning: Failed to check --{flag} support: {e}",
             file=sys.stderr,
         )
-        return False
+        return FlagSupport.PROBE_FAILED
+
+    if result.returncode != 0:
+        print(
+            f"Warning: could not determine --{flag} support: "
+            f"`datahub ingest run --help` exited {result.returncode}. "
+            f"This is a CLI failure, not a missing feature. "
+            f"stderr: {result.stderr.strip()[:2000]}",
+            file=sys.stderr,
+        )
+        return FlagSupport.PROBE_FAILED
+
+    if flag in result.stdout:
+        return FlagSupport.SUPPORTED
+    return FlagSupport.UNSUPPORTED
 
 
 def _resolve_element(element: Any, secrets: dict[str, str], pattern: re.Pattern) -> Any:  # type: ignore[type-arg]

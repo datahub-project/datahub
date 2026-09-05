@@ -17,7 +17,7 @@ import pytest
 import yaml
 
 from datahub.executor.execution import wrapper_common
-from datahub.executor.wrappers import run_ingest
+from datahub.executor.wrappers import run_ingest, run_test_connection
 
 
 class TestParseBoolEnv:
@@ -183,7 +183,11 @@ class TestWrapperStdinContent:
         with (
             patch.object(sys, "argv", ["wrapper", str(tmp_path / "venv")]),
             patch.object(sys, "stdin", io.StringIO(envelope)),
-            patch.object(run_ingest, "check_cli_flag_support", return_value=True),
+            patch.object(
+                run_ingest,
+                "check_cli_flag_support",
+                return_value=wrapper_common.FlagSupport.SUPPORTED,
+            ),
             patch.object(run_ingest, "register_secrets_for_masking"),
             patch(
                 "datahub.executor.execution.wrapper_common.subprocess.Popen",
@@ -204,3 +208,155 @@ class TestWrapperStdinContent:
         # from whatever `datahub` happens to be on PATH.
         cmd = mock_popen.call_args[0][0]
         assert cmd[0] == str(venv_dir / "datahub")
+
+
+class TestCliFlagProbe:
+    """The probe reports a failure, an absent flag and a present flag separately."""
+
+    def _script(self, tmp_path: Path, name: str, body: str) -> Path:
+        path = tmp_path / name
+        path.write_text(f"#!/bin/sh\n{body}\n")
+        path.chmod(0o755)
+        return path
+
+    def test_a_failing_probe_surfaces_its_own_error(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        broken = self._script(
+            tmp_path,
+            "broken",
+            "echo 'ImportError: no module named snowflake' >&2\nexit 1",
+        )
+
+        assert (
+            wrapper_common.check_cli_flag_support(broken, "some-flag")
+            is wrapper_common.FlagSupport.PROBE_FAILED
+        )
+        assert "ImportError: no module named snowflake" in capsys.readouterr().err
+
+    def test_a_genuinely_missing_flag_is_reported_silently(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        old_cli = self._script(
+            tmp_path, "old", "echo 'Usage: datahub ingest run'\nexit 0"
+        )
+
+        assert (
+            wrapper_common.check_cli_flag_support(old_cli, "some-flag")
+            is wrapper_common.FlagSupport.UNSUPPORTED
+        )
+        assert capsys.readouterr().err == ""
+
+    def test_a_supported_flag_is_reported_as_supported(self, tmp_path: Path) -> None:
+        new_cli = self._script(
+            tmp_path, "new", "echo 'Usage: datahub ingest run --some-flag'\nexit 0"
+        )
+
+        assert (
+            wrapper_common.check_cli_flag_support(new_cli, "some-flag")
+            is wrapper_common.FlagSupport.SUPPORTED
+        )
+
+
+class TestIngestProbeOutcome:
+    """Ingestion passes --report-to only when the probe confirmed support."""
+
+    def _cmd_for_probe(
+        self, outcome: wrapper_common.FlagSupport, tmp_path: Path
+    ) -> list[str]:
+        envelope = json.dumps(
+            {
+                "__recipe_yaml__": yaml.dump({"source": {"type": "test"}}),
+                "__secrets__": {},
+                "__report_out_file__": str(tmp_path / "report.json"),
+                "__debug_mode__": "false",
+            }
+        )
+        mock_process = MagicMock()
+        mock_process.stdin = MagicMock()
+        mock_process.stdout = iter([])
+        mock_process.wait.return_value = 0
+
+        venv_dir = tmp_path / "venv" / "bin"
+        venv_dir.mkdir(parents=True)
+        (venv_dir / "python").touch()
+        (venv_dir / "datahub").touch()
+
+        with (
+            patch.object(sys, "argv", ["wrapper", str(tmp_path / "venv")]),
+            patch.object(sys, "stdin", io.StringIO(envelope)),
+            patch.object(run_ingest, "check_cli_flag_support", return_value=outcome),
+            patch.object(run_ingest, "register_secrets_for_masking"),
+            patch(
+                "datahub.executor.execution.wrapper_common.subprocess.Popen",
+                return_value=mock_process,
+            ) as mock_popen,
+            pytest.raises(SystemExit),
+        ):
+            run_ingest.main()
+
+        return list(mock_popen.call_args[0][0])
+
+    def test_a_failed_probe_does_not_pass_the_flag(self, tmp_path: Path) -> None:
+        cmd = self._cmd_for_probe(wrapper_common.FlagSupport.PROBE_FAILED, tmp_path)
+
+        assert "--report-to" not in cmd
+
+    def test_a_supported_flag_is_passed(self, tmp_path: Path) -> None:
+        cmd = self._cmd_for_probe(wrapper_common.FlagSupport.SUPPORTED, tmp_path)
+
+        assert "--report-to" in cmd
+
+
+class TestTestConnectionProbeOutcome:
+    """Test connection exits nonzero for a failed probe, zero for an old CLI."""
+
+    def _run_with_probe(
+        self, outcome: wrapper_common.FlagSupport, tmp_path: Path
+    ) -> tuple[int, dict]:
+        report_out = tmp_path / "connection_report.json"
+        envelope = json.dumps(
+            {
+                "__recipe_yaml__": yaml.dump({"source": {"type": "test"}}),
+                "__secrets__": {},
+                "__report_out_file__": str(report_out),
+            }
+        )
+        venv_bin = tmp_path / "venv" / "bin"
+        venv_bin.mkdir(parents=True)
+        (venv_bin / "python").touch()
+        (venv_bin / "datahub").touch()
+
+        with (
+            patch.object(sys, "argv", ["wrapper", str(tmp_path / "venv")]),
+            patch.object(sys, "stdin", io.StringIO(envelope)),
+            patch.object(
+                run_test_connection, "check_cli_flag_support", return_value=outcome
+            ),
+            patch.object(run_test_connection, "register_secrets_for_masking"),
+            pytest.raises(SystemExit) as exit_info,
+        ):
+            run_test_connection.main()
+
+        code = exit_info.value.code
+        assert isinstance(code, int)
+        return code, json.loads(report_out.read_text())
+
+    def test_a_broken_cli_exits_nonzero(self, tmp_path: Path) -> None:
+        code, report = self._run_with_probe(
+            wrapper_common.FlagSupport.PROBE_FAILED, tmp_path
+        )
+
+        assert code != 0
+        assert report["internal_failure"] is True
+        # The old-version wording belongs to the other report.
+        assert "old version" not in report["internal_failure_reason"]
+
+    def test_an_old_cli_still_exits_cleanly(self, tmp_path: Path) -> None:
+        code, report = self._run_with_probe(
+            wrapper_common.FlagSupport.UNSUPPORTED, tmp_path
+        )
+
+        assert code == 0
+        assert report["internal_failure"] is True
+        assert "old version" in report["internal_failure_reason"]
