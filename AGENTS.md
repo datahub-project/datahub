@@ -717,3 +717,22 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 - Entity Registry is defined in YAML, not code (`entity-registry.yml`)
 - All metadata changes flow through the event streaming system
 - GraphQL schema is generated from backend GMS APIs
+
+## Learned User Preferences
+
+- When addressing PR review comments (human or bot such as Bugbot/Cubic), reply to each thread and mark it resolved once handled — don't leave addressed threads open.
+- Don't blindly apply bot review suggestions; validate whether each Bugbot/Cubic comment is a legitimate issue and only fix the real ones.
+- Split large PRs into a stack of smaller reviewable PRs, keeping the original PR intact while segmenting out the rest.
+- In docs/training/UI content, avoid emojis — use professional imagery and DataHub's official branding, styling, and color palette (look these up via available MCP connections when needed).
+- When reviewing/updating shared docs, only work on sections that no one else is actively working on to avoid conflicts.
+- Keep user-training slides concise: split wordy content across more slides and follow the existing module flow.
+- In customer/product-facing writeups (Notion gap docs, Linear tickets), frame the MFE as a "configurable front-end for less-technical users" plus the marketplace UI — don't call it an "MFE"; include only product-feature items and delete cancelled Linear tickets rather than leaving them.
+
+## Learned Workspace Facts
+
+- In a stacked PR workflow, when a PR in the stack merges, retarget the next branch at `master` and rebase the downstream PRs — a legit fix on an upstream PR cascades a re-merge down the rest of the stack.
+- For `datahub-user-training` docs, link to `docs.datahub.com` as the canonical source of full product documentation.
+- DataHub Module Federation micro-frontends (e.g. the marketplace MFE) are deployed by hosting the built static assets on Azure and wiring them in through `datahub-apps`.
+- Custom brand colour in datahub-fork is not a feature flag: it's a per-tenant visual setting (`globalSettings.visualSettings.primaryColor`) set via Settings → Appearance → Branding (the branding card is gated on `SHOW_NAV_BAR_REDESIGN`); a full baked-in custom theme is instead env-driven via `REACT_APP_CUSTOM_THEME_ID` (Helm `custom_theme_id` on `datahub-gms`).
+- The remote executor Helm chart lives in `acryldata/datahub-executor-helm` (chart `acryl/datahub-executor-worker` under `charts/datahub-executor-worker`); it exposes `securityContext`/`podSecurityContext`, and `DATAHUB_GMS_TOKEN` (injected via `valueFrom.secretKeyRef`) can be mounted as a projected volume that also carries other secret files rather than adding more `extraEnvs` secretKeyRefs.
+- For the MySQL/MariaDB ingestion connector, MariaDB has no `performance_schema` query-stats path like MySQL: usage/query lineage relies on the `general_log` (permanent per-statement write overhead, often refused on production) or the `server_audit` plugin, and a scalable setup has the connector read audit logs from a centralized store rather than granting remote-executor filesystem access on every DB host.
