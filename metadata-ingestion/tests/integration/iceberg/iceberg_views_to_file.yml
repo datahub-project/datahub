@@ -1,0 +1,14 @@
+run_id: iceberg-views-test
+
+source:
+  type: iceberg
+  config:
+    catalog:
+      default:
+        type: rest
+        uri: http://localhost:8183
+
+sink:
+  type: file
+  config:
+    filename: "./iceberg_views_mcps.json"

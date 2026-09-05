@@ -1,9 +1,14 @@
 import subprocess
+import time
 from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
+import requests
 import time_machine
+from pyiceberg.catalog.rest import RestCatalog
+from pyiceberg.schema import Schema
+from pyiceberg.types import LongType, NestedField, StringType, TimestampType
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -35,6 +40,60 @@ def remove_docker_image():
 
     # The tabulario/spark-iceberg image is pretty large, so we remove it after the test.
     cleanup_image("tabulario/spark-iceberg")
+    cleanup_image("apache/iceberg-rest-fixture")
+
+
+VIEWS_CATALOG_URI = "http://localhost:8183"
+VIEWS_NAMESPACE = "viewtest"
+
+
+def _create_iceberg_view(catalog_uri: str, namespace: str, view_name: str) -> None:
+    # pyiceberg does not expose a create_view() API yet, so the view is
+    # registered through the REST API directly.
+    payload = {
+        "name": view_name,
+        "schema": {
+            "type": "struct",
+            "schema-id": 0,
+            "fields": [
+                {"id": 1, "name": "event_type", "required": False, "type": "string"},
+                {"id": 2, "name": "event_count", "required": False, "type": "long"},
+            ],
+        },
+        "view-version": {
+            "version-id": 1,
+            "timestamp-ms": int(time.time() * 1000),
+            "schema-id": 0,
+            "summary": {"engine-name": "spark"},
+            "representations": [
+                {
+                    "type": "sql",
+                    "sql": f"SELECT event_type, count(*) AS event_count FROM {namespace}.events GROUP BY event_type",
+                    "dialect": "spark",
+                }
+            ],
+            "default-namespace": [namespace],
+        },
+        "properties": {},
+    }
+    resp = requests.post(
+        f"{catalog_uri}/v1/namespaces/{namespace}/views", json=payload, timeout=10
+    )
+    resp.raise_for_status()
+
+
+def _seed_catalog_with_table_and_view(catalog_uri: str) -> None:
+    catalog = RestCatalog(name="default", uri=catalog_uri)
+    catalog.create_namespace(VIEWS_NAMESPACE)
+    catalog.create_table(
+        (VIEWS_NAMESPACE, "events"),
+        schema=Schema(
+            NestedField(1, "event_id", LongType(), required=True),
+            NestedField(2, "event_type", StringType(), required=False),
+            NestedField(3, "event_ts", TimestampType(), required=False),
+        ),
+    )
+    _create_iceberg_view(catalog_uri, VIEWS_NAMESPACE, "events_summary")
 
 
 def spark_submit(file_path: str, args: str = "") -> None:
@@ -97,6 +156,31 @@ def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
             ignore_paths=PATHS_IN_GOLDEN_FILE_TO_IGNORE,
             output_path=tmp_path / "iceberg_mcps.json",
             golden_path=test_resources_dir / "iceberg_ingest_mcps_golden.json",
+        )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_iceberg_views_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
+
+    with docker_compose_runner(
+        test_resources_dir / "docker-compose.views.yml", "iceberg-views"
+    ) as docker_services:
+        wait_for_port(docker_services, "iceberg-rest-views", 8181, timeout=120)
+
+        _seed_catalog_with_table_and_view(VIEWS_CATALOG_URI)
+
+        # Run the metadata ingestion pipeline.
+        config_file = (test_resources_dir / "iceberg_views_to_file.yml").resolve()
+        run_datahub_cmd(
+            ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
+        )
+        # Verify the output.
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            ignore_paths=PATHS_IN_GOLDEN_FILE_TO_IGNORE,
+            output_path=tmp_path / "iceberg_views_mcps.json",
+            golden_path=test_resources_dir / "iceberg_views_mcps_golden.json",
         )
 
 
