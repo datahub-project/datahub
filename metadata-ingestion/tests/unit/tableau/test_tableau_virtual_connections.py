@@ -1026,3 +1026,263 @@ class TestTableauVCIntegration:
         assert isinstance(result, LineageResult)
         assert isinstance(result.upstream_tables, list)
         assert isinstance(result.fine_grained_lineages, list)
+
+
+class TestVCDataSurvivesFieldUpstreamRefetch:
+    """Tests that Virtual Connection data in upstreamColumns is preserved after
+    update_datasource_for_field_upstream re-fetches field data.
+
+    This is a regression test for the bug where datasource_upstream_fields_graphql_query
+    only fetched {__typename, id} for upstreamColumns.table, overwriting the richer
+    initial data that included table.name and ... on VirtualConnectionTable.
+    """
+
+    def setup_method(self, method):
+        self.config = TableauConfig.parse_obj(default_config)
+        self.ctx = PipelineContext(run_id="test")
+
+        with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
+            mock_site = mock.MagicMock(
+                spec=SiteItem, id="test-site-id", content_url="test-site"
+            )
+
+            self.tableau_source = TableauSiteSource(
+                config=self.config,
+                ctx=self.ctx,
+                platform="tableau",
+                site=mock_site,
+                server=mock.MagicMock(),
+                report=TableauSourceReport(),
+            )
+
+    def test_vc_refs_collected_after_field_upstream_update(self):
+        """Simulate the full flow: initial datasource fetch → field upstream re-fetch →
+        VC reference collection. Verifies that the re-fetched field data still contains
+        the VC table name and virtualConnection needed for lineage."""
+
+        # This simulates what datasource_upstream_fields_graphql_query returns
+        # AFTER the fix: it includes table.name and virtualConnection
+        field_upstream_response = [
+            {
+                c.ID: "field-1",
+                "upstreamFields": [
+                    {"name": "source_field", "datasource": {"id": "upstream-ds-1"}}
+                ],
+                c.UPSTREAM_COLUMNS: [
+                    {
+                        c.NAME: "customer_id",
+                        c.TABLE: {
+                            c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
+                            c.ID: "vc-table-abc",
+                            c.NAME: "Customers",
+                            "virtualConnection": {
+                                c.ID: "vc-001",
+                                c.NAME: "Sales_VC",
+                                "luid": "luid-001",
+                                "projectName": "Sales",
+                            },
+                        },
+                    }
+                ],
+            },
+            {
+                c.ID: "field-2",
+                "upstreamFields": [],
+                c.UPSTREAM_COLUMNS: [
+                    {
+                        c.NAME: "order_amount",
+                        c.TABLE: {
+                            c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
+                            c.ID: "vc-table-def",
+                            c.NAME: "Orders",
+                            "virtualConnection": {
+                                c.ID: "vc-001",
+                                c.NAME: "Sales_VC",
+                                "luid": "luid-001",
+                                "projectName": "Sales",
+                            },
+                        },
+                    }
+                ],
+            },
+        ]
+
+        # Simulate the initial embedded datasource response (before field upstream update)
+        datasource = {
+            c.ID: "embedded-ds-1",
+            c.NAME: "Embedded Sales DS",
+            c.FIELDS: [
+                {
+                    c.ID: "field-1",
+                    c.NAME: "customer_id",
+                    c.TYPE_NAME: "ColumnField",
+                    # Initial response has upstreamColumns but it will be overwritten
+                    c.UPSTREAM_COLUMNS: [
+                        {
+                            c.NAME: "customer_id",
+                            c.TABLE: {
+                                c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
+                                c.ID: "vc-table-abc",
+                                c.NAME: "Customers",
+                                "virtualConnection": {
+                                    c.ID: "vc-001",
+                                    c.NAME: "Sales_VC",
+                                    "luid": "luid-001",
+                                    "projectName": "Sales",
+                                },
+                            },
+                        }
+                    ],
+                },
+                {
+                    c.ID: "field-2",
+                    c.NAME: "order_amount",
+                    c.TYPE_NAME: "ColumnField",
+                    c.UPSTREAM_COLUMNS: [
+                        {
+                            c.NAME: "order_amount",
+                            c.TABLE: {
+                                c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
+                                c.ID: "vc-table-def",
+                                c.NAME: "Orders",
+                                "virtualConnection": {
+                                    c.ID: "vc-001",
+                                    c.NAME: "Sales_VC",
+                                    "luid": "luid-001",
+                                    "projectName": "Sales",
+                                },
+                            },
+                        }
+                    ],
+                },
+            ],
+        }
+
+        # Mock get_connection_objects to return the field upstream response
+        with mock.patch.object(
+            self.tableau_source, "get_connection_objects"
+        ) as mock_get:
+            mock_get.return_value = iter(field_upstream_response)
+
+            # This is what the connector does: re-fetch field upstreams
+            from datahub.ingestion.source.tableau.tableau_common import (
+                datasource_upstream_fields_graphql_query,
+            )
+
+            datasource = self.tableau_source.update_datasource_for_field_upstream(
+                datasource=datasource,
+                field_upstream_query=datasource_upstream_fields_graphql_query,
+                page_size=100,
+            )
+
+        # Verify the correct query was passed (guards against accidentally using
+        # a stripped-down query that omits VC fields)
+        call_kwargs = mock_get.call_args
+        assert call_kwargs is not None
+        assert "VirtualConnectionTable" in datasource_upstream_fields_graphql_query
+
+        # Now process VC refs — this should find the VC data after the update
+        self.tableau_source.vc_processor.process_datasource_for_vc_refs(
+            datasource, DatasourceType.EMBEDDED
+        )
+
+        # The key assertion: VC references should be found
+        assert (
+            "embedded-ds-1"
+            in self.tableau_source.vc_processor.datasource_vc_relationships
+        )
+
+        refs = self.tableau_source.vc_processor.datasource_vc_relationships[
+            "embedded-ds-1"
+        ]
+        assert len(refs) == 2
+
+        # Verify both VC table references were captured with full data
+        vc_table_ids = {r["vc_table_id"] for r in refs}
+        assert "vc-table-abc" in vc_table_ids
+        assert "vc-table-def" in vc_table_ids
+
+        # Verify vc_id was extracted from virtualConnection
+        for ref in refs:
+            assert ref["vc_id"] == "vc-001"
+            assert ref["vc_table_name"] in ("Customers", "Orders")
+
+    def test_vc_refs_lost_without_fix(self):
+        """Demonstrates what happens when the field upstream query returns
+        upstreamColumns WITHOUT table.name and virtualConnection — VC refs are lost.
+        This documents the pre-fix behavior as a regression guard."""
+
+        # Simulate the OLD (broken) field upstream response: only __typename + id
+        broken_field_upstream_response = [
+            {
+                c.ID: "field-1",
+                "upstreamFields": [],
+                c.UPSTREAM_COLUMNS: [
+                    {
+                        c.NAME: "customer_id",
+                        c.TABLE: {
+                            c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
+                            c.ID: "vc-table-abc",
+                            # name and virtualConnection MISSING — this is the bug
+                        },
+                    }
+                ],
+            },
+        ]
+
+        datasource = {
+            c.ID: "embedded-ds-broken",
+            c.NAME: "Broken DS",
+            c.FIELDS: [
+                {
+                    c.ID: "field-1",
+                    c.NAME: "customer_id",
+                    c.TYPE_NAME: "ColumnField",
+                    c.UPSTREAM_COLUMNS: [
+                        {
+                            c.NAME: "customer_id",
+                            c.TABLE: {
+                                c.TYPE_NAME: c.VIRTUAL_CONNECTION_TABLE,
+                                c.ID: "vc-table-abc",
+                                c.NAME: "Customers",
+                                "virtualConnection": {c.ID: "vc-001"},
+                            },
+                        }
+                    ],
+                },
+            ],
+        }
+
+        with mock.patch.object(
+            self.tableau_source, "get_connection_objects"
+        ) as mock_get:
+            mock_get.return_value = iter(broken_field_upstream_response)
+
+            from datahub.ingestion.source.tableau.tableau_common import (
+                datasource_upstream_fields_graphql_query,
+            )
+
+            datasource = self.tableau_source.update_datasource_for_field_upstream(
+                datasource=datasource,
+                field_upstream_query=datasource_upstream_fields_graphql_query,
+                page_size=100,
+            )
+
+        # After the overwrite with broken data, VC refs should NOT be found
+        # (table.name is missing, so the guard drops it)
+        self.tableau_source.vc_processor.process_datasource_for_vc_refs(
+            datasource, DatasourceType.EMBEDDED
+        )
+
+        # With broken upstream response, no VC relationships should be collected
+        # because table.name is None and the extraction logs a warning and continues
+        refs = self.tableau_source.vc_processor.datasource_vc_relationships.get(
+            "embedded-ds-broken", []
+        )
+        # The vc_table_id IS still collected (for the lookup step), but without
+        # table.name the reference has vc_table_name=None — get_upstream_vc_tables
+        # will skip it unless lookup_vc_ids_from_table_ids resolves the name later.
+        # The key point: no complete relationship with vc_id is captured inline.
+        assert len(refs) > 0, "Expected at least one incomplete ref to verify broken behavior"
+        for ref in refs:
+            assert ref.get("vc_table_name") is None or ref.get("vc_id") is None
