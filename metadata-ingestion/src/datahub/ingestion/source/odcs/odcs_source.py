@@ -1,6 +1,5 @@
 import contextlib
 import glob
-import itertools
 import json
 import logging
 import os
@@ -39,9 +38,6 @@ from datahub.ingestion.source.common.object_store_files import (
 )
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 from datahub.ingestion.source.odcs.odcs_config import ODCS_PLATFORM, ODCSSourceConfig
-from datahub.ingestion.source.odcs.odcs_constants import (
-    DATA_PRODUCT_NAME_SEARCH_LIMIT,
-)
 from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
     odcs_to_assertion_mcps,
@@ -956,10 +952,14 @@ class ODCSSource(StatefulIngestionSourceBase):
                     assertion_urns,
                 )
             if self.config.emit_data_product_association:
-                # Prefer the bound physical dataset (what consumers query);
-                # fall back to the logical one when the contract is unbound.
+                # Use the intended physical target (binding.physical_urn), not the
+                # verification-gated physical_urn. Membership is additive and never
+                # stale-removed, so a target that flips between runs (logical on a
+                # verify miss, physical once it resolves) would leave the product
+                # with both ports. Fall back to logical only when there is no
+                # physical binding at all.
                 self._record_data_product_asset(
-                    contract, physical_urn or binding.logical_urn, source_uri
+                    contract, binding.physical_urn or binding.logical_urn, source_uri
                 )
 
     def _emit_logical_dataset(
@@ -1338,11 +1338,14 @@ class ODCSSource(StatefulIngestionSourceBase):
         wanted = name.casefold()
         matches: List[str] = []
         try:
-            candidates = itertools.islice(
-                graph.get_urns_by_filter(
-                    entity_types=[DataProductUrn.ENTITY_TYPE], query=name
-                ),
-                DATA_PRODUCT_NAME_SEARCH_LIMIT,
+            # Exact server-side name match (EQUAL). A relevance-ranked full-text
+            # `query=name` searches every field and, once capped, can rank the
+            # true `dataProductProperties.name` match past the cap and miss it.
+            candidates = graph.get_urns_by_filter(
+                entity_types=[DataProductUrn.ENTITY_TYPE],
+                extraFilters=[
+                    {"field": "name", "condition": "EQUAL", "values": [name]}
+                ],
             )
             for urn in candidates:
                 props = graph.get_aspect(urn, DataProductPropertiesClass)

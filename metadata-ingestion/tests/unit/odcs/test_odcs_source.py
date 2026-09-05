@@ -738,6 +738,35 @@ def test_data_product_output_port_falls_back_to_logical_dataset(
     ]
 
 
+def test_data_product_output_port_is_physical_even_when_verification_misses(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A verification miss must not switch the output port to the logical dataset.
+    Membership is additive and never stale-removed, so recording the logical urn
+    now and the physical urn on a later successful run would leave the product with
+    both ports; the intended physical target is used regardless of verification."""
+    physical = "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t,PROD)"
+    product = "urn:li:dataProduct:orders_product"
+    graph = MagicMock()
+    # The product exists; the derived physical table does not (a verification miss).
+    graph.exists.side_effect = lambda urn: urn == product
+    graph.get_aspect.return_value = None
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_DATA_PRODUCT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        graph=graph,
+        path=str(contract_file),
+        emit_data_product_association=True,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    # Verification missed, so no logicalParent link was written onto the table...
+    assert not _aspects_of(workunits, LogicalParentClass)
+    # ...but the output port is still the physical target, not the logical one.
+    assert _output_ports(workunits, product) == [physical]
+
+
 def test_data_product_output_ports_deduped_across_contracts(
     tmp_path: pathlib.Path,
 ) -> None:
