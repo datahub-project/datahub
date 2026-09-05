@@ -2,7 +2,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from unittest.mock import MagicMock, Mock, call, patch
 
 import boto3
@@ -29,6 +29,7 @@ from datahub.ingestion.source.s3.source import (
     Folder,
     S3Source,
     TableData,
+    _resolve_format_extension,
     partitioned_folder_comparator,
 )
 from datahub.metadata.schema_classes import ContainerPropertiesClass
@@ -1105,3 +1106,65 @@ def test_data_lake_s3_calls(seeded_local_system_bucket, calls_test_tuple):
         calls.append(c)
 
     assert calls == expected_calls
+@pytest.mark.parametrize(
+    "full_path,enable_compression,default_extension,expected",
+    [
+        # Plain supported extension is kept as-is.
+        pytest.param("s3://b/data.json", True, None, ".json", id="plain_json"),
+        pytest.param("s3://b/data.parquet", True, None, ".parquet", id="plain_parquet"),
+        # Compression with a supported inner extension is unwrapped.
+        pytest.param("s3://b/data.json.gz", True, None, ".json", id="json_gz"),
+        pytest.param("s3://b/data.parquet.gz", True, None, ".parquet", id="parquet_gz"),
+        # Compression-only files fall through to default_extension.
+        pytest.param(
+            "s3://b/data.gz", True, "json", ".json", id="gz_only_with_default"
+        ),
+        pytest.param("s3://b/data.gz", True, None, "", id="gz_only_no_default"),
+        # File names with dots in the stem must not produce a fake extension.
+        pytest.param(
+            "s3://b/foo.bar.baz-2026-05-27-11-abc.gz",
+            True,
+            "json",
+            ".json",
+            id="dotted_stem_compressed_falls_back_to_default",
+        ),
+        pytest.param(
+            "s3://b/foo.bar.baz-2026-05-27-11-abc",
+            True,
+            "json",
+            ".json",
+            id="dotted_stem_uncompressed_falls_back_to_default",
+        ),
+        # No default_extension and a fake suffix -> empty (no inferrer).
+        pytest.param(
+            "s3://b/foo.bar.baz-abc.gz",
+            True,
+            None,
+            "",
+            id="dotted_stem_compressed_no_default",
+        ),
+        # enable_compression=False keeps the .gz suffix as the apparent extension,
+        # which is not a supported file type, so it falls back to default_extension.
+        pytest.param(
+            "s3://b/data.json.gz",
+            False,
+            "json",
+            ".json",
+            id="compression_disabled_falls_back",
+        ),
+    ],
+)
+def test_resolve_format_extension(
+    full_path: str,
+    enable_compression: bool,
+    default_extension: Optional[str],
+    expected: str,
+) -> None:
+    assert (
+        _resolve_format_extension(
+            full_path,
+            enable_compression=enable_compression,
+            default_extension=default_extension,
+        )
+        == expected
+    )
