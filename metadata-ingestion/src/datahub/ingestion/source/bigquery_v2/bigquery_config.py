@@ -105,10 +105,11 @@ class BigQueryProfilingConfig(GEProfilingConfig):
     )
 
     skip_stale_tables: bool = Field(
-        default=True,
-        description="Skip profiling for tables not modified within `staleness_threshold_days` "
+        default=False,
+        description="Opt-in: skip profiling for tables not modified within `staleness_threshold_days` "
         "(default 365). Uses last_altered (BigQuery's last_modified_time) for both regular and "
-        "external tables. This helps avoid profiling abandoned or archived tables.",
+        "external tables. This helps avoid profiling abandoned or archived tables. Disabled by "
+        "default; set to true to enable.",
     )
 
     staleness_threshold_days: PositiveInt = Field(
@@ -119,11 +120,12 @@ class BigQueryProfilingConfig(GEProfilingConfig):
     )
 
     partition_datetime_window_days: Optional[NonNegativeInt] = Field(
-        default=30,
-        description="Limit profiling to partitions within this many days from the selected partition date. "
-        "For example, if set to 30 and the selected partition is '2025-08-15', only partitions from "
-        "'2025-07-16' to '2025-08-15' will be included in profiling. Set to None to disable date windowing. "
-        "This helps focus profiling on recent data patterns and improves performance.",
+        default=None,
+        description="Opt-in: limit profiling to partitions within this many days from the selected partition "
+        "date. For example, if set to 30 and the selected partition is '2025-08-15', only partitions from "
+        "'2025-07-16' to '2025-08-15' will be included in profiling. Defaults to None (windowing disabled); "
+        "set to a number of days to enable. This helps focus profiling on recent data patterns and improves "
+        "performance.",
     )
 
     @field_validator("fallback_partition_values", mode="before")

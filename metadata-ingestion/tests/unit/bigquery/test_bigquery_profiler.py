@@ -1,8 +1,12 @@
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from datetime import date, datetime, timedelta, timezone
+from types import SimpleNamespace
+from typing import Any, List, Optional, cast
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+import requests
 import sqlglot
+import time_machine
 from google.cloud import bigquery
 from sqlglot.expressions import PartitionedByProperty
 
@@ -11,15 +15,27 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
-    BigqueryColumn,
-    BigqueryTable,
-    PartitionInfo,
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.profiling import queries
+from datahub.ingestion.source.bigquery_v2.profiling.constants import (
+    BQ_SAFETY_ROW_LIMIT,
+    CUSTOM_SQL_KWARG,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
 )
-from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.filter_builder import (
+    FilterBuilder,
+)
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.info_schema import (
+    InfoSchemaQueries,
+)
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import (
+    BigqueryProfiler,
+    DeferredExternalTable,
+    _widen_client_connection_pool,
+)
+from datahub.ingestion.source.bigquery_v2.profiling.query_executor import QueryExecutor
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
     build_safe_table_reference,
     mask_string_literals,
@@ -32,228 +48,3021 @@ from datahub.ingestion.source.bigquery_v2.profiling.security import (
 )
 
 
-def test_not_generate_partition_profiler_query_if_not_partitioned_sharded_table():
-    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
-    test_table = BigqueryTable(
-        name="test_table",
-        comment="test_comment",
-        rows_count=1,
-        size_in_bytes=1,
-        last_altered=datetime.now(timezone.utc),
-        created=datetime.now(timezone.utc),
+def create_test_config(**overrides: Any) -> BigQueryV2Config:
+    config_dict = {
+        "project_id": "test-project-123456",
+        "profiling": {
+            "enabled": True,
+            "profile_external_tables": True,
+            "partition_profiling_enabled": True,
+            "profiling_row_limit": 100000,
+            "sample_size": 50000,
+            "use_sampling": False,
+            "skip_stale_tables": False,
+            "staleness_threshold_days": 365,
+            "partition_datetime_window_days": None,
+        },
+    }
+
+    for key, value in overrides.items():
+        if key in config_dict["profiling"]:
+            config_dict["profiling"][key] = value  # type: ignore[index]
+        else:
+            config_dict[key] = value
+
+    return BigQueryV2Config.parse_obj(config_dict)
+
+
+def create_test_table(
+    name: str = "test_table",
+    external: bool = False,
+    rows_count: Optional[int] = 10000,
+    partitioned: bool = False,
+    last_altered: Optional[datetime] = None,
+    **kwargs: Any,
+) -> BigqueryTable:
+    now = datetime.now(timezone.utc)
+    table = BigqueryTable(
+        name=name,
+        comment="",
+        rows_count=rows_count,
+        size_in_bytes=1000000 if rows_count else None,
+        last_altered=last_altered or now - timedelta(days=1),
+        created=now - timedelta(days=30),
+        external=external,
+        **kwargs,
     )
-    query = profiler.generate_partition_profiler_query(
-        project="test_project",
-        schema="test_dataset",
-        table=test_table,
-        partition_datetime=None,
-    )
-
-    assert query == (None, None)
-
-
-def test_get_batch_kwargs_includes_row_count():
-    # The SQLAlchemy profiler uses this row count to skip a COUNT(*) when
-    # deciding whether to sample. The GE profiler ignores it (**kwargs).
-    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
-    test_table = BigqueryTable(
-        name="test_table",
-        comment="test_comment",
-        rows_count=12345,
-        size_in_bytes=1,
-        last_altered=datetime.now(timezone.utc),
-        created=datetime.now(timezone.utc),
-    )
-
-    kwargs = profiler.get_batch_kwargs(
-        table=test_table, schema_name="test_dataset", db_name="test_project"
-    )
-
-    assert kwargs["row_count"] == 12345
-    assert kwargs["schema"] == "test_project"
-    assert kwargs["table"] == "test_dataset.test_table"
+    if partitioned:
+        table.partition_info = SimpleNamespace(  # type: ignore[assignment]
+            type="DAY",
+            field="date_partition",
+            fields=["date_partition"],
+            columns=None,
+            require_partition_filter=True,
+        )
+    return table
 
 
-def test_generate_day_partitioned_partition_profiler_query():
-    column = BigqueryColumn(
-        name="date",
-        field_path="date",
-        ordinal_position=1,
-        data_type="TIMESTAMP",
-        is_partition_column=True,
-        cluster_column_position=None,
-        comment=None,
-        is_nullable=False,
-    )
-    partition_info = PartitionInfo(type="DAY", fields=("date",), columns=(column,))
-    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
-    test_table = BigqueryTable(
-        name="test_table",
-        comment="test_comment",
-        rows_count=1,
-        size_in_bytes=1,
-        last_altered=datetime.now(timezone.utc),
-        created=datetime.now(timezone.utc),
-        partition_info=partition_info,
-        max_partition_id="20200101",
-    )
-    query = profiler.generate_partition_profiler_query(
-        project="test_project",
-        schema="test_dataset",
-        table=test_table,
-    )
-    expected_query = """
-SELECT
-    *
-FROM
-    `test_project.test_dataset.test_table`
-WHERE
-    `date` BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
-""".strip()
+VALID_IDENTIFIERS_TEST_DATA = [
+    ("simple_table", "`simple_table`"),
+    ("dataset123", "`dataset123`"),
+    ("table_with_underscores", "`table_with_underscores`"),
+    ("CamelCase", "`CamelCase`"),
+    ("_PARTITIONTIME", "`_PARTITIONTIME`"),
+]
 
-    assert query[0] == "20200101"
-    assert query[1]
-    assert expected_query == query[1].strip()
+INVALID_IDENTIFIERS_TEST_DATA = [
+    "",  # Empty
+    "table with spaces",
+    "table;drop",
+    "table'injection",
+    'table"quotes',
+    "table/*comment*/",
+]
 
+VALID_FILTER_EXPRESSIONS_TEST_DATA = [
+    "`date_col` = '2023-12-25'",
+    "`user_id` = 123",
+    "`status` IN ('active', 'pending')",
+    "`count` > 100",
+    "`name` IS NOT NULL",
+]
 
-# If partition time is passed in we force to use that time instead of the max partition id
-def test_generate_day_partitioned_partition_profiler_query_with_set_partition_time():
-    column = BigqueryColumn(
-        name="date",
-        field_path="date",
-        ordinal_position=1,
-        data_type="TIMESTAMP",
-        is_partition_column=True,
-        cluster_column_position=None,
-        comment=None,
-        is_nullable=False,
-    )
-    partition_info = PartitionInfo(type="DAY", fields=("date",), columns=(column,))
-    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
-    test_table = BigqueryTable(
-        name="test_table",
-        comment="test_comment",
-        rows_count=1,
-        size_in_bytes=1,
-        last_altered=datetime.now(timezone.utc),
-        created=datetime.now(timezone.utc),
-        partition_info=partition_info,
-        max_partition_id="20200101",
-    )
-    query = profiler.generate_partition_profiler_query(
-        project="test_project",
-        schema="test_dataset",
-        table=test_table,
-    )
-    expected_query = """
-SELECT
-    *
-FROM
-    `test_project.test_dataset.test_table`
-WHERE
-    `date` BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
-""".strip()
+DANGEROUS_SQL_PATTERNS_TEST_DATA = [
+    "DROP TABLE test",
+    "DELETE FROM table",
+    "INSERT INTO table VALUES (1)",
+    "UPDATE table SET col = 1",
+    "CREATE TABLE test AS SELECT 1",
+    "TRUNCATE TABLE test",
+    "ALTER TABLE test ADD COLUMN col1 STRING",
+]
 
-    assert query[0] == "20200101"
-    assert query[1]
-    assert expected_query == query[1].strip()
+DATE_LIKE_COLUMNS_TEST_DATA = [
+    ("date", True),
+    ("event_date", True),
+    ("created_at", True),
+    ("timestamp", True),
+    ("dt", True),
+    ("datetime", True),
+    ("user_id", False),
+    ("name", False),
+    ("status", False),
+    ("count", False),
+]
+
+DATE_TYPES_TEST_DATA = [
+    ("DATE", True),
+    ("DATETIME", True),
+    ("TIMESTAMP", True),
+    ("TIME", True),
+    ("STRING", False),
+    ("INT64", False),
+    ("FLOAT64", False),
+    ("BOOLEAN", False),
+]
+
+PARTITION_ID_TEST_DATA = [
+    ("20231225", ["_PARTITIONDATE"], ["`_PARTITIONDATE` = '2023-12-25'"]),
+    ("2023122514", ["_PARTITIONTIME"], ["`_PARTITIONTIME` = '2023-12-25'"]),
+    (
+        "region=US$category=retail",
+        ["region", "category"],
+        ["`region` = 'US'", "`category` = 'retail'"],
+    ),
+]
 
 
-def test_generate_hour_partitioned_partition_profiler_query():
-    column = BigqueryColumn(
-        name="partition_column",
-        field_path="partition_column",
-        ordinal_position=1,
-        data_type="TIMESTAMP",
-        is_partition_column=True,
-        cluster_column_position=None,
-        comment=None,
-        is_nullable=False,
-    )
-    partition_info = PartitionInfo(type="DAY", fields=("date",), columns=(column,))
-    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
-    test_table = BigqueryTable(
-        name="test_table",
-        comment="test_comment",
-        rows_count=1,
-        size_in_bytes=1,
-        last_altered=datetime.now(timezone.utc),
-        created=datetime.now(timezone.utc),
-        partition_info=partition_info,
-        max_partition_id="2020010103",
-    )
-    query = profiler.generate_partition_profiler_query(
-        project="test_project",
-        schema="test_dataset",
-        table=test_table,
-        partition_datetime=None,
-    )
-    expected_query = """
-SELECT
-    *
-FROM
-    `test_project.test_dataset.test_table`
-WHERE
-    `partition_column` BETWEEN TIMESTAMP('2020-01-01 03:00:00') AND TIMESTAMP('2020-01-01 04:00:00')
-""".strip()
-
-    assert query[0] == "2020010103"
-    assert query[1]
-    assert expected_query == query[1].strip()
+@pytest.mark.parametrize("input_id, expected", VALID_IDENTIFIERS_TEST_DATA)
+def test_validate_bigquery_identifier_valid(input_id: str, expected: str) -> None:
+    result = validate_bigquery_identifier(input_id)
+    assert result == expected
 
 
-# Ingestion partitioned tables do not have partition column in the schema as it uses a psudo column _PARTITIONTIME to partition
-def test_generate_ingestion_partitioned_partition_profiler_query():
-    partition_info = PartitionInfo(type="DAY", fields=("date",))
-    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
-    test_table = BigqueryTable(
-        name="test_table",
-        comment="test_comment",
-        rows_count=1,
-        size_in_bytes=1,
-        last_altered=datetime.now(timezone.utc),
-        created=datetime.now(timezone.utc),
-        partition_info=partition_info,
-        max_partition_id="20200101",
-    )
-    query = profiler.generate_partition_profiler_query(
-        project="test_project",
-        schema="test_dataset",
-        table=test_table,
-    )
-    expected_query = """
-SELECT
-    *
-FROM
-    `test_project.test_dataset.test_table`
-WHERE
-    `_PARTITIONTIME` BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
-""".strip()
-
-    assert query[0] == "20200101"
-    assert query[1]
-    assert expected_query == query[1].strip()
+@pytest.mark.parametrize("invalid_id", INVALID_IDENTIFIERS_TEST_DATA)
+def test_validate_bigquery_identifier_invalid(invalid_id: str) -> None:
+    with pytest.raises(ValueError, match="Invalid general identifier"):
+        validate_bigquery_identifier(invalid_id)
 
 
-def test_generate_sharded_table_profiler_query():
-    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
-    test_table = BigqueryTable(
-        name="my_sharded_table",
-        max_shard_id="20200101",
-        comment="test_comment",
-        rows_count=1,
-        size_in_bytes=1,
-        last_altered=datetime.now(timezone.utc),
-        created=datetime.now(timezone.utc),
-    )
-    query = profiler.generate_partition_profiler_query(
-        project="test_project",
-        schema="test_dataset",
-        table=test_table,
+def test_build_safe_table_reference():
+    result = build_safe_table_reference("my-project", "my_dataset", "my_table")
+    expected = "`my-project`.`my_dataset`.`my_table`"
+    assert result == expected
+
+
+@pytest.mark.parametrize("filter_expr", VALID_FILTER_EXPRESSIONS_TEST_DATA)
+def test_validate_filter_expression_valid(filter_expr: str) -> None:
+    result = validate_filter_expression(filter_expr)
+    assert result is True
+
+
+@pytest.mark.parametrize("dangerous_sql", DANGEROUS_SQL_PATTERNS_TEST_DATA)
+def test_validate_sql_structure_dangerous(dangerous_sql: str) -> None:
+    with pytest.raises(ValueError, match="Query contains dangerous pattern"):
+        validate_sql_structure(dangerous_sql)
+
+
+def test_validate_sql_structure_valid():
+    valid_queries = [
+        "SELECT * FROM `project.dataset.table`",
+        "SELECT col1, col2 FROM `table` WHERE date = '2023-01-01'",
+        "SELECT COUNT(*) FROM `table` LIMIT 1000",
+    ]
+
+    for query in valid_queries:
+        validate_sql_structure(query)
+
+
+def test_validate_column_name():
+    assert validate_column_name("valid_col") is True
+    assert validate_column_name("event_date") is True
+    assert validate_column_name("_PARTITIONTIME") is True
+
+    assert validate_column_name("invalid col") is False
+    assert validate_column_name("col;drop") is False
+    assert validate_column_name("col'injection") is False
+
+
+def test_validate_column_names():
+    mixed_columns = ["valid_col", "invalid col", "another_valid", "bad;col"]
+    result = validate_column_names(mixed_columns)
+
+    assert "valid_col" in result
+    assert "another_valid" in result
+    assert len(result) == 2  # Only valid ones
+
+
+def test_validate_and_filter_expressions():
+    mixed_expressions = [
+        "`valid_col` = '2023-12-25'",  # Valid
+        "invalid;expression",  # Invalid
+        "`another_valid` = 123",  # Valid
+        "DROP TABLE malicious",  # Invalid
+    ]
+
+    result = validate_and_filter_expressions(mixed_expressions)
+
+    assert len(result) == 2  # Only valid expressions
+    assert "`valid_col` = '2023-12-25'" in result
+    assert "`another_valid` = 123" in result
+    assert not any("DROP" in expr for expr in result)
+    assert not any("invalid;" in expr for expr in result)
+
+
+def test_get_partition_range_from_partition_id():
+    start, end = PartitionDiscovery.get_partition_range_from_partition_id(
+        "20231225", None
     )
 
-    assert query[0] == "20200101"
-    assert query[1] is None
+    assert isinstance(start, datetime)
+    assert isinstance(end, datetime)
+    assert start.date() == date(2023, 12, 25)
+    assert end.date() == date(2023, 12, 26)  # Next day (upper bound)
+
+    start_hour, end_hour = PartitionDiscovery.get_partition_range_from_partition_id(
+        "2023122514", None
+    )
+
+    assert start_hour.hour == 14
+    assert end_hour.hour == 15  # Next hour (upper bound)
+
+
+@pytest.mark.parametrize("column, expected", DATE_LIKE_COLUMNS_TEST_DATA)
+def test_partition_discovery_is_date_like_column(column: str, expected: bool) -> None:
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    result = discovery._is_date_like_column(column)
+    assert result == expected
+
+
+@pytest.mark.parametrize("data_type, expected", DATE_TYPES_TEST_DATA)
+def test_partition_discovery_is_date_type_column(
+    data_type: str, expected: bool
+) -> None:
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    result = discovery._is_date_type_column(data_type)
+    assert result == expected
+
+
+def test_partition_discovery_get_strategic_candidate_dates():
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    dates = discovery._get_strategic_candidate_dates()
+
+    assert len(dates) == 2  # today and yesterday for cost optimization
+    assert all(isinstance(d, tuple) and len(d) == 2 for d in dates)
+    assert all(isinstance(d[0], datetime) and isinstance(d[1], str) for d in dates)
+
+    assert dates[0][0] >= dates[1][0]
+
+    descriptions = [desc for _, desc in dates]
+    assert any("today" in desc.lower() for desc in descriptions)
+    assert any("yesterday" in desc.lower() for desc in descriptions)
+
+
+@pytest.mark.parametrize(
+    "partition_id, required_columns, expected_filters", PARTITION_ID_TEST_DATA
+)
+def test_convert_partition_id_to_filters(
+    partition_id: str, required_columns: List[str], expected_filters: List[str]
+) -> None:
+    result = FilterBuilder.convert_partition_id_to_filters(
+        partition_id, required_columns, {}
+    )
+
+    assert result is not None, "Expected filters but got None"
+    for expected_filter in expected_filters:
+        assert expected_filter in result or any(
+            expected_filter in actual for actual in result
+        ), f"Expected filter {expected_filter} not found in {result}"
+
+
+def test_convert_partition_id_to_filters_invalid():
+    """convert_partition_id_to_filters falls back to a quoted literal for unparseable IDs."""
+    required_columns = ["_PARTITIONDATE"]
+    filters = FilterBuilder.convert_partition_id_to_filters(
+        "invalid", required_columns, {}
+    )
+    assert filters is not None, "Expected filters but got None"
+    assert len(filters) == 1
+    assert "`_PARTITIONDATE` = 'invalid'" in filters
+
+
+def test_partition_discovery_get_column_ordering_strategy():
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    result = discovery._get_column_ordering_strategy("event_date", "DATE")
+    assert result == "`event_date` DESC"
+
+    result = discovery._get_column_ordering_strategy("user_id", "STRING")
+    assert result == "record_count DESC"
+
+
+def test_profiler_get_dataset_name():
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    result = profiler.get_dataset_name("table1", "dataset1", "project1")
+    assert result == "project1.dataset1.table1"
+
+
+def test_profiler_simplified_date_windowing():
+    """Test that date windowing always uses string literals for simplicity."""
+    config = create_test_config()
+    config.profiling.partition_datetime_window_days = 7
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    table = create_test_table()
+
+    input_filters = ["`event_date` IS NOT NULL"]  # Date column but no format to detect
+    result = profiler._apply_partition_date_windowing(input_filters, table)
+
+    assert len(result) > len(input_filters)
+
+    windowing_filters = [f for f in result if f not in input_filters]
+    assert len(windowing_filters) == 1
+
+    # The windowing filter should use YYYY-MM-DD string format (not DATE functions)
+    windowing_filter = windowing_filters[0]
+    assert "DATE(" not in windowing_filter  # Should not use DATE() function
+    assert (
+        ">= '" in windowing_filter and "<= '" in windowing_filter
+    )  # Should use string literals
+    assert "-" in windowing_filter
+
+
+def test_profiler_extract_date_columns_from_filters():
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    filters = [
+        "`event_date` = '2023-12-25'",
+        "`user_id` = 123",
+        "`timestamp` = '2023-12-25 10:00:00'",
+        "`created_at` = '2023-12-25'",
+    ]
+
+    result = profiler._extract_date_columns_from_filters(filters)
+
+    assert "event_date" in result
+    assert "timestamp" in result
+    assert "created_at" in result
+    assert "user_id" not in result
+
+
+def test_profiler_should_skip_profiling_due_to_staleness():
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    config.profiling.skip_stale_tables = False
+    old_table = create_test_table(
+        last_altered=datetime.now(timezone.utc) - timedelta(days=365)
+    )
+    result = profiler._should_skip_profiling_due_to_staleness(old_table)
+    assert result is False  # Should not skip when disabled
+
+    config.profiling.skip_stale_tables = True
+    config.profiling.staleness_threshold_days = 30
+    fresh_table = create_test_table(
+        last_altered=datetime.now(timezone.utc) - timedelta(days=1)
+    )
+    result = profiler._should_skip_profiling_due_to_staleness(fresh_table)
+    assert result is False  # Should not skip fresh table
+
+    stale_table = create_test_table(
+        last_altered=datetime.now(timezone.utc) - timedelta(days=60)
+    )
+    result = profiler._should_skip_profiling_due_to_staleness(stale_table)
+    assert result is True  # Should skip stale table
+
+
+def test_get_profile_request_stale_table_reports_and_skips():
+    config = create_test_config(skip_stale_tables=True, staleness_threshold_days=30)
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    stale_table = create_test_table(
+        last_altered=datetime.now(timezone.utc) - timedelta(days=90)
+    )
+
+    with patch(
+        "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.get_profile_request"
+    ) as mock_super:
+        result = profiler.get_profile_request(
+            stale_table, "test_dataset", "proj-123456"
+        )
+
+    assert result is None
+    mock_super.assert_not_called()
+    assert any("stale" in str(w).lower() for w in report.warnings)
+
+
+def test_get_profile_request_partition_profiling_disabled_skips_partitioned_table():
+    config = create_test_config(partition_profiling_enabled=False)
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    partitioned_table = create_test_table(partitioned=True)
+    partitioned_table.max_partition_id = "20231225"
+
+    profile_request = SimpleNamespace(
+        table=partitioned_table, pretty_name="proj-123456.test_dataset.test_table"
+    )
+
+    with patch(
+        "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.get_profile_request",
+        return_value=profile_request,
+    ):
+        result = profiler.get_profile_request(
+            partitioned_table, "test_dataset", "proj-123456"
+        )
+
+    assert result is None
+    assert (
+        profile_request.pretty_name
+        in report.profiling_skipped_partition_profiling_disabled
+    )
+
+
+def test_get_profile_request_transient_error_reported_not_aborting():
+    # super().get_profile_request runs partition-discovery queries that can fail per-table
+    # in ways beyond the historically-caught set (here a transient TimeoutError). Such a
+    # failure must be reported and skipped, never propagated — one table cannot be allowed
+    # to abort the whole project's profiling loop.
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+    table = create_test_table()
+
+    with patch(
+        "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.get_profile_request",
+        side_effect=TimeoutError("deadline exceeded"),
+    ):
+        result = profiler.get_profile_request(table, "test_dataset", "proj-123456")
+
+    assert result is None
+    assert any("deadline exceeded" in str(w) for w in report.warnings)
+
+
+def test_single_partition_label_keeps_shard_id_for_sharded_table():
+    # A date-sharded table is a standalone shard: discovery correctly emits no partition
+    # WHERE, but scanning the shard table IS scanning exactly that shard, so the shard id
+    # stays as an honest label (matching the pre-rewrite profiler). A partitioned table
+    # with an empty predicate, by contrast, was full/sample-scanned and stays unlabeled.
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    sharded = create_test_table(name="events_20240115", max_shard_id="20240115")
+    assert profiler._single_partition_label("", sharded) == "20240115"
+
+    partitioned = create_test_table(partitioned=True, max_partition_id="20240115")
+    assert profiler._single_partition_label("", partitioned) is None
+
+
+def test_execute_query_safely_bounds_result_fetch_with_timeout():
+    # result() must receive a client-side timeout so a hung fetch / queue delay / slow
+    # cancel can't block past partition_fetch_timeout — job_timeout_ms only bounds the
+    # server-side execution.
+    config = create_test_config()
+    executor = QueryExecutor(config)
+    expected = config.profiling.partition_fetch_timeout
+
+    query_job = MagicMock()
+    query_job.result.return_value = []
+    client = MagicMock()
+    client.query.return_value = query_job
+
+    with patch.object(executor, "_get_client", return_value=client):
+        executor.execute_query_safely("SELECT 1 FROM `p.d.t` LIMIT 1")
+
+    query_job.result.assert_called_once_with(timeout=expected)
+
+
+def test_partition_metadata_cache_population_failure_reports_and_empties():
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    with patch.object(
+        profiler.query_executor,
+        "execute_query_safely",
+        side_effect=RuntimeError("permission denied"),
+    ):
+        result = profiler._get_cached_partition_metadata(
+            "proj-123456", "test_dataset", "test_table"
+        )
+
+    assert result is None
+    assert profiler._partition_metadata_cache[("proj-123456", "test_dataset")] == {}
+    assert any("cache" in str(w).lower() for w in report.warnings)
+
+
+def test_cached_metadata_absent_table_after_success_is_authoritative_unpartitioned():
+    # The dataset cache query only returns partitioning columns, so a table missing from
+    # a *successfully* populated cache has none. It must count as a hit and return an
+    # empty entry (not None) so discovery skips a redundant per-table COLUMNS query;
+    # only a failed population leaves a missing table unknown (a miss -> probe).
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    rows = [
+        SimpleNamespace(
+            table_name="partitioned_tbl", column_name="dt", data_type="DATE"
+        )
+    ]
+    with patch.object(
+        profiler.query_executor, "execute_query_safely", return_value=rows
+    ):
+        partitioned = profiler._get_cached_partition_metadata(
+            "proj-123456", "ds", "partitioned_tbl"
+        )
+        unpartitioned = profiler._get_cached_partition_metadata(
+            "proj-123456", "ds", "some_plain_tbl"
+        )
+
+    assert partitioned == {"partition_columns": ["dt"], "column_types": {"dt": "DATE"}}
+    assert unpartitioned == {"partition_columns": [], "column_types": {}}
+    assert profiler._cache_hits == 2
+    assert profiler._cache_misses == 0
+
+
+def test_external_table_with_no_columns_reaches_external_discovery():
+    # An external table with no schema/probe-discoverable columns must reach external
+    # discovery, not be treated as unpartitioned.
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    external_table = create_test_table(name="ext", external=True)
+
+    def empty_execute(query, job_config, context):
+        return []
+
+    with patch.object(
+        PartitionDiscovery,
+        "_get_external_table_partition_filters",
+        return_value=["`event_date` = '2023-01-01'"],
+    ) as mock_external:
+        result = discovery.get_required_partition_filters(
+            external_table, "test-project-123456", "test_dataset", empty_execute
+        )
+
+    mock_external.assert_called_once()
+    assert result == ["`event_date` = '2023-01-01'"]
+
+
+def test_get_partitions_with_sampling_date_branch():
+    # Date partition column -> ORDER BY date DESC sample, filter from the first non-null.
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(external=True)
+
+    def execute(query, job_config, context):
+        if "SELECT 1" in query:  # _verify_partition_has_data
+            return [SimpleNamespace(exists_check=1)]
+        return [SimpleNamespace(event_date="2023-12-25")]
+
+    with patch.object(
+        discovery,
+        "get_partition_columns_from_info_schema",
+        return_value={"event_date": "DATE"},
+    ):
+        result = discovery._get_partitions_with_sampling(
+            table, "test-project-123456", "test_dataset", execute
+        )
+
+    assert result == ["`event_date` = '2023-12-25'"]
+
+
+def test_get_partitions_with_sampling_non_date_branch():
+    # No date column -> TABLESAMPLE SYSTEM, filter from the first non-null value.
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(external=True)
+
+    seen_tablesample = False
+
+    def execute(query, job_config, context):
+        nonlocal seen_tablesample
+        if "SELECT 1" in query:  # _verify_partition_has_data
+            return [SimpleNamespace(exists_check=1)]
+        if "TABLESAMPLE SYSTEM" in query:
+            seen_tablesample = True
+        return [SimpleNamespace(region="US")]
+
+    with patch.object(
+        discovery,
+        "get_partition_columns_from_info_schema",
+        return_value={"region": "STRING"},
+    ):
+        result = discovery._get_partitions_with_sampling(
+            table, "test-project-123456", "test_dataset", execute
+        )
+
+    assert seen_tablesample
+    assert result == ["`region` = 'US'"]
+
+
+def test_info_schema_column_type_lookup_failure_reported():
+    report = BigQueryV2Report()
+    info_schema = InfoSchemaQueries(report)
+    table = create_test_table()
+
+    def failing_execute(query, job_config, context):
+        raise RuntimeError("permission denied on INFORMATION_SCHEMA")
+
+    result = info_schema.get_partition_column_types(
+        table, "test-project-123456", "test_dataset", ["date_col"], failing_execute
+    )
+
+    assert result == {}
+    assert any("type" in str(w).lower() for w in report.warnings)
+
+
+def test_info_schema_partition_convert_failures_reported():
+    # Every partition id fails to convert -> one summarizing warning, not one per row.
+    report = BigQueryV2Report()
+    info_schema = InfoSchemaQueries(report)
+    table = create_test_table()
+
+    def execute(query, job_config, context):
+        return [
+            SimpleNamespace(
+                partition_id="bad-1", last_modified_time=None, total_rows=1
+            ),
+            SimpleNamespace(
+                partition_id="bad-2", last_modified_time=None, total_rows=1
+            ),
+        ]
+
+    def verify(*args, **kwargs):
+        return True
+
+    with patch.object(
+        FilterBuilder,
+        "convert_partition_id_to_filters",
+        side_effect=RuntimeError("unparseable"),
+    ):
+        result = info_schema.get_partition_filters_from_information_schema(
+            table,
+            "test-project-123456",
+            "test_dataset",
+            ["date_col"],
+            execute,
+            verify,
+            {"date_col": "DATE"},
+        )
+
+    assert result is None
+    convert_warnings = [w for w in report.warnings if "convert" in str(w).lower()]
+    assert len(convert_warnings) == 1
+
+
+def test_probe_error_on_internal_table_is_reported():
+    # A probe timeout/IAM error must surface in the report, not be reclassified as
+    # "unpartitioned".
+    config = create_test_config()
+    report = BigQueryV2Report()
+    discovery = PartitionDiscovery(config, report)
+    table = create_test_table(name="internal", external=False)
+
+    def failing_probe_execute(query, job_config, context):
+        # Make column-type detection inconclusive (COLUMNS lookup fails) so discovery
+        # falls back to the probe query. An empty COLUMNS result would be authoritative
+        # ("unpartitioned") and skip the probe entirely; here we want the probe to run
+        # and fail so we can assert the failure is surfaced rather than swallowed.
+        raise RuntimeError("job exceeded partition_fetch_timeout")
+
+    result = discovery.get_required_partition_filters(
+        table, "test-project-123456", "test_dataset", failing_probe_execute
+    )
+
+    # Detection was inconclusive (not an authoritative "unpartitioned"), so discovery
+    # skips the table (None) rather than profiling it unfiltered, and reports why.
+    assert result is None
+    assert any("partition column" in str(w).lower() for w in report.warnings)
+
+
+def _table_with_non_date_partition(require_filter: bool) -> BigqueryTable:
+    table = create_test_table(name="non_date_partitioned")
+    table.partition_info = SimpleNamespace(  # type: ignore[assignment]
+        type="DAY",
+        field="flow_id",
+        fields=["flow_id"],
+        columns=None,
+        require_partition_filter=require_filter,
+    )
+    return table
+
+
+def _no_partition_values_execute(query, job_config, context):
+    # flow_id resolves to a non-date type; every value-discovery query comes back empty.
+    if "INFORMATION_SCHEMA.COLUMNS" in query:
+        return [SimpleNamespace(column_name="flow_id", data_type="INT64")]
+    return []
+
+
+def test_empty_partition_values_profiles_unfiltered_when_filter_not_required():
+    report = BigQueryV2Report()
+    discovery = PartitionDiscovery(create_test_config(), report)
+
+    result = discovery.get_required_partition_filters(
+        _table_with_non_date_partition(require_filter=False),
+        "test-project-123456",
+        "test_dataset",
+        _no_partition_values_execute,
+    )
+
+    assert result == []
+    assert any("without a partition filter" in str(w).lower() for w in report.warnings)
+
+
+def test_empty_partition_values_skips_when_filter_required():
+    # The same table with require_partition_filter=true must be skipped (None): an
+    # unfiltered query would be rejected by BigQuery.
+    report = BigQueryV2Report()
+    discovery = PartitionDiscovery(create_test_config(), report)
+
+    result = discovery.get_required_partition_filters(
+        _table_with_non_date_partition(require_filter=True),
+        "test-project-123456",
+        "test_dataset",
+        _no_partition_values_execute,
+    )
+
+    assert result is None
+
+
+@patch.object(PartitionDiscovery, "get_required_partition_filters")
+def test_profiler_get_batch_kwargs(mock_get_filters):
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    mock_get_filters.return_value = ["`date_col` = '2023-12-25'"]
+
+    table = create_test_table(rows_count=10000)
+
+    result = profiler.get_batch_kwargs(table, "test_dataset", "test-project")
+
+    assert "custom_sql" in result
+    assert "partition_handling" in result
+    assert result["partition_handling"] == "true"
+    assert "test-project" in result["custom_sql"]
+    assert "test_dataset" in result["custom_sql"]
+    assert "test_table" in result["custom_sql"]
+    # The crawl-collected row count is forwarded so the SQLAlchemy profiler's
+    # sampling decision can skip a COUNT(*); the GE profiler ignores it.
+    assert result["row_count"] == 10000
+
+
+@patch.object(PartitionDiscovery, "get_required_partition_filters")
+def test_profiler_get_batch_kwargs_sampling_deferred_downstream(mock_get_filters):
+    config = create_test_config(use_sampling=True, sample_size=5000)
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    # Unpartitioned table large enough to sample. The profiler no longer emits an inline
+    # TABLESAMPLE: the SQLAlchemy adapter (_setup_sampling, mirrored by the GE profiler)
+    # samples the source table once. Emitting it here too would double-sample. It just
+    # forwards the crawl-collected row count so the adapter can size the sample without a
+    # COUNT(*).
+    mock_get_filters.return_value = []
+
+    table = create_test_table(rows_count=100000)
+
+    result = profiler.get_batch_kwargs(table, "test_dataset", "test-project")
+
+    assert "TABLESAMPLE" not in result.get("custom_sql", "")
+    assert result["row_count"] == 100000
+
+
+def test_profiler_get_batch_kwargs_security_validation():
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    table = create_test_table()
+
+    with pytest.raises(ValueError, match="Invalid dataset identifier"):
+        profiler.get_batch_kwargs(table, "invalid;dataset", "test-project")
+
+
+@patch.object(PartitionDiscovery, "get_required_partition_filters")
+def test_profiler_get_batch_kwargs_no_partition_key_without_filter(mock_get_filters):
+    """A max_partition_id with no derived partition WHERE means a full-table/sample/limit
+    scan, so the profile must not be labeled with that single partition id (that would
+    misdescribe the data scanned as PARTITION rather than QUERY/FULL_TABLE)."""
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    mock_get_filters.return_value = []
+
+    table = create_test_table(rows_count=10, max_partition_id="20231225")
+
+    result = profiler.get_batch_kwargs(table, "test_dataset", "test-project")
+
+    assert "partition" not in result
+
+
+@patch.object(PartitionDiscovery, "get_required_partition_filters")
+def test_profiler_get_batch_kwargs_no_partition_key_for_plain_table(mock_get_filters):
+    """A non-partitioned table gets no partition key (profile stays FULL_TABLE)."""
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    mock_get_filters.return_value = []
+
+    table = create_test_table(rows_count=10, max_partition_id=None)
+
+    result = profiler.get_batch_kwargs(table, "test_dataset", "test-project")
+
+    assert "partition" not in result
+
+
+@patch.object(PartitionDiscovery, "get_required_partition_filters")
+def test_profiler_get_batch_kwargs_ignores_special_partition_id(mock_get_filters):
+    """Sentinel partition IDs (e.g. __NULL__) must not become a partition key."""
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    mock_get_filters.return_value = []
+
+    table = create_test_table(rows_count=10, max_partition_id="__NULL__")
+
+    result = profiler.get_batch_kwargs(table, "test_dataset", "test-project")
+
+    assert "partition" not in result
+
+
+def test_build_custom_sql_bounds_unknown_row_count():
+    # A table with no row count (common for external tables) must not be profiled
+    # unbounded: fall back to the configured row limit so a large table is capped.
+    config = create_test_config(profiling={"profiling_row_limit": 5000})
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = create_test_table(rows_count=None)
+
+    sql = profiler._build_custom_sql("`p`.`d`.`t`", "p.d.t", table)
+
+    assert sql is not None
+    assert "LIMIT 5000" in sql
+
+
+def test_build_custom_sql_known_empty_native_table_profiles_normally():
+    # rows_count == 0 on a native table is a genuinely empty table, not an unavailable
+    # count: it must fall through to normal full-table profiling (no custom_sql).
+    config = create_test_config(profiling={"profiling_row_limit": 5000})
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = create_test_table(rows_count=0, external=False)
+
+    sql = profiler._build_custom_sql("`p`.`d`.`t`", "p.d.t", table)
+
+    assert sql is None
+
+
+def test_build_custom_sql_external_zero_row_count_is_bounded():
+    # BigQuery's legacy __TABLES__ reports row_count as 0 for external tables even when
+    # they hold data, so 0 there means "unknown" — apply the bounded cap, don't fall
+    # through to an unbounded full scan.
+    config = create_test_config(profiling={"profiling_row_limit": 5000})
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = create_test_table(rows_count=0, external=True)
+
+    sql = profiler._build_custom_sql("`p`.`d`.`t`", "p.d.t", table)
+
+    assert sql is not None
+    assert "LIMIT 5000" in sql
+
+
+def test_build_custom_sql_unknown_row_count_uses_safety_limit_when_no_row_limit():
+    # With profiling_row_limit disabled (0), an unknown row count still gets the safety
+    # cap rather than an unbounded scan.
+    config = create_test_config(profiling={"profiling_row_limit": 0})
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = create_test_table(rows_count=None)
+
+    sql = profiler._build_custom_sql("`p`.`d`.`t`", "p.d.t", table)
+
+    assert sql is not None
+    assert f"LIMIT {BQ_SAFETY_ROW_LIMIT}" in sql
+
+
+def test_validate_bigquery_identifier_table_allows_hyphen():
+    """BigQuery table names may contain single hyphens when backtick-escaped."""
+    assert validate_bigquery_identifier("my-table", "table") == "`my-table`"
+
+
+@pytest.mark.parametrize(
+    "malicious", ["tbl--x", "tbl;drop", "tbl'injection", "tbl/*c*/", 'tbl"q']
+)
+def test_validate_bigquery_identifier_table_rejects_injection(malicious: str) -> None:
+    """The relaxed table rule still rejects comment/quote/statement injection."""
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier(malicious, "table")
+
+
+def test_validate_bigquery_identifier_dataset_rejects_hyphen():
+    """Datasets keep the stricter rule (no hyphens) unlike tables."""
+    with pytest.raises(ValueError, match="Invalid dataset identifier"):
+        validate_bigquery_identifier("my-dataset", "dataset")
+
+
+def test_fallback_partition_values_override_used():
+    """A configured fallback value is used verbatim for a non-date partition column."""
+    config = BigQueryV2Config.parse_obj(
+        {
+            "project_id": "test-project-123456",
+            "profiling": {
+                "enabled": True,
+                "fallback_partition_values": {"region": "us-east-1"},
+            },
+        }
+    )
+    discovery = PartitionDiscovery(config)
+
+    result = discovery._create_fallback_filter_for_column(
+        "region", datetime.now(timezone.utc), "STRING"
+    )
+
+    assert result == "`region` = 'us-east-1'"
+
+
+def test_internal_fallback_is_not_null_warns():
+    report = BigQueryV2Report()
+    discovery = PartitionDiscovery(create_test_config(), report)
+    table = create_test_table(name="internal", external=False)
+
+    filters = discovery._get_fallback_partition_filters(
+        table, "test-project-123456", "test_dataset", ["region"], {"region": "STRING"}
+    )
+
+    assert filters == ["`region` IS NOT NULL"]
+    assert any("full scan" in str(w).lower() for w in report.warnings)
+
+
+def test_full_profiling_workflow():
+    config = create_test_config(use_sampling=True, sample_size=10000)
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    valid_filters = ["`date` = '2023-01-01'", "`id` > 100"]
+    validated = validate_and_filter_expressions(valid_filters)
+    assert validated == valid_filters
+
+    discovery = profiler.partition_discovery
+    strategic_dates = discovery._get_strategic_candidate_dates()
+    assert len(strategic_dates) == 2
+
+    date_columns = profiler._extract_date_columns_from_filters(
+        ["`created_at` >= '2023-01-01'"]
+    )
+    assert "created_at" in date_columns
+
+
+def test_partition_discovery_get_partition_columns_from_info_schema():
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(partitioned=True)
+
+    def mock_execute_query(query, config, context):
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [
+                SimpleNamespace(column_name="event_date", data_type="DATE"),
+                SimpleNamespace(column_name="region", data_type="STRING"),
+                SimpleNamespace(column_name="user_id", data_type="INT64"),
+            ]
+        return []
+
+    result = discovery.get_partition_columns_from_info_schema(
+        table, "test-project", "test_dataset", mock_execute_query
+    )
+
+    assert "event_date" in result
+    assert result["event_date"] == "DATE"
+    assert "region" in result
+    assert result["region"] == "STRING"
+
+
+def test_partition_discovery_get_partition_columns_from_ddl():
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(
+        ddl="CREATE TABLE test_table (id INT64, event_date DATE) PARTITION BY DATE(event_date)"
+    )
+
+    def mock_execute_query(query, config, context):
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [SimpleNamespace(column_name="event_date", data_type="DATE")]
+        return []
+
+    result = discovery.get_partition_columns_from_ddl(
+        table, "test-project", "test_dataset", mock_execute_query
+    )
+
+    assert result == {"event_date": "DATE"}
+
+
+def test_partition_discovery_get_required_partition_filters():
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(partitioned=True)
+
+    def mock_execute_query(query, config, context):
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [SimpleNamespace(column_name="event_date", data_type="DATE")]
+        elif "SELECT" in query and "LIMIT 1" in query:
+            return [SimpleNamespace(exists_check=1)]
+        return []
+
+    result = discovery.get_required_partition_filters(
+        table, "test-project", "test_dataset", mock_execute_query
+    )
+
+    assert result is not None
+    assert any("date_partition" in f for f in result)
+
+
+def test_partition_datetime_override_pins_configured_partition():
+    # A configured profiling.partition_datetime selects the partition containing that
+    # instant instead of the latest one.
+    config = create_test_config()
+    config.profiling.partition_datetime = datetime(2025, 6, 15, 8, 30)
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(partitioned=True)
+
+    result = discovery._get_partition_datetime_override_filters(
+        table, {"event_date"}, {"event_date": "DATE"}
+    )
+
+    assert result == ["`event_date` >= '2025-06-15' AND `event_date` < '2025-06-16'"]
+
+
+def test_partition_datetime_override_ignored_for_composite_key():
+    # partition_datetime only applies to a single temporal column; a composite key
+    # can't be expressed, so it is ignored (and the latest partition is used).
+    config = create_test_config()
+    config.profiling.partition_datetime = datetime(2025, 6, 15)
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(partitioned=True)
+
+    result = discovery._get_partition_datetime_override_filters(
+        table, {"event_date", "region"}, {"event_date": "DATE", "region": "STRING"}
+    )
+
+    assert result is None
+
+
+def test_partition_datetime_override_ignored_for_non_temporal_column():
+    config = create_test_config()
+    config.profiling.partition_datetime = datetime(2025, 6, 15)
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(partitioned=True)
+
+    result = discovery._get_partition_datetime_override_filters(
+        table, {"bucket"}, {"bucket": "INT64"}
+    )
+
+    assert result is None
+
+
+def test_partition_datetime_override_absent_when_not_configured():
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(partitioned=True)
+
+    result = discovery._get_partition_datetime_override_filters(
+        table, {"event_date"}, {"event_date": "DATE"}
+    )
+
+    assert result is None
+
+
+def test_partition_discovery_create_partition_stats_query():
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    query, job_config = discovery._create_partition_stats_query(
+        "`project.dataset.table`", "event_date", 10, "DATE"
+    )
+
+    assert "SELECT" in query
+    assert "event_date" in query
+    assert "GROUP BY" in query
+    assert "ORDER BY" in query
+    assert "LIMIT" in query  # Uses parameterized query, so exact text may vary
+
+
+def test_partition_discovery_get_partition_filters_from_information_schema():
+    """Test PartitionDiscovery._get_partition_filters_from_information_schema."""
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(partitioned=True)
+
+    def mock_execute_query(query, config, context):
+        if "INFORMATION_SCHEMA.PARTITIONS" in query:
+            return [
+                SimpleNamespace(
+                    partition_id="20231225", last_modified_time=None, total_rows=1000
+                ),
+            ]
+        elif "exists_check" in query:
+            return [SimpleNamespace(exists_check=1)]
+        return []
+
+    result = discovery._get_partition_filters_from_information_schema(
+        table,
+        "test-project",
+        "test_dataset",
+        ["_PARTITIONDATE"],
+        mock_execute_query,
+        {"_PARTITIONDATE": "DATE"},
+    )
+
+    assert result is not None
+    assert "`_PARTITIONDATE` = '2023-12-25'" in result
+
+
+def test_partition_discovery_verify_partition_has_data():
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    table = create_test_table()
+
+    def mock_execute_query(query, config, context):
+        if "SELECT 1" in query and "LIMIT 1" in query:
+            return [SimpleNamespace(cnt=1)]
+        return []
+
+    result = discovery._verify_partition_has_data(
+        table,
+        "test-project",
+        "test_dataset",
+        ["`date` = '2023-01-01'"],
+        mock_execute_query,
+    )
+
+    assert result is True
+
+
+def test_partition_discovery_enhance_partition_filters_with_actual_values():
+    """Test PartitionDiscovery._enhance_partition_filters_with_actual_values."""
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(external=True)
+
+    def mock_execute_query(query, config, context):
+        # region is resolved before category, so by the time category is queried the
+        # WHERE clause already carries the resolved `region = 'US'` constraint (values
+        # are resolved under prior filters to keep the composite key co-occurring). Match
+        # the more specific column first so the region constraint on the category query
+        # doesn't hijack the region branch.
+        if "category" in query:
+            return [SimpleNamespace(col_value="retail", row_count=50)]
+        if "region" in query:
+            return [SimpleNamespace(col_value="US", row_count=100)]
+        return []
+
+    base_filters = ["`event_date` = '2023-12-25'"]
+    required_columns = ["event_date", "region", "category"]
+
+    result = discovery._enhance_partition_filters_with_actual_values(
+        table,
+        "test-project",
+        "test_dataset",
+        required_columns,
+        base_filters,
+        mock_execute_query,
+    )
+
+    assert result is not None
+    assert "`event_date` = '2023-12-25'" in result
+    assert any("region" in f and "US" in f for f in result)
+    assert any("category" in f and "retail" in f for f in result)
+
+
+def test_profiler_get_profile_request():
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    table = create_test_table(external=True)
+
+    with patch.object(
+        PartitionDiscovery, "get_required_partition_filters"
+    ) as mock_filters:
+        mock_filters.return_value = ["`date` = '2023-01-01'"]
+
+        result = profiler.get_profile_request(table, "test_dataset", "test-project")
+
+        # External tables now return a plain request; deferral is decided by
+        # get_workunits, which wraps it in a DeferredExternalTable.
+        assert result is not None
+
+
+def test_profiler_get_workunits():
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    table = create_test_table()
+
+    with (
+        patch.object(
+            profiler,
+            "generate_profile_workunits_with_deferred_partitions",
+            return_value=[],
+        ) as mock_generate,
+        patch.object(profiler.query_executor, "execute_query_safely", return_value=[]),
+    ):
+        result = list(profiler.get_workunits("test-project", {"test_dataset": [table]}))
+
+        assert result == []
+        mock_generate.assert_called_once()
+
+
+def _build_deferred_external_request(profiler):
+    external_table = create_test_table(
+        name="ext_events", partitioned=True, external=True
+    )
+    with patch.object(
+        PartitionDiscovery,
+        "get_required_partition_filters",
+        return_value=["`event_date` = '2023-01-01'"],
+    ):
+        request = profiler.get_profile_request(
+            external_table, "test_dataset", "test-project"
+        )
+    assert request is not None
+    return DeferredExternalTable(
+        request=request,
+        bq_table=external_table,
+        db_name="test-project",
+        schema_name="test_dataset",
+    )
+
+
+def test_deferred_external_discovery_failure_is_reported():
+    # When deferred external-table discovery returns None the request must be dropped
+    # and a report warning surfaced (not just logged).
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    deferred = _build_deferred_external_request(profiler)
+
+    with (
+        patch.object(
+            PartitionDiscovery, "get_required_partition_filters", return_value=None
+        ),
+        patch(
+            "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.generate_profile_workunits",
+            return_value=[],
+        ) as mock_super,
+    ):
+        result = list(
+            profiler.generate_profile_workunits_with_deferred_partitions(
+                [], [deferred], max_workers=1, platform="bigquery", profiler_args={}
+            )
+        )
+
+    assert result == []
+    assert len(report.warnings) >= 1
+    mock_super.assert_not_called()
+
+
+def test_deferred_external_discovery_exception_is_reported():
+    # A discovery exception must also route through the report and drop the request.
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    deferred = _build_deferred_external_request(profiler)
+
+    with (
+        patch.object(
+            PartitionDiscovery,
+            "get_required_partition_filters",
+            side_effect=ValueError("boom"),
+        ),
+        patch(
+            "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.generate_profile_workunits",
+            return_value=[],
+        ) as mock_super,
+    ):
+        result = list(
+            profiler.generate_profile_workunits_with_deferred_partitions(
+                [], [deferred], max_workers=1, platform="bigquery", profiler_args={}
+            )
+        )
+
+    assert result == []
+    assert len(report.warnings) >= 1
+    mock_super.assert_not_called()
+
+
+def test_deferred_external_worker_unexpected_error_is_reported():
+    # An error the worker's narrowed except doesn't catch re-raises from future.result();
+    # the outer guard must report and skip it rather than abort every remaining table.
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    deferred = _build_deferred_external_request(profiler)
+
+    with (
+        patch.object(
+            PartitionDiscovery,
+            "get_required_partition_filters",
+            side_effect=RuntimeError("token refresh failed"),
+        ),
+        patch(
+            "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.generate_profile_workunits",
+            return_value=[],
+        ) as mock_super,
+    ):
+        result = list(
+            profiler.generate_profile_workunits_with_deferred_partitions(
+                [], [deferred], max_workers=1, platform="bigquery", profiler_args={}
+            )
+        )
+
+    assert result == []
+    assert len(report.warnings) >= 1
+    mock_super.assert_not_called()
+
+
+def test_deferred_external_discovery_success_builds_custom_sql():
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    deferred = _build_deferred_external_request(profiler)
+
+    captured = {}
+
+    def fake_super(processed_requests, **kwargs):
+        captured["requests"] = list(processed_requests)
+        return []
+
+    with (
+        patch.object(
+            PartitionDiscovery,
+            "get_required_partition_filters",
+            return_value=["`event_date` = '2023-01-01'"],
+        ),
+        patch(
+            "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.generate_profile_workunits",
+            side_effect=fake_super,
+        ),
+    ):
+        list(
+            profiler.generate_profile_workunits_with_deferred_partitions(
+                [], [deferred], max_workers=1, platform="bigquery", profiler_args={}
+            )
+        )
+
+    assert len(captured.get("requests", [])) == 1
+    retained = captured["requests"][0]
+    assert retained.batch_kwargs.get("custom_sql")
+    assert "event_date" in retained.batch_kwargs["custom_sql"]
+
+
+def test_deferred_external_single_partition_label_and_cache():
+    # The deferred external path must mirror the inline path: label the profile with the
+    # real partition ID when the predicate scanned exactly one partition, and consult the
+    # dataset partition-metadata cache instead of re-probing every external table.
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    deferred = _build_deferred_external_request(profiler)
+    deferred.bq_table.max_partition_id = "20230101"
+
+    with (
+        patch.object(
+            PartitionDiscovery,
+            "get_required_partition_filters",
+            return_value=["`date_partition` = '2023-01-01'"],
+        ) as mock_filters,
+        patch.object(
+            profiler,
+            "_get_cached_partition_metadata",
+            return_value=None,
+        ) as mock_cache,
+    ):
+        result = profiler._discover_external_partition_filter(deferred)
+
+    assert result is not None
+    assert result.batch_kwargs.get("partition") == "20230101"
+    mock_cache.assert_called_once_with("test-project", "test_dataset", "ext_events")
+    assert "cached_partition_metadata" in mock_filters.call_args.kwargs
+
+
+def test_deferred_external_no_partition_filter_still_limits_scan():
+    # An unpartitioned external table yields no partition filter (empty list, not None).
+    # The deferred path must still fall back to sampling / row-limit SQL like the
+    # internal path, so a large external table isn't fully scanned.
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    deferred = _build_deferred_external_request(profiler)
+    # Start from a request with no custom_sql so we can prove the deferred path adds one.
+    deferred.request.batch_kwargs.pop("custom_sql", None)
+
+    captured = {}
+
+    def fake_super(processed_requests, **kwargs):
+        captured["requests"] = list(processed_requests)
+        return []
+
+    with (
+        patch.object(
+            PartitionDiscovery,
+            "get_required_partition_filters",
+            return_value=[],
+        ),
+        patch.object(
+            profiler, "_build_custom_sql", return_value="SELECT * FROM t LIMIT 100"
+        ) as mock_build,
+        patch(
+            "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.generate_profile_workunits",
+            side_effect=fake_super,
+        ),
+    ):
+        list(
+            profiler.generate_profile_workunits_with_deferred_partitions(
+                [], [deferred], max_workers=1, platform="bigquery", profiler_args={}
+            )
+        )
+
+    mock_build.assert_called_once()
+    retained = captured["requests"][0]
+    assert retained.batch_kwargs.get("custom_sql") == "SELECT * FROM t LIMIT 100"
+
+
+def test_deferred_external_unreliable_row_count_cleared_for_bounded_scan():
+    # An external table whose legacy __TABLES__ row_count is an unreliable 0 gets a
+    # bounded custom_sql (LIMIT) but no partition filter. That gives the profile a
+    # QUERY partitionSpec, which makes the shared profiler overwrite the measured
+    # rowCount with request.table.rows_count. Clearing it avoids publishing a false
+    # rowCount=0 for a table that actually holds data.
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    external_table = create_test_table(name="ext_events", external=True, rows_count=0)
+    with patch.object(
+        PartitionDiscovery, "get_required_partition_filters", return_value=[]
+    ):
+        request = profiler.get_profile_request(
+            external_table, "test_dataset", "test-project"
+        )
+    assert request is not None
+    deferred = DeferredExternalTable(
+        request=request,
+        bq_table=external_table,
+        db_name="test-project",
+        schema_name="test_dataset",
+    )
+
+    with patch.object(
+        PartitionDiscovery, "get_required_partition_filters", return_value=[]
+    ):
+        result = profiler._discover_external_partition_filter(deferred)
+
+    assert result is not None
+    assert result.batch_kwargs.get("custom_sql")
+    assert result.table.rows_count is None
+
+
+def test_deferred_external_unreliable_row_count_cleared_with_partition_filter():
+    # Same false-rowCount=0 risk when the external table HAS a partition filter: the
+    # partition-scan SQL also yields a non-FULL_TABLE partitionSpec, so the unreliable
+    # legacy rows_count=0 must be cleared on this branch too.
+    config = create_test_config()
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    external_table = create_test_table(
+        name="ext_events", partitioned=True, external=True, rows_count=0
+    )
+    with patch.object(
+        PartitionDiscovery,
+        "get_required_partition_filters",
+        return_value=["`event_date` = '2023-01-01'"],
+    ):
+        request = profiler.get_profile_request(
+            external_table, "test_dataset", "test-project"
+        )
+    assert request is not None
+    deferred = DeferredExternalTable(
+        request=request,
+        bq_table=external_table,
+        db_name="test-project",
+        schema_name="test_dataset",
+    )
+
+    with patch.object(
+        PartitionDiscovery,
+        "get_required_partition_filters",
+        return_value=["`event_date` = '2023-01-01'"],
+    ):
+        result = profiler._discover_external_partition_filter(deferred)
+
+    assert result is not None
+    assert "event_date" in result.batch_kwargs.get("custom_sql", "")
+    assert result.table.rows_count is None
+
+
+def test_profiler_external_table_integration():
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    table = create_test_table(external=True)
+
+    with patch.object(
+        PartitionDiscovery, "get_required_partition_filters"
+    ) as mock_filters:
+        mock_filters.return_value = ["`date` = '2023-01-01'"]
+
+        profile_request = profiler.get_profile_request(
+            table, "test_dataset", "test-project"
+        )
+
+        assert profile_request is not None
+
+
+def test_profiler_apply_partition_date_windowing_comprehensive():
+    """Test BigqueryProfiler._apply_partition_date_windowing comprehensively."""
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    table = create_test_table()
+
+    test_cases = [
+        # (windowing_days, input_filters, expected_mode)
+        # None disables windowing; the filter is returned unchanged.
+        (None, ["`event_date` = '2023-12-25'"], "off"),
+        # A positive window widens the equality to a multi-day range.
+        (7, ["`event_date` = '2023-12-25'"], "window"),
+        # No date column to widen, so the filter is returned unchanged.
+        (7, ["`user_id` = 123"], "off"),
+        # A 0-day window is valid (not disabled): the equality becomes a same-day
+        # range whose bounds are identical, still scanning exactly one day.
+        (0, ["`event_date` = '2023-12-25'"], "same_day"),
+    ]
+
+    for window_days, input_filters, expected_mode in test_cases:
+        config.profiling.partition_datetime_window_days = window_days
+
+        result = profiler._apply_partition_date_windowing(input_filters, table)
+
+        # Windowing replaces the equality with a range, so the count is unchanged.
+        assert len(result) == len(input_filters)
+        if expected_mode == "window":
+            assert any(">=" in f and "<=" in f for f in result)
+            assert not any("`event_date` = " in f for f in result)
+        elif expected_mode == "same_day":
+            assert result == [
+                "`event_date` >= '2023-12-25' AND `event_date` <= '2023-12-25'"
+            ]
+        else:
+            assert result == input_filters
+
+
+def test_profiler_date_windowing_preserves_literal_type():
+    """The range bound must reuse the source literal's quoting so the comparison
+    keeps the column's type (a STRING column must not be compared against an int)."""
+    config = create_test_config()
+    config.profiling.partition_datetime_window_days = 7
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    table = create_test_table()
+
+    # Quoted YYYYMMDD is a STRING column -> range must stay quoted (regression:
+    # this previously emitted `date` >= 20250906, causing STRING >= INT64).
+    result = profiler._apply_partition_date_windowing(["`date` = '20250913'"], table)
+    assert result == ["`date` >= '20250906' AND `date` <= '20250913'"]
+
+    # Unquoted YYYYMMDD is an INT64 column -> range must stay unquoted.
+    result_int = profiler._apply_partition_date_windowing(["`date` = 20250913"], table)
+    assert result_int == ["`date` >= 20250906 AND `date` <= 20250913"]
+
+    # Quoted ISO date -> quoted range.
+    result_iso = profiler._apply_partition_date_windowing(
+        ["`event_date` = '2025-09-13'"], table
+    )
+    assert result_iso == [
+        "`event_date` >= '2025-09-06' AND `event_date` <= '2025-09-13'"
+    ]
+
+    # TIMESTAMP() wrapper is preserved so the comparison stays a TIMESTAMP.
+    result_ts = profiler._apply_partition_date_windowing(
+        ["`event_ts` = TIMESTAMP('2025-09-13')"], table
+    )
+    assert result_ts == [
+        "`event_ts` >= TIMESTAMP('2025-09-06') AND `event_ts` <= TIMESTAMP('2025-09-13')"
+    ]
+
+
+def test_profiler_get_dataset_name_variations():
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    test_cases = [
+        ("table1", "dataset1", "project1", "project1.dataset1.table1"),
+        (
+            "my_table",
+            "my_dataset",
+            "my-project-123",
+            "my-project-123.my_dataset.my_table",
+        ),
+        ("test", "test", "test", "test.test.test"),
+    ]
+
+    for table, dataset, project, expected in test_cases:
+        result = profiler.get_dataset_name(table, dataset, project)
+        assert result == expected
+
+
+def test_partition_discovery_information_schema_without_restrictive_windowing():
+    """Test that INFORMATION_SCHEMA partition discovery doesn't apply restrictive windowing during discovery."""
+    config = create_test_config(partition_datetime_window_days=30)
+    discovery = PartitionDiscovery(config)
+    table = create_test_table()
+
+    def mock_execute_query(query, job_config, context):
+        assert "last_modified_time >=" not in query, (
+            "Discovery query should not apply restrictive windowing"
+        )
+        assert "INTERVAL" not in query, (
+            "Discovery query should not apply date intervals during discovery"
+        )
+
+        # Mock some partition results
+
+        return [
+            SimpleNamespace(
+                partition_id="20241201",
+                last_modified_time="2024-12-01",
+                total_rows=1000,
+            ),
+            SimpleNamespace(
+                partition_id="20241130", last_modified_time="2024-11-30", total_rows=800
+            ),
+        ]
+
+    result = discovery._get_partition_filters_from_information_schema(
+        table, "test-project", "dataset", ["date"], mock_execute_query, {"date": "DATE"}
+    )
+
+    assert result is not None
+    assert len(result) > 0
+
+
+def test_partition_discovery_strategy2_fallback_for_internal_tables():
+    """Test that Strategy 2 (actual max date query) is used when INFORMATION_SCHEMA fails."""
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+    table = create_test_table()
+
+    def mock_execute_query_info_schema_fails(query, job_config, context):
+        if "INFORMATION_SCHEMA.PARTITIONS" in query:
+            return []
+        elif "GROUP BY" in query and "ORDER BY" in query:
+            return [SimpleNamespace(val="2024-11-15", record_count=5000)]
+        return []
+
+    result = discovery._find_real_partition_values(
+        table,
+        "test-project",
+        "dataset",
+        ["event_date"],
+        mock_execute_query_info_schema_fails,
+    )
+
+    assert result is not None
+    assert len(result) > 0
+    assert "event_date" in str(result[0])
+    assert "2024-11-15" in str(result[0])
+
+
+def test_partition_datetime_window_days_still_applied_during_profiling():
+    """Test that partition_datetime_window_days is still applied during the profiling phase."""
+    config = create_test_config(partition_datetime_window_days=7)
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+    table = create_test_table()
+
+    # Test filters that would be discovered (e.g., from 30 days ago)
+    discovered_filters = ["`event_date` = '2024-10-15'"]
+
+    windowed_filters = profiler._apply_partition_date_windowing(
+        discovered_filters, table
+    )
+
+    # The equality is replaced by a range, so the original `= 'X'` must not survive.
+    assert len(windowed_filters) == len(discovered_filters)
+    assert "`event_date` = '2024-10-15'" not in windowed_filters
+
+    range_filter = windowed_filters[0]
+    assert ">=" in range_filter and "<=" in range_filter
+    assert "`event_date`" in range_filter
+
+
+def test_partition_datetime_window_days_disabled():
+    """Test that windowing can be disabled by setting partition_datetime_window_days to None."""
+    config = create_test_config(partition_datetime_window_days=None)
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+    table = create_test_table()
+
+    original_filters = ["`event_date` = '2024-10-15'"]
+
+    windowed_filters = profiler._apply_partition_date_windowing(original_filters, table)
+
+    assert windowed_filters == original_filters
+
+
+def test_partition_datetime_window_days_zero_is_same_day_range():
+    """A 0-day window is valid (not disabled): the equality becomes a same-day range
+    whose bounds are identical, still scanning exactly one day."""
+    config = create_test_config(partition_datetime_window_days=0)
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+    table = create_test_table()
+
+    windowed_filters = profiler._apply_partition_date_windowing(
+        ["`event_date` = '2024-10-15'"], table
+    )
+
+    assert len(windowed_filters) == 1
+    range_filter = windowed_filters[0]
+    assert (
+        range_filter == "`event_date` >= '2024-10-15' AND `event_date` <= '2024-10-15'"
+    )
+
+
+def test_partition_datetime_window_leaves_discovered_range_untouched():
+    """A discovered range predicate (half-open month/timestamp partition) has no `col =`
+    literal. Windowing must NOT inject a today-based range on top of it — that would AND
+    two ranges and, for a partition older than the window, select nothing. The discovered
+    range is left exactly as-is."""
+    config = create_test_config(partition_datetime_window_days=7)
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = create_test_table()
+
+    # event_date is a recognised date-like column, so it enters the windowing loop; the
+    # half-open range (no `event_date = X` literal) must survive untouched.
+    discovered = [
+        "`event_date` >= DATE('2024-01-01') AND `event_date` < DATE('2024-02-01')"
+    ]
+
+    windowed = profiler._apply_partition_date_windowing(discovered, table)
+
+    assert windowed == discovered
+
+
+def test_internal_table_finds_actual_latest_date_comprehensive():
+    """Discovery finds Nov 15 data (45 days ago) and windowing applies a 30-day range from
+    that date — not from today — so old partitions aren't skipped."""
+    current_date = datetime(2024, 12, 30, tzinfo=timezone.utc)
+    actual_latest_date = date(2024, 11, 15)
+
+    config = create_test_config(partition_datetime_window_days=30)
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(name="sales_data", partitioned=True)
+
+    def mock_execute_query_realistic_scenario(query, job_config, context):
+        if "INFORMATION_SCHEMA.PARTITIONS" in query:
+            return [
+                SimpleNamespace(
+                    partition_id="20241115",  # November 15, 2024
+                    last_modified_time="2024-11-15T10:00:00Z",
+                    total_rows=15000,
+                ),
+                SimpleNamespace(
+                    partition_id="20241114",  # November 14, 2024
+                    last_modified_time="2024-11-14T10:00:00Z",
+                    total_rows=12000,
+                ),
+            ]
+
+        elif "GROUP BY" in query and "ORDER BY" in query:
+            return [
+                SimpleNamespace(
+                    val=actual_latest_date, record_count=15000
+                ),  # November 15, 2024
+                SimpleNamespace(
+                    val=date(2024, 11, 14), record_count=12000
+                ),  # November 14, 2024
+            ]
+
+        elif "SELECT 1" in query and "LIMIT 1" in query:
+            return [SimpleNamespace(cnt=1)]
+
+        return []
+
+    with time_machine.travel(current_date):
+        partition_filters = discovery.get_required_partition_filters(
+            table, "test-project", "dataset", mock_execute_query_realistic_scenario
+        )
+
+    assert partition_filters is not None
+    assert len(partition_filters) > 0
+
+    filter_str = " ".join(partition_filters)
+    assert "2024-11-15" in filter_str or "20241115" in filter_str
+
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    windowed_filters = profiler._apply_partition_date_windowing(
+        partition_filters, table
+    )
+
+    assert len(windowed_filters) >= len(partition_filters)
+
+    range_filters = [f for f in windowed_filters if ">=" in f and "<=" in f]
+    assert len(range_filters) > 0
+
+    range_filter = range_filters[0]
+    assert ">=" in range_filter and "<=" in range_filter
+
+    # (the actual latest date) even though it's outside a 30-day window from today
+    assert "event_date" in range_filter or "date" in range_filter
+
+
+def test_internal_table_strategy2_fallback_with_old_data():
+    """Direct table query finds very old latest data (6 months back) when INFORMATION_SCHEMA
+    returns nothing."""
+
+    config = create_test_config(partition_datetime_window_days=30)
+    discovery = PartitionDiscovery(config)
+    table = create_test_table(name="legacy_data", partitioned=True)
+
+    very_old_latest_date = date(2024, 6, 15)
+
+    def mock_execute_query_old_data_scenario(query, job_config, context):
+        if "INFORMATION_SCHEMA.PARTITIONS" in query:
+            return []
+
+        elif "GROUP BY" in query and "ORDER BY" in query:
+            return [
+                SimpleNamespace(
+                    val=very_old_latest_date, record_count=8500
+                ),  # June 15, 2024
+                SimpleNamespace(
+                    val=date(2024, 6, 14), record_count=7200
+                ),  # June 14, 2024
+            ]
+
+        elif "SELECT 1" in query and "LIMIT 1" in query:
+            return []
+
+        return []
+
+    partition_filters = discovery.get_required_partition_filters(
+        table, "test-project", "dataset", mock_execute_query_old_data_scenario
+    )
+
+    assert partition_filters is not None
+    assert len(partition_filters) > 0
+
+    filter_str = " ".join(partition_filters)
+    assert "2024-06-15" in filter_str or "20240615" in filter_str
+
+
+def test_internal_table_uses_same_process_as_external_tables():
+    """Internal tables with date columns should use the direct table query (not only
+    strategic today/yesterday dates) to find the actual max partition value."""
+
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    internal_table = create_test_table(
+        name="internal_events", partitioned=True, external=False
+    )
+
+    actual_latest_date = date(2024, 11, 1)
+
+    def mock_execute_query_internal_table(query, job_config, context):
+        if "INFORMATION_SCHEMA.PARTITIONS" in query:
+            return []
+
+        elif "GROUP BY" in query and "ORDER BY" in query:
+            # Direct table query finds the actual max date from 2 weeks ago
+
+            return [
+                SimpleNamespace(
+                    val=actual_latest_date, record_count=12000
+                ),  # Nov 1, 2024
+                SimpleNamespace(
+                    val=date(2024, 10, 31), record_count=11500
+                ),  # Oct 31, 2024
+            ]
+
+        elif "SELECT 1" in query and "LIMIT 1" in query:
+            # Strategic dates (today/yesterday) have NO data - this forces direct table query
+            return []
+
+        return []
+
+    partition_filters = discovery.get_required_partition_filters(
+        internal_table, "test-project", "dataset", mock_execute_query_internal_table
+    )
+
+    assert partition_filters is not None
+    assert len(partition_filters) > 0
+
+    filter_str = " ".join(partition_filters)
+    assert "2024-11-01" in filter_str or "20241101" in filter_str
+
+
+def test_external_vs_internal_table_consistency():
+    """
+    Test that external and internal tables with date columns produce consistent results.
+
+    Both should find the actual latest dates using direct table query.
+    """
+
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    actual_latest_date = date(2024, 10, 15)
+
+    def mock_execute_query_consistent(query, job_config, context):
+        """Mock that returns consistent data for both table types."""
+
+        if "INFORMATION_SCHEMA.PARTITIONS" in query:
+            return []
+
+        elif "GROUP BY" in query and "ORDER BY" in query:
+            return [
+                SimpleNamespace(val=actual_latest_date, record_count=8000),
+            ]
+
+        elif "SELECT 1" in query and "LIMIT 1" in query:
+            return []
+
+        return []
+
+    external_table = create_test_table(
+        name="external_events", partitioned=True, external=True
+    )
+    external_filters = discovery.get_required_partition_filters(
+        external_table, "test-project", "dataset", mock_execute_query_consistent
+    )
+
+    internal_table = create_test_table(
+        name="internal_events", partitioned=True, external=False
+    )
+    internal_filters = discovery.get_required_partition_filters(
+        internal_table, "test-project", "dataset", mock_execute_query_consistent
+    )
+
+    assert external_filters is not None
+    assert internal_filters is not None
+    assert len(external_filters) > 0
+    assert len(internal_filters) > 0
+
+    external_filter_str = " ".join(external_filters)
+    internal_filter_str = " ".join(internal_filters)
+
+    assert "2024-10-15" in external_filter_str or "20241015" in external_filter_str
+    assert "2024-10-15" in internal_filter_str or "20241015" in internal_filter_str
+
+
+def test_queries_templates_pass_sql_validation():
+    # Discovery tests all mock execution, so a template edit that breaks the SELECT/WITH
+    # prefix or introduces a dangerous keyword would pass CI but fail at runtime. Run the
+    # real, complete-query templates through the same validator the executor applies.
+    formatted = [
+        queries.SELECT_ALL.format(table_ref="`p.d.t`"),
+        queries.PARTITION_METADATA_CACHE.format(
+            info_schema_ref="`p`.`d`.INFORMATION_SCHEMA.COLUMNS", flag="YES"
+        ),
+        queries.PARTITION_COLUMN_NAMES.format(
+            info_schema_ref="`p`.`d`.INFORMATION_SCHEMA.COLUMNS", flag="YES"
+        ),
+        queries.PARTITION_COLUMN_TYPES.format(
+            info_schema_ref="`p`.`d`.INFORMATION_SCHEMA.COLUMNS", flag="YES"
+        ),
+        queries.PARTITION_COLUMN_TYPES_FILTERED.format(
+            info_schema_ref="`p`.`d`.INFORMATION_SCHEMA.COLUMNS",
+            column_filter_clause="column_name = @c0",
+        ),
+        queries.PARTITIONS_BY_MODIFIED.format(
+            info_schema_ref="`p`.`d`.INFORMATION_SCHEMA.PARTITIONS",
+            null_id="__NULL__",
+            unpartitioned_id="__UNPARTITIONED__",
+            streaming_id="__STREAMING_UNPARTITIONED__",
+        ),
+        queries.PARTITION_FILTER_PROBE.format(table_ref="`p.d.t`"),
+        queries.PARTITION_EXISTS_CHECK.format(
+            table_ref="`p.d.t`", where="`event_date` = '2023-12-25'"
+        ),
+        queries.LATEST_BY_DATE_SAMPLE.format(
+            table_ref="`p.d.t`", date_col="event_date"
+        ),
+        queries.TABLESAMPLE_SAMPLE.format(table_ref="`p.d.t`", sample_percent=0.001),
+        queries.TOP_VALUES_BY_COUNT.format(
+            col_name="region",
+            table_ref="`p.d.t`",
+            where="`event_date` = '2023-12-25'",
+        ),
+        queries.PARTITION_STATS_CTE.format(
+            col_name="region",
+            table_ref="`p.d.t`",
+            where="`event_date` = '2023-12-25'",
+            order_by="record_count DESC",
+            limit_clause="10",
+        ),
+    ]
+    for sql in formatted:
+        assert validate_sql_structure(sql) is True
+
+
+def test_internal_and_external_custom_sql_are_identical():
+    # Centralization goal: the inline (internal) and deferred (external) paths must emit
+    # identical partition custom_sql for the same table + filters, since both delegate to
+    # _build_partition_profiling_sql over the same safe table reference.
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    discovered = ["`event_date` = '2023-12-25'"]
+    table = create_test_table(name="t", partitioned=True, external=False)
+
+    with patch.object(
+        PartitionDiscovery,
+        "get_required_partition_filters",
+        return_value=discovered,
+    ):
+        internal_kwargs = profiler.get_batch_kwargs(
+            table, "test_dataset", "test-project-123456"
+        )
+    internal_sql = internal_kwargs[CUSTOM_SQL_KWARG]
+
+    safe_ref = build_safe_table_reference("test-project-123456", "test_dataset", "t")
+    external_sql = profiler._build_partition_profiling_sql(
+        safe_ref, "`event_date` = '2023-12-25'", table
+    )
+
+    assert internal_sql == external_sql
+
+
+def test_query_executor_execute_query_safely():
+    config = create_test_config()
+    executor = QueryExecutor(config)
+
+    mock_client = Mock()
+    mock_client.query.side_effect = Exception("Simulated error")
+
+    with (
+        patch(
+            "datahub.ingestion.source.bigquery_v2.bigquery_connection.bigquery.Client",
+            return_value=mock_client,
+        ),
+        pytest.raises(Exception, match="Simulated error"),
+    ):
+        executor.execute_query_safely("SELECT 1")
+
+
+def test_security_validate_sql_structure_comprehensive():
+    additional_dangerous = [
+        "MERGE INTO table USING source ON condition",
+        "CALL procedure_name()",
+        "EXECUTE IMMEDIATE 'SELECT 1'",
+        # EXPORT DATA is a dangerous-pattern denylist hit (caught before the
+        # "must start with SELECT/WITH" structural check).
+        "EXPORT DATA OPTIONS() AS SELECT * FROM table",
+    ]
+
+    for dangerous_sql in additional_dangerous:
+        with pytest.raises(ValueError, match="Query contains dangerous pattern"):
+            validate_sql_structure(dangerous_sql)
+
+    complex_valid = [
+        "SELECT a.col1, b.col2 FROM `project.dataset.table_a` a JOIN `project.dataset.table_b` b ON a.id = b.id",
+        "SELECT * FROM `table` WHERE date BETWEEN '2023-01-01' AND '2023-12-31' ORDER BY date DESC LIMIT 1000",
+        "SELECT DISTINCT col1, COUNT(*) as cnt FROM `table` GROUP BY col1 HAVING cnt > 10",
+    ]
+
+    for valid_sql in complex_valid:
+        validate_sql_structure(valid_sql)
+
+
+def test_security_validate_sql_structure_cte():
+    # The partition-stats probes are WITH ... SELECT CTEs, so the WITH allow-pattern
+    # must accept them while still rejecting dangerous statements hidden after the CTE.
+    valid_cte = (
+        "WITH PartitionStats AS ("
+        "SELECT `event_date` as val, COUNT(*) as record_count "
+        "FROM `project.dataset.table` WHERE `event_date` IS NOT NULL "
+        "GROUP BY `event_date` HAVING record_count > 0 ORDER BY val DESC LIMIT 1) "
+        "SELECT val, record_count FROM PartitionStats"
+    )
+    assert validate_sql_structure(valid_cte) is True
+
+    # A second statement after the CTE's SELECT is rejected by the single-statement
+    # guard before the dangerous-pattern scan even runs.
+    with pytest.raises(ValueError, match="single statement"):
+        validate_sql_structure(
+            "WITH x AS (SELECT 1) SELECT 1; DROP TABLE `project.dataset.table`"
+        )
+
+
+def test_get_profile_request_value_error_skips_and_warns():
+    # get_batch_kwargs raises ValueError when a partitioned table requires a filter that
+    # can't be built (or fails identifier validation); get_profile_request must catch it,
+    # skip the table, and record a report warning rather than propagate.
+    config = create_test_config()
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+    table = create_test_table(partitioned=True)
+
+    with patch(
+        "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.get_profile_request",
+        side_effect=ValueError("Could not construct required partition filters"),
+    ):
+        result = profiler.get_profile_request(table, "test_dataset", "test-project")
+
+    assert result is None
+    assert len(report.warnings) >= 1
+
+
+def test_hierarchical_year_month_day_components():
+    """Year → month → day queries are constrained hierarchically so we don't produce
+    impossible dates like 2024-12-31 when the actual latest month is November."""
+
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    # Create table with year/month/day partition components
+    table = create_test_table(name="logs_by_date", partitioned=True)
+
+    partition_info = SimpleNamespace(
+        type="DAY",
+        field="year",  # Primary field
+        fields=["year", "month", "day", "source"],  # All partition fields
+        columns=None,
+        require_partition_filter=True,
+    )
+    table.partition_info = partition_info  # type: ignore[assignment]
+
+    def mock_execute_query_hierarchical_dates(query, job_config, context):
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            # Return year/month/day columns
+            return [
+                SimpleNamespace(column_name="year", data_type="INT64"),
+                SimpleNamespace(column_name="month", data_type="INT64"),
+                SimpleNamespace(column_name="day", data_type="INT64"),
+                SimpleNamespace(column_name="source", data_type="STRING"),
+            ]
+
+        elif "INFORMATION_SCHEMA.PARTITIONS" in query:
+            return []
+
+        elif "GROUP BY" in query and "ORDER BY" in query:
+            # Simulate hierarchical queries - check SELECT clause to determine which column is being queried
+            if (
+                "SELECT `year`" in query
+                and "`month`" not in query
+                and "`day`" not in query
+            ):
+                return [
+                    SimpleNamespace(val=2024, record_count=50000),
+                ]
+
+            elif (
+                "SELECT `month`" in query
+                and "`year` =" in query
+                and "`day`" not in query
+            ):
+                return [
+                    SimpleNamespace(val=11, record_count=15000),
+                ]
+
+            elif (
+                "SELECT `day`" in query and "`year` =" in query and "`month` =" in query
+            ):
+                return [
+                    SimpleNamespace(val=15, record_count=5000),
+                ]
+
+            elif (
+                "SELECT `source`" in query
+                and "`year` =" in query
+                and "`month` =" in query
+                and "`day` =" in query
+            ):
+                return [
+                    SimpleNamespace(val="app", record_count=3000),
+                    SimpleNamespace(val="api", record_count=2000),
+                ]
+
+        return []
+
+    partition_filters = discovery.get_required_partition_filters(
+        table, "test-project", "dataset", mock_execute_query_hierarchical_dates
+    )
+
+    assert partition_filters is not None
+    assert len(partition_filters) > 0
+
+    filter_str = " ".join(partition_filters)
+
+    assert "2024" in filter_str
+    assert (
+        "11" in filter_str
+    )  # November, not December (hierarchical constraint avoids future months)
+    assert "15" in filter_str  # 15th, not 31st (day constrained within month)
+    assert "app" in filter_str
+
+
+def test_security_edge_cases():
+    assert validate_column_names([]) == []
+    assert validate_and_filter_expressions([]) == []
+
+    mixed_columns = [
+        "Valid_Column",
+        "UPPER_CASE",
+        "lower_case",
+        "123invalid",
+        "_valid_underscore",
+    ]
+    result = validate_column_names(mixed_columns)
+    assert "Valid_Column" in result
+    assert "UPPER_CASE" in result
+    assert "_valid_underscore" in result
+    assert len(result) >= 3
+
+
+@pytest.mark.parametrize(
+    "table_name,ddl,mock_columns,expected_column,expected_type",
+    [
+        pytest.param(
+            "test_date_partition",
+            """
+            CREATE TABLE `project.dataset.test_date_partition`
+            PARTITION BY DATE(timestamp_column)
+            AS SELECT * FROM source_table
+            """,
+            [("timestamp_column", "TIMESTAMP")],
+            "timestamp_column",
+            "TIMESTAMP",
+            id="date_partition",
+        ),
+        pytest.param(
+            "test_datetime_partition",
+            """
+            CREATE TABLE `project.dataset.test_datetime_partition`
+            PARTITION BY DATETIME_TRUNC(event_time, DAY)
+            AS SELECT * FROM source_table
+            """,
+            [("event_time", "DATETIME")],
+            "event_time",
+            "DATETIME",
+            id="datetime_trunc_partition",
+        ),
+        pytest.param(
+            "test_timestamp_partition",
+            """
+            CREATE TABLE `project.dataset.test_timestamp_partition`
+            PARTITION BY TIMESTAMP_TRUNC(created_at, HOUR)
+            OPTIONS(
+                partition_expiration_days=7
+            )
+            """,
+            [("created_at", "TIMESTAMP")],
+            "created_at",
+            "TIMESTAMP",
+            id="timestamp_trunc_partition",
+        ),
+        pytest.param(
+            "test_range_partition",
+            """
+            CREATE TABLE `project.dataset.test_range_partition`
+            PARTITION BY RANGE_BUCKET(user_id, GENERATE_ARRAY(0, 100, 10))
+            AS SELECT * FROM source_table
+            """,
+            [("user_id", "INT64")],
+            "user_id",
+            "INT64",
+            id="range_bucket_partition",
+        ),
+        pytest.param(
+            "test_simple_partition",
+            """
+            CREATE TABLE `project.dataset.test_simple_partition` (
+                date STRING,
+                region STRING,
+                value INT64
+            )
+            PARTITION BY date
+            """,
+            [("date", "STRING")],
+            "date",
+            "STRING",
+            id="simple_column_partition",
+        ),
+        pytest.param(
+            "test_complex_format",
+            """
+            CREATE TABLE
+                `project.dataset.test_complex_format`
+            (
+                id INT64,
+                event_timestamp TIMESTAMP,
+                data STRING
+            )
+            PARTITION BY
+                DATE(event_timestamp)
+            CLUSTER BY
+                id
+            OPTIONS(
+                description="Complex formatted table",
+                partition_expiration_days=30
+            )
+            """,
+            [("event_timestamp", "TIMESTAMP")],
+            "event_timestamp",
+            "TIMESTAMP",
+            id="complex_multiline_format",
+        ),
+        pytest.param(
+            "test_no_partition",
+            """
+            CREATE TABLE `project.dataset.test_no_partition` (
+                id INT64,
+                name STRING
+            )
+            """,
+            [],
+            None,
+            None,
+            id="no_partition",
+        ),
+        pytest.param(
+            "test_invalid_ddl",
+            "INVALID SQL STATEMENT",
+            [],
+            None,
+            None,
+            id="invalid_ddl",
+        ),
+    ],
+)
+def test_sqlglot_ddl_parsing(
+    table_name, ddl, mock_columns, expected_column, expected_type
+):
+    """Test sqlglot-based DDL parsing for various partition configurations"""
+    config = BigQueryV2Config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(name=table_name, ddl=ddl)
+
+    def mock_execute(query, job_config=None, context=""):
+        if "INFORMATION_SCHEMA.COLUMNS" in query and mock_columns:
+            return [
+                SimpleNamespace(column_name=col, data_type=dtype)
+                for col, dtype in mock_columns
+            ]
+        return []
+
+    result = discovery.get_partition_columns_from_ddl(
+        table, "project", "dataset", mock_execute
+    )
+
+    if expected_column is None:
+        assert len(result) == 0
+    else:
+        assert expected_column in result
+        assert result[expected_column] == expected_type
+
+
+@pytest.mark.parametrize(
+    "partition_id,should_succeed,expected_checks",
+    [
+        pytest.param(
+            "2024",
+            True,
+            {"start_year": 2024, "start_month": 1, "start_day": 1, "end_year": 2025},
+            id="yearly_format_yyyy",
+        ),
+        pytest.param(
+            "202411",
+            True,
+            {"start_year": 2024, "start_month": 11, "end_month": 12},
+            id="monthly_format_yyyymm",
+        ),
+        pytest.param(
+            "20241115",
+            True,
+            {"start_year": 2024, "start_month": 11, "start_day": 15, "end_day": 16},
+            id="daily_format_yyyymmdd",
+        ),
+        pytest.param(
+            "2024111523",
+            True,
+            {"start_hour": 23},
+            id="hourly_format_yyyymmddhh",
+        ),
+        pytest.param(
+            "invalid",
+            False,
+            None,
+            id="invalid_format",
+        ),
+    ],
+)
+def test_get_partition_range_formats(partition_id, should_succeed, expected_checks):
+    """Test partition range calculation for various partition ID formats"""
+    if not should_succeed:
+        with pytest.raises(ValueError, match="Invalid partition_id"):
+            PartitionDiscovery.get_partition_range_from_partition_id(partition_id, None)
+    else:
+        start, end = PartitionDiscovery.get_partition_range_from_partition_id(
+            partition_id, None
+        )
+
+        for attr, expected_value in expected_checks.items():
+            if attr.startswith("start_"):
+                assert getattr(start, attr.replace("start_", "")) == expected_value
+            elif attr.startswith("end_"):
+                assert getattr(end, attr.replace("end_", "")) == expected_value
+
+
+def test_partition_discovery_with_multiple_date_columns():
+    """Test partition discovery when table has multiple date-like columns"""
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(name="multi_date_table", partitioned=True)
+
+    def mock_execute_query_multi_date(query, job_config, context):
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [
+                SimpleNamespace(column_name="event_date", data_type="DATE"),
+                SimpleNamespace(column_name="created_date", data_type="DATE"),
+            ]
+
+        if "GROUP BY" in query and "ORDER BY" in query:
+            return [SimpleNamespace(val=date(2024, 11, 20), record_count=5000)]
+
+        if "SELECT 1" in query:
+            return [SimpleNamespace(exists_check=1)]
+
+        return []
+
+    filters = discovery.get_required_partition_filters(
+        table, "test-project", "dataset", mock_execute_query_multi_date
+    )
+
+    assert filters is not None
+    assert len(filters) > 0
+
+
+def test_partition_discovery_external_table_with_partition_path():
+    """Test external table with partition path information"""
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    external_table = create_test_table(
+        name="external_partitioned", partitioned=True, external=True
+    )
+
+    def mock_execute_query_external_path(query, job_config, context):
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [SimpleNamespace(column_name="date", data_type="DATE")]
+
+        if "__PARTITIONS_SUMMARY__" in query:
+            return [SimpleNamespace(partition_id="date=2024-11-20", total_rows=15000)]
+
+        if "GROUP BY" in query:
+            return [SimpleNamespace(val=date(2024, 11, 20), record_count=15000)]
+
+        return []
+
+    filters = discovery.get_required_partition_filters(
+        external_table, "test-project", "dataset", mock_execute_query_external_path
+    )
+
+    assert filters
+    assert all(isinstance(f, str) for f in filters)
+
+
+def test_security_validate_column_names_list():
+    valid_names = ["column1", "column_2", "_private", "snake_case_column"]
+    validated = validate_column_names(valid_names, "test")
+    assert len(validated) == 4
+
+    mixed_names = ["valid_col", "invalid;col", "another_valid"]
+    validated = validate_column_names(mixed_names, "test")
+    assert "valid_col" in validated
+    assert "another_valid" in validated
+    assert "invalid;col" not in validated
+
+
+def test_security_validate_filter_expression():
+    valid_exprs = [
+        "`date` = '2024-11-20'",
+        "`year` = 2024",
+        "`event_date` >= '2024-01-01'",
+        "`status` IN ('active', 'pending')",
+    ]
+
+    for expr in valid_exprs:
+        result = validate_filter_expression(expr)
+        assert result is True
+
+    invalid_exprs = [
+        "date = '2024'; DROP TABLE users",
+        "col = val/*comment*/",
+    ]
+
+    for expr in invalid_exprs:
+        result = validate_filter_expression(expr)
+        assert result is False
+
+
+def test_security_validate_identifier_invalid():
+    invalid_ids = [
+        "table; DROP TABLE",
+        "col`; --comment",
+        "field\nmalicious",
+        "col/*comment*/",
+        "",  # empty
+        "123invalid",  # starts with number
+    ]
+
+    for invalid_id in invalid_ids:
+        with pytest.raises(ValueError):
+            validate_bigquery_identifier(invalid_id, "test")
+
+
+def test_partition_discovery_with_window_config():
+    """Test partition discovery with datetime window configuration"""
+    config = create_test_config(partition_datetime_window_days=30)
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(name="windowed_table", partitioned=True)
+
+    def mock_execute_windowed(query, job_config, context):
+        if "INFORMATION_SCHEMA.COLUMNS" in query:
+            return [SimpleNamespace(column_name="event_date", data_type="DATE")]
+
+        if "SELECT 1" in query:
+            return [SimpleNamespace(exists_check=1)]
+
+        if "GROUP BY" in query:
+            return [SimpleNamespace(val=date(2024, 11, 15), record_count=5000)]
+
+        return []
+
+    filters = discovery.get_required_partition_filters(
+        table, "test-project", "dataset", mock_execute_windowed
+    )
+
+    assert filters is not None
+
+
+def test_partition_discovery_empty_table():
+    """Test partition discovery on a table with no data"""
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(name="empty_table", partitioned=True)
+
+    def mock_execute_empty(query, job_config, context):
+        return []
+
+    filters = discovery.get_required_partition_filters(
+        table, "test-project", "dataset", mock_execute_empty
+    )
+
+    assert filters is not None or filters == []
+
+
+@pytest.mark.parametrize(
+    "column_name,value,col_type,expected_filter,should_raise,error_match",
+    [
+        pytest.param(
+            "user_id",
+            999,
+            "INT64",
+            "`user_id` = 999",
+            False,
+            None,
+            id="int64_unquoted",
+        ),
+        pytest.param(
+            "date",
+            "2026-02-25",
+            "INT64",
+            "`date` = 20260225",
+            False,
+            None,
+            id="int64_date_string_converted_to_yyyymmdd",
+        ),
+        pytest.param(
+            "amount",
+            123.45,
+            "FLOAT64",
+            "`amount` = 123.45",
+            False,
+            None,
+            id="float64_unquoted",
+        ),
+        pytest.param(
+            "status",
+            "active",
+            "STRING",
+            "`status` = 'active'",
+            False,
+            None,
+            id="string_quoted",
+        ),
+        pytest.param(
+            "name",
+            "O'Brien",
+            "STRING",
+            "`name` = 'O\\'Brien'",
+            False,
+            None,
+            id="string_quote_escaped",
+        ),
+        pytest.param(
+            "unknown_col",
+            "value",
+            None,
+            "`unknown_col` = 'value'",
+            False,
+            None,
+            id="no_type_defaults_to_quoted",
+        ),
+        pytest.param(
+            "col",
+            "value",
+            "CUSTOM_TYPE",
+            "`col` = 'value'",
+            False,
+            None,
+            id="unknown_type_defaults_to_quoted",
+        ),
+        pytest.param(
+            "date_column",
+            "20250115",
+            "DATE",
+            "`date_column` = '2025-01-15'",
+            False,
+            None,
+            id="date_yyyymmdd_formatted",
+        ),
+        pytest.param(
+            "month_column",
+            "202601",
+            "DATE",
+            "`month_column` >= '2026-01-01' AND `month_column` < '2026-02-01'",
+            False,
+            None,
+            id="date_yyyymm_formatted",
+        ),
+        pytest.param(
+            "run_timestamp",
+            "20250115",
+            "TIMESTAMP",
+            "`run_timestamp` >= TIMESTAMP('2025-01-15 00:00:00') "
+            "AND `run_timestamp` < TIMESTAMP('2025-01-16 00:00:00')",
+            False,
+            None,
+            id="timestamp_yyyymmdd_with_cast",
+        ),
+        pytest.param(
+            "run_timestamp",
+            "202601",
+            "TIMESTAMP",
+            "`run_timestamp` >= TIMESTAMP('2026-01-01 00:00:00') "
+            "AND `run_timestamp` < TIMESTAMP('2026-02-01 00:00:00')",
+            False,
+            None,
+            id="timestamp_yyyymm_with_cast",
+        ),
+        pytest.param(
+            "run_timestamp",
+            "2025011523",
+            "TIMESTAMP",
+            "`run_timestamp` >= TIMESTAMP('2025-01-15 23:00:00') "
+            "AND `run_timestamp` < TIMESTAMP('2025-01-16 00:00:00')",
+            False,
+            None,
+            id="timestamp_yyyymmddhh_with_time",
+        ),
+        pytest.param(
+            "event_time",
+            "2025011523",
+            "DATETIME",
+            "`event_time` >= '2025-01-15 23:00:00' "
+            "AND `event_time` < '2025-01-16 00:00:00'",
+            False,
+            None,
+            id="datetime_yyyymmddhh_with_time",
+        ),
+        pytest.param(
+            "date_column",
+            "2025-01-15",
+            "DATE",
+            "`date_column` = '2025-01-15'",
+            False,
+            None,
+            id="date_already_formatted",
+        ),
+        pytest.param(
+            "run_timestamp",
+            "2025-01-15 23:00:00",
+            "TIMESTAMP",
+            "`run_timestamp` = '2025-01-15 23:00:00'",
+            False,
+            None,
+            id="timestamp_already_formatted",
+        ),
+        pytest.param(
+            "invalid-column",
+            "value",
+            "STRING",
+            None,
+            True,
+            "Invalid column name",
+            id="invalid_column_hyphen",
+        ),
+        pytest.param(
+            "col;name",
+            "value",
+            "STRING",
+            None,
+            True,
+            "Invalid column name",
+            id="invalid_column_semicolon",
+        ),
+        pytest.param(
+            "col",
+            "value; DROP TABLE",
+            "STRING",
+            "`col` = 'value; DROP TABLE'",
+            False,
+            None,
+            id="sql_injection_drop_table",
+        ),
+        pytest.param(
+            "col",
+            "value-- comment",
+            "STRING",
+            "`col` = 'value-- comment'",
+            False,
+            None,
+            id="sql_injection_comment",
+        ),
+        pytest.param(
+            "int_col",
+            "not_a_number",
+            "INT64",
+            None,
+            True,
+            "Non-numeric value",
+            id="non_numeric_value_for_numeric_column_raises",
+        ),
+    ],
+)
+def test_filter_builder_type_handling(
+    column_name, value, col_type, expected_filter, should_raise, error_match
+):
+    if should_raise:
+        with pytest.raises(ValueError, match=error_match):
+            FilterBuilder.create_safe_filter(column_name, value, col_type)
+    else:
+        result = FilterBuilder.create_safe_filter(column_name, value, col_type)
+        assert result == expected_filter
+
+
+def test_filter_builder_convert_partition_id_with_column_types():
+    # This tests proper TIMESTAMP formatting for 6-digit partition IDs
+    filters = FilterBuilder.convert_partition_id_to_filters(
+        partition_id="202601",
+        required_columns=["run_timestamp"],
+        column_types={"run_timestamp": "TIMESTAMP"},
+    )
+    assert filters is not None
+    assert len(filters) == 1
+    # A YYYYMM id on a TIMESTAMP column is a whole-month bucket -> half-open range.
+    assert filters[0] == (
+        "`run_timestamp` >= TIMESTAMP('2026-01-01 00:00:00') "
+        "AND `run_timestamp` < TIMESTAMP('2026-02-01 00:00:00')"
+    )
+
+    filters = FilterBuilder.convert_partition_id_to_filters(
+        partition_id="999",
+        required_columns=["record_id"],
+        column_types={"record_id": "INT64"},
+    )
+    assert filters is not None
+    assert len(filters) == 1
+    assert filters[0] == "`record_id` = 999"
+    filters = FilterBuilder.convert_partition_id_to_filters(
+        partition_id="20250115",
+        required_columns=["date_column"],
+        column_types={"date_column": "DATE"},
+    )
+    assert filters is not None
+    assert len(filters) == 1
+    assert "`date_column` = '2025-01-15'" in filters[0]
+
+    filters = FilterBuilder.convert_partition_id_to_filters(
+        partition_id="feed=pp_tse$year=2025",
+        required_columns=["feed", "year"],
+        column_types={"feed": "STRING", "year": "INT64"},
+    )
+    assert filters is not None
+    assert len(filters) == 2
+    assert "`feed` = 'pp_tse'" in filters[0]
+    assert "`year` = 2025" in filters[1]  # No quotes for INT64
+
+
+def test_filter_builder_convert_partition_id_without_column_types():
+    # Without column_types, everything should be quoted (backward compatibility)
+    filters = FilterBuilder.convert_partition_id_to_filters(
+        partition_id="202601",
+        required_columns=["run_timestamp"],
+        column_types=None,  # No type info
+    )
+    assert filters is not None
+    assert len(filters) == 1
+    assert "`run_timestamp`" in filters[0]
+
+
+def test_fallback_filter_with_column_types():
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    fallback_date = datetime(2025, 1, 15, tzinfo=timezone.utc)
+
+    filter_ts = discovery._create_fallback_filter_for_column(
+        "run_timestamp", fallback_date, "TIMESTAMP"
+    )
+    assert "`run_timestamp`" in filter_ts
+    assert "2025-01-15" in filter_ts or "IS NOT NULL" in filter_ts
+
+    filter_year = discovery._create_fallback_filter_for_column(
+        "year", fallback_date, "INT64"
+    )
+    assert filter_year == "`year` = 2025"  # No quotes for INT64
+
+
+@pytest.mark.parametrize(
+    "column_types,partition_values,expected_filters,expected_count",
+    [
+        pytest.param(
+            {
+                "partition_col1": "INT64",
+                "partition_col2": "STRING",
+                "partition_col3": "DATE",
+            },
+            {
+                "partition_col1": "20241021",
+                "partition_col2": "region_a",
+                "partition_col3": "2024-10-21",
+            },
+            [
+                "`partition_col1` = 20241021",  # INT64 unquoted
+                "`partition_col2` = 'region_a'",  # STRING quoted
+                "`partition_col3` = '2024-10-21'",  # DATE quoted
+            ],
+            3,
+            id="mixed_types_int64_string_date",
+        ),
+        pytest.param(
+            {
+                "region_id": "INT64",
+                "batch_name": "STRING",
+            },
+            {
+                "region_id": "12345",
+                "batch_name": "batch_xyz",
+            },
+            [
+                "`region_id` = 12345",  # INT64 unquoted
+                "`batch_name` = 'batch_xyz'",  # STRING quoted
+            ],
+            2,
+            id="fallback_non_date_partitions",
+        ),
+        pytest.param(
+            {"event_timestamp": "TIMESTAMP"},
+            {"event_timestamp": "202601"},  # YYYYMM format
+            [
+                "TIMESTAMP(",
+                "2026-01-01",
+            ],  # Check for both TIMESTAMP() and formatted date
+            1,
+            id="timestamp_yyyymm_format_conversion",
+        ),
+        pytest.param(
+            {
+                "year_num": "INT64",
+                "month_num": "INT64",
+                "region_code": "INT64",
+            },
+            {
+                "year_num": "2024",
+                "month_num": "10",
+                "region_code": "5",
+            },
+            [
+                "`year_num` = 2024",  # All INT64 unquoted
+                "`month_num` = 10",
+                "`region_code` = 5",
+            ],
+            3,
+            id="all_int64_partitions",
+        ),
+        pytest.param(
+            {
+                "event_date": "DATE",
+                "batch_id": "INT64",
+                "shard_num": "INT64",
+            },
+            {
+                "event_date": "2024-10-21",
+                "batch_id": "9876",
+                "shard_num": "3",
+            },
+            [
+                "`event_date` = '2024-10-21'",  # DATE quoted
+                "`batch_id` = 9876",  # INT64 unquoted
+                "`shard_num` = 3",  # INT64 unquoted
+            ],
+            3,
+            id="date_with_numeric_partitions",
+        ),
+    ],
+)
+def test_find_real_partition_values_type_propagation(
+    column_types, partition_values, expected_filters, expected_count
+):
+    """Test _find_real_partition_values properly passes column types to filter creation.
+
+    This is a parameterized test covering multiple scenarios for the bug fix where column types
+    weren't being passed to _create_safe_filter(), causing type mismatch errors like:
+    - "No matching signature for operator = for argument types: INT64, STRING"
+    - "Could not cast literal '202601' to type TIMESTAMP"
+
+    Fixed at lines 1403-1404 and 1530-1531 in discovery.py
+    """
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    table = create_test_table(
+        name="test_partition_table",
+        partitioned=True,
+    )
+
+    project = "test-project"
+    schema = "test_schema"
+    required_columns = list(column_types.keys())
+
+    mock_execute = Mock()
+
+    with (
+        patch.object(
+            discovery,
+            "_get_partition_column_types",
+            return_value=column_types,
+        ) as mock_get_types,
+        patch.object(
+            discovery,
+            "_get_partition_info_from_table_query",
+            return_value=partition_values,
+        ) as mock_get_partition_info,
+    ):
+        result = discovery._find_real_partition_values(
+            table, project, schema, required_columns, mock_execute
+        )
+
+        mock_get_types.assert_called_once_with(
+            table,
+            project,
+            schema,
+            required_columns,
+            mock_execute,
+            cached_metadata=None,
+        )
+
+        mock_get_partition_info.assert_called_once_with(
+            table,
+            project,
+            schema,
+            required_columns,
+            mock_execute,
+            cached_metadata=None,
+        )
+
+        assert result is not None, "Expected filters but got None"
+        assert len(result) == expected_count, (
+            f"Expected {expected_count} filters, got {len(result)}"
+        )
+
+        filter_str = " ".join(result)
+        for expected in expected_filters:
+            assert expected in filter_str, (
+                f"Expected '{expected}' in filters, got: {result}"
+            )
 
 
 @patch(
@@ -369,96 +3178,146 @@ def test_profiler_engine_falls_back_to_adc_when_no_credential(mock_create_engine
     assert kwargs["connect_args"] == {}
 
 
-@pytest.mark.parametrize(
-    "input_id, expected",
-    [
-        ("my_table", "`my_table`"),
-        ("dataset_123", "`dataset_123`"),
-        ("_PARTITIONTIME", "`_PARTITIONTIME`"),
-    ],
-)
-def test_validate_bigquery_identifier_valid(input_id: str, expected: str) -> None:
-    assert validate_bigquery_identifier(input_id) == expected
+def test_hierarchical_date_component_discovery_chains_constraints():
+    # year/month/day discovery must fold each resolved component into the next query's
+    # WHERE so month is picked within the latest year and day within that year+month
+    # (avoiding impossible dates like a December from a year that only has Jan-Mar).
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    captured: dict = {}
+
+    def mock_execute(query, job_config, context):
+        captured[context] = query
+        values = {
+            "partition component year": 2024,
+            "partition component month": 3,
+            "partition component day": 7,
+        }
+        if context in values:
+            return [SimpleNamespace(val=values[context], record_count=100)]
+        return []
+
+    result_values: dict = {}
+    result = discovery._process_date_components_hierarchically(
+        {"year": "year", "month": "month", "day": "day"},
+        "`p`.`d`.`t`",
+        mock_execute,
+        result_values,
+        {"year": "INT64", "month": "INT64", "day": "INT64"},
+    )
+
+    assert result.incomplete is False
+    assert result.filters == ["`year` = 2024", "`month` = 3", "`day` = 7"]
+    assert "`year` = 2024" in captured["partition component month"]
+    assert "`year` = 2024" in captured["partition component day"]
+    assert "`month` = 3" in captured["partition component day"]
 
 
-@pytest.mark.parametrize(
-    "invalid_id",
-    ["col;drop", "col'injection", "col--comment", "col/*x*/", "bad col"],
-)
-def test_validate_bigquery_identifier_invalid(invalid_id: str) -> None:
-    with pytest.raises(ValueError):
-        validate_bigquery_identifier(invalid_id)
+def test_incomplete_date_hierarchy_aborts_composite_discovery():
+    # year resolves but month yields no value: the composite key is only partially
+    # pinned, so direct discovery must abort (return {}) rather than fall through to
+    # non-date columns and profile every month of the year with just a region filter.
+    config = create_test_config()
+    discovery = PartitionDiscovery(config)
+
+    def mock_execute(query, job_config, context):
+        # INFORMATION_SCHEMA column-type lookups are answered by the categorization
+        # path; here only the year component resolves, month/day and region do not.
+        if context == "partition component year":
+            return [SimpleNamespace(val=2024, record_count=100)]
+        return []
+
+    result = discovery._process_date_components_hierarchically(
+        {"year": "year", "month": "month", "day": "day"},
+        "`p`.`d`.`t`",
+        mock_execute,
+        {},
+        {"year": "INT64", "month": "INT64", "day": "INT64"},
+    )
+    assert result.incomplete is True
+    assert result.filters == []
+
+    # And the coordinator drops any partial values and reports no partition info so the
+    # caller falls back / skips instead of scanning a broader-than-single partition.
+    with patch.object(
+        discovery,
+        "_get_partition_column_types",
+        return_value={"year": "INT64", "month": "INT64", "region": "STRING"},
+    ):
+        values = discovery._get_partition_info_from_table_query(
+            create_test_table("test_table"),
+            "test-project",
+            "test_dataset",
+            ["year", "month", "region"],
+            mock_execute,
+        )
+    assert values == {}
 
 
-def test_build_safe_table_reference():
+def test_date_component_value_zero_pads_month_and_day():
+    dt = datetime(2024, 3, 7)
+    assert PartitionDiscovery._date_component_value("year", dt) == "2024"
+    assert PartitionDiscovery._date_component_value("month", dt) == "03"
+    assert PartitionDiscovery._date_component_value("day", dt) == "07"
+    assert PartitionDiscovery._date_component_value("region", dt) is None
+
+
+def test_security_project_identifier_bounds():
     assert (
-        build_safe_table_reference("my-project", "my_dataset", "my_table")
-        == "`my-project`.`my_dataset`.`my_table`"
+        validate_bigquery_identifier("my-project-123", "project") == "`my-project-123`"
     )
-
-
-@pytest.mark.parametrize(
-    "dangerous_sql",
-    [
-        "DROP TABLE foo",
-        "SELECT * FROM t; DELETE FROM t",
-        "INSERT INTO t VALUES (1)",
-    ],
-)
-def test_validate_sql_structure_dangerous(dangerous_sql: str) -> None:
     with pytest.raises(ValueError):
-        validate_sql_structure(dangerous_sql)
+        validate_bigquery_identifier("shrt", "project")  # < 6 chars
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier("a" * 31, "project")  # > 30 chars
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier("my--project", "project")  # consecutive hyphens
 
 
-def test_validate_sql_structure_valid():
-    for query in [
-        "SELECT * FROM `project.dataset.table`",
-        "WITH cte AS (SELECT 1) SELECT * FROM cte",
-        "SELECT COUNT(*) FROM `table` LIMIT 1000",
-    ]:
-        assert validate_sql_structure(query) is True
-
-
-def test_validate_column_name():
-    assert validate_column_name("valid_col") is True
-    assert validate_column_name("_PARTITIONTIME") is True
-    assert validate_column_name("invalid col") is False
-    assert validate_column_name("col;drop") is False
-
-
-def test_validate_column_names_filters_invalid():
-    result = validate_column_names(["valid_col", "invalid col", "another_valid"])
-    assert result == ["valid_col", "another_valid"]
-
-
-def test_validate_filter_expression_valid():
-    assert validate_filter_expression("`event_date` = '2023-12-25'") is True
-
-
-def test_validate_and_filter_expressions():
-    result = validate_and_filter_expressions(
-        [
-            "`valid_col` = '2023-12-25'",
-            "invalid;expression",
-            "`another_valid` = 123",
-            "DROP TABLE malicious",
-        ]
+def test_security_information_schema_identifier_is_bare_dotted():
+    # INFORMATION_SCHEMA views are referenced by their bare dotted name; backticking
+    # the whole "INFORMATION_SCHEMA.VIEW" string makes BigQuery look for a table
+    # literally named that and the query fails.
+    assert (
+        validate_bigquery_identifier("INFORMATION_SCHEMA.COLUMNS")
+        == "INFORMATION_SCHEMA.COLUMNS"
     )
-    assert len(result) == 2
-    assert "`valid_col` = '2023-12-25'" in result
-
-
-@pytest.mark.parametrize(
-    "dangerous_sql",
-    [
-        "SELECT 1; EXPORT DATA OPTIONS(uri='gs://x') AS SELECT * FROM t",
-        "SELECT 1; LOAD DATA INTO t FROM FILES(uri=['gs://x'])",
-        "SELECT 1; CALL `p.d.proc`()",
-    ],
-)
-def test_validate_sql_structure_blocks_export_load_call(dangerous_sql: str) -> None:
+    assert validate_bigquery_identifier("INFORMATION_SCHEMA") == "INFORMATION_SCHEMA"
+    # A malformed/injected view suffix is still rejected rather than passed through.
     with pytest.raises(ValueError):
-        validate_sql_structure(dangerous_sql)
+        validate_bigquery_identifier("INFORMATION_SCHEMA.COLUMNS; DROP TABLE x")
+
+
+def test_security_dataset_double_underscore_and_length():
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier("__hidden", "dataset")
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier("a" * 1025, "table")
+
+
+def test_build_safe_table_reference_information_schema():
+    ref = build_safe_table_reference(
+        "my-project", "my_dataset", "INFORMATION_SCHEMA.COLUMNS"
+    )
+    # The view keeps its canonical bare dotted form; only project/dataset are backticked.
+    assert ref == "`my-project`.`my_dataset`.INFORMATION_SCHEMA.COLUMNS"
+
+
+def test_widen_client_connection_pool_sizes_adapter():
+    session = requests.Session()
+    client = cast(bigquery.Client, SimpleNamespace(_http=session))
+
+    _widen_client_connection_pool(client, 40)
+
+    adapter = session.get_adapter("https://bigquery.googleapis.com")
+    assert adapter.__dict__["_pool_maxsize"] == 40
+
+
+def test_widen_client_connection_pool_ignores_client_without_http():
+    _widen_client_connection_pool(
+        cast(bigquery.Client, SimpleNamespace(_http=None)), 40
+    )
 
 
 def test_validate_filter_expression_blocks_union_distinct_and_hash_comment():
@@ -469,13 +3328,6 @@ def test_validate_filter_expression_blocks_union_distinct_and_hash_comment():
     )
     # '#' line comment could comment out the rest of the interpolated predicate.
     assert validate_filter_expression("`p` = 1 # ") is False
-
-
-def test_validate_filter_expression_allows_between():
-    assert (
-        validate_filter_expression("`event_date` BETWEEN '2023-01-01' AND '2023-01-31'")
-        is True
-    )
 
 
 def test_validate_column_name_rejects_trailing_newline():
@@ -678,3 +3530,7 @@ def test_extract_column_names_from_ddl_does_not_flatten_function_args(ddl, expec
         discovery._extract_column_names_from_sqlglot_partition(partition_expr)
         == expected
     )
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

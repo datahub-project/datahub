@@ -240,9 +240,11 @@ DATETIME_SECONDS_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
 # A DATETIME/TIMESTAMP value sampled from BigQuery can carry a 'T' separator,
 # fractional seconds, and/or a trailing UTC offset (e.g.
 # "2025-01-15T10:30:00.123456+00:00"). These are valid literals BigQuery casts, so
-# they must pass through rather than being dropped to an IS NOT NULL fallback.
+# they must pass through rather than being dropped to an IS NOT NULL fallback. The
+# minutes portion of the offset is optional because BigQuery's default
+# CAST(TIMESTAMP AS STRING) emits an hours-only offset ("... 10:30:00+00").
 ISO_DATETIME_FLEX_PATTERN = re.compile(
-    r"^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$"
+    r"^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}(:?\d{2})?)?$"
 )
 PARTITION_ID_YYYYMMDD_PATTERN = re.compile(r"^\d{8}$")
 PARTITION_ID_YYYYMM_PATTERN = re.compile(r"^\d{6}$")
@@ -263,6 +265,16 @@ PARTITION_EQ_LITERAL_RE = re.compile(r"`([a-zA-Z_][a-zA-Z0-9_]*)`\s*=\s*(.+?)\s*
 # range and does not strip the label from an exact single-partition equality scan.
 PARTITION_RANGE_OPERATOR_RE = re.compile(
     r"`[a-zA-Z_][a-zA-Z0-9_]*`\s*(?:>=|<=|>|<)|`[a-zA-Z_][a-zA-Z0-9_]*`\s+BETWEEN\b",
+    re.IGNORECASE,
+)
+
+# Same shape as PARTITION_RANGE_OPERATOR_RE but captures the column name, so date
+# windowing can tell whether a given column already carries a discovered range
+# predicate (a half-open month/timestamp partition) that must not be overwritten with a
+# today-based window. Anchored on the backtick-quoted column so a range operator inside a
+# quoted STRING value is not misread.
+PARTITION_RANGE_COLUMN_RE = re.compile(
+    r"`([a-zA-Z_][a-zA-Z0-9_]*)`\s*(?:>=|<=|>|<|BETWEEN\b)",
     re.IGNORECASE,
 )
 
