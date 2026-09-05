@@ -195,6 +195,9 @@ fragment recommendationEntityPreview on Entity {
         deprecation {
             ...deprecationFields
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on MLModel {
         name
@@ -204,11 +207,17 @@ fragment recommendationEntityPreview on Entity {
         deprecation {
             ...deprecationFields
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on MLFeature {
         name
         deprecation {
             ...deprecationFields
+        }
+        health {
+            ...entityHealth
         }
     }
     ... on MLModelGroup {

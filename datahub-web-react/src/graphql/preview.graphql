@@ -284,6 +284,9 @@ fragment entityPreview on Entity {
         deprecation {
             ...deprecationFields
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on MLModel {
         name
@@ -298,6 +301,9 @@ fragment entityPreview on Entity {
         deprecation {
             ...deprecationFields
         }
+        health {
+            ...entityHealth
+        }
     }
     ... on MLFeature {
         name
@@ -307,6 +313,9 @@ fragment entityPreview on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        health {
+            ...entityHealth
         }
     }
     ... on MLModelGroup {
