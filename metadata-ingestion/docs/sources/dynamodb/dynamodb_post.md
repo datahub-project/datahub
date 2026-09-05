@@ -36,10 +36,27 @@ include_table_item:
     ]
 ```
 
+#### DynamoDB Export to S3 lineage
+
+Set `include_s3_export_lineage: true` to discover existing [DynamoDB Export to S3](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/S3DataExport.HowItWorks.html) jobs and emit COPY lineage from each DynamoDB table to its S3 destination (`s3://bucket/prefix`).
+
+By default this emits table-level COPY edges only. Set `include_s3_export_column_lineage: true` to also emit column-level lineage inferred from the DynamoDB table's schema. When the S3 export dataset already exists in DataHub, only fields that match its schema (case-insensitive) are linked; otherwise the inferred DynamoDB field paths are used as-is. Leave it off unless you know the S3 export layout matches those field paths — native Export to S3 writes DynamoDB JSON or Amazon Ion, which often does not. For a robust column-level story, ingest the downstream Glue/Iceberg tables (via the [Glue source](https://docs.datahub.com/docs/generated/ingestion/sources/glue)), which resolves column lineage against real schemas.
+
+The connector only calls `ListExports` and `DescribeExport`. It does not create exports. AWS retains export task metadata for about 90 days, so older exports will not appear until a newer export exists for that destination.
+
+```yml
+include_s3_export_lineage: true
+# include_s3_export_column_lineage: true
+```
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
+S3 export lineage is limited to DynamoDB's native Export to S3 feature (DynamoDB JSON or Amazon Ion — not Parquet or Iceberg). Glue/Spark jobs that convert exports to Parquet or Iceberg are discovered by the [Glue source](https://docs.datahub.com/docs/generated/ingestion/sources/glue) when job scripts use `connection_type: dynamodb`.
+
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
+If S3 export lineage is missing, confirm `include_s3_export_lineage` is enabled, the IAM principal can call `dynamodb:ListExports` and `dynamodb:DescribeExport`, and a COMPLETED export exists for the table within the last 90 days.
