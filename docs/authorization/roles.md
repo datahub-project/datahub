@@ -162,13 +162,15 @@ These privileges are only relevant to DataHub Cloud.
 
 ##### Platform Privileges
 
-| Privilege                       | Admin              | Editor             | Reader | Description                                                                                         |
-| ------------------------------- | ------------------ | ------------------ | ------ | --------------------------------------------------------------------------------------------------- |
-| Manage Tests                    | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create and remove Asset Tests.                                                                      |
-| View Metadata Proposals         | :heavy_check_mark: | :heavy_check_mark: | :x:    | View the requests tab for viewing metadata proposals.                                               |
-| Create metadata constraints[^1] | :heavy_check_mark: | :heavy_check_mark: | :x:    | Create metadata constraints.                                                                        |
-| Manage Platform Settings        | :heavy_check_mark: | :x:                | :x:    | View and change platform-level settings, like integrations & notifications.                         |
-| Manage Monitors                 | :heavy_check_mark: | :x:                | :x:    | Create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care. |
+| Privilege                       | Admin              | Editor             | Reader             | Description                                                                                           |
+| ------------------------------- | ------------------ | ------------------ | ------------------ | ----------------------------------------------------------------------------------------------------- |
+| Manage Tests                    | :heavy_check_mark: | :heavy_check_mark: | :x:                | Create and remove Asset Tests.                                                                        |
+| View Metadata Proposals         | :heavy_check_mark: | :heavy_check_mark: | :x:                | View the requests tab for viewing metadata proposals.                                                 |
+| Propose Create Domain           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | Propose creation of a new Domain. Reviewers need **Manage Domains**.                                  |
+| Propose Create Data Product     | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | Propose creation of a new Data Product. Reviewers need **Manage Data Products** on the parent Domain. |
+| Create metadata constraints[^1] | :heavy_check_mark: | :heavy_check_mark: | :x:                | Create metadata constraints.                                                                          |
+| Manage Platform Settings        | :heavy_check_mark: | :x:                | :x:                | View and change platform-level settings, like integrations & notifications.                           |
+| Manage Monitors                 | :heavy_check_mark: | :x:                | :x:                | Create, update, and delete any data asset monitors, including Custom SQL monitors. Grant with care.   |
 
 [^1]: Deprecated feature
 
