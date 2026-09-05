@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,40 +62,68 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
     AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
     List<AspectValidationException> failures = new ArrayList<>();
 
+    Map<String, Map<Urn, Aspect>> currentAspects =
+        fetchCurrentAspects(operationContext, items, aspectRetriever);
+
     for (BatchItem item : items) {
+      Aspect currentAspect =
+          currentAspects
+              .getOrDefault(item.getAspectName(), Collections.emptyMap())
+              .get(item.getUrn());
       switch (item.getAspectName()) {
         case GLOBAL_TAGS_ASPECT_NAME:
-          failures.addAll(
-              validateGlobalTags(
-                  session,
-                  item,
-                  aspectRetriever,
-                  aspectRetriever.getLatestAspectObject(
-                      operationContext, item.getUrn(), GLOBAL_TAGS_ASPECT_NAME)));
+          failures.addAll(validateGlobalTags(session, item, aspectRetriever, currentAspect));
           break;
         case SCHEMA_METADATA_ASPECT_NAME:
-          failures.addAll(
-              validateSchemaMetadata(
-                  session,
-                  item,
-                  aspectRetriever,
-                  aspectRetriever.getLatestAspectObject(
-                      operationContext, item.getUrn(), SCHEMA_METADATA_ASPECT_NAME)));
+          failures.addAll(validateSchemaMetadata(session, item, aspectRetriever, currentAspect));
           break;
         case EDITABLE_SCHEMA_METADATA_ASPECT_NAME:
           failures.addAll(
-              validateEditableSchemaMetadata(
-                  session,
-                  item,
-                  aspectRetriever,
-                  aspectRetriever.getLatestAspectObject(
-                      operationContext, item.getUrn(), EDITABLE_SCHEMA_METADATA_ASPECT_NAME)));
+              validateEditableSchemaMetadata(session, item, aspectRetriever, currentAspect));
           break;
         default:
           break;
       }
     }
     return failures;
+  }
+
+  @Nonnull
+  private Map<String, Map<Urn, Aspect>> fetchCurrentAspects(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull List<? extends BatchItem> items,
+      @Nonnull AspectRetriever aspectRetriever) {
+    Map<String, Set<Urn>> urnsByAspectName = new HashMap<>();
+    for (BatchItem item : items) {
+      switch (item.getAspectName()) {
+        case GLOBAL_TAGS_ASPECT_NAME:
+        case SCHEMA_METADATA_ASPECT_NAME:
+        case EDITABLE_SCHEMA_METADATA_ASPECT_NAME:
+          urnsByAspectName
+              .computeIfAbsent(item.getAspectName(), name -> new HashSet<>())
+              .add(item.getUrn());
+          break;
+        default:
+          break;
+      }
+    }
+
+    Map<String, Map<Urn, Aspect>> currentAspects = new HashMap<>();
+    urnsByAspectName.forEach(
+        (aspectName, urns) -> {
+          Map<Urn, Aspect> byUrn = new HashMap<>();
+          AspectRetriever.getLatestAspectObjectsAcrossEntityTypes(
+                  aspectRetriever, operationContext, urns, Set.of(aspectName))
+              .forEach(
+                  (urn, aspectsByName) -> {
+                    Aspect aspect = aspectsByName.get(aspectName);
+                    if (aspect != null) {
+                      byUrn.put(urn, aspect);
+                    }
+                  });
+          currentAspects.put(aspectName, byUrn);
+        });
+    return currentAspects;
   }
 
   private List<AspectValidationException> validateGlobalTags(
