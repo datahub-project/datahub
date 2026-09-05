@@ -228,13 +228,6 @@ class ODCSSourceConfig(
         "contract's declared schema on the logical dataset so schema drift is evaluable as a "
         "contract violation.",
     )
-    emit_freshness_assertion: bool = Field(
-        default=True,
-        description="Whether to emit a FRESHNESS assertion derived from the contract's "
-        "`slaProperties[]` `frequency` entry (a DATASET_CHANGE assertion on a fixed-interval "
-        "schedule) on the logical dataset. Nothing is emitted when the contract declares no "
-        "`frequency` SLA or its unit is not a calendar interval.",
-    )
     schema_assertion_compatibility: SchemaAssertionCompatibility = Field(
         default=SchemaAssertionCompatibility.SUPERSET,
         description="Compatibility mode for the DATA_SCHEMA assertion: `SUPERSET` (an instance "

@@ -3,9 +3,8 @@
 The `odcs` module ingests Open Data Contract Standard (ODCS) v3.0 and v3.1 YAML files from
 a path, directory, or glob, and models each contract as a **logical dataset** on the `odcs`
 platform: dataset properties, canonical schema metadata, ownership, top-level and
-column-level tags, a link to the source document, the contract's `quality[]` rules as
-Assertions attached to the logical dataset, and a FRESHNESS assertion derived from the
-contract's `slaProperties[]` `frequency` SLA. When a `schema[]` entry resolves to a physical
+column-level tags, a link to the source document, and the contract's `quality[]` rules as
+Assertions attached to the logical dataset. When a `schema[]` entry resolves to a physical
 dataset (derived from the contract's typed `servers[]`), the source also emits a
 `logicalParent` link from the physical dataset to the logical one. ODCS is governed by
 the Linux Foundation under the Bitol project; see [bitol.io](https://bitol.io/) and the
@@ -36,16 +35,20 @@ how to disable replication.
   assertions and `logicalParent` link, and recorded under `report.filtered`. Deny takes
   precedence over allow. This is orthogonal to `path` globs, which filter by file location
   rather than contract content.
-- **Assertions always attach to the logical dataset.** Quality rules, the
-  schema-compliance assertion, and the freshness SLA assertion are emitted whether or not a
-  physical table exists yet, so contract-first workflows keep their expectations.
-  Propagation of those expectations onto bound physical datasets is handled by DataHub via
-  the `PhysicalInstanceOf` relationship — not by this source.
-- **Freshness comes from the `frequency` SLA.** A contract-level `slaProperties[]` entry
-  with `property: frequency` (e.g. `value: 1`, `unit: d`) becomes a `DATASET_CHANGE`
-  freshness assertion on a fixed-interval schedule, referenced by the native data contract.
-  Other SLA dimensions (latency, retention, availability windows) are not modeled, and a
-  `frequency` whose `unit` is not a calendar interval is skipped rather than guessed.
+- **Assertions always attach to the logical dataset.** Quality rules and the
+  schema-compliance assertion are emitted whether or not a physical table exists yet, so
+  contract-first workflows keep their expectations. Propagation of those expectations onto
+  bound physical datasets is handled by DataHub via the `PhysicalInstanceOf` relationship —
+  not by this source.
+- **A native `dataContract` is emitted per `schema[]` entry** (`emit_data_contract`, default
+  on) so contracts surface on the **Contract tab**. By default it is written only on the
+  logical `odcs` dataset — the self-consistent home, since the referenced assertions target
+  it. That contract renders in the UI only under `LOGICAL_MODELS_ENABLED`, so the table
+  consumers browse stays empty on the Contract tab until either that flag is enabled or you
+  opt into `emit_physical_data_contract` (default off), which _also_ writes the contract onto
+  the bound physical table. The physical write is always non-primary because the contract URN
+  matches the hand-authored SDK convention exactly — enabling it makes ODCS the owner of that
+  table's contract — and it requires `emit_logical_parent`.
 - **Physical binding is derived from the contract itself.** The spec requires
   `servers[].type`; the source maps supported types (postgres, mysql, snowflake, bigquery,
   redshift, databricks, sqlserver, trino) to DataHub platforms and composes fully-qualified
