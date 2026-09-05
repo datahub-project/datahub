@@ -1336,10 +1336,14 @@ class ODCSSource(StatefulIngestionSourceBase):
     def _data_products_named(self, name: str) -> Optional[List[str]]:
         """Urns of every Data Product whose display name equals `name`.
 
-        Returns None when the search itself fails (a graph error) so the caller
-        can distinguish that from a definitive empty result and never seed a
-        product off the back of a failed lookup. The server-side filter is a
-        prefilter; each candidate is confirmed against the persisted
+        Returns None whenever the result is uncertain rather than definitive, so
+        the caller can distinguish that from a genuine empty result and never
+        seed a product off the back of it. That covers both a failed search (a
+        graph error) and a candidate whose aspect read failed while fewer than
+        two matches were confirmed — an unreadable candidate could be a
+        same-named duplicate, so the partial view is neither a trustworthy miss
+        nor a trustworthy unique match. The server-side filter is a prefilter;
+        each candidate is confirmed against the persisted
         `dataProductProperties.name`.
         """
         graph = self.ctx.graph
