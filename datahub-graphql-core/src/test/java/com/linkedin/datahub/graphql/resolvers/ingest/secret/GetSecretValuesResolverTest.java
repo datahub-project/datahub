@@ -7,6 +7,7 @@ import static org.testng.Assert.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.GetSecretValuesInput;
 import com.linkedin.datahub.graphql.generated.SecretValue;
@@ -76,6 +77,121 @@ public class GetSecretValuesResolverTest {
     assertEquals(values.size(), 1);
     assertEquals(values.get(0).getName(), TEST_INPUT.getSecrets().get(0));
     assertEquals(values.get(0).getValue(), decryptedSecretValue);
+  }
+
+  @Test
+  public void testGetPartialDecryptionFailure() throws Exception {
+    final String decryptedSecretValue = "mysecretvalue";
+    final Urn brokenSecretUrn = Urn.createFromTuple(Constants.SECRETS_ENTITY_NAME, "BROKEN_SECRET");
+    final Urn noAspectSecretUrn =
+        Urn.createFromTuple(Constants.SECRETS_ENTITY_NAME, "NO_ASPECT_SECRET");
+
+    DataHubSecretValue brokenValue = new DataHubSecretValue();
+    brokenValue.setName(brokenSecretUrn.getId());
+    brokenValue.setValue("undecryptable");
+    brokenValue.setDescription("none");
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    Mockito.when(
+            mockSecretService.decrypt(Mockito.any(), Mockito.eq(getTestSecretValue().getValue())))
+        .thenReturn(decryptedSecretValue);
+    // e.g. value encrypted with a different key, or corrupted Base64
+    Mockito.when(mockSecretService.decrypt(Mockito.any(), Mockito.eq(brokenValue.getValue())))
+        .thenThrow(new RuntimeException("Failed to decrypt value using AES-GCM!"));
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(),
+                Mockito.eq(Constants.SECRETS_ENTITY_NAME),
+                Mockito.eq(
+                    new HashSet<>(
+                        ImmutableSet.of(TEST_SECRET_URN, brokenSecretUrn, noAspectSecretUrn))),
+                Mockito.eq(ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_SECRET_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.SECRETS_ENTITY_NAME)
+                    .setUrn(TEST_SECRET_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.SECRET_VALUE_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(getTestSecretValue().data()))))),
+                brokenSecretUrn,
+                new EntityResponse()
+                    .setEntityName(Constants.SECRETS_ENTITY_NAME)
+                    .setUrn(brokenSecretUrn)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.SECRET_VALUE_ASPECT_NAME,
+                                new EnvelopedAspect().setValue(new Aspect(brokenValue.data()))))),
+                noAspectSecretUrn,
+                new EntityResponse()
+                    .setEntityName(Constants.SECRETS_ENTITY_NAME)
+                    .setUrn(noAspectSecretUrn)
+                    .setAspects(new EnvelopedAspectMap(ImmutableMap.of()))));
+
+    GetSecretValuesResolver resolver = new GetSecretValuesResolver(mockClient, mockSecretService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(
+            new GetSecretValuesInput(
+                ImmutableList.of(
+                    getTestSecretValue().getName(),
+                    brokenSecretUrn.getId(),
+                    noAspectSecretUrn.getId())));
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    // The undecryptable and aspect-less secrets are omitted; the healthy one still resolves.
+    List<SecretValue> values = resolver.get(mockEnv).get();
+    assertEquals(values.size(), 1);
+    assertEquals(values.get(0).getName(), getTestSecretValue().getName());
+    assertEquals(values.get(0).getValue(), decryptedSecretValue);
+  }
+
+  @Test
+  public void testGetAllDecryptionFailuresThrows() throws Exception {
+    // Every stored value failing to decrypt points at a systemic problem (e.g. an
+    // encryption-key change) and must fail loudly rather than return an empty list.
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    Mockito.when(
+            mockSecretService.decrypt(Mockito.any(), Mockito.eq(getTestSecretValue().getValue())))
+        .thenThrow(new RuntimeException("Failed to decrypt value using AES-GCM!"));
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(),
+                Mockito.eq(Constants.SECRETS_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_SECRET_URN))),
+                Mockito.eq(ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_SECRET_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.SECRETS_ENTITY_NAME)
+                    .setUrn(TEST_SECRET_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.SECRET_VALUE_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(getTestSecretValue().data())))))));
+
+    GetSecretValuesResolver resolver = new GetSecretValuesResolver(mockClient, mockSecretService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
   }
 
   @Test
