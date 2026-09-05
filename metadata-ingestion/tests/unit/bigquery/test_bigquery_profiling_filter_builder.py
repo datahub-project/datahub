@@ -111,6 +111,25 @@ class TestFilterBuilderEdgeCases:
         assert filter_expr == "`ratio` = 0.123"
         assert "'" not in filter_expr
 
+    def test_scientific_notation_float_is_accepted(self):
+        """str(float) and BigQuery emit scientific notation without a decimal point
+        (1e+20, 1e-10). These must validate as numeric rather than being rejected by an
+        int() parse and dropping the partition."""
+        assert (
+            FilterBuilder.create_safe_filter("ratio", 1e20, "FLOAT64")
+            == "`ratio` = 1e+20"
+        )
+        assert (
+            FilterBuilder.create_safe_filter("ratio", "1e-10", "FLOAT64")
+            == "`ratio` = 1e-10"
+        )
+
+    def test_non_finite_numeric_value_raises(self):
+        """inf/nan parse as float but are not valid BigQuery numeric literals, so they
+        must be rejected rather than emitted as an uncastable predicate."""
+        with pytest.raises(ValueError, match="Non-numeric value"):
+            FilterBuilder.create_safe_filter("ratio", "inf", "FLOAT64")
+
 
 class TestFilterBuilderPartitionIdConversion:
     """Test FilterBuilder partition ID to filter conversion."""
@@ -277,6 +296,20 @@ class TestFilterBuilderFlexibleTimestamps:
             "ts", "2025-01-15T10:30:00Z", "TIMESTAMP"
         )
         assert filter_expr == "`ts` = TIMESTAMP('2025-01-15T10:30:00Z')"
+
+    def test_timestamp_with_hours_only_offset_passes(self):
+        # BigQuery's default CAST(TIMESTAMP AS STRING) emits an hours-only offset
+        # ("+00"), which must be accepted rather than dropped to an IS NOT NULL fallback.
+        filter_expr = FilterBuilder.create_safe_filter(
+            "ts", "2025-01-15 10:30:00+00", "TIMESTAMP"
+        )
+        assert filter_expr == "`ts` = '2025-01-15 10:30:00+00'"
+
+    def test_timestamp_with_fractional_and_hours_only_offset_passes(self):
+        filter_expr = FilterBuilder.create_safe_filter(
+            "ts", "2025-01-15 10:30:00.123456+00", "TIMESTAMP"
+        )
+        assert filter_expr == "`ts` = '2025-01-15 10:30:00.123456+00'"
 
     def test_datetime_with_t_separator_no_timezone_passes(self):
         # A DATETIME can hold a 'T'-separated, tz-free datetime literal.
