@@ -1046,7 +1046,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 if target_full_name and target_full_name.startswith(f"{catalog}."):
                     # Handle table upstreams
                     if (
-                        source_type in ["TABLE", "VIEW"]
+                        source_type
+                        in ["TABLE", "VIEW", "STREAMING_TABLE", "MATERIALIZED_VIEW"]
                         and source_full_name != target_full_name
                     ):
                         upstream = TableUpstream(
