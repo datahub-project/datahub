@@ -49,6 +49,7 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     shouldAlwaysSyncParentValues?: boolean;
     hideParentCheckbox?: boolean;
     implicitlySelectChildren?: boolean;
+    selectChildrenWithParent?: boolean;
     shouldDisplayConfirmationFooter?: boolean;
     selectLabelProps?: SelectLabelProps;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
@@ -56,7 +57,7 @@ export interface SelectProps<OptionType extends NestedSelectOption = NestedSelec
     dataTestId?: string;
 }
 
-export const selectDefaults: SelectProps = {
+const selectDefaults: SelectProps = {
     options: [],
     label: '',
     size: 'md',
@@ -92,6 +93,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     shouldAlwaysSyncParentValues = false,
     hideParentCheckbox = false,
     implicitlySelectChildren = true,
+    selectChildrenWithParent = true,
     shouldDisplayConfirmationFooter = selectDefaults.shouldDisplayConfirmationFooter,
     selectLabelProps,
     renderCustomOptionText,
@@ -315,6 +317,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                                             hideParentCheckbox={hideParentCheckbox}
                                             isParentOptionLabelExpanded={!!isParentOptionLabelExpanded}
                                             implicitlySelectChildren={implicitlySelectChildren}
+                                            selectChildrenWithParent={selectChildrenWithParent}
                                             renderCustomOptionText={renderCustomOptionText}
                                         />
                                     );

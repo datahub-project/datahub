@@ -15,6 +15,7 @@ from typing import (
     List,
     Optional,
     Set,
+    Tuple,
 )
 
 from google.api_core import retry
@@ -114,6 +115,11 @@ class BigqueryTableConstraint:
 
 RANGE_PARTITION_NAME: str = "RANGE"
 
+# BigQuery Sharing. `type` arrives on the datasets.list payload; `linkState` only on
+# the full dataset resource from datasets.get.
+LINKED_DATASET_TYPE: str = "LINKED"
+LINK_STATE_LINKED: str = "LINKED"
+
 _POLICY_TAG_TAXONOMY_RE: re.Pattern = re.compile(
     r"(projects/[^/]+/locations/[^/]+/taxonomies/[^/]+)/policyTags/"
 )
@@ -130,22 +136,65 @@ def _parse_taxonomy_id(policy_tag_resource_name: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
+# Not frozen: the optional nested BigqueryColumn tuple is mutable, so a frozen
+# dataclass would advertise __hash__ but raise TypeError the moment it is used as a
+# dict key or set member. Keep it plain and treat it as value-like by convention.
 @dataclass
 class PartitionInfo:
-    field: str
-    # Data type is optional as we not have it when we set it from TimePartitioning
-    column: Optional[BigqueryColumn] = None
+    fields: Tuple[str, ...]
+    columns: Optional[Tuple[BigqueryColumn, ...]] = None
     type: str = TimePartitioningType.DAY
     expiration_ms: Optional[int] = None
-    require_partition_filter: bool = False
+    require_partition_filter: Optional[bool] = False
 
-    # TimePartitioning field doesn't provide data_type so we have to add it afterwards
+    def __post_init__(self) -> None:
+        if not self.fields:
+            raise ValueError("PartitionInfo must have at least one field")
+        if any(not f or not f.strip() for f in self.fields):
+            raise ValueError("PartitionInfo fields must not contain blank names")
+        if self.columns is not None and len(self.fields) != len(self.columns):
+            raise ValueError(
+                f"fields/columns length mismatch: {len(self.fields)} fields vs {len(self.columns)} columns"
+            )
+
+    @property
+    def field(self) -> str:
+        return self.fields[0]
+
+    @property
+    def column(self) -> Optional[BigqueryColumn]:
+        if not self.columns:
+            return None
+        return self.columns[0]
+
+    def __repr__(self) -> str:
+        # Keep the pre-multi-column custom-property string for single-field
+        # partitions so existing catalog values and connector-test goldens stay stable.
+        if len(self.fields) == 1:
+            return (
+                "PartitionInfo("
+                f"field={self.fields[0]!r}, "
+                f"column={self.column!r}, "
+                f"type={self.type!r}, "
+                f"expiration_ms={self.expiration_ms!r}, "
+                f"require_partition_filter={self.require_partition_filter!r})"
+            )
+        return (
+            "PartitionInfo("
+            f"fields={self.fields!r}, "
+            f"columns={self.columns!r}, "
+            f"type={self.type!r}, "
+            f"expiration_ms={self.expiration_ms!r}, "
+            f"require_partition_filter={self.require_partition_filter!r})"
+        )
+
     @classmethod
     def from_time_partitioning(
         cls, time_partitioning: TimePartitioning
     ) -> "PartitionInfo":
+        """Convert BigQuery time partitioning to PartitionInfo."""
         return cls(
-            field=time_partitioning.field or "_PARTITIONTIME",
+            fields=(time_partitioning.field or "_PARTITIONTIME",),
             type=time_partitioning.type_,
             expiration_ms=time_partitioning.expiration_ms,
             require_partition_filter=time_partitioning.require_partition_filter,
@@ -160,7 +209,7 @@ class PartitionInfo:
             return None
 
         return cls(
-            field=field,
+            fields=(field,),
             type=RANGE_PARTITION_NAME,
         )
 
@@ -221,10 +270,14 @@ class BigqueryDataset:
     last_altered: Optional[datetime] = None
     location: Optional[str] = None
     comment: Optional[str] = None
+    type: Optional[str] = None
     tables: List[BigqueryTable] = field(default_factory=list)
     views: List[BigqueryView] = field(default_factory=list)
     snapshots: List[BigqueryTableSnapshot] = field(default_factory=list)
     columns: List[BigqueryColumn] = field(default_factory=list)
+
+    def is_linked_dataset(self) -> bool:
+        return self.type == LINKED_DATASET_TYPE
 
     # Some INFORMATION_SCHEMA views are not available for BigLake tables
     # based on Amazon S3 and Blob Storage data.
@@ -377,15 +430,24 @@ class BigQuerySchemaApi:
                 )
                 continue
 
-            location = (
-                d._properties.get("location")
+            # google-cloud-bigquery exposes neither `location` nor `type` on
+            # DatasetListItem, so both come off the raw payload.
+            properties = (
+                d._properties
                 if hasattr(d, "_properties") and isinstance(d._properties, dict)
-                else None
+                else {}
             )
+            location = properties.get("location")
+            dataset_type = properties.get("type")
+            if dataset_type is None:
+                # A client upgrade that stops returning `type` would make every
+                # dataset read as non-linked. The counter surfaces that in the report.
+                self.report.num_datasets_missing_type += 1
             filtered_datasets.append(
                 BigqueryDataset(
                     name=d.dataset_id,
                     location=location,
+                    type=dataset_type,
                     labels=d.labels,
                 )
             )

@@ -415,6 +415,16 @@ def get_sql_parse_cache_size() -> int:
     return int(os.getenv("DATAHUB_SQL_PARSE_CACHE_SIZE", "1000"))
 
 
+def get_sql_lineage_timeout_seconds() -> int:
+    """Budget for generating column-level lineage for one query, in seconds.
+
+    Measured on the wall clock, so a host that stalls under load spends the budget
+    without the parser doing any work. Raise it where lineage is being dropped on
+    queries that are merely slow to parse rather than pathological.
+    """
+    return _get_int_env("SQL_LINEAGE_TIMEOUT_SECONDS", 10)
+
+
 def get_dataset_urn_to_lower() -> str:
     """Convert dataset URNs to lowercase."""
     return os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")

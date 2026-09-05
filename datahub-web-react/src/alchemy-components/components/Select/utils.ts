@@ -44,7 +44,9 @@ export const getFooterButtonSize = (size) => {
 
 export const getSelectFontStyles = (size) => {
     const baseFontStyles = {
-        lineHeight: typography.lineHeights.none,
+        // Avoid lineHeights.none (1): selected labels use overflow:hidden and clip
+        // descenders (g, y, etc.) when the line box equals the font size.
+        lineHeight: typography.lineHeights.sm,
     };
 
     const sizeStyles = {
@@ -65,7 +67,7 @@ export const getSelectFontStyles = (size) => {
     return sizeStyles[size];
 };
 
-export const getSelectPadding = (size) => {
+const getSelectPadding = (size) => {
     const paddingStyles = {
         sm: {
             padding: `${spacing.xxsm} ${spacing.xsm}`,
@@ -81,23 +83,7 @@ export const getSelectPadding = (size) => {
     return paddingStyles[size];
 };
 
-export const getSearchPadding = (size) => {
-    const paddingStyles = {
-        sm: {
-            padding: `${spacing.xxsm} ${spacing.xsm}`,
-        },
-        md: {
-            padding: `${spacing.xsm} ${spacing.xsm}`,
-        },
-        lg: {
-            padding: `${spacing.xsm} ${spacing.xsm}`,
-        },
-    };
-
-    return paddingStyles[size];
-};
-
-export const getMinHeight = (size) => {
+const getMinHeight = (size) => {
     const minHeightStyles = {
         sm: {
             minHeight: '32px',
