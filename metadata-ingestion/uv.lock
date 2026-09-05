@@ -1060,6 +1060,7 @@ integration-tests = [
     { name = "deltalake" },
     { name = "feast" },
     { name = "flask-openid" },
+    { name = "gitpython" },
     { name = "google-cloud-aiplatform" },
     { name = "greenlet" },
     { name = "hdbcli", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64'" },
@@ -1337,6 +1338,7 @@ quicksight = [
     { name = "sqlglot", extra = ["c"] },
 ]
 rdf = [
+    { name = "gitpython" },
     { name = "rdflib" },
     { name = "requests" },
     { name = "requests-file" },
@@ -1958,9 +1960,11 @@ requires-dist = [
     { name = "gitpython", marker = "extra == 'all'", specifier = ">=3.1.58,<4.0.0" },
     { name = "gitpython", marker = "extra == 'dev'", specifier = ">=3.1.58,<4.0.0" },
     { name = "gitpython", marker = "extra == 'docs'", specifier = ">=3.1.58,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'integration-tests'", specifier = ">=3.1.58,<4.0.0" },
     { name = "gitpython", marker = "extra == 'looker'", specifier = ">=3.1.58,<4.0.0" },
     { name = "gitpython", marker = "extra == 'lookml'", specifier = ">=3.1.58,<4.0.0" },
     { name = "gitpython", marker = "extra == 'odcs'", specifier = ">=3.1.58,<4.0.0" },
+    { name = "gitpython", marker = "extra == 'rdf'", specifier = ">=3.1.58,<4.0.0" },
     { name = "google-auth", marker = "extra == 'all'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'confluence'", specifier = ">=2.0.0,<3.0.0" },
     { name = "google-auth", marker = "extra == 'datahub-documents'", specifier = ">=2.0.0,<3.0.0" },

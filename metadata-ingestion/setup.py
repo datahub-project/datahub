@@ -770,7 +770,12 @@ plugins: Dict[str, Set[str]] = {
     },
     "pulsar": {"requests<3.0.0"},
     "redash": {"redash-toolbelt<0.2.0"} | sqlglot_lib,
-    "rdf": {"rdflib==6.3.2", "requests==2.32.5", "requests_file==3.0.1"},
+    "rdf": {
+        "rdflib==6.3.2",
+        "requests==2.32.5",
+        "requests_file==3.0.1",
+        "GitPython>=3.1.58,<4.0.0",
+    },
     "redshift": sql_common
     | redshift_common
     | usage_common
