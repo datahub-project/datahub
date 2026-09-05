@@ -376,6 +376,41 @@ def test_aggregate_operations() -> None:
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
+def test_operation_timestamps_are_query_times_not_ingestion_time() -> None:
+    """Operation is a timeseries aspect, so timestampMillis is the time of the write.
+
+    Golden comparisons strip timestampMillis and lastUpdatedTimestamp (see
+    `default_exclude_paths`), so this has to be asserted directly.
+    """
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=False,
+        generate_queries=False,
+        generate_usage_statistics=False,
+        generate_operations=True,
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="create table foo as select a, b from bar",
+            default_db="dev",
+            default_schema="public",
+            timestamp=_ts(20),
+            user=CorpUserUrn("user1"),
+        )
+    )
+
+    operations = [
+        mcp.aspect
+        for mcp in aggregator.gen_metadata()
+        if isinstance(mcp.aspect, OperationClass)
+    ]
+
+    assert len(operations) == 1
+    assert operations[0].timestampMillis == 20_000
+    assert operations[0].lastUpdatedTimestamp == 20_000
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_view_lineage() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",

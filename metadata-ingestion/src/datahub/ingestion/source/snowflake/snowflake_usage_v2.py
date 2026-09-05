@@ -1,6 +1,5 @@
 import json
 import logging
-import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -92,6 +91,7 @@ class SnowflakeObjectAccessEntry(PermissiveModel):
 
 
 class SnowflakeJoinedAccessEvent(PermissiveModel):
+    query_id: Optional[str] = None
     query_start_time: datetime
     query_text: str
     query_type: str
@@ -456,8 +456,12 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             operation_type = OPERATION_STATEMENT_TYPES.get(
                 query_type, OperationTypeClass.CUSTOM
             )
-            reported_time: int = int(time.time() * 1000)
-            last_updated_timestamp: int = int(start_time.timestamp() * 1000)
+            # Operation is a timeseries aspect, so timestampMillis carries the event
+            # time -- when the write happened -- not when we observed it. It is also
+            # hashed into the ES docId, so an ingestion-time stamp would give the same
+            # write a fresh document on every overlapping run. Matches the
+            # DatasetUsageStatistics aspect built above, which stamps BUCKET_START_TIME.
+            operation_time: int = int(start_time.timestamp() * 1000)
             user_urn = make_user_urn(
                 self.identifiers.get_user_identifier(user_name, user_email)
             )
@@ -479,8 +483,8 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                     continue
 
                 operation_aspect = OperationClass(
-                    timestampMillis=reported_time,
-                    lastUpdatedTimestamp=last_updated_timestamp,
+                    timestampMillis=operation_time,
+                    lastUpdatedTimestamp=operation_time,
                     actor=user_urn,
                     operationType=operation_type,
                     customOperationType=(
@@ -488,13 +492,20 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                         if operation_type is OperationTypeClass.CUSTOM
                         else None
                     ),
+                    # GMS derives the timeseries docId from timestampMillis + urn +
+                    # messageId. Since every aspect in a run is stamped with the current
+                    # time, two operations on the same table land on the same docId and
+                    # silently overwrite each other unless we supply a messageId. The
+                    # Snowflake query id identifies the execution and is stable across
+                    # runs, so re-ingesting an overlapping window stays idempotent.
+                    messageId=event.query_id,
                 )
                 mcp = MetadataChangeProposalWrapper(
                     entityUrn=self.identifiers.gen_dataset_urn(dataset_identifier),
                     aspect=operation_aspect,
                 )
                 wu = MetadataWorkUnit(
-                    id=f"{start_time.isoformat()}-operation-aspect-{resource}",
+                    id=f"{event.query_id or start_time.isoformat()}-operation-aspect-{resource}",
                     mcp=mcp,
                 )
                 yield wu

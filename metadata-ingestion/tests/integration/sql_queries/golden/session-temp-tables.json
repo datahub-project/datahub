@@ -548,7 +548,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1782935069762,
+            "timestampMillis": 1609459320000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -559,7 +559,8 @@
             "lastUpdatedTimestamp": 1609459320000,
             "queries": [
                 "urn:li:query:composite_c326d821bbbae5cc67675313ce269d2c9a84a9edfa320b26220c0971a6a537ce"
-            ]
+            ],
+            "messageId": "composite_c326d821bbbae5cc67675313ce269d2c9a84a9edfa320b26220c0971a6a537ce"
         }
     },
     "systemMetadata": {
@@ -575,7 +576,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1782935069763,
+            "timestampMillis": 1609459440000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -586,7 +587,8 @@
             "lastUpdatedTimestamp": 1609459440000,
             "queries": [
                 "urn:li:query:composite_818d02e708208dcbe88a760d95fc6defc7d4dde25801e9927a5eb04640993695"
-            ]
+            ],
+            "messageId": "composite_818d02e708208dcbe88a760d95fc6defc7d4dde25801e9927a5eb04640993695"
         }
     },
     "systemMetadata": {
