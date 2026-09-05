@@ -43,25 +43,44 @@ class TestFilterBuilderEdgeCases:
         with pytest.raises(ValueError, match="Non-numeric value"):
             FilterBuilder.create_safe_filter("int_col", "not_a_number", "INT64")
 
-    def test_sql_injection_protection_semicolon(self):
-        """Test that semicolons in values are rejected."""
-        with pytest.raises(ValueError, match="Invalid value for filter"):
+    def test_string_value_with_sql_punctuation_is_escaped_not_rejected(self):
+        # ; -- /* # are not injection boundaries once the value lives inside a quoted
+        # literal, so a legitimate STRING partition value carrying them is escaped into
+        # the literal rather than dropped.
+        assert (
             FilterBuilder.create_safe_filter("col", "value; DROP TABLE", "STRING")
-
-    def test_sql_injection_protection_comment(self):
-        """Test that SQL comments in values are rejected."""
-        with pytest.raises(ValueError, match="Invalid value for filter"):
+            == "`col` = 'value; DROP TABLE'"
+        )
+        assert (
             FilterBuilder.create_safe_filter("col", "value--comment", "STRING")
-
-    def test_sql_injection_protection_multiline_comment(self):
-        """Test that multiline comments in values are rejected."""
-        with pytest.raises(ValueError, match="Invalid value for filter"):
+            == "`col` = 'value--comment'"
+        )
+        assert (
             FilterBuilder.create_safe_filter("col", "value/*comment*/", "STRING")
+            == "`col` = 'value/*comment*/'"
+        )
+
+    def test_real_world_string_values_with_punctuation_are_kept(self):
+        # Regression for the blacklist that dropped values like `C#` (# line comment)
+        # and `A--B` (-- line comment); both are ordinary STRING partition values.
+        assert (
+            FilterBuilder.create_safe_filter("lang", "C#", "STRING") == "`lang` = 'C#'"
+        )
+        assert (
+            FilterBuilder.create_safe_filter("range", "A--B", "STRING")
+            == "`range` = 'A--B'"
+        )
 
     def test_invalid_column_name(self):
         """Test that invalid column names are rejected."""
         with pytest.raises(ValueError, match="Invalid column name for filter"):
             FilterBuilder.create_safe_filter("col; DROP TABLE", "value", "STRING")
+
+    def test_column_name_with_trailing_newline_is_rejected(self):
+        # VALID_COLUMN_NAME_PATTERN is $-anchored, so .match() would let a trailing
+        # newline through; fullmatch closes that gap.
+        with pytest.raises(ValueError, match="Invalid column name for filter"):
+            FilterBuilder.create_safe_filter("col\n", "value", "STRING")
 
     def test_negative_numeric_values(self):
         """Test that negative numeric values are handled correctly."""
@@ -181,6 +200,15 @@ class TestFilterBuilderPartitionIdConversion:
         assert "`venue` = 'okx'" in filters
         assert "`product_type` = 'swap'" in filters
         assert "`date` = '20251201'" in filters
+
+    def test_convert_hive_style_partial_columns_returns_none(self):
+        # A Hive ID that constrains only some required partition columns would select
+        # more than the target partition, so it returns None like the multi-column path
+        # rather than emitting a partial filter.
+        filters = FilterBuilder.convert_partition_id_to_filters(
+            "year=2025$month=01", ["year", "month", "day"]
+        )
+        assert filters is None
 
 
 class TestFilterBuilderYearlyRange:
