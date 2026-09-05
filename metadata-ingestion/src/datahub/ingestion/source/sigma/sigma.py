@@ -927,6 +927,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         ref = warehouse_map.get(url_id_suffix)
         if ref is None:
+            # Silent until now, and the single most common way a warehouse edge
+            # is lost: the element declares this inode but the DM's /lineage
+            # never produced a type=table row for it, so it is absent from the
+            # map. Compare url_id against the "WAREHOUSE MAP ... final map"
+            # line for this Data Model.
+            logger.debug(
+                "WAREHOUSE RESOLVE miss: url_id %r absent from the warehouse "
+                "map (map has %d entries: %r)",
+                url_id_suffix,
+                len(warehouse_map),
+                sorted(warehouse_map)[:20],
+            )
             return None
 
         record = self.connection_registry.get(ref.connection_id)
@@ -954,6 +966,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         target_env = conn_override.env if conn_override else self.config.env
         target_platform_instance = (
             conn_override.platform_instance if conn_override else None
+        )
+        logger.debug(
+            "WAREHOUSE RESOLVE hit: url_id %r -> platform=%r fq=%r env=%r "
+            "platform_instance=%r (connection=%r)",
+            url_id_suffix,
+            record.datahub_platform,
+            fq,
+            target_env,
+            target_platform_instance,
+            ref.connection_id,
         )
         # Once-per-platform info when emitting for a platform not in
         # _WAREHOUSE_LOWERCASE_PLATFORMS, so operators know to verify that

@@ -1288,11 +1288,48 @@ class SigmaAPI:
                     )
             # ``type: dataset`` entries (CSV uploads) are terminal.
 
+        self._log_dm_lineage_shape(data_model, lineage_entries)
+
         for element in elements:
             element.columns = columns_by_element.get(element.elementId, [])
             element.source_ids = source_ids_by_element.get(element.elementId, [])
+            logger.debug(
+                "DM ELEMENT ASSEMBLED %s/%s %r: type=%r columns=%d source_ids=%r",
+                data_model.dataModelId,
+                element.elementId,
+                element.name,
+                element.type,
+                len(element.columns),
+                element.source_ids,
+            )
 
         data_model.elements = elements
+
+    @staticmethod
+    def _log_dm_lineage_shape(
+        data_model: SigmaDataModel, lineage_entries: List[Dict[str, Any]]
+    ) -> None:
+        """Classify a Data Model's /lineage payload by entry type.
+
+        Decisive for "why does this element have no warehouse column lineage":
+        the warehouse url_id map is built ONLY from type=table rows, so a Data
+        Model reporting none can never resolve an inode-shaped columnId no
+        matter what its columns say.
+        """
+        entry_types: Dict[str, int] = {}
+        for entry in lineage_entries:
+            key = str(entry.get(Constant.TYPE))
+            entry_types[key] = entry_types.get(key, 0) + 1
+        logger.debug(
+            "DM LINEAGE %s: %d entries by type=%r; table inodes stashed=%d; "
+            "customSQL names=%d; source-DM names=%d",
+            data_model.dataModelId,
+            len(lineage_entries),
+            entry_types,
+            len(data_model.warehouse_inodes_by_inode_id),
+            len(data_model.custom_sql_by_name),
+            len(data_model.source_dm_element_names),
+        )
 
     def get_file_metadata(self, inode_id: str) -> Optional[Dict[str, Any]]:
         """Fetch /files/{inodeId} and return the raw JSON dict, or None on
