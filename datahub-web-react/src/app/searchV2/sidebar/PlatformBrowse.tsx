@@ -1,4 +1,5 @@
-import { Divider, Empty } from 'antd';
+import { EmptyState } from '@components';
+import { HardDrives } from '@phosphor-icons/react/dist/csr/HardDrives';
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -13,8 +14,8 @@ const BrowsePlatformIcons = styled.div`
     flex-direction: column;
 `;
 
-const DividerStyle = styled(Divider)`
-    margin: unset;
+const EmptyStateWrapper = styled.div`
+    padding: 24px 12px;
 `;
 
 type Props = {
@@ -32,6 +33,7 @@ const PlatformBrowse = ({ visible, collapsed = false, expand, hideSidebar, unhid
     });
     const isEmpty =
         (platformAggregations === null || (platformAggregations && !platformAggregations.length)) && !collapsed;
+    const sortedPlatforms = [...(platformAggregations ?? [])].sort((a, b) => b.count - a.count);
 
     useEffect(() => {
         if (platformAggregations === null || platformAggregations?.length === 0) {
@@ -43,21 +45,21 @@ const PlatformBrowse = ({ visible, collapsed = false, expand, hideSidebar, unhid
 
     return (
         <>
-            {isEmpty && <Empty description={t('sidebar.noMatchingPlatforms')} image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+            {isEmpty && (
+                <EmptyStateWrapper>
+                    <EmptyState icon={HardDrives} title={t('sidebar.noMatchingPlatforms')} size="sm" />
+                </EmptyStateWrapper>
+            )}
             <BrowsePlatformIcons>
-                {platformAggregations
-                    ?.sort((a, b) => b.count - a.count)
-                    ?.map((platformAggregation, i, lst) => (
-                        <BrowseProvider key={platformAggregation.value} platformAggregation={platformAggregation}>
-                            <PlatformNode
-                                iconSize={24}
-                                hasOnlyOnePlatform={lst.length === 1}
-                                toggleCollapse={expand}
-                                collapsed={collapsed}
-                            />
-                            {platformAggregation && i < platformAggregations.length - 1 && <DividerStyle />}
-                        </BrowseProvider>
-                    ))}
+                {sortedPlatforms.map((platformAggregation) => (
+                    <BrowseProvider key={platformAggregation.value} platformAggregation={platformAggregation}>
+                        <PlatformNode
+                            hasOnlyOnePlatform={sortedPlatforms.length === 1}
+                            toggleCollapse={expand}
+                            collapsed={collapsed}
+                        />
+                    </BrowseProvider>
+                ))}
             </BrowsePlatformIcons>
             {error && <SidebarLoadingError onClickRetry={retry} />}
         </>
