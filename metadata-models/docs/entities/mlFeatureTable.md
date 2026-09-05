@@ -218,6 +218,8 @@ Feature tables are associated with a specific data platform (e.g., Feast, Tecton
 
 ML Feature Tables participate in the shared incidents subsystem. Incidents can be raised on a feature table via the `raiseIncident` GraphQL mutation (or the Python SDK), listed back through the `incidents` field on the `MLFeatureTable` GraphQL type, and the feature table carries a rolled-up `incidentsSummary` aspect that is maintained automatically as incidents are raised and resolved.
 
+Active incidents also roll up into the feature table's health badge, which shows on the feature table's profile page, on its node in the lineage graph, and on search result cards. Health for ML Feature Tables is derived from incidents only, so assertions and tests do not contribute to the badge.
+
 ## Notable Exceptions
 
 ### Feature Store Platform Variations
