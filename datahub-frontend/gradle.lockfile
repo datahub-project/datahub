@@ -148,6 +148,7 @@ commons-net:commons-net:3.9.0=testCompileClasspath,testRuntimeClasspath
 commons-validator:commons-validator:1.7=testRuntimeClasspath
 de.erichseifert.vectorgraphics2d:VectorGraphics2D:0.11=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 dev.failsafe:failsafe:3.3.2=testCompileClasspath,testRuntimeClasspath
+dev.openfeature:sdk:1.14.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 io.airlift:aircompressor:2.0.3=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 io.appium:java-client:8.2.1=testCompileClasspath,testRuntimeClasspath
 io.dropwizard.metrics:metrics-core:4.2.39=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
