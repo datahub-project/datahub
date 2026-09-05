@@ -20,12 +20,10 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
-import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultStore;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -158,6 +156,57 @@ public class UpdateIndicesUpgradeStrategyTest {
     verify(elasticSearchService)
         .upsertDocumentByIndexName(
             eq(operationContext), eq(nextIndex), eq(searchDoc.toString()), anyString());
+  }
+
+  /**
+   * The two sides of {@code oldIndexTargets} disagree on case: the map is keyed from {@link
+   * com.linkedin.metadata.utils.elasticsearch.IndexConvention#getEntityName}, which strips the
+   * lowercased physical index ("dataflowindex_v2" -> "dataflow"), while lookups use {@code
+   * EntitySpec.getName()}, the entity-registry name ("dataFlow"). Before normalisation the lookup
+   * missed and dual-write silently never ran for any entity whose registered name is not
+   * all-lowercase — dataFlow, dataJob, corpUser, mlModel, glossaryTerm, aiAgent.
+   */
+  @Test
+  public void testProcessBatchWritesToNextIndexForMixedCaseEntity() throws Exception {
+    String nextIndex = "dataflowindex_v2_next_123";
+    Map<String, String> targets = Map.of("dataflow", nextIndex);
+    UpdateIndicesUpgradeStrategy strategy =
+        new UpdateIndicesUpgradeStrategy(
+            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
+
+    Urn dataFlowUrn = UrnUtils.getUrn("urn:li:dataFlow:(airflow,my_dag,PROD)");
+    when(mockEvent.getUrn()).thenReturn(dataFlowUrn);
+    when(mockEntitySpec.getName()).thenReturn("dataFlow");
+
+    ObjectNode searchDoc = JsonNodeFactory.instance.objectNode();
+    searchDoc.put("urn", dataFlowUrn.toString());
+
+    when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
+        .thenReturn(Optional.of(searchDoc));
+
+    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
+    events.put(dataFlowUrn, List.of(mockEvent));
+
+    strategy.processBatch(operationContext, events, false);
+
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq(nextIndex), eq(searchDoc.toString()), anyString());
+  }
+
+  /** Callers hold the registry name; the map was keyed from the lowercased index name. */
+  @Test
+  public void testRemoveTargetIsCaseInsensitive() {
+    Map<String, String> targets = new HashMap<>(Map.of("dataflow", "dataflowindex_v2_next_123"));
+    UpdateIndicesUpgradeStrategy strategy =
+        new UpdateIndicesUpgradeStrategy(
+            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
+
+    assertTrue(strategy.isEnabled());
+
+    strategy.removeTarget("dataFlow");
+
+    assertFalse(strategy.isEnabled());
   }
 
   @Test
@@ -305,7 +354,7 @@ public class UpdateIndicesUpgradeStrategyTest {
   @Test
   public void testPollRemovesSwappedTargets() throws Exception {
     Map<String, String> targets = new HashMap<>(Map.of("dataset", "datasetindex_v2_next_123"));
-    EntityService<?> mockEntityService = mock(EntityService.class);
+    DataHubUpgradeResultStore mockStore = mock(DataHubUpgradeResultStore.class);
     Urn upgradeIdUrn = UrnUtils.getUrn("urn:li:dataHubUpgrade:BuildIndicesIncremental_test");
 
     UpdateIndicesUpgradeStrategy strategy =
@@ -333,16 +382,52 @@ public class UpdateIndicesUpgradeStrategyTest {
 
     EnvelopedAspect envelopedAspect = new EnvelopedAspect();
     envelopedAspect.setValue(new Aspect(upgradeResult.data()));
-    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    aspectMap.put("dataHubUpgradeResult", envelopedAspect);
-    EntityResponse entityResponse = new EntityResponse();
-    entityResponse.setAspects(aspectMap);
-
-    when(mockEntityService.getEntityV2(any(), any(), eq(upgradeIdUrn), any()))
-        .thenReturn(entityResponse);
+    when(mockStore.readLatest(any(), eq(upgradeIdUrn))).thenReturn(envelopedAspect);
 
     // Invoke the poll directly
-    strategy.pollForSwappedIndices(operationContext, mockEntityService, upgradeIdUrn);
+    strategy.pollForSwappedIndices(operationContext, mockStore, upgradeIdUrn);
+
+    assertFalse(strategy.isEnabled());
+  }
+
+  /**
+   * Reverse direction of the case mismatch: a registry-case key against a swap notification whose
+   * entity name is derived from the lowercased index. The swap-cleanup filter has to bridge it too,
+   * or a swapped index keeps receiving dual writes after dual-write is disabled.
+   */
+  @Test
+  public void testPollRemovesSwappedTargetsForMixedCaseEntity() throws Exception {
+    Map<String, String> targets = new HashMap<>(Map.of("dataFlow", "dataflowindex_v2_next_123"));
+    DataHubUpgradeResultStore mockStore = mock(DataHubUpgradeResultStore.class);
+    Urn upgradeIdUrn = UrnUtils.getUrn("urn:li:dataHubUpgrade:BuildIndicesIncremental_test");
+
+    UpdateIndicesUpgradeStrategy strategy =
+        new UpdateIndicesUpgradeStrategy(
+            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
+
+    assertTrue(strategy.isEnabled());
+
+    Map<String, String> upgradeState =
+        IncrementalReindexState.setPhase1State(
+            null,
+            "dataflowindex_v2",
+            "dataflowindex_v2_next_123",
+            null,
+            100L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.DUAL_WRITE_DISABLED);
+
+    DataHubUpgradeResult upgradeResult = new DataHubUpgradeResult();
+    upgradeResult.setState(DataHubUpgradeState.SUCCEEDED);
+    upgradeResult.setResult(new StringMap(upgradeState));
+
+    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
+    envelopedAspect.setValue(new Aspect(upgradeResult.data()));
+    when(mockStore.readLatest(any(), eq(upgradeIdUrn))).thenReturn(envelopedAspect);
+
+    strategy.pollForSwappedIndices(operationContext, mockStore, upgradeIdUrn);
 
     assertFalse(strategy.isEnabled());
   }

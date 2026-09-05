@@ -1,11 +1,12 @@
 package com.linkedin.gms.factory.entity.update.indices;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.metadata.boot.BootstrapStep;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
+import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultStore;
+import com.linkedin.metadata.entity.upgrade.EntityClientUpgradeResultStore;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -18,7 +19,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -35,6 +35,12 @@ public class UpdateIndicesUpgradeStrategyFactory {
 
   private static final String UPGRADE_ID_PREFIX = "BuildIndicesIncremental";
 
+  /**
+   * Dual-write reads its old-index targets from, and persists {@code dualWriteStartTime} to, the
+   * {@code dataHubUpgradeResult} aspect. That goes through {@link SystemEntityClient} rather than
+   * {@code EntityService} so this bean works in every context that indexes MCLs — including the
+   * standalone MAE consumer, which runs {@code entityClient.impl=restli} and has no datasource.
+   */
   @Bean("updateIndicesUpgradeStrategy")
   @ConditionalOnProperty(
       name = "elasticsearch.buildIndices.rollbackDualWriteEnabled",
@@ -43,27 +49,34 @@ public class UpdateIndicesUpgradeStrategyFactory {
   protected UpdateIndicesStrategy createUpdateIndicesUpgradeStrategy(
       ElasticSearchService elasticSearchService,
       SearchDocumentTransformer searchDocumentTransformer,
-      EntityService<?> entityService,
+      @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient,
       @Qualifier("systemOperationContext") OperationContext systemOpContext,
       GitVersion gitVersion,
       @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}") String revision) {
 
-    String upgradeVersion = String.format("%s-%s", gitVersion.getVersion(), revision);
-    Urn upgradeIdUrn = BootstrapStep.getUpgradeUrn(UPGRADE_ID_PREFIX + "_" + upgradeVersion);
+    final DataHubUpgradeResultStore upgradeResultStore =
+        new EntityClientUpgradeResultStore(systemEntityClient);
 
-    Map<String, String> oldIndexTargets =
-        loadOldIndexTargets(entityService, systemOpContext, upgradeIdUrn);
+    final String upgradeVersion = String.format("%s-%s", gitVersion.getVersion(), revision);
+    final Urn upgradeIdUrn = BootstrapStep.getUpgradeUrn(UPGRADE_ID_PREFIX + "_" + upgradeVersion);
 
-    UpdateIndicesUpgradeStrategy.DualWriteStartTimeCallback callback =
+    final UpdateIndicesUpgradeStrategy.DualWriteStartTimeCallback callback =
         (entityName, startTimeMillis) -> {
-          String originalIndexName =
+          final String originalIndexName =
               systemOpContext
                   .getSearchContext()
                   .getIndexConvention()
                   .getEntityIndexName(systemOpContext, entityName);
           persistDualWriteStartTime(
-              entityService, systemOpContext, upgradeIdUrn, originalIndexName, startTimeMillis);
+              upgradeResultStore,
+              systemOpContext,
+              upgradeIdUrn,
+              originalIndexName,
+              startTimeMillis);
         };
+
+    final Map<String, String> oldIndexTargets =
+        loadOldIndexTargets(upgradeResultStore, systemOpContext, upgradeIdUrn);
 
     return new UpdateIndicesUpgradeStrategy(
         elasticSearchService,
@@ -71,7 +84,7 @@ public class UpdateIndicesUpgradeStrategyFactory {
         oldIndexTargets,
         callback,
         systemOpContext,
-        entityService,
+        upgradeResultStore,
         upgradeIdUrn,
         0);
   }
@@ -85,12 +98,14 @@ public class UpdateIndicesUpgradeStrategyFactory {
    * index convention.
    */
   private Map<String, String> loadOldIndexTargets(
-      EntityService<?> entityService, OperationContext opContext, Urn upgradeIdUrn) {
-    Map<String, String> entityToOldIndex = new HashMap<>();
+      @Nonnull final DataHubUpgradeResultStore upgradeResultStore,
+      OperationContext opContext,
+      @Nonnull final Urn upgradeIdUrn) {
+    final Map<String, String> entityToOldIndex = new HashMap<>();
 
     try {
       Optional<DataHubUpgradeResult> upgradeResult =
-          getUpgradeResult(entityService, opContext, upgradeIdUrn);
+          getUpgradeResult(upgradeResultStore, opContext, upgradeIdUrn);
 
       if (upgradeResult.isEmpty() || upgradeResult.get().getResult() == null) {
         log.info("No Phase 1 incremental reindex state found");
@@ -116,8 +131,9 @@ public class UpdateIndicesUpgradeStrategyFactory {
           continue;
         }
 
-        Optional<String> entityName = indexConvention.getEntityName(opContext, indexName);
-        entityName.ifPresent(name -> entityToOldIndex.put(name, oldBackingIndexName));
+        indexConvention
+            .getEntityName(opContext, indexName)
+            .ifPresent(name -> entityToOldIndex.put(name, oldBackingIndexName));
       }
 
       log.info(
@@ -132,26 +148,27 @@ public class UpdateIndicesUpgradeStrategyFactory {
   }
 
   private void persistDualWriteStartTime(
-      EntityService<?> entityService,
+      @Nonnull final DataHubUpgradeResultStore upgradeResultStore,
       OperationContext opContext,
-      Urn upgradeIdUrn,
-      String indexName,
-      long startTimeMillis) {
+      @Nonnull final Urn upgradeIdUrn,
+      @Nonnull final String indexName,
+      final long startTimeMillis) {
     try {
       Optional<DataHubUpgradeResult> existing =
-          getUpgradeResult(entityService, opContext, upgradeIdUrn);
+          getUpgradeResult(upgradeResultStore, opContext, upgradeIdUrn);
       if (existing.isEmpty() || existing.get().getResult() == null) {
         return;
       }
       DataHubUpgradeResult prior = existing.get();
       DataHubUpgradeResultConditionalPersist.mergeAndPersist(
           opContext,
-          entityService,
+          upgradeResultStore,
           upgradeIdUrn,
           DataHubUpgradeResultConditionalPersist.putResultEntry(
               IncrementalReindexState.key(indexName, IncrementalReindexState.DUAL_WRITE_START_TIME),
               String.valueOf(startTimeMillis),
-              prior.getState()));
+              prior.getState()),
+          DataHubUpgradeResultConditionalPersist.CLIENT_MAX_ATTEMPTS);
       log.info("Persisted dual-write start time for index '{}': {}", indexName, startTimeMillis);
     } catch (Exception e) {
       log.error(
@@ -159,20 +176,15 @@ public class UpdateIndicesUpgradeStrategyFactory {
     }
   }
 
+  /** Shared read helper, so the load and the persist path resolve the aspect the same way. */
   private Optional<DataHubUpgradeResult> getUpgradeResult(
-      EntityService<?> entityService, OperationContext opContext, Urn upgradeIdUrn) {
+      @Nonnull final DataHubUpgradeResultStore upgradeResultStore,
+      OperationContext opContext,
+      @Nonnull final Urn upgradeIdUrn) {
     try {
-      EntityResponse response =
-          entityService.getEntityV2(
-              opContext,
-              upgradeIdUrn.getEntityType(),
-              upgradeIdUrn,
-              Set.of("dataHubUpgradeResult"));
-      if (response != null && response.getAspects().containsKey("dataHubUpgradeResult")) {
-        return Optional.of(
-            new DataHubUpgradeResult(
-                response.getAspects().get("dataHubUpgradeResult").getValue().data()));
-      }
+      return Optional.ofNullable(
+          DataHubUpgradeResultConditionalPersist.fromEnveloped(
+              upgradeResultStore.readLatest(opContext, upgradeIdUrn)));
     } catch (Exception e) {
       log.debug("Could not fetch upgrade result for {}: {}", upgradeIdUrn, e.getMessage());
     }
