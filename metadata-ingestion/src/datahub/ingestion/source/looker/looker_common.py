@@ -223,8 +223,13 @@ class LookerViewId:
         for pattern in str_to_remove:
             new_file_path = re.sub(pattern, "", new_file_path)
 
+        # Use the project embedded in the file path itself when it is a cross-project import so
+        # that the prefix strip succeeds even if self.project_name is the explore's project.
+        project_in_path = (
+            extract_project_from_imported_file_path(new_file_path) or self.project_name
+        )
         str_to_replace: Dict[str, str] = {
-            f"^imported_projects/{re.escape(self.project_name)}/": "",  # escape any special regex character present in project-name
+            f"^imported_projects/{re.escape(project_in_path)}/": "",  # escape any special regex character present in project-name
             "/": ".",  # / is not urn friendly
         }
 
@@ -494,36 +499,36 @@ class ExploreUpstreamViewField:
         )
 
 
-def create_view_project_map(
-    view_fields: List[ViewField],
-    explore_primary_view: Optional[str] = None,
-    explore_project_name: Optional[str] = None,
-) -> Dict[str, str]:
+def extract_project_from_imported_file_path(file_path: str) -> Optional[str]:
+    """
+    Returns the project name embedded in an imported_projects/ file path, or None.
+
+    Example: "imported_projects/project-a/views/foo.view.lkml" -> "project-a"
+    """
+    prefix = f"{IMPORTED_PROJECTS}/"
+    if file_path.startswith(prefix):
+        tokens = file_path.split("/")
+        if len(tokens) >= 2:
+            return tokens[1]
+    return None
+
+
+def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
     """
     Each view in a model has unique name.
     Use this function in scope of a model.
 
     Args:
         view_fields: List of ViewField objects
-        explore_primary_view: The primary view name of the explore (explore.view_name)
-        explore_project_name: The project name of the explore (explore.project_name)
     """
     view_project_map: Dict[str, str] = {}
     for view_field in view_fields:
         if view_field.view_name is not None and view_field.project_name is not None:
-            # Override field-level project assignment for the primary view when different
-            if (
-                view_field.view_name == explore_primary_view
-                and explore_project_name is not None
-                and explore_project_name != view_field.project_name
-            ):
-                logger.debug(
-                    f"Overriding project assignment for primary view '{view_field.view_name}': "
-                    f"field-level project '{view_field.project_name}' → explore-level project '{explore_project_name}'"
-                )
-                view_project_map[view_field.view_name] = explore_project_name
-            else:
-                view_project_map[view_field.view_name] = view_field.project_name
+            # project_name is only non-None when set by extract_project_name_from_source_file(),
+            # which only returns a value for imported_projects/ paths (cross-project imports).
+            # Same-project views have project_name=None, so they never enter this map and fall
+            # back to explore_project_name via the BASE_PROJECT_NAME sentinel in _form_field_name().
+            view_project_map[view_field.view_name] = view_field.project_name
 
     return view_project_map
 
@@ -1266,11 +1271,7 @@ class LookerExplore:
                                 )
                             )
 
-            view_project_map: Dict[str, str] = create_view_project_map(
-                view_fields,
-                explore_primary_view=explore.view_name,
-                explore_project_name=explore.project_name,
-            )
+            view_project_map: Dict[str, str] = create_view_project_map(view_fields)
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")
 
