@@ -765,6 +765,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
           - dm_element_warehouse_path_unparseable
         """
         result: Dict[str, _WarehouseTableRef] = {}
+        # This map is the sole bridge between a column's inode-shaped columnId
+        # and a warehouse Dataset URN. It is built from the DM's /lineage
+        # type=table rows only, so a DM whose /lineage reports no table rows
+        # yields an EMPTY map and every warehouse passthrough in it silently
+        # fails with url_id_not_in_warehouse_map -- previously with no way to
+        # see that the map was empty, or which url_ids it did contain.
+        logger.debug(
+            "WAREHOUSE MAP DM %s: building from %d type=table lineage inode(s): %r",
+            data_model.dataModelId,
+            len(data_model.warehouse_inodes_by_inode_id),
+            sorted(data_model.warehouse_inodes_by_inode_id)[:20],
+        )
         for inode_id, raw in data_model.warehouse_inodes_by_inode_id.items():
             conn_id = raw["connectionId"]
             first_attempt = inode_id not in self._files_cache
@@ -821,6 +833,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         ),
                     )
                 continue
+            logger.debug(
+                "WAREHOUSE MAP DM %s: inode %s -> url_id=%r path=%r table=%r",
+                data_model.dataModelId,
+                inode_id,
+                url_id,
+                path,
+                table_name,
+            )
             if url_id in result:
                 logger.warning(
                     "DM %s: two inodes share the same urlId %r; "
@@ -864,6 +884,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 schema=schema,
                 table=table_name,
             )
+        logger.debug(
+            "WAREHOUSE MAP DM %s: final map has %d url_id(s): %r",
+            data_model.dataModelId,
+            len(result),
+            sorted(result),
+        )
         return result
 
     def _resolve_dm_element_warehouse_upstream(
@@ -2049,7 +2075,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter.warehouse_passthrough_miss_reasons[reason] = (
             self.reporter.warehouse_passthrough_miss_reasons.get(reason, 0) + 1
         )
-        if self.reporter.warehouse_passthrough_miss_reasons[reason] <= 25:
+        # Cap generously rather than tightly: at 25 the sample was exhausted by
+        # the first couple of Data Models and the elements actually being
+        # investigated never appeared. Each line is short and only failures
+        # reach here.
+        if self.reporter.warehouse_passthrough_miss_reasons[reason] <= 2000:
             logger.debug(
                 "warehouse passthrough miss (%s): element=%s column=%r "
                 "columnId=%r source_ids=%r",
