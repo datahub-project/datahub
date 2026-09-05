@@ -38,7 +38,7 @@ import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSib
 import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
 import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import LineageGraph from '@app/lineageV3/LineageGraph';
-import { useUpdateMarketplaceEntityDataOnChange } from '@app/marketplace/useUpdateMarketplaceEntityDataOnChange';
+import { useUpdateDataProductsEntityDataOnChange } from '@app/dataProducts/useUpdateDataProductsEntityDataOnChange';
 import { useUpdateMetricsEntityDataOnChange } from '@app/metrics/useUpdateMetricsEntityDataOnChange';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
@@ -259,7 +259,7 @@ export const EntityProfile = <T, U>({
     useUpdateGlossaryEntityDataOnChange(entityData, entityType);
     useUpdateDomainEntityDataOnChangeV2(entityData, entityType);
     useUpdateMetricsEntityDataOnChange(entityData, entityType);
-    useUpdateMarketplaceEntityDataOnChange(entityData, entityType);
+    useUpdateDataProductsEntityDataOnChange(entityData, entityType);
 
     const maybeUpdateEntity = useUpdateQuery?.({
         onCompleted: () => refetch(),

@@ -41,7 +41,7 @@ export enum PageRoutes {
     METRICS = '/metrics',
     METRIC_ENTITY = '/metric',
     SEMANTIC_MODEL_ENTITY = '/semanticModel',
-    MARKETPLACE = '/marketplace',
+    DATA_PRODUCTS = '/dataProducts',
     DATA_PRODUCT_ENTITY = '/dataProduct',
 }
 
