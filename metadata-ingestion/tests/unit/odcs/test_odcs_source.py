@@ -500,22 +500,18 @@ def test_data_contract_emitted_on_both_when_physical_opted_in(
 def test_physical_data_contract_requires_emit_logical_parent(
     tmp_path: pathlib.Path,
 ) -> None:
-    """emit_physical_data_contract only writes onto the physical dataset when
-    emit_logical_parent (the master switch for physical writes) is also on."""
+    """emit_physical_data_contract needs emit_logical_parent (the master switch
+    for physical writes); the combination is rejected at config time rather than
+    silently emitting nothing."""
     contract_file = tmp_path / "c.odcs.yaml"
     contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
-    src = _make_source(
-        tmp_path,
-        path=str(contract_file),
-        emit_physical_data_contract=True,
-        emit_logical_parent=False,
-    )
-    workunits = list(src.get_workunits_internal())
-
-    props = _aspects_of(workunits, DataContractPropertiesClass)
-    assert len(props) == 1
-    assert "urn:li:dataPlatform:odcs" in props[0].entity
-    assert src.report.data_contracts_emitted == 1
+    with pytest.raises(ValidationError, match="emit_physical_data_contract requires"):
+        _make_source(
+            tmp_path,
+            path=str(contract_file),
+            emit_physical_data_contract=True,
+            emit_logical_parent=False,
+        )
 
 
 def test_data_contract_state_pending_when_status_not_active(
@@ -564,6 +560,47 @@ def test_data_contract_skipped_when_no_assertions(tmp_path: pathlib.Path) -> Non
     assert not _aspects_of(workunits, DataContractPropertiesClass)
     assert src.report.data_contracts_emitted == 0
     assert src.report.data_contracts_skipped_no_assertions == 1
+
+
+def test_data_contract_skip_counter_counts_both_destinations(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The skip counter is per-destination, matching data_contracts_emitted: with
+    the physical contract opted in and nothing to reference, both the logical and
+    physical destinations are skipped."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        path=str(contract_file),
+        emit_physical_data_contract=True,
+        emit_assertions=False,
+        emit_schema_assertion=False,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert not _aspects_of(workunits, DataContractPropertiesClass)
+    assert src.report.data_contracts_emitted == 0
+    assert src.report.data_contracts_skipped_no_assertions == 2
+
+
+def test_physical_data_contract_honors_emit_data_contract_flag(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The global emit_data_contract=False switch disables both destinations, even
+    when emit_physical_data_contract is opted in."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        path=str(contract_file),
+        emit_data_contract=False,
+        emit_physical_data_contract=True,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert not _aspects_of(workunits, DataContractPropertiesClass)
+    assert src.report.data_contracts_emitted == 0
 
 
 def test_emit_data_contract_flag_disables(tmp_path: pathlib.Path) -> None:

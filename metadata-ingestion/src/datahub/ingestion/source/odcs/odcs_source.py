@@ -1161,11 +1161,17 @@ class ODCSSource(StatefulIngestionSourceBase):
         # would overwrite and (on stale removal) soft-delete a user's
         # hand-authored contract. Gated on emit_logical_parent, the master switch
         # for writing any aspect onto physical datasets.
+        #
+        # emit_data_contract is the global switch: disabling contract emission
+        # turns off both the logical and physical destinations.
+        if not self.config.emit_data_contract:
+            return
         if not (
             self.config.emit_physical_data_contract and self.config.emit_logical_parent
         ):
             return
         if schema_assertion_urn is None and not assertion_urns:
+            self.report.data_contracts_skipped_no_assertions += 1
             return
         yield from self._emit_data_contract(
             contract,

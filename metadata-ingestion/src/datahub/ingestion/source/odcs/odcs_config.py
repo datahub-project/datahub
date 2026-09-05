@@ -266,6 +266,21 @@ class ODCSSourceConfig(
             )
         return self
 
+    @model_validator(mode="after")
+    def physical_data_contract_requires_logical_parent(self) -> "ODCSSourceConfig":
+        # emit_logical_parent is the master switch for writing any aspect onto
+        # physical datasets; without it the physical contract has nowhere to go
+        # and the opt-in would silently do nothing. Fail loud instead.
+        if self.emit_physical_data_contract and not self.emit_logical_parent:
+            raise ValueError(
+                "emit_physical_data_contract requires emit_logical_parent: the "
+                "physical contract is written onto the bound physical dataset, and "
+                "emit_logical_parent is the master switch for writing any aspect "
+                "onto physical datasets. Enable emit_logical_parent or disable "
+                "emit_physical_data_contract."
+            )
+        return self
+
     emit_logical_parent: bool = Field(
         default=True,
         description="Whether to emit a `logicalParent` link from each resolved physical dataset to "
