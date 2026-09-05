@@ -66,6 +66,18 @@ public class ProposedItemTest {
   }
 
   @Test
+  public void testBuildAllowingUnknownAspect() {
+    mcp.setAspectName("notARegisteredAspect");
+    ProposedItem item =
+        ProposedItem.builder().buildAllowingUnknownAspect(mcp, auditStamp, entityRegistry);
+
+    assertNotNull(item);
+    assertEquals(item.getUrn(), urn);
+    assertEquals(item.getAspectName(), "notARegisteredAspect");
+    assertNull(item.getAspectSpec());
+  }
+
+  @Test
   public void testGetSystemMetadata() {
     // Case 1: When systemMetadata is null in MCP
     ProposedItem itemNullMetadata = ProposedItem.builder().build(mcp, auditStamp, entityRegistry);

@@ -990,11 +990,22 @@ public class EntityController
         while (aspectItr.hasNext()) {
           Map.Entry<String, JsonNode> aspect = aspectItr.next();
 
-          if ("urn".equals(aspect.getKey())) {
+          if (RequestInputUtil.isEntityDocumentMetadataKey(aspect.getKey())) {
             continue;
           }
 
-          AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).orElse(null);
+          boolean alternateValidation =
+              opContext.getValidationContext() != null
+                  && opContext.getValidationContext().isAlternateValidation();
+          final AspectSpec aspectSpec;
+          if (alternateValidation) {
+            aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).orElse(null);
+          } else {
+            aspectSpec =
+                RequestInputUtil.requireAspectSpec(
+                    entityRegistry.getEntitySpec(entityUrn.getEntityType()), aspect.getKey());
+          }
+
           SystemMetadata systemMetadata = null;
           if (aspect.getValue().has("systemMetadata")) {
             systemMetadata =
@@ -1033,9 +1044,15 @@ public class EntityController
                   .setSystemMetadata(systemMetadata, SetMode.IGNORE_NULL)
                   .setAspect(genericAspect);
 
-          if (opContext.getValidationContext().isAlternateValidation()) {
-            items.add(ProposedItem.builder().build(mcp, auditStamp, entityRegistry));
-          } else if (aspectSpec != null) {
+          if (alternateValidation) {
+            if (aspectSpec == null) {
+              items.add(
+                  ProposedItem.builder()
+                      .buildAllowingUnknownAspect(mcp, auditStamp, entityRegistry));
+            } else {
+              items.add(ProposedItem.builder().build(mcp, auditStamp, entityRegistry));
+            }
+          } else {
             if (ChangeType.PATCH == changeType) {
               items.add(
                   PatchItemImpl.builder()
