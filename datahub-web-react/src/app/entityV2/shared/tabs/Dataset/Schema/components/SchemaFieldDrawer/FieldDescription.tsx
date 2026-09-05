@@ -23,14 +23,19 @@ import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttr
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 import { EditableSchemaFieldInfo, SchemaField, SubResourceType } from '@types';
 
-const AddNewDescription = styled.div`
+const AddNewDescription = styled.div<{ $disabled?: boolean }>`
     margin: 0px;
     padding: 0px;
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${(props) => (props.$disabled ? props.theme.colors.textDisabled : props.theme.colors.textSecondary)};
+    ${(props) =>
+        props.$disabled
+            ? 'cursor: not-allowed;'
+            : `
     :hover {
         cursor: pointer;
-        color: ${(props) => props.theme.colors.textBrand};
+        color: ${props.theme.colors.textBrand};
     }
+    `}
 `;
 
 const AddDescriptionText = styled.span`
@@ -54,13 +59,16 @@ interface Props {
 export default function FieldDescription({ expandedField, editableFieldInfo, editorProps }: Props) {
     const { t } = useTranslation('entity.profile.schema');
     const { t: tc } = useTranslation('common.feedback');
+    const { t: ts } = useTranslation('entity.shared.containers');
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const urn = useMutationUrn();
     const refetch = useRefetch();
     const schemaRefetch = useSchemaRefetch();
     const [updateDescription] = useUpdateDescriptionMutation();
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const { entityType } = useEntityData();
+    const { entityType, entityData } = useEntityData();
+    const canEditSchemaFieldDescription = !!entityData?.privileges?.canEditSchemaFieldDescription;
+    const noPermissionTooltip = canEditSchemaFieldDescription ? '' : ts('sidebar.noPermissionTooltip');
 
     const sendAnalytics = () => {
         analytics.event({
@@ -126,22 +134,27 @@ export default function FieldDescription({ expandedField, editableFieldInfo, edi
                                 setIsModalVisible(true);
                             }}
                             icon={PencilSimple}
+                            actionPrivilege={canEditSchemaFieldDescription}
                         />
                     )
                 }
                 content={
                     <>
-                        {!displayedDescription &&
-                            isSchemaEditable && [
+                        {!displayedDescription && isSchemaEditable && (
+                            <Tooltip title={noPermissionTooltip}>
                                 <AddNewDescription
+                                    $disabled={!canEditSchemaFieldDescription}
+                                    aria-disabled={!canEditSchemaFieldDescription}
                                     onClick={() => {
+                                        if (!canEditSchemaFieldDescription) return;
                                         setIsModalVisible(true);
                                     }}
                                 >
                                     <Icon icon={Plus} size="sm" />
                                     <AddDescriptionText>{t('fieldDescription.addDescription')}</AddDescriptionText>
-                                </AddNewDescription>,
-                            ]}
+                                </AddNewDescription>
+                            </Tooltip>
+                        )}
                         {!!displayedDescription && (
                             <Tooltip
                                 title={
