@@ -41,18 +41,17 @@ class FilterBuilder:
     def create_safe_filter(
         col_name: str, val: PartitionValue, col_type: Optional[str] = None
     ) -> str:
-        if not VALID_COLUMN_NAME_PATTERN.match(col_name):
+        if not VALID_COLUMN_NAME_PATTERN.fullmatch(col_name):
             raise ValueError(f"Invalid column name for filter: {col_name}")
 
         str_val = str(val)
 
-        # Reject only the injection boundaries that also broaden the interpolated
-        # predicate (statement terminator, line/block comment). Backslashes and quotes
-        # are legitimate inside a STRING/Hive partition value and are escaped when the
-        # quoted-literal branch builds the predicate below.
-        if any(pattern in str_val for pattern in [";", "--", "/*", "#"]):
-            raise ValueError(f"Invalid value for filter: {val}")
-
+        # No substring denylist here: every branch below either validates the value
+        # against its column type (boolean keyword, numeric parse, date-shape match) or
+        # escapes it into a quoted BigQuery string literal (backslashes and quotes are
+        # escaped in the fallback branch). Characters like ; -- /* # are not injection
+        # boundaries once the value lives inside a quoted literal, and rejecting them
+        # here would drop legitimate STRING/Hive partition values such as `C#` or `A--B`.
         if col_type and col_type.upper() in BIGQUERY_BOOLEAN_TYPES:
             normalized = str_val.strip().lower()
             if normalized in ("true", "1"):
@@ -144,7 +143,7 @@ class FilterBuilder:
         # cannot over-select. BigQuery RANGE partitioning is integer-only, so build the
         # typed numeric predicate directly and reject anything that isn't a valid integer
         # bound rather than emitting an unenforceable filter.
-        if not VALID_COLUMN_NAME_PATTERN.match(col_name):
+        if not VALID_COLUMN_NAME_PATTERN.fullmatch(col_name):
             raise ValueError(f"Invalid column name for filter: {col_name}")
         try:
             int_val = int(str(val).strip())
@@ -167,7 +166,7 @@ class FilterBuilder:
         # than an equality) is required because a DATETIME/TIMESTAMP partition column
         # holds every instant within the unit, so `col = floor(dt)` would match only the
         # unit boundary.
-        if not VALID_COLUMN_NAME_PATTERN.match(col_name):
+        if not VALID_COLUMN_NAME_PATTERN.fullmatch(col_name):
             raise ValueError(f"Invalid column name for filter: {col_name}")
 
         ctype = col_type.upper()
@@ -377,6 +376,7 @@ class FilterBuilder:
 
         if "$" in partition_id:
             parts = partition_id.split("$")
+            covered = set()
             for part in parts:
                 if "=" in part:
                     col, val = part.split("=", 1)
@@ -385,6 +385,13 @@ class FilterBuilder:
                         filters.append(
                             FilterBuilder.create_safe_filter(col, val, col_type)
                         )
+                        covered.add(col)
+
+            # A Hive-style ID that doesn't constrain every required partition column
+            # would select more than the target partition. Match the multi-column path
+            # below and return None rather than emitting a partial filter.
+            if covered != set(required_columns):
+                return None
 
         else:
             if len(required_columns) == 1:
