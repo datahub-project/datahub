@@ -90,6 +90,7 @@ from datahub.metadata.schema_classes import (
     DashboardUsageStatisticsClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    EdgeClass,
     EmbedClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
@@ -516,7 +517,11 @@ class ModeSource(StatefulIngestionSourceBase):
         return last_refreshed_ts
 
     def construct_dashboard(
-        self, space_token: str, report_info: dict, chart_urns: List[str]
+        self,
+        space_token: str,
+        report_info: dict,
+        chart_urns: List[str],
+        chartless_query_urns: Optional[List[str]] = None,
     ) -> Optional[Tuple[DashboardSnapshot, MetadataChangeProposalWrapper]]:
         report_token = report_info.get("token", "")
         # logger.debug(f"Processing report {report_info.get('name', '')}: {report_info}")
@@ -606,6 +611,14 @@ class ModeSource(StatefulIngestionSourceBase):
             title=title if title else "",
             charts=chart_urns,
             datasets=datasets if datasets else None,
+            # Chartless queries are linked to the report directly
+            #   (a query otherwise reaches the report only through its charts).
+            # datasetEdges is the non-deprecated dataset link.
+            datasetEdges=(
+                [EdgeClass(destinationUrn=urn) for urn in chartless_query_urns]
+                if chartless_query_urns
+                else None
+            ),
             lastModified=last_modified,
             lastRefreshed=last_refreshed_ts,
             dashboardUrl=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report_token}",
@@ -1179,7 +1192,6 @@ class ModeSource(StatefulIngestionSourceBase):
                     "last_run_id",
                     "data_source_id",
                     "explorations_count",
-                    "chart_count",
                     "report_imports_count",
                     "dbt_metric_id",
                 ],
@@ -1959,6 +1971,15 @@ class ModeSource(StatefulIngestionSourceBase):
         with self.report._lock:
             self.report.num_queries_processed += len(queries)
         chart_urns: List[str] = []
+        # chart_count is a report-level field in the Mode API; queries don't expose it.
+        # If the report has no charts, none of its queries do, so skip the per-query chart API calls.
+        # Coerce defensively: Mode types chart_count as a string, so "1" > 0 would raise.
+        try:
+            report_chart_count = int(report.get("chart_count", 0) or 0)
+        except (TypeError, ValueError):
+            report_chart_count = 0
+        # Queries with no charts are linked directly to the report, so they don't get left orphaned.
+        chartless_query_urns: List[str] = []
         query_chart_data: List[
             Tuple[dict, Dict[str, SchemaFieldClass], List[dict]]
         ] = []
@@ -1981,27 +2002,33 @@ class ModeSource(StatefulIngestionSourceBase):
                         chart_fields.setdefault(field.fieldPath, field)
                 yield wu
 
-            # Gate on chart_count (published charts), not explorations_count
-            # (private user analyses), to avoid silently dropping report charts.
-            if query.get("chart_count", 0) == 0:
-                charts: List[dict] = []
+            # Gate the chart API call on the report's chart_count
+            charts: List[dict]
+            if report_chart_count > 0:
+                charts = self._get_charts(report_token, query.get("token", ""))
+            else:
+                charts = []
                 with self.report._lock:
                     self.report.chart_api_calls_skipped += 1
-            else:
-                charts = self._get_charts(report_token, query.get("token", ""))
             with self.report._lock:
                 self.report.num_charts_processed += len(charts)
-            for chart in charts:
-                chart_urn = builder.make_chart_urn(
-                    self.platform, chart.get("token", "")
-                )
-                chart_urns.append(chart_urn)
+            if charts:
+                # Lineage for charted query: report -> chart (DashboardInfo.charts) -> query.
+                for chart in charts:
+                    chart_urn = builder.make_chart_urn(
+                        self.platform, chart.get("token", "")
+                    )
+                    chart_urns.append(chart_urn)
+            else:
+                # Chartless query: link it straight to the report.
+                chartless_query_urns.append(self.get_dataset_urn_from_query(query))
             query_chart_data.append((query, chart_fields, charts))
 
         dashboard_tuple_from_report = self.construct_dashboard(
             space_token=space_token,
             report_info=report,
             chart_urns=chart_urns,
+            chartless_query_urns=chartless_query_urns,
         )
 
         if dashboard_tuple_from_report is not None:
