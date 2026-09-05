@@ -109,7 +109,7 @@ const ArrowButton = styled(Button)<{ isOpen: boolean }>`
 `;
 
 const ParentWrapper = styled.div`
-    max-width: 220px;
+    max-width: 500px;
     font-size: 12px;
 `;
 
@@ -197,7 +197,7 @@ export default function FilterOption({
                                             overlayInnerStyle: { color: theme.colors.textSecondary },
                                         },
                                     }}
-                                    style={{ maxWidth: 150 }}
+                                    style={{ maxWidth: 500 }}
                                 >
                                     {isSubTypeFilter ? capitalizeFirstLetterOnly(label as string) : label}
                                 </Label>
