@@ -1152,7 +1152,7 @@ pyyaml==6.0.3
     #   responses
     #   uvicorn
     #   vcrpy
-pyzipper==0.3.6
+pyzipper==0.4.0
     # via acryl-datahub
 rapidfuzz==3.14.3
     # via unstructured
