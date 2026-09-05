@@ -4,6 +4,12 @@ import { useInView } from 'react-intersection-observer';
 import { MetricEntity } from '@app/metrics/metricsTypes';
 import { buildMetricsSidebarFilters } from '@app/metrics/utils/metricsSidebarFilters';
 import {
+    advanceMetricsSidebarPagination,
+    createMetricsSidebarPaginationState,
+    getMetricsSidebarPaginationView,
+    mergeMetricsSidebarPaginationPage,
+} from '@app/metrics/utils/metricsSidebarPagination';
+import {
     DEFAULT_METRICS_SIDEBAR_SORT,
     MetricsSidebarSortValue,
     metricsSidebarSortToCriterion,
@@ -43,9 +49,6 @@ export default function useMetricsSidebarSearch({
     viewUrn,
     skip,
 }: Props) {
-    const [scrollId, setScrollId] = useState<string | null>(null);
-    const [metrics, setMetrics] = useState<MetricEntity[]>([]);
-
     const query = searchQuery.trim().length > 0 ? searchQuery.trim() : '*';
     const sortCriterion = useMemo(() => metricsSidebarSortToCriterion(sort), [sort]);
     const appliedFilters = useMemo(
@@ -77,10 +80,8 @@ export default function useMetricsSidebarSearch({
         [query, platformUrns, domainUrns, tagUrns, termUrns, ownerUrns, sort, viewUrn],
     );
 
-    useEffect(() => {
-        setScrollId(null);
-        setMetrics([]);
-    }, [criteriaKey]);
+    const [pagination, setPagination] = useState(() => createMetricsSidebarPaginationState<MetricEntity>(criteriaKey));
+    const { scrollId, entities: metrics } = getMetricsSidebarPaginationView(pagination, criteriaKey);
 
     const {
         data: scrollData,
@@ -106,29 +107,14 @@ export default function useMetricsSidebarSearch({
     });
 
     useEffect(() => {
-        if (skip || error) return;
+        if (skip || loading || error) return;
         if (scrollData?.scrollAcrossEntities?.searchResults) {
             const fresh = scrollData.scrollAcrossEntities.searchResults
                 .map((r) => r.entity)
                 .filter((e): e is MetricEntity => e?.__typename === 'Metric');
-            const freshByUrn = new Map(fresh.map((e) => [e.urn, e]));
-
-            setMetrics((currData) => {
-                // First page after criteria reset — replace.
-                if (scrollId === null) {
-                    return fresh;
-                }
-                const updated = currData.map((e) => freshByUrn.get(e.urn) || e);
-                const seenUrns = new Set(updated.map((e) => e.urn));
-                const additions = fresh.filter((e) => !seenUrns.has(e.urn));
-                if (additions.length === 0 && updated.every((e, i) => e === currData[i])) {
-                    return currData;
-                }
-                return [...updated, ...additions];
-            });
+            setPagination((current) => mergeMetricsSidebarPaginationPage(current, criteriaKey, fresh));
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [scrollData, skip, error]);
+    }, [criteriaKey, error, loading, scrollData, skip]);
 
     const nextScrollId = scrollData?.scrollAcrossEntities?.nextScrollId;
     const total =
@@ -138,9 +124,9 @@ export default function useMetricsSidebarSearch({
 
     useEffect(() => {
         if (!skip && !loading && nextScrollId && scrollId !== nextScrollId && inView) {
-            setScrollId(nextScrollId);
+            setPagination((current) => advanceMetricsSidebarPagination(current, criteriaKey, nextScrollId));
         }
-    }, [inView, nextScrollId, scrollId, loading, skip]);
+    }, [criteriaKey, inView, nextScrollId, scrollId, loading, skip]);
 
     const isRefreshing = !skip && loading && metrics.length > 0 && scrollId === null;
 

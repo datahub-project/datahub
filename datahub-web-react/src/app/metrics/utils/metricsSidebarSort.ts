@@ -14,6 +14,14 @@ export type MetricsSidebarSortValue = (typeof METRICS_SIDEBAR_SORT)[keyof typeof
 /** Default keeps today's Metrics tree alphabetical browse behavior. */
 export const DEFAULT_METRICS_SIDEBAR_SORT: MetricsSidebarSortValue = METRICS_SIDEBAR_SORT.NAME_ASC;
 
+export function isMetricsSidebarSortValue(value: string): value is MetricsSidebarSortValue {
+    return (
+        value === METRICS_SIDEBAR_SORT.NAME_ASC ||
+        value === METRICS_SIDEBAR_SORT.NAME_DESC ||
+        value === METRICS_SIDEBAR_SORT.LAST_MODIFIED_DESC
+    );
+}
+
 /**
  * Same fields as Documents / global search Name A–Z / Z–A / Last modified.
  * Pass via scrollAcrossEntities sortInput — never reorder client-side.

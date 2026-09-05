@@ -3,6 +3,12 @@ import { useInView } from 'react-intersection-observer';
 
 import { MetricEntity } from '@app/metrics/metricsTypes';
 import {
+    advanceMetricsSidebarPagination,
+    createMetricsSidebarPaginationState,
+    getMetricsSidebarPaginationView,
+    mergeMetricsSidebarPaginationPage,
+} from '@app/metrics/utils/metricsSidebarPagination';
+import {
     DEFAULT_METRICS_SIDEBAR_SORT,
     MetricsSidebarSortValue,
     metricsSidebarSortToCriterion,
@@ -30,7 +36,12 @@ type Props = {
     sort?: MetricsSidebarSortValue;
 };
 
-function buildScrollInput(mode: ModelMode | MetricMode, scrollId: string | null, sort: MetricsSidebarSortValue) {
+function buildScrollInput(
+    modeKind: ModelMode['kind'] | MetricMode['kind'],
+    modeKey: string,
+    scrollId: string | null,
+    sort: MetricsSidebarSortValue,
+) {
     const baseInput = {
         scrollId,
         query: '*',
@@ -42,14 +53,14 @@ function buildScrollInput(mode: ModelMode | MetricMode, scrollId: string | null,
         searchFlags: { skipCache: true },
     };
 
-    if (mode.kind === 'model') {
+    if (modeKind === 'model') {
         return {
             input: {
                 ...baseInput,
                 orFilters: [
                     {
                         and: [
-                            { field: 'semanticModel', values: [mode.modelUrn] },
+                            { field: 'semanticModel', values: [modeKey] },
                             { field: 'hasParentMetric', values: ['false'] },
                         ],
                     },
@@ -61,73 +72,51 @@ function buildScrollInput(mode: ModelMode | MetricMode, scrollId: string | null,
     return {
         input: {
             ...baseInput,
-            orFilters: [{ and: [{ field: 'parentMetric', values: [mode.parentMetricUrn] }] }],
+            orFilters: [{ and: [{ field: 'parentMetric', values: [modeKey] }] }],
         },
     };
 }
 
 export default function useMetricChildren({ mode, skip, sort = DEFAULT_METRICS_SIDEBAR_SORT }: Props) {
-    const [scrollId, setScrollId] = useState<string | null>(null);
-    const [data, setData] = useState<MetricEntity[]>([]);
-
     const modeKey = mode.kind === 'model' ? mode.modelUrn : mode.parentMetricUrn;
     const modeKind = mode.kind;
-    const resetKey = `${modeKind}:${modeKey}:${sort}`;
-
-    // Reset during render so the first query after sort/mode change uses a null
-    // cursor (not the previous page's scrollId with the new sort/filters).
-    const [prevResetKey, setPrevResetKey] = useState(resetKey);
-    if (resetKey !== prevResetKey) {
-        setPrevResetKey(resetKey);
-        setScrollId(null);
-        setData([]);
-    }
-
+    const criteriaKey = `${modeKind}:${modeKey}:${sort}`;
+    const [pagination, setPagination] = useState(() => createMetricsSidebarPaginationState<MetricEntity>(criteriaKey));
+    const { scrollId, entities: data } = getMetricsSidebarPaginationView(pagination, criteriaKey);
     const variables = useMemo(
-        () => buildScrollInput(mode, scrollId, sort),
-        // mode is rebuilt each render; modeKey + modeKind capture identity.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        () => buildScrollInput(modeKind, modeKey, scrollId, sort),
         [modeKind, modeKey, scrollId, sort],
     );
 
-    const { data: scrollData, loading } = useScrollMetricsQuery({
+    const {
+        data: scrollData,
+        loading,
+        error,
+    } = useScrollMetricsQuery({
         variables,
         skip: !!skip,
         notifyOnNetworkStatusChange: true,
+        fetchPolicy: 'network-only',
     });
 
     useEffect(() => {
-        if (scrollData?.scrollAcrossEntities?.searchResults) {
+        if (!skip && !loading && !error && scrollData?.scrollAcrossEntities?.searchResults) {
             const fresh = scrollData.scrollAcrossEntities.searchResults
                 .map((r) => r.entity)
                 .filter((e): e is MetricEntity => e?.__typename === 'Metric');
-            const freshByUrn = new Map(fresh.map((e) => [e.urn, e]));
-
-            setData((currData) => {
-                if (scrollId === null) {
-                    return fresh;
-                }
-                const updated = currData.map((e) => freshByUrn.get(e.urn) || e);
-                const seenUrns = new Set(updated.map((e) => e.urn));
-                const additions = fresh.filter((e) => !seenUrns.has(e.urn));
-                if (additions.length === 0 && updated.every((e, i) => e === currData[i])) {
-                    return currData;
-                }
-                return [...updated, ...additions];
-            });
+            setPagination((current) => mergeMetricsSidebarPaginationPage(current, criteriaKey, fresh));
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [scrollData]);
+    }, [criteriaKey, error, loading, scrollData, skip]);
 
     const nextScrollId = scrollData?.scrollAcrossEntities?.nextScrollId;
 
     const [scrollRef, inView] = useInView({ triggerOnce: false });
 
     useEffect(() => {
-        if (!loading && nextScrollId && scrollId !== nextScrollId && inView) {
-            setScrollId(nextScrollId);
+        if (!skip && !loading && nextScrollId && scrollId !== nextScrollId && inView) {
+            setPagination((current) => advanceMetricsSidebarPagination(current, criteriaKey, nextScrollId));
         }
-    }, [inView, nextScrollId, scrollId, loading]);
+    }, [criteriaKey, inView, nextScrollId, scrollId, loading, skip]);
 
     return {
         data,
