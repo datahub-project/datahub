@@ -1004,7 +1004,7 @@ pydash==8.0.6
     # via okta
 pydruid==0.6.9
     # via acryl-datahub
-pygments==2.19.2
+pygments==2.20.0
     # via
     #   feast
     #   pytest
