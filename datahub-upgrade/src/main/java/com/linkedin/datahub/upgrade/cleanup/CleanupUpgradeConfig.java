@@ -48,8 +48,11 @@ import org.springframework.context.annotation.Import;
       "com.linkedin.gms.factory.entityregistry",
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.timeseries",
-      // Intentionally omit com.linkedin.gms.factory.analytics: Cleanup only tears down
-      // ES/Kafka/DB and must not open pgAnalytics runtime pools (fails if the pool is down).
+      // Intentionally omit com.linkedin.gms.factory.analytics and
+      // com.linkedin.gms.factory.systemmetadata: Cleanup only tears down ES/Kafka/DB and must not
+      // open those dedicated runtime pools (fails if the pool is down). The system-metadata
+      // service factory in factory.common still @Imports the pgSystemMetadata pool when SoT is
+      // postgres, matching pgTimeseries.
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.system_telemetry"
     },

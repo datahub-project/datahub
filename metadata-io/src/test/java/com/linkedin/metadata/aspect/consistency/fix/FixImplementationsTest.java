@@ -15,7 +15,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -24,7 +24,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -32,7 +31,7 @@ import org.testng.annotations.Test;
 public class FixImplementationsTest {
 
   @Mock private EntityService<?> mockEntityService;
-  @Mock private ESSystemMetadataDAO mockEsSystemMetadataDAO;
+  @Mock private SystemMetadataService mockSystemMetadataService;
   @Mock private EntitySearchService mockEntitySearchService;
   @Mock private GraphService mockGraphService;
   @Mock private OperationContext mockOpContext;
@@ -53,7 +52,7 @@ public class FixImplementationsTest {
     hardDeleteFix = new HardDeleteEntityFix(mockEntityService);
     deleteIndexDocumentsFix =
         new DeleteIndexDocumentsFix(
-            mockEsSystemMetadataDAO, mockEntitySearchService, mockGraphService);
+            mockSystemMetadataService, mockEntitySearchService, mockGraphService);
 
     // Setup mock chain for getEntityDocumentId
     when(mockOpContext.getSearchContext()).thenReturn(mockSearchContext);
@@ -291,8 +290,8 @@ public class FixImplementationsTest {
 
     assertTrue(result.isSuccess());
     assertEquals(result.getAction(), ConsistencyFixType.DELETE_INDEX_DOCUMENTS);
-    verify(mockEsSystemMetadataDAO)
-        .deleteByUrn(any(OperationContext.class), eq(TEST_URN.toString()));
+    verify(mockSystemMetadataService)
+        .deleteUrn(any(OperationContext.class), eq(TEST_URN.toString()));
     verify(mockEntitySearchService)
         .deleteDocument(mockOpContext, "assertion", getExpectedDocId(TEST_URN));
     verify(mockGraphService).removeNode(mockOpContext, TEST_URN);
@@ -314,7 +313,7 @@ public class FixImplementationsTest {
 
     assertTrue(result.isSuccess());
     assertTrue(result.getDetails().contains("2 entities"));
-    verify(mockEsSystemMetadataDAO, times(2)).deleteByUrn(any(OperationContext.class), anyString());
+    verify(mockSystemMetadataService, times(2)).deleteUrn(any(OperationContext.class), anyString());
     verify(mockEntitySearchService, times(2)).deleteDocument(any(), anyString(), anyString());
     verify(mockGraphService, times(2)).removeNode(any(), any(Urn.class));
   }
@@ -334,7 +333,7 @@ public class FixImplementationsTest {
 
     assertTrue(result.isSuccess());
     // Verify no actual deletions in dry-run mode
-    verify(mockEsSystemMetadataDAO, never()).deleteByUrn(any(OperationContext.class), anyString());
+    verify(mockSystemMetadataService, never()).deleteUrn(any(OperationContext.class), anyString());
     verify(mockEntitySearchService, never()).deleteDocument(any(), anyString(), anyString());
     verify(mockGraphService, never()).removeNode(any(), any(Urn.class));
   }
@@ -342,9 +341,6 @@ public class FixImplementationsTest {
   @Test
   public void testDeleteIndexDocumentsFixContinuesOnPartialFailure() {
     // System metadata delete succeeds
-    BulkByScrollResponse mockResponse = mock(BulkByScrollResponse.class);
-    when(mockEsSystemMetadataDAO.deleteByUrn(any(OperationContext.class), anyString()))
-        .thenReturn(mockResponse);
     // Search delete fails
     doThrow(new RuntimeException("Search delete failed"))
         .when(mockEntitySearchService)
@@ -368,16 +364,16 @@ public class FixImplementationsTest {
     ConsistencyFixDetail result = deleteIndexDocumentsFix.apply(mockOpContext, issue, false);
 
     assertTrue(result.isSuccess());
-    verify(mockEsSystemMetadataDAO)
-        .deleteByUrn(any(OperationContext.class), eq(TEST_URN.toString()));
+    verify(mockSystemMetadataService)
+        .deleteUrn(any(OperationContext.class), eq(TEST_URN.toString()));
   }
 
   @Test
   public void testDeleteIndexDocumentsFixAllFailuresReportsFailure() {
     // When ALL index operations fail, the fix reports failure
     doThrow(new RuntimeException("System metadata delete failed"))
-        .when(mockEsSystemMetadataDAO)
-        .deleteByUrn(any(OperationContext.class), anyString());
+        .when(mockSystemMetadataService)
+        .deleteUrn(any(OperationContext.class), anyString());
     doThrow(new RuntimeException("Search delete failed"))
         .when(mockEntitySearchService)
         .deleteDocument(any(), anyString(), anyString());

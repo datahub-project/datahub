@@ -35,7 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/openapi/v1/entities")
 @Tag(
     name = "Entity Counts",
-    description = "Entity counts from the system metadata index by key aspect.")
+    description = "Entity counts from the system metadata store by key aspect.")
 public class EntityCountsController {
 
   private static final String GROUP_BY_PLATFORM = "platform";

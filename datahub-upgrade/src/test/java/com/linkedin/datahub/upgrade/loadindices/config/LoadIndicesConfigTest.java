@@ -4,6 +4,9 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.datahub.upgrade.loadindices.LoadIndices;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.SystemMetadataServiceConfig;
+import com.linkedin.metadata.config.SystemMetadataServiceImplementation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -23,6 +26,8 @@ public class LoadIndicesConfigTest {
   @Mock private SearchContext mockSearchContext;
   @Mock private OperationContext mockOperationContext;
   @Mock private ESIndexBuilder mockIndexBuilder;
+  @Mock private ConfigurationProvider mockConfigurationProvider;
+  @Mock private SystemMetadataServiceConfig mockSystemMetadataServiceConfig;
 
   private LoadIndicesConfig config;
 
@@ -37,6 +42,10 @@ public class LoadIndicesConfigTest {
         .thenReturn(mockIndexConvention);
     org.mockito.Mockito.when(mockOperationContext.getEntityRegistry())
         .thenReturn(mockEntityRegistry);
+    org.mockito.Mockito.when(mockConfigurationProvider.getSystemMetadataService())
+        .thenReturn(mockSystemMetadataServiceConfig);
+    org.mockito.Mockito.when(mockSystemMetadataServiceConfig.getImplementation())
+        .thenReturn(SystemMetadataServiceImplementation.elasticsearch);
   }
 
   @Test
@@ -59,7 +68,8 @@ public class LoadIndicesConfigTest {
     // Test that createIndexManager method creates LoadIndicesIndexManager successfully
     // This test verifies that the method works with proper mocks
     var result =
-        config.createIndexManager(mockOperationContext, mockSearchClient, mockIndexBuilder);
+        config.createIndexManager(
+            mockOperationContext, mockSearchClient, mockIndexBuilder, mockConfigurationProvider);
     assertNotNull(result);
 
     // Verify that the operation context methods were called
@@ -70,7 +80,8 @@ public class LoadIndicesConfigTest {
   public void testCreateIndexManagerWithCustomRefreshInterval() throws Exception {
     // Test that createIndexManager method works with custom index builder
     var result =
-        config.createIndexManager(mockOperationContext, mockSearchClient, mockIndexBuilder);
+        config.createIndexManager(
+            mockOperationContext, mockSearchClient, mockIndexBuilder, mockConfigurationProvider);
     assertNotNull(result);
 
     // Verify that the operation context methods were called
@@ -82,7 +93,8 @@ public class LoadIndicesConfigTest {
     // Test that the operation context is properly used in createIndexManager
     // This verifies that the method correctly accesses the search context
     var result =
-        config.createIndexManager(mockOperationContext, mockSearchClient, mockIndexBuilder);
+        config.createIndexManager(
+            mockOperationContext, mockSearchClient, mockIndexBuilder, mockConfigurationProvider);
     assertNotNull(result);
 
     // Verify that the operation context methods were called

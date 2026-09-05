@@ -11,5 +11,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class SystemMetadataServiceConfig {
+  @Builder.Default
+  private SystemMetadataServiceImplementation implementation =
+      SystemMetadataServiceImplementation.elasticsearch;
+
   private LimitConfig limit;
 }

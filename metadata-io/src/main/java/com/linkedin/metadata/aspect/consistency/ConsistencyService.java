@@ -16,8 +16,9 @@ import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
-import com.linkedin.metadata.search.utils.UrnExtractionUtils;
-import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollClient;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollRequest;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollResult;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -59,9 +60,10 @@ import org.opensearch.search.SearchHit;
  *   <li>{@link #fixIssues} - Apply fixes to a list of issues
  * </ul>
  *
- * <p><b>Fetch Strategy:</b> Uses the system metadata Elasticsearch index which stores (URN, aspect)
- * pairs. This enables filtering by entity type (via URN prefix), aspect existence, and timestamps
- * (aspectModifiedTime/aspectCreatedTime). Entity data is then fetched from SQL via EntityService.
+ * <p><b>Fetch Strategy:</b> Uses the system metadata catalog (Elasticsearch index or PostgreSQL
+ * table) which stores (URN, aspect) pairs. This enables filtering by entity type (via URN prefix),
+ * aspect existence, and timestamps (aspectModifiedTime/aspectCreatedTime). Entity data is then
+ * fetched from SQL via EntityService.
  *
  * <p><b>Thread Safety:</b> This class is thread-safe. Each method call creates its own {@link
  * CheckContext} which is not shared between threads.
@@ -71,7 +73,7 @@ import org.opensearch.search.SearchHit;
 public class ConsistencyService {
 
   private final EntityService<?> entityService;
-  private final ESSystemMetadataDAO esSystemMetadataDAO;
+  private final SystemMetadataScrollClient scrollClient;
   @Nullable private final GraphClient graphClient;
   private final ConsistencyCheckRegistry checkRegistry;
   private final ConsistencyFixRegistry fixRegistry;
@@ -83,25 +85,25 @@ public class ConsistencyService {
    * Create a ConsistencyService without check-specific configuration.
    *
    * @param entityService entity service for fetching entity data from SQL
-   * @param esSystemMetadataDAO system metadata DAO for querying the system metadata index
+   * @param scrollClient backend-agnostic system metadata catalog client
    * @param graphClient graph client (may be null)
    * @param checkRegistry registry of consistency checks
    * @param fixRegistry registry of consistency fixes
    */
   public ConsistencyService(
       @Nonnull EntityService<?> entityService,
-      @Nonnull ESSystemMetadataDAO esSystemMetadataDAO,
+      @Nonnull SystemMetadataScrollClient scrollClient,
       @Nullable GraphClient graphClient,
       @Nonnull ConsistencyCheckRegistry checkRegistry,
       @Nonnull ConsistencyFixRegistry fixRegistry) {
-    this(entityService, esSystemMetadataDAO, graphClient, checkRegistry, fixRegistry, Map.of());
+    this(entityService, scrollClient, graphClient, checkRegistry, fixRegistry, Map.of());
   }
 
   /**
    * Create a ConsistencyService with full configuration.
    *
    * @param entityService entity service for fetching entity data from SQL
-   * @param esSystemMetadataDAO system metadata DAO for querying the system metadata index
+   * @param scrollClient backend-agnostic system metadata catalog client
    * @param graphClient graph client (may be null)
    * @param checkRegistry registry of consistency checks
    * @param fixRegistry registry of consistency fixes
@@ -109,13 +111,13 @@ public class ConsistencyService {
    */
   public ConsistencyService(
       @Nonnull EntityService<?> entityService,
-      @Nonnull ESSystemMetadataDAO esSystemMetadataDAO,
+      @Nonnull SystemMetadataScrollClient scrollClient,
       @Nullable GraphClient graphClient,
       @Nonnull ConsistencyCheckRegistry checkRegistry,
       @Nonnull ConsistencyFixRegistry fixRegistry,
       @Nonnull Map<String, Map<String, String>> checkConfigs) {
     this.entityService = entityService;
-    this.esSystemMetadataDAO = esSystemMetadataDAO;
+    this.scrollClient = scrollClient;
     this.graphClient = graphClient;
     this.checkRegistry = checkRegistry;
     this.fixRegistry = fixRegistry;
@@ -323,31 +325,20 @@ public class ConsistencyService {
               .keySet();
     }
 
-    // Build query for system metadata index (URNs are just another filter)
-    BoolQueryBuilder query =
-        buildSystemMetadataQuery(
-            opContext, resolvedEntityType, checks, request.getFilter(), request.getUrns());
-
-    // Scroll system metadata index
-    SearchResponse response =
-        esSystemMetadataDAO.scroll(
+    // Scroll the system metadata catalog (ES or Postgres) for matching (urn, aspect) entries.
+    SystemMetadataScrollResult scrollResult =
+        scrollClient.scrollUrns(
             opContext,
-            query,
-            request.isIncludeSoftDeleted(),
-            request.getScrollId(),
-            null, // pitId
-            "5m", // keepAlive
-            request.getBatchSize());
+            buildScrollRequest(
+                opContext,
+                resolvedEntityType,
+                checks,
+                request.getFilter(),
+                request.getUrns(),
+                request.getScrollId(),
+                request.getBatchSize()));
 
-    if (response == null
-        || response.getHits() == null
-        || response.getHits().getHits().length == 0) {
-      return CheckResult.empty();
-    }
-
-    // Extract unique URNs from results
-    Set<Urn> urnsFromEs = UrnExtractionUtils.extractUniqueUrns(response);
-
+    Set<Urn> urnsFromEs = scrollResult.getUrns();
     if (urnsFromEs.isEmpty()) {
       return CheckResult.empty();
     }
@@ -386,14 +377,11 @@ public class ConsistencyService {
       issues.addAll(orphanIssues);
     }
 
-    // Extract next scrollId from search response
-    String nextScrollId = extractNextScrollId(response);
-
     return CheckResult.builder()
         .entitiesScanned(urnsFromEs.size())
         .issuesFound(issues.size())
         .issues(issues)
-        .scrollId(nextScrollId)
+        .scrollId(scrollResult.getNextScrollId())
         .build();
   }
 
@@ -401,8 +389,8 @@ public class ConsistencyService {
    * Count system-metadata documents matching the same discovery query used by {@link #checkBatch}.
    *
    * <p>With {@code keyAspectOnly=true} (upgrade default), the count approximates unique entities.
-   * Returns empty when the ES count query fails ({@link ESSystemMetadataDAO#count} soft-fails).
-   * Validation errors from entity-type resolution propagate to the caller.
+   * Returns empty when the store count query fails. Validation errors from entity-type resolution
+   * propagate to the caller.
    *
    * @param opContext operation context
    * @param request same shape as checkBatch (entity type, check IDs, filter, URNs)
@@ -417,11 +405,17 @@ public class ConsistencyService {
     if (checks.isEmpty()) {
       return Optional.of(0L);
     }
-    BoolQueryBuilder query =
-        buildSystemMetadataQuery(
-            opContext, resolvedEntityType, checks, request.getFilter(), request.getUrns());
     try {
-      return esSystemMetadataDAO.count(opContext, query, request.isIncludeSoftDeleted());
+      return scrollClient.countUrns(
+          opContext,
+          buildScrollRequest(
+              opContext,
+              resolvedEntityType,
+              checks,
+              request.getFilter(),
+              request.getUrns(),
+              null,
+              request.getBatchSize()));
     } catch (RuntimeException e) {
       log.warn("countMatching failed (continuing without total): {}", e.getMessage(), e);
       return Optional.empty();
@@ -791,6 +785,32 @@ public class ConsistencyService {
     }
 
     return aspects;
+  }
+
+  /**
+   * Build a backend-agnostic scroll request from consistency-service inputs. Package-private for
+   * tests.
+   */
+  @Nonnull
+  SystemMetadataScrollRequest buildScrollRequest(
+      @Nullable OperationContext opContext,
+      @Nonnull String entityType,
+      @Nonnull List<ConsistencyCheck> checks,
+      @Nullable SystemMetadataFilter filter,
+      @Nullable Set<Urn> urns,
+      @Nullable String scrollId,
+      int batchSize) {
+    Set<String> aspects = getTargetAspects(opContext, entityType, checks, filter);
+    return SystemMetadataScrollRequest.builder()
+        .entityType(entityType)
+        .urns(urns)
+        .aspects(aspects.isEmpty() ? null : new ArrayList<>(aspects))
+        .gePitEpochMs(filter != null ? filter.getGePitEpochMs() : null)
+        .lePitEpochMs(filter != null ? filter.getLePitEpochMs() : null)
+        .includeSoftDeleted(filter != null && filter.isIncludeSoftDeleted())
+        .scrollId(scrollId)
+        .batchSize(batchSize)
+        .build();
   }
 
   /**

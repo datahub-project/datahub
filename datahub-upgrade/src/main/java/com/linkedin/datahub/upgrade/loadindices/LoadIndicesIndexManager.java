@@ -42,22 +42,33 @@ public class LoadIndicesIndexManager {
   // different prefix re-discovers instead of reusing a prior operation's indices.
   private String discoveredForPrefix = null;
 
+  private final boolean includeSystemMetadataEsIndex;
+
   public LoadIndicesIndexManager(
       SearchClientShim<?> searchClient,
       IndexConvention indexConvention,
       ESIndexBuilder indexBuilder) {
+    this(searchClient, indexConvention, indexBuilder, true);
+  }
+
+  public LoadIndicesIndexManager(
+      SearchClientShim<?> searchClient,
+      IndexConvention indexConvention,
+      ESIndexBuilder indexBuilder,
+      boolean includeSystemMetadataEsIndex) {
     this.searchClient = searchClient;
     this.indexConvention = indexConvention;
     this.indexBuilder = indexBuilder;
+    this.includeSystemMetadataEsIndex = includeSystemMetadataEsIndex;
     // Delay index discovery until first use
     this.managedIndexConfigs = new ArrayList<>();
   }
 
   /**
    * Discovers all DataHub indices that should have settings managed during bulk operations. This
-   * includes entity indices, graph service indices, and system metadata indices since these are all
-   * stored in SQL and will be modified by load indices operations. Timeseries indices are excluded
-   * since they are not stored in SQL.
+   * Includes entity indices, the graph service index, and the Elasticsearch system-metadata index
+   * when that backend is the SoT. Timeseries indices are excluded. When Postgres is the
+   * system-metadata SoT, that ES index is not discovered.
    *
    * @param opContext the operation context
    * @return List of ReindexConfig objects for managed indices
@@ -119,34 +130,36 @@ public class LoadIndicesIndexManager {
           e.getMessage());
     }
 
-    // Get system metadata index
-    String systemMetadataIndexName =
-        indexConvention.getIndexName(opContext, ElasticSearchSystemMetadataService.INDEX_NAME);
-    log.debug("Querying system metadata index: {}", systemMetadataIndexName);
-    GetIndexRequest systemMetadataRequest = new GetIndexRequest(systemMetadataIndexName);
-    try {
-      GetIndexResponse systemMetadataResponse =
-          searchClient.getIndex(opContext, systemMetadataRequest, RequestOptions.DEFAULT);
-      String[] systemMetadataIndices = systemMetadataResponse.getIndices();
-      for (String indexName : systemMetadataIndices) {
-        try {
-          ReindexConfig config =
-              indexBuilder.buildReindexState(
-                  opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
-          configs.add(config);
-          log.debug("Added system metadata index config: {}", indexName);
-        } catch (IOException e) {
-          log.warn(
-              "Failed to build reindex config for system metadata index {}: {}",
-              indexName,
-              e.getMessage());
+    // Get system metadata index (Elasticsearch SoT only; Postgres exclusive SoT has no ES index)
+    if (includeSystemMetadataEsIndex) {
+      String systemMetadataIndexName =
+          indexConvention.getIndexName(opContext, ElasticSearchSystemMetadataService.INDEX_NAME);
+      log.debug("Querying system metadata index: {}", systemMetadataIndexName);
+      GetIndexRequest systemMetadataRequest = new GetIndexRequest(systemMetadataIndexName);
+      try {
+        GetIndexResponse systemMetadataResponse =
+            searchClient.getIndex(opContext, systemMetadataRequest, RequestOptions.DEFAULT);
+        String[] systemMetadataIndices = systemMetadataResponse.getIndices();
+        for (String indexName : systemMetadataIndices) {
+          try {
+            ReindexConfig config =
+                indexBuilder.buildReindexState(
+                    opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
+            configs.add(config);
+            log.debug("Added system metadata index config: {}", indexName);
+          } catch (IOException e) {
+            log.warn(
+                "Failed to build reindex config for system metadata index {}: {}",
+                indexName,
+                e.getMessage());
+          }
         }
+      } catch (Exception e) {
+        log.debug(
+            "System metadata index {} does not exist or is not accessible: {}",
+            systemMetadataIndexName,
+            e.getMessage());
       }
-    } catch (Exception e) {
-      log.debug(
-          "System metadata index {} does not exist or is not accessible: {}",
-          systemMetadataIndexName,
-          e.getMessage());
     }
 
     return configs;

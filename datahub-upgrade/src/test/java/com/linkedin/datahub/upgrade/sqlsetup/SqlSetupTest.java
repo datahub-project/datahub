@@ -264,4 +264,37 @@ public class SqlSetupTest {
         sqlSetup.steps().stream().map(UpgradeStep::id).collect(Collectors.toList());
     assertTrue(stepIds.stream().anyMatch(s -> s.equals("PgQueueSchemaStep")));
   }
+
+  @Test
+  public void testBuildStepsIncludesPgSystemMetadataWhenPostgresAndEnabled() {
+    PostgresSqlSetupProperties pg = PostgresSqlSetupProperties.disabled();
+    pg.setSchema("public");
+    pg.getPgSystemMetadata().setEnabled(true);
+    pg.getPgSystemMetadata().setTablePrefix("metadata_system_metadata");
+    pg.getPgSystemMetadata().setTableName("system_metadata_service_v1");
+
+    SqlSetupArgs setupArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            5432,
+            "datahub",
+            "datahub",
+            false,
+            pg);
+
+    sqlSetup = new SqlSetup(mockDatabase, setupArgs);
+    List<String> stepIds =
+        sqlSetup.steps().stream().map(UpgradeStep::id).collect(Collectors.toList());
+    assertTrue(stepIds.stream().anyMatch(s -> s.equals("PgSystemMetadataSchemaStep")));
+  }
 }

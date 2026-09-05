@@ -325,4 +325,44 @@ public final class PostgresTestUtils {
       connection.commit();
     }
   }
+
+  @Nonnull
+  public static PostgresSqlSetupProperties testPgSystemMetadataProperties(
+      @Nonnull String schema, @Nonnull String tablePrefix) {
+    PostgresSqlSetupProperties p = PostgresSqlSetupProperties.disabled();
+    p.setSchema(schema);
+    p.getPgSystemMetadata().setEnabled(true);
+    p.getPgSystemMetadata().setTablePrefix(tablePrefix);
+    p.getPgSystemMetadata().setTableName("system_metadata_service_v1");
+    return p;
+  }
+
+  public static void applyPgSystemMetadataTables(
+      @Nonnull Connection connection, @Nonnull PostgresSqlSetupProperties props) throws Exception {
+    com.linkedin.metadata.config.postgres.PgSystemMetadataSetupOptions options =
+        props.buildPgSystemMetadataOptions();
+    if (options == null) {
+      throw new IllegalStateException("expected pgSystemMetadata options");
+    }
+    com.linkedin.metadata.sqlsetup.postgres.pgsystemmetadata.PgSystemMetadataSqlMigrationTokens
+        tokens =
+            com.linkedin.metadata.sqlsetup.postgres.pgsystemmetadata
+                .PgSystemMetadataSqlMigrationTokens.builder()
+                .tableName(options.getTableName())
+                .build();
+    connection.setAutoCommit(true);
+    com.linkedin.metadata.sqlsetup.postgres.migration.PostgresSqlMigrationRunner.migrate(
+        connection,
+        com.linkedin.metadata.sqlsetup.postgres.pgsystemmetadata.PgSystemMetadataSqlMigrationModules
+            .from(options, tokens));
+  }
+
+  public static void truncatePgSystemMetadata(
+      @Nonnull Connection connection, @Nonnull PostgresSqlSetupProperties props)
+      throws SQLException {
+    try (Statement st = connection.createStatement()) {
+      st.execute("TRUNCATE TABLE " + props.buildPgSystemMetadataOptions().qualifiedTable());
+      connection.commit();
+    }
+  }
 }

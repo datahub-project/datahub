@@ -12,6 +12,7 @@ public class PostgresSqlSetupPropertiesTest {
   public void disabled_pgQueueNotBuilt() {
     PostgresSqlSetupProperties props = PostgresSqlSetupProperties.disabled();
     assertNull(props.buildPgQueueOptions());
+    assertNull(props.buildPgSystemMetadataOptions());
     props.validateForUse(DatabaseType.MYSQL);
   }
 
@@ -114,6 +115,20 @@ public class PostgresSqlSetupPropertiesTest {
     PostgresSqlSetupProperties props = new PostgresSqlSetupProperties();
     props.setSchema("MySchema");
     assertEquals(props.normalizedPostgresSchema(), "myschema");
+  }
+
+  @Test
+  public void buildPgSystemMetadataOptions_usesEsShapedTableName() {
+    PostgresSqlSetupProperties props = PostgresSqlSetupProperties.disabled();
+    props.setSchema("public");
+    props.getPgSystemMetadata().setEnabled(true);
+    props.getPgSystemMetadata().setTablePrefix("metadata_system_metadata");
+    props.getPgSystemMetadata().setTableName("system_metadata_service_v1");
+    props.validateForUse(DatabaseType.POSTGRES);
+    PgSystemMetadataSetupOptions o = props.buildPgSystemMetadataOptions();
+    assertEquals(o.getTableName(), "system_metadata_service_v1");
+    assertEquals(o.getTablePrefix(), "metadata_system_metadata");
+    assertEquals(o.qualifiedTable(), "public.system_metadata_service_v1");
   }
 
   @Test(expectedExceptions = IllegalStateException.class)

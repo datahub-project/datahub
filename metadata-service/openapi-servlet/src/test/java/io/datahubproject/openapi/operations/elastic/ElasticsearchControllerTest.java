@@ -104,7 +104,9 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
   private static final Urn TEST_URN_2 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)");
 
-  @MockitoBean private SystemMetadataService mockSystemMetadataService;
+  @MockitoBean(name = "elasticSearchSystemMetadataService")
+  private SystemMetadataService mockSystemMetadataService;
+
   @MockitoBean private TimeseriesAspectService mockTimeseriesAspectService;
   @MockitoBean private EntitySearchService mockSearchService;
   @MockitoBean private EntityService<?> mockEntityService;

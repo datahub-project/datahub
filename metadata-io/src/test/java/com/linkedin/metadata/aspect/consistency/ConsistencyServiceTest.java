@@ -23,6 +23,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.systemmetadata.scroll.ESSystemMetadataScrollClient;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import java.util.ArrayList;
@@ -228,7 +229,11 @@ public class ConsistencyServiceTest {
 
     consistencyService =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, checkRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            checkRegistry,
+            fixRegistry);
   }
 
   // ============================================================================
@@ -306,7 +311,11 @@ public class ConsistencyServiceTest {
     ConsistencyCheckRegistry discoverRegistry = new ConsistencyCheckRegistry(List.of(issueCheck));
     ConsistencyService serviceWithDiscoverCheck =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, discoverRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            discoverRegistry,
+            fixRegistry);
 
     Optional<ConsistencyIssue> result =
         serviceWithDiscoverCheck.discoverIssue(mockOpContext, testUrn, "test-discover-check");
@@ -383,7 +392,11 @@ public class ConsistencyServiceTest {
         new ConsistencyCheckRegistry(List.of(new TestRequiresAllAspectsCheck()));
     ConsistencyService serviceWithAllAspects =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, allAspectsRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            allAspectsRegistry,
+            fixRegistry);
 
     Optional<ConsistencyIssue> result =
         serviceWithAllAspects.discoverIssue(mockOpContext, testUrn, "test-requires-all-aspects");
@@ -528,7 +541,11 @@ public class ConsistencyServiceTest {
         new ConsistencyCheckRegistry(List.of(wildcardCheck));
     ConsistencyService serviceWithWildcard =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, wildcardRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            wildcardRegistry,
+            fixRegistry);
 
     try {
       serviceWithWildcard.checkBatch(
@@ -660,7 +677,11 @@ public class ConsistencyServiceTest {
     ConsistencyCheckRegistry emptyRegistry = new ConsistencyCheckRegistry(List.of());
     ConsistencyService serviceWithEmptyRegistry =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, emptyRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            emptyRegistry,
+            fixRegistry);
 
     CheckResult result =
         serviceWithEmptyRegistry.checkBatch(
@@ -694,7 +715,7 @@ public class ConsistencyServiceTest {
     ConsistencyService serviceWithConfigs =
         new ConsistencyService(
             mockEntityService,
-            mockEsSystemMetadataDAO,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
             null,
             checkRegistry,
             fixRegistry,
@@ -920,7 +941,7 @@ public class ConsistencyServiceTest {
     ConsistencyService serviceWithGraph =
         new ConsistencyService(
             mockEntityService,
-            mockEsSystemMetadataDAO,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
             mockGraphClient,
             checkRegistry,
             fixRegistry,
@@ -1474,7 +1495,11 @@ public class ConsistencyServiceTest {
     ConsistencyCheckRegistry issueRegistry = new ConsistencyCheckRegistry(checks);
     ConsistencyService serviceWithIssueCheck =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, issueRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            issueRegistry,
+            fixRegistry);
 
     // Create test entities
     Urn urn1 = UrnUtils.getUrn("urn:li:assertion:test-1");
@@ -1498,7 +1523,11 @@ public class ConsistencyServiceTest {
     ConsistencyCheckRegistry mixedRegistry = new ConsistencyCheckRegistry(checks);
     ConsistencyService serviceWithMixedChecks =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, mixedRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            mixedRegistry,
+            fixRegistry);
 
     Urn urn = UrnUtils.getUrn("urn:li:assertion:test-1");
     Map<Urn, EntityResponse> entities = Map.of(urn, new EntityResponse());
@@ -1518,7 +1547,11 @@ public class ConsistencyServiceTest {
     ConsistencyCheckRegistry emptyRegistry = new ConsistencyCheckRegistry(List.of());
     ConsistencyService serviceWithNoChecks =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, emptyRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            emptyRegistry,
+            fixRegistry);
 
     Urn urn = UrnUtils.getUrn("urn:li:assertion:test-1");
     Map<Urn, EntityResponse> entities = Map.of(urn, new EntityResponse());
@@ -1643,7 +1676,11 @@ public class ConsistencyServiceTest {
     ConsistencyCheckRegistry multiRegistry = new ConsistencyCheckRegistry(List.of(check1, check2));
     ConsistencyService serviceWithMultiChecks =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, multiRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            multiRegistry,
+            fixRegistry);
 
     Urn urn = UrnUtils.getUrn("urn:li:assertion:test-1");
     Map<Urn, EntityResponse> entities = Map.of(urn, new EntityResponse());
@@ -1736,7 +1773,11 @@ public class ConsistencyServiceTest {
             List.of(new TestAssertionCheck(), new OrphanIndexDocumentCheck()));
     ConsistencyService serviceWithOrphan =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, orphanRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            orphanRegistry,
+            fixRegistry);
 
     CheckResult result =
         serviceWithOrphan.processBatchResults(
@@ -1821,7 +1862,11 @@ public class ConsistencyServiceTest {
     ConsistencyCheckRegistry issueRegistry = new ConsistencyCheckRegistry(checks);
     ConsistencyService serviceWithIssueCheck =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, issueRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            issueRegistry,
+            fixRegistry);
 
     Urn urn1 = UrnUtils.getUrn("urn:li:assertion:test-1");
     Urn urn2 = UrnUtils.getUrn("urn:li:assertion:test-2");
@@ -1886,7 +1931,11 @@ public class ConsistencyServiceTest {
             List.of(new com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck()));
     ConsistencyService serviceWithOrphanCheck =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, orphanRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            orphanRegistry,
+            fixRegistry);
 
     Optional<ConsistencyIssue> result =
         serviceWithOrphanCheck.discoverIssue(mockOpContext, orphanUrn, "orphan-index-document");
@@ -1911,7 +1960,11 @@ public class ConsistencyServiceTest {
             List.of(new com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck()));
     ConsistencyService serviceWithOrphanCheck =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, orphanRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            orphanRegistry,
+            fixRegistry);
 
     Optional<ConsistencyIssue> result =
         serviceWithOrphanCheck.discoverIssue(mockOpContext, existingUrn, "orphan-index-document");
@@ -2105,7 +2158,11 @@ public class ConsistencyServiceTest {
         new ConsistencyCheckRegistry(List.of(errorCheck, successCheck));
     ConsistencyService mixedService =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, mixedRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            mixedRegistry,
+            fixRegistry);
 
     Urn urn = UrnUtils.getUrn("urn:li:assertion:test");
     Map<Urn, EntityResponse> entities = Map.of(urn, new EntityResponse());

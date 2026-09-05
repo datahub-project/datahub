@@ -26,8 +26,10 @@ import org.springframework.context.annotation.Import;
       "com.linkedin.gms.factory.entityregistry",
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.timeseries",
-      // Intentionally omit com.linkedin.gms.factory.analytics: LoadIndices only rebuilds
-      // search indices and must not open pgAnalytics runtime pools (fails if the pool is down).
+      // Intentionally omit com.linkedin.gms.factory.analytics and
+      // com.linkedin.gms.factory.systemmetadata: LoadIndices only rebuilds search indices and must
+      // not open those dedicated runtime pools independently. The system-metadata service factory
+      // in factory.common still @Imports the pgSystemMetadata pool when SoT is postgres.
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.system_telemetry"
     },

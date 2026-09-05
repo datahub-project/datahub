@@ -5,6 +5,7 @@ import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.sqlsetup.postgres.PgAnalyticsSchemaStep;
 import com.linkedin.datahub.upgrade.sqlsetup.postgres.PgQueueSchemaStep;
+import com.linkedin.datahub.upgrade.sqlsetup.postgres.PgSystemMetadataSchemaStep;
 import com.linkedin.datahub.upgrade.sqlsetup.postgres.PgTimeseriesSchemaStep;
 import com.linkedin.metadata.config.postgres.DatabaseType;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
@@ -80,6 +81,11 @@ public class SqlSetup implements Upgrade {
         && postgresProperties != null
         && postgresProperties.getPgAnalytics().isEnabled()) {
       steps.add(new PgAnalyticsSchemaStep(server, postgresProperties));
+    }
+    if (setupArgs.getDbType() == DatabaseType.POSTGRES
+        && postgresProperties != null
+        && postgresProperties.getPgSystemMetadata().isEnabled()) {
+      steps.add(new PgSystemMetadataSchemaStep(server, postgresProperties));
     }
     if (setupArgs.getDbType() == DatabaseType.POSTGRES
         && postgresProperties != null
