@@ -28,6 +28,7 @@ except ImportError:
     AIRFLOW3_IMPORTS_AVAILABLE = False
 
 # DataHub imports (always available)
+from datahub_airflow_plugin import _connection_mapping as connection_mapping
 from datahub_airflow_plugin._config import get_configured_env
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
@@ -143,9 +144,6 @@ def _datahub_generate_openlineage_metadata_from_sql(
 
         platform = OL_SCHEME_TWEAKS.get(platform, platform)
 
-        # Get default database and schema
-        # database_info is a DatabaseInfo object (dataclass/namedtuple), not a dict
-        default_database = database or getattr(database_info, "database", None)
         default_schema = self.default_schema
 
         # Check if SQL still contains templates (should be rendered by operator)
@@ -161,10 +159,44 @@ def _datahub_generate_openlineage_metadata_from_sql(
         graph = listener.graph if listener else None
         env = get_configured_env()
 
+        # Resolve this connection's `[datahub] asset_connections` entry, so SQL-parsed
+        # lineage lands on the same URNs as the Asset and OpenLineage writers. The
+        # authority is the connection identity the mapping is keyed on — for Snowflake the
+        # provider sets it to the account hostname, matching the OpenLineage namespace
+        # form. When it is absent (the minimal DatabaseInfo built from a bare connection)
+        # no entry matches and behaviour is unchanged.
+        authority = getattr(database_info, "authority", None) or ""
+        connections = (
+            listener.config.asset_connections
+            if listener is not None and hasattr(listener, "config")
+            else None
+        )
+        connection_detail = connection_mapping.lookup(connections, platform, authority)
+        platform_instance = (
+            connection_detail.platform_instance if connection_detail else None
+        )
+        # Deliberately NOT applying the mapping's `env` here. With OpenLineage disabled
+        # (the default) these URNs are converted back into synthetic OpenLineage datasets
+        # further down and translated a second time using the plugin-wide cluster, so
+        # overriding env on only the first leg splits one table across two environments.
+        # platform_instance survives that round trip because DataHub encodes it as a
+        # prefix of the dataset name, which the conversion preserves.
+
+        # Get the default database. database_info is a DatabaseInfo object
+        # (dataclass/namedtuple), not a dict. The mapping's `database` is only a fallback
+        # for connections that report none — without one the parser cannot fully qualify
+        # table names.
+        default_database = connection_mapping.resolve_default_database(
+            database,
+            getattr(database_info, "database", None),
+            connection_detail,
+        )
+
         logger.debug(
-            "Running DataHub SQL parser %s (platform=%s, default db=%s, schema=%s, multi_statement=%s): %s",
+            "Running DataHub SQL parser %s (platform=%s, platform_instance=%s, default db=%s, schema=%s, multi_statement=%s): %s",
             "with graph client" if graph else "in offline mode",
             platform,
+            platform_instance,
             default_database,
             default_schema,
             enable_multi_statement,
@@ -179,6 +211,7 @@ def _datahub_generate_openlineage_metadata_from_sql(
             default_schema=default_schema,
             graph=graph,
             enable_multi_statement=enable_multi_statement,
+            platform_instance=platform_instance,
         )
 
         logger.debug(f"DataHub SQL parser result: {sql_parsing_result}")

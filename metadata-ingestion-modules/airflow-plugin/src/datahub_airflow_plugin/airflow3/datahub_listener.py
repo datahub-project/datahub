@@ -732,7 +732,9 @@ class DataHubListener:
                 # Translate OpenLineage datasets to DataHub URNs
                 for ol_dataset in operator_lineage.inputs:
                     urn = translate_ol_to_datahub_urn(
-                        ol_dataset, env=self.config.cluster
+                        ol_dataset,
+                        env=self.config.cluster,
+                        connections=self.config.asset_connections,
                     )
                     input_urns.append(urn)
                     logger.debug(
@@ -741,7 +743,9 @@ class DataHubListener:
 
                 for ol_dataset in operator_lineage.outputs:
                     urn = translate_ol_to_datahub_urn(
-                        ol_dataset, env=self.config.cluster
+                        ol_dataset,
+                        env=self.config.cluster,
+                        connections=self.config.asset_connections,
                     )
                     output_urns.append(urn)
                     logger.debug(
@@ -893,6 +897,7 @@ class DataHubListener:
                 non_alias_outlets,
                 capture_airflow_assets=self.config.capture_airflow_assets,
                 env=self.config.cluster,
+                connections=self.config.asset_connections,
             )
         )
 
@@ -907,7 +912,9 @@ class DataHubListener:
         # (no DB needed).  Requires the on_starting patch or Airflow 3.2+ native
         # _cached_template_context.
         resolved_urns = extract_urns_from_task_instance_outlet_events(
-            task_instance, env=self.config.cluster
+            task_instance,
+            env=self.config.cluster,
+            connections=self.config.asset_connections,
         )
         if not resolved_urns:
             # DB fallback: used when the in-process context is unavailable (e.g.
@@ -920,6 +927,7 @@ class DataHubListener:
                 map_index=getattr(task_instance, "map_index", -1),
                 env=self.config.cluster,
                 session=session,
+                connections=self.config.asset_connections,
             )
 
         if resolved_urns:
@@ -1013,6 +1021,7 @@ class DataHubListener:
                 get_task_inlets(task),
                 self.config.capture_airflow_assets,
                 env=self.config.cluster,
+                connections=self.config.asset_connections,
             )
         )
 
@@ -1032,6 +1041,7 @@ class DataHubListener:
                     get_task_outlets(task),
                     capture_airflow_assets=False,
                     env=self.config.cluster,
+                    connections=self.config.asset_connections,
                 )
             )
 
