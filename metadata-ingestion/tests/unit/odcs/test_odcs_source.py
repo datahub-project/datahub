@@ -921,6 +921,44 @@ def test_data_product_name_search_failure_does_not_seed(
     )
 
 
+def test_data_product_name_match_survives_one_unreadable_candidate(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A per-candidate aspect read error must not discard the whole resolution:
+    the other candidate still confirms the name match."""
+    good = "urn:li:dataProduct:good"
+    bad = "urn:li:dataProduct:bad"
+    graph = MagicMock()
+    graph.exists.side_effect = lambda urn: not urn.startswith("urn:li:dataProduct:")
+    graph.get_urns_by_filter.side_effect = lambda **kwargs: iter([bad, good])
+
+    def _aspect(urn: str, aspect_cls: Any) -> Any:
+        if urn == bad:
+            raise RuntimeError("aspect read failed")
+        return DataProductPropertiesClass(name="Orders") if urn == good else None
+
+    graph.get_aspect.side_effect = _aspect
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(
+        _DATA_PRODUCT_BODY.replace(
+            "dataProduct: orders_product", "dataProduct: Orders"
+        ),
+        encoding="utf-8",
+    )
+    src = _make_source(
+        tmp_path,
+        graph=graph,
+        path=str(contract_file),
+        emit_data_product_association=True,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert _output_ports(workunits, good) == [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t,PROD)"
+    ]
+    assert src.report.data_products_resolved_by_name == 1
+
+
 def test_multiple_files_emit_all_logical_datasets(
     tmp_path: pathlib.Path,
 ) -> None:

@@ -1346,27 +1346,23 @@ class ODCSSource(StatefulIngestionSourceBase):
         if graph is None:
             return []
         wanted = name.casefold()
-        matches: List[str] = []
         try:
             # Case-insensitive exact name match (IEQUAL). A relevance-ranked
             # full-text `query=name` searches every field and, once capped, can
             # rank the true `dataProductProperties.name` match past the cap and
             # miss it; a plain EQUAL is case-sensitive, but the match is
-            # documented as case-insensitive.
-            candidates = graph.get_urns_by_filter(
-                entity_types=[DataProductUrn.ENTITY_TYPE],
-                extraFilters=[
-                    {"field": "name", "condition": "IEQUAL", "values": [name]}
-                ],
+            # documented as case-insensitive. Materialize here: the filter
+            # scrolls lazily, so the search's network calls happen as the
+            # iterator is drained and belong inside this try, not the confirm
+            # loop below.
+            candidates = list(
+                graph.get_urns_by_filter(
+                    entity_types=[DataProductUrn.ENTITY_TYPE],
+                    extraFilters=[
+                        {"field": "name", "condition": "IEQUAL", "values": [name]}
+                    ],
+                )
             )
-            for urn in candidates:
-                props = graph.get_aspect(urn, DataProductPropertiesClass)
-                if (
-                    props is not None
-                    and (props.name or "").strip().casefold() == wanted
-                ):
-                    matches.append(urn)
-            return matches
         except Exception as e:
             self.report.warning(
                 title="Could not search Data Products by name",
@@ -1378,6 +1374,26 @@ class ODCSSource(StatefulIngestionSourceBase):
                 exc=e,
             )
             return None
+        matches: List[str] = []
+        for urn in candidates:
+            try:
+                props = graph.get_aspect(urn, DataProductPropertiesClass)
+            except Exception as e:
+                # One unreadable candidate must not discard an otherwise-good
+                # resolution; skip it and keep confirming the rest.
+                self.report.warning(
+                    title="Could not read a Data Product while matching by name",
+                    message=(
+                        "A candidate product's properties could not be read, so "
+                        "it was skipped while matching this `dataProduct` name."
+                    ),
+                    context=f"dataProduct={name} candidate={urn}",
+                    exc=e,
+                )
+                continue
+            if props is not None and (props.name or "").strip().casefold() == wanted:
+                matches.append(urn)
+        return matches
 
     def _emit_data_product_output_ports(self) -> Iterable[MetadataWorkUnit]:
         for product_urn, entry in self._data_product_ports.items():
