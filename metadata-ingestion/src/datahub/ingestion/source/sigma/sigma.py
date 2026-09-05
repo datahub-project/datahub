@@ -1979,6 +1979,26 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # not document ordering, and Upstream entries have no semantic order.
         upstream_urns.sort()
         if not upstream_urns:
+            # The most important case to be able to see, and previously the only
+            # one that was completely silent: this element gets NO
+            # upstreamLineage aspect at all, and the early return happens before
+            # the FGL builder, so neither the ELEMENT nor any COLUMN record is
+            # produced either. An element with no lineage whatsoever left no
+            # trace of why.
+            self.reporter.data_model_element_no_upstreams += 1
+            logger.debug(
+                "ELEMENT NO-UPSTREAM DM %s element %s %r: source_ids=%r "
+                "columns=%d -- no source_id resolved to a URN, so no "
+                "upstreamLineage and no column lineage is emitted for this "
+                "element at all. Each unresolved source_id is reported above "
+                "with its shape (intra-DM / inode / cross-DM / customSQL / "
+                "unknown).",
+                data_model.dataModelId,
+                element.elementId,
+                element.name,
+                element.source_ids,
+                len(element.columns),
+            )
             return None
         # Elements reached only through a join chain: Sigma's /lineage reports
         # the direct join element, not the transitive source the formula names.

@@ -237,6 +237,12 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # map. Kept separate so the relaxation is auditable against the
     # url_id_not_in_element_source_ids misses it replaces.
     dm_element_warehouse_transitive_inode_accepted: int = 0
+    # Data Model elements for which no source_id resolved to a URN, so no
+    # upstreamLineage aspect is emitted and no column lineage is even attempted.
+    # The difference between data_model_elements_emitted and the number of
+    # elements carrying upstreamLineage; previously that gap had no counter and
+    # no log line.
+    data_model_element_no_upstreams: int = 0
     # Column whose formula refs are exclusively parameter refs (e.g. [P_*]).
     chart_input_fields_skipped_parameter: int = 0
     # Column whose formula refs are exclusively bare sibling refs (e.g. [col]).
