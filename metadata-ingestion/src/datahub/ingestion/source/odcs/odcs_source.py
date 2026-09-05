@@ -1375,12 +1375,14 @@ class ODCSSource(StatefulIngestionSourceBase):
             )
             return None
         matches: List[str] = []
+        had_read_error = False
         for urn in candidates:
             try:
                 props = graph.get_aspect(urn, DataProductPropertiesClass)
             except Exception as e:
-                # One unreadable candidate must not discard an otherwise-good
-                # resolution; skip it and keep confirming the rest.
+                # A single unreadable candidate must not abort the loop; keep
+                # confirming the rest, but remember the view is now incomplete.
+                had_read_error = True
                 self.report.warning(
                     title="Could not read a Data Product while matching by name",
                     message=(
@@ -1393,6 +1395,13 @@ class ODCSSource(StatefulIngestionSourceBase):
                 continue
             if props is not None and (props.name or "").strip().casefold() == wanted:
                 matches.append(urn)
+        # An unreadable candidate might itself be a same-named product, so a
+        # partial view can be trusted as neither a definitive miss (which would
+        # seed a stub) nor a unique match (which could mask a duplicate). Only a
+        # >=2 result is safe under that uncertainty — it is ambiguous either way;
+        # anything less is reported unresolved rather than guessed.
+        if had_read_error and len(matches) < 2:
+            return None
         return matches
 
     def _emit_data_product_output_ports(self) -> Iterable[MetadataWorkUnit]:

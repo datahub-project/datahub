@@ -921,11 +921,12 @@ def test_data_product_name_search_failure_does_not_seed(
     )
 
 
-def test_data_product_name_match_survives_one_unreadable_candidate(
+def test_data_product_name_match_uncertain_when_a_candidate_is_unreadable(
     tmp_path: pathlib.Path,
 ) -> None:
-    """A per-candidate aspect read error must not discard the whole resolution:
-    the other candidate still confirms the name match."""
+    """A read error leaves the match set incomplete. With one readable confirm and
+    an unreadable sibling (which could be a same-named duplicate), resolution is
+    left to a human rather than attaching to the single readable match."""
     good = "urn:li:dataProduct:good"
     bad = "urn:li:dataProduct:bad"
     graph = MagicMock()
@@ -953,10 +954,45 @@ def test_data_product_name_match_survives_one_unreadable_candidate(
     )
     workunits = list(src.get_workunits_internal())
 
-    assert _output_ports(workunits, good) == [
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,appdb.public.t,PROD)"
-    ]
-    assert src.report.data_products_resolved_by_name == 1
+    # Neither attached to the readable match nor seeded — left unresolved.
+    assert _data_product_ops(workunits) == {}
+    assert src.report.data_products_unresolved == 1
+    assert any(
+        "Could not read a Data Product while matching by name"
+        in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_data_product_read_error_does_not_seed_even_with_verify_off(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A read error must not collapse to a definitive miss: even with verification
+    off, an incomplete search leaves the contract unresolved instead of seeding a
+    stub at the id-derived urn."""
+    bad = "urn:li:dataProduct:bad"
+    graph = MagicMock()
+    graph.exists.side_effect = lambda urn: not urn.startswith("urn:li:dataProduct:")
+    graph.get_urns_by_filter.side_effect = lambda **kwargs: iter([bad])
+    graph.get_aspect.side_effect = RuntimeError("aspect read failed")
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(
+        _DATA_PRODUCT_BODY.replace(
+            "dataProduct: orders_product", "dataProduct: Orders"
+        ),
+        encoding="utf-8",
+    )
+    src = _make_source(
+        tmp_path,
+        graph=graph,
+        path=str(contract_file),
+        emit_data_product_association=True,
+        verify_data_product_exists=False,
+    )
+    workunits = list(src.get_workunits_internal())
+
+    assert _data_product_ops(workunits) == {}
+    assert src.report.data_products_unresolved == 1
 
 
 def test_multiple_files_emit_all_logical_datasets(
