@@ -179,6 +179,7 @@ def _build_fgls(
         entity_level_upstream_urns=entity_level_upstream_urns or set(),
         data_model=_dm(all_elements),
         warehouse_url_id_map=warehouse_map or {},
+        discovered_upstreams=set(),
     )
 
 

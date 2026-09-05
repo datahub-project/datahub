@@ -88,6 +88,7 @@ def _build(
         entity_level_upstream_urns=entity_level_upstream_urns or set(),
         data_model=_data_model(all_elements),
         warehouse_url_id_map={},
+        discovered_upstreams=set(),
     )
 
 
@@ -1381,3 +1382,47 @@ def test_single_slash_ref_does_not_touch_join_chain_counters() -> None:
     assert len(lineages) == 1
     assert source.reporter.data_model_element_fgl_join_chain_resolved == 0
     assert source.reporter.data_model_element_fgl_join_chain_unresolved == 0
+
+
+def test_join_chain_resolves_when_owner_absent_from_direct_lineage() -> None:
+    """The owning element is a TRANSITIVE upstream, so /lineage never lists it.
+
+    Regression test for the fix that mattered: requiring membership in
+    entity_level_upstream_urns made every intra-DM join-chain candidate fail,
+    because a join chain reaches its source through the join element and Sigma
+    reports only the direct one. The owner must resolve anyway, and must be
+    reported back for promotion to an entity-level upstream.
+    """
+    source = _source()
+    join_urn = _urn("join")
+    owner_urn = _urn("owner")
+    downstream_urn = _urn("consumer")
+    discovered: set = set()
+    element = _element(
+        "consumer", "Consumer", [_column("c-x", "x", "[JOIN/OWNER/col]")]
+    )
+
+    lineages = source._build_dm_element_fine_grained_lineages(
+        element=element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"join": ["join"], "owner": ["owner"]},
+        elementId_to_dataset_urn={"join": join_urn, "owner": owner_urn},
+        # Only the join element is a direct upstream -- the owner is not.
+        entity_level_upstream_urns={join_urn},
+        data_model=_data_model(
+            [
+                element,
+                _upstream_element("join", "JOIN", ["unrelated"]),
+                _upstream_element("owner", "OWNER", ["col"]),
+            ]
+        ),
+        warehouse_url_id_map={},
+        discovered_upstreams=discovered,
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(owner_urn, "col")]
+    assert source.reporter.data_model_element_fgl_join_chain_resolved == 1
+    # Reported back so the caller can declare it in ``upstreams``.
+    assert discovered == {owner_urn}
+    assert source.reporter.data_model_element_fgl_join_chain_upstream_added == 1

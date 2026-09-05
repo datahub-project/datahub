@@ -388,6 +388,15 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # dropped_orphan_upstream or cross_dm_deferred) -- not an independent drop,
     # so do not add it to those totals.
     data_model_element_fgl_join_chain_unresolved: int = 0
+    # Join-chain sources promoted to entity-level upstreams because Sigma's
+    # element /lineage lists only the direct join element, never the transitive
+    # source the formula actually names. Without the promotion the emitted
+    # schemaField would reference a Dataset absent from ``upstreams``.
+    data_model_element_fgl_join_chain_upstream_added: int = 0
+    # Orphan drops that WOULD resolve if the direct-lineage gate were relaxed
+    # the way the join-chain path now relaxes it (i.e. the named sibling really
+    # does own the column). Sizes that follow-up without making it speculatively.
+    data_model_element_fgl_orphan_recoverable_if_gate_relaxed: int = 0
     # Cross-DM FGL counters (DM = data model throughout).
     # Refs resolved via global bridge index and emitted as cross-DM FGL.
     # Resolution uses entity-level upstreams as a soft collision tiebreaker,
@@ -488,6 +497,18 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # type=table lineage entry missing inodeId or name; skipped to avoid
     # emitting a malformed URN.
     dm_element_warehouse_table_entry_incomplete: int = 0
+
+    # Why columnId-based warehouse resolution returned nothing, by gate. The
+    # deferred counter it feeds is normally the largest bucket in the report and
+    # said nothing about cause; keys are:
+    #   columnId_not_inode_shaped     -- not a warehouse passthrough at all
+    #   columnId_missing_native_part  -- "inode-<id>" with no "/<COLUMN>"
+    #   url_id_not_in_element_source_ids -- column claims an inode the element
+    #                                    does not declare (payload drift)
+    #   url_id_not_in_warehouse_map   -- /files never resolved that inode
+    #   parent_urn_unresolved         -- connection unmappable / no platform
+    #   connection_not_in_registry    -- connection id absent from /connections
+    warehouse_passthrough_miss_reasons: Dict[str, int] = field(default_factory=dict)
 
 
 class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):

@@ -1917,6 +1917,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         upstream_urns.sort()
         if not upstream_urns:
             return None
+        # Elements reached only through a join chain: Sigma's /lineage reports
+        # the direct join element, not the transitive source the formula names.
+        discovered_upstreams: Set[str] = set()
         fine_grained = self._build_dm_element_fine_grained_lineages(
             element=element,
             element_dataset_urn=element_dataset_urn,
@@ -1925,7 +1928,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entity_level_upstream_urns=set(upstream_urns),
             data_model=data_model,
             warehouse_url_id_map=warehouse_url_id_map,
+            discovered_upstreams=discovered_upstreams,
         )
+        # Promote them to entity-level upstreams so every emitted schemaField
+        # has a declared parent Dataset; without this the FGL points at a
+        # Dataset missing from ``upstreams`` and the UI will not render it.
+        for urn in sorted(discovered_upstreams):
+            if urn not in upstream_urns:
+                upstream_urns.append(urn)
+                logger.debug(
+                    "DM %s element %s: promoted join-chain source %s to an "
+                    "entity-level upstream (absent from Sigma /lineage)",
+                    data_model.dataModelId,
+                    element.elementId,
+                    urn,
+                )
+        upstream_urns.sort()
         return UpstreamLineage(
             upstreams=[
                 Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
@@ -1992,6 +2010,33 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=element_dataset_urn, aspect=schema_metadata
         ).as_workunit()
 
+    def _note_warehouse_miss(
+        self,
+        reason: str,
+        column: SigmaDataModelColumn,
+        element: SigmaDataModelElement,
+        col_id: str,
+    ) -> None:
+        """Record why columnId-based warehouse resolution produced nothing.
+
+        Aggregated into a per-reason histogram on the report so the largest
+        deferred bucket becomes triageable without grepping the log, plus a
+        debug line naming the column for the first occurrences.
+        """
+        self.reporter.warehouse_passthrough_miss_reasons[reason] = (
+            self.reporter.warehouse_passthrough_miss_reasons.get(reason, 0) + 1
+        )
+        if self.reporter.warehouse_passthrough_miss_reasons[reason] <= 25:
+            logger.debug(
+                "warehouse passthrough miss (%s): element=%s column=%r "
+                "columnId=%r source_ids=%r",
+                reason,
+                element.elementId,
+                column.name,
+                col_id,
+                element.source_ids[:8],
+            )
+
     def _try_emit_warehouse_passthrough_fgl(
         self,
         *,
@@ -2013,23 +2058,39 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         the caller's responsibility so that None unambiguously means failure.
         """
         # Parse columnId → url_id + warehouse column name.
+        # Every early return below records WHY, because
+        # fgl_warehouse_passthrough_deferred is the largest bucket in the report
+        # (10,806 on one tenant) and previously said nothing about cause.
         col_id = column.columnId or ""
         if not _is_warehouse_column_id(col_id):
+            self._note_warehouse_miss(
+                "columnId_not_inode_shaped", column, element, col_id
+            )
             return None
         suffix = col_id[len("inode-") :]
         url_id, sep, warehouse_col = suffix.partition("/")
         if not sep or not warehouse_col:
+            self._note_warehouse_miss(
+                "columnId_missing_native_part", column, element, col_id
+            )
             return None
 
         # Verify this url_id is one of the element's declared warehouse sources.
         # Mismatches can occur if a column belongs to a different element's inode
         # (shouldn't happen with well-formed API data, but guards against drift).
         if f"inode-{url_id}" not in element.source_ids:
+            self._note_warehouse_miss(
+                "url_id_not_in_element_source_ids", column, element, col_id
+            )
             return None
 
         # Guard: url_id must resolve in the warehouse map (i.e. /files succeeded).
         wh_ref = warehouse_url_id_map.get(url_id)
         if wh_ref is None:
+            # /files never resolved this inode into db/schema/table.
+            self._note_warehouse_miss(
+                "url_id_not_in_warehouse_map", column, element, col_id
+            )
             return None
 
         # Resolve the parent Dataset URN.  This is the only allowed path for
@@ -2040,6 +2101,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             warehouse_map=warehouse_url_id_map,
         )
         if parent_urn is None:
+            self._note_warehouse_miss("parent_urn_unresolved", column, element, col_id)
             return None
 
         # Normalize column casing to match the platform convention used by the
@@ -2048,6 +2110,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # dict hits on the same objects.
         record = self.connection_registry.get(wh_ref.connection_id)
         if record is None:
+            self._note_warehouse_miss(
+                "connection_not_in_registry", column, element, col_id
+            )
             return None
         conn_override = self.config.connection_to_platform_map.get(wh_ref.connection_id)
         lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
@@ -2298,13 +2363,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ):
                 return
             self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
+            # Would relaxing the direct-lineage gate here (as the join-chain
+            # path now does) actually recover the edge? Only if the sibling
+            # owns the column. Counting it decides whether that change is worth
+            # making, without making it speculatively.
+            recoverable = any(
+                urn_to_cols.get(u, {}).get(ref.column.lower()) is not None
+                for u in candidate_urns
+            )
+            if recoverable:
+                self.reporter.data_model_element_fgl_orphan_recoverable_if_gate_relaxed += 1
             logger.debug(
                 "DM %s element %s: orphan drop for ref %r -- name matched an "
                 "intra-DM sibling but /lineage did not list it and cross-DM "
-                "rescue failed (segments=%r, candidates=%r)",
+                "rescue failed; recoverable_if_gate_relaxed=%s "
+                "(segments=%r, candidates=%r)",
                 data_model.dataModelId,
                 element.elementId,
                 ref.raw,
+                recoverable,
                 ref.parts,
                 candidate_urns,
             )
@@ -2405,6 +2482,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         emitted_pairs: Set[Tuple[str, str]],
         fgls: List[FineGrainedLineageClass],
         cross_dm_fgls: List[FineGrainedLineageClass],
+        discovered_upstreams: Set[str],
     ) -> bool:
         """Resolve a multi-segment ref by trying alternative (source, column) splits.
 
@@ -2428,6 +2506,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         if len(ref.parts) < 3:
             return False
+        # Per-candidate verdicts, so a failure line says WHICH check rejected
+        # WHICH candidate. Without this the previous run could only say "no
+        # candidate resolved" and the blocking gate had to be inferred by
+        # reading the code.
+        trace: List[str] = []
         for source, col in candidate_source_column_splits(ref):
             # Intra-DM: sibling elements, self-references stripped per candidate.
             eids = [
@@ -2440,12 +2523,39 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 for eid in eids
                 if eid in elementId_to_dataset_urn
             )
-            surviving = [u for u in urns if u in entity_level_upstream_urns]
-            if surviving:
-                canonical = urn_to_cols.get(surviving[0], {}).get(col.lower())
+            # NOTE: deliberately NOT filtered by entity_level_upstream_urns.
+            # A join chain reaches its owning element *through* the join, so
+            # Sigma's element-level /lineage lists only the direct join element
+            # and never the transitive one. Requiring membership here made every
+            # intra-DM candidate fail: in one production run all 6 successes came
+            # from the cross-DM branch, which has no such gate, and 0 from here.
+            # The chosen element is instead recorded in discovered_upstreams and
+            # added to the entity-level upstreams by the caller, so the emitted
+            # schemaField still has a declared parent Dataset.
+            if not urns:
+                trace.append(f"{source!r}: no intra-DM element with that name")
+            if urns:
+                # Prefer a direct upstream when one matches, purely for
+                # determinism; correctness does not depend on it.
+                ordered = [u for u in urns if u in entity_level_upstream_urns] + [
+                    u for u in urns if u not in entity_level_upstream_urns
+                ]
+                cols_here = urn_to_cols.get(ordered[0], {})
+                canonical = cols_here.get(col.lower())
+                if canonical is None:
+                    trace.append(
+                        f"{source!r}: element found ({ordered[0].split('.')[-1]}) "
+                        f"but column {col!r} absent from its {len(cols_here)} "
+                        f"columns; in_direct_lineage="
+                        f"{ordered[0] in entity_level_upstream_urns}"
+                    )
                 if canonical is not None:
+                    surviving = ordered
+                    if ordered[0] not in entity_level_upstream_urns:
+                        discovered_upstreams.add(ordered[0])
+                        self.reporter.data_model_element_fgl_join_chain_upstream_added += 1
                     upstream_field = builder.make_schema_field_urn(
-                        surviving[0], canonical
+                        ordered[0], canonical
                     )
                     pair = (downstream_field, upstream_field)
                     if pair not in emitted_pairs:
@@ -2519,10 +2629,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # never an independent drop, so report totals stay additive.
         self.reporter.data_model_element_fgl_join_chain_unresolved += 1
         logger.debug(
-            "element %s: no candidate split of ref %r resolved; falling back to "
-            "the first-slash split",
+            "element %s: no candidate split of ref %r resolved; candidates "
+            "tried=%r verdicts=%r; falling back to the first-slash split",
             element.elementId,
             ref.raw,
+            candidate_source_column_splits(ref),
+            trace,
         )
         return False
 
@@ -2591,8 +2703,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         entity_level_upstream_urns: Set[str],
         data_model: SigmaDataModel,
         warehouse_url_id_map: Dict[str, _WarehouseTableRef],
+        discovered_upstreams: Set[str],
     ) -> List[FineGrainedLineageClass]:
         """Build FineGrainedLineage entries for intra-DM [ElementName/col] refs.
+
+        ``discovered_upstreams`` is an OUT parameter: elements reached only
+        through a join chain are not in Sigma's direct /lineage list, so the
+        caller must add them to the entity-level upstreams or the emitted
+        schemaField would reference a Dataset absent from ``upstreams``.
 
         element_name_to_eids maps lowercased element name → list of elementIds.
         Self-references are stripped before resolution: when a DM element is named
@@ -2668,6 +2786,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # Gated on >=3 segments so single-slash refs keep exactly their
                 # current path, counters included.
                 if self._try_resolve_join_chain_ref(
+                    discovered_upstreams=discovered_upstreams,
                     ref=ref,
                     element=element,
                     element_dataset_urn=element_dataset_urn,
