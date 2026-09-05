@@ -5,8 +5,13 @@ Tests verify that performance optimizations work correctly:
 - Parallel deployment fetching
 - Caching reduces redundant API calls
 - Large dataset handling
+
+The assertions are on deterministic properties -- observed concurrency and
+mock call counts -- rather than on wall-clock ratios, which depend on how
+fast and how loaded the runner is. Timings are still printed as diagnostics.
 """
 
+import threading
 import time
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
@@ -74,28 +79,59 @@ def generate_mock_data_structures(count: int) -> List[Dict[str, Any]]:
     return structures
 
 
+class ConcurrencyTrackingFetch:
+    """Mock deployment fetch that records how many calls overlapped.
+
+    Each call sleeps for `latency` seconds and updates, under a lock, the
+    high-water mark of simultaneously in-flight calls. That lets a test assert
+    that parallel fetching really ran calls concurrently without comparing
+    elapsed times, which are unreliable on shared CI runners.
+    """
+
+    def __init__(self, latency: float = 0.01) -> None:
+        self.latency = latency
+        self.call_count = 0
+        self.peak_in_flight = 0
+        self._in_flight = 0
+        self._lock = threading.Lock()
+
+    def __call__(self, schema_hash: str) -> List[DataStructureDeployment]:
+        with self._lock:
+            self.call_count += 1
+            self._in_flight += 1
+            self.peak_in_flight = max(self.peak_in_flight, self._in_flight)
+
+        try:
+            time.sleep(self.latency)
+            return [
+                DataStructureDeployment(
+                    version="1-0-0",
+                    ts="2024-01-01T00:00:00Z",
+                    initiator="Test User",
+                    initiator_id="user123",
+                )
+            ]
+        finally:
+            with self._lock:
+                self._in_flight -= 1
+
+
 @pytest.mark.integration
 def test_parallel_fetching_performance(pytestconfig, tmp_path):
     """
-    Test that parallel deployment fetching is significantly faster than sequential.
+    Test that parallel deployment fetching actually overlaps API calls.
 
-    This test compares performance with parallel fetching enabled vs disabled.
+    Runs the same workload with parallel fetching disabled and then enabled,
+    and checks the concurrency the mock observed: the parallel run has to
+    reach at least 2 calls in flight, the sequential run must never exceed 1.
+    Elapsed times are printed but not asserted on.
     """
-    # Generate dataset with 100 schemas (enough to see performance difference)
+    # Generate dataset with 100 schemas (enough to fill the worker pool)
     mock_data_structures = generate_mock_data_structures(100)
 
-    # Simulate API delay (10ms per call to make difference measurable)
-    def mock_get_deployments(schema_hash: str) -> List[DataStructureDeployment]:
-        """Simulate API delay."""
-        time.sleep(0.01)  # 10ms delay
-        return [
-            DataStructureDeployment(
-                version="1-0-0",
-                ts="2024-01-01T00:00:00Z",
-                initiator="Test User",
-                initiator_id="user123",
-            )
-        ]
+    # 10ms per call, long enough that concurrent calls genuinely overlap
+    sequential_fetch = ConcurrencyTrackingFetch()
+    parallel_fetch = ConcurrencyTrackingFetch()
 
     # Test 1: Sequential fetching (parallel disabled)
     config_sequential = {
@@ -125,7 +161,7 @@ def test_parallel_fetching_performance(pytestconfig, tmp_path):
         mock_client.get_data_structures.return_value = [
             DataStructure.model_validate(ds) for ds in mock_data_structures
         ]
-        mock_client.get_data_structure_deployments.side_effect = mock_get_deployments
+        mock_client.get_data_structure_deployments.side_effect = sequential_fetch
 
         config = SnowplowSourceConfig.model_validate(config_sequential)
         source = SnowplowSource(config, create_mock_context())
@@ -158,7 +194,7 @@ def test_parallel_fetching_performance(pytestconfig, tmp_path):
         mock_client.get_data_structures.return_value = [
             DataStructure.model_validate(ds) for ds in mock_data_structures
         ]
-        mock_client.get_data_structure_deployments.side_effect = mock_get_deployments
+        mock_client.get_data_structure_deployments.side_effect = parallel_fetch
 
         config = SnowplowSourceConfig.model_validate(config_parallel)
         source = SnowplowSource(config, create_mock_context())
@@ -168,17 +204,31 @@ def test_parallel_fetching_performance(pytestconfig, tmp_path):
         list(source.schema_processor._get_data_structures_filtered())
         parallel_time = time.time() - start_time
 
-    # Performance assertions
     speedup = sequential_time / parallel_time
     print("\nPerformance Results:")
     print(f"  Sequential time: {sequential_time:.2f}s")
     print(f"  Parallel time: {parallel_time:.2f}s")
-    print(f"  Speedup: {speedup:.2f}x")
+    print(f"  Speedup: {speedup:.2f}x (diagnostic only)")
+    print(
+        f"  Peak in-flight calls: sequential={sequential_fetch.peak_in_flight}, "
+        f"parallel={parallel_fetch.peak_in_flight}"
+    )
 
-    # Parallel should be at least 3x faster with 10 workers
-    # (100 schemas / 10 workers = ~10 sequential batches vs 100 sequential calls)
-    assert parallel_time < sequential_time / 3, (
-        f"Parallel fetching should be at least 3x faster (got {speedup:.2f}x)"
+    # Deterministic assertions: parallel fetching has to overlap API calls and
+    # sequential fetching must not. Unlike the speedup printed above, this holds
+    # no matter how fast or how contended the runner is.
+    assert parallel_fetch.peak_in_flight >= 2, (
+        f"Parallel fetching should overlap API calls, but peak in-flight was "
+        f"{parallel_fetch.peak_in_flight}"
+    )
+    assert sequential_fetch.peak_in_flight == 1, (
+        f"Sequential fetching should never overlap API calls, but peak "
+        f"in-flight was {sequential_fetch.peak_in_flight}"
+    )
+    assert sequential_fetch.call_count == parallel_fetch.call_count, (
+        f"Both runs should fetch the same number of deployments "
+        f"(sequential={sequential_fetch.call_count}, "
+        f"parallel={parallel_fetch.call_count})"
     )
 
 
@@ -254,92 +304,6 @@ def test_caching_reduces_api_calls(pytestconfig):
         print(f"  Data structures fetched: {len(result1)}")
 
 
-@pytest.mark.integration
-def test_event_schema_urn_caching(pytestconfig):
-    """
-    Test that data structure fetching is cached within a single ingestion run.
-
-    After schemas are processed, the extracted URNs are stored in state
-    and subsequent processors can access them without reprocessing.
-    """
-    mock_data_structures = generate_mock_data_structures(50)
-
-    config = {
-        "bdp_connection": {
-            "organization_id": "test-org",
-            "api_key_id": "test-key",
-            "api_key": "test-secret",
-        },
-    }
-
-    # Mock API call with artificial delay to make timing measurable
-    def slow_get_data_structures(*args, **kwargs):
-        """Simulate slow API call (1.5 seconds)."""
-        time.sleep(1.5)
-        from datahub.ingestion.source.snowplow.models.snowplow_models import (
-            DataStructure,
-        )
-
-        return [DataStructure.model_validate(ds) for ds in mock_data_structures]
-
-    with patch(
-        "datahub.ingestion.source.snowplow.snowplow.SnowplowBDPClient"
-    ) as mock_client_class:
-        mock_client = mock_client_class.return_value
-        mock_client._authenticate = lambda: None
-        mock_client._jwt_token = "mock_token"
-        mock_client.get_data_structures.side_effect = slow_get_data_structures
-
-        config_obj = SnowplowSourceConfig.model_validate(config)
-        source = SnowplowSource(config_obj, create_mock_context())
-        source.bdp_client = mock_client
-
-        # First call - should fetch from API (slow)
-        start_time = time.time()
-        structures1 = source.schema_processor._get_data_structures_filtered()
-        first_call_time = time.time() - start_time
-
-        # Second call - should use cache (fast)
-        start_time = time.time()
-        structures2 = source.schema_processor._get_data_structures_filtered()
-        second_call_time = time.time() - start_time
-
-        # Third call - should still use cache (fast)
-        start_time = time.time()
-        structures3 = source.schema_processor._get_data_structures_filtered()
-        third_call_time = time.time() - start_time
-
-        # Assertions
-        assert len(structures1) == 50, "Should return all 50 schemas"
-        assert len(structures2) == 50, "Cached results should have same count"
-        assert len(structures3) == 50, "Cached results should have same count"
-
-        # Verify only one API call was made (caching worked)
-        assert mock_client.get_data_structures.call_count == 1, (
-            "API should only be called once, subsequent calls use cache"
-        )
-
-        # First call should be slow (>1 second due to API delay)
-        assert first_call_time > 1.0, (
-            f"First call should hit slow API (got {first_call_time:.2f}s)"
-        )
-
-        # Cached calls should be much faster (at least 10x faster)
-        assert second_call_time < first_call_time / 10, (
-            f"Cached call should be at least 10x faster "
-            f"(first: {first_call_time:.2f}s, second: {second_call_time:.4f}s)"
-        )
-        assert third_call_time < first_call_time / 10, (
-            f"Cached call should be at least 10x faster "
-            f"(first: {first_call_time:.2f}s, third: {third_call_time:.4f}s)"
-        )
-
-        print("\nData Structure Caching Results:")
-        print(f"  First call time: {first_call_time:.2f}s")
-        print(f"  Second call time: {second_call_time * 1000:.2f}ms")
-        print(f"  Third call time: {third_call_time * 1000:.2f}ms")
-        print(f"  Speedup: {first_call_time / second_call_time:.0f}x")
-        print(f"  API calls: {mock_client.get_data_structures.call_count}")
 
 
 @pytest.mark.integration
@@ -423,18 +387,10 @@ def test_large_dataset_performance(pytestconfig):
         )
         assert event_count == 500, "Should have 500 event schemas"
 
-        # First call should be slow (>2 seconds due to API delay + processing)
-        assert fetch_time > 2.0, (
-            f"First call should hit slow API (got {fetch_time:.2f}s)"
-        )
-
-        # Cached fetch should be much faster (at least 20x faster)
-        assert cache_time < fetch_time / 20, (
-            f"Cached fetch should be at least 20x faster "
-            f"(first: {fetch_time:.2f}s, cached: {cache_time:.4f}s)"
-        )
-
-        # Verify caching worked (only one API call)
+        # Verify caching worked (only one API call): the second fetch returned
+        # the same 1000 structures without going back to the slow API, which is
+        # the deterministic form of "the cached fetch was faster". The timings
+        # below are diagnostics only.
         assert mock_client.get_data_structures.call_count == 1, (
             "Should only call API once with caching enabled"
         )
