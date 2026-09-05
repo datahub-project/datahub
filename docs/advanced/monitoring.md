@@ -1190,7 +1190,7 @@ dashboards: [JVM dashboard](https://grafana.com/grafana/dashboards/14845) and Da
 
 **Micrometer (Spring Actuator / Play):** Docker images for GMS, MAE consumer, MCE consumer, and the Play frontend set
 `MANAGEMENT_SERVER_PORT` to **4319** by default (see container `start.sh`). Micrometer Prometheus text is served at
-`http://<container>:4319/actuator/prometheus` on a separate HTTP listener (reachable on the Docker network; quickstart compose **`expose`s** this port rather than publishing it to the host). JVM/JMX metrics remain on **4318** when
+`http://<container>:4319/actuator/prometheus` on a separate HTTP listener. The quickstart compose profile runs only two of these containers — `datahub-gms` and `datahub-frontend-react`, since it sets `MAE_CONSUMER_ENABLED` and `MCE_CONSUMER_ENABLED` on GMS instead of starting standalone consumers — and it `expose`s 4319 on both while additionally **publishing** the `datahub-gms` one to the host, so `localhost:4319` must be free. JVM/JMX metrics remain on **4318** when
 `ENABLE_PROMETHEUS=true`. The example [prometheus.yaml](../../docker/monitoring/prometheus.yaml) includes a `micrometer`
 scrape job for port **4319**. Outside Docker, leave `MANAGEMENT_SERVER_PORT` unset so Actuator stays on the main
 application port; set it when you want a separate management listener (Spring maps the env var to
