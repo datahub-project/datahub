@@ -33,7 +33,7 @@ from datahub.metadata.schema_classes import (
 )
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utilities.domains import Domain
-from tests.utils import delete_urns, run_datahub_cmd
+from tests.utils import delete_urns, run_datahub_cmd, wait_for_urns_searchable
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ def _instance(name: str) -> DataPlatformInstanceClass:
     )
 
 
-def _seed(graph_client: DataHubGraph) -> None:
+def _seed(graph_client: DataHubGraph, auth_session) -> None:
     mcps = [
         MetadataChangeProposalWrapper(entityUrn=upstream, aspect=_schema("id")),
         MetadataChangeProposalWrapper(
@@ -169,14 +169,15 @@ def _seed(graph_client: DataHubGraph) -> None:
     for mcp in mcps:
         graph_client.emit_mcp(mcp)
     wait_for_writes_to_sync()
+    wait_for_urns_searchable(auth_session, [old_down])
 
 
 @pytest.fixture(scope="module")
-def seeded(graph_client: DataHubGraph):
+def seeded(graph_client: DataHubGraph, auth_session):
     all_urns = [old_down, new_down, upstream, double_prefixed]
     delete_urns(graph_client, all_urns)
     wait_for_writes_to_sync()
-    _seed(graph_client)
+    _seed(graph_client, auth_session)
     try:
         yield
     finally:
@@ -240,7 +241,7 @@ def test_instance2instance_rewrites_lineage_and_migrates_aspects(
 
 
 @pytest.fixture(scope="module")
-def seeded_incoming(graph_client: DataHubGraph):
+def seeded_incoming(graph_client: DataHubGraph, auth_session):
     all_urns = [up_src_old, up_src_new, ref_down]
     delete_urns(graph_client, all_urns)
     wait_for_writes_to_sync()
@@ -274,6 +275,7 @@ def seeded_incoming(graph_client: DataHubGraph):
     ]:
         graph_client.emit_mcp(mcp)
     wait_for_writes_to_sync()
+    wait_for_urns_searchable(auth_session, [up_src_old])
     try:
         yield
     finally:
@@ -321,7 +323,7 @@ def test_incoming_references_are_rewritten(
 
 
 @pytest.fixture(scope="module")
-def seeded_merge(graph_client: DataHubGraph):
+def seeded_merge(graph_client: DataHubGraph, auth_session):
     all_urns = [mrg_src, mrg_tgt, mrg_up]
     delete_urns(graph_client, all_urns)
     wait_for_writes_to_sync()
@@ -360,6 +362,7 @@ def seeded_merge(graph_client: DataHubGraph):
     ]:
         graph_client.emit_mcp(mcp)
     wait_for_writes_to_sync()
+    wait_for_urns_searchable(auth_session, [mrg_src])
     try:
         yield
     finally:

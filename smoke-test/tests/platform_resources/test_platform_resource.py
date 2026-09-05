@@ -1,7 +1,9 @@
 import logging
 import random
 import string
-from typing import List
+import time
+from collections.abc import Callable
+from typing import List, Optional
 
 import pytest
 
@@ -12,7 +14,7 @@ from datahub.api.entities.platformresource.platform_resource import (
     PlatformResourceSearchFields,
 )
 from tests.utilities.domains import Domain
-from tests.utils import wait_for_writes_to_sync
+from tests.utils import get_sleep_info, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,43 @@ pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 def generate_random_id(length=8):
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=length))
+
+
+def _wait_for_search_results(
+    search_fn: Callable[[], List[PlatformResource]],
+    min_count: int,
+) -> List[PlatformResource]:
+    """Poll OpenSearch until platform resource search returns enough hits."""
+    sleep_sec, sleep_times = get_sleep_info()
+    last: List[PlatformResource] = []
+    last_error: Optional[Exception] = None
+    for attempt in range(sleep_times):
+        try:
+            last = list(search_fn())
+            last_error = None
+        except Exception as exc:
+            logger.warning(
+                "platform resource search failed during wait; retrying: %s", exc
+            )
+            last = []
+            last_error = exc
+        if len(last) >= min_count:
+            assert len(last) == min_count, (
+                f"Expected exactly {min_count} platform resource search results, "
+                f"got {len(last)}"
+            )
+            return last
+        if attempt < sleep_times - 1:
+            time.sleep(sleep_sec)
+    if last_error is not None:
+        raise AssertionError(
+            f"Expected exactly {min_count} platform resource search results, "
+            f"got {len(last)}"
+        ) from last_error
+    raise AssertionError(
+        f"Expected exactly {min_count} platform resource search results, "
+        f"got {len(last)}"
+    )
 
 
 @pytest.fixture
@@ -87,21 +126,22 @@ def test_platform_resource_search(graph_client, test_id, cleanup_resources):
     platform_resource.to_datahub(graph_client)
     cleanup_resources.append(platform_resource)
 
-    wait_for_writes_to_sync(mcp_only=True)
+    wait_for_writes_to_sync()
 
-    search_results = [
-        r for r in PlatformResource.search_by_key(graph_client, key.primary_key)
-    ]
-    assert len(search_results) == 1
+    search_results = _wait_for_search_results(
+        lambda: list(PlatformResource.search_by_key(graph_client, key.primary_key)),
+        1,
+    )
     assert search_results[0] == platform_resource
 
-    search_results = [
-        r
-        for r in PlatformResource.search_by_key(
-            graph_client, f"test_secondary_key_{test_id}", primary=False
-        )
-    ]
-    assert len(search_results) == 1
+    search_results = _wait_for_search_results(
+        lambda: list(
+            PlatformResource.search_by_key(
+                graph_client, f"test_secondary_key_{test_id}", primary=False
+            )
+        ),
+        1,
+    )
     assert search_results[0] == platform_resource
 
 
@@ -134,15 +174,14 @@ def test_platform_resource_urn_secondary_key(graph_client, test_id, cleanup_reso
     )
     platform_resource.to_datahub(graph_client)
     cleanup_resources.append(platform_resource)
-    wait_for_writes_to_sync(mcp_only=True)
+    wait_for_writes_to_sync()
 
-    read_platform_resources = [
-        r
-        for r in PlatformResource.search_by_key(
-            graph_client, dataset_urn, primary=False
-        )
-    ]
-    assert len(read_platform_resources) == 1
+    read_platform_resources = _wait_for_search_results(
+        lambda: list(
+            PlatformResource.search_by_key(graph_client, dataset_urn, primary=False)
+        ),
+        1,
+    )
     assert read_platform_resources[0] == platform_resource
 
 
@@ -172,18 +211,19 @@ def test_platform_resource_listing_by_resource_type(
     )
     platform_resource2.to_datahub(graph_client)
 
-    wait_for_writes_to_sync(mcp_only=True)
+    wait_for_writes_to_sync()
 
-    search_results = [
-        r
-        for r in PlatformResource.search_by_filters(
-            graph_client,
-            query=ElasticPlatformResourceQuery.create_from(
-                (PlatformResourceSearchFields.RESOURCE_TYPE, key1.resource_type)
-            ),
-        )
-    ]
-    assert len(search_results) == 2
+    search_results = _wait_for_search_results(
+        lambda: list(
+            PlatformResource.search_by_filters(
+                graph_client,
+                query=ElasticPlatformResourceQuery.create_from(
+                    (PlatformResourceSearchFields.RESOURCE_TYPE, key1.resource_type)
+                ),
+            )
+        ),
+        2,
+    )
 
     read_platform_resource_1 = next(r for r in search_results if r.id == key1.id)
     read_platform_resource_2 = next(r for r in search_results if r.id == key2.id)
@@ -215,7 +255,7 @@ def test_platform_resource_listing_complex_queries(graph_client, test_id):
     )
     platform_resource2.to_datahub(graph_client)
 
-    wait_for_writes_to_sync(mcp_only=True)
+    wait_for_writes_to_sync()
     from datahub.api.entities.platformresource.platform_resource import (
         ElasticPlatformResourceQuery,
         LogicalOperator,
@@ -230,14 +270,15 @@ def test_platform_resource_listing_complex_queries(graph_client, test_id):
         .end()
     )
 
-    search_results = [
-        r
-        for r in PlatformResource.search_by_filters(
-            graph_client,
-            query=query,
-        )
-    ]
-    assert len(search_results) == 1
+    search_results = _wait_for_search_results(
+        lambda: list(
+            PlatformResource.search_by_filters(
+                graph_client,
+                query=query,
+            )
+        ),
+        1,
+    )
 
     read_platform_resource = search_results[0]
     assert read_platform_resource == platform_resource2

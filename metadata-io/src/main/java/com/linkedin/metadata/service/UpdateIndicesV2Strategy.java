@@ -85,6 +85,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   private final ElasticSearchService elasticSearchService;
   private final SearchDocumentTransformer searchDocumentTransformer;
   private final TimeseriesAspectService timeseriesAspectService;
+
   private final String idHashAlgo;
   private final V2MappingsBuilder mappingsBuilder;
   private final boolean coalesceBatchUpdates;
@@ -201,25 +202,24 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       }
 
       // Process delete events
-      List<MCLItem> deleteEvents =
+      for (MCLItem deleteEvent :
           urnEvents.stream()
               .filter(e -> e.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
-              .collect(Collectors.toList());
-
-      for (MCLItem deleteEvent : deleteEvents) {
-        Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(deleteEvent);
-        boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
-
-        if (!specPair.getSecond().isTimeseries()) {
-          deleteSearchData(
-              opContext,
-              deleteEvent.getUrn(),
-              specPair.getFirst().getName(),
-              specPair.getSecond(),
-              deleteEvent.getRecordTemplate(),
-              isDeletingKey,
-              deleteEvent.getAuditStamp());
+              .collect(Collectors.toList())) {
+        if (deleteEvent.getAspectSpec().isTimeseries()) {
+          continue;
         }
+        Pair<EntitySpec, AspectSpec> specPair =
+            Pair.of(deleteEvent.getEntitySpec(), deleteEvent.getAspectSpec());
+        boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
+        deleteSearchData(
+            opContext,
+            deleteEvent.getUrn(),
+            specPair.getFirst().getName(),
+            specPair.getSecond(),
+            deleteEvent.getRecordTemplate(),
+            isDeletingKey,
+            deleteEvent.getAuditStamp());
       }
     }
 
@@ -592,17 +592,43 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
           TimeseriesAspectTransformer.transform(
               urn, (RecordTemplate) aspect, aspectSpec, systemMetadata, idHashAlgo);
     } catch (JsonProcessingException e) {
-      log.error("Failed to generate V2 timeseries document from aspect: {}", e.toString());
+      handleTimeseriesWriteFailure(
+          opContext,
+          event,
+          new IllegalStateException("Failed to generate timeseries document from aspect", e),
+          "timeseries_update_failed");
       return;
     }
 
-    documents
-        .entrySet()
-        .forEach(
-            document -> {
-              timeseriesAspectService.upsertDocument(
-                  opContext, entityType, aspectName, document.getKey(), document.getValue());
-            });
+    try {
+      documents
+          .entrySet()
+          .forEach(
+              document ->
+                  timeseriesAspectService.upsertDocument(
+                      opContext, entityType, aspectName, document.getKey(), document.getValue()));
+    } catch (RuntimeException e) {
+      handleTimeseriesWriteFailure(opContext, event, e, "timeseries_update_failed");
+    }
+  }
+
+  /** Postgres SoT fails the MCL path; Elasticsearch keeps historical warn-and-skip behavior. */
+  private void handleTimeseriesWriteFailure(
+      @Nonnull OperationContext opContext,
+      @Nonnull MCLItem event,
+      @Nonnull RuntimeException e,
+      @Nonnull String metricName) {
+    if (timeseriesAspectService.shouldPropagateWriteFailures()) {
+      throw e;
+    }
+    log.warn(
+        "V2 timeseries update failed for urn {} aspect {}: {}",
+        event.getUrn(),
+        event.getAspectName(),
+        e.getMessage());
+    opContext
+        .getMetricUtils()
+        .ifPresent(metricUtils -> metricUtils.increment(this.getClass(), metricName, 1));
   }
 
   void updateIndexMappings(OperationContext opContext, MCLItem event) {
