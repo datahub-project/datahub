@@ -54,6 +54,7 @@ import com.linkedin.metadata.models.UrnValidationFieldSpec;
 import com.linkedin.metadata.models.annotation.UrnValidationAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.systemmetadata.scroll.ESSystemMetadataScrollClient;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
@@ -125,7 +126,11 @@ public class FixEntityConsistencyStepTest {
 
     consistencyService =
         new ConsistencyService(
-            mockEntityService, mockEsSystemMetadataDAO, null, checkRegistry, fixRegistry);
+            mockEntityService,
+            new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+            null,
+            checkRegistry,
+            fixRegistry);
 
     // Soft-fail count for ETA (scan runner calls countMatching once per entity type)
     when(mockEsSystemMetadataDAO.count(any(), any(), anyBoolean())).thenReturn(Optional.empty());
@@ -1523,7 +1528,11 @@ public class FixEntityConsistencyStepTest {
     ConsistencyService multiTypeService =
         spy(
             new ConsistencyService(
-                mockEntityService, mockEsSystemMetadataDAO, null, checkRegistry, fixRegistry));
+                mockEntityService,
+                new ESSystemMetadataScrollClient(mockEsSystemMetadataDAO),
+                null,
+                checkRegistry,
+                fixRegistry));
 
     CheckResult emptyResult =
         CheckResult.builder().entitiesScanned(0).issuesFound(0).issues(List.of()).build();

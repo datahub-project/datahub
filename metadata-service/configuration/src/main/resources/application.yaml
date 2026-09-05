@@ -469,6 +469,7 @@ timeseriesAspectService:
       strict: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 systemMetadataService:
+  implementation: ${SYSTEM_METADATA_SERVICE_IMPLEMENTATION:elasticsearch}
   limit:
     results:
       max: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
@@ -626,7 +627,7 @@ cassandra:
     port: ${CASSANDRA_READ_POOL_PORT:${CASSANDRA_PORT:9042}}
     datacenter: ${CASSANDRA_READ_POOL_DATACENTER:${CASSANDRA_DATACENTER:datacenter1}}
 
-# PostgreSQL optional SqlSetup (pgQueue, pgTimeseries).
+# PostgreSQL optional SqlSetup (pgQueue, pgTimeseries, pgAnalytics, pgSystemMetadata).
 # postgres.schema: Ebean/metadata tables (default public). pgQueue uses postgres.pgQueue.schema only
 # (default queue)—queue DDL never lands in postgres.schema unless you explicitly set both to the same value.
 # The JDBC URL path selects the database only.
@@ -708,6 +709,24 @@ postgres:
     # DATAHUB_PGANALYTICS_CONFIG_FILE replaces the whole document (not a key-merge into these maps).
     stores: {}
     routing: {}
+
+  pgSystemMetadata:
+    enabled: ${DATAHUB_PGSYSTEMMETADATA_ENABLED:false}
+    # Prefix for the SqlSetup migration ledger only ({prefix}_schema_migration).
+    tablePrefix: ${DATAHUB_PGSYSTEMMETADATA_TABLE_PREFIX:metadata_system_metadata}
+    # Unqualified data table (matches the Elasticsearch index name).
+    tableName: ${DATAHUB_PGSYSTEMMETADATA_TABLE_NAME:system_metadata_service_v1}
+    pool:
+      url: ${DATAHUB_PGSYSTEMMETADATA_DATASOURCE_URL:${ebean.url}}
+      driver: ${DATAHUB_PGSYSTEMMETADATA_DATASOURCE_DRIVER:${ebean.driver}}
+      username: ${DATAHUB_PGSYSTEMMETADATA_DATASOURCE_USERNAME:${ebean.username}}
+      password: ${DATAHUB_PGSYSTEMMETADATA_DATASOURCE_PASSWORD:${ebean.password}}
+      minConnections: ${DATAHUB_PGSYSTEMMETADATA_MIN_CONNECTIONS:1}
+      maxConnections: ${DATAHUB_PGSYSTEMMETADATA_MAX_CONNECTIONS:8}
+      maxInactiveTimeSeconds: ${DATAHUB_PGSYSTEMMETADATA_MAX_INACTIVE_TIME_SECONDS:120}
+      maxAgeMinutes: ${DATAHUB_PGSYSTEMMETADATA_MAX_AGE_MINUTES:120}
+      leakTimeMinutes: ${DATAHUB_PGSYSTEMMETADATA_LEAK_TIME_MINUTES:15}
+      waitTimeoutMillis: ${DATAHUB_PGSYSTEMMETADATA_WAIT_TIMEOUT_MILLIS:1000}
 
   # pg_cron registry DB (postgresql.conf cron.database_name). Defaults reuse EBEAN_DATASOURCE_* env vars; override with DATAHUB_POSTGRES_PG_CRON_ADMIN_* . Jobs still run in the app DB via cron.schedule_in_database.
   pgCron:
