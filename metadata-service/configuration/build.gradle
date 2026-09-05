@@ -5,6 +5,8 @@ plugins {
 apply from: '../../gradle/coverage/java-coverage.gradle'
 apply from: "../../gradle/versioning/versioning.gradle"
 
+apply from: 'generate-config-key-constants.gradle'
+
 sourceSets {
     productUpdateCiGate
     test {
@@ -24,6 +26,8 @@ dependencies {
     implementation project(path: ':metadata-models', configuration: 'dataTemplate')
 
     implementation externalDependency.slf4jApi
+
+    api project(':li-utils')
 
     // Newer Spring libraries require JDK17 classes, allow for JDK11
     compileOnly externalDependency.springBootAutoconfigureJdk11
