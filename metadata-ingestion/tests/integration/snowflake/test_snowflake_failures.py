@@ -1,5 +1,9 @@
+import contextlib
+import gc
+import pathlib
+import sqlite3
 from datetime import datetime, timezone
-from typing import cast
+from typing import Any, List, cast
 from unittest import mock
 
 import pytest
@@ -7,6 +11,8 @@ import time_machine
 from pytest import fixture
 
 from datahub.configuration.common import AllowDenyPattern, DynamicTypedConfig
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.snowflake import snowflake_query
@@ -15,12 +21,19 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeShowKind,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
+)
+from datahub.ingestion.source.snowflake.snowflake_queries import (
+    SnowflakeQueriesExtractor,
+)
 from datahub.ingestion.source.snowflake.snowflake_query import (
     SHOW_STREAM_MAX_PAGE_SIZE,
     SnowflakeQuery,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
+from datahub.metadata.schema_classes import StatusClass
 from tests.integration.snowflake.common import (
     FROZEN_TIME,
     default_query_results,
@@ -50,33 +63,40 @@ def query_permission_response_override(fn, override_for_query, response):
     return my_function
 
 
+def _snowflake_pipeline_config(
+    tmp_path: pathlib.Path, filename: str, **config_overrides: Any
+) -> PipelineConfig:
+    """The shared Snowflake pipeline config. Callers override only what differs so
+    the queries-v2 and default variants cannot drift apart."""
+    config = dict(
+        account_id="ABC12345.ap-south-1.aws",
+        username="TST_USR",
+        password="TST_PWD",
+        role="TEST_ROLE",
+        warehouse="TEST_WAREHOUSE",
+        include_technical_schema=True,
+        match_fully_qualified_names=True,
+        schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
+        include_usage_stats=False,
+        use_queries_v2=False,
+        start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(tzinfo=timezone.utc),
+        end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(tzinfo=timezone.utc),
+        known_snowflake_edition=None,
+    )
+    config.update(config_overrides)
+    return PipelineConfig(
+        source=SourceConfig(type="snowflake", config=SnowflakeV2Config(**config)),
+        sink=DynamicTypedConfig(
+            type="file", config={"filename": str(tmp_path / filename)}
+        ),
+    )
+
+
 @fixture(scope="function")
 def snowflake_pipeline_config(tmp_path):
-    output_file = tmp_path / "snowflake_test_events_permission_error.json"
-    config = PipelineConfig(
-        source=SourceConfig(
-            type="snowflake",
-            config=SnowflakeV2Config(
-                account_id="ABC12345.ap-south-1.aws",
-                username="TST_USR",
-                password="TST_PWD",
-                role="TEST_ROLE",
-                warehouse="TEST_WAREHOUSE",
-                include_technical_schema=True,
-                match_fully_qualified_names=True,
-                schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
-                include_usage_stats=False,
-                use_queries_v2=False,
-                start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
-                    tzinfo=timezone.utc,
-                ),
-                known_snowflake_edition=None,
-                end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(tzinfo=timezone.utc),
-            ),
-        ),
-        sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
+    return _snowflake_pipeline_config(
+        tmp_path, "snowflake_test_events_permission_error.json"
     )
-    return config
 
 
 @time_machine.travel(FROZEN_TIME, tick=True)
@@ -598,3 +618,331 @@ def test_snowflake_is_standard_edition(
         assert source.is_standard_edition() is expected_is_standard
 
         sf_cursor.execute.assert_any_call(SnowflakeQuery.current_region())
+
+
+# ---------------------------------------------------------------------------
+# Report rendering when the query-history stage fails.
+#
+# Under use_queries_v2 the source builds two SqlParsingAggregators sharing one
+# SchemaResolver. The second one's report is attached to the run report before
+# its work starts, so if that work dies the report outlives the extractor. The
+# owner then closes the shared resolver, and rendering the summary used to raise
+# AttributeError on a None SQLite connection, losing the summary along with the
+# record of whatever actually failed.
+#
+# Faults are injected at the SQLite layer on purpose. The three Snowflake
+# fetches are wrapped in structured_reporter.report_exc, which suppresses the
+# exception, so patching one of those cannot strand the extractor and would make
+# these tests pass vacuously. See
+# test_snowflake_fetch_failure_does_not_strand_extractor.
+# ---------------------------------------------------------------------------
+
+QUERIES_V2_DISK_FAILURE = "database or disk is full"
+
+
+@fixture(scope="function")
+def snowflake_queries_v2_pipeline_config(tmp_path):
+    return _snowflake_pipeline_config(
+        tmp_path, "snowflake_queries_v2_events.json", use_queries_v2=True
+    )
+
+
+@contextlib.contextmanager
+def _mocked_snowflake():
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+        sf_cursor.execute.side_effect = default_query_results
+        yield
+
+
+@contextlib.contextmanager
+def _spy_on_extractor_close():
+    """Record whether the query-history extractor was closed, without stubbing it.
+
+    The extractor is constructed inside the source's generator, so a test cannot
+    hold a reference to it. Wrapping close() lets the real close still run.
+    """
+    calls = []
+    original = SnowflakeQueriesExtractor.close
+
+    def spy(self):
+        calls.append(self)
+        return original(self)
+
+    with mock.patch.object(SnowflakeQueriesExtractor, "close", spy):
+        yield calls
+
+
+@contextlib.contextmanager
+def _disk_full_during_query_history():
+    """Fail where a real container fails: opening the audit-log SQLite file."""
+    with mock.patch(
+        "datahub.ingestion.source.snowflake.snowflake_queries.ConnectionWrapper",
+        side_effect=sqlite3.OperationalError(QUERIES_V2_DISK_FAILURE),
+    ):
+        yield
+
+
+def _queries_extractor_report(report):
+    queries_extractor = getattr(report, "queries_extractor", None)
+    assert queries_extractor is not None, "queries extractor report was never attached"
+    return queries_extractor
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_queries_extractor_closed_when_stage_raises(
+    snowflake_queries_v2_pipeline_config,
+):
+    with (
+        _mocked_snowflake(),
+        _spy_on_extractor_close() as closed,
+        _disk_full_during_query_history(),
+    ):
+        pipeline = Pipeline(snowflake_queries_v2_pipeline_config)
+        pipeline.run()
+
+    assert closed, "extractor was never closed after the stage raised"
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_underlying_failure_visible_when_query_stage_raises(
+    snowflake_queries_v2_pipeline_config,
+):
+    with _mocked_snowflake(), _disk_full_during_query_history():
+        pipeline = Pipeline(snowflake_queries_v2_pipeline_config)
+        pipeline.run()
+
+        # as_obj() is what the pipeline prints; that it does not raise is half the
+        # check, and the assertion below pins the other half: the cause is visible.
+        rendered = str(pipeline.source.get_report().as_obj())
+
+    assert QUERIES_V2_DISK_FAILURE in rendered
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_schema_resolver_count_populated_on_healthy_run(
+    snowflake_queries_v2_pipeline_config,
+):
+    with _mocked_snowflake():
+        pipeline = Pipeline(snowflake_queries_v2_pipeline_config)
+        pipeline.run()
+
+    report = _queries_extractor_report(pipeline.source.get_report())
+    assert report.sql_aggregator is not None
+    assert isinstance(report.sql_aggregator.schema_resolver_count, int)
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_extractor_close_is_idempotent(snowflake_queries_v2_pipeline_config):
+    with _mocked_snowflake(), _spy_on_extractor_close() as closed:
+        pipeline = Pipeline(snowflake_queries_v2_pipeline_config)
+        pipeline.run()
+
+    assert closed, "extractor was never closed on the healthy path"
+    closed[0].close()
+
+
+@contextlib.contextmanager
+def _spy_on_extractor_construction():
+    """Record when the extractor is constructed.
+
+    The query-history stage runs late, well over a hundred work units in, so a
+    test cannot abandon the stream at a fixed offset and expect the extractor to
+    exist yet. Waiting on construction avoids hard-coding a work-unit count.
+    """
+    built = []
+    original = SnowflakeQueriesExtractor.__init__
+
+    def spy(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        built.append(self)
+
+    with mock.patch.object(SnowflakeQueriesExtractor, "__init__", spy):
+        yield built
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_queries_extractor_closed_when_generator_abandoned(
+    snowflake_queries_v2_pipeline_config,
+):
+    """Preview mode truncates the source generator with islice rather than raising.
+
+    The stage is replaced with an endless one so there is a mid-stage window to
+    abandon. Against the canned fixtures the real stage emits nothing, so it
+    completes and closes before a consumer could stop inside it. The code under
+    test is the caller's context manager, not the stage body.
+    """
+    config = SnowflakeV2Config.parse_obj(
+        snowflake_queries_v2_pipeline_config.source.dict()["config"]
+    )
+
+    def endless_stage(self):
+        while True:
+            yield MetadataChangeProposalWrapper(
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,PROD)",
+                aspect=StatusClass(removed=False),
+            ).as_workunit()
+
+    with (
+        _mocked_snowflake(),
+        _spy_on_extractor_construction() as built,
+        _spy_on_extractor_close() as closed,
+        mock.patch.object(
+            SnowflakeQueriesExtractor, "get_workunits_internal", endless_stage
+        ),
+    ):
+        source = SnowflakeV2Source(
+            ctx=PipelineContext(run_id="queries-v2-abandoned"), config=config
+        )
+        stream = source.get_workunits_internal()
+        for _ in stream:
+            if built:
+                break
+
+        assert built, "the query-history stage was never reached"
+        assert not closed, "the stage should still be in progress here"
+
+        # Production closes the source before the abandoned generator is finalized,
+        # so close() runs against an already-closed resolver. Without this line the
+        # guard under test is never reached.
+        source.close()
+        # The generator's finally runs when its refcount hits zero at del;
+        # gc.collect() is a backstop. Both rely on CPython refcount finalization.
+        del stream
+        gc.collect()
+
+    assert closed, "extractor was never closed after the generator was abandoned"
+
+
+@contextlib.contextmanager
+def _query_log_fetch_fails():
+    """Fail the account_usage read inside fetch_query_log's protected block.
+
+    fetch_query_log is a generator and its report_exc lives in the body, so
+    patching the method itself raises at the unprotected call site instead, and
+    the test would assert the opposite of what it intends.
+
+    Yields the list of injected failures so a test can assert the fault actually
+    fired, rather than passing vacuously if the matched query text ever changes.
+    """
+    original = SnowflakeConnection.query
+    injected: List[Exception] = []
+
+    def failing_query(self, query):
+        if "QUERY_HISTORY" in query.upper():
+            exc = Exception("simulated account_usage failure")
+            injected.append(exc)
+            raise exc
+        return original(self, query)
+
+    with mock.patch.object(SnowflakeConnection, "query", failing_query):
+        yield injected
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_snowflake_fetch_failure_does_not_strand_extractor(
+    snowflake_queries_v2_pipeline_config,
+):
+    """Snowflake-side errors are suppressed by report_exc, so they cannot strand
+    the extractor.
+
+    A regression guard for existing behaviour, and the reason faults elsewhere in
+    this file are injected at the SQLite layer.
+    """
+    with (
+        _mocked_snowflake(),
+        _spy_on_extractor_close() as closed,
+        _query_log_fetch_fails() as injected,
+    ):
+        pipeline = Pipeline(snowflake_queries_v2_pipeline_config)
+        pipeline.run()
+
+        pipeline.source.get_report().as_obj()
+
+    assert injected, "the fetch fault never fired; the test would pass vacuously"
+    assert closed, (
+        "a suppressed fetch failure should still let the stage close normally"
+    )
+
+
+CLEANUP_FAILURE = "could not remove the audit log"
+
+
+@contextlib.contextmanager
+def _close_raises():
+    """Patch the extractor so closing it raises, via an exit-stack callback.
+
+    The failure surfaces from close(), where a real cleanup failure (a full disk
+    during the SQLite flush) would land, not from the stage body.
+    """
+    real_init = SnowflakeQueriesExtractor.__init__
+
+    def init(self, *args, **kwargs):
+        real_init(self, *args, **kwargs)
+        self._exit_stack.callback(
+            lambda: (_ for _ in ()).throw(PermissionError(CLEANUP_FAILURE))
+        )
+
+    with mock.patch.object(SnowflakeQueriesExtractor, "__init__", init):
+        yield
+
+
+@contextlib.contextmanager
+def _cleanup_also_fails():
+    """A run that fails, then fails again while cleaning up after itself.
+
+    A full disk is the most likely cause of the first failure, and closing the
+    extractor writes to the same disk.
+    """
+    with _close_raises(), _disk_full_during_query_history():
+        yield
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_cleanup_failure_does_not_mask_root_cause(
+    snowflake_queries_v2_pipeline_config,
+):
+    """A failure while closing must not replace the failure that caused the close.
+
+    If cleanup raises, Python propagates the cleanup error and the original drops
+    out of the report, which is the error an operator needs to see.
+    """
+    with _mocked_snowflake(), _cleanup_also_fails():
+        pipeline = Pipeline(snowflake_queries_v2_pipeline_config)
+        pipeline.run()
+
+        rendered = str(pipeline.source.get_report().as_obj())
+
+    assert QUERIES_V2_DISK_FAILURE in rendered, (
+        "the cleanup failure masked the root cause"
+    )
+    assert CLEANUP_FAILURE in rendered, (
+        "the cleanup failure should still be reported, just not in place of the cause"
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_close_failure_warns_on_a_clean_run(snowflake_queries_v2_pipeline_config):
+    """A close() failure on an otherwise clean run is reported, not raised.
+
+    The metadata all emitted, so a leftover temp file is an operator warning, not
+    a run failure; `--strict-warnings` can still escalate it. Only _close_raises
+    fires here, with no stage failure, unlike test_cleanup_failure_does_not_mask.
+    """
+    with _mocked_snowflake(), _close_raises():
+        pipeline = Pipeline(snowflake_queries_v2_pipeline_config)
+        pipeline.run()  # the close failure is downgraded to a warning, not raised
+
+    report = pipeline.source.get_report()
+    cleanup_title = "Failed to clean up after query extraction"
+    # A warning, not a failure: a clean run must not be failed by a leftover
+    # temp file.
+    assert any(cleanup_title in str(w) for w in report.warnings), (
+        "the close failure should be reported as a warning"
+    )
+    assert not any(cleanup_title in str(f) for f in report.failures), (
+        "a clean run must not be failed by a close failure"
+    )

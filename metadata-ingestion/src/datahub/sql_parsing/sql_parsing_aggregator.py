@@ -383,6 +383,9 @@ class SqlAggregatorReport(Report):
 
     # Lineage-related.
     schema_resolver_count: Optional[int] = None
+    # A bool, not just the cleared count: as_obj() drops None, so without this a
+    # degraded run would render identically to a healthy one.
+    schema_resolver_closed_early: bool = False
     num_unique_query_fingerprints: Optional[int] = None
     num_urns_with_lineage: Optional[int] = None
     num_lineage_skipped_due_to_filters: int = 0
@@ -413,7 +416,15 @@ class SqlAggregatorReport(Report):
     def compute_stats(self) -> None:
         if self._aggregator._closed:
             return
-        self.schema_resolver_count = self._aggregator._schema_resolver.schema_count()
+        # The resolver can be borrowed (see the schema_resolver argument), so its
+        # owner may close it while this aggregator is still open, which _closed
+        # does not describe. Clear the count rather than early-return: compute_stats
+        # runs on every render, so a skip would leave a mid-run value in the report.
+        resolver = self._aggregator._schema_resolver
+        self.schema_resolver_closed_early = resolver.closed
+        self.schema_resolver_count = (
+            None if resolver.closed else resolver.schema_count()
+        )
         self.num_unique_query_fingerprints = len(self._aggregator._query_map)
 
         self.num_urns_with_lineage = len(self._aggregator._lineage_map)

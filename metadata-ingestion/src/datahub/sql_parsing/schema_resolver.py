@@ -104,6 +104,15 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
     def get_urns(self) -> Set[str]:
         return {k for k, v in self._schema_cache.items() if v is not None}
 
+    @property
+    def closed(self) -> bool:
+        """Whether the backing cache has been closed.
+
+        A resolver can be shared with objects that did not create it and will
+        not close it, so a borrower cannot infer this from its own state.
+        """
+        return self._schema_cache.closed
+
     def schema_count(self) -> int:
         return int(
             self._schema_cache.sql_query(
