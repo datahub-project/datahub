@@ -1,7 +1,8 @@
 import logging
 import threading
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import boto3
 from humanfriendly import format_timespan
@@ -269,18 +270,84 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         if catalog_config.get("type") == "glue":
             self._custom_glue_catalog_handling(catalog_config)
 
-        catalog = load_catalog(name=catalog_name, **catalog_config)
+        # The "connection" block (retry/timeout/headers) is a DataHub-specific
+        # extension, not a pyiceberg catalog property, so keep it out of the
+        # config passed to load_catalog().
+        connection_conf: Mapping[str, Any] = (
+            {}
+            if catalog_config.get("connection") is None
+            else catalog_config["connection"]
+        )
+        if not isinstance(connection_conf, Mapping):
+            raise ValueError(
+                "catalog connection must be a mapping of connection settings, "
+                f"got {type(connection_conf).__name__}"
+            )
+        load_catalog_config = {
+            k: v for k, v in catalog_config.items() if k != "connection"
+        }
+
+        # Map connection.headers onto pyiceberg's native `header.<name>`
+        # properties so they are applied to every request made by a REST
+        # catalog, including the initial OAuth token fetch that happens inside
+        # load_catalog(). Explicitly configured `header.<name>` properties take
+        # precedence over connection.headers; HTTP header names are
+        # case-insensitive (pyiceberg feeds them into requests' session
+        # headers, a CaseInsensitiveDict, where the last write would win), so
+        # the precedence check must ignore case too.
+        headers: Mapping[str, Any] = (
+            {} if connection_conf.get("headers") is None else connection_conf["headers"]
+        )
+        if not isinstance(headers, Mapping):
+            raise ValueError(
+                "catalog connection.headers must be a mapping of header name to value, "
+                f"got {type(headers).__name__}"
+            )
+        if headers:
+            explicit_header_keys = {
+                key.casefold()
+                for key in load_catalog_config
+                if key.startswith("header.")
+            }
+            seen_header_names: Set[str] = set()
+            merged_header_names: List[str] = []
+            for header_name, header_value in headers.items():
+                folded_name = str(header_name).casefold()
+                if folded_name in seen_header_names:
+                    raise ValueError(
+                        "catalog connection.headers contains duplicate header names "
+                        f"differing only in case: {header_name!r}"
+                    )
+                seen_header_names.add(folded_name)
+                if header_value is None:
+                    raise ValueError(
+                        f"catalog connection.headers value for {header_name!r} must not be null"
+                    )
+                if f"header.{header_name}".casefold() in explicit_header_keys:
+                    continue
+                if isinstance(header_value, bool):
+                    # YAML parses unquoted true/false as bool; send the lowercase
+                    # form the user wrote, not Python's "True"/"False".
+                    header_value = "true" if header_value else "false"
+                # Values may be parsed by YAML as e.g. int; requests only
+                # accepts str header values, so coerce here.
+                load_catalog_config[f"header.{header_name}"] = str(header_value)
+                merged_header_names.append(header_name)
+            logger.debug(
+                "Merged connection.headers into catalog properties (keys: %s)",
+                merged_header_names,
+            )
+
+        catalog = load_catalog(name=catalog_name, **load_catalog_config)
         if isinstance(catalog, RestCatalog):
             logger.debug(
                 "Recognized REST catalog type being configured, attempting to configure HTTP Adapter for the session"
             )
             retry_policy: Dict[str, Any] = DEFAULT_REST_RETRY_POLICY.copy()
-            retry_policy.update(catalog_config.get("connection", {}).get("retry", {}))
+            retry_policy.update(connection_conf.get("retry", {}))
             retries = Retry(**retry_policy)
             logger.debug(f"Retry policy to be set: {retry_policy}")
-            timeout = catalog_config.get("connection", {}).get(
-                "timeout", DEFAULT_REST_TIMEOUT
-            )
+            timeout = connection_conf.get("timeout", DEFAULT_REST_TIMEOUT)
             logger.debug(f"Timeout to be set: {timeout}")
             catalog._session.mount(
                 "http://", TimeoutHTTPAdapter(timeout=timeout, max_retries=retries)
