@@ -68,10 +68,14 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
     DBTTest,
     DBTTestResult,
+    _make_custom_assertion_info,
+    classify_contract_model_run,
     make_assertion_from_freshness,
     make_assertion_from_test,
     make_assertion_result_from_freshness,
+    make_assertion_result_from_model,
     make_assertion_result_from_test,
+    make_contract_assertion_info,
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -104,12 +108,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionResultTypeClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
     AssertionStdParametersClass,
     AssertionStdParameterTypeClass,
-    AssertionTypeClass,
     AuditStampClass,
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -120,7 +124,6 @@ from datahub.metadata.schema_classes import (
     DataContractStatusClass,
     DataPlatformInstanceClass,
     DataQualityContractClass,
-    DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
@@ -138,9 +141,6 @@ from datahub.metadata.schema_classes import (
     QueryStatementClass,
     QuerySubjectClass,
     QuerySubjectsClass,
-    SchemaAssertionCompatibilityClass,
-    SchemaAssertionInfoClass,
-    SchemaContractClass,
     SiblingsClass,
     StatusClass,
     SubTypesClass,
@@ -764,30 +764,41 @@ class DBTCommonConfig(
     # Contract ingestion configuration
     ingest_contracts: bool = Field(
         default=False,
-        description="When enabled, creates DataHub Data Contracts from DBT models with contract.enforced=true. "
-        "This includes schema assertions and optionally tagged tests as data quality assertions.",
+        description=(
+            "When enabled, create DataHub Data Contracts from dbt models with "
+            "``contract.enforced=true``. Schema and constraint checks are "
+            "emitted as CUSTOM assertions on the contract's data-quality "
+            "section. Schema pass/fail comes from model ``run_results`` "
+            "(dbt's preflight). Constraint failures come from matching dbt "
+            "tests; DDL-enforced constraints also get a weak pass when the "
+            "model build succeeds."
+        ),
     )
 
     contract_test_tag: str = Field(
         default="contract",
-        description="Tag used to identify DBT tests that should be included in data contracts. "
-        "Tests with this tag (after tag_prefix is applied) will be added as data quality assertions.",
+        description=(
+            "Tag used to identify extra dbt tests to include in data contracts "
+            "(after ``tag_prefix``). Tests that already match a declared "
+            "constraint (``not_null``, ``unique``, ``relationships``) are "
+            "auto-attached even without this tag."
+        ),
     )
 
     ingest_column_constraints_as_assertions: bool = Field(
         default=True,
         description=(
-            "When enabled and ``ingest_contracts`` is true, emit DataHub "
-            "assertions derived from dbt contract constraints "
+            "When enabled and ``ingest_contracts`` is true, emit CUSTOM "
+            "assertions from dbt contract constraints "
             "(``not_null``, ``unique``, ``primary_key``, ``foreign_key``, "
             "``check``, ``custom``). ``primary_key`` is decomposed into a "
             "uniqueness assertion plus per-column not-null assertions. "
             "Composite keys are emitted as a single multi-column assertion. "
-            "The assertions describe what the contract declares; whether "
-            "they are DDL-enforced by the warehouse is adapter-dependent "
-            "and surfaced on each assertion's ``enforced_by`` custom "
-            "property. No run history is emitted — assertions appear with "
-            "an unknown result status until a monitor runs against them."
+            "Whether a constraint is DDL-enforced is adapter-dependent and "
+            "surfaced on each assertion's ``enforced_by`` custom property. "
+            "Run events are emitted from model builds (schema + "
+            "DDL-enforced constraints on success; schema on contract "
+            "preflight failure) and from matching dbt tests."
         ),
     )
 
@@ -1159,6 +1170,7 @@ class DBTModelPerformance:
     status: str
     start_time: datetime
     end_time: datetime
+    message: Optional[str] = None
 
     def is_success(self) -> bool:
         return self.status == "success"
@@ -3874,24 +3886,33 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             assertion_name=f"{node.dbt_name}__schema_contract",
         )
 
-        schema_metadata = self._build_schema_metadata_for_node(node)
-
         custom_properties = {"source": "dbt_contract"}
         if node.contract.checksum:
             custom_properties["dbt_contract_checksum"] = node.contract.checksum
 
-        assertion_info = AssertionInfoClass(
-            type=AssertionTypeClass.DATA_SCHEMA,
-            schemaAssertion=SchemaAssertionInfoClass(
-                entity=entity_urn,
-                schema=schema_metadata,
-                compatibility=SchemaAssertionCompatibilityClass.EXACT_MATCH,
-            ),
+        assertion_info = make_contract_assertion_info(
+            entity_urn=entity_urn,
             description=f"Schema contract for {node.name}",
-            customProperties=custom_properties,
+            custom_properties=custom_properties,
+            custom_assertion=_make_custom_assertion_info(
+                entity_urn=entity_urn,
+                scope=DatasetAssertionScopeClass.DATASET_SCHEMA,
+                operator=AssertionStdOperatorClass._NATIVE_,
+                aggregation=AssertionStdAggregationClass._NATIVE_,
+                native_type="dbt_contract_schema",
+                logic=self._declared_schema_logic(node),
+            ),
         )
 
         return assertion_urn, self._wrap_assertion_mcps(assertion_urn, assertion_info)
+
+    def _declared_schema_logic(self, node: DBTNode) -> str:
+        columns_for_assertion = (
+            node.contract_columns if node.contract_columns is not None else node.columns
+        )
+        return "\n".join(
+            f"{col.name}: {col.data_type or 'unknown'}" for col in columns_for_assertion
+        )
 
     def _build_schema_metadata_for_node(self, node: DBTNode) -> SchemaMetadata:
         """Build ``SchemaMetadata`` describing the contract-declared columns.
@@ -3936,15 +3957,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         node: DBTNode,
         entity_urn: str,
-    ) -> List[Tuple[str, List[MetadataChangeProposalWrapper]]]:
+    ) -> List[Tuple[str, List[MetadataChangeProposalWrapper], str]]:
         """Expand column- and model-level dbt constraints into DataHub assertions.
 
         A single ``primary_key`` constraint expands into a uniqueness assertion
         plus one ``not_null`` assertion per column, matching how dbt recommends
         testing PKs. Unsupported types are recorded on
         ``report.contract_constraints_skipped_unsupported`` and skipped.
+        Each result is ``(urn, mcps, enforced_by)``.
         """
-        results: List[Tuple[str, List[MetadataChangeProposalWrapper]]] = []
+        results: List[Tuple[str, List[MetadataChangeProposalWrapper], str]] = []
 
         # Prefer contract-declared columns so constraints survive even when
         # the catalog is missing the column.
@@ -3983,9 +4005,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         constraint: DBTConstraint,
         columns: List[str],
         scope: str,
-    ) -> List[Tuple[str, List[MetadataChangeProposalWrapper]]]:
+    ) -> List[Tuple[str, List[MetadataChangeProposalWrapper], str]]:
         """Dispatch a single ``DBTConstraint`` to the builder for its type."""
-        results: List[Tuple[str, List[MetadataChangeProposalWrapper]]] = []
+        results: List[Tuple[str, List[MetadataChangeProposalWrapper], str]] = []
         ctype = constraint.type
 
         if ctype == "not_null":
@@ -4127,7 +4149,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         column_name: str,
         scope: str,
         constraint_type_override: Optional[str] = None,
-    ) -> Tuple[str, List[MetadataChangeProposalWrapper]]:
+    ) -> Tuple[str, List[MetadataChangeProposalWrapper], str]:
         source_type = constraint_type_override or "not_null"
         assertion_urn = self._make_constraint_assertion_urn(
             node=node,
@@ -4137,24 +4159,29 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 else f"{node.dbt_name}__constraint__{column_name}__primary_key__not_null"
             ),
         )
-        assertion_info = AssertionInfoClass(
-            type=AssertionTypeClass.DATASET,
-            datasetAssertion=DatasetAssertionInfoClass(
-                dataset=entity_urn,
-                scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-                operator=AssertionStdOperatorClass.NOT_NULL,
-                fields=[mce_builder.make_schema_field_urn(entity_urn, column_name)],
-                nativeType=f"dbt_constraint_{source_type}",
-                aggregation=AssertionStdAggregationClass.IDENTITY,
-            ),
+        enforced_by = self._enforced_by_for_constraint(node, "not_null")
+        assertion_info = make_contract_assertion_info(
+            entity_urn=entity_urn,
             description=f"dbt contract: {source_type} on {column_name}",
-            customProperties={
+            custom_properties={
                 "source": f"dbt_{scope}_constraint",
                 "constraint_type": source_type,
-                "enforced_by": self._enforced_by_for_constraint(node, "not_null"),
+                "enforced_by": enforced_by,
             },
+            custom_assertion=_make_custom_assertion_info(
+                entity_urn=entity_urn,
+                scope=DatasetAssertionScopeClass.DATASET_COLUMN,
+                operator=AssertionStdOperatorClass.NOT_NULL,
+                aggregation=AssertionStdAggregationClass.IDENTITY,
+                fields=[mce_builder.make_schema_field_urn(entity_urn, column_name)],
+                native_type="dbt_constraint_not_null",
+            ),
         )
-        return assertion_urn, self._wrap_assertion_mcps(assertion_urn, assertion_info)
+        return (
+            assertion_urn,
+            self._wrap_assertion_mcps(assertion_urn, assertion_info),
+            enforced_by,
+        )
 
     def _build_unique_assertion(
         self,
@@ -4163,7 +4190,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         column_names: List[str],
         scope: str,
         constraint_type_override: Optional[str] = None,
-    ) -> Tuple[str, List[MetadataChangeProposalWrapper]]:
+    ) -> Tuple[str, List[MetadataChangeProposalWrapper], str]:
         """Build a uniqueness assertion over one or more columns.
 
         Uses ``UNIQUE_PROPOTION`` [sic, typo is in the DataHub schema] with a
@@ -4188,23 +4215,31 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             node=node,
             assertion_name=assertion_name,
         )
+        enforced_by = self._enforced_by_for_constraint(node, source_type)
 
-        assertion_info = AssertionInfoClass(
-            type=AssertionTypeClass.DATASET,
-            datasetAssertion=DatasetAssertionInfoClass(
-                dataset=entity_urn,
+        assertion_info = make_contract_assertion_info(
+            entity_urn=entity_urn,
+            description=f"dbt contract: {source_type} on {', '.join(sorted_columns)}",
+            custom_properties={
+                "source": f"dbt_{scope}_constraint",
+                "constraint_type": source_type,
+                "enforced_by": enforced_by,
+                "columns": ",".join(sorted_columns),
+            },
+            custom_assertion=_make_custom_assertion_info(
+                entity_urn=entity_urn,
                 scope=(
                     DatasetAssertionScopeClass.DATASET_COLUMN
                     if len(sorted_columns) == 1
                     else DatasetAssertionScopeClass.DATASET_ROWS
                 ),
                 operator=AssertionStdOperatorClass.EQUAL_TO,
+                aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,
                 fields=[
                     mce_builder.make_schema_field_urn(entity_urn, col)
                     for col in sorted_columns
                 ],
-                nativeType=f"dbt_constraint_{source_type}",
-                aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,
+                native_type="dbt_constraint_unique",
                 parameters=AssertionStdParametersClass(
                     value=AssertionStdParameterClass(
                         value="1.0",
@@ -4212,15 +4247,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     )
                 ),
             ),
-            description=(f"dbt contract: {source_type} on {', '.join(sorted_columns)}"),
-            customProperties={
-                "source": f"dbt_{scope}_constraint",
-                "constraint_type": source_type,
-                "enforced_by": self._enforced_by_for_constraint(node, source_type),
-                "columns": ",".join(sorted_columns),
-            },
         )
-        return assertion_urn, self._wrap_assertion_mcps(assertion_urn, assertion_info)
+        return (
+            assertion_urn,
+            self._wrap_assertion_mcps(assertion_urn, assertion_info),
+            enforced_by,
+        )
 
     def _build_native_constraint_assertion(
         self,
@@ -4229,7 +4261,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         constraint: DBTConstraint,
         columns: List[str],
         scope: str,
-    ) -> Tuple[str, List[MetadataChangeProposalWrapper]]:
+    ) -> Tuple[str, List[MetadataChangeProposalWrapper], str]:
         sorted_columns = sorted(columns)
         distinguishing = constraint.name or (
             "_".join(sorted_columns) if sorted_columns else "model"
@@ -4254,10 +4286,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             assertion_name=assertion_name,
         )
 
+        enforced_by = self._enforced_by_for_constraint(node, constraint.type)
         custom_props: Dict[str, str] = {
             "source": f"dbt_{scope}_constraint",
             "constraint_type": constraint.type,
-            "enforced_by": self._enforced_by_for_constraint(node, constraint.type),
+            "enforced_by": enforced_by,
         }
         if constraint.expression:
             custom_props["expression"] = constraint.expression
@@ -4274,31 +4307,49 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if constraint.warn_unsupported is not None:
             custom_props["warn_unsupported"] = str(constraint.warn_unsupported).lower()
 
-        assertion_info = AssertionInfoClass(
-            type=AssertionTypeClass.DATASET,
-            datasetAssertion=DatasetAssertionInfoClass(
-                dataset=entity_urn,
+        native_parameters = {
+            key: value
+            for key, value in custom_props.items()
+            if key
+            in {
+                "expression",
+                "to",
+                "to_columns",
+                "columns",
+                "constraint_name",
+            }
+        }
+        assertion_info = make_contract_assertion_info(
+            entity_urn=entity_urn,
+            description=(
+                f"dbt contract: {constraint.type}"
+                + (f" → {constraint.to}" if constraint.to else "")
+                + (f" — {constraint.expression}" if constraint.expression else "")
+            ),
+            custom_properties=custom_props,
+            custom_assertion=_make_custom_assertion_info(
+                entity_urn=entity_urn,
                 scope=(
                     DatasetAssertionScopeClass.DATASET_COLUMN
                     if sorted_columns
                     else DatasetAssertionScopeClass.DATASET_ROWS
                 ),
                 operator=AssertionStdOperatorClass._NATIVE_,
+                aggregation=AssertionStdAggregationClass._NATIVE_,
                 fields=[
                     mce_builder.make_schema_field_urn(entity_urn, col)
                     for col in sorted_columns
                 ],
-                nativeType=f"dbt_constraint_{constraint.type}",
-                aggregation=AssertionStdAggregationClass._NATIVE_,
+                native_type=f"dbt_constraint_{constraint.type}",
+                logic=constraint.expression,
+                native_parameters=native_parameters or None,
             ),
-            description=(
-                f"dbt contract: {constraint.type}"
-                + (f" → {constraint.to}" if constraint.to else "")
-                + (f" — {constraint.expression}" if constraint.expression else "")
-            ),
-            customProperties=custom_props,
         )
-        return assertion_urn, self._wrap_assertion_mcps(assertion_urn, assertion_info)
+        return (
+            assertion_urn,
+            self._wrap_assertion_mcps(assertion_urn, assertion_info),
+            enforced_by,
+        )
 
     def _wrap_assertion_mcps(
         self,
@@ -4338,15 +4389,121 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         test_nodes: List[DBTNode],
     ) -> Dict[str, List[DBTNode]]:
-        """Index contract-tagged tests by upstream ``dbt_name`` for O(1) lookup."""
+        """Index attachable tests by upstream ``dbt_name`` for O(1) lookup.
+
+        Includes tests tagged with ``contract_test_tag`` and any other test
+        (constraint matching is applied later per model).
+        """
         contract_tag = self.config.tag_prefix + self.config.contract_test_tag
         tests_by_upstream: Dict[str, List[DBTNode]] = {}
         for test_node in test_nodes:
-            if contract_tag not in test_node.tags:
+            tagged = contract_tag in test_node.tags
+            maybe_constraint_match = test_node.test_info is not None
+            if not tagged and not maybe_constraint_match:
                 continue
             for upstream in test_node.upstream_nodes:
                 tests_by_upstream.setdefault(upstream, []).append(test_node)
         return tests_by_upstream
+
+    def _should_attach_test_to_contract(
+        self, test_node: DBTNode, model_node: DBTNode
+    ) -> bool:
+        contract_tag = self.config.tag_prefix + self.config.contract_test_tag
+        if contract_tag in test_node.tags:
+            return True
+        return self._test_matches_model_constraint(test_node, model_node)
+
+    def _test_matches_model_constraint(
+        self, test_node: DBTNode, model_node: DBTNode
+    ) -> bool:
+        if not test_node.test_info:
+            return False
+        qname = test_node.test_info.qualified_test_name
+        col = test_node.test_info.column_name
+        if not col and test_node.test_info.kw_args:
+            col = test_node.test_info.kw_args.get("column_name")
+
+        types_by_column: Dict[str, Set[str]] = {}
+        columns_with_constraints = (
+            model_node.contract_columns
+            if model_node.contract_columns is not None
+            else model_node.columns
+        )
+        for column in columns_with_constraints:
+            for constraint in column.constraints:
+                types_by_column.setdefault(column.name, set()).add(constraint.type)
+        for constraint in model_node.model_constraints:
+            targets = constraint.columns or []
+            if not targets:
+                types_by_column.setdefault("", set()).add(constraint.type)
+            for column_name in targets:
+                types_by_column.setdefault(column_name, set()).add(constraint.type)
+
+        if qname in (
+            "not_null",
+            "dbt_expectations.expect_column_values_to_not_be_null",
+        ):
+            return bool(
+                col and types_by_column.get(col, set()) & {"not_null", "primary_key"}
+            )
+        if qname == "unique":
+            return bool(
+                col and types_by_column.get(col, set()) & {"unique", "primary_key"}
+            )
+        if qname == "relationships":
+            if col:
+                return "foreign_key" in types_by_column.get(col, set())
+            return any("foreign_key" in types for types in types_by_column.values())
+        return False
+
+    def _emit_contract_run_events(
+        self,
+        node: DBTNode,
+        entity_urn: str,
+        schema_assertion_urn: str,
+        constraint_emits: Sequence[Tuple[str, str]],
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        external_url = self.get_external_url(node)
+        for perf in node.model_performances:
+            classification = classify_contract_model_run(perf.status, perf.message)
+            if classification is None:
+                continue
+            timestamp = perf.end_time or perf.start_time
+            if classification == "success":
+                yield make_assertion_result_from_model(
+                    assertion_urn=schema_assertion_urn,
+                    assertee_urn=entity_urn,
+                    run_id=perf.run_id,
+                    timestamp=timestamp,
+                    result_type=AssertionResultTypeClass.SUCCESS,
+                    native_results={"status": perf.status},
+                    external_url=external_url,
+                )
+                for constraint_urn, enforced_by in constraint_emits:
+                    if enforced_by != "database":
+                        continue
+                    yield make_assertion_result_from_model(
+                        assertion_urn=constraint_urn,
+                        assertee_urn=entity_urn,
+                        run_id=perf.run_id,
+                        timestamp=timestamp,
+                        result_type=AssertionResultTypeClass.SUCCESS,
+                        native_results={"status": perf.status},
+                        external_url=external_url,
+                    )
+            elif classification == "preflight_failure":
+                native_results = {"status": perf.status}
+                if perf.message:
+                    native_results["message"] = perf.message
+                yield make_assertion_result_from_model(
+                    assertion_urn=schema_assertion_urn,
+                    assertee_urn=entity_urn,
+                    run_id=perf.run_id,
+                    timestamp=timestamp,
+                    result_type=AssertionResultTypeClass.FAILURE,
+                    native_results=native_results,
+                    external_url=external_url,
+                )
 
     def _make_test_assertion_urn(
         self,
@@ -4381,20 +4538,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _create_data_contract_for_node(
         self,
         entity_urn: str,
-        schema_assertion_urn: Optional[str],
         data_quality_assertion_urns: List[str],
     ) -> List[MetadataChangeProposalWrapper]:
         # Same GUID as DataContract.urn so YAML-authored and ingested
-        # contracts land on one entity per dataset.
+        # contracts land on one entity per dataset. All contract assertions
+        # are CUSTOM and belong in dataQuality — the schema slot expects
+        # native DATA_SCHEMA and would render an empty column table.
         contract_urn = (
             f"urn:li:dataContract:{mce_builder.datahub_guid({'entity': entity_urn})}"
         )
 
-        schema_contracts = (
-            [SchemaContractClass(assertion=schema_assertion_urn)]
-            if schema_assertion_urn
-            else None
-        )
         dq_contracts = [
             DataQualityContractClass(assertion=urn)
             for urn in data_quality_assertion_urns
@@ -4402,7 +4555,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         properties = DataContractPropertiesClass(
             entity=entity_urn,
-            schema=schema_contracts,
             dataQuality=dq_contracts,
         )
         status = DataContractStatusClass(state=DataContractStateClass.ACTIVE)
@@ -4460,6 +4612,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
 
             all_assertion_urns: List[str] = []
+            constraint_emits: List[Tuple[str, str]] = []
 
             schema_assertion_urn, schema_mcps = (
                 self._create_schema_assertion_for_contract(
@@ -4474,13 +4627,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 for (
                     constraint_urn,
                     constraint_mcps,
+                    enforced_by,
                 ) in self._create_constraint_assertions(
                     node=node,
                     entity_urn=entity_urn,
                 ):
                     all_assertion_urns.append(constraint_urn)
+                    constraint_emits.append((constraint_urn, enforced_by))
                     self.report.num_contract_constraint_assertions_emitted += 1
                     yield from constraint_mcps
+
+            yield from self._emit_contract_run_events(
+                node=node,
+                entity_urn=entity_urn,
+                schema_assertion_urn=schema_assertion_urn,
+                constraint_emits=constraint_emits,
+            )
 
             # The URN we compute here must match the one create_test_entity_mcps
             # emits, which depends on the *filtered* upstream set (not the raw
@@ -4489,6 +4651,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             for test_node in contract_tests_by_upstream.get(node.dbt_name, []):
                 filtered_upstreams = _filtered_upstreams_for(test_node)
                 if node.dbt_name not in filtered_upstreams:
+                    continue
+                if not self._should_attach_test_to_contract(test_node, node):
                     continue
                 test_urn = self._make_test_assertion_urn(
                     test_dbt_name=test_node.dbt_name,
@@ -4501,10 +4665,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             yield from self._create_data_contract_for_node(
                 entity_urn=entity_urn,
-                schema_assertion_urn=schema_assertion_urn,
-                data_quality_assertion_urns=[
-                    u for u in all_assertion_urns if u != schema_assertion_urn
-                ],
+                data_quality_assertion_urns=all_assertion_urns,
             )
             self.report.num_contracts_emitted += 1
 

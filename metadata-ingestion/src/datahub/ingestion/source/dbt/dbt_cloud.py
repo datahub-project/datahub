@@ -41,6 +41,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTConstraint,
     DBTContract,
     DBTExposure,
+    DBTModelPerformance,
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
@@ -1084,6 +1085,30 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             )
         return test_info, test_result
 
+    def _extract_model_performance(self, node: Dict) -> List[DBTModelPerformance]:
+        """Map job-scoped model status/error onto DBTModelPerformance.
+
+        dbt Cloud does not expose execute timings on this query; use now()
+        the same way test results do.
+        """
+        if node.get("skip"):
+            return []
+        status = (node.get("status") or "").lower()
+        if status not in {"success", "error"}:
+            return []
+        now = datetime.now()
+        job_id = node.get("jobId")
+        run_id = node.get("runId")
+        return [
+            DBTModelPerformance(
+                run_id=f"job{job_id}-run{run_id}",
+                status=status,
+                start_time=now,
+                end_time=now,
+                message=node.get("error"),
+            )
+        ]
+
     def _parse_into_dbt_node(self, node: Dict) -> DBTNode:
         key = node["uniqueId"]
         resource_type = node["resourceType"]
@@ -1230,7 +1255,11 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             columns=columns,
             test_info=test_info,
             test_results=[test_result] if test_result else [],
-            model_performances=[],  # TODO: support model performance with dbt Cloud
+            model_performances=(
+                self._extract_model_performance(node)
+                if resource_type in {"model", "seed", "snapshot"}
+                else []
+            ),
             freshness_info=freshness_info,
             contract=contract,
             model_constraints=model_constraints,

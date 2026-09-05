@@ -716,16 +716,24 @@ def _parse_model_run(
         return None
 
     execution_timestamp = run_result.timing_map.get("execute")
-    if not execution_timestamp:
-        return None
-    if not execution_timestamp.started_at or not execution_timestamp.completed_at:
-        return None
+    if (
+        execution_timestamp
+        and execution_timestamp.started_at
+        and execution_timestamp.completed_at
+    ):
+        start_time = parse_dbt_timestamp(execution_timestamp.started_at)
+        end_time = parse_dbt_timestamp(execution_timestamp.completed_at)
+    else:
+        fallback = parse_dbt_timestamp(dbt_metadata.generated_at)
+        start_time = fallback
+        end_time = fallback
 
     return DBTModelPerformance(
         run_id=dbt_metadata.invocation_id,
         status=status,
-        start_time=parse_dbt_timestamp(execution_timestamp.started_at),
-        end_time=parse_dbt_timestamp(execution_timestamp.completed_at),
+        start_time=start_time,
+        end_time=end_time,
+        message=run_result.message,
     )
 
 

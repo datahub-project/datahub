@@ -688,32 +688,51 @@ If `ingest_contracts` is `true` but `environment_id` is not set, configuration v
 
 When a dbt model has `contract.enforced: true`, DataHub creates:
 
-1. **Schema Assertion** — describes the contract's declared columns and data types, used for detecting drift between what the contract promises and what the model actually produces.
-2. **Constraint Assertions** — one per constraint in the contract. Each constraint type maps to a semantically appropriate DataHub assertion:
+1. **Schema assertion (CUSTOM)** — declared columns and types, with pass/fail from the model build (dbt's preflight). Linked on the Data Contract **data quality** section (not the schema slot, which is reserved for DataHub-native schema assertions).
+2. **Constraint assertions (CUSTOM)** — one per constraint in the contract:
    - `not_null` → a null-count assertion on the column
    - `unique` → a unique-proportion assertion with parameter `1.0`
    - `primary_key` → **both** a unique assertion and a not-null assertion (PK = unique AND not null)
    - Composite primary keys produce a single multi-column unique assertion over the tuple, plus per-column not-null assertions
-   - `foreign_key` is emitted as a native assertion with `to` (referenced model) and `to_columns` on custom properties. dbt foreign keys do **not** use `expression`.
-   - `check` and `custom` are emitted as native assertions with the expression on custom properties
-3. **Data Contract Entity** — bundles all the above assertions together and links them to the dataset.
+   - `foreign_key` carries `to` (referenced model) and `to_columns` on custom properties. dbt foreign keys do **not** use `expression`.
+   - `check` and `custom` carry the expression on custom properties
+3. **Matching dbt tests** — existing test assertions (already CUSTOM + run events) are attached when tagged or when the test type and column match a declared constraint.
+4. **Data Contract entity** — bundles the assertions above and links them to the dbt dataset.
 
 Unsupported or unknown constraint types are recorded on the ingestion report (`contract_constraints_skipped_unsupported`) and skipped rather than raised, so one unusual constraint in one model doesn't fail ingestion for the rest of the project.
 
+##### How evaluations are reported
+
+Contract assertions are **externally reported**: DataHub does not re-run them. `AssertionRunEvent`s come from artifacts you already ingest (`run_results.json` on Core; job `status`/`error` on Cloud):
+
+| Signal                                                                                             | Result                                                                                                                           |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Model build `success`                                                                              | Schema **SUCCESS**. Constraints with `enforced_by: database` also get **SUCCESS** (the warehouse accepted the write).            |
+| Model `error` whose message contains `enforced contract that failed` / `assert_columns_equivalent` | Schema **FAILURE**. The mismatch table is stored on `nativeResults.message`. No constraint events (preflight never reached DDL). |
+| Any other model `error`                                                                            | No contract run event. The model failure is still recorded as a DataProcessInstance.                                             |
+| Matching dbt test                                                                                  | The existing test `AssertionRunEvent` (the high-quality signal for `not_null` / `unique` / `relationships`).                     |
+
+Unenforced constraints (`enforced_by: dbt_contract` or `unsupported`) get **no synthetic success**. They stay `notRunning` until a matching test reports, and they do not flip the contract red by themselves.
+
 ##### Configuration Options
 
-| Option                                    | Default      | Description                                                                                                                                                                                                                                                                                                                |
-| ----------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ingest_contracts`                        | `false`      | Enable Data Contract creation from dbt contracts.                                                                                                                                                                                                                                                                          |
-| `contract_test_tag`                       | `"contract"` | Tag on dbt tests whose assertions should be added to the Data Contract's data quality section. **This is a DataHub convention** — dbt itself does not bundle tests with contracts (see below).                                                                                                                             |
-| `ingest_column_constraints_as_assertions` | `true`       | Emit assertions from contract constraints (`not_null`, `unique`, `primary_key`, `foreign_key`, `check`, `custom`). Assertions are emitted with no run history — whether each constraint is DDL-enforced by the warehouse is surfaced via `enforced_by` on the assertion's custom properties (see warehouse support below). |
-| `environment_id` _(dbt Cloud only)_       | `None`       | dbt Cloud environment ID. Required when `ingest_contracts=true` on dbt Cloud.                                                                                                                                                                                                                                              |
+| Option                                    | Default      | Description                                                                                                                                                                                                                                                                                                    |
+| ----------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ingest_contracts`                        | `false`      | Enable Data Contract creation from dbt contracts. Schema and constraint checks are CUSTOM assertions; run events come from model builds and matching tests.                                                                                                                                                    |
+| `contract_test_tag`                       | `"contract"` | Tag on extra dbt tests to include in the Data Contract data quality section. Tests that already match a declared constraint (`not_null`, `unique`, `relationships`) are auto-attached even without this tag. **The tag is a DataHub convention** — dbt itself does not bundle tests with contracts.            |
+| `ingest_column_constraints_as_assertions` | `true`       | Emit CUSTOM assertions from contract constraints (`not_null`, `unique`, `primary_key`, `foreign_key`, `check`, `custom`). Whether each constraint is DDL-enforced is surfaced via `enforced_by`. Run events come from model builds (schema + DDL-enforced constraints on success) and from matching dbt tests. |
+| `environment_id` _(dbt Cloud only)_       | `None`       | dbt Cloud environment ID. Required when `ingest_contracts=true` on dbt Cloud.                                                                                                                                                                                                                                  |
 
 ##### Including dbt Tests in Contracts (DataHub Convention)
 
 dbt itself does not bundle specific tests with model contracts — contracts validate **shape** (column names and types at build time), while dbt tests validate **content** after building. They are distinct features in dbt.
 
-DataHub introduces a convention on top: tag any dbt test with the value of `contract_test_tag` (default: `contract`) and DataHub will include that test's assertion in the generated Data Contract's data quality section. This is a DataHub-specific extension, not a dbt feature — your dbt project will still run the tagged tests as ordinary dbt tests.
+DataHub attaches a test to the generated Data Contract when either:
+
+- the test type and column match a declared constraint (`not_null`, `unique`, `relationships` ↔ `foreign_key`), or
+- the test is tagged with `contract_test_tag` (default: `contract`) — use this for `accepted_values` and other extra checks.
+
+The tag is a DataHub-specific extension, not a dbt feature — your dbt project will still run the tagged tests as ordinary dbt tests. Matching tests reuse the same assertion URN the test path already emits, so run history stays on one entity.
 
 ```yaml
 # In your dbt schema.yml
@@ -762,21 +781,21 @@ The table is a snapshot of dbt's published matrix. Prefer `warn_unenforced` / `w
 
 On dbt Cloud, contract column types come from the applied catalog (the post-run warehouse state), not the pre-DDL manifest declaration — the Discovery API does not expose declared types via `definition.models` in a form the connector can use. This means:
 
-- Schema assertions on dbt Cloud are looser than on dbt Core: a catalog-driven assertion can't detect a mismatch between the contract declaration and the actual table schema, only between the table schema and any later drift.
+- Schema **definitions** on dbt Cloud are looser than on dbt Core: a catalog-driven assertion can't detect a mismatch between the contract declaration and the actual table schema. Schema **run events** still come from the job's model `status` / `error`.
 - **Column-level constraints are not exposed** on the Discovery API — only model-level `applied.models.constraints`. Column constraints declared in YAML are dropped on the Cloud path. That is constraint loss, not just a looser schema assertion.
 - Foreign-key `to` / `to_columns` are parsed when present (dbt Core manifests include them). The Discovery API query currently returns `name`, `type`, `expression`, and `columns` only, so Cloud FK assertions may still lack the referenced relation.
 - If you need strict declared-type matching (for example, when using `alias_types: false` to force platform-specific types in your contracts), use the dbt Core source, which reads the manifest directly.
 
-Assertions emitted from dbt contracts are durable metadata on `assertion` entities. The wrapping `dataContract` entity is what the current DataHub UI uses to group them; if you later migrate contracts to another representation, the assertions remain.
+Assertions emitted from dbt contracts are durable CUSTOM metadata on `assertion` entities. The wrapping `dataContract` entity is what the current DataHub UI uses to group them and roll up the latest run events; if you later migrate contracts to another representation, the assertions remain.
 
 ##### Notes on `alias_types`
 
-dbt's `alias_types` config (default `true`) controls whether generic type names in a contract (`string`, `int`) are translated to platform-specific equivalents at DDL time. DataHub preserves whatever type the user wrote in the manifest:
+dbt's `alias_types` config (default `true`) controls whether generic type names in a contract (`string`, `int`) are translated to platform-specific equivalents at DDL time. DataHub preserves whatever type the user wrote in the manifest on the schema assertion's `logic` field:
 
-- With `alias_types: true` and a declared type of `string`, the schema assertion will describe `string`. DataHub's assertion evaluator may or may not consider this equivalent to the warehouse-side `TEXT`/`VARCHAR` depending on the evaluator used.
-- With `alias_types: false` and a declared type of `VARCHAR(64)`, the schema assertion will describe `VARCHAR(64)` verbatim, which matches what dbt enforces at the DDL layer.
+- With `alias_types: true` and a declared type of `string`, the assertion describes `string`.
+- With `alias_types: false` and a declared type of `VARCHAR(64)`, the assertion describes `VARCHAR(64)` verbatim, which matches what dbt enforces at the DDL layer.
 
-Teams that want strict DataHub assertion behavior typically pair `ingest_contracts: true` with `alias_types: false` on dbt Core.
+Pass/fail for the schema check is dbt's preflight (names and types), not a DataHub-native schema evaluator.
 
 ### Limitations
 

@@ -260,15 +260,15 @@ def test_constraint_assertion_unique_uses_unique_proportion() -> None:
 
     assert len(results) == 1
     info = _assertion_info_from_mcps(results[0][1])
-    dataset_assertion = info.datasetAssertion
-    assert dataset_assertion is not None
-    assert dataset_assertion.operator == AssertionStdOperatorClass.EQUAL_TO
-    assert (
-        dataset_assertion.aggregation == AssertionStdAggregationClass.UNIQUE_PROPOTION
-    )
-    assert dataset_assertion.parameters is not None
-    assert dataset_assertion.parameters.value is not None
-    assert dataset_assertion.parameters.value.value == "1.0"
+    assert info.type == "CUSTOM"
+    custom = info.customAssertion
+    assert custom is not None
+    assert custom.operator == AssertionStdOperatorClass.EQUAL_TO
+    assert custom.aggregation == AssertionStdAggregationClass.UNIQUE_PROPOTION
+    assert custom.nativeType == "dbt_constraint_unique"
+    assert custom.parameters is not None
+    assert custom.parameters.value is not None
+    assert custom.parameters.value.value == "1.0"
 
 
 def test_constraint_assertion_primary_key_emits_not_null_and_unique() -> None:
@@ -297,12 +297,12 @@ def test_constraint_assertion_primary_key_emits_not_null_and_unique() -> None:
     )
 
     assert len(results) == 2
-    dataset_assertions = [
-        _assertion_info_from_mcps(mcps).datasetAssertion for _, mcps in results
+    customs = [
+        _assertion_info_from_mcps(mcps).customAssertion for _, mcps, _ in results
     ]
-    assert all(da is not None for da in dataset_assertions)
-    operators = {da.operator for da in dataset_assertions if da is not None}
-    aggregations = {da.aggregation for da in dataset_assertions if da is not None}
+    assert all(c is not None for c in customs)
+    operators = {c.operator for c in customs if c is not None}
+    aggregations = {c.aggregation for c in customs if c is not None}
     assert AssertionStdOperatorClass.EQUAL_TO in operators
     assert AssertionStdOperatorClass.NOT_NULL in operators
     assert AssertionStdAggregationClass.UNIQUE_PROPOTION in aggregations
@@ -329,24 +329,24 @@ def test_composite_primary_key_emits_single_multi_column_assertion() -> None:
 
     # One multi-column unique + one not_null per column.
     assert len(results) == 3
-    infos = [_assertion_info_from_mcps(mcps) for _, mcps in results]
+    infos = [_assertion_info_from_mcps(mcps) for _, mcps, _ in results]
 
     unique_infos = [
         i
         for i in infos
-        if i.datasetAssertion is not None
-        and i.datasetAssertion.aggregation
+        if i.customAssertion is not None
+        and i.customAssertion.aggregation
         == AssertionStdAggregationClass.UNIQUE_PROPOTION
     ]
     assert len(unique_infos) == 1
-    unique_fields = unique_infos[0].datasetAssertion.fields  # type: ignore[union-attr]
+    unique_fields = unique_infos[0].customAssertion.fields  # type: ignore[union-attr]
     assert unique_fields is not None and len(unique_fields) == 2
 
     not_null_infos = [
         i
         for i in infos
-        if i.datasetAssertion is not None
-        and i.datasetAssertion.aggregation == AssertionStdAggregationClass.IDENTITY
+        if i.customAssertion is not None
+        and i.customAssertion.aggregation == AssertionStdAggregationClass.IDENTITY
     ]
     assert len(not_null_infos) == 2
 
@@ -385,9 +385,10 @@ def test_constraint_assertion_foreign_key_preserves_to_and_to_columns() -> None:
 
     assert len(results) == 1
     info = _assertion_info_from_mcps(results[0][1])
-    assert info.datasetAssertion is not None
-    assert info.datasetAssertion.operator == AssertionStdOperatorClass._NATIVE_
-    assert info.datasetAssertion.aggregation == AssertionStdAggregationClass._NATIVE_
+    assert info.type == "CUSTOM"
+    assert info.customAssertion is not None
+    assert info.customAssertion.operator == AssertionStdOperatorClass._NATIVE_
+    assert info.customAssertion.aggregation == AssertionStdAggregationClass._NATIVE_
     assert info.customProperties is not None
     assert info.customProperties.get("to") == "ref('customers')"
     assert info.customProperties.get("to_columns") == "id"
@@ -506,8 +507,20 @@ def _make_test_node(
     test_dbt_name: str,
     upstream_dbt_names: List[str],
     *,
-    contract_tag: str = "dbt:contract",
+    contract_tag: Optional[str] = "dbt:contract",
+    qualified_test_name: Optional[str] = None,
+    column_name: Optional[str] = None,
 ) -> DBTNode:
+    from datahub.ingestion.source.dbt.dbt_tests import DBTTest
+
+    tags = [contract_tag] if contract_tag else []
+    test_info = None
+    if qualified_test_name is not None:
+        test_info = DBTTest(
+            qualified_test_name=qualified_test_name,
+            column_name=column_name,
+            kw_args={},
+        )
     return DBTNode(
         dbt_name=test_dbt_name,
         dbt_adapter="snowflake",
@@ -527,12 +540,13 @@ def _make_test_node(
         missing_from_catalog=True,
         meta={},
         query_tag={},
-        tags=[contract_tag],
+        tags=tags,
         owner="",
         language="sql",
         raw_code=None,
         compiled_code=None,
         columns=[],
+        test_info=test_info,
     )
 
 
@@ -567,15 +581,11 @@ def test_contract_test_urn_matches_when_upstream_filtered() -> None:
     ]
     assert len(contract_props) == 1
     dq_urns = [c.assertion for c in (contract_props[0].dataQuality or [])]
-    assert len(dq_urns) == 1
-
-    # Single filtered upstream → URN uses the backwards-compat form
-    # (no on_dbt_upstream) that create_test_entity_mcps would emit.
     expected_urn = source._make_test_assertion_urn(
         test_dbt_name=test_node.dbt_name,
         upstream_dbt_name=None,
     )
-    assert dq_urns[0] == expected_urn
+    assert expected_urn in dq_urns
 
 
 def test_contract_test_urn_matches_for_multi_upstream() -> None:
@@ -630,9 +640,8 @@ def test_contract_test_urn_matches_for_multi_upstream() -> None:
 
     for props in contract_props:
         dq_urns = [c.assertion for c in (props.dataQuality or [])]
-        assert len(dq_urns) == 1
         assert props.entity in expected_by_entity
-        assert dq_urns[0] == expected_by_entity[props.entity]
+        assert expected_by_entity[props.entity] in dq_urns
 
 
 def test_extract_contract_columns_preserves_declared_types() -> None:
@@ -999,6 +1008,7 @@ def test_contract_ingestion_end_to_end(tmp_path: Any) -> None:
         AssertionInfoClass,
         AssertionStdAggregationClass,
         AssertionStdOperatorClass,
+        AssertionTypeClass,
         DataContractPropertiesClass,
     )
 
@@ -1039,53 +1049,47 @@ def test_contract_ingestion_end_to_end(tmp_path: Any) -> None:
     contract_props = [a for a in aspects if isinstance(a, DataContractPropertiesClass)]
     assert len(contract_props) == 1
     props = contract_props[0]
-    assert props.schema is not None
+    assert not props.schema
     assert props.dataQuality is not None and len(props.dataQuality) >= 1
 
-    # Schema assertion sources from contract_columns: the manifest types
-    # (``bigint``/``varchar(255)``/...) differ in case from the catalog
-    # types (``BIGINT``/``VARCHAR(255)``/...), so the nativeDataType values
-    # here tell us which source the assertion was built from.
-    schema_assertion_infos = [
+    contract_assertions = [
         a
         for a in aspects
-        if isinstance(a, AssertionInfoClass) and a.schemaAssertion is not None
+        if isinstance(a, AssertionInfoClass) and a.type == AssertionTypeClass.CUSTOM
     ]
-    assert len(schema_assertion_infos) == 1
-    schema_info = schema_assertion_infos[0].schemaAssertion
-    assert schema_info is not None
-    assert schema_info.schema is not None
-    field_types = {f.fieldPath: f.nativeDataType for f in schema_info.schema.fields}
-    assert field_types == {
-        "id": "bigint",
-        "email": "varchar(255)",
-        "age": "int",
-        "status": "varchar(32)",
-    }
+    schema_assertions = [
+        a
+        for a in contract_assertions
+        if a.customAssertion is not None
+        and a.customAssertion.nativeType == "dbt_contract_schema"
+    ]
+    assert len(schema_assertions) == 1
+    schema_logic = schema_assertions[0].customAssertion.logic  # type: ignore[union-attr]
+    assert schema_logic is not None
+    assert "id: bigint" in schema_logic
+    assert "email: varchar(255)" in schema_logic
+    assert "age: int" in schema_logic
+    assert "status: varchar(32)" in schema_logic
 
-    dataset_assertion_infos = [
-        a
-        for a in aspects
-        if isinstance(a, AssertionInfoClass) and a.datasetAssertion is not None
-    ]
     unique_assertions = [
         a
-        for a in dataset_assertion_infos
-        if a.datasetAssertion is not None
-        and a.datasetAssertion.aggregation
+        for a in contract_assertions
+        if a.customAssertion is not None
+        and a.customAssertion.aggregation
         == AssertionStdAggregationClass.UNIQUE_PROPOTION
     ]
     not_null_assertions = [
         a
-        for a in dataset_assertion_infos
-        if a.datasetAssertion is not None
-        and a.datasetAssertion.operator == AssertionStdOperatorClass.NOT_NULL
+        for a in contract_assertions
+        if a.customAssertion is not None
+        and a.customAssertion.operator == AssertionStdOperatorClass.NOT_NULL
     ]
     native_assertions = [
         a
-        for a in dataset_assertion_infos
-        if a.datasetAssertion is not None
-        and a.datasetAssertion.operator == AssertionStdOperatorClass._NATIVE_
+        for a in contract_assertions
+        if a.customAssertion is not None
+        and a.customAssertion.nativeType
+        in {"dbt_constraint_check", "dbt_constraint_foreign_key"}
     ]
 
     # PK on id → 1 unique + 1 not_null; unique on status → 1 more unique;
@@ -1521,7 +1525,13 @@ def test_contract_omits_test_urns_when_test_definitions_disabled() -> None:
         if isinstance(mcp.aspect, DataContractPropertiesClass)
     ]
     assert len(contract_props) == 1
-    assert not contract_props[0].dataQuality
+    dq_urns = [c.assertion for c in (contract_props[0].dataQuality or [])]
+    test_urn = source._make_test_assertion_urn(
+        test_dbt_name=test_node.dbt_name,
+        upstream_dbt_name=None,
+    )
+    assert test_urn not in dq_urns
+    assert dq_urns  # schema assertion still lands in dataQuality
 
 
 def test_contract_skipped_when_node_type_emission_disabled() -> None:
@@ -1575,8 +1585,8 @@ def test_column_constraints_read_from_contract_columns() -> None:
     )
     assert len(results) == 1
     info = _assertion_info_from_mcps(results[0][1])
-    assert info.datasetAssertion is not None
-    assert info.datasetAssertion.operator == AssertionStdOperatorClass.NOT_NULL
+    assert info.customAssertion is not None
+    assert info.customAssertion.operator == AssertionStdOperatorClass.NOT_NULL
 
 
 def test_get_columns_tolerates_null_constraints() -> None:
@@ -1614,7 +1624,7 @@ def test_unnamed_native_constraints_on_same_columns_get_distinct_urns() -> None:
     results = source._create_constraint_assertions(
         node=node, entity_urn="urn:li:dataset:(urn:li:dataPlatform:dbt,test,PROD)"
     )
-    urns = [urn for urn, _ in results]
+    urns = [urn for urn, _, _ in results]
     assert len(urns) == 2
     assert len(set(urns)) == 2
 
@@ -1699,3 +1709,334 @@ def test_dbt_cloud_test_connection_probes_discovery_when_ingesting_contracts() -
         if "environmentId" in (call.kwargs.get("variables") or call.args[3])
     ]
     assert len(discovery_calls) == 1
+
+
+def test_schema_assertion_is_custom_and_in_data_quality() -> None:
+    from datahub.metadata.schema_classes import (
+        AssertionTypeClass,
+        DataContractPropertiesClass,
+    )
+
+    source = _make_contracted_source()
+    node = _make_contracted_node()
+    mcps = list(
+        source.create_contract_mcps(
+            non_test_nodes=[node],
+            test_nodes=[],
+            all_nodes_map={node.dbt_name: node},
+        )
+    )
+    schema_urn, schema_mcps = source._create_schema_assertion_for_contract(
+        node,
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,test.orders,PROD)",
+    )
+    info = _assertion_info_from_mcps(schema_mcps)
+    assert info.type == AssertionTypeClass.CUSTOM
+    assert info.source is not None
+    assert info.customAssertion is not None
+    assert info.customAssertion.nativeType == "dbt_contract_schema"
+
+    contract_props = [
+        mcp.aspect
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataContractPropertiesClass)
+    ]
+    assert len(contract_props) == 1
+    assert not contract_props[0].schema
+    dq_urns = [c.assertion for c in (contract_props[0].dataQuality or [])]
+    assert schema_urn in dq_urns
+
+
+def test_model_success_emits_schema_and_ddl_constraint_run_events() -> None:
+    from datetime import datetime, timezone
+
+    from datahub.ingestion.source.dbt.dbt_common import (
+        DBTColumn,
+        DBTConstraint,
+        DBTModelPerformance,
+    )
+    from datahub.metadata.schema_classes import AssertionRunEventClass
+
+    source = _make_contracted_source()
+    node = _make_contracted_node(
+        adapter="postgres",
+        columns=[
+            DBTColumn(
+                name="id",
+                comment="",
+                description="",
+                index=0,
+                data_type="bigint",
+                constraints=[
+                    DBTConstraint(type="not_null"),
+                    DBTConstraint(type="unique"),
+                ],
+            )
+        ],
+    )
+    node.model_performances = [
+        DBTModelPerformance(
+            run_id="inv-success",
+            status="success",
+            start_time=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            end_time=datetime(2025, 1, 1, 0, 1, tzinfo=timezone.utc),
+        )
+    ]
+    mcps = list(
+        source.create_contract_mcps(
+            non_test_nodes=[node],
+            test_nodes=[],
+            all_nodes_map={node.dbt_name: node},
+        )
+    )
+    run_events = [
+        mcp.aspect for mcp in mcps if isinstance(mcp.aspect, AssertionRunEventClass)
+    ]
+    assert run_events
+    assert all(e.result is not None and e.result.type == "SUCCESS" for e in run_events)
+    assert all(e.runId == "inv-success" for e in run_events)
+    # Schema + postgres not_null + postgres unique are all DDL-enforced.
+    assert len(run_events) == 3
+
+
+def test_preflight_failure_emits_schema_failure_only() -> None:
+    from datetime import datetime, timezone
+
+    from datahub.ingestion.source.dbt.dbt_common import (
+        DBTColumn,
+        DBTConstraint,
+        DBTModelPerformance,
+    )
+    from datahub.metadata.schema_classes import AssertionRunEventClass
+
+    source = _make_contracted_source()
+    node = _make_contracted_node(
+        adapter="postgres",
+        columns=[
+            DBTColumn(
+                name="id",
+                comment="",
+                description="",
+                index=0,
+                data_type="bigint",
+                constraints=[DBTConstraint(type="not_null")],
+            )
+        ],
+    )
+    node.model_performances = [
+        DBTModelPerformance(
+            run_id="inv-preflight",
+            status="error",
+            start_time=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            end_time=datetime(2025, 1, 1, 0, 1, tzinfo=timezone.utc),
+            message=(
+                "This model has an enforced contract that failed.\n"
+                "> in macro assert_columns_equivalent"
+            ),
+        )
+    ]
+    mcps = list(
+        source.create_contract_mcps(
+            non_test_nodes=[node],
+            test_nodes=[],
+            all_nodes_map={node.dbt_name: node},
+        )
+    )
+    run_events = [
+        mcp.aspect for mcp in mcps if isinstance(mcp.aspect, AssertionRunEventClass)
+    ]
+    assert len(run_events) == 1
+    assert run_events[0].result is not None
+    assert run_events[0].result.type == "FAILURE"
+    assert run_events[0].result.nativeResults is not None
+    assert (
+        "enforced contract that failed" in run_events[0].result.nativeResults["message"]
+    )
+
+
+def test_unrelated_model_error_emits_no_contract_run_events() -> None:
+    from datetime import datetime, timezone
+
+    from datahub.ingestion.source.dbt.dbt_common import DBTModelPerformance
+    from datahub.metadata.schema_classes import AssertionRunEventClass
+
+    source = _make_contracted_source()
+    node = _make_contracted_node()
+    node.model_performances = [
+        DBTModelPerformance(
+            run_id="inv-sql",
+            status="error",
+            start_time=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            end_time=datetime(2025, 1, 1, 0, 1, tzinfo=timezone.utc),
+            message="Database Error: relation does not exist",
+        )
+    ]
+    mcps = list(
+        source.create_contract_mcps(
+            non_test_nodes=[node],
+            test_nodes=[],
+            all_nodes_map={node.dbt_name: node},
+        )
+    )
+    assert not [
+        mcp.aspect for mcp in mcps if isinstance(mcp.aspect, AssertionRunEventClass)
+    ]
+
+
+def test_auto_link_matching_not_null_test_without_tag() -> None:
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
+    from datahub.metadata.schema_classes import DataContractPropertiesClass
+
+    source = _make_contracted_source()
+    model = _make_contracted_node(
+        columns=[
+            DBTColumn(
+                name="email",
+                comment="",
+                description="",
+                index=0,
+                data_type="varchar",
+                constraints=[DBTConstraint(type="not_null")],
+            )
+        ],
+    )
+    test_node = _make_test_node(
+        test_dbt_name="test.test_pkg.not_null_orders_email",
+        upstream_dbt_names=[model.dbt_name],
+        contract_tag=None,
+        qualified_test_name="not_null",
+        column_name="email",
+    )
+    mcps = list(
+        source.create_contract_mcps(
+            non_test_nodes=[model],
+            test_nodes=[test_node],
+            all_nodes_map={model.dbt_name: model},
+        )
+    )
+    props = next(
+        mcp.aspect
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataContractPropertiesClass)
+    )
+    expected = source._make_test_assertion_urn(
+        test_dbt_name=test_node.dbt_name,
+        upstream_dbt_name=None,
+    )
+    dq_urns = [c.assertion for c in (props.dataQuality or [])]
+    assert expected in dq_urns
+
+
+def test_unrelated_test_is_not_auto_linked() -> None:
+    from datahub.metadata.schema_classes import DataContractPropertiesClass
+
+    source = _make_contracted_source()
+    model = _make_contracted_node()
+    test_node = _make_test_node(
+        test_dbt_name="test.test_pkg.accepted_values_orders_status",
+        upstream_dbt_names=[model.dbt_name],
+        contract_tag=None,
+        qualified_test_name="accepted_values",
+        column_name="status",
+    )
+    mcps = list(
+        source.create_contract_mcps(
+            non_test_nodes=[model],
+            test_nodes=[test_node],
+            all_nodes_map={model.dbt_name: model},
+        )
+    )
+    props = next(
+        mcp.aspect
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataContractPropertiesClass)
+    )
+    unexpected = source._make_test_assertion_urn(
+        test_dbt_name=test_node.dbt_name,
+        upstream_dbt_name=None,
+    )
+    dq_urns = [c.assertion for c in (props.dataQuality or [])]
+    assert unexpected not in dq_urns
+
+
+def test_parse_model_run_keeps_message_and_falls_back_without_timing() -> None:
+    from datahub.ingestion.source.dbt.dbt_core import (
+        DBTRunMetadata,
+        DBTRunResult,
+        _parse_model_run,
+    )
+
+    metadata = DBTRunMetadata(
+        dbt_schema_version="https://schemas.getdbt.com/dbt/run-results/v6.json",
+        dbt_version="1.9.3",
+        generated_at="2025-05-08T15:51:03.466215Z",
+        invocation_id="no-timing",
+    )
+    result = DBTRunResult.model_validate(
+        {
+            "status": "error",
+            "unique_id": "model.test_pkg.orders",
+            "message": "This model has an enforced contract that failed.",
+            "timing": [],
+        }
+    )
+    performance = _parse_model_run(metadata, result)
+    assert performance is not None
+    assert performance.message is not None
+    assert "enforced contract that failed" in performance.message
+    assert performance.run_id == "no-timing"
+
+
+def test_load_run_results_contract_preflight_fixture() -> None:
+    import json
+    from pathlib import Path
+
+    from datahub.ingestion.source.dbt.dbt_core import load_run_results
+
+    fixture = (
+        Path(__file__).parent / "artifacts" / "run_results_contract_preflight.json"
+    )
+    source = _make_contracted_source()
+    node = _make_contracted_node()
+    loaded = load_run_results(
+        source.config,
+        json.loads(fixture.read_text()),
+        [node],
+    )
+    assert loaded[0].model_performances
+    perf = loaded[0].model_performances[0]
+    assert perf.status == "error"
+    assert perf.message is not None
+    assert "enforced contract that failed" in perf.message
+    assert perf.run_id == "contract-preflight-invocation"
+
+
+def test_cloud_extracts_model_performance_from_job_status() -> None:
+    from datetime import datetime
+
+    ctx = PipelineContext(run_id="cloud-perf", pipeline_name="dbt-cloud")
+    config = DBTCloudConfig(
+        **_base_dbt_cloud_config(
+            ingest_contracts=True,
+            environment_id=42,
+        )
+    )
+    source = DBTCloudSource(config, ctx)
+    perfs = source._extract_model_performance(
+        {
+            "skip": False,
+            "status": "error",
+            "error": "This model has an enforced contract that failed.",
+            "jobId": 11,
+            "runId": 22,
+        }
+    )
+    assert len(perfs) == 1
+    assert perfs[0].status == "error"
+    assert perfs[0].run_id == "job11-run22"
+    assert perfs[0].message is not None
+    assert "enforced contract that failed" in perfs[0].message
+    assert isinstance(perfs[0].start_time, datetime)
+
+    assert source._extract_model_performance({"skip": True, "status": "success"}) == []
+    assert source._extract_model_performance({"skip": False, "status": "skipped"}) == []
