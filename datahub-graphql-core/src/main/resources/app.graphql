@@ -1057,6 +1057,11 @@ type ProductUpdate {
   id: String!
 
   """
+  Release month in YYYY-MM format, used to generate a localized default title when title is empty
+  """
+  releaseMonth: String
+
+  """
   Optional title override for the update notification.
   Empty when the UI should generate its localized monthly title.
   """

@@ -55,6 +55,7 @@ public class ProductUpdateReleaseSyncTest {
 
   private static final Pattern BUNDLED_IMAGE =
       Pattern.compile("https://raw\\.githubusercontent\\.com/datahub-project/datahub/[^/]+/(.+)");
+  private static final Pattern RELEASE_MONTH = Pattern.compile("\\d{4}-(0[1-9]|1[0-2])");
 
   private Path repoRoot;
 
@@ -142,6 +143,17 @@ public class ProductUpdateReleaseSyncTest {
               + description
               + "\".");
     }
+  }
+
+  @Test
+  public void testCloudProductUpdateHasValidReleaseMonth() throws IOException {
+    String releaseMonth =
+        readProductUpdate(ProductUpdateFlavor.CLOUD).path("releaseMonth").asText();
+    Assert.assertTrue(
+        RELEASE_MONTH.matcher(releaseMonth).matches(),
+        ProductUpdateFlavor.CLOUD.jsonPath()
+            + " must set releaseMonth in YYYY-MM format so the UI can generate localized default"
+            + " titles.");
   }
 
   @Test(dataProvider = "flavors")

@@ -24,7 +24,7 @@ import {
 } from '@app/shared/product/update/ProductUpdates.components';
 import {
     getDefaultProductUpdateLink,
-    getLocalizedCurrentMonth,
+    getLocalizedReleaseMonth,
     getProductUpdateVersion,
 } from '@app/shared/product/update/ProductUpdates.utils';
 import {
@@ -135,16 +135,27 @@ export default function ProductUpdates() {
         return null;
     }
 
-    const { title, header, image, description, primaryCtaText, primaryCtaLink, ctaText, ctaLink, features } =
-        latestUpdate;
+    const {
+        title,
+        header,
+        image,
+        description,
+        primaryCtaText,
+        primaryCtaLink,
+        ctaText,
+        ctaLink,
+        features,
+        releaseMonth,
+    } = latestUpdate;
 
     // Helper to check if value is actually present (not null, undefined, or string "null")
     const isPresent = (value: any) => value && value !== 'null' && value !== null;
 
     const version = isCloud ? getProductUpdateVersion(latestUpdate.id) : null;
-    const defaultTitle = isCloud
+    const localizedReleaseMonth = getLocalizedReleaseMonth(i18n.language, releaseMonth);
+    const defaultTitle = localizedReleaseMonth
         ? t('updates.defaultTitle', {
-              month: getLocalizedCurrentMonth(i18n.language),
+              month: localizedReleaseMonth,
           })
         : null;
     const contentTitle = isPresent(title) ? title : defaultTitle;

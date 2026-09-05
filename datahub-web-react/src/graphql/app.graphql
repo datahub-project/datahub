@@ -199,6 +199,7 @@ query getLatestProductUpdate($locale: String) {
     latestProductUpdate(locale: $locale) {
         enabled
         id
+        releaseMonth
         title
         header
         requiredVersion

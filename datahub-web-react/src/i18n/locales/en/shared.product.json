@@ -1,5 +1,5 @@
 {
-    "updates.defaultTitle": "DataHub Cloud {{month}} Updates",
+    "updates.defaultTitle": "DataHub Updates: {{month}}",
     "updates.defaultCtaText": "Explore DataHub Cloud {{version}}",
     "updates.moreInThisRelease": "More in this release",
     "upload.failedTitle": "Upload Failed"

@@ -1,6 +1,6 @@
 import {
     getDefaultProductUpdateLink,
-    getLocalizedCurrentMonth,
+    getLocalizedReleaseMonth,
     getProductUpdateVersion,
 } from '@app/shared/product/update/ProductUpdates.utils';
 
@@ -17,10 +17,14 @@ describe('ProductUpdates utilities', () => {
         expect(getDefaultProductUpdateLink('september-update', true)).toBeNull();
     });
 
-    it('formats the current month for the requested locale', () => {
-        const september = new Date('2026-09-04T00:00:00Z');
+    it('formats the configured release month for the requested locale', () => {
+        expect(getLocalizedReleaseMonth('en', '2026-09')).toBe('September');
+        expect(getLocalizedReleaseMonth('ja', '2026-09')).toBe('9月');
+    });
 
-        expect(getLocalizedCurrentMonth('en', september)).toBe('September');
-        expect(getLocalizedCurrentMonth('ja', september)).toBe('9月');
+    it('does not infer a month when the release month is absent or invalid', () => {
+        expect(getLocalizedReleaseMonth('en', undefined)).toBeNull();
+        expect(getLocalizedReleaseMonth('en', '2026-13')).toBeNull();
+        expect(getLocalizedReleaseMonth('en', 'September 2026')).toBeNull();
     });
 });

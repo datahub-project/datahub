@@ -111,13 +111,15 @@ public class ProductUpdateParserTest {
 
   @Test
   public void testParseProductUpdateMissingTitleField() throws Exception {
-    String jsonString = "{" + "\"enabled\": true," + "\"id\": \"v1.0.0\"" + "}";
+    String jsonString =
+        "{" + "\"enabled\": true," + "\"id\": \"v1.0.0\"," + "\"releaseMonth\": \"2026-09\"" + "}";
     JsonNode jsonNode = objectMapper.readTree(jsonString);
 
     ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode));
 
     assertNotNull(result);
     assertEquals(result.getTitle(), "");
+    assertEquals(result.getReleaseMonth(), "2026-09");
     assertEquals(result.getCtaText(), "");
     assertEquals(result.getCtaLink(), "");
   }

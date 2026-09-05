@@ -1,5 +1,5 @@
 {
-    "updates.defaultTitle": "{{month}}uppdateringar för DataHub Cloud",
+    "updates.defaultTitle": "DataHub-uppdateringar: {{month}}",
     "updates.defaultCtaText": "Utforska DataHub Cloud {{version}}",
     "updates.moreInThisRelease": "Mer i den här versionen",
     "upload.failedTitle": "Uppladdningen misslyckades"

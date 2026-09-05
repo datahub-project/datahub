@@ -101,6 +101,9 @@ public class ProductUpdateParser {
     productUpdate.setTitle(title);
 
     // Optional fields
+    if (json.hasNonNull("releaseMonth")) {
+      productUpdate.setReleaseMonth(json.get("releaseMonth").asText());
+    }
     if (json.has("header")) {
       productUpdate.setHeader(json.get("header").asText());
     }
