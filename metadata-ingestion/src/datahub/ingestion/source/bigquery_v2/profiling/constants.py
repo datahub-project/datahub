@@ -256,9 +256,11 @@ DATETIME_SECONDS_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
 # A DATETIME/TIMESTAMP value sampled from BigQuery can carry a 'T' separator,
 # fractional seconds, and/or a trailing UTC offset (e.g.
 # "2025-01-15T10:30:00.123456+00:00"). These are valid literals BigQuery casts, so
-# they must pass through rather than being dropped to an IS NOT NULL fallback.
+# they must pass through rather than being dropped to an IS NOT NULL fallback. The
+# minutes portion of the offset is optional because BigQuery's default
+# CAST(TIMESTAMP AS STRING) emits an hours-only offset ("... 10:30:00+00").
 ISO_DATETIME_FLEX_PATTERN = re.compile(
-    r"^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$"
+    r"^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}(:?\d{2})?)?$"
 )
 PARTITION_ID_YYYYMMDD_PATTERN = re.compile(r"^\d{8}$")
 PARTITION_ID_YYYYMM_PATTERN = re.compile(r"^\d{6}$")
