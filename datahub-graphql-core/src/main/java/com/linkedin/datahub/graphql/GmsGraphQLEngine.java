@@ -3134,7 +3134,15 @@ public class GmsGraphQLEngine {
                               return entity.getDataPlatformInstance() != null
                                   ? entity.getDataPlatformInstance().getUrn()
                                   : null;
-                            })))
+                            }))
+                    .dataFetcher(
+                        "health",
+                        new EntityHealthResolver(
+                            entityClient,
+                            graphClient,
+                            timeseriesAspectService,
+                            new EntityHealthResolver.Config(false, true, false),
+                            featureFlags)))
         .type(
             "MLFeatureTableProperties",
             typeWiring ->
@@ -3228,7 +3236,15 @@ public class GmsGraphQLEngine {
                               return mlModel.getDataPlatformInstance() != null
                                   ? mlModel.getDataPlatformInstance().getUrn()
                                   : null;
-                            })))
+                            }))
+                    .dataFetcher(
+                        "health",
+                        new EntityHealthResolver(
+                            entityClient,
+                            graphClient,
+                            timeseriesAspectService,
+                            new EntityHealthResolver.Config(false, true, false),
+                            featureFlags)))
         .type(
             "MLModelProperties",
             typeWiring ->
@@ -3309,7 +3325,15 @@ public class GmsGraphQLEngine {
                               return entity.getDataPlatformInstance() != null
                                   ? entity.getDataPlatformInstance().getUrn()
                                   : null;
-                            })))
+                            }))
+                    .dataFetcher(
+                        "health",
+                        new EntityHealthResolver(
+                            entityClient,
+                            graphClient,
+                            timeseriesAspectService,
+                            new EntityHealthResolver.Config(false, true, false),
+                            featureFlags)))
         .type(
             "MLPrimaryKey",
             typeWiring ->
