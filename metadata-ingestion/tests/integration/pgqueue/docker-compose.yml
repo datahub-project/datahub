@@ -1,0 +1,10 @@
+services:
+  pgqueue-postgres:
+    container_name: "pgqueue-it-postgres"
+    image: acryldata/datahub-postgres:17.5-extensions-v1
+    environment:
+      POSTGRES_USER: "datahub"
+      POSTGRES_PASSWORD: "datahub"
+      POSTGRES_DB: "datahub"
+    ports:
+      - "5432"
