@@ -3,6 +3,7 @@ import {
     getFieldCondition,
     getFieldValues,
     removeFromListPoliciesCache,
+    setFieldCondition,
     setFieldValues,
     updateListPoliciesCache,
 } from '@app/permissions/policy/policyUtils';
@@ -170,7 +171,7 @@ describe('getFieldValues', () => {
 });
 
 describe('getFieldCondition', () => {
-    it('should get field values for a given field', () => {
+    it('should get condition for a given field', () => {
         const filter = {
             criteria: [
                 {
@@ -184,7 +185,7 @@ describe('getFieldCondition', () => {
         expect(getFieldCondition(filter, 'TYPE')).toBe(PolicyMatchCondition.Equals);
     });
 
-    it('should get field values for a alternate field (for deprecated fields)', () => {
+    it('should fall back to alternate field (for deprecated fields)', () => {
         const filter = {
             criteria: [
                 {
@@ -198,13 +199,13 @@ describe('getFieldCondition', () => {
         expect(getFieldCondition(filter, 'TYPE', 'RESOURCE_TYPE')).toBe(PolicyMatchCondition.Equals);
     });
 
-    it('should get field values for main field with alternative field given and has values', () => {
+    it('should prefer primary field over alternate field', () => {
         const filter = {
             criteria: [
                 {
                     condition: PolicyMatchCondition.StartsWith,
                     field: 'RESOURCE_TYPE',
-                    values: [{ value: 'container' }, { value: 'dataFlow' }],
+                    values: [{ value: 'container' }],
                 },
                 {
                     condition: PolicyMatchCondition.Equals,
@@ -214,51 +215,94 @@ describe('getFieldCondition', () => {
             ],
         };
 
-        // should only return values from main field
         expect(getFieldCondition(filter, 'TYPE', 'RESOURCE_TYPE')).toBe(PolicyMatchCondition.Equals);
+    });
+
+    it('should return null when field is absent', () => {
+        expect(getFieldCondition({ criteria: [] }, 'TYPE')).toBeNull();
+        expect(getFieldCondition(undefined, 'TYPE')).toBeNull();
     });
 });
 describe('setFieldValues', () => {
     it('should remove a field if you pass in an empty array', () => {
         const filter = {
             criteria: [
-                {
-                    condition: PolicyMatchCondition.Equals,
-                    field: 'RESOURCE_TYPE',
-                    values: [{ value: 'dataset' }],
-                },
-                {
-                    condition: PolicyMatchCondition.Equals,
-                    field: 'TYPE',
-                    values: [{ value: 'dataJob' }],
-                },
+                { condition: PolicyMatchCondition.Equals, field: 'RESOURCE_TYPE', values: [{ value: 'dataset' }] },
+                { condition: PolicyMatchCondition.Equals, field: 'TYPE', values: [{ value: 'dataJob' }] },
             ],
         };
 
         expect(setFieldValues(filter, 'RESOURCE_TYPE', [])).toMatchObject({
+            criteria: [{ condition: PolicyMatchCondition.Equals, field: 'TYPE', values: [{ value: 'dataJob' }] }],
+        });
+    });
+
+    it('should default to Equals condition when no condition is specified', () => {
+        expect(setFieldValues({ criteria: [] }, 'TYPE', [{ value: 'dataFlow' }])).toMatchObject({
+            criteria: [{ condition: PolicyMatchCondition.Equals, field: 'TYPE', values: [{ value: 'dataFlow' }] }],
+        });
+    });
+
+    it('should use an explicit condition when provided', () => {
+        expect(
+            setFieldValues({ criteria: [] }, 'TYPE', [{ value: 'dataset' }], PolicyMatchCondition.NotEquals),
+        ).toMatchObject({
+            criteria: [{ condition: PolicyMatchCondition.NotEquals, field: 'TYPE', values: [{ value: 'dataset' }] }],
+        });
+    });
+
+    it('should preserve existing condition when updating values without specifying a condition', () => {
+        const filter = {
+            criteria: [{ condition: PolicyMatchCondition.NotEquals, field: 'TYPE', values: [{ value: 'dataset' }] }],
+        };
+
+        expect(setFieldValues(filter, 'TYPE', [{ value: 'dataset' }, { value: 'dataJob' }])).toMatchObject({
             criteria: [
                 {
-                    condition: PolicyMatchCondition.Equals,
+                    condition: PolicyMatchCondition.NotEquals,
                     field: 'TYPE',
-                    values: [{ value: 'dataJob' }],
+                    values: [{ value: 'dataset' }, { value: 'dataJob' }],
                 },
             ],
         });
     });
+});
 
-    it('should set values for a field properly', () => {
+describe('setFieldCondition', () => {
+    it('should update the condition of an existing criterion', () => {
         const filter = {
-            criteria: [],
+            criteria: [{ condition: PolicyMatchCondition.Equals, field: 'TYPE', values: [{ value: 'dataset' }] }],
         };
 
-        expect(setFieldValues(filter, 'TYPE', [{ value: 'dataFlow' }])).toMatchObject({
-            criteria: [
-                {
-                    condition: PolicyMatchCondition.Equals,
-                    field: 'TYPE',
-                    values: [{ value: 'dataFlow' }],
-                },
-            ],
+        expect(setFieldCondition(filter, 'TYPE', PolicyMatchCondition.NotEquals)).toMatchObject({
+            criteria: [{ condition: PolicyMatchCondition.NotEquals, field: 'TYPE', values: [{ value: 'dataset' }] }],
         });
+    });
+
+    it('should create a placeholder criterion so values added later inherit the condition', () => {
+        const filter = { criteria: [] };
+        const updated = setFieldCondition(filter, 'TYPE', PolicyMatchCondition.NotEquals);
+
+        // condition is stored even with empty values
+        expect(getFieldCondition(updated, 'TYPE')).toBe(PolicyMatchCondition.NotEquals);
+
+        // when values are then set without an explicit condition, they inherit NOT_EQUALS
+        const withValues = setFieldValues(updated, 'TYPE', [{ value: 'dataset' }]);
+        expect(withValues).toMatchObject({
+            criteria: [{ condition: PolicyMatchCondition.NotEquals, field: 'TYPE', values: [{ value: 'dataset' }] }],
+        });
+    });
+
+    it('should not affect other criteria', () => {
+        const filter = {
+            criteria: [
+                { condition: PolicyMatchCondition.Equals, field: 'TYPE', values: [{ value: 'dataset' }] },
+                { condition: PolicyMatchCondition.Equals, field: 'DOMAIN', values: [{ value: 'urn:li:domain:d1' }] },
+            ],
+        };
+
+        const result = setFieldCondition(filter, 'TYPE', PolicyMatchCondition.NotEquals);
+        const domainCriterion = result.criteria?.find((c) => c.field === 'DOMAIN');
+        expect(domainCriterion?.condition).toBe(PolicyMatchCondition.Equals);
     });
 });
