@@ -59,7 +59,7 @@ public class ProductUpdateParserTest {
     assertEquals(result.getTitle(), "What's New");
     assertNull(result.getDescription());
     assertNull(result.getImage());
-    assertEquals(result.getCtaText(), "Learn more");
+    assertEquals(result.getCtaText(), "");
     assertEquals(result.getCtaLink(), "");
   }
 
@@ -111,12 +111,17 @@ public class ProductUpdateParserTest {
 
   @Test
   public void testParseProductUpdateMissingTitleField() throws Exception {
-    String jsonString = "{" + "\"enabled\": true," + "\"id\": \"v1.0.0\"" + "}";
+    String jsonString =
+        "{" + "\"enabled\": true," + "\"id\": \"v1.0.0\"," + "\"releaseMonth\": \"2026-09\"" + "}";
     JsonNode jsonNode = objectMapper.readTree(jsonString);
 
     ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode));
 
-    assertNull(result);
+    assertNotNull(result);
+    assertEquals(result.getTitle(), "");
+    assertEquals(result.getReleaseMonth(), "2026-09");
+    assertEquals(result.getCtaText(), "");
+    assertEquals(result.getCtaLink(), "");
   }
 
   @Test
@@ -314,7 +319,7 @@ public class ProductUpdateParserTest {
     assertNotNull(result);
     assertNotNull(result.getCtaText());
     assertNotNull(result.getCtaLink());
-    assertEquals(result.getCtaText(), "Learn more");
+    assertEquals(result.getCtaText(), "");
     assertEquals(result.getCtaLink(), "https://example.com");
   }
 
@@ -753,7 +758,7 @@ public class ProductUpdateParserTest {
     ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), "abc-123");
 
     assertNotNull(result);
-    assertEquals(result.getCtaText(), "Learn more");
+    assertEquals(result.getCtaText(), "");
     // An absent link stays empty rather than being decorated with the client id.
     assertEquals(result.getCtaLink(), "");
   }
@@ -821,9 +826,8 @@ public class ProductUpdateParserTest {
     assertNotNull(result);
     assertEquals(result.getPrimaryCtaText(), "New Text");
     assertEquals(result.getPrimaryCtaLink(), "https://new.com");
-    // Legacy fields should NOT be set when primary is present
-    assertNull(result.getCtaText());
-    assertNull(result.getCtaLink());
+    assertEquals(result.getCtaText(), "Old Text");
+    assertEquals(result.getCtaLink(), "https://old.com");
   }
 
   @Test
@@ -970,5 +974,163 @@ public class ProductUpdateParserTest {
     assertEquals(result.getSecondaryCtaLink(), "https://example.com/video");
     assertNotNull(result.getFeatures());
     assertEquals(result.getFeatures().size(), 1);
+  }
+
+  @Test
+  public void testParseProductUpdateOverlaysLocaleCopy() throws Exception {
+    JsonNode jsonNode = objectMapper.readTree(localizedProductUpdateJson());
+
+    ProductUpdate result =
+        ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), null, "ja");
+
+    assertNotNull(result);
+    assertEquals(result.getId(), "v1.0.0");
+    assertEquals(result.getTitle(), "DataHubの新機能");
+    assertEquals(result.getHeader(), "リリースのお知らせ");
+    assertEquals(result.getDescription(), "バージョン v1.0.0 を見る");
+    assertEquals(result.getPrimaryCtaText(), "詳細を見る");
+    assertEquals(result.getSecondaryCtaText(), "動画を見る");
+    assertEquals(result.getPrimaryCtaLink(), "https://example.com/v1.0.0");
+    assertEquals(result.getImage(), "https://example.com/image.png");
+    assertEquals(result.getFeatures().get(0).getTitle(), "機能1");
+    assertEquals(result.getFeatures().get(0).getDescription(), "説明1");
+    assertEquals(result.getFeatures().get(0).getAvailability(), "Cloudで利用可能");
+    assertEquals(result.getFeatures().get(0).getIcon(), "Lightning");
+    assertEquals(result.getFeatures().get(1).getTitle(), "Feature 2");
+    assertEquals(result.getFeatures().get(1).getDescription(), "Description 2");
+  }
+
+  @Test
+  public void testParseProductUpdateFallsBackFromRegionalLocale() throws Exception {
+    JsonNode jsonNode = objectMapper.readTree(localizedProductUpdateJson());
+
+    ProductUpdate result =
+        ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), null, "ja-JP");
+
+    assertNotNull(result);
+    assertEquals(result.getTitle(), "DataHubの新機能");
+  }
+
+  @Test
+  public void testParseProductUpdateKeepsEnglishWithoutLocale() throws Exception {
+    JsonNode jsonNode = objectMapper.readTree(localizedProductUpdateJson());
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode));
+
+    assertNotNull(result);
+    assertEquals(result.getTitle(), "What's New");
+    assertEquals(result.getDescription(), "Explore version v1.0.0");
+    assertEquals(result.getPrimaryCtaText(), "Read updates");
+    assertEquals(result.getFeatures().get(0).getTitle(), "Feature 1");
+  }
+
+  @Test
+  public void testParseProductUpdateKeepsEnglishForUnknownLocale() throws Exception {
+    JsonNode jsonNode = objectMapper.readTree(localizedProductUpdateJson());
+
+    ProductUpdate result =
+        ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), null, "zz");
+
+    assertNotNull(result);
+    assertEquals(result.getTitle(), "What's New");
+    assertEquals(result.getPrimaryCtaText(), "Read updates");
+  }
+
+  @Test
+  public void testParseProductUpdatePartialLocaleKeepsMissingFields() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"description\": \"Explore version v1.0.0\","
+            + "\"primaryCtaText\": \"Read updates\","
+            + "\"primaryCtaLink\": \"https://example.com/v1.0.0\","
+            + "\"i18n\": { \"de\": { \"title\": \"Was gibt's Neues\" } }"
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+    ProductUpdate result =
+        ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), null, "de");
+
+    assertNotNull(result);
+    assertEquals(result.getTitle(), "Was gibt's Neues");
+    assertEquals(result.getDescription(), "Explore version v1.0.0");
+    assertEquals(result.getPrimaryCtaText(), "Read updates");
+  }
+
+  @Test
+  public void testParseProductUpdateDoesNotOverlayCtaLink() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"primaryCtaText\": \"Read updates\","
+            + "\"primaryCtaLink\": \"https://example.com/v1.0.0\","
+            + "\"i18n\": { \"ja\": { \"primaryCtaLink\": \"https://evil.example/ja\" } }"
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+    ProductUpdate result =
+        ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), "client-1", "ja");
+
+    assertNotNull(result);
+    assertEquals(result.getPrimaryCtaLink(), "https://example.com/v1.0.0?q=client-1");
+  }
+
+  @Test
+  public void testParseProductUpdateMatchesPtBrExactly() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"i18n\": {"
+            + "  \"pt\": { \"title\": \"Portuguese\" },"
+            + "  \"pt-BR\": { \"title\": \"Português (Brasil)\" }"
+            + "}"
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+    ProductUpdate br = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), null, "pt-BR");
+    ProductUpdate pt = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), null, "pt");
+
+    assertNotNull(br);
+    assertEquals(br.getTitle(), "Português (Brasil)");
+    assertNotNull(pt);
+    assertEquals(pt.getTitle(), "Portuguese");
+  }
+
+  private static String localizedProductUpdateJson() {
+    return "{"
+        + "\"enabled\": true,"
+        + "\"id\": \"v1.0.0\","
+        + "\"title\": \"What's New\","
+        + "\"header\": \"Release notes\","
+        + "\"description\": \"Explore version v1.0.0\","
+        + "\"image\": \"https://example.com/image.png\","
+        + "\"primaryCtaText\": \"Read updates\","
+        + "\"primaryCtaLink\": \"https://example.com/v1.0.0\","
+        + "\"secondaryCtaText\": \"Watch video\","
+        + "\"secondaryCtaLink\": \"https://example.com/video\","
+        + "\"features\": ["
+        + "  {\"title\": \"Feature 1\", \"description\": \"Description 1\", \"icon\": \"Lightning\","
+        + "   \"availability\": \"Available in Cloud\"},"
+        + "  {\"title\": \"Feature 2\", \"description\": \"Description 2\"}"
+        + "],"
+        + "\"i18n\": {"
+        + "  \"ja\": {"
+        + "    \"title\": \"DataHubの新機能\","
+        + "    \"header\": \"リリースのお知らせ\","
+        + "    \"description\": \"バージョン v1.0.0 を見る\","
+        + "    \"primaryCtaText\": \"詳細を見る\","
+        + "    \"secondaryCtaText\": \"動画を見る\","
+        + "    \"features\": ["
+        + "      {\"title\": \"機能1\", \"description\": \"説明1\", \"availability\": \"Cloudで利用可能\"}"
+        + "    ]"
+        + "  }"
+        + "}"
+        + "}";
   }
 }

@@ -57,6 +57,7 @@ def productUpdateInputs = files(
     file("${projectDir}/src/main/resources/product-update-saas.json"),
     file("${rootProject.projectDir}/docs/how/updating-datahub.md"),
     fileTree("${rootProject.projectDir}/docs/managed-datahub/release-notes") { include '*.md' },
+    file("${rootProject.projectDir}/datahub-web-react/src/i18n/locales"),
 )
 def productUpdateStamp = layout.buildDirectory.file("product-update-release-sync-check.stamp")
 

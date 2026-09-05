@@ -7,7 +7,10 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -46,6 +49,29 @@ public class ProductUpdateParser {
   @Nullable
   public static ProductUpdate parseProductUpdate(
       @Nonnull Optional<JsonNode> jsonOpt, @Nullable String clientId) {
+    return parseProductUpdate(jsonOpt, clientId, null);
+  }
+
+  /**
+   * Parse JSON into a ProductUpdate object, decorating CTA links with clientId and overlaying
+   * locale-specific copy when present.
+   *
+   * <p>Translated strings live under an optional {@code i18n} object keyed by locale ({@code ja},
+   * {@code pt-BR}, …). Each locale object may include any of {@code title}, {@code header}, {@code
+   * description}, {@code primaryCtaText}, {@code secondaryCtaText}, {@code ctaText}, and {@code
+   * features} (title/description/availability by index). Missing keys keep the default English
+   * fields. Links, {@code id}, {@code enabled}, {@code image}, and {@code requiredVersion} are
+   * never translated.
+   *
+   * @param jsonOpt Optional JSON node containing product update data
+   * @param clientId Optional client ID to append to ctaLink as a query parameter
+   * @param locale Optional UI locale (e.g. {@code ja} or {@code ja-JP}); {@code ja-JP} falls back
+   *     to {@code ja}
+   * @return ProductUpdate object if parsing succeeds and update is enabled, null otherwise
+   */
+  @Nullable
+  public static ProductUpdate parseProductUpdate(
+      @Nonnull Optional<JsonNode> jsonOpt, @Nullable String clientId, @Nullable String locale) {
     if (jsonOpt.isEmpty()) {
       log.debug("No product update JSON available");
       return null;
@@ -54,8 +80,8 @@ public class ProductUpdateParser {
     JsonNode json = jsonOpt.get();
 
     // Parse and validate required fields
-    if (!json.has("enabled") || !json.has("id") || !json.has("title")) {
-      log.warn("Product update JSON missing required fields (enabled, id, or title)");
+    if (!json.has("enabled") || !json.has("id")) {
+      log.warn("Product update JSON missing required fields (enabled or id)");
       return null;
     }
 
@@ -66,7 +92,7 @@ public class ProductUpdateParser {
     }
 
     String id = json.get("id").asText();
-    String title = json.get("title").asText();
+    String title = json.hasNonNull("title") ? json.get("title").asText() : "";
 
     // Build the ProductUpdate response
     ProductUpdate productUpdate = new ProductUpdate();
@@ -75,6 +101,9 @@ public class ProductUpdateParser {
     productUpdate.setTitle(title);
 
     // Optional fields
+    if (json.hasNonNull("releaseMonth")) {
+      productUpdate.setReleaseMonth(json.get("releaseMonth").asText());
+    }
     if (json.has("header")) {
       productUpdate.setHeader(json.get("header").asText());
     }
@@ -107,17 +136,13 @@ public class ProductUpdateParser {
       productUpdate.setSecondaryCtaLink(secondaryCtaLink);
     }
 
-    // Parse legacy CTA fields (backward compatibility)
-    // Only use if primary CTA is not provided
-    if (!hasPrimaryCta) {
-      String ctaText = json.hasNonNull("ctaText") ? json.get("ctaText").asText() : "Learn more";
-      String ctaLink =
-          maybeDecorateUrl(
-              json.hasNonNull("ctaLink") ? json.get("ctaLink").asText() : "", clientId);
-
-      productUpdate.setCtaText(ctaText);
-      productUpdate.setCtaLink(ctaLink);
-    }
+    // Keep deprecated non-null GraphQL fields populated for backward compatibility. Empty values
+    // signal the frontend to use its localized defaults when neither CTA format is provided.
+    String ctaText = json.hasNonNull("ctaText") ? json.get("ctaText").asText() : "";
+    String ctaLink =
+        maybeDecorateUrl(json.hasNonNull("ctaLink") ? json.get("ctaLink").asText() : "", clientId);
+    productUpdate.setCtaText(ctaText);
+    productUpdate.setCtaLink(ctaLink);
 
     // Parse features array if present
     if (json.has("features") && json.get("features").isArray()) {
@@ -127,6 +152,7 @@ public class ProductUpdateParser {
       }
     }
 
+    applyI18nOverlay(productUpdate, json, locale);
     return productUpdate;
   }
 
@@ -220,6 +246,121 @@ public class ProductUpdateParser {
     } catch (UnsupportedEncodingException e) {
       log.warn("Failed to URL-encode clientId, using original URL: {}", e.getMessage());
       return url;
+    }
+  }
+
+  /**
+   * Overlay locale-specific copy onto an already-parsed ProductUpdate. No-op when locale is absent
+   * or the JSON has no matching {@code i18n} entry.
+   */
+  private static void applyI18nOverlay(
+      @Nonnull ProductUpdate productUpdate, @Nonnull JsonNode json, @Nullable String locale) {
+    JsonNode override = findI18nOverride(json, locale);
+    if (override == null) {
+      return;
+    }
+
+    localizedText(override, "title").ifPresent(productUpdate::setTitle);
+    localizedText(override, "header").ifPresent(productUpdate::setHeader);
+    localizedText(override, "description").ifPresent(productUpdate::setDescription);
+    localizedText(override, "primaryCtaText").ifPresent(productUpdate::setPrimaryCtaText);
+    localizedText(override, "secondaryCtaText").ifPresent(productUpdate::setSecondaryCtaText);
+    localizedText(override, "ctaText").ifPresent(productUpdate::setCtaText);
+    overlayFeatures(productUpdate, override);
+  }
+
+  @Nullable
+  private static JsonNode findI18nOverride(@Nonnull JsonNode json, @Nullable String locale) {
+    if (locale == null || locale.isBlank()) {
+      return null;
+    }
+    JsonNode i18n = json.get("i18n");
+    if (i18n == null || !i18n.isObject()) {
+      return null;
+    }
+
+    String requested = locale.trim();
+    JsonNode match = getCaseInsensitiveObject(i18n, requested);
+    if (match != null) {
+      return match;
+    }
+
+    String language = languageSubtag(requested);
+    if (!language.equalsIgnoreCase(requested)) {
+      return getCaseInsensitiveObject(i18n, language);
+    }
+    return null;
+  }
+
+  @Nullable
+  private static JsonNode getCaseInsensitiveObject(@Nonnull JsonNode i18n, @Nonnull String key) {
+    JsonNode direct = i18n.get(key);
+    if (isObject(direct)) {
+      return direct;
+    }
+    String lower = key.toLowerCase(Locale.ROOT);
+    Iterator<Map.Entry<String, JsonNode>> fields = i18n.fields();
+    while (fields.hasNext()) {
+      Map.Entry<String, JsonNode> entry = fields.next();
+      if (entry.getKey().toLowerCase(Locale.ROOT).equals(lower) && isObject(entry.getValue())) {
+        return entry.getValue();
+      }
+    }
+    return null;
+  }
+
+  @Nonnull
+  private static String languageSubtag(@Nonnull String locale) {
+    int dash = locale.indexOf('-');
+    int underscore = locale.indexOf('_');
+    int cut;
+    if (dash < 0) {
+      cut = underscore;
+    } else if (underscore < 0) {
+      cut = dash;
+    } else {
+      cut = Math.min(dash, underscore);
+    }
+    return cut > 0 ? locale.substring(0, cut) : locale;
+  }
+
+  private static boolean isObject(@Nullable JsonNode node) {
+    return node != null && node.isObject();
+  }
+
+  @Nonnull
+  private static Optional<String> localizedText(@Nonnull JsonNode parent, @Nonnull String field) {
+    JsonNode node = parent.get(field);
+    if (node == null || !node.isTextual()) {
+      return Optional.empty();
+    }
+    String text = node.asText();
+    if (text.isBlank() || "null".equals(text)) {
+      return Optional.empty();
+    }
+    return Optional.of(text);
+  }
+
+  private static void overlayFeatures(
+      @Nonnull ProductUpdate productUpdate, @Nonnull JsonNode override) {
+    List<ProductUpdateFeature> features = productUpdate.getFeatures();
+    if (features == null || features.isEmpty()) {
+      return;
+    }
+    JsonNode featuresNode = override.get("features");
+    if (featuresNode == null || !featuresNode.isArray()) {
+      return;
+    }
+    int count = Math.min(features.size(), featuresNode.size());
+    for (int i = 0; i < count; i++) {
+      JsonNode featureOverride = featuresNode.get(i);
+      if (!isObject(featureOverride)) {
+        continue;
+      }
+      ProductUpdateFeature feature = features.get(i);
+      localizedText(featureOverride, "title").ifPresent(feature::setTitle);
+      localizedText(featureOverride, "description").ifPresent(feature::setDescription);
+      localizedText(featureOverride, "availability").ifPresent(feature::setAvailability);
     }
   }
 }

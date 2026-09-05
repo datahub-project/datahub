@@ -23,6 +23,11 @@ import {
     ToastContainer,
 } from '@app/shared/product/update/ProductUpdates.components';
 import {
+    getDefaultProductUpdateLink,
+    getLocalizedReleaseMonth,
+    getProductUpdateVersion,
+} from '@app/shared/product/update/ProductUpdates.utils';
+import {
     useDismissProductAnnouncement,
     useGetLatestProductAnnouncementData,
     useIsProductAnnouncementEnabled,
@@ -30,16 +35,17 @@ import {
 } from '@app/shared/product/update/hooks';
 import { isVersionMatch } from '@app/shared/product/update/versionUtils';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
-import { useAppConfig } from '@app/useAppConfig';
+import { useAppConfig, useIsShowAcrylInfoEnabled } from '@app/useAppConfig';
 import { getRuntimeBasePath } from '@utils/runtimeBasePath';
 
 export default function ProductUpdates() {
-    const { t } = useTranslation('shared.product');
+    const { t, i18n } = useTranslation('shared.product');
     const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const isFeatureEnabled = useIsProductAnnouncementEnabled();
     const latestUpdate = useGetLatestProductAnnouncementData();
     const appConfig = useAppConfig();
+    const isCloud = useIsShowAcrylInfoEnabled();
     const isOnHomePage = useIsHomePage();
 
     const { visible, refetch } = useIsProductAnnouncementVisible(latestUpdate?.id);
@@ -129,21 +135,38 @@ export default function ProductUpdates() {
         return null;
     }
 
-    const { title, header, image, description, primaryCtaText, primaryCtaLink, ctaText, ctaLink, features } =
-        latestUpdate;
+    const {
+        title,
+        header,
+        image,
+        description,
+        primaryCtaText,
+        primaryCtaLink,
+        ctaText,
+        ctaLink,
+        features,
+        releaseMonth,
+    } = latestUpdate;
 
     // Helper to check if value is actually present (not null, undefined, or string "null")
     const isPresent = (value: any) => value && value !== 'null' && value !== null;
 
-    // Use header if available, otherwise fall back to title
-    const displayTitle = isPresent(header) ? header : title;
+    const version = isCloud ? getProductUpdateVersion(latestUpdate.id) : null;
+    const localizedReleaseMonth = getLocalizedReleaseMonth(i18n.language, releaseMonth);
+    const defaultTitle = localizedReleaseMonth
+        ? t('updates.defaultTitle', {
+              month: localizedReleaseMonth,
+          })
+        : null;
+    const contentTitle = isPresent(title) ? title : defaultTitle;
+    const displayTitle = isPresent(header) ? header : contentTitle;
 
     // Only show title in content if header exists (to avoid duplication)
     const showTitleInContent = isPresent(header);
 
     // Determine primary CTA (prefer new format, fall back to legacy)
-    const primaryText = primaryCtaText || ctaText;
-    const primaryLink = buildUrl(primaryCtaLink || ctaLink);
+    const primaryText = primaryCtaText || ctaText || (version ? t('updates.defaultCtaText', { version }) : null);
+    const primaryLink = buildUrl(primaryCtaLink || ctaLink || getDefaultProductUpdateLink(latestUpdate.id, isCloud));
 
     // Secondary CTA (only if both text and link are present)
     const secondaryText = isPresent(latestUpdate.secondaryCtaText) ? latestUpdate.secondaryCtaText : null;
@@ -169,7 +192,7 @@ export default function ProductUpdates() {
                     <HeroSection>
                         {showTitleInContent && (
                             <Text size="lg" weight="bold" color="gray" colorLevel={600}>
-                                {title}
+                                {contentTitle}
                             </Text>
                         )}
                         <Text size="md" weight="medium" color="gray" colorLevel={500} style={{ lineHeight: '1.4' }}>
@@ -179,7 +202,7 @@ export default function ProductUpdates() {
                 )}
                 {image && (
                     <ImageSection>
-                        <Image src={image} alt={title} />
+                        <Image src={image} alt={contentTitle || undefined} />
                     </ImageSection>
                 )}
                 {displayFeatures && displayFeatures.length > 0 && (
