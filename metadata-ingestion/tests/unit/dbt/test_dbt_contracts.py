@@ -510,6 +510,7 @@ def _make_test_node(
     contract_tag: Optional[str] = "dbt:contract",
     qualified_test_name: Optional[str] = None,
     column_name: Optional[str] = None,
+    kw_args: Optional[Dict[str, Any]] = None,
 ) -> DBTNode:
     from datahub.ingestion.source.dbt.dbt_tests import DBTTest
 
@@ -519,7 +520,7 @@ def _make_test_node(
         test_info = DBTTest(
             qualified_test_name=qualified_test_name,
             column_name=column_name,
-            kw_args={},
+            kw_args=kw_args or {},
         )
     return DBTNode(
         dbt_name=test_dbt_name,
@@ -1980,7 +1981,8 @@ def test_parse_model_run_keeps_message_and_falls_back_without_timing() -> None:
             "timing": [],
         }
     )
-    performance = _parse_model_run(metadata, result)
+    assert _parse_model_run(metadata, result) is None
+    performance = _parse_model_run(metadata, result, allow_missing_timing=True)
     assert performance is not None
     assert performance.message is not None
     assert "enforced contract that failed" in performance.message
@@ -2040,3 +2042,280 @@ def test_cloud_extracts_model_performance_from_job_status() -> None:
 
     assert source._extract_model_performance({"skip": True, "status": "success"}) == []
     assert source._extract_model_performance({"skip": False, "status": "skipped"}) == []
+
+
+def test_dbt_cloud_test_connection_rejects_missing_environment() -> None:
+    with mock.patch.object(DBTCloudSource, "_send_graphql_query") as mock_send:
+        mock_send.side_effect = [
+            {"job": {"id": 1}},
+            {"environment": None},
+        ]
+        report = DBTCloudSource.test_connection(
+            {
+                **_base_dbt_cloud_config(
+                    ingest_contracts=True,
+                    environment_id=42,
+                )
+            }
+        )
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable is False
+    assert report.basic_connectivity.failure_reason is not None
+    assert "no environment" in report.basic_connectivity.failure_reason
+
+
+def test_cloud_skips_model_performance_when_contracts_disabled() -> None:
+    config = DBTCloudConfig(**_base_dbt_cloud_config())
+    ctx = PipelineContext(run_id="cloud-perf-off", pipeline_name="dbt-cloud")
+    source = DBTCloudSource(config, ctx)
+    parsed = source._parse_into_dbt_node(
+        {
+            "uniqueId": "model.test_pkg.orders",
+            "name": "orders",
+            "resourceType": "model",
+            "materializedType": "table",
+            "database": "DB",
+            "schema": "SCHEMA",
+            "type": "BASE TABLE",
+            "owner": None,
+            "comment": "",
+            "description": "",
+            "meta": {},
+            "tags": [],
+            "columns": [],
+            "dependsOn": [],
+            "packageName": "test_pkg",
+            "alias": "orders",
+            "status": "success",
+            "rawCode": "select 1",
+            "rawSql": None,
+            "compiledCode": "select 1",
+            "compiledSql": None,
+            "jobId": 11,
+            "runId": 22,
+        }
+    )
+    assert parsed.model_performances == []
+
+
+def test_layered_column_and_model_constraint_emits_once() -> None:
+    from datetime import datetime, timezone
+
+    from datahub.ingestion.source.dbt.dbt_common import (
+        DBTColumn,
+        DBTConstraint,
+        DBTModelPerformance,
+    )
+    from datahub.metadata.schema_classes import (
+        AssertionRunEventClass,
+        DataContractPropertiesClass,
+    )
+
+    source = _make_contracted_source()
+    node = _make_contracted_node(
+        adapter="postgres",
+        columns=[
+            DBTColumn(
+                name="id",
+                comment="",
+                description="",
+                index=0,
+                data_type="bigint",
+                constraints=[DBTConstraint(type="not_null")],
+            )
+        ],
+        model_constraints=[DBTConstraint(type="not_null", columns=["id"])],
+    )
+    node.model_performances = [
+        DBTModelPerformance(
+            run_id="inv-dup",
+            status="success",
+            start_time=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            end_time=datetime(2025, 1, 1, 0, 1, tzinfo=timezone.utc),
+        )
+    ]
+    mcps = list(
+        source.create_contract_mcps(
+            non_test_nodes=[node],
+            test_nodes=[],
+            all_nodes_map={node.dbt_name: node},
+        )
+    )
+    props = next(
+        mcp.aspect
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataContractPropertiesClass)
+    )
+    dq_urns = [c.assertion for c in (props.dataQuality or [])]
+    assert len(dq_urns) == len(set(dq_urns))
+    run_urns = [
+        mcp.aspect.assertionUrn
+        for mcp in mcps
+        if isinstance(mcp.aspect, AssertionRunEventClass)
+    ]
+    assert len(run_urns) == len(set(run_urns))
+
+
+def test_single_column_unique_test_does_not_match_composite_constraint() -> None:
+    from datahub.ingestion.source.dbt.dbt_common import DBTConstraint
+    from datahub.metadata.schema_classes import DataContractPropertiesClass
+
+    source = _make_contracted_source()
+    model = _make_contracted_node(
+        model_constraints=[
+            DBTConstraint(type="unique", columns=["id", "email"]),
+        ]
+    )
+    test_node = _make_test_node(
+        test_dbt_name="test.test_pkg.unique_orders_id",
+        upstream_dbt_names=[model.dbt_name],
+        contract_tag=None,
+        qualified_test_name="unique",
+        column_name="id",
+    )
+    mcps = list(
+        source.create_contract_mcps(
+            non_test_nodes=[model],
+            test_nodes=[test_node],
+            all_nodes_map={model.dbt_name: model},
+        )
+    )
+    props = next(
+        mcp.aspect
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataContractPropertiesClass)
+    )
+    unexpected = source._make_test_assertion_urn(
+        test_dbt_name=test_node.dbt_name,
+        upstream_dbt_name=None,
+    )
+    dq_urns = [c.assertion for c in (props.dataQuality or [])]
+    assert unexpected not in dq_urns
+
+
+def test_relationships_test_requires_matching_foreign_key_target() -> None:
+    from datahub.ingestion.source.dbt.dbt_common import DBTConstraint
+    from datahub.metadata.schema_classes import DataContractPropertiesClass
+
+    source = _make_contracted_source()
+    model = _make_contracted_node(
+        model_constraints=[
+            DBTConstraint(
+                type="foreign_key",
+                columns=["customer_id"],
+                to="customers",
+                to_columns=["id"],
+            )
+        ]
+    )
+    mismatched = _make_test_node(
+        test_dbt_name="test.test_pkg.relationships_orders_store",
+        upstream_dbt_names=[model.dbt_name],
+        contract_tag=None,
+        qualified_test_name="relationships",
+        column_name="customer_id",
+        kw_args={"to": "{{ ref('stores') }}", "field": "id"},
+    )
+    matched = _make_test_node(
+        test_dbt_name="test.test_pkg.relationships_orders_customer",
+        upstream_dbt_names=[model.dbt_name],
+        contract_tag=None,
+        qualified_test_name="relationships",
+        column_name="customer_id",
+        kw_args={"to": "{{ ref('customers') }}", "field": "id"},
+    )
+    mcps = list(
+        source.create_contract_mcps(
+            non_test_nodes=[model],
+            test_nodes=[mismatched, matched],
+            all_nodes_map={model.dbt_name: model},
+        )
+    )
+    props = next(
+        mcp.aspect
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataContractPropertiesClass)
+    )
+    dq_urns = [c.assertion for c in (props.dataQuality or [])]
+    assert (
+        source._make_test_assertion_urn(
+            test_dbt_name=mismatched.dbt_name, upstream_dbt_name=None
+        )
+        not in dq_urns
+    )
+    assert (
+        source._make_test_assertion_urn(
+            test_dbt_name=matched.dbt_name, upstream_dbt_name=None
+        )
+        in dq_urns
+    )
+
+
+def test_contract_run_events_honor_test_results_toggle() -> None:
+    from datetime import datetime, timezone
+
+    from datahub.ingestion.source.dbt.dbt_common import DBTModelPerformance
+    from datahub.metadata.schema_classes import AssertionRunEventClass
+
+    source = _make_contracted_source(entities_enabled={"test_results": "NO"})
+    node = _make_contracted_node()
+    node.model_performances = [
+        DBTModelPerformance(
+            run_id="inv-hidden",
+            status="success",
+            start_time=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            end_time=datetime(2025, 1, 1, 0, 1, tzinfo=timezone.utc),
+        )
+    ]
+    mcps = list(
+        source.create_contract_mcps(
+            non_test_nodes=[node],
+            test_nodes=[],
+            all_nodes_map={node.dbt_name: node},
+        )
+    )
+    assert not any(isinstance(mcp.aspect, AssertionRunEventClass) for mcp in mcps)
+
+
+def test_contract_upsert_preserves_authored_schema_and_freshness() -> None:
+    from datahub.metadata.schema_classes import (
+        DataContractPropertiesClass,
+        FreshnessContractClass,
+        SchemaContractClass,
+    )
+
+    existing_schema = [
+        SchemaContractClass(assertion="urn:li:assertion:authored-schema")
+    ]
+    existing_freshness = [
+        FreshnessContractClass(assertion="urn:li:assertion:authored-freshness")
+    ]
+    graph = mock.Mock()
+    graph.get_aspect.side_effect = [
+        DataContractPropertiesClass(
+            entity="urn:li:dataset:(urn:li:dataPlatform:dbt,test.orders,PROD)",
+            schema=existing_schema,
+            freshness=existing_freshness,
+            dataQuality=None,
+        ),
+        None,
+    ]
+    source = _make_contracted_source()
+    source.ctx.graph = graph
+    node = _make_contracted_node()
+    mcps = list(
+        source.create_contract_mcps(
+            non_test_nodes=[node],
+            test_nodes=[],
+            all_nodes_map={node.dbt_name: node},
+        )
+    )
+    props = next(
+        mcp.aspect
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataContractPropertiesClass)
+    )
+    assert props.schema == existing_schema
+    assert props.freshness == existing_freshness
+    assert props.dataQuality

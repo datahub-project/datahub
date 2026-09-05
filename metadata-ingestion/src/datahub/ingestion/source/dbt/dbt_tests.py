@@ -488,7 +488,6 @@ def classify_contract_model_run(status: str, message: Optional[str]) -> Optional
 
 def make_contract_assertion_info(
     *,
-    entity_urn: str,
     description: str,
     custom_properties: Dict[str, str],
     custom_assertion: CustomAssertionInfoClass,

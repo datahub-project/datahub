@@ -710,6 +710,8 @@ def _parse_test_result(
 def _parse_model_run(
     dbt_metadata: DBTRunMetadata,
     run_result: DBTRunResult,
+    *,
+    allow_missing_timing: bool = False,
 ) -> Optional[DBTModelPerformance]:
     status = run_result.status
     if status not in {"success", "error"}:
@@ -723,10 +725,15 @@ def _parse_model_run(
     ):
         start_time = parse_dbt_timestamp(execution_timestamp.started_at)
         end_time = parse_dbt_timestamp(execution_timestamp.completed_at)
-    else:
+    elif allow_missing_timing:
+        # Contract run events still need a timestamp when execute timing is
+        # absent (preflight failures often are). Do not invent times for the
+        # default DataProcessInstance path — that would change existing recipes.
         fallback = parse_dbt_timestamp(dbt_metadata.generated_at)
         start_time = fallback
         end_time = fallback
+    else:
+        return None
 
     return DBTModelPerformance(
         run_id=dbt_metadata.invocation_id,
@@ -772,7 +779,11 @@ def load_run_results(
             test_node.test_results.append(test_result)
 
         else:
-            model_performance = _parse_model_run(dbt_metadata, run_result)
+            model_performance = _parse_model_run(
+                dbt_metadata,
+                run_result,
+                allow_missing_timing=config.ingest_contracts,
+            )
             if not model_performance:
                 continue
 

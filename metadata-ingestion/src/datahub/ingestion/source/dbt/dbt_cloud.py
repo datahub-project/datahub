@@ -549,11 +549,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 )
 
             if source_config.ingest_contracts:
-                if source_config.environment_id is None:
-                    raise ValueError(
-                        "environment_id is required when ingest_contracts=true"
-                    )
-                DBTCloudSource._send_graphql_query(
+                discovery_data = DBTCloudSource._send_graphql_query(
                     source_config.metadata_endpoint,
                     source_config.token.get_secret_value(),
                     _DBT_DISCOVERY_CONTRACT_QUERY,
@@ -563,6 +559,11 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                         "after": None,
                     },
                 )
+                if not discovery_data.get("environment"):
+                    raise ValueError(
+                        "Discovery API returned no environment for "
+                        f"environment_id={source_config.environment_id}"
+                    )
 
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
@@ -1257,7 +1258,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             test_results=[test_result] if test_result else [],
             model_performances=(
                 self._extract_model_performance(node)
-                if resource_type in {"model", "seed", "snapshot"}
+                if self.config.ingest_contracts
+                and resource_type in {"model", "seed", "snapshot"}
                 else []
             ),
             freshness_info=freshness_info,

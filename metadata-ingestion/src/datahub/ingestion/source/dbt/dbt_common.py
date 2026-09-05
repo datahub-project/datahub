@@ -10,6 +10,7 @@ from functools import cached_property
 from typing import (
     Any,
     Dict,
+    FrozenSet,
     Iterable,
     List,
     Literal,
@@ -929,6 +930,62 @@ def parse_dbt_constraint(constraint_dict: Dict[str, Any]) -> DBTConstraint:
         warn_unenforced=warn_unenforced,
         warn_unsupported=warn_unsupported,
     )
+
+
+@dataclass(frozen=True)
+class _DeclaredConstraint:
+    type: str
+    columns: FrozenSet[str]
+    to: Optional[str] = None
+    to_columns: FrozenSet[str] = field(default_factory=frozenset)
+
+
+_REF_RELATION_RE = re.compile(r"""ref\(\s*['"]([^'"]+)['"]""")
+
+
+def _normalize_dbt_relation_name(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    match = _REF_RELATION_RE.search(value)
+    if match:
+        return match.group(1).lower()
+    return value.strip().strip("\"'").rsplit(".", 1)[-1].lower()
+
+
+def _test_column_set(test_info: DBTTest) -> Optional[FrozenSet[str]]:
+    if test_info.column_name:
+        return frozenset({test_info.column_name})
+    combo = (test_info.kw_args or {}).get("combination_of_columns")
+    if isinstance(combo, list) and combo:
+        return frozenset(str(column) for column in combo)
+    kw_column = (test_info.kw_args or {}).get("column_name")
+    if kw_column:
+        return frozenset({str(kw_column)})
+    return None
+
+
+def _foreign_key_matches_test(
+    test_node: "DBTNode", constraint: _DeclaredConstraint
+) -> bool:
+    test_info = test_node.test_info
+    if test_info is None:
+        return False
+    test_columns = _test_column_set(test_info)
+    if test_columns and constraint.columns and test_columns != constraint.columns:
+        return False
+    kw_args = test_info.kw_args or {}
+    test_to = _normalize_dbt_relation_name(kw_args.get("to"))
+    constraint_to = _normalize_dbt_relation_name(constraint.to)
+    if test_to and constraint_to and test_to != constraint_to:
+        return False
+    test_field = kw_args.get("field")
+    if (
+        test_field
+        and constraint.to_columns
+        and str(test_field) not in constraint.to_columns
+    ):
+        return False
+    return True
 
 
 @dataclass
@@ -3891,7 +3948,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             custom_properties["dbt_contract_checksum"] = node.contract.checksum
 
         assertion_info = make_contract_assertion_info(
-            entity_urn=entity_urn,
             description=f"Schema contract for {node.name}",
             custom_properties=custom_properties,
             custom_assertion=_make_custom_assertion_info(
@@ -4161,7 +4217,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         enforced_by = self._enforced_by_for_constraint(node, "not_null")
         assertion_info = make_contract_assertion_info(
-            entity_urn=entity_urn,
             description=f"dbt contract: {source_type} on {column_name}",
             custom_properties={
                 "source": f"dbt_{scope}_constraint",
@@ -4218,7 +4273,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         enforced_by = self._enforced_by_for_constraint(node, source_type)
 
         assertion_info = make_contract_assertion_info(
-            entity_urn=entity_urn,
             description=f"dbt contract: {source_type} on {', '.join(sorted_columns)}",
             custom_properties={
                 "source": f"dbt_{scope}_constraint",
@@ -4320,7 +4374,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             }
         }
         assertion_info = make_contract_assertion_info(
-            entity_urn=entity_urn,
             description=(
                 f"dbt contract: {constraint.type}"
                 + (f" → {constraint.to}" if constraint.to else "")
@@ -4385,45 +4438,41 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             log=False,
         )
 
+    _AUTO_LINKABLE_TEST_NAMES = frozenset(
+        {
+            "not_null",
+            "unique",
+            "relationships",
+            "unique_combination_of_columns",
+            "dbt_utils.unique_combination_of_columns",
+            "dbt_expectations.expect_column_values_to_not_be_null",
+        }
+    )
+
     def _index_contract_tests_by_upstream(
         self,
         test_nodes: List[DBTNode],
     ) -> Dict[str, List[DBTNode]]:
         """Index attachable tests by upstream ``dbt_name`` for O(1) lookup.
 
-        Includes tests tagged with ``contract_test_tag`` and any other test
-        (constraint matching is applied later per model).
+        Includes tests tagged with ``contract_test_tag`` and tests whose type
+        can match a declared constraint. Other tests are ignored here.
         """
         contract_tag = self.config.tag_prefix + self.config.contract_test_tag
         tests_by_upstream: Dict[str, List[DBTNode]] = {}
         for test_node in test_nodes:
             tagged = contract_tag in test_node.tags
-            maybe_constraint_match = test_node.test_info is not None
-            if not tagged and not maybe_constraint_match:
+            qname = (
+                test_node.test_info.qualified_test_name if test_node.test_info else None
+            )
+            if not tagged and qname not in self._AUTO_LINKABLE_TEST_NAMES:
                 continue
             for upstream in test_node.upstream_nodes:
                 tests_by_upstream.setdefault(upstream, []).append(test_node)
         return tests_by_upstream
 
-    def _should_attach_test_to_contract(
-        self, test_node: DBTNode, model_node: DBTNode
-    ) -> bool:
-        contract_tag = self.config.tag_prefix + self.config.contract_test_tag
-        if contract_tag in test_node.tags:
-            return True
-        return self._test_matches_model_constraint(test_node, model_node)
-
-    def _test_matches_model_constraint(
-        self, test_node: DBTNode, model_node: DBTNode
-    ) -> bool:
-        if not test_node.test_info:
-            return False
-        qname = test_node.test_info.qualified_test_name
-        col = test_node.test_info.column_name
-        if not col and test_node.test_info.kw_args:
-            col = test_node.test_info.kw_args.get("column_name")
-
-        types_by_column: Dict[str, Set[str]] = {}
+    def _declared_constraints(self, model_node: DBTNode) -> List["_DeclaredConstraint"]:
+        declared: List[_DeclaredConstraint] = []
         columns_with_constraints = (
             model_node.contract_columns
             if model_node.contract_columns is not None
@@ -4431,29 +4480,75 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         for column in columns_with_constraints:
             for constraint in column.constraints:
-                types_by_column.setdefault(column.name, set()).add(constraint.type)
+                declared.append(
+                    _DeclaredConstraint(
+                        type=constraint.type,
+                        columns=frozenset({column.name}),
+                        to=constraint.to,
+                        to_columns=frozenset(constraint.to_columns or []),
+                    )
+                )
         for constraint in model_node.model_constraints:
-            targets = constraint.columns or []
-            if not targets:
-                types_by_column.setdefault("", set()).add(constraint.type)
-            for column_name in targets:
-                types_by_column.setdefault(column_name, set()).add(constraint.type)
+            declared.append(
+                _DeclaredConstraint(
+                    type=constraint.type,
+                    columns=frozenset(constraint.columns or []),
+                    to=constraint.to,
+                    to_columns=frozenset(constraint.to_columns or []),
+                )
+            )
+        return declared
+
+    def _should_attach_test_to_contract(
+        self,
+        test_node: DBTNode,
+        model_node: DBTNode,
+        declared: Sequence["_DeclaredConstraint"],
+    ) -> bool:
+        contract_tag = self.config.tag_prefix + self.config.contract_test_tag
+        if contract_tag in test_node.tags:
+            return True
+        return self._test_matches_model_constraint(test_node, declared)
+
+    def _test_matches_model_constraint(
+        self,
+        test_node: DBTNode,
+        declared: Sequence["_DeclaredConstraint"],
+    ) -> bool:
+        if not test_node.test_info:
+            return False
+        qname = test_node.test_info.qualified_test_name
+        test_columns = _test_column_set(test_node.test_info)
 
         if qname in (
             "not_null",
             "dbt_expectations.expect_column_values_to_not_be_null",
         ):
-            return bool(
-                col and types_by_column.get(col, set()) & {"not_null", "primary_key"}
+            if not test_columns:
+                return False
+            return any(
+                constraint.type in {"not_null", "primary_key"}
+                and test_columns <= constraint.columns
+                for constraint in declared
             )
-        if qname == "unique":
-            return bool(
-                col and types_by_column.get(col, set()) & {"unique", "primary_key"}
+        if qname in (
+            "unique",
+            "unique_combination_of_columns",
+            "dbt_utils.unique_combination_of_columns",
+        ):
+            if not test_columns:
+                return False
+            return any(
+                constraint.type in {"unique", "primary_key"}
+                and constraint.columns == test_columns
+                for constraint in declared
             )
         if qname == "relationships":
-            if col:
-                return "foreign_key" in types_by_column.get(col, set())
-            return any("foreign_key" in types for types in types_by_column.values())
+            return any(
+                constraint.type == "foreign_key"
+                and _foreign_key_matches_test(test_node, constraint)
+                for constraint in declared
+            )
         return False
 
     def _emit_contract_run_events(
@@ -4553,11 +4648,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             for urn in data_quality_assertion_urns
         ] or None
 
+        existing_props = None
+        existing_status = None
+        graph = self.ctx.graph
+        if graph is not None:
+            existing_props = graph.get_aspect(contract_urn, DataContractPropertiesClass)
+            existing_status = graph.get_aspect(contract_urn, DataContractStatusClass)
+
         properties = DataContractPropertiesClass(
             entity=entity_urn,
+            schema=existing_props.schema if existing_props else None,
+            freshness=existing_props.freshness if existing_props else None,
             dataQuality=dq_contracts,
         )
-        status = DataContractStatusClass(state=DataContractStateClass.ACTIVE)
+        status = existing_status or DataContractStatusClass(
+            state=DataContractStateClass.ACTIVE
+        )
 
         return [
             MetadataChangeProposalWrapper(entityUrn=contract_urn, aspect=properties),
@@ -4613,6 +4719,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             all_assertion_urns: List[str] = []
             constraint_emits: List[Tuple[str, str]] = []
+            seen_constraint_urns: Set[str] = set()
+            declared = self._declared_constraints(node)
 
             schema_assertion_urn, schema_mcps = (
                 self._create_schema_assertion_for_contract(
@@ -4632,17 +4740,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     node=node,
                     entity_urn=entity_urn,
                 ):
+                    if constraint_urn in seen_constraint_urns:
+                        continue
+                    seen_constraint_urns.add(constraint_urn)
                     all_assertion_urns.append(constraint_urn)
                     constraint_emits.append((constraint_urn, enforced_by))
                     self.report.num_contract_constraint_assertions_emitted += 1
                     yield from constraint_mcps
 
-            yield from self._emit_contract_run_events(
-                node=node,
-                entity_urn=entity_urn,
-                schema_assertion_urn=schema_assertion_urn,
-                constraint_emits=constraint_emits,
-            )
+            if self.config.entities_enabled.can_emit_test_results:
+                yield from self._emit_contract_run_events(
+                    node=node,
+                    entity_urn=entity_urn,
+                    schema_assertion_urn=schema_assertion_urn,
+                    constraint_emits=constraint_emits,
+                )
 
             # The URN we compute here must match the one create_test_entity_mcps
             # emits, which depends on the *filtered* upstream set (not the raw
@@ -4652,7 +4764,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 filtered_upstreams = _filtered_upstreams_for(test_node)
                 if node.dbt_name not in filtered_upstreams:
                     continue
-                if not self._should_attach_test_to_contract(test_node, node):
+                if not self._should_attach_test_to_contract(test_node, node, declared):
                     continue
                 test_urn = self._make_test_assertion_urn(
                     test_dbt_name=test_node.dbt_name,
