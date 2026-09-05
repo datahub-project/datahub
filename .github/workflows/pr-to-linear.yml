@@ -122,6 +122,9 @@ jobs:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           TEAM_MEMBERS: ${{ vars.DATAHUB_TEAM_MEMBERS }}
+          # PAT with org Members read access — the default github.token cannot
+          # read private org membership, so a dedicated token is required.
+          ORG_READ_TOKEN: ${{ secrets.ACRYLDATA_ORG_READ_TOKEN }}
         run: |
           if [ "$PR_DRAFT" = "true" ]; then
             echo "should_skip=true" >> "$GITHUB_OUTPUT"
@@ -141,12 +144,34 @@ jobs:
 
           echo "should_skip=false" >> "$GITHUB_OUTPUT"
 
-          if [ -z "$TEAM_MEMBERS" ]; then
-            echo "⚠️  DATAHUB_TEAM_MEMBERS variable is not set — defaulting to Internal"
-            echo "contributor_type=Internal" >> "$GITHUB_OUTPUT"
-            echo "should_skip=true" >> "$GITHUB_OUTPUT"
-            echo "⏭️  Skipping - Internal contributor"
-          elif echo "$TEAM_MEMBERS" | jq -e --arg actor "$PR_AUTHOR" '[.[].github] | map(ascii_downcase) | contains([($actor | ascii_downcase)])' > /dev/null 2>&1; then
+          IS_INTERNAL="false"
+
+          # Primary check: acryldata GitHub org membership. New team members are
+          # added to the org during onboarding, so this needs no per-person
+          # maintenance. 204 = member; anything else falls through to the list.
+          if [ -n "$ORG_READ_TOKEN" ]; then
+            MEMBER_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
+              -H "Authorization: token $ORG_READ_TOKEN" \
+              "https://api.github.com/orgs/acryldata/members/$PR_AUTHOR")
+            if [ "$MEMBER_STATUS" = "204" ]; then
+              IS_INTERNAL="true"
+              echo "✓ $PR_AUTHOR is an acryldata org member"
+            fi
+          else
+            echo "⚠️  ACRYLDATA_ORG_READ_TOKEN secret is not set — org membership check skipped"
+          fi
+
+          # Fallback: static team-member list (also covers non-org maintainers)
+          if [ "$IS_INTERNAL" = "false" ]; then
+            if [ -z "$TEAM_MEMBERS" ]; then
+              echo "⚠️  DATAHUB_TEAM_MEMBERS variable is not set — defaulting to Internal"
+              IS_INTERNAL="true"
+            elif echo "$TEAM_MEMBERS" | jq -e --arg actor "$PR_AUTHOR" '[.[].github] | map(ascii_downcase) | contains([($actor | ascii_downcase)])' > /dev/null 2>&1; then
+              IS_INTERNAL="true"
+            fi
+          fi
+
+          if [ "$IS_INTERNAL" = "true" ]; then
             echo "contributor_type=Internal" >> "$GITHUB_OUTPUT"
             echo "should_skip=true" >> "$GITHUB_OUTPUT"
             echo "⏭️  Skipping - Internal contributor"
