@@ -166,7 +166,8 @@ USER datahub
 
 # Build bundled venvs using our self-contained script (standard s3 with PySpark)
 WORKDIR /tmp
-RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions-bundled,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     ./build_bundled_venvs_unified.sh
 
 USER datahub
@@ -211,7 +212,8 @@ USER datahub
 
 # Build bundled venvs using our self-contained script (s3-slim without PySpark)
 WORKDIR /tmp
-RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions-bundled,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     ./build_bundled_venvs_unified.sh
 
 USER datahub
@@ -256,7 +258,8 @@ USER datahub
 
 # Build bundled venvs using our self-contained script (s3-slim without PySpark)
 WORKDIR /tmp
-RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
+RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions-bundled,sharing=private \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     ./build_bundled_venvs_unified.sh
 
 USER datahub
@@ -283,21 +286,7 @@ ARG BUNDLED_VENV_SLIM_MODE="false"
 ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 COPY --from=bundled-venvs-full $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
 
-# Shipped for downstream Dockerfiles that extend the published image without cloning the repo (see docs/docker/bundled-ingestion-venvs.md).
-COPY --chown=datahub:datahub \
-    ./docker/snippets/ingestion/build_bundled_venvs_unified.py \
-    ./docker/snippets/ingestion/build_bundled_venvs_unified.sh \
-    ./docker/snippets/ingestion/bundled_venv_config.py \
-    ./docker/snippets/ingestion/constraints.txt \
-    /opt/datahub/bundled-venv-build/
-RUN chmod 755 /opt/datahub/bundled-venv-build/build_bundled_venvs_unified.sh && \
-    chown -R datahub:datahub /opt/datahub/bundled-venv-build
-
-COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
-COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
-
-RUN chmod a+x /start_datahub_actions.sh && \
-    mkdir -p /etc/datahub/actions && \
+RUN mkdir -p /etc/datahub/actions && \
     mkdir -p /tmp/datahub/logs/actions/system && \
     chown -R datahub:datahub /etc/datahub /tmp/datahub
 
@@ -348,6 +337,20 @@ RUN rm -rf $HOME/.config/uv && \
     # in site-packages remain the source of truth.
     find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
 
+# Shipped for downstream Dockerfiles that extend the published image without cloning the repo (see docs/docker/bundled-ingestion-venvs.md).
+COPY --chown=datahub:datahub \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.py \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.sh \
+    ./docker/snippets/ingestion/bundled_venv_config.py \
+    ./docker/snippets/ingestion/constraints.txt \
+    /opt/datahub/bundled-venv-build/
+RUN chmod 755 /opt/datahub/bundled-venv-build/build_bundled_venvs_unified.sh && \
+    chown -R datahub:datahub /opt/datahub/bundled-venv-build
+
+COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
+COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
+RUN chmod a+x /start_datahub_actions.sh
+
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
 
@@ -369,21 +372,7 @@ ARG BUNDLED_VENV_SLIM_MODE="true"
 ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 COPY --from=bundled-venvs-slim $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
 
-# Shipped for downstream Dockerfiles that extend the published image without cloning the repo (see docs/docker/bundled-ingestion-venvs.md).
-COPY --chown=datahub:datahub \
-    ./docker/snippets/ingestion/build_bundled_venvs_unified.py \
-    ./docker/snippets/ingestion/build_bundled_venvs_unified.sh \
-    ./docker/snippets/ingestion/bundled_venv_config.py \
-    ./docker/snippets/ingestion/constraints.txt \
-    /opt/datahub/bundled-venv-build/
-RUN chmod 755 /opt/datahub/bundled-venv-build/build_bundled_venvs_unified.sh && \
-    chown -R datahub:datahub /opt/datahub/bundled-venv-build
-
-COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
-COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
-
-RUN chmod a+x /start_datahub_actions.sh && \
-    mkdir -p /etc/datahub/actions && \
+RUN mkdir -p /etc/datahub/actions && \
     mkdir -p /tmp/datahub/logs/actions/system && \
     chown -R datahub:datahub /etc/datahub /tmp/datahub
 
@@ -433,6 +422,20 @@ RUN rm -rf $HOME/.config/uv && \
     # in site-packages remain the source of truth.
     find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
 
+# Shipped for downstream Dockerfiles that extend the published image without cloning the repo (see docs/docker/bundled-ingestion-venvs.md).
+COPY --chown=datahub:datahub \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.py \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.sh \
+    ./docker/snippets/ingestion/bundled_venv_config.py \
+    ./docker/snippets/ingestion/constraints.txt \
+    /opt/datahub/bundled-venv-build/
+RUN chmod 755 /opt/datahub/bundled-venv-build/build_bundled_venvs_unified.sh && \
+    chown -R datahub:datahub /opt/datahub/bundled-venv-build
+
+COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
+COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
+RUN chmod a+x /start_datahub_actions.sh
+
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
 
@@ -454,11 +457,7 @@ ARG BUNDLED_VENV_SLIM_MODE="true"
 ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 COPY --from=bundled-venvs-locked $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
 
-COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
-COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
-
-RUN chmod a+x /start_datahub_actions.sh && \
-    mkdir -p /etc/datahub/actions && \
+RUN mkdir -p /etc/datahub/actions && \
     mkdir -p /tmp/datahub/logs/actions/system && \
     chown -R datahub:datahub /etc/datahub /tmp/datahub
 
@@ -502,6 +501,10 @@ RUN rm -rf $HOME/.config/uv && \
     # pip's vendored CycloneDX BOM lists build-time setuptools/msgpack pins that Trivy
     # reports as installed packages (AnalyzedBy=sbom). Remove before strip_pip removes pip.
     find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
+
+COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
+COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
+RUN chmod a+x /start_datahub_actions.sh
 
 # No uv/pip in the final locked image: build is done; package managers are unnecessary attack surface.
 # Script file avoids Docker RUN treating $v / $sp as empty Docker env vars (see docker/snippets/strip_pip_uv_from_venvs.sh).
