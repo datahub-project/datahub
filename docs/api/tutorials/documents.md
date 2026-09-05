@@ -599,6 +599,25 @@ if doc:
 </TabItem>
 </Tabs>
 
+### Store an Agent Decision as Asset-Scoped Context
+
+Agents can use hidden Context Documents as durable decision memory.
+A useful pattern is:
+
+1. derive the decision in the agent or CI system;
+2. persist the decision as a native Document;
+3. link it to the affected asset with `related_assets`;
+4. set `show_in_global_context=False` when it should be discoverable
+   from the asset rather than global search;
+5. read the Document back before claiming persistence.
+
+```python
+{{ inline /metadata-ingestion/examples/agents/preflight_safety_case.py show_path_as_comment }}
+```
+
+The Document records evidence; it does not itself prove that the decision
+is correct. The caller remains responsible for the underlying verification.
+
 ## End-to-End: Push, Index, and Verify
 
 This workflow covers pushing pre-refined documents, triggering semantic indexing, and confirming
