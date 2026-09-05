@@ -8,11 +8,12 @@ import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { EntityPath, EntityType, MlModel } from '@types';
+import { EntityPath, EntityType, Health, MlModel } from '@types';
 
 export const Preview = ({
     data,
     model,
+    health,
     degree,
     paths,
     isOutputPort,
@@ -21,6 +22,7 @@ export const Preview = ({
 }: {
     data: GenericEntityProperties | null;
     model: MlModel;
+    health?: Health[] | null;
     degree?: number;
     paths?: EntityPath[];
     isOutputPort?: boolean;
@@ -45,6 +47,7 @@ export const Preview = ({
             tags={model.globalTags || undefined}
             owners={model?.ownership?.owners}
             dataProduct={getDataProduct(genericProperties?.dataProduct)}
+            health={health || undefined}
             degree={degree}
             paths={paths}
             isOutputPort={isOutputPort}

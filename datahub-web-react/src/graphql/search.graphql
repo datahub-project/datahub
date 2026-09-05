@@ -1243,6 +1243,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        health {
+            ...entityHealth
+        }
         structuredProperties {
             properties {
                 ...structuredPropertiesFields
@@ -1254,6 +1257,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     }
     ... on MLFeature {
         ...nonRecursiveMLFeature
+        health {
+            ...entityHealth
+        }
         structuredProperties {
             properties {
                 ...structuredPropertiesFields
@@ -1289,6 +1295,9 @@ fragment searchResultsWithoutSchemaField on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        health {
+            ...entityHealth
         }
         structuredProperties {
             properties {
