@@ -6,7 +6,10 @@ performing any actual venv creation or management.
 """
 
 import hashlib
+from enum import Enum, auto
 from typing import Union
+
+from packaging.requirements import InvalidRequirement, Requirement
 
 # Version constants
 VENV_VERSION_LATEST = "latest"
@@ -22,6 +25,65 @@ def is_bundled_version(version: str) -> bool:
 def should_use_bundled_venv(version: str) -> bool:
     """Determine if bundled venv should be used based on version."""
     return is_bundled_version(version)
+
+
+class ReqKind(Enum):
+    """Three-way classification of requirement lines.
+
+    The install path writes all lines verbatim to a requirements file (option lines are valid
+    there). The resolve path needs only MOVING lines but must forward OPTION lines so the
+    resolver sees the same indexes and constraints. PINNED lines are skipped entirely — they
+    name exactly one artifact and re-resolving them costs a round trip to learn nothing.
+    """
+
+    PINNED = auto()
+    MOVING = auto()
+    OPTION = auto()
+
+
+def classify_requirement(requirement: str) -> ReqKind:
+    """Classify a single requirement line."""
+    stripped = requirement.lstrip()
+    if stripped.startswith("-"):
+        return ReqKind.OPTION
+
+    try:
+        parsed = Requirement(requirement)
+    except InvalidRequirement:
+        return ReqKind.PINNED
+
+    if parsed.url:
+        return ReqKind.PINNED
+
+    specs = list(parsed.specifier)
+    if len(specs) != 1:
+        return ReqKind.MOVING
+    only = specs[0]
+    if only.operator not in ("==", "===") or "*" in only.version:
+        return ReqKind.MOVING
+    return ReqKind.PINNED
+
+
+def partition_requirements(
+    reqs: list[str],
+) -> dict[ReqKind, list[str]]:
+    """Partition a list of requirement lines into PINNED, MOVING, and OPTION.
+
+    Used by both the resolve path (feeds OPTION + MOVING to uv pip compile)
+    and the install path (writes all lines verbatim).
+    """
+    result: dict[ReqKind, list[str]] = {k: [] for k in ReqKind}
+    for req in reqs:
+        result[classify_requirement(req)].append(req)
+    return result
+
+
+def is_moving_requirement(requirement: str) -> bool:
+    """Whether this requirement can resolve to a different build over time.
+
+    Convenience wrapper around classify_requirement for callers that only need the boolean.
+    """
+    return classify_requirement(requirement) == ReqKind.MOVING
 
 
 def get_venv_name(
