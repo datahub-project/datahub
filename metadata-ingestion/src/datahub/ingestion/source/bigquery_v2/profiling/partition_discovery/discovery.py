@@ -285,11 +285,14 @@ class PartitionDiscovery:
                 return self._get_external_table_partition_filters(
                     table, project, schema, execute_query_func
                 )
-            if probe_error is not None:
-                # COLUMNS lookup failed AND the probe errored: the partition state is
-                # unknown, not confirmed-unpartitioned. Returning [] would trigger an
-                # unfiltered/full scan that likely fails the same way, so preserve the
-                # unknown state and skip the table instead.
+            if not schema_authoritative:
+                # The COLUMNS lookup failed, so we never got an authoritative
+                # "unpartitioned" answer. The fallback probe only reveals whether the
+                # table enforces require_partition_filter — a partitioned table with
+                # require_partition_filter=FALSE probes cleanly too — so neither a clean
+                # probe nor a non-partition-filter probe error proves the table is
+                # unpartitioned. Returning [] here would trigger an unfiltered/full scan
+                # of a table whose partition state is unknown, so skip it instead.
                 warn(
                     self.report,
                     logger,
@@ -300,8 +303,8 @@ class PartitionDiscovery:
                     context=f"{table.name}: probe error={probe_error}",
                 )
                 return None
-            # Either the COLUMNS query authoritatively returned no partition columns, or
-            # the probe ran cleanly without a partition-filter error: unpartitioned.
+            # The COLUMNS query authoritatively returned no partition columns: the table
+            # is genuinely unpartitioned and can be profiled unfiltered.
             logger.debug(f"No partition columns found for table {table.name}")
             return []
 
