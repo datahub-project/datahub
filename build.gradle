@@ -108,7 +108,7 @@ buildscript {
   // instrument Java 25 runtime classes; forced in the resolutionStrategy block below.
   ext.byteBuddyVersion = '1.18.11'
   ext.openLineageVersion = '1.50.0'
-  ext.awsSdk2Version = '2.30.33'
+  ext.awsSdk2Version = '2.46.10'
   ext.micrometerVersion = '1.16.6'
   // CVE-2026-1002; CVE-2026-6860 / GHSA-3g76-f9xq-8vp6 (SNI cache growth); fabric8 kubernetes-httpclient-vertx
   ext.vertxVersion = '4.5.27'
@@ -234,10 +234,10 @@ project.ext.externalDependency = [
     'avroCompiler': 'org.apache.avro:avro-compiler:1.11.5',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.25',
     'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.3.2',
-    'awsSdk2Bom': 'software.amazon.awssdk:bom:2.30.33',
+    'awsSdk2Bom': "software.amazon.awssdk:bom:$awsSdk2Version",
     'awsS3': "software.amazon.awssdk:s3:$awsSdk2Version",
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:2.0.4',
-    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.6.5',
+    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:4.4.0',
     'awsRds':"software.amazon.awssdk:rds:$awsSdk2Version",
     'azureIdentityExtensions': 'com.azure:azure-identity-extensions:1.2.6',
     'azureIdentity': 'com.azure:azure-identity:1.18.1',
