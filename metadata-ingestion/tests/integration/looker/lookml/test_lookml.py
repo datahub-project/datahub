@@ -1271,6 +1271,35 @@ def test_drop_hive(pytestconfig, tmp_path, mock_time):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
+def test_drop_hive_glue(pytestconfig, tmp_path, mock_time):
+    # Glue tables queried via Athena/Presto use `hive.<db>.<table>` syntax in LookML,
+    # so the same prefix-stripping must apply when the connection maps to the glue platform.
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
+    mce_out_file = "drop_hive_dot_glue.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/drop_hive_dot_glue",
+    )
+
+    new_recipe["source"]["config"]["connection_to_platform_map"] = {
+        "my_connection": "glue"
+    }
+
+    pipeline = Pipeline.create(new_recipe)
+    pipeline.run()
+    pipeline.pretty_print_summary()
+    pipeline.raise_from_status(raise_warnings=False)
+
+    golden_path = test_resources_dir / "drop_hive_dot_glue_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_gms_schema_resolution(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/looker/lookml"
     mce_out_file = "drop_hive_dot.json"
