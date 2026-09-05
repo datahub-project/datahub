@@ -25,11 +25,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Retrieves the plaintext values of secrets stored in DataHub. Uses AES symmetric encryption /
  * decryption. Requires the MANAGE_SECRETS privilege.
  */
+@Slf4j
 public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<List<SecretValue>>> {
 
   private final EntityClient _entityClient;
@@ -69,6 +71,8 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
 
               // Now for each secret, decrypt and return the value. If no secret was found, then we
               // will simply omit it from the list.
+              // Secrets that cannot be decrypted are omitted in the same way, so that a single
+              // undecryptable secret does not fail the entire batch.
               // There is no ordering guarantee for the list.
               return entities.values().stream()
                   .map(
@@ -79,11 +83,29 @@ public class GetSecretValuesResolver implements DataFetcher<CompletableFuture<Li
                           // Aspect is present.
                           final DataHubSecretValue secretValue =
                               new DataHubSecretValue(aspect.getValue().data());
-                          // Now decrypt the encrypted secret.
-                          final String decryptedSecretValue =
-                              _secretService.decrypt(
-                                  context.getOperationContext(), secretValue.getValue());
-                          return new SecretValue(secretValue.getName(), decryptedSecretValue);
+                          try {
+                            // Now decrypt the encrypted secret.
+                            final String decryptedSecretValue =
+                                _secretService.decrypt(
+                                    context.getOperationContext(), secretValue.getValue());
+                            return new SecretValue(secretValue.getName(), decryptedSecretValue);
+                          } catch (SecurityException e) {
+                            // The service's caller guard denied the actor before any cipher work.
+                            // That is an authorization failure of the whole request, not a
+                            // property of this secret's stored value, so it must keep failing
+                            // the request instead of being mistaken for a bad ciphertext.
+                            throw e;
+                          } catch (Exception e) {
+                            // Isolate the failure to this secret so that the healthy secrets in
+                            // the batch still resolve. Never log the secret value itself.
+                            log.warn(
+                                "Failed to decrypt secret {}. Its stored value is undecryptable, "
+                                    + "likely encrypted with a different encryption key. Omitting "
+                                    + "it from the response.",
+                                secretValue.getName(),
+                                e);
+                            return null;
+                          }
                         } else {
                           // No secret exists
                           return null;
