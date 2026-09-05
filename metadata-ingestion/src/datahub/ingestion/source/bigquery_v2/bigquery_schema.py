@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import re
 from collections import defaultdict
@@ -50,6 +51,11 @@ from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# Per-call timeout for materialized view stats fetched via tables.get.
+# Throttling is opt-in via the source's rate_limit / requests_per_min config,
+# same as every other rate-limited call path here.
+_MV_STATS_TIMEOUT_SEC = 30
 
 
 @dataclass
@@ -651,6 +657,53 @@ class BigQuerySchemaApi:
                     )
             self.report.num_get_views_for_dataset_api_requests += 1
             self.report.get_views_for_dataset_sec += current_timer.elapsed_seconds()
+
+    def get_table_metadata(
+        self,
+        project_id: str,
+        dataset_name: str,
+        table_name: str,
+        report: BigQueryV2Report,
+        rate_limiter: Optional[RateLimiter] = None,
+    ) -> Optional[bigquery.Table]:
+        """Fetch a single table's metadata via the BigQuery `tables.get` API.
+
+        This is a metadata-only call (no data scan, no `getData`), used to source
+        row count / size / last-modified time for materialized views, which are not
+        covered by `INFORMATION_SCHEMA.PARTITIONS`. Returns None on failure (a
+        warning is recorded and the caller should proceed without stats).
+
+        `rate_limiter` follows this source's convention: built by the caller from
+        `rate_limit` / `requests_per_min`, and None (no throttling) by default.
+        """
+        table_ref = f"{project_id}.{dataset_name}.{table_name}"
+        # Acquire the limiter BEFORE starting the timer. Throttle wait is not
+        # BigQuery latency, and booking it as such reported 263s of "API time"
+        # for 400 instantaneous calls, pointing anyone reading the perf report
+        # at BigQuery when the cost was entirely local.
+        with rate_limiter or contextlib.nullcontext():
+            # Accounting lives in `finally` so a failed call still records the
+            # request and the time it burned — a systematic permission error
+            # would otherwise report zero API activity while spending the full
+            # timeout on every view.
+            try:
+                with PerfTimer() as current_timer:
+                    try:
+                        return self.bq_client.get_table(
+                            table_ref, timeout=_MV_STATS_TIMEOUT_SEC
+                        )
+                    except Exception as e:
+                        report.warning(
+                            title="Failed to fetch materialized view stats",
+                            message="Error fetching materialized view metadata via tables.get",
+                            context=table_ref,
+                            exc=e,
+                        )
+                        report.num_mv_stats_failed += 1
+                        return None
+            finally:
+                self.report.num_get_table_metadata_api_requests += 1
+                self.report.get_table_metadata_sec += current_timer.elapsed_seconds()
 
     @staticmethod
     def _make_bigquery_view(view: bigquery.Row) -> BigqueryView:
