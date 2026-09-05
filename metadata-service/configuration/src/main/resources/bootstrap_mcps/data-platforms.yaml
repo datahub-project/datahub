@@ -100,6 +100,16 @@
     displayName: Apache Doris
     type: OLAP_DATASTORE
     logoUrl: "assets/platforms/dorislogo.png"
+- entityUrn: urn:li:dataPlatform:starrocks
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: starrocks
+    displayName: StarRocks
+    type: OLAP_DATASTORE
+    logoUrl: "assets/platforms/starrockslogo.svg"
 - entityUrn: urn:li:dataPlatform:couchbase
   entityType: dataPlatform
   aspectName: dataPlatformInfo
