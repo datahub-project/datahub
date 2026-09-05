@@ -6,7 +6,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { DataProduct, EntityPath, EntityType, Owner } from '@types';
+import { DataProduct, EntityPath, EntityType, Health, Owner } from '@types';
 
 export const Preview = ({
     urn,
@@ -18,6 +18,7 @@ export const Preview = ({
     platformName,
     dataProduct,
     platformInstanceId,
+    health,
     degree,
     paths,
     isOutputPort,
@@ -33,6 +34,7 @@ export const Preview = ({
     platformName?: string | null;
     dataProduct?: DataProduct | null;
     platformInstanceId?: string;
+    health?: Health[] | null;
     degree?: number;
     paths?: EntityPath[];
     isOutputPort?: boolean;
@@ -55,6 +57,7 @@ export const Preview = ({
             platformInstanceId={platformInstanceId}
             dataProduct={dataProduct}
             logoComponent={entityRegistry.getIcon(EntityType.MlfeatureTable, 20, IconStyleType.HIGHLIGHT)}
+            health={health || undefined}
             degree={degree}
             paths={paths}
             isOutputPort={isOutputPort}
