@@ -385,6 +385,42 @@ module.exports = {
           id: "docs/glossary/business-glossary",
         },
         {
+          label: "Ontology",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              label: "What is an Ontology?",
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/overview",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/relating-glossary-terms",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/visualizing-your-ontology",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/querying-your-ontology",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/custom-relationships",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/ontology/sparql-api",
+              className: "saasOnly",
+            },
+          ],
+        },
+        {
           label: "Compliance Forms",
           type: "category",
           collapsed: true,
@@ -815,6 +851,7 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_2_0",
         "docs/managed-datahub/release-notes/v_2_1_0",
         "docs/managed-datahub/release-notes/v_2_0_0",
         "docs/managed-datahub/release-notes/v_1_1_0",

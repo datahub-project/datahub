@@ -105,6 +105,24 @@ describe('useGetEntities', () => {
         expect(result.current.entities.length).toBe(0);
     });
 
+    it('should filter out null entities returned for non-existent urns', () => {
+        // entities() returns a null member for any urn with no backing entity (e.g. an
+        // LLM-hallucinated urn:li:document:... in a chat answer). Nulls must be dropped so
+        // consumers that assume a non-null Entity[] don't dereference null and crash.
+        useGetEntitiesQueryMock.mockReturnValue({
+            data: { entities: [null, MOCK_ENTITIES[0], null, MOCK_ENTITIES[1]] },
+            loading: false,
+        });
+        const { result } = renderHook(() => useGetEntities([...VALID_URNS]));
+        expect(result.current.entities).toEqual(MOCK_ENTITIES);
+    });
+
+    it('should return an empty array when every urn resolves to null', () => {
+        useGetEntitiesQueryMock.mockReturnValue({ data: { entities: [null, null] }, loading: false });
+        const { result } = renderHook(() => useGetEntities([...VALID_URNS]));
+        expect(result.current.entities).toEqual([]);
+    });
+
     it('should call with skip: true if all urns are filtered out (not matching urn:li:)', () => {
         renderHook(() => useGetEntities(['foo', 'bar']));
         expect(useGetEntitiesQueryMock).toHaveBeenCalledWith({

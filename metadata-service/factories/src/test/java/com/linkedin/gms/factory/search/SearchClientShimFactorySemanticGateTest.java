@@ -5,10 +5,12 @@ import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es7CompatibilitySearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 /**
  * Unit tests for the startup gate in {@link SearchClientShimFactory} that rejects semantic search
@@ -52,6 +54,28 @@ public class SearchClientShimFactorySemanticGateTest {
     assertTrue(
         msg.contains("semantic"),
         "IllegalStateException should mention semantic search; got: " + ex.getMessage());
+  }
+
+  @Test
+  public void factoryRejectsOpenSearchIamAuthWithoutSharedCredentials() {
+    ElasticSearchConfiguration esConfig = new ElasticSearchConfiguration();
+    esConfig.setOpensearchUseAwsIamAuth(true);
+    esConfig.setRegion("us-east-1");
+
+    IllegalStateException ex =
+        expectThrows(
+            IllegalStateException.class,
+            () -> SearchClientShimFactory.assertIamAuthHasSharedCredentials(esConfig, null));
+    assertTrue(ex.getMessage().contains("DefaultCredentialsProvider"));
+  }
+
+  @Test
+  public void factoryAllowsOpenSearchIamAuthWithSharedCredentials() {
+    ElasticSearchConfiguration esConfig = new ElasticSearchConfiguration();
+    esConfig.setOpensearchUseAwsIamAuth(true);
+    esConfig.setRegion("us-east-1");
+    SearchClientShimFactory.assertIamAuthHasSharedCredentials(
+        esConfig, mock(AwsCredentialsProvider.class));
   }
 
   @Test

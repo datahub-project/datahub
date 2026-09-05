@@ -9,7 +9,7 @@ interface Props {
     enableTabClosingHandling?: boolean;
     enableRedirectHandling?: boolean;
     confirmationModalTitle?: string;
-    confirmationModalContent?: React.ReactNode;
+    confirmModalContent?: React.ReactNode;
     confirmButtonText?: string;
     closeButtonText?: string;
 }
@@ -37,7 +37,7 @@ export function DiscardUnsavedChangesConfirmationProvider({
     enableTabClosingHandling = true,
     enableRedirectHandling = true,
     confirmationModalTitle,
-    confirmationModalContent,
+    confirmModalContent,
     confirmButtonText,
     closeButtonText,
 }: React.PropsWithChildren<Props>) {
@@ -102,7 +102,7 @@ export function DiscardUnsavedChangesConfirmationProvider({
             <ConfirmationModal
                 isOpen={isConfirmationShown}
                 modalTitle={confirmationModalTitle ?? t('unsavedChanges.title')}
-                modalText={confirmationModalContent ?? t('unsavedChanges.text')}
+                modalText={confirmModalContent ?? t('unsavedChanges.text')}
                 closeButtonColor="gray"
                 handleConfirm={() => {
                     setIsConfirmationShown(false);
@@ -121,7 +121,7 @@ export function DiscardUnsavedChangesConfirmationProvider({
                     <ConfirmationModal
                         isOpen={isRedirectConfirmationShown}
                         modalTitle={confirmationModalTitle ?? t('unsavedChanges.title')}
-                        modalText={confirmationModalContent ?? t('unsavedChanges.text')}
+                        modalText={confirmModalContent ?? t('unsavedChanges.text')}
                         closeButtonColor="gray"
                         handleConfirm={() => setIsRedirectConfirmationShown(false)}
                         confirmButtonText={confirmButtonText ?? tc('continue')}

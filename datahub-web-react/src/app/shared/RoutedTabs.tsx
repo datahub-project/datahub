@@ -5,17 +5,20 @@ import { Redirect, useHistory } from 'react-router';
 import { Route, Switch, useLocation, useRouteMatch } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
+
 const { TabPane } = Tabs;
 
 interface Props extends TabsProps {
     defaultPath: string;
     tabs: Array<{
-        name: string;
+        name: string | React.ReactNode;
         path: string;
         content: React.ReactNode;
         display?: {
             enabled: () => boolean;
         };
+        customTitle?: React.ReactElement;
     }>;
     onTabChange?: (selectedTab: string) => void;
 }
@@ -24,6 +27,11 @@ const RoutedTabsStyle = styled.div`
     display: flex;
     flex-direction: column;
     height: 100%;
+    overflow: auto;
+`;
+
+const RouteContainer = styled.div`
+    flex: 1;
     overflow: auto;
 `;
 
@@ -53,7 +61,7 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
                 {tabs.map((tab) => {
                     return (
                         <TabPane
-                            tab={tab.name}
+                            tab={tab.customTitle ? tab.customTitle : tab.name}
                             key={tab.path.replace('/', '')}
                             disabled={!tab.display?.enabled()}
                             data-testid={`tab-${tab.path.replace('/', '').toLowerCase()}`}
@@ -65,15 +73,18 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
                 <Route exact path={path}>
                     <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${defaultPath}`} />
                 </Route>
-
-                {tabs.map((tab) => (
-                    <Route
-                        exact
-                        path={`${path}/${tab.path.replace('/', '')}`}
-                        render={() => tab.content}
-                        key={tab.path}
-                    />
-                ))}
+                <ErrorBoundary resetKeys={[activePath]} variant="tab">
+                    <RouteContainer>
+                        {tabs.map((tab) => (
+                            <Route
+                                exact
+                                path={`${path}/${tab.path.replace('/', '')}`}
+                                render={() => tab.content}
+                                key={tab.path}
+                            />
+                        ))}
+                    </RouteContainer>
+                </ErrorBoundary>
             </Switch>
         </RoutedTabsStyle>
     );

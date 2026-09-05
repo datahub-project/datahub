@@ -638,7 +638,6 @@ Reference Links:
 | `KAFKA_CONSUMER_MCL_FINE_GRAINED_LOGGING_ENABLED` | `false`                           | Enable fine-grained logging for MCL        | GMS, MAE Consumer                                         |
 | `KAFKA_CONSUMER_MCL_ASPECTS_TO_DROP`              | ``                                | Aspects to drop for MCL                    | GMS, MAE Consumer                                         |
 | `KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET`             | `latest`                          | PE consumer auto offset reset              | GMS, PE Consumer                                          |
-| `KAFKA_CONSUMER_PERCENTILES`                      | `0.5,0.95,0.99,0.999`             | Consumer percentiles                       | GMS, MAE Consumer, MCE Consumer, PE Consumer, PE Consumer |
 | `KAFKA_CONSUMER_SERVICE_LEVEL_OBJECTIVES`         | `300,1800,3000,10800,21600,43200` | Consumer SLOs in seconds                   | GMS, MAE Consumer, MCE Consumer, PE Consumer, PE Consumer |
 | `KAFKA_CONSUMER_MAX_EXPECTED_VALUE`               | `86000`                           | Maximum expected consumer value in seconds | GMS, MAE Consumer, MCE Consumer, PE Consumer, PE Consumer |
 
@@ -838,6 +837,7 @@ Reference Links:
 | `THEME_V2_ENABLED`                      | `true`  | Allow theme v2 to be turned on                                                                                  | GMS        |
 | `THEME_V2_DEFAULT`                      | `true`  | Set default theme for users                                                                                     | GMS        |
 | `THEME_V2_TOGGLEABLE`                   | `false` | Allow theme v2 to be toggled (DataHub Cloud only)                                                               | GMS        |
+| `THEME_DARK_MODE_ENABLED`               | `false` | Show the light/dark mode toggle and apply the dark color theme                                                  | GMS        |
 | `SCHEMA_FIELD_CLL_ENABLED`              | `false` | Enable schema field-level lineage links                                                                         | GMS        |
 | `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`    | `true`  | Ignore schema field status in lineage                                                                           | GMS        |
 | `SHOW_SEPARATE_SIBLINGS`                | `false` | Separate siblings with no combined view                                                                         | GMS        |
@@ -917,6 +917,13 @@ Reference Links:
 | `BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_ENABLED`    | `true`  | Enable browse paths V2 updates    | System Update |
 | `BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_BATCH_SIZE` | `5000`  | Browse paths V2 batch size        | System Update |
 | `REPROCESS_DEFAULT_BROWSE_PATHS_V2`                  | `false` | Reprocess default browse paths V2 | System Update |
+
+### Data Product Assets Configuration
+
+| Environment Variable                                     | Default | Description                                                                                                                          | Components    |
+| -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| `REPROCESS_DATA_PRODUCT_ASSETS`                          | `false` | Force a re-upsert sweep of all Data Products so `DataProductAssetsSideEffect` re-mirrors membership (missing ADDs and stale REMOVEs) | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_BATCH_SIZE` | `1000`  | Batch size when scrolling Data Products during the optional reprocess step                                                           | System Update |
 
 ### Ingestion Indices Configuration
 
@@ -1158,23 +1165,26 @@ See [Monitoring — API usage aggregation metrics](../advanced/monitoring.md#api
 
 ### GraphQL Configuration
 
-| Environment Variable                            | Default                                                    | Description                                      | Components |
-| ----------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------ | ---------- |
-| `GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL`      | `false`                                                    | Enable separate thread pool for GraphQL          | GMS        |
-| `GRAPHQL_CONCURRENCY_STACK_SIZE`                | `256000`                                                   | GraphQL thread pool stack size                   | GMS        |
-| `GRAPHQL_CONCURRENCY_CORE_POOL_SIZE`            | `-1`                                                       | GraphQL core pool size (default 5 \* cores)      | GMS        |
-| `GRAPHQL_CONCURRENCY_MAX_POOL_SIZE`             | `-1`                                                       | GraphQL max pool size (default 100 \* cores)     | GMS        |
-| `GRAPHQL_CONCURRENCY_KEEP_ALIVE`                | `60`                                                       | GraphQL thread keep alive time                   | GMS        |
-| `GRAPHQL_QUERY_COMPLEXITY_LIMIT`                | `2000`                                                     | GraphQL query complexity limit                   | GMS        |
-| `GRAPHQL_QUERY_DEPTH_LIMIT`                     | `50`                                                       | GraphQL query depth limit                        | GMS        |
-| `GRAPHQL_QUERY_INTROSPECTION_ENABLED`           | `true`                                                     | Enable GraphQL introspection                     | GMS        |
-| `GRAPHQL_METRICS_ENABLED`                       | `true`                                                     | Enable GraphQL metrics collection                | GMS        |
-| `GRAPHQL_PERCENTILES`                           | `0.5,0.75,0.95,0.98,0.99,0.999`                            | GraphQL percentiles                              | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_ENABLED`           | `false`                                                    | Enable field-level GraphQL metrics               | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_OPERATIONS`        | `getSearchResultsForMultiple,searchAcrossLineageStructure` | GraphQL field-level operations                   | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_PATH_ENABLED`      | `false`                                                    | Include field path in GraphQL metrics            | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_PATHS`             | ``                                                         | GraphQL field-level paths                        | GMS        |
-| `GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED` | `false`                                                    | Include trivial data fetchers in GraphQL metrics | GMS        |
+| Environment Variable                            | Default                                                    | Description                                                     | Components |
+| ----------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------- | ---------- |
+| `GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL`      | `false`                                                    | Enable separate thread pool for GraphQL                         | GMS        |
+| `GRAPHQL_CONCURRENCY_SCALE_WITH_PROCESSORS`     | `false`                                                    | Restore CPU-scaled pool sizes and SynchronousQueue              | GMS        |
+| `GRAPHQL_CONCURRENCY_STACK_SIZE`                | `256000`                                                   | GraphQL thread pool stack size                                  | GMS        |
+| `GRAPHQL_CONCURRENCY_CORE_POOL_SIZE`            | `40`                                                       | GraphQL core pool size (`< 0` = 5 \* cores)                     | GMS        |
+| `GRAPHQL_CONCURRENCY_MAX_POOL_SIZE`             | `800`                                                      | GraphQL max pool size, 8-core cap (`<= 0` = 100 \* cores)       | GMS        |
+| `GRAPHQL_CONCURRENCY_QUEUE_SIZE`                | `0`                                                        | `<= 0` SynchronousQueue (blocking fan-out); `> 0` bounded queue | GMS        |
+| `GRAPHQL_CONCURRENCY_KEEP_ALIVE`                | `60`                                                       | GraphQL thread keep alive time                                  | GMS        |
+| `GRAPHQL_QUERY_COMPLEXITY_LIMIT`                | `2000`                                                     | GraphQL query complexity limit                                  | GMS        |
+| `GRAPHQL_QUERY_DEPTH_LIMIT`                     | `50`                                                       | GraphQL query depth limit                                       | GMS        |
+| `GRAPHQL_QUERY_INTROSPECTION_ENABLED`           | `true`                                                     | Enable GraphQL introspection                                    | GMS        |
+| `GRAPHQL_METRICS_ENABLED`                       | `true`                                                     | Enable GraphQL metrics collection                               | GMS        |
+| `GRAPHQL_PERCENTILES`                           | `0.5,0.75,0.95,0.98,0.99,0.999`                            | GraphQL percentiles                                             | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_ENABLED`           | `false`                                                    | Enable field-level GraphQL metrics                              | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_OPERATIONS`        | `getSearchResultsForMultiple,searchAcrossLineageStructure` | GraphQL field-level operations                                  | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_PATH_ENABLED`      | `false`                                                    | Include field path in GraphQL metrics                           | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_PATHS`             | ``                                                         | GraphQL field-level paths                                       | GMS        |
+| `GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED` | `false`                                                    | Include trivial data fetchers in GraphQL metrics                | GMS        |
+| `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED`           | `true`                                                     | Load only aspects the query selection needs                     | GMS        |
 
 ### Chrome Extension Configuration
 
@@ -1208,6 +1218,8 @@ Lag-based MCP / Kafka ingest throttling (`MCP_*` throttle flags below) is docume
 | `MCP_SIDE_EFFECTS_SCHEMA_FIELD_DOMAIN_ENABLED`    | `false`    | When schema-field side effects are on, mirror dataset `domains` onto each schemaField (upsert and cascade delete). Changing this flag updates the `schemaFieldsFromSchemaMetadata` upgrade fingerprint so the next SystemUpdateNonBlocking run backfills field `domains` when enabled. Disabling stops further mirroring and does **not** delete leftover field aspects. Set `SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED=true` for the backfill run. | GMS, MCE Consumer, System Update |
 | `MCP_SIDE_EFFECTS_SCHEMA_FIELD_OWNERSHIP_ENABLED` | `false`    | When schema-field side effects are on, mirror dataset `ownership` onto each schemaField (upsert and cascade delete). Same fingerprint / backfill behavior as the domain sub-flag (disabling does not delete leftover field `ownership`).                                                                                                                                                                                                                           | GMS, MCE Consumer, System Update |
 | `MCP_SIDE_EFFECTS_DATA_PRODUCT_UNSET_ENABLED`     | `true`     | Enable data product unset side effects                                                                                                                                                                                                                                                                                                                                                                                                                             | GMS, MCE Consumer                |
+| `MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_ENABLED`    | `true`     | Enable mirroring of Data Product membership onto member assets' `dataProducts` aspect for search filtering/faceting                                                                                                                                                                                                                                                                                                                                                | GMS, MCE Consumer, System Update |
+| `MCP_SIDE_EFFECTS_DATA_PRODUCT_ASSETS_MAX_FANOUT` | `500`      | Batch size for reading existing asset-side `dataProducts` during sync and for search scroll pages during reprocess; unsynced ADD patches are emitted in one side-effect pass (apply is Kafka-batched at 500)                                                                                                                                                                                                                                                       | GMS, MCE Consumer, System Update |
 | `MCP_THROTTLE_UPDATE_INTERVAL_MS`                 | `60000`    | MCP throttle update interval                                                                                                                                                                                                                                                                                                                                                                                                                                       | GMS, MCE Consumer                |
 | `MCP_MCE_CONSUMER_THROTTLE_ENABLED`               | `false`    | Enable MCE consumer throttling                                                                                                                                                                                                                                                                                                                                                                                                                                     | GMS, MCE Consumer                |
 | `MCP_API_REQUESTS_THROTTLE_ENABLED`               | `false`    | Enable API requests throttling                                                                                                                                                                                                                                                                                                                                                                                                                                     | GMS, MCE Consumer                |

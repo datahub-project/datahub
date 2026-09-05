@@ -45,16 +45,6 @@ export const Required = styled.span(({ theme }) => ({
     marginLeft: spacing.xxsm,
 }));
 
-export const RadioHoverState = styled.div(({ theme }) => ({
-    border: `${borders['2px']} ${theme.colors.borderBrand}`,
-    width: 'calc(100% - -3px)',
-    height: 'calc(100% - -3px)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: radius.full,
-}));
-
 export const Checkmark = styled.div<{ checked: boolean; disabled: boolean; error: string }>(
     ({ checked, disabled, error, theme }) => ({
         width: 'calc(100% - 6px)',

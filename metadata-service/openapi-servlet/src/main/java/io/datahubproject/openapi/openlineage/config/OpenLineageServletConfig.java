@@ -59,6 +59,7 @@ public class OpenLineageServletConfig {
             .usePatch(properties.isUsePatch())
             .fabricType(fabricType)
             .orchestrator(properties.getOrchestrator())
+            .domains(properties.getDomains())
             .parentJobUrn(null)
             .build();
     log.info("Starting OpenLineage Endpoint with config: {}", datahubOpenlineageConfig);
