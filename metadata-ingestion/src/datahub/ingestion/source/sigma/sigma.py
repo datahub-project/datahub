@@ -1695,6 +1695,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     )
                 else:
                     self.reporter.dm_customsql_fgl_downstream_unmapped += 1
+                    logger.debug(
+                        "customSQL FGL downstream unmapped: SQL column %r on "
+                        "%s has no matching Sigma display column; known=%r",
+                        field_path,
+                        ds_parent_urn,
+                        sorted(col_mapping.values())[:25],
+                    )
             if rewritten_downstreams:
                 rewritten_fgls.append(
                     FineGrainedLineageClass(
@@ -2279,6 +2286,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         canonical_col = upstream_cols.get(ref.column.lower())
         if canonical_col is None:
             self.reporter.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column += 1
+            logger.debug(
+                "element %s: cross-DM drop, ref %r column %r absent from "
+                "producer %s (segments=%r, producer_has=%r)",
+                element.elementId,
+                ref.raw,
+                ref.column,
+                chosen_upstream_urn,
+                ref.parts,
+                sorted(upstream_cols.values())[:25],
+            )
             return None
         return FineGrainedLineageClass(
             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
@@ -3504,6 +3521,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         entries = self.sigma_api.get_workbook_lineage(workbook.workbookId)
         if entries is None:
             self.reporter.chart_input_fields_warehouse_index_lookup_failed += 1
+            logger.debug(
+                "workbook %s: /lineage returned nothing, so no warehouse-table "
+                "index is available; every chart column in this workbook loses "
+                "warehouse qualification",
+                workbook.workbookId,
+            )
             return _WorkbookWarehouseIndex(by_url_id={}, by_name={})
 
         for entry in entries:
