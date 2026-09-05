@@ -133,7 +133,15 @@ docker compose -f docker-compose.iglu.yml down -v
 
 ## Performance Test Expectations
 
-- **Parallel fetching**: 3x+ faster than sequential (with 10 workers)
-- **Caching**: Should reduce API calls by 66%+ for repeated calls
-- **URN caching**: 10x+ faster on subsequent calls
-- **Large datasets**: <5s for 1000 schemas with 20 concurrent workers
+The performance tests assert deterministic properties rather than wall-clock
+ratios, so they do not depend on how fast or how loaded the runner is:
+
+- **Parallel fetching**: with `max_concurrent_api_calls` above 1, deployment
+  fetches overlap (peak in-flight of at least 2); with a single worker they
+  never overlap; both modes issue the same number of fetches
+- **Caching**: repeated data structure lookups reach the API once, a 66%+
+  reduction over three calls
+- **Large datasets**: 1000 schemas with 20 concurrent workers fetch the
+  structures list once and serve every later lookup from cache
+
+Elapsed times are still measured and printed as diagnostics.
