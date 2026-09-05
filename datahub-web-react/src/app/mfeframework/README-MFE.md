@@ -52,6 +52,40 @@ To ensure compatibility between the DataHub MFE configuration above and your act
   ]
 ```
 
+### Tuning the Remote Load Timeout
+
+DataHub waits a fixed amount of time for an MFE's remote module to load before giving up and
+rendering the "not available at this time" error state. The default is **10000 ms**, which can be
+too short for a large bundle or a slow network.
+
+Set `loadTimeoutMs` (in milliseconds) at the top level to change the default for every MFE, and/or
+on an individual entry to override it for just that one:
+
+```yaml
+topLevelMenuTitle: My Apps
+subNavigationMode: false
+loadTimeoutMs: 10000 # default for every MFE below
+microFrontends:
+    - id: HelloWorld
+      label: HelloWorld DEV
+      path: /helloworld-mfe
+      remoteEntry: http://localhost:3002/remoteEntry.js
+      module: helloWorldMFE/mount
+      loadTimeoutMs: 30000 # this one is slow; overrides the 10000 above
+      flags:
+          enabled: true
+          showInNav: true
+      navIcon: HandWaving
+```
+
+Resolution order is per-MFE `loadTimeoutMs`, then top-level `loadTimeoutMs`, then 10000 ms. Both
+fields are optional, so existing configs keep the previous behavior unchanged. A value that is not
+a positive number is logged and ignored — it falls through to the next level rather than taking the
+MFE offline.
+
+Note that `datahub-frontend` reads the config file once at startup and serves it with a 5-minute
+browser cache, so a change here needs a `datahub-frontend` restart to take effect.
+
 ### Build the `datahub-frontend` Binary
 
 ```shell
