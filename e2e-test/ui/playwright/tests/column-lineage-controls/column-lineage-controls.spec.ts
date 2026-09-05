@@ -41,6 +41,11 @@ for (const hideDbtSourceInLineage of [true, false]) {
         hideDbtSourceInLineage,
         // The controls stand in for lineage filter nodes, so they only render without them
         showLineageFilterNodes: false,
+        // navigateToDatasetLineage below lands on a bare /dataset/<urn> URL first; with
+        // datasetSummaryPageV1 on that mounts the new Summary tab (its own module/data
+        // fetches) before the Lineage tab takes over, adding load racing against the graph
+        // render that waitForGraphToRender/waitForViewportToSettle wait on.
+        datasetSummaryPageV1: false,
       });
       await lineagePage.navigateToDatasetLineage(WAREHOUSE_URN);
       await lineagePage.waitForGraphToRender();

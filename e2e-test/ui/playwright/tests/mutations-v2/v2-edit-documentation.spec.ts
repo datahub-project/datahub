@@ -32,7 +32,16 @@ test.describe.configure({ mode: 'serial' });
 test.describe('edit documentation and link to dataset', () => {
   let docPage: EntityDocumentationPage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    // datasetSummaryPageV1 removes the standalone "Documentation" tab this suite exercises;
+    // editing now lives inside the Summary tab's About section (different component, different
+    // testids — entityV2/summary/documentation/AboutSection.tsx) instead. Pinning the flag off
+    // here keeps this suite covering the legacy tab, which the flag still makes reachable, but
+    // it means the new default About-section doc-editing/link flow for datasets has NO test
+    // coverage yet. TODO: add a dataset-specific Summary-tab doc/link spec (there's currently
+    // only entity-pages/summary-tab/v2-summary-tab-about-section.spec.ts, which covers a Domain
+    // under assetSummaryPageV1, not a Dataset under datasetSummaryPageV1) and revisit this pin.
+    await apiMock.setFeatureFlags({ datasetSummaryPageV1: false });
     docPage = new EntityDocumentationPage(page, logger, logDir);
     await docPage.navigateToDatasetDocumentationTab(SAMPLE_DATASET_URN, SAMPLE_DATASET_NAME);
   });

@@ -132,7 +132,10 @@ export class SchemaBlamePage extends BasePage {
 
   async navigateToDataset(urn: string): Promise<void> {
     this.logger?.step('navigate to dataset', { urn });
-    const datasetPath = `/dataset/${urn}`;
+    // Navigate directly to the Columns tab rather than relying on it being the default
+    // landing tab on a bare dataset URL — that default varies with feature flags such as
+    // datasetSummaryPageV1 (which puts "Summary" first).
+    const datasetPath = `/dataset/${urn}/Columns`;
     await this.navigate(datasetPath);
     await this.waitForSchemaLoad();
   }

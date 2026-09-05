@@ -92,8 +92,11 @@ test.describe('Query and Filter Search', () => {
     await searchPage.clickEntityResult();
     await searchPage.expectTextVisible('Tags');
 
-    // Verify the specific tag element is visible (requires page directly).
-    const tagLocator = page.getByTestId('tag-PlaywrightFeatureTag');
+    // Verify the specific tag element is visible (requires page directly). Scoped to the
+    // sidebar Tags section: with datasetSummaryPageV1 on, the Summary tab's Properties panel
+    // renders its own chip with the same testid, so a bare page-level lookup is ambiguous.
+    // eslint-disable-next-line playwright/no-raw-locators -- HTML id set by EntityProfileCard; no data-testid equivalent
+    const tagLocator = page.locator('#entity-profile-tags').getByTestId('tag-PlaywrightFeatureTag');
     await expect(tagLocator).toBeVisible();
     await searchPage.expectTextVisible('PlaywrightFeatureTag');
   });
