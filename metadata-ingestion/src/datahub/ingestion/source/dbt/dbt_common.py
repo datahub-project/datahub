@@ -940,15 +940,19 @@ class _DeclaredConstraint:
     to_columns: FrozenSet[str] = field(default_factory=frozenset)
 
 
-_REF_RELATION_RE = re.compile(r"""ref\(\s*['"]([^'"]+)['"]""")
+_REF_OR_SOURCE_RE = re.compile(r"""(?:ref|source)\s*\(""", re.IGNORECASE)
+_QUOTED_ARG_RE = re.compile(r"""['"]([^'"]+)['"]""")
 
 
 def _normalize_dbt_relation_name(value: Optional[str]) -> Optional[str]:
     if not value:
         return None
-    match = _REF_RELATION_RE.search(value)
-    if match:
-        return match.group(1).lower()
+    # ``ref('model')``, ``ref('package', 'model')``, and
+    # ``source('src', 'table')`` — the last quoted argument is the relation.
+    if _REF_OR_SOURCE_RE.search(value):
+        args = _QUOTED_ARG_RE.findall(value)
+        if args:
+            return args[-1].lower()
     return value.strip().strip("\"'").rsplit(".", 1)[-1].lower()
 
 
@@ -4643,11 +4647,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             f"urn:li:dataContract:{mce_builder.datahub_guid({'entity': entity_urn})}"
         )
 
-        dq_contracts = [
-            DataQualityContractClass(assertion=urn)
-            for urn in data_quality_assertion_urns
-        ] or None
-
         existing_props = None
         existing_status = None
         graph = self.ctx.graph
@@ -4655,11 +4654,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             existing_props = graph.get_aspect(contract_urn, DataContractPropertiesClass)
             existing_status = graph.get_aspect(contract_urn, DataContractStatusClass)
 
+        # Keep authored / other-source DQ URNs. dbt adds its current set and
+        # does not remove foreign entries. Dedup by assertion URN.
+        merged_dq: List[DataQualityContractClass] = []
+        seen_dq_urns: Set[str] = set()
+        for entry in (existing_props.dataQuality if existing_props else None) or []:
+            urn = entry.assertion
+            if urn and urn not in seen_dq_urns:
+                seen_dq_urns.add(urn)
+                merged_dq.append(entry)
+        for urn in data_quality_assertion_urns:
+            if urn not in seen_dq_urns:
+                seen_dq_urns.add(urn)
+                merged_dq.append(DataQualityContractClass(assertion=urn))
+
         properties = DataContractPropertiesClass(
             entity=entity_urn,
             schema=existing_props.schema if existing_props else None,
             freshness=existing_props.freshness if existing_props else None,
-            dataQuality=dq_contracts,
+            dataQuality=merged_dq or None,
         )
         status = existing_status or DataContractStatusClass(
             state=DataContractStateClass.ACTIVE

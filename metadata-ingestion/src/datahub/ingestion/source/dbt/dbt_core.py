@@ -718,20 +718,26 @@ def _parse_model_run(
         return None
 
     execution_timestamp = run_result.timing_map.get("execute")
-    if (
-        execution_timestamp
-        and execution_timestamp.started_at
-        and execution_timestamp.completed_at
-    ):
-        start_time = parse_dbt_timestamp(execution_timestamp.started_at)
-        end_time = parse_dbt_timestamp(execution_timestamp.completed_at)
+    started = (
+        parse_dbt_timestamp(execution_timestamp.started_at)
+        if execution_timestamp and execution_timestamp.started_at
+        else None
+    )
+    completed = (
+        parse_dbt_timestamp(execution_timestamp.completed_at)
+        if execution_timestamp and execution_timestamp.completed_at
+        else None
+    )
+    if started and completed:
+        start_time, end_time = started, completed
     elif allow_missing_timing:
         # Contract run events still need a timestamp when execute timing is
-        # absent (preflight failures often are). Do not invent times for the
-        # default DataProcessInstance path — that would change existing recipes.
+        # incomplete (preflight failures often are). Keep any known endpoint
+        # and fill only the missing side from generated_at. Do not invent
+        # times for the default DataProcessInstance path.
         fallback = parse_dbt_timestamp(dbt_metadata.generated_at)
-        start_time = fallback
-        end_time = fallback
+        start_time = started or fallback
+        end_time = completed or fallback
     else:
         return None
 

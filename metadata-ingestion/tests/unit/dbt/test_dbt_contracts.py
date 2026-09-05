@@ -1988,6 +1988,26 @@ def test_parse_model_run_keeps_message_and_falls_back_without_timing() -> None:
     assert "enforced contract that failed" in performance.message
     assert performance.run_id == "no-timing"
 
+    partial = DBTRunResult.model_validate(
+        {
+            "status": "error",
+            "unique_id": "model.test_pkg.orders",
+            "message": "This model has an enforced contract that failed.",
+            "timing": [
+                {
+                    "name": "execute",
+                    "started_at": "2025-05-08T15:50:00.000000Z",
+                    "completed_at": None,
+                }
+            ],
+        }
+    )
+    assert _parse_model_run(metadata, partial) is None
+    partial_perf = _parse_model_run(metadata, partial, allow_missing_timing=True)
+    assert partial_perf is not None
+    assert partial_perf.start_time.isoformat().startswith("2025-05-08T15:50:00")
+    assert partial_perf.end_time.isoformat().startswith("2025-05-08T15:51:03")
+
 
 def test_load_run_results_contract_preflight_fixture() -> None:
     import json
@@ -2223,7 +2243,7 @@ def test_relationships_test_requires_matching_foreign_key_target() -> None:
         contract_tag=None,
         qualified_test_name="relationships",
         column_name="customer_id",
-        kw_args={"to": "{{ ref('customers') }}", "field": "id"},
+        kw_args={"to": "{{ ref('other_pkg', 'customers') }}", "field": "id"},
     )
     mcps = list(
         source.create_contract_mcps(
@@ -2278,9 +2298,24 @@ def test_contract_run_events_honor_test_results_toggle() -> None:
     assert not any(isinstance(mcp.aspect, AssertionRunEventClass) for mcp in mcps)
 
 
+def test_normalize_dbt_relation_name_uses_model_from_two_arg_ref() -> None:
+    from datahub.ingestion.source.dbt.dbt_common import _normalize_dbt_relation_name
+
+    assert _normalize_dbt_relation_name("{{ ref('customers') }}") == "customers"
+    assert (
+        _normalize_dbt_relation_name("{{ ref('other_pkg', 'customers') }}")
+        == "customers"
+    )
+    assert (
+        _normalize_dbt_relation_name("{{ source('raw', 'customers') }}") == "customers"
+    )
+    assert _normalize_dbt_relation_name("analytics.customers") == "customers"
+
+
 def test_contract_upsert_preserves_authored_schema_and_freshness() -> None:
     from datahub.metadata.schema_classes import (
         DataContractPropertiesClass,
+        DataQualityContractClass,
         FreshnessContractClass,
         SchemaContractClass,
     )
@@ -2291,13 +2326,16 @@ def test_contract_upsert_preserves_authored_schema_and_freshness() -> None:
     existing_freshness = [
         FreshnessContractClass(assertion="urn:li:assertion:authored-freshness")
     ]
+    authored_dq = [
+        DataQualityContractClass(assertion="urn:li:assertion:authored-quality")
+    ]
     graph = mock.Mock()
     graph.get_aspect.side_effect = [
         DataContractPropertiesClass(
             entity="urn:li:dataset:(urn:li:dataPlatform:dbt,test.orders,PROD)",
             schema=existing_schema,
             freshness=existing_freshness,
-            dataQuality=None,
+            dataQuality=authored_dq,
         ),
         None,
     ]
@@ -2318,4 +2356,6 @@ def test_contract_upsert_preserves_authored_schema_and_freshness() -> None:
     )
     assert props.schema == existing_schema
     assert props.freshness == existing_freshness
-    assert props.dataQuality
+    dq_urns = [c.assertion for c in (props.dataQuality or [])]
+    assert "urn:li:assertion:authored-quality" in dq_urns
+    assert len(dq_urns) > 1
