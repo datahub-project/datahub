@@ -1,6 +1,10 @@
 """Tests for the Sigma formula bracket-reference extractor."""
 
-from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
+from datahub.ingestion.source.sigma.formula_parser import (
+    BracketRef,
+    candidate_source_column_splits,
+    extract_bracket_refs,
+)
 
 
 def test_none_formula_returns_empty() -> None:
@@ -362,3 +366,76 @@ def test_balanced_quote_inside_bracket_body_preserves_later_refs() -> None:
     assert len(result) == 2
     assert result[0].source == 'col"name'
     assert result[1].source == "ok"
+
+
+class TestSegments:
+    """``segments`` exposes every unescaped-``/`` part, in order.
+
+    Resolvers need this because Sigma writes a column reached through a join as
+    ``[JoinElement/SourceElement/Column]``, where the owning element is the
+    second-to-last segment rather than ``source``.
+    """
+
+    def test_join_chain_segments(self) -> None:
+        (ref,) = extract_bracket_refs("[E1/E2/col]")
+        assert ref.segments == ["E1", "E2", "col"]
+        # Legacy split must not move.
+        assert ref.source == "E1"
+        assert ref.column == "E2/col"
+
+    def test_nested_join_chain_segments(self) -> None:
+        (ref,) = extract_bracket_refs("[E1/E2/E3/col]")
+        assert ref.segments == ["E1", "E2", "E3", "col"]
+
+    def test_single_slash_segments(self) -> None:
+        (ref,) = extract_bracket_refs("[Element/col]")
+        assert ref.segments == ["Element", "col"]
+
+    def test_bare_ref_has_one_segment(self) -> None:
+        (ref,) = extract_bracket_refs("[col]")
+        assert ref.segments == ["col"]
+
+    def test_escaped_slash_stays_inside_one_segment(self) -> None:
+        (ref,) = extract_bracket_refs(r"[A\/B/col]")
+        assert ref.segments == ["A/B", "col"]
+
+    def test_escaped_brackets_stay_inside_one_segment(self) -> None:
+        (ref,) = extract_bracket_refs(r"[\[Rel\] Originators/CA_DIM_DOCUMENTS/Name]")
+        assert ref.segments == ["[Rel] Originators", "CA_DIM_DOCUMENTS", "Name"]
+
+    def test_segments_are_whitespace_stripped(self) -> None:
+        (ref,) = extract_bracket_refs("[ E1 / E2 / col ]")
+        assert ref.segments == ["E1", "E2", "col"]
+
+    def test_hand_built_ref_does_not_split_column(self) -> None:
+        """Back-compat default must not re-split a column containing "/"."""
+        ref = BracketRef(raw="[a/b/c]", source="a", column="b/c", is_parameter=False)
+        assert ref.segments == ["a", "b/c"]
+        assert BracketRef(
+            raw="[a]", source="a", column=None, is_parameter=False
+        ).segments == ["a"]
+
+
+class TestCandidateSplits:
+    def test_join_chain_tries_owning_element_first(self) -> None:
+        (ref,) = extract_bracket_refs("[WRK/WRK CA_DIM_DOCUMENTS/Account Id]")
+        candidates = candidate_source_column_splits(ref)
+        assert candidates[0] == ("WRK CA_DIM_DOCUMENTS", "Account Id")
+        # The legacy first-slash split stays available, last.
+        assert candidates[-1] == ("WRK", "WRK CA_DIM_DOCUMENTS/Account Id")
+
+    def test_nested_chain_tries_deepest_element_first(self) -> None:
+        (ref,) = extract_bracket_refs("[E1/E2/E3/col]")
+        assert candidate_source_column_splits(ref)[0] == ("E3", "col")
+
+    def test_single_slash_yields_only_todays_split(self) -> None:
+        (ref,) = extract_bracket_refs("[Element/col]")
+        assert candidate_source_column_splits(ref) == [("Element", "col")]
+
+    def test_bare_ref_yields_nothing(self) -> None:
+        (ref,) = extract_bracket_refs("[col]")
+        assert candidate_source_column_splits(ref) == []
+
+    def test_slash_containing_element_name_is_offered(self) -> None:
+        (ref,) = extract_bracket_refs("[a/b/c]")
+        assert ("a/b", "c") in candidate_source_column_splits(ref)

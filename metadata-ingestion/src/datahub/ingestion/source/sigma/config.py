@@ -194,6 +194,55 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # resolved (includes: no-formula column, unresolvable ref, mixed param+real
     # where the real refs fail). Keeps V2 column list visible unconditionally.
     chart_input_fields_self_ref_fallback: int = 0
+    # Breakdown of the self-ref fallback bucket above, which is normally the
+    # largest in the report and previously said nothing about cause.
+    # No formula at all on the column -- expected, not a defect.
+    chart_input_fields_self_ref_no_formula: int = 0
+    # Column HAD formula refs and none resolved. This is the population worth
+    # investigating; a non-trivial value here alongside
+    # chart_input_fields_multi_segment_ref suggests the chart path shares the
+    # Data Model join-chain parse defect.
+    chart_input_fields_self_ref_unresolved_refs: int = 0
+    # Chart columns carrying a join-chain-shaped ref
+    # ([JoinElement/SourceElement/Column], 3+ segments). The chart resolver has
+    # no schema check, so unlike the DM path a mis-split emits a wrong or
+    # dangling InputField rather than being caught. Non-zero means the chart
+    # path needs the same candidate-split resolution as the DM path.
+    chart_input_fields_multi_segment_ref: int = 0
+    # Workbook elements dropped before indexing because their type is neither
+    # "table" nor "visualization", keyed by type. These never enter the workbook
+    # element index, so a chart formula naming one can never resolve and falls
+    # back to a self-reference. Types such as pivot-table and input-table carry
+    # real data, so a large count here is a candidate explanation for the size
+    # of chart_input_fields_self_ref_unresolved_refs.
+    workbook_elements_skipped_by_type: Dict[str, int] = field(default_factory=dict)
+    # Chart formula ref sources that missed the workbook element index but DO
+    # match an indexed element after case/whitespace normalization -- i.e. the
+    # element is present and the lookup is simply too strict.
+    chart_ref_source_near_miss: int = 0
+
+    # Pass-through columns on an element sourced from another Data Model,
+    # matched to the producer's column by shared ``columnId``. These carry no
+    # formula naming the producer, so the ref-based paths cannot see them;
+    # columnId is a warehouse-column identity Sigma reuses verbatim, making the
+    # match exact rather than a name guess.
+    dm_element_cross_dm_columnid_resolved: int = 0
+    # The same columnId matched more than one producer column; the
+    # lexicographically-first URN is chosen, matching the collision policy used
+    # elsewhere in this connector.
+    dm_element_cross_dm_columnid_collision: int = 0
+    # Warehouse columns accepted although the element does not declare the
+    # inode: it declares no inode at all (it is sourced transitively, e.g. only
+    # from other Data Models) and the url_id is in this Data Model's warehouse
+    # map. Kept separate so the relaxation is auditable against the
+    # url_id_not_in_element_source_ids misses it replaces.
+    dm_element_warehouse_transitive_inode_accepted: int = 0
+    # Data Model elements for which no source_id resolved to a URN, so no
+    # upstreamLineage aspect is emitted and no column lineage is even attempted.
+    # The difference between data_model_elements_emitted and the number of
+    # elements carrying upstreamLineage; previously that gap had no counter and
+    # no log line.
+    data_model_element_no_upstreams: int = 0
     # Column whose formula refs are exclusively parameter refs (e.g. [P_*]).
     chart_input_fields_skipped_parameter: int = 0
     # Column whose formula refs are exclusively bare sibling refs (e.g. [col]).
@@ -340,6 +389,48 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Refs whose column name has no matching fieldPath in the upstream element's
     # schema; dropped to avoid a dangling schemaField URN.
     data_model_element_fgl_dropped_unknown_upstream_column: int = 0
+    # Refs whose intra-DM sibling resolved but carries no columns at all (look
+    # for a matching "Sigma paginated endpoint aborted" warning naming this DM).
+    # Split out of dropped_unknown_upstream_column so a fetch problem is
+    # distinguishable from a genuine column-name mismatch. A whole-DM /columns
+    # failure does not land here — that empties the consuming element too, so it
+    # has no columns to resolve; this fires on a partial pagination abort or a
+    # genuinely column-less sibling.
+    data_model_element_fgl_upstream_schema_unavailable: int = 0
+    # Columns from which no bracket ref could be resolved — an empty/absent
+    # formula (Sigma's shape for a pass-through column), a constant expression,
+    # or a formula whose only refs are parameters (`[P_*]`) or bare sibling-column
+    # refs — and whose columnId is not warehouse-shaped, so there was nothing to
+    # resolve against. Dominated by intra-DM and Sigma Dataset passthroughs;
+    # expected volume, not a failure signal.
+    data_model_element_fgl_no_ref_unresolved: int = 0
+    # Same no-resolvable-ref shape, but the columnId IS ``inode-``-shaped, so a
+    # warehouse column was identified and resolution still failed (a /files miss
+    # or an unmappable connection). This one is actionable. Kept apart from
+    # fgl_warehouse_passthrough_deferred, which stays reachable only from
+    # formulas that do produce refs, so its baseline remains comparable.
+    data_model_element_fgl_no_ref_warehouse_unresolved: int = 0
+    # Multi-segment ("join chain") refs of the shape
+    # [JoinElement/SourceElement/Column] -- Sigma's encoding for a column reached
+    # through a join -- resolved by trying alternative (source, column) splits
+    # instead of the legacy first-slash split. Only counted for refs with 3+
+    # segments, so single-slash refs never inflate it.
+    data_model_element_fgl_join_chain_resolved: int = 0
+    # Join-chain refs where no candidate split validated against a real element
+    # name plus that element's schema. A SUB-COUNT of whichever residual bucket
+    # the legacy path then settles on (dropped_unknown_upstream_column,
+    # dropped_orphan_upstream or cross_dm_deferred) -- not an independent drop,
+    # so do not add it to those totals.
+    data_model_element_fgl_join_chain_unresolved: int = 0
+    # Join-chain sources promoted to entity-level upstreams because Sigma's
+    # element /lineage lists only the direct join element, never the transitive
+    # source the formula actually names. Without the promotion the emitted
+    # schemaField would reference a Dataset absent from ``upstreams``.
+    data_model_element_fgl_join_chain_upstream_added: int = 0
+    # Orphan drops that WOULD resolve if the direct-lineage gate were relaxed
+    # the way the join-chain path now relaxes it (i.e. the named sibling really
+    # does own the column). Sizes that follow-up without making it speculatively.
+    data_model_element_fgl_orphan_recoverable_if_gate_relaxed: int = 0
     # Cross-DM FGL counters (DM = data model throughout).
     # Refs resolved via global bridge index and emitted as cross-DM FGL.
     # Resolution uses entity-level upstreams as a soft collision tiebreaker,
@@ -349,6 +440,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_fgl_cross_dm_collision_pick_first: int = 0
     # Cross-DM refs whose column is absent from the resolved upstream element's schema.
     data_model_element_fgl_cross_dm_dropped_unknown_upstream_column: int = 0
+    # Cross-DM equivalent of fgl_upstream_schema_unavailable: the producer
+    # element is in the bridge map but carries no columns, so the producer DM's
+    # /columns fetch came back empty. Kept apart from the intra-DM counter
+    # because an empty sibling and an empty cross-DM producer point at different
+    # data models to investigate. A producer missing from the bridge map
+    # entirely stays on fgl_cross_dm_deferred.
+    data_model_element_fgl_cross_dm_upstream_schema_unavailable: int = 0
 
     # Entries dropped as duplicates by the pagination-level natural-key
     # dedup in ``_paginated_entries`` / lineage raw dedup. Normally 0;
@@ -356,6 +454,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # overlap between pages -- correctness is preserved (no double
     # emission) but the signal is surfaced here so operators can spot it.
     pagination_duplicate_entries_dropped: int = 0
+    # First-page and per-page GETs re-issued by the ``retry_statuses`` budget in
+    # the pagination helpers (409 on the DM /elements and /columns endpoints).
+    # Normally 0; a sustained non-zero value means the tenant is under enough
+    # write contention that the connector is routinely racing Sigma-side edits.
+    pagination_retries: int = 0
     # Entries dropped by per-endpoint ``ValidationError`` handling. Only
     # the first ``_MAX_MALFORMED_WARNINGS_PER_ENDPOINT`` rows per endpoint
     # emit a user-visible warning to prevent report flooding on a
@@ -428,6 +531,18 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # type=table lineage entry missing inodeId or name; skipped to avoid
     # emitting a malformed URN.
     dm_element_warehouse_table_entry_incomplete: int = 0
+
+    # Why columnId-based warehouse resolution returned nothing, by gate. The
+    # deferred counter it feeds is normally the largest bucket in the report and
+    # said nothing about cause; keys are:
+    #   columnId_not_inode_shaped     -- not a warehouse passthrough at all
+    #   columnId_missing_native_part  -- "inode-<id>" with no "/<COLUMN>"
+    #   url_id_not_in_element_source_ids -- column claims an inode the element
+    #                                    does not declare (payload drift)
+    #   url_id_not_in_warehouse_map   -- /files never resolved that inode
+    #   parent_urn_unresolved         -- connection unmappable / no platform
+    #   connection_not_in_registry    -- connection id absent from /connections
+    warehouse_passthrough_miss_reasons: Dict[str, int] = field(default_factory=dict)
 
 
 class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):

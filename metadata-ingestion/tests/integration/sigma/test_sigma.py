@@ -1312,6 +1312,76 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
 
 
 @pytest.mark.integration
+def _get_join_chain_dm_overrides() -> Dict[str, Dict]:
+    """Rewrite element 3's formula as a join-chain ref.
+
+    Sigma encodes a column reached through a join as
+    ``[JoinElement/SourceElement/Column]``. The base fixture's element 3 uses the
+    plain ``[random data model/team1]`` form; here it references the same column
+    through element 2, whose name ("random data model" as well) also matches the
+    first segment -- reproducing the production trap where the first segment
+    resolves to a real but wrong sibling.
+    """
+    overrides = get_mock_data_model_api()
+    columns_url = (
+        "https://aws-api.sigmacomputing.com/v2/dataModels/"
+        "147a4d09-a686-4eea-b183-9b82aa0f7beb/columns"
+    )
+    entries = overrides[columns_url]["json"]["entries"]
+    for entry in entries:
+        if entry["columnId"] == "col-4pl-team1":
+            entry["formula"] = "[2313213123.test.231/random data model/team1]"
+    return overrides
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_join_chain_ref(pytestconfig, tmp_path, requests_mock):
+    """A join-chain ref resolves to the element that owns the column.
+
+    Regression test: the legacy first-slash split reads the source as the join
+    element and the column as "random data model/team1", which cannot exist, so
+    the edge was dropped as dropped_unknown_upstream_column.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_join_chain_dm_overrides()
+    _apply_dm_bridge_workbook_overrides(override_data)
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_join_chain_mces.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "ingest_data_models": True,
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": output_path}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_element_fgl_join_chain_resolved == 1, (
+        "expected the join-chain ref to resolve; got "
+        f"{report.data_model_element_fgl_join_chain_resolved}"
+    )
+    assert report.data_model_element_fgl_join_chain_unresolved == 0
+    assert report.data_model_element_fgl_dropped_unknown_upstream_column == 0
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_dm_join_chain_ref.json",
+    )
+
+
+@pytest.mark.integration
 def test_sigma_ingest_data_models_pattern_filter(pytestconfig, tmp_path, requests_mock):
     """``data_model_pattern`` denies the DM, so no DM entities emitted and
     workbook elements previously bridging to the DM degrade to
@@ -7550,6 +7620,111 @@ def test_sigma_ingest_data_models_dm_element_warehouse_fgl(
         pytestconfig,
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_dm_element_warehouse_fgl.json",
+    )
+
+
+def _get_warehouse_dm_no_formula_overrides() -> Dict[str, Dict]:
+    """Same warehouse DM fixture, but with pass-through columns carrying no formula.
+
+    Sigma returns ``formula: ""`` (or omits it) for a plain pass-through column.
+    The warehouse column identity lives in ``columnId``
+    (``inode-<url_id>/<WAREHOUSE_COL>``), which needs no formula to resolve, so
+    these columns must still produce column-level lineage.
+    """
+    overrides = _get_warehouse_dm_overrides()
+    overrides[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/columns"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "columnId": f"inode-{_WH_URL_ID}/CUSTOMER_ID",
+                    "name": "Customer Id",
+                    "elementId": _WH_ELEMENT_ID,
+                    "label": "Customer Id",
+                    "formula": "",
+                    "type": {"type": "text"},
+                },
+                {
+                    "columnId": f"inode-{_WH_URL_ID}/EMAIL",
+                    "name": "Email",
+                    "elementId": _WH_ELEMENT_ID,
+                    "label": "Email",
+                    "type": {"type": "text"},
+                },
+            ],
+            "total": 2,
+            "nextPage": None,
+        },
+    }
+    return overrides
+
+
+@pytest.mark.integration
+def test_sigma_ingest_dm_element_warehouse_fgl_without_formula(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Pass-through columns with no formula still emit warehouse FineGrainedLineage.
+
+    Regression test for column-level lineage being dropped whenever Sigma returned
+    an empty (or absent) formula, even though the element already had table-level
+    lineage to the warehouse table and ``columnId`` identified the column.
+
+    Assertions:
+      - 2 FineGrainedLineage entries on the DM-element child Dataset
+      - warehouse_resolved == 2; neither no_ref_* counter fires
+      - warehouse_passthrough_deferred stays 0 (it remains a formula-bearing signal)
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_warehouse_dm_no_formula_overrides()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_element_warehouse_fgl_no_formula_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_element_fgl_warehouse_resolved == 2, (
+        f"expected 2 warehouse FGL resolved; got {report.data_model_element_fgl_warehouse_resolved}"
+    )
+    assert report.data_model_element_fgl_no_ref_warehouse_unresolved == 0
+    assert report.data_model_element_fgl_no_ref_unresolved == 0
+    assert report.data_model_element_fgl_warehouse_passthrough_deferred == 0
+
+    expected_warehouse_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "warehouse_coffee_company.public.customers,PROD)"
+    )
+    element_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,{_WH_DM_ID}.{_WH_ELEMENT_ID},PROD)"
+    )
+    with open(output_path) as f:
+        mces = json.load(f)
+    ul_aspects = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == element_urn
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(ul_aspects) == 1
+    fgls = ul_aspects[0]["aspect"]["json"].get("fineGrainedLineages", [])
+    assert len(fgls) == 2, f"expected 2 FGL entries; got {len(fgls)}: {fgls}"
+    for fgl in fgls:
+        for upstream in fgl.get("upstreams", []):
+            assert upstream.startswith(
+                f"urn:li:schemaField:({expected_warehouse_urn},"
+            ), f"unexpected upstream: {upstream}"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_dm_element_warehouse_fgl_no_formula.json",
     )
 
 
