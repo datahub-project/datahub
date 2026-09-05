@@ -154,6 +154,20 @@ postgres stacks include **actions + GMS** so the source can call the compact API
 bundles a venv for `datahub-analytics-compaction`. Non-postgres stacks soft-skip when the backend
 is unavailable.
 
+The bootstrap MCP uses `changeType: UPSERT`, same as `datahub-gc`. System-update **does not**
+re-apply it on every run: the step is skipped until `ingestion-datahub-analytics-compaction`
+`version` in `bootstrap_mcps.yaml` advances, `DATAHUB_ANALYTICS_COMPACTION_BOOTSTRAP_REVISION`
+changes, or `force=true`. See [Bootstrap MCPs](./advanced/bootstrap-mcps.md).
+
+Do not rely on the UI to persist cron, display name, extra env, or recipe catch-up settings.
+Those edits are overwritten the next time the template is applied. Put durable overrides in
+`DATAHUB_ANALYTICS_COMPACTION_BOOTSTRAP_VALUES` (JSON/YAML mustache map), then bump
+`DATAHUB_ANALYTICS_COMPACTION_BOOTSTRAP_REVISION` so the new values apply once. Template keys
+include `ingestion.name`, `ingestion.version`, `ingestion.extra_env_vars`, `schedule.timezone`,
+`schedule.interval`, and `source`. Compact budgets for a catch-up run can go in the recipe
+`config` (`max_hours_to_seal`, `max_days_to_compact`, `max_months_to_compact`,
+`max_wall_clock_millis`) or in `DATAHUB_ANALYTICS_COMPACT_*` on GMS.
+
 Pool sizing knobs (`DATAHUB_PGANALYTICS_MIN_CONNECTIONS`, `DATAHUB_PGANALYTICS_MAX_CONNECTIONS`,
 `DATAHUB_PGANALYTICS_WAIT_TIMEOUT_MILLIS`, and related idle/age/leak settings) mirror the
 pgTimeseries pool. Default max remains 12; raise only if concurrent chart queries contend with

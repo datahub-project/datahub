@@ -1,6 +1,12 @@
 # Instructions to add additional entry or update on the target system
 # 1. Edit this file
 # 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+#
+# UPSERT matches datahub-gc: the template is applied once per bootstrap name/version
+# (or DATAHUB_ANALYTICS_COMPACTION_BOOTSTRAP_REVISION), not on every system-update.
+# Persist operator customizations via DATAHUB_ANALYTICS_COMPACTION_BOOTSTRAP_VALUES
+# (mustache keys below). UI-only edits are overwritten the next time this template
+# is applied. See docs/pganalytics-design.md and docs/advanced/bootstrap-mcps.md.
 - entityType: dataHubIngestionSource
   entityUrn: urn:li:dataHubIngestionSource:datahub-analytics-compaction
   aspectName: dataHubIngestionSourceInfo

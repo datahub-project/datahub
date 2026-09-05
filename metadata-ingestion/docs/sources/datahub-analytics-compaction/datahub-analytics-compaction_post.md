@@ -35,3 +35,6 @@ catch-up or bounded runs. Leave them unset for normal scheduled maintenance.
 - HTTP `500` with `failed=true` means seal/rollup hit a SQL or lock-setup error;
   the SYSTEM source fails the run so operators notice. Check GMS logs around
   `/openapi/operations/analytics/compact`.
+- If a UI edit to this SYSTEM source disappears after an upgrade, the bootstrap
+  template was re-applied (`version` or `DATAHUB_ANALYTICS_COMPACTION_BOOTSTRAP_REVISION`
+  advanced). Put durable overrides in `DATAHUB_ANALYTICS_COMPACTION_BOOTSTRAP_VALUES`.
