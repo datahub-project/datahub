@@ -6,6 +6,7 @@ import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultStore;
+import com.linkedin.metadata.entity.upgrade.EntityClientUpgradeResultStore;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -54,7 +55,7 @@ public class UpdateIndicesUpgradeStrategyFactory {
       @Value("#{systemEnvironment['DATAHUB_REVISION'] ?: '0'}") String revision) {
 
     final DataHubUpgradeResultStore upgradeResultStore =
-        DataHubUpgradeResultStore.of(systemEntityClient);
+        new EntityClientUpgradeResultStore(systemEntityClient);
 
     final String upgradeVersion = String.format("%s-%s", gitVersion.getVersion(), revision);
     final Urn upgradeIdUrn = BootstrapStep.getUpgradeUrn(UPGRADE_ID_PREFIX + "_" + upgradeVersion);

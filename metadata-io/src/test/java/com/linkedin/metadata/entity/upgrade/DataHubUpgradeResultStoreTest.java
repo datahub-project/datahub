@@ -73,7 +73,7 @@ public class DataHubUpgradeResultStoreTest {
         .thenReturn(Map.of(UPGRADE_URN, upgradeResponse("7")));
 
     EnvelopedAspect result =
-        DataHubUpgradeResultStore.of(entityClient).readLatest(opContext, UPGRADE_URN);
+        new EntityClientUpgradeResultStore(entityClient).readLatest(opContext, UPGRADE_URN);
 
     assertEquals(result.getSystemMetadata().getVersion(), "7");
     verify(entityClient, never()).getV2(any(), any(Urn.class), any());
@@ -83,7 +83,21 @@ public class DataHubUpgradeResultStoreTest {
   public void testReadLatestReturnsNullWhenAbsent() throws Exception {
     when(entityClient.batchGetV2NoCache(any(), any(), any(), any())).thenReturn(Map.of());
 
-    assertNull(DataHubUpgradeResultStore.of(entityClient).readLatest(opContext, UPGRADE_URN));
+    assertNull(new EntityClientUpgradeResultStore(entityClient).readLatest(opContext, UPGRADE_URN));
+  }
+
+  /**
+   * {@code aspects} is a required PDL field, so the default STRICT getter throws rather than
+   * returning null. An absent aspect has to read as absent: {@code mergeAndPersist} calls {@code
+   * readLatest} inside its compare-and-set loop with no catch, so a throw here would abort the
+   * write instead of creating the aspect.
+   */
+  @Test
+  public void testReadLatestTreatsAResponseWithoutAspectsAsAbsent() throws Exception {
+    when(entityClient.batchGetV2NoCache(any(), any(), any(), any()))
+        .thenReturn(Map.of(UPGRADE_URN, new EntityResponse()));
+
+    assertNull(new EntityClientUpgradeResultStore(entityClient).readLatest(opContext, UPGRADE_URN));
   }
 
   /**
@@ -100,11 +114,7 @@ public class DataHubUpgradeResultStoreTest {
         .thenThrow(restLiException(422, VERSION_CONFLICT_MESSAGE))
         .thenReturn(UPGRADE_URN.toString());
 
-    DataHubUpgradeResultConditionalPersist.mergeAndPersist(
-        opContext,
-        entityClient,
-        UPGRADE_URN,
-        DataHubUpgradeResultConditionalPersist.putResultEntry("k", "v", null));
+    persist(DataHubUpgradeResultConditionalPersist.CLIENT_MAX_ATTEMPTS);
 
     verify(entityClient, times(2)).ingestProposal(any(), any(), anyBoolean());
   }
@@ -122,11 +132,7 @@ public class DataHubUpgradeResultStoreTest {
         .thenThrow(new ValidationException(VERSION_CONFLICT_MESSAGE))
         .thenReturn(UPGRADE_URN.toString());
 
-    DataHubUpgradeResultConditionalPersist.mergeAndPersist(
-        opContext,
-        entityClient,
-        UPGRADE_URN,
-        DataHubUpgradeResultConditionalPersist.putResultEntry("k", "v", null));
+    persist(DataHubUpgradeResultConditionalPersist.CLIENT_MAX_ATTEMPTS);
 
     verify(entityClient, times(2)).ingestProposal(any(), any(), anyBoolean());
   }
@@ -144,16 +150,7 @@ public class DataHubUpgradeResultStoreTest {
         .thenReturn(Map.of(UPGRADE_URN, upgradeResponse("1")));
     when(entityClient.ingestProposal(any(), any(), anyBoolean())).thenThrow(original);
 
-    ValidationException thrown =
-        expectThrows(
-            ValidationException.class,
-            () ->
-                DataHubUpgradeResultConditionalPersist.mergeAndPersist(
-                    opContext,
-                    entityClient,
-                    UPGRADE_URN,
-                    DataHubUpgradeResultConditionalPersist.putResultEntry("k", "v", null),
-                    1));
+    ValidationException thrown = expectThrows(ValidationException.class, () -> persist(1));
 
     assertSame(thrown, original);
   }
@@ -173,11 +170,7 @@ public class DataHubUpgradeResultStoreTest {
                 "failed to ingest", new IllegalStateException(VERSION_CONFLICT_MESSAGE)))
         .thenReturn(UPGRADE_URN.toString());
 
-    DataHubUpgradeResultConditionalPersist.mergeAndPersist(
-        opContext,
-        entityClient,
-        UPGRADE_URN,
-        DataHubUpgradeResultConditionalPersist.putResultEntry("k", "v", null));
+    persist(DataHubUpgradeResultConditionalPersist.CLIENT_MAX_ATTEMPTS);
 
     verify(entityClient, times(2)).ingestProposal(any(), any(), anyBoolean());
   }
@@ -191,14 +184,18 @@ public class DataHubUpgradeResultStoreTest {
 
     assertThrows(
         RemoteInvocationException.class,
-        () ->
-            DataHubUpgradeResultConditionalPersist.mergeAndPersist(
-                opContext,
-                entityClient,
-                UPGRADE_URN,
-                DataHubUpgradeResultConditionalPersist.putResultEntry("k", "v", null)));
+        () -> persist(DataHubUpgradeResultConditionalPersist.CLIENT_MAX_ATTEMPTS));
 
     verify(entityClient, times(1)).ingestProposal(any(), any(), anyBoolean());
+  }
+
+  private void persist(int maxAttempts) throws Exception {
+    DataHubUpgradeResultConditionalPersist.mergeAndPersist(
+        opContext,
+        new EntityClientUpgradeResultStore(entityClient),
+        UPGRADE_URN,
+        DataHubUpgradeResultConditionalPersist.putResultEntry("k", "v", null),
+        maxAttempts);
   }
 
   private static EntityResponse upgradeResponse(String version) {

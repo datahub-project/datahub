@@ -8,7 +8,6 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
@@ -108,7 +107,7 @@ public final class DataHubUpgradeResultConditionalPersist {
       throws Exception {
     mergeAndPersist(
         opContext,
-        DataHubUpgradeResultStore.of(entityService),
+        new EntityServiceUpgradeResultStore(entityService),
         dataHubUpgradeUrn,
         merge,
         maxAttempts);
@@ -116,32 +115,9 @@ public final class DataHubUpgradeResultConditionalPersist {
 
   /**
    * Variant for contexts without a local {@link EntityService} — notably the standalone MAE
-   * consumer, which runs {@code entityClient.impl=restli} and has no datasource.
+   * consumer, which runs {@code entityClient.impl=restli} and has no datasource. Reach it with an
+   * {@link EntityClientUpgradeResultStore}.
    */
-  public static void mergeAndPersist(
-      @Nonnull OperationContext opContext,
-      @Nonnull SystemEntityClient entityClient,
-      @Nonnull Urn dataHubUpgradeUrn,
-      @Nonnull Merge merge)
-      throws Exception {
-    mergeAndPersist(opContext, entityClient, dataHubUpgradeUrn, merge, CLIENT_MAX_ATTEMPTS);
-  }
-
-  public static void mergeAndPersist(
-      @Nonnull OperationContext opContext,
-      @Nonnull SystemEntityClient entityClient,
-      @Nonnull Urn dataHubUpgradeUrn,
-      @Nonnull Merge merge,
-      int maxAttempts)
-      throws Exception {
-    mergeAndPersist(
-        opContext,
-        DataHubUpgradeResultStore.of(entityClient),
-        dataHubUpgradeUrn,
-        merge,
-        maxAttempts);
-  }
-
   public static void mergeAndPersist(
       @Nonnull OperationContext opContext,
       @Nonnull DataHubUpgradeResultStore store,

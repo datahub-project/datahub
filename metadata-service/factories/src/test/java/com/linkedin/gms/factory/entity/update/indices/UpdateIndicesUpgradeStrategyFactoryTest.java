@@ -19,6 +19,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
+import com.linkedin.metadata.entity.upgrade.EntityClientUpgradeResultStore;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -71,10 +72,11 @@ public class UpdateIndicesUpgradeStrategyFactoryTest {
 
     DataHubUpgradeResultConditionalPersist.mergeAndPersist(
         opContext,
-        entityClient,
+        new EntityClientUpgradeResultStore(entityClient),
         upgradeIdUrn,
         DataHubUpgradeResultConditionalPersist.putResultEntry(
-            "datasetindex_v2.dualWriteStartTime", "1500", null));
+            "datasetindex_v2.dualWriteStartTime", "1500", null),
+        DataHubUpgradeResultConditionalPersist.CLIENT_MAX_ATTEMPTS);
 
     ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
