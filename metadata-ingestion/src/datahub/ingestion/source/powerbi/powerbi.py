@@ -60,6 +60,9 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     create_dataplatform_instance_resolver,
 )
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
+from datahub.ingestion.source.powerbi.powerbi_semantic_model import (
+    PowerBiSemanticModelMapper,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -135,6 +138,27 @@ class Mapper:
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
         self.workspace_key: Optional[ContainerKey] = None
+        self._semantic_mapper = PowerBiSemanticModelMapper(
+            config=config,
+            reporter=reporter,
+            table_dataset_urn=self._table_dataset_urn,
+            extract_lineage=self.extract_lineage,
+            extract_dataset_schema=self.extract_dataset_schema,
+            data_platform_instance_aspect=self._get_data_platform_instance_aspect,
+            workspace_container_urn=self.make_container_urn_for_workspace,
+            append_tag_mcp=self.append_tag_mcp,
+            owner_urn=self.create_datahub_owner_urn,
+        )
+
+    def _table_dataset_urn(self, table: powerbi_data_classes.Table) -> str:
+        return self.assets_urn_to_lowercase(
+            builder.make_dataset_urn_with_platform_instance(
+                platform=self.__config.platform_name,
+                name=table.full_name,
+                platform_instance=self.__config.platform_instance,
+                env=self.__config.env,
+            )
+        )
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
@@ -511,19 +535,16 @@ class Mapper:
             f"Mapping dataset={dataset.name}(id={dataset.id}) to datahub dataset"
         )
 
+        if self.__config.emit_semantic_model_entities:
+            dataset_mcps.extend(self._semantic_mapper.emit(dataset, workspace))
+            return dataset_mcps
+
         if self.__config.extract_datasets_to_containers:
             dataset_mcps.extend(self.generate_container_for_dataset(dataset))
 
         for table in dataset.tables:
             # Create a URN for dataset
-            ds_urn = self.assets_urn_to_lowercase(
-                builder.make_dataset_urn_with_platform_instance(
-                    platform=self.__config.platform_name,
-                    name=table.full_name,
-                    platform_instance=self.__config.platform_instance,
-                    env=self.__config.env,
-                )
-            )
+            ds_urn = self._table_dataset_urn(table)
 
             logger.debug(f"dataset_urn={ds_urn}")
             # Create datasetProperties mcp
