@@ -697,3 +697,51 @@ class TestNoBracketRefWarehouseFgl:
             builder.make_schema_field_urn(_SF_DATASET_URN, "email")
         ]
         assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
+
+    def test_transitively_sourced_element_accepts_warehouse_column(self):
+        """Element declaring only cross-DM sources still resolves its columns.
+
+        The warehouse table is declared by the producer element in the other
+        Data Model, so requiring the inode in THIS element's source_ids rejects
+        every column -- the same shape of mistake as gating join-chain
+        resolution on Sigma's direct /lineage list.
+        """
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "")
+        elem = _element(
+            "el-consumer",
+            "Consumer",
+            [col],
+            ["producer-dm/suffix"],  # cross-DM only: no inode declared
+        )
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert len(fgls) == 1
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "email")
+        ]
+        assert source.reporter.dm_element_warehouse_transitive_inode_accepted == 1
+
+    def test_element_declaring_a_different_inode_is_still_rejected(self):
+        """Genuine payload drift must stay rejected.
+
+        The element declares its own inode and the column names a different
+        one -- that is not transitive sourcing, so the guard still applies.
+        """
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "")
+        elem = _element("el-x", "X", [col], [_RS_INODE_SOURCE])
+
+        fgls = _build_fgls(
+            source, elem, warehouse_map={**_SF_WAREHOUSE_MAP, **_RS_WAREHOUSE_MAP}
+        )
+
+        assert fgls == []
+        assert source.reporter.dm_element_warehouse_transitive_inode_accepted == 0
+        assert (
+            source.reporter.warehouse_passthrough_miss_reasons.get(
+                "url_id_not_in_element_source_ids"
+            )
+            == 1
+        )

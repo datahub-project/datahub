@@ -343,6 +343,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # element Dataset URN. A name may map to multiple URNs when a DM
         # has duplicate-named elements.
         self.dm_element_urn_by_name: Dict[str, Dict[str, List[str]]] = {}
+        # bridge_key -> columnId -> [(element Dataset URN, column name)].
+        # columnId is a warehouse-column identity Sigma reuses verbatim across
+        # every element that passes the column through, so matching a consumer
+        # column to a producer column by columnId is exact -- unlike matching by
+        # display name, which would guess. Used to recover cross-DM column
+        # lineage for pass-through columns, which carry no formula ref naming
+        # their producer.
+        self.dm_element_columnid_index: Dict[str, Dict[str, List[Tuple[str, str]]]] = {}
         # DM urlId -> DM Container URN. Last-resort fallback.
         self.dm_container_urn_by_url_id: Dict[str, str] = {}
         # DM urlId -> total element count (includes blank-named elements
@@ -2154,10 +2162,36 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Mismatches can occur if a column belongs to a different element's inode
         # (shouldn't happen with well-formed API data, but guards against drift).
         if f"inode-{url_id}" not in element.source_ids:
-            self._note_warehouse_miss(
-                "url_id_not_in_element_source_ids", column, element, col_id
+            # The element does not declare this inode. That is expected when the
+            # element is sourced transitively -- e.g. every source_id is a
+            # cross-DM ``<dmUrlId>/<suffix>`` ref -- because the warehouse table
+            # is declared by the producer element in the other Data Model, not
+            # here. Same shape of mistake as gating join-chain resolution on
+            # Sigma's direct /lineage list.
+            #
+            # Accept it only when the element declares no inode source at all
+            # AND the url_id is in this Data Model's warehouse map, i.e. some
+            # element here does reach that table. If the element declares its
+            # own inodes and this column names a different one, that is genuine
+            # payload drift and stays rejected.
+            declares_any_inode = any(
+                sid.startswith("inode-") for sid in element.source_ids
             )
-            return None
+            if declares_any_inode or url_id not in warehouse_url_id_map:
+                self._note_warehouse_miss(
+                    "url_id_not_in_element_source_ids", column, element, col_id
+                )
+                return None
+            self.reporter.dm_element_warehouse_transitive_inode_accepted += 1
+            logger.debug(
+                "WAREHOUSE transitive accept: element %s column %r columnId=%r "
+                "-- element declares no inode source (source_ids=%r) but url_id "
+                "is in this DM's warehouse map",
+                element.elementId,
+                column.name,
+                col_id,
+                element.source_ids,
+            )
 
         # Guard: url_id must resolve in the warehouse map (i.e. /files succeeded).
         wh_ref = warehouse_url_id_map.get(url_id)
@@ -2723,13 +2757,105 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
         return False
 
+    def _try_resolve_cross_dm_passthrough_by_column_id(
+        self,
+        *,
+        column: SigmaDataModelColumn,
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+        downstream_field: str,
+        emitted_pairs: Set[Tuple[str, str]],
+        cross_dm_fgls: List[FineGrainedLineageClass],
+    ) -> bool:
+        """Match a pass-through column to its cross-DM producer by ``columnId``.
+
+        An element sourced from another Data Model carries pass-through columns
+        with no formula -- nothing names the producer -- yet its ``columnId``
+        is the same warehouse-column identity the producer's column carries.
+        Matching on that is exact, unlike matching on display name, which is why
+        the formula-less path otherwise refuses to guess.
+
+        Restricted to the producers this element actually declares in
+        ``source_ids``, so an unrelated element that happens to pass the same
+        warehouse column through cannot be picked up.
+        """
+        col_id = column.columnId
+        if not col_id:
+            return False
+        source_dm_url_ids = sorted(
+            {
+                sid.partition("/")[0]
+                for sid in element.source_ids
+                if "/" in sid and not sid.startswith("inode-")
+            }
+        )
+        if not source_dm_url_ids:
+            return False
+        matches: List[Tuple[str, str]] = []
+        for dm_url_id in source_dm_url_ids:
+            for urn, col_name in self.dm_element_columnid_index.get(dm_url_id, {}).get(
+                col_id, []
+            ):
+                if urn != element_dataset_urn:
+                    matches.append((urn, col_name))
+        if not matches:
+            logger.debug(
+                "CROSS-DM COLUMNID miss: element %s column %r columnId=%r not "
+                "found in declared producer DMs %r",
+                element.elementId,
+                column.name,
+                col_id,
+                source_dm_url_ids,
+            )
+            return False
+        # Deterministic pick, matching the collision policy used elsewhere.
+        upstream_urn, upstream_col = sorted(matches)[0]
+        if len(matches) > 1:
+            self.reporter.dm_element_cross_dm_columnid_collision += 1
+            logger.debug(
+                "CROSS-DM COLUMNID collision: element %s column %r columnId=%r "
+                "matched %d producer columns %r; picking %s",
+                element.elementId,
+                column.name,
+                col_id,
+                len(matches),
+                matches,
+                upstream_urn,
+            )
+        upstream_field = builder.make_schema_field_urn(upstream_urn, upstream_col)
+        pair = (downstream_field, upstream_field)
+        if pair not in emitted_pairs:
+            emitted_pairs.add(pair)
+            cross_dm_fgls.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=[downstream_field],
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=[upstream_field],
+                    confidenceScore=1.0,
+                )
+            )
+        self.reporter.dm_element_cross_dm_columnid_resolved += 1
+        logger.debug(
+            "CROSS-DM COLUMNID hit: element %s column %r columnId=%r -> %s.%r",
+            element.elementId,
+            column.name,
+            col_id,
+            upstream_urn,
+            upstream_col,
+        )
+        return True
+
     def _resolve_no_ref_column_fgl(
         self,
         *,
         column: SigmaDataModelColumn,
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
         warehouse_fgl: Optional[FineGrainedLineageClass],
         downstream_field: str,
         fgls: List[FineGrainedLineageClass],
+        cross_dm_fgls: List[FineGrainedLineageClass],
         emitted_pairs: Set[Tuple[str, str]],
     ) -> None:
         """Handle a column no bracket ref could be resolved from.
@@ -2745,6 +2871,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         "no warehouse append happened" gate would give a column carrying both a
         sibling ref and an inode columnId a second, wrong upstream.
         """
+        if (
+            warehouse_fgl is None
+            and self._try_resolve_cross_dm_passthrough_by_column_id(
+                column=column,
+                element=element,
+                element_dataset_urn=element_dataset_urn,
+                downstream_field=downstream_field,
+                emitted_pairs=emitted_pairs,
+                cross_dm_fgls=cross_dm_fgls,
+            )
+        ):
+            return
         if warehouse_fgl is None:
             # Split the same way the ref-bearing path does: an inode-shaped
             # columnId that failed to resolve is a real warehouse failure (a
@@ -2989,9 +3127,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if not resolution_attempted:
                 self._resolve_no_ref_column_fgl(
                     column=column,
+                    element=element,
+                    element_dataset_urn=element_dataset_urn,
                     warehouse_fgl=warehouse_fgl,
                     downstream_field=downstream_field,
                     fgls=fgls,
+                    cross_dm_fgls=cross_dm_fgls,
                     emitted_pairs=emitted_pairs,
                 )
 
@@ -3286,6 +3427,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return {}
 
         name_map: Dict[str, List[str]] = {}
+        columnid_index: Dict[str, List[Tuple[str, str]]] = {}
         elementId_to_dataset_urn: Dict[str, str] = {}
         for element in data_model.elements:
             element_dataset_urn = self._gen_data_model_element_urn(data_model, element)
@@ -3295,6 +3437,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.dm_element_urn_to_cols[element_dataset_urn] = {
                 c.lower(): c for c in el_by_name
             }
+            for col in el_by_name.values():
+                if col.columnId:
+                    columnid_index.setdefault(col.columnId, []).append(
+                        (element_dataset_urn, col.name)
+                    )
             # Blank-named elements are excluded from ``name_map`` so they
             # don't collapse into a single spuriously-ambiguous candidate.
             if element.name:
@@ -3304,6 +3451,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         self.dm_container_urn_by_url_id[bridge_key] = data_model_container_urn
         self.dm_element_urn_by_name[bridge_key] = name_map
+        self.dm_element_columnid_index[bridge_key] = columnid_index
         self.data_model_id_by_url_id[bridge_key] = data_model.dataModelId
         # Total count (including blank-named elements) used by the
         # cross-DM single-element fallback to verify "DM has exactly one

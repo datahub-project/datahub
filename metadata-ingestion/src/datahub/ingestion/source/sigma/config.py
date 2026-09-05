@@ -220,6 +220,23 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # match an indexed element after case/whitespace normalization -- i.e. the
     # element is present and the lookup is simply too strict.
     chart_ref_source_near_miss: int = 0
+
+    # Pass-through columns on an element sourced from another Data Model,
+    # matched to the producer's column by shared ``columnId``. These carry no
+    # formula naming the producer, so the ref-based paths cannot see them;
+    # columnId is a warehouse-column identity Sigma reuses verbatim, making the
+    # match exact rather than a name guess.
+    dm_element_cross_dm_columnid_resolved: int = 0
+    # The same columnId matched more than one producer column; the
+    # lexicographically-first URN is chosen, matching the collision policy used
+    # elsewhere in this connector.
+    dm_element_cross_dm_columnid_collision: int = 0
+    # Warehouse columns accepted although the element does not declare the
+    # inode: it declares no inode at all (it is sourced transitively, e.g. only
+    # from other Data Models) and the url_id is in this Data Model's warehouse
+    # map. Kept separate so the relaxation is auditable against the
+    # url_id_not_in_element_source_ids misses it replaces.
+    dm_element_warehouse_transitive_inode_accepted: int = 0
     # Column whose formula refs are exclusively parameter refs (e.g. [P_*]).
     chart_input_fields_skipped_parameter: int = 0
     # Column whose formula refs are exclusively bare sibling refs (e.g. [col]).

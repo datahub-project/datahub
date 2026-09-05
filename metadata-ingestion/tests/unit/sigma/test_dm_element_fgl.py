@@ -16,6 +16,7 @@ def _source() -> SigmaSource:
     source.reporter = SigmaSourceReport()
     source.dm_element_urn_by_name = {}
     source.dm_element_urn_to_cols = {}
+    source.dm_element_columnid_index = {}
     source._upstream_schema_unavailable_warned = set()
     return source
 
@@ -1426,3 +1427,63 @@ def test_join_chain_resolves_when_owner_absent_from_direct_lineage() -> None:
     # Reported back so the caller can declare it in ``upstreams``.
     assert discovered == {owner_urn}
     assert source.reporter.data_model_element_fgl_join_chain_upstream_added == 1
+
+
+def test_cross_dm_passthrough_matches_producer_by_column_id() -> None:
+    """A pass-through column on a cross-DM-sourced element has no formula.
+
+    Nothing names the producer, so the ref paths cannot see it -- but its
+    columnId is the same warehouse-column identity the producer's column
+    carries, which makes the match exact rather than a name guess.
+    """
+    source = _source()
+    dm_url_id = "producer-dm"
+    producer_urn = _urn("producer-el")
+    downstream_urn = _urn("consumer")
+    shared_column_id = "inode-5ljCallY0MS89c0pT8mUTL/ACCOUNT_ID"
+    element = _element(
+        "consumer",
+        "Invoices Join with Account mapping",
+        [_column(shared_column_id, "Account Id", "")],
+        source_ids=[f"{dm_url_id}/suffix"],
+    )
+    source.dm_element_columnid_index = {
+        dm_url_id: {shared_column_id: [(producer_urn, "Account Id")]}
+    }
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        entity_level_upstream_urns={producer_urn},
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [
+        builder.make_schema_field_urn(producer_urn, "Account Id")
+    ]
+    assert source.reporter.dm_element_cross_dm_columnid_resolved == 1
+    # Must not also land in the expected-volume bucket.
+    assert source.reporter.data_model_element_fgl_no_ref_unresolved == 0
+
+
+def test_cross_dm_column_id_match_restricted_to_declared_producers() -> None:
+    """An unrelated DM passing the same warehouse column must not be picked up."""
+    source = _source()
+    downstream_urn = _urn("consumer")
+    shared_column_id = "inode-abc/ACCOUNT_ID"
+    element = _element(
+        "consumer",
+        "Consumer",
+        [_column(shared_column_id, "Account Id", "")],
+        source_ids=["declared-dm/suffix"],
+    )
+    source.dm_element_columnid_index = {
+        # Same columnId, but this DM is NOT among the element's source_ids.
+        "unrelated-dm": {shared_column_id: [(_urn("unrelated-el"), "Account Id")]}
+    }
+
+    lineages = _build(source, element, element_dataset_urn=downstream_urn)
+
+    assert lineages == []
+    assert source.reporter.dm_element_cross_dm_columnid_resolved == 0
