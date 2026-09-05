@@ -23,5 +23,7 @@ public class PgSystemMetadataSqlMigrationSqlTest {
     assertFalse(substituted.contains("__PGSYSTEMMETADATA_TABLE__"));
     assertTrue(substituted.contains("system_metadata_service_v1"));
     assertTrue(substituted.contains("idx_system_metadata_service_v1_aspect"));
+    assertTrue(substituted.contains("idx_system_metadata_service_v1_urn_aspect"));
+    assertTrue(substituted.contains("(urn, aspect)"));
   }
 }

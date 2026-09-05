@@ -102,6 +102,12 @@ public class PostgresSqlSetupPropertiesTest {
     PostgresSqlSetupProperties.normalizeTablePrefix("1bad", "postgres.pgQueue.tablePrefix");
   }
 
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void normalizeTablePrefix_rejectsSqlInjectionFragment() {
+    PostgresSqlSetupProperties.normalizeTablePrefix(
+        "foo;drop", "postgres.pgSystemMetadata.tablePrefix");
+  }
+
   @Test
   public void resolvePartmanPartitionRetentionIntervalText_withRetention() {
     String text =

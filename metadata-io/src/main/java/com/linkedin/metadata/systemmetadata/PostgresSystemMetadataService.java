@@ -2,6 +2,7 @@ package com.linkedin.metadata.systemmetadata;
 
 import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.FIELD_ASPECT;
 import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.FIELD_LAST_UPDATED;
+import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.FIELD_REMOVED;
 import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.FIELD_URN;
 import static io.datahubproject.metadata.context.SystemTelemetryContext.TELEMETRY_TRACE_KEY;
 
@@ -144,12 +145,15 @@ public class PostgresSystemMetadataService implements SystemMetadataService {
 
   private static String columnForSqlParamKey(String paramKey) {
     return switch (paramKey) {
-      case ElasticSearchSystemMetadataService.FIELD_URN -> "urn";
-      case ElasticSearchSystemMetadataService.FIELD_ASPECT -> "aspect";
+      case FIELD_URN -> "urn";
+      case FIELD_ASPECT -> "aspect";
       case "runId" -> "run_id";
       case "registryName" -> "registry_name";
       case "registryVersion" -> "registry_version";
-      default -> null;
+      case FIELD_LAST_UPDATED -> "last_updated";
+      case FIELD_REMOVED -> "removed";
+      default ->
+          throw new IllegalArgumentException("Unsupported system metadata filter key: " + paramKey);
     };
   }
 
@@ -211,49 +215,35 @@ public class PostgresSystemMetadataService implements SystemMetadataService {
 
   @Override
   public void setDocStatus(@Nonnull OperationContext opContext, String urn, boolean removed) {
-    List<AspectRowSummary> aspectList =
-        findByParams(
-            opContext,
-            Map.of(FIELD_URN, urn),
-            !removed,
-            0,
-            systemMetadataServiceConfig.getLimit().getResults().getApiDefault());
-    for (AspectRowSummary aspect : aspectList) {
-      upsertRemovedOnly(toDocId(aspect.getUrn(), aspect.getAspectName()), removed);
-    }
-  }
-
-  private void upsertRemovedOnly(String docId, boolean removed) {
-    String sqlSelect = "SELECT document::text FROM " + qualifiedTable() + " WHERE doc_id = ?";
-    String sqlUpsert =
-        "INSERT INTO "
+    // UPDATE-only: never INSERT. Concurrent ingest keeps its document payload; deleteUrn rows
+    // stay gone (0 rows updated). jsonb_set patches the removed flag without rewriting the rest.
+    String sql =
+        "UPDATE "
             + qualifiedTable()
-            + " (doc_id, urn, aspect, run_id, registry_name, registry_version, "
-            + "last_updated, removed, document) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb)\n"
-            + "ON CONFLICT (doc_id) DO UPDATE SET "
-            + "removed = EXCLUDED.removed, "
-            + "document = EXCLUDED.document";
-
-    try (Connection c = openConnection()) {
-      try (PreparedStatement sel = c.prepareStatement(sqlSelect)) {
-        sel.setString(1, docId);
-        try (ResultSet rs = sel.executeQuery()) {
-          if (!rs.next()) {
-            return;
-          }
-          String docStr = rs.getString(1);
-          ObjectNode doc = (ObjectNode) objectMapper(null).readTree(docStr);
-          doc.put("removed", removed);
-
-          String urn = doc.path(FIELD_URN).asText();
-          String aspect = doc.path(FIELD_ASPECT).asText();
-          try (PreparedStatement up = c.prepareStatement(sqlUpsert)) {
-            bindRow(up, docId, urn, aspect, doc, removed);
-            up.executeUpdate();
-          }
+            + " SET removed = ?, document = jsonb_set(document, '{removed}', to_jsonb(?::boolean), true)"
+            + " WHERE urn = ?";
+    try (Connection c = database.dataSource().getConnection()) {
+      boolean previousAutoCommit = c.getAutoCommit();
+      c.setAutoCommit(false);
+      try {
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+          ps.setBoolean(1, removed);
+          ps.setBoolean(2, removed);
+          ps.setString(3, urn);
+          ps.executeUpdate();
         }
+        c.commit();
+      } catch (SQLException e) {
+        try {
+          c.rollback();
+        } catch (SQLException rollback) {
+          e.addSuppressed(rollback);
+        }
+        throw e;
+      } finally {
+        c.setAutoCommit(previousAutoCommit);
       }
-    } catch (Exception e) {
+    } catch (SQLException e) {
       throw new RuntimeException(e);
     }
   }
@@ -351,10 +341,8 @@ public class PostgresSystemMetadataService implements SystemMetadataService {
     List<String> vals = new ArrayList<>();
     for (Map.Entry<String, String> e : systemMetaParams.entrySet()) {
       String col = columnForSqlParamKey(e.getKey());
-      if (col != null) {
-        cond.add(col + " = ?");
-        vals.add(e.getValue());
-      }
+      cond.add(col + " = ?");
+      vals.add(e.getValue());
     }
     if (vals.isEmpty()) {
       return Collections.emptyList();
@@ -449,6 +437,9 @@ public class PostgresSystemMetadataService implements SystemMetadataService {
       @Nonnull Urn urn,
       @Nonnull List<String> aspects,
       boolean includeSoftDeleted) {
+    if (aspects.isEmpty()) {
+      return Collections.emptyList();
+    }
     String ph = aspects.stream().map(a -> "?").collect(Collectors.joining(","));
     StringBuilder sql =
         new StringBuilder("SELECT document::text FROM ")

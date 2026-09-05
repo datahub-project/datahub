@@ -2,7 +2,10 @@ package com.linkedin.metadata.systemmetadata.postgres;
 
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SYSTEM_METADATA_SERVICE_CONFIG;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -13,6 +16,9 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.systemmetadata.KeyAspectCount;
 import com.linkedin.metadata.systemmetadata.PostgresSystemMetadataService;
+import com.linkedin.metadata.systemmetadata.scroll.PostgresSystemMetadataScrollClient;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollRequest;
+import com.linkedin.metadata.systemmetadata.scroll.SystemMetadataScrollResult;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -262,5 +268,69 @@ public class PostgresSystemMetadataServiceIT {
     List<AspectRowSummary> rows =
         service.findAspectsByUrn(OP_CONTEXT, urn, List.of("ChartInfo", "Ownership"), false);
     assertEquals(rows.size(), 2);
+  }
+
+  @Test
+  public void findAspectsByUrn_emptyAspectList_returnsEmptyWithoutQuery() {
+    SystemMetadata m = new SystemMetadata();
+    m.setRunId("empty-in");
+    m.setLastObserved(4L);
+    Urn urn = UrnUtils.getUrn("urn:li:chart:empty-in");
+    service.insert(OP_CONTEXT, m, urn.toString(), "ChartInfo");
+
+    assertEquals(service.findAspectsByUrn(OP_CONTEXT, urn, List.of(), false).size(), 0);
+    assertEquals(service.findByUrn(OP_CONTEXT, urn.toString(), false, 0, null).size(), 1);
+  }
+
+  @Test
+  public void findByParams_unknownKeyThrows() {
+    expectThrows(
+        IllegalArgumentException.class,
+        () ->
+            service.findByParams(OP_CONTEXT, Map.of("notASystemMetadataField", "x"), false, 0, 10));
+  }
+
+  @Test
+  public void setDocStatus_afterDeleteUrn_doesNotResurrectRow() {
+    SystemMetadata m = new SystemMetadata();
+    m.setRunId("resurrect");
+    m.setLastObserved(8L);
+    String urn = "urn:li:chart:no-resurrect";
+    service.insert(OP_CONTEXT, m, urn, "ChartInfo");
+    service.deleteUrn(OP_CONTEXT, urn);
+    assertEquals(service.findByUrn(OP_CONTEXT, urn, true, 0, null).size(), 0);
+
+    service.setDocStatus(OP_CONTEXT, urn, true);
+    assertEquals(service.findByUrn(OP_CONTEXT, urn, true, 0, null).size(), 0);
+  }
+
+  @Test
+  public void postgresScrollClient_pagesWithKeysetCursor() {
+    SystemMetadata m = new SystemMetadata();
+    m.setRunId("scroll");
+    m.setLastObserved(9L);
+    service.insert(OP_CONTEXT, m, "urn:li:chart:scroll-a", "ChartInfo");
+    service.insert(OP_CONTEXT, m, "urn:li:chart:scroll-b", "ChartInfo");
+    service.insert(OP_CONTEXT, m, "urn:li:chart:scroll-c", "ChartInfo");
+
+    PostgresSystemMetadataScrollClient scrollClient =
+        new PostgresSystemMetadataScrollClient(database, props);
+    SystemMetadataScrollResult first =
+        scrollClient.scrollUrns(
+            OP_CONTEXT,
+            SystemMetadataScrollRequest.builder().entityType("chart").batchSize(2).build());
+    assertEquals(first.getUrns().size(), 2);
+    assertNotNull(first.getNextScrollId());
+
+    SystemMetadataScrollResult second =
+        scrollClient.scrollUrns(
+            OP_CONTEXT,
+            SystemMetadataScrollRequest.builder()
+                .entityType("chart")
+                .batchSize(2)
+                .scrollId(first.getNextScrollId())
+                .build());
+    assertEquals(second.getUrns().size(), 1);
+    assertNull(second.getNextScrollId());
   }
 }

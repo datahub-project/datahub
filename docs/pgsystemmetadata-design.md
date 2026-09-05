@@ -29,6 +29,9 @@ Defaults keep Elasticsearch as the system-metadata store. Set both
 startup. Dual-write is not supported. SqlSetup may still create tables from `enabled` alone.
 
 Switching the source of truth does **not** backfill Elasticsearch history into Postgres.
+Upgrading an existing postgres+Elasticsearch deployment (system metadata already in the
+`system_metadata_service_v1` index) will **not** copy those documents into the Postgres table.
+Wipe and rebuild, re-ingest, or keep `SYSTEM_METADATA_SERVICE_IMPLEMENTATION=elasticsearch`.
 
 ```mermaid
 flowchart LR
@@ -68,7 +71,8 @@ Requires PostgreSQL (no `pg_partman` / `pg_cron`). See
 | `{postgres.schema}.{tableName}`  | Data table. Default `public.system_metadata_service_v1` (same name as the ES index). |
 | `{tablePrefix}_schema_migration` | SqlSetup migration ledger only. Default prefix `metadata_system_metadata`.           |
 
-The table is **not** time-partitioned. Indexes exist on `urn`, `run_id`, and `aspect`.
+The table is **not** time-partitioned. Indexes exist on `urn`, `run_id`, `aspect`, and
+`(urn, aspect)` for keyset scroll.
 
 Runtime uses a **dedicated Ebean pool** (`postgres.pgSystemMetadata.pool.*`, defaults fall through
 to `ebean.*`). SqlSetup DDL uses the main Ebean connection unless `pool.url` is overridden; IAM

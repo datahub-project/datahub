@@ -59,6 +59,11 @@ public final class PgSystemMetadataStoreConnections {
     Iam iam = props.getPgCron() != null ? props.getPgCron().getIam() : null;
     boolean shouldUseIam = iam != null && (iam.isUseIamAuth() || iam.isPostgresUseIamAuth());
     if (!shouldUseIam) {
+      try {
+        Class.forName(defaultDriver);
+      } catch (ClassNotFoundException e) {
+        throw new SQLException("JDBC driver not found: " + defaultDriver, e);
+      }
       return DriverManager.getConnection(url.trim(), user, pass);
     }
 
@@ -96,7 +101,7 @@ public final class PgSystemMetadataStoreConnections {
   }
 
   @Nonnull
-  private static String[] ebeanCredentials(@Nonnull Database fallbackServer) {
+  private static String[] ebeanCredentials(@Nonnull Database fallbackServer) throws SQLException {
     try {
       DataSourceBuilder.Settings dsc = fallbackServer.pluginApi().config().getDataSourceConfig();
       if (dsc == null) {
@@ -106,7 +111,7 @@ public final class PgSystemMetadataStoreConnections {
       String pass = dsc.getPassword() != null ? dsc.getPassword() : "";
       return new String[] {user, pass};
     } catch (RuntimeException e) {
-      return new String[] {"", ""};
+      throw new SQLException("Unable to read Ebean credentials for pgSystemMetadata SqlSetup", e);
     }
   }
 

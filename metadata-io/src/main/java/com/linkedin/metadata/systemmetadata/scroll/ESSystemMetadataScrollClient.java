@@ -53,9 +53,11 @@ public class ESSystemMetadataScrollClient implements SystemMetadataScrollClient 
             SCROLL_KEEP_ALIVE,
             request.getBatchSize());
 
-    if (response == null
-        || response.getHits() == null
-        || response.getHits().getHits().length == 0) {
+    if (response == null) {
+      throw new RuntimeException(
+          "System metadata scroll failed: Elasticsearch returned no response");
+    }
+    if (response.getHits() == null || response.getHits().getHits().length == 0) {
       return SystemMetadataScrollResult.empty();
     }
 
@@ -135,7 +137,7 @@ public class ESSystemMetadataScrollClient implements SystemMetadataScrollClient 
   }
 
   @Nullable
-  private String extractNextScrollId(@Nonnull SearchResponse response) {
+  String extractNextScrollId(@Nonnull SearchResponse response) {
     SearchHit[] hits = response.getHits().getHits();
     if (hits.length == 0) {
       return null;

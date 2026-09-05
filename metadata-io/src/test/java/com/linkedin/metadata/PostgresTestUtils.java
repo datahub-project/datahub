@@ -360,8 +360,13 @@ public final class PostgresTestUtils {
   public static void truncatePgSystemMetadata(
       @Nonnull Connection connection, @Nonnull PostgresSqlSetupProperties props)
       throws SQLException {
+    com.linkedin.metadata.config.postgres.PgSystemMetadataSetupOptions options =
+        props.buildPgSystemMetadataOptions();
+    if (options == null) {
+      throw new IllegalStateException("expected pgSystemMetadata options");
+    }
     try (Statement st = connection.createStatement()) {
-      st.execute("TRUNCATE TABLE " + props.buildPgSystemMetadataOptions().qualifiedTable());
+      st.execute("TRUNCATE TABLE " + options.qualifiedTable());
       connection.commit();
     }
   }

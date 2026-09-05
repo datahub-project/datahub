@@ -20,10 +20,7 @@ public class PgSystemMetadataRuntimePoolEnabledCondition implements Condition {
         context
             .getEnvironment()
             .getProperty("systemMetadataService.implementation", "elasticsearch");
-    if (implementation == null || implementation.isBlank()) {
-      implementation =
-          context.getEnvironment().getProperty("SYSTEM_METADATA_SERVICE_IMPLEMENTATION", "");
-    }
-    return enabled && "postgres".equalsIgnoreCase(implementation.trim());
+    return enabled
+        && SystemMetadataPostgresBackendCondition.usePostgresSystemMetadataService(implementation);
   }
 }
