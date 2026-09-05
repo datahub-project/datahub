@@ -1951,6 +1951,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     urn,
                 )
         upstream_urns.sort()
+        # Element-level decision record. Pairs with the per-column COLUMN lines:
+        # this says which upstreams the element ended up declaring and how many
+        # column edges were produced, so "why is there no CLL from X to Y" can be
+        # answered by grepping one element id instead of reconstructing it.
+        logger.debug(
+            "ELEMENT DM %s element %s %r: source_ids=%r -> upstreams=%r "
+            "promoted=%r fgl_count=%d columns=%d",
+            data_model.dataModelId,
+            element.elementId,
+            element.name,
+            element.source_ids,
+            upstream_urns,
+            sorted(discovered_upstreams),
+            len(fine_grained or []),
+            len(element.columns),
+        )
         return UpstreamLineage(
             upstreams=[
                 Upstream(dataset=urn, type=DatasetLineageType.TRANSFORMED)
@@ -2769,6 +2785,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # (e.g. If([A/x] = 0, [A/x], [A/x] / 2) → one FGL, not three).
         emitted_pairs: Set[Tuple[str, str]] = set()
         for column in sorted(by_name.values(), key=lambda c: c.name):
+            # Decision record: every column emits exactly one summary line
+            # naming what it resolved to, or nothing. Failure paths each log
+            # their own reason, but successes were silent, so an element whose
+            # columns all resolved produced no output at all and there was no
+            # way to tell WHICH upstream a given column bound to.
+            fgl_mark = len(fgls)
+            cross_mark = len(cross_dm_fgls)
             downstream_field = builder.make_schema_field_urn(
                 element_dataset_urn, column.name
             )
@@ -2919,6 +2942,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     fgls=fgls,
                     emitted_pairs=emitted_pairs,
                 )
+
+            emitted_now = [(f.upstreams or [""])[0] for f in fgls[fgl_mark:]] + [
+                (f.upstreams or [""])[0] for f in cross_dm_fgls[cross_mark:]
+            ]
+            logger.debug(
+                "COLUMN DM %s element %s %r: columnId=%r formula=%r refs=%r "
+                "ref_resolution_attempted=%s -> emitted=%r",
+                data_model.dataModelId,
+                element.elementId,
+                column.name,
+                column.columnId,
+                column.formula,
+                [r.raw for r in extract_bracket_refs(column.formula)],
+                resolution_attempted,
+                emitted_now,
+            )
         # fgl_emitted is the umbrella count for intra-DM AND warehouse-passthrough
         # FGL (both appended to `fgls`). Cross-DM is tracked separately via
         # fgl_cross_dm_resolved. Warehouse-passthrough is also sub-counted in
