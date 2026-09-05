@@ -6,6 +6,7 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.config.postgres.PgQueueSetupOptions;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
+import com.linkedin.metadata.sqlsetup.postgres.PostgresPartmanSqlSetupSupport;
 import com.linkedin.metadata.sqlsetup.postgres.migration.PostgresSqlMigrationRunner;
 import com.linkedin.metadata.sqlsetup.postgres.migration.PostgresSqlUtils;
 import com.linkedin.metadata.sqlsetup.postgres.migration.SqlMigrationException;
@@ -244,17 +245,6 @@ public class PgQueueSchemaStep implements UpgradeStep {
 
   /** Maps intervalSeconds to a pg_cron schedule (minute/hour granularity). */
   public static String toPgCronSchedule(int intervalSeconds) {
-    int sec = Math.max(60, intervalSeconds);
-    if (sec % 86400 == 0) {
-      int days = sec / 86400;
-      days = Math.max(1, Math.min(31, days));
-      return days == 1 ? "0 0 * * *" : ("0 0 */" + days + " * *");
-    }
-    if (sec % 3600 == 0) {
-      int hours = Math.max(1, Math.min(23, sec / 3600));
-      return "0 */" + hours + " * * *";
-    }
-    int minutes = Math.max(1, Math.min(59, sec / 60));
-    return "*/" + minutes + " * * * *";
+    return PostgresPartmanSqlSetupSupport.toPgCronSchedule(intervalSeconds);
   }
 }

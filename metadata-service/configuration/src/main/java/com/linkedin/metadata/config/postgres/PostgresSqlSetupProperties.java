@@ -17,7 +17,7 @@ import org.springframework.lang.Nullable;
 
 /**
  * Binds {@code postgres.*} from {@code application.yaml} for optional SqlSetup PostgreSQL DDL
- * (pgQueue).
+ * (pgQueue, pgTimeseries).
  *
  * <p>Configuration defaults live in {@code application.yaml}, not on fields in this class.
  */
@@ -31,6 +31,13 @@ public class PostgresSqlSetupProperties {
    */
   public static final Set<String> PGQUEUE_PARTMAN_PARTITION_INTERVALS =
       Set.of("1 hour", "6 hours", "12 hours", "1 day", "1 week", "1 month");
+
+  /**
+   * Allowlisted {@code postgres.pgTimeseries.partitioning.partmanPartitionInterval} values
+   * (pg_partman).
+   */
+  public static final Set<String> PGTIMESERIES_PARTMAN_PARTITION_INTERVALS =
+      PGQUEUE_PARTMAN_PARTITION_INTERVALS;
 
   /** Default same-JVM pgQueue consumer threads per topic when unset or non-positive in config. */
   public static final int PGQUEUE_TOPIC_DEFAULT_CONSUMER_CONCURRENCY = 1;
@@ -58,6 +65,7 @@ public class PostgresSqlSetupProperties {
    */
   private String schema;
 
+  private PgTimeseries pgTimeseries = new PgTimeseries();
   private PgQueue pgQueue = new PgQueue();
   private PgCron pgCron = new PgCron();
 
@@ -71,6 +79,7 @@ public class PostgresSqlSetupProperties {
   /** Disables all optional SqlSetup PostgreSQL extension steps (for tests or non-Spring use). */
   public static PostgresSqlSetupProperties disabled() {
     PostgresSqlSetupProperties p = new PostgresSqlSetupProperties();
+    p.getPgTimeseries().setEnabled(false);
     p.getPgQueue().setEnabled(false);
     return p;
   }
@@ -84,6 +93,9 @@ public class PostgresSqlSetupProperties {
       return;
     }
     normalizedPostgresSchema();
+    if (pgTimeseries.isEnabled()) {
+      validatePgTimeseriesConfig();
+    }
     if (pgQueue.isEnabled()) {
       validatePgQueueConfig();
     }
@@ -94,7 +106,9 @@ public class PostgresSqlSetupProperties {
     if (dbType != DatabaseType.POSTGRES) {
       return;
     }
-    boolean cronNeeded = pgQueue.isEnabled() && pgQueue.getMaintenance().isCronEnabled();
+    boolean cronNeeded =
+        (pgQueue.isEnabled() && pgQueue.getMaintenance().isCronEnabled())
+            || (pgTimeseries.isEnabled() && isAnyPgTimeseriesStoreCronEnabled());
     if (!cronNeeded) {
       return;
     }
@@ -497,6 +511,465 @@ public class PostgresSqlSetupProperties {
     return s.toLowerCase();
   }
 
+  /** Built timeseries registry, or null when {@code postgres.pgTimeseries.enabled} is false. */
+  public PgTimeseriesSetupOptions buildPgTimeseriesOptions() {
+    if (!pgTimeseries.isEnabled()) {
+      return null;
+    }
+    String defaultStoreName = normalizedPgTimeseriesDefaultStoreName();
+    Map<String, PgTimeseriesStoreOptions> stores = new LinkedHashMap<>();
+    stores.put(defaultStoreName, buildDefaultPgTimeseriesStore(defaultStoreName));
+
+    Map<String, PgTimeseries.StoreConfig> configuredStores = pgTimeseries.getStores();
+    if (configuredStores != null) {
+      for (Map.Entry<String, PgTimeseries.StoreConfig> entry : configuredStores.entrySet()) {
+        String rawName = entry.getKey();
+        if (rawName == null || rawName.isBlank()) {
+          throw new IllegalStateException("postgres.pgTimeseries.stores keys must be non-empty.");
+        }
+        String storeName = rawName.trim().toLowerCase(Locale.ROOT);
+        PgTimeseriesStoreOptions built =
+            buildNamedPgTimeseriesStore(storeName, entry.getValue(), stores.get(defaultStoreName));
+        stores.put(storeName, built);
+      }
+    }
+
+    Map<String, String> routing = new LinkedHashMap<>();
+    Map<String, String> configuredRouting = pgTimeseries.getRouting();
+    if (configuredRouting != null) {
+      for (Map.Entry<String, String> entry : configuredRouting.entrySet()) {
+        if (entry.getKey() == null || entry.getKey().isBlank()) {
+          throw new IllegalStateException(
+              "postgres.pgTimeseries.routing keys must be non-empty entity.aspect pairs.");
+        }
+        if (entry.getValue() == null || entry.getValue().isBlank()) {
+          throw new IllegalStateException(
+              "postgres.pgTimeseries.routing values must be non-empty store names.");
+        }
+        String key = normalizeRoutingKey(entry.getKey());
+        String target = entry.getValue().trim().toLowerCase(Locale.ROOT);
+        routing.put(key, target);
+      }
+    }
+
+    return new PgTimeseriesSetupOptions(defaultStoreName, stores, routing);
+  }
+
+  /**
+   * Normalizes {@code entity.aspect} routing keys to match {@link
+   * PgTimeseriesSetupOptions#routingKey} (trim each segment, lower-case).
+   */
+  @NonNull
+  static String normalizeRoutingKey(@NonNull String rawKey) {
+    String trimmed = rawKey.trim().toLowerCase(Locale.ROOT);
+    String[] segments = trimmed.split("\\.", -1);
+    if (segments.length != 2) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.routing key '"
+              + rawKey
+              + "' must be exactly entity.aspect (two non-empty segments).");
+    }
+    String entity = segments[0].trim();
+    String aspect = segments[1].trim();
+    if (entity.isEmpty() || aspect.isEmpty()) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.routing key '"
+              + rawKey
+              + "' must be exactly entity.aspect (two non-empty segments).");
+    }
+    return entity + "." + aspect;
+  }
+
+  /** Normalized {@code postgres.pgTimeseries.tablePrefix} (default-store flat key). */
+  public String normalizedPgTimeseriesTablePrefix() {
+    return normalizeTablePrefix(pgTimeseries.getTablePrefix(), "postgres.pgTimeseries.tablePrefix");
+  }
+
+  @NonNull
+  public String normalizedPgTimeseriesDefaultStoreName() {
+    String raw = pgTimeseries.getDefaultStore();
+    if (raw == null || raw.isBlank()) {
+      return "default";
+    }
+    return raw.trim().toLowerCase(Locale.ROOT);
+  }
+
+  private boolean isAnyPgTimeseriesStoreCronEnabled() {
+    if (Boolean.TRUE.equals(pgTimeseries.getMaintenance().getCronEnabled())) {
+      return true;
+    }
+    Map<String, PgTimeseries.StoreConfig> configuredStores = pgTimeseries.getStores();
+    if (configuredStores == null) {
+      return false;
+    }
+    for (PgTimeseries.StoreConfig store : configuredStores.values()) {
+      if (store != null
+          && store.getMaintenance() != null
+          && Boolean.TRUE.equals(store.getMaintenance().getCronEnabled())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private PgTimeseriesStoreOptions buildDefaultPgTimeseriesStore(String storeName) {
+    PgTimeseries.Partitioning p = pgTimeseries.getPartitioning();
+    String rawInterval = p.getPartmanPartitionInterval();
+    String partmanIntervalNormalized =
+        rawInterval == null || rawInterval.isBlank() ? "" : rawInterval.trim().toLowerCase();
+    PgTimeseries.Pool pool =
+        pgTimeseries.getPool() != null ? pgTimeseries.getPool() : new PgTimeseries.Pool();
+    return PgTimeseriesStoreOptions.builder()
+        .name(storeName)
+        .schema(normalizedPostgresSchema())
+        .tablePrefix(normalizedPgTimeseriesTablePrefix())
+        .partmanPartitionInterval(partmanIntervalNormalized)
+        .partmanPremake(p.getPartmanPremake())
+        .forceOverwritePartmanConfig(Boolean.TRUE.equals(p.getForceOverwritePartmanConfig()))
+        .retentionMaxAgeSeconds(pgTimeseries.getRetention().getMaxAgeSeconds())
+        .maintenanceCronEnabled(Boolean.TRUE.equals(pgTimeseries.getMaintenance().getCronEnabled()))
+        .maintenanceIntervalSeconds(pgTimeseries.getMaintenance().getIntervalSeconds())
+        .poolUrl(blankToNull(pool.getUrl()))
+        .poolDriver(blankToNull(pool.getDriver()))
+        .poolUsername(blankToNull(pool.getUsername()))
+        .poolPassword(blankToNull(pool.getPassword()))
+        .poolMinConnections(pool.getMinConnections() > 0 ? pool.getMinConnections() : 1)
+        .poolMaxConnections(pool.getMaxConnections() > 0 ? pool.getMaxConnections() : 12)
+        .poolMaxInactiveTimeSeconds(
+            pool.getMaxInactiveTimeSeconds() > 0 ? pool.getMaxInactiveTimeSeconds() : 120)
+        .poolMaxAgeMinutes(pool.getMaxAgeMinutes() > 0 ? pool.getMaxAgeMinutes() : 120)
+        .poolLeakTimeMinutes(pool.getLeakTimeMinutes() > 0 ? pool.getLeakTimeMinutes() : 15)
+        .poolWaitTimeoutMillis(pool.getWaitTimeoutMillis() > 0 ? pool.getWaitTimeoutMillis() : 1000)
+        .build();
+  }
+
+  private PgTimeseriesStoreOptions buildNamedPgTimeseriesStore(
+      String storeName, PgTimeseries.StoreConfig config, PgTimeseriesStoreOptions defaults) {
+    if (config == null) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.stores." + storeName + " must not be null.");
+    }
+    String schema =
+        config.getSchema() != null && !config.getSchema().isBlank()
+            ? validateAndNormalizePostgresFeatureSchema(
+                config.getSchema(), "postgres.pgTimeseries.stores." + storeName + ".schema")
+            : defaults.getSchema();
+    String tablePrefix =
+        config.getTablePrefix() != null && !config.getTablePrefix().isBlank()
+            ? normalizeTablePrefix(
+                config.getTablePrefix(),
+                "postgres.pgTimeseries.stores." + storeName + ".tablePrefix")
+            : defaults.getTablePrefix();
+
+    PgTimeseries.Partitioning p =
+        config.getPartitioning() != null
+            ? config.getPartitioning()
+            : new PgTimeseries.Partitioning();
+    String interval =
+        p.getPartmanPartitionInterval() != null && !p.getPartmanPartitionInterval().isBlank()
+            ? p.getPartmanPartitionInterval().trim().toLowerCase(Locale.ROOT)
+            : defaults.getPartmanPartitionInterval();
+    int premake = p.getPartmanPremake() > 0 ? p.getPartmanPremake() : defaults.getPartmanPremake();
+    boolean forceOverwrite =
+        p.getForceOverwritePartmanConfig() != null
+            ? p.getForceOverwritePartmanConfig()
+            : defaults.isForceOverwritePartmanConfig();
+
+    PgTimeseries.Retention r =
+        config.getRetention() != null ? config.getRetention() : new PgTimeseries.Retention();
+    int maxAge =
+        config.getRetention() != null ? r.getMaxAgeSeconds() : defaults.getRetentionMaxAgeSeconds();
+
+    PgTimeseries.Maintenance m =
+        config.getMaintenance() != null ? config.getMaintenance() : new PgTimeseries.Maintenance();
+    boolean cronEnabled =
+        m.getCronEnabled() != null ? m.getCronEnabled() : defaults.isMaintenanceCronEnabled();
+    int cronInterval =
+        config.getMaintenance() != null && m.getIntervalSeconds() > 0
+            ? m.getIntervalSeconds()
+            : defaults.getMaintenanceIntervalSeconds();
+
+    PgTimeseries.Pool pool = config.getPool() != null ? config.getPool() : new PgTimeseries.Pool();
+    String poolUrl =
+        pool.getUrl() != null && !pool.getUrl().isBlank()
+            ? pool.getUrl().trim()
+            : defaults.getPoolUrl();
+    String poolDriver =
+        pool.getDriver() != null && !pool.getDriver().isBlank()
+            ? pool.getDriver().trim()
+            : defaults.getPoolDriver();
+    // Blank username/password must stay null when pool.url is overridden so the runtime
+    // factory can fall back to ebean.* credentials (do not inherit the default store's
+    // identity when only the JDBC URL differs).
+    boolean inheritDefaultPoolIdentity = pool.getUrl() == null || pool.getUrl().isBlank();
+    String poolUsername = blankToNull(pool.getUsername());
+    if (poolUsername == null && inheritDefaultPoolIdentity) {
+      poolUsername = defaults.getPoolUsername();
+    }
+    String poolPassword = blankToNull(pool.getPassword());
+    if (poolPassword == null && inheritDefaultPoolIdentity) {
+      poolPassword = defaults.getPoolPassword();
+    }
+
+    return PgTimeseriesStoreOptions.builder()
+        .name(storeName)
+        .schema(schema)
+        .tablePrefix(tablePrefix)
+        .partmanPartitionInterval(interval)
+        .partmanPremake(premake)
+        .forceOverwritePartmanConfig(forceOverwrite)
+        .retentionMaxAgeSeconds(maxAge)
+        .maintenanceCronEnabled(cronEnabled)
+        .maintenanceIntervalSeconds(cronInterval)
+        .poolUrl(blankToNull(poolUrl))
+        .poolDriver(blankToNull(poolDriver))
+        .poolUsername(blankToNull(poolUsername))
+        .poolPassword(blankToNull(poolPassword))
+        .poolMinConnections(
+            pool.getMinConnections() > 0
+                ? pool.getMinConnections()
+                : defaults.getPoolMinConnections())
+        .poolMaxConnections(
+            pool.getMaxConnections() > 0
+                ? pool.getMaxConnections()
+                : defaults.getPoolMaxConnections())
+        .poolMaxInactiveTimeSeconds(
+            pool.getMaxInactiveTimeSeconds() > 0
+                ? pool.getMaxInactiveTimeSeconds()
+                : defaults.getPoolMaxInactiveTimeSeconds())
+        .poolMaxAgeMinutes(
+            pool.getMaxAgeMinutes() > 0 ? pool.getMaxAgeMinutes() : defaults.getPoolMaxAgeMinutes())
+        .poolLeakTimeMinutes(
+            pool.getLeakTimeMinutes() > 0
+                ? pool.getLeakTimeMinutes()
+                : defaults.getPoolLeakTimeMinutes())
+        .poolWaitTimeoutMillis(
+            pool.getWaitTimeoutMillis() > 0
+                ? pool.getWaitTimeoutMillis()
+                : defaults.getPoolWaitTimeoutMillis())
+        .build();
+  }
+
+  private static String blankToNull(String value) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    return value.trim();
+  }
+
+  private void validatePgTimeseriesConfig() {
+    String defaultStoreName = normalizedPgTimeseriesDefaultStoreName();
+    if (!defaultStoreName.matches("[a-z][a-z0-9_]*")) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.defaultStore must be a lower-case identifier"
+              + " (letters, digits, underscore; must start with a letter).");
+    }
+    validatePgTimeseriesStoreFields(
+        "postgres.pgTimeseries",
+        pgTimeseries.getTablePrefix(),
+        pgTimeseries.getPartitioning(),
+        pgTimeseries.getRetention(),
+        pgTimeseries.getMaintenance());
+
+    Map<String, PgTimeseries.StoreConfig> configuredStores = pgTimeseries.getStores();
+    if (configuredStores != null) {
+      for (Map.Entry<String, PgTimeseries.StoreConfig> entry : configuredStores.entrySet()) {
+        if (entry.getKey() == null || entry.getKey().isBlank()) {
+          throw new IllegalStateException("postgres.pgTimeseries.stores keys must be non-empty.");
+        }
+        String storeName = entry.getKey().trim().toLowerCase(Locale.ROOT);
+        if (!storeName.matches("[a-z][a-z0-9_]*")) {
+          throw new IllegalStateException(
+              "postgres.pgTimeseries.stores key '"
+                  + entry.getKey()
+                  + "' must be a lower-case identifier.");
+        }
+        PgTimeseries.StoreConfig cfg = entry.getValue();
+        if (cfg == null) {
+          throw new IllegalStateException(
+              "postgres.pgTimeseries.stores." + storeName + " must not be null.");
+        }
+        // Named stores may omit fields (inherit from default); validate only when set.
+        if (cfg.getTablePrefix() != null && !cfg.getTablePrefix().isBlank()) {
+          normalizeTablePrefix(
+              cfg.getTablePrefix(), "postgres.pgTimeseries.stores." + storeName + ".tablePrefix");
+        }
+        if (cfg.getSchema() != null && !cfg.getSchema().isBlank()) {
+          validateAndNormalizePostgresFeatureSchema(
+              cfg.getSchema(), "postgres.pgTimeseries.stores." + storeName + ".schema");
+        }
+        if (cfg.getPartitioning() != null
+            && cfg.getPartitioning().getPartmanPartitionInterval() != null
+            && !cfg.getPartitioning().getPartmanPartitionInterval().isBlank()) {
+          validatePartmanInterval(
+              cfg.getPartitioning().getPartmanPartitionInterval(),
+              "postgres.pgTimeseries.stores."
+                  + storeName
+                  + ".partitioning.partmanPartitionInterval");
+        }
+        if (cfg.getPartitioning() != null && cfg.getPartitioning().getPartmanPremake() != 0) {
+          validatePartmanPremake(
+              cfg.getPartitioning().getPartmanPremake(),
+              "postgres.pgTimeseries.stores." + storeName + ".partitioning.partmanPremake");
+        }
+        if (cfg.getRetention() != null) {
+          validateRetentionMaxAge(
+              cfg.getRetention().getMaxAgeSeconds(),
+              "postgres.pgTimeseries.stores." + storeName + ".retention.maxAgeSeconds");
+        }
+        // Raw cronEnabled may be null (inherit); validate after resolution below.
+      }
+    }
+
+    PgTimeseriesSetupOptions options = buildPgTimeseriesOptions();
+    if (options == null) {
+      return;
+    }
+    for (PgTimeseriesStoreOptions store : options.getStores().values()) {
+      if (store.isMaintenanceCronEnabled()) {
+        validateMaintenanceInterval(
+            store.getMaintenanceIntervalSeconds(),
+            "postgres.pgTimeseries.stores." + store.getName() + ".maintenance.intervalSeconds");
+      }
+    }
+    if (!options.getStores().containsKey(options.getDefaultStoreName())) {
+      throw new IllegalStateException(
+          "postgres.pgTimeseries.defaultStore '"
+              + options.getDefaultStoreName()
+              + "' is not present after resolving stores.");
+    }
+    for (Map.Entry<String, String> route : options.getRouting().entrySet()) {
+      if (!options.getStores().containsKey(route.getValue())) {
+        throw new IllegalStateException(
+            "postgres.pgTimeseries.routing['"
+                + route.getKey()
+                + "'] targets unknown store '"
+                + route.getValue()
+                + "'.");
+      }
+      if (!route.getKey().contains(".")) {
+        throw new IllegalStateException(
+            "postgres.pgTimeseries.routing key '"
+                + route.getKey()
+                + "' must be entity.aspect (contain a '.').");
+      }
+      String[] segments = route.getKey().split("\\.", -1);
+      if (segments.length != 2 || segments[0].isBlank() || segments[1].isBlank()) {
+        throw new IllegalStateException(
+            "postgres.pgTimeseries.routing key '"
+                + route.getKey()
+                + "' must be exactly entity.aspect (two non-empty segments).");
+      }
+    }
+    // Reject two stores sharing schema+prefix on the same JDBC URL.
+    Map<String, String> identityToStore = new HashMap<>();
+    for (PgTimeseriesStoreOptions store : options.getStores().values()) {
+      String poolKey =
+          store.getPoolUrl() == null || store.getPoolUrl().isBlank()
+              ? ""
+              : store.getPoolUrl().trim();
+      String identity = poolKey + "|" + store.getSchema() + "|" + store.getTablePrefix();
+      String existing = identityToStore.putIfAbsent(identity, store.getName());
+      if (existing != null && !existing.equals(store.getName())) {
+        throw new IllegalStateException(
+            "postgres.pgTimeseries stores '"
+                + existing
+                + "' and '"
+                + store.getName()
+                + "' share the same JDBC URL, schema, and tablePrefix ("
+                + store.getSchema()
+                + "."
+                + store.getTablePrefix()
+                + ").");
+      }
+    }
+  }
+
+  private void validatePgTimeseriesStoreFields(
+      String pathPrefix,
+      String tablePrefix,
+      PgTimeseries.Partitioning p,
+      PgTimeseries.Retention retention,
+      PgTimeseries.Maintenance maintenance) {
+    normalizeTablePrefix(tablePrefix, pathPrefix + ".tablePrefix");
+    if (p.getPartmanPartitionInterval() == null
+        || p.getPartmanPartitionInterval().trim().isEmpty()) {
+      throw new IllegalStateException(
+          pathPrefix + ".partitioning.partmanPartitionInterval must be non-empty.");
+    }
+    validatePartmanInterval(
+        p.getPartmanPartitionInterval(), pathPrefix + ".partitioning.partmanPartitionInterval");
+    validatePartmanPremake(p.getPartmanPremake(), pathPrefix + ".partitioning.partmanPremake");
+    validateRetentionMaxAge(retention.getMaxAgeSeconds(), pathPrefix + ".retention.maxAgeSeconds");
+    if (Boolean.TRUE.equals(maintenance.getCronEnabled())) {
+      validateMaintenanceInterval(
+          maintenance.getIntervalSeconds(), pathPrefix + ".maintenance.intervalSeconds");
+    }
+  }
+
+  private static void validatePartmanInterval(String rawInterval, String path) {
+    String pi = rawInterval.trim().toLowerCase(Locale.ROOT);
+    if (!PGTIMESERIES_PARTMAN_PARTITION_INTERVALS.contains(pi)) {
+      throw new IllegalStateException(
+          path
+              + " must be one of "
+              + PGTIMESERIES_PARTMAN_PARTITION_INTERVALS
+              + " (got: "
+              + rawInterval
+              + ").");
+    }
+  }
+
+  private static void validatePartmanPremake(int premake, String path) {
+    if (premake < 1 || premake > 128) {
+      throw new IllegalStateException(path + " must be between 1 and 128 inclusive.");
+    }
+  }
+
+  private static void validateRetentionMaxAge(int maxAge, String path) {
+    if (maxAge < 0) {
+      throw new IllegalStateException(
+          path
+              + " must be non-negative (0 clears part_config.retention / stops partman partition"
+              + " drops).");
+    }
+    if (maxAge > 0 && maxAge < 60) {
+      throw new IllegalStateException(path + " must be 0 or at least 60 when set.");
+    }
+  }
+
+  private static void validateMaintenanceInterval(int intervalSeconds, String path) {
+    if (intervalSeconds < 60 || intervalSeconds > 86400 * 30) {
+      throw new IllegalStateException(
+          path + " must be between 60 and 2592000 inclusive when cron is enabled.");
+    }
+    if (!isRepresentablePgCronInterval(intervalSeconds)) {
+      throw new IllegalStateException(
+          path
+              + "="
+              + intervalSeconds
+              + " cannot be represented as a pg_cron schedule; use a multiple of 60 (1–59 min),"
+              + " 3600 (1–23 h), or 86400 (1 day)");
+    }
+  }
+
+  /** Same rules as {@code PostgresPartmanSqlSetupSupport.toPgCronSchedule}. */
+  private static boolean isRepresentablePgCronInterval(int intervalSeconds) {
+    int sec = Math.max(60, intervalSeconds);
+    if (sec % 86400 == 0) {
+      return sec / 86400 == 1;
+    }
+    if (sec % 3600 == 0) {
+      int hours = sec / 3600;
+      return hours >= 1 && hours <= 23;
+    }
+    if (sec % 60 == 0) {
+      int minutes = sec / 60;
+      return minutes >= 1 && minutes <= 59;
+    }
+    return false;
+  }
+
   private void validatePgQueueConfig() {
     normalizedPgQueueSchema();
     normalizedPgQueueTablePrefix();
@@ -555,10 +1028,8 @@ public class PostgresSqlSetupProperties {
     }
     PgQueue.Maintenance m = pgQueue.getMaintenance();
     if (m.isCronEnabled()) {
-      if (m.getIntervalSeconds() < 60 || m.getIntervalSeconds() > 86400 * 30) {
-        throw new IllegalStateException(
-            "postgres.pgQueue.maintenance.intervalSeconds must be between 60 and 2592000 inclusive when cron is enabled.");
-      }
+      validateMaintenanceInterval(
+          m.getIntervalSeconds(), "postgres.pgQueue.maintenance.intervalSeconds");
     }
     if (m.getBatchDeleteLimit() < 1 || m.getBatchDeleteLimit() > 100_000) {
       throw new IllegalStateException(
@@ -625,6 +1096,102 @@ public class PostgresSqlSetupProperties {
                   + ").");
         }
       }
+    }
+  }
+
+  @Getter
+  @Setter
+  public static class PgTimeseries {
+    private boolean enabled;
+
+    /**
+     * Fallback store name for unlisted aspects. Flat {@code tablePrefix}/{@code partitioning}/…
+     * keys below define this store unless {@link #stores} overrides it.
+     */
+    private String defaultStore;
+
+    /** Prefix for the default-store SqlSetup timeseries table, e.g. {@code metadata_timeseries}. */
+    private String tablePrefix;
+
+    private Partitioning partitioning = new Partitioning();
+    private Retention retention = new Retention();
+    private Maintenance maintenance = new Maintenance();
+    private Pool pool = new Pool();
+
+    /** Additional (or overriding) named stores. Usually supplied via CONFIG_FILE. */
+    private Map<String, StoreConfig> stores = new LinkedHashMap<>();
+
+    /**
+     * {@code entity.aspect} → store name. Unlisted aspects use {@link #defaultStore}. In YAML use
+     * bracketed keys so Spring binds dots literally, e.g. {@code "[dataset.datasetprofile]": long}.
+     */
+    private Map<String, String> routing = new LinkedHashMap<>();
+
+    @Getter
+    @Setter
+    public static class StoreConfig {
+      /** Optional schema override; defaults to {@code postgres.schema}. */
+      private String schema;
+
+      private String tablePrefix;
+
+      /** Null means inherit from the default store / flat keys. */
+      private Partitioning partitioning;
+
+      private Retention retention;
+      private Maintenance maintenance;
+      private Pool pool;
+    }
+
+    @Getter
+    @Setter
+    public static class Partitioning {
+      private String partmanPartitionInterval;
+      private int partmanPremake;
+
+      /**
+       * When false (default), interval/premake are applied only on first {@code create_parent};
+       * later SqlSetup runs leave them unchanged. When true, SqlSetup overwrites {@code
+       * part_config.partition_interval} and {@code premake} to match this config. Null on a named
+       * store means inherit the default store's value.
+       */
+      private Boolean forceOverwritePartmanConfig;
+    }
+
+    @Getter
+    @Setter
+    public static class Retention {
+      /**
+       * Max age in seconds for partman {@code part_config.retention}. When {@code > 0}, SqlSetup
+       * sets retention (hard ceiling for all aspects via partition drop). When {@code 0}, SqlSetup
+       * clears {@code part_config.retention} so partman stops dropping partitions. Shorter
+       * per-aspect TTLs are configured via datahub-gc / {@code truncateTimeseriesAspect}, not here.
+       */
+      private int maxAgeSeconds;
+    }
+
+    @Getter
+    @Setter
+    public static class Maintenance {
+      /** Null on a named store means inherit the default store's value. */
+      private Boolean cronEnabled;
+
+      private int intervalSeconds;
+    }
+
+    @Getter
+    @Setter
+    public static class Pool {
+      private String url;
+      private String driver;
+      private String username;
+      private String password;
+      private int minConnections;
+      private int maxConnections;
+      private int maxInactiveTimeSeconds;
+      private int maxAgeMinutes;
+      private int leakTimeMinutes;
+      private int waitTimeoutMillis;
     }
   }
 
