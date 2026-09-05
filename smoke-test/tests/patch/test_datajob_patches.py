@@ -22,7 +22,7 @@ from tests.patch.common_patch_tests import (
 )
 from tests.utilities.domains import Domain
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = [pytest.mark.domain(Domain.PLATFORM), pytest.mark.p0]
 
 
 def _make_test_datajob_urn(

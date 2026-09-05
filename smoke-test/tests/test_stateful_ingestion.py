@@ -12,7 +12,7 @@ from datahub.testing.state_helpers import get_current_checkpoint_from_pipeline
 from tests.utilities.domains import Domain
 from tests.utils import get_db_password, get_db_type, get_db_url, get_db_username
 
-pytestmark = pytest.mark.domain(Domain.INGESTION)
+pytestmark = [pytest.mark.domain(Domain.INGESTION), pytest.mark.p0]
 
 
 def test_stateful_ingestion(auth_session):

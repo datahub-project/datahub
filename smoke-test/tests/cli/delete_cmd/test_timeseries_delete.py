@@ -20,7 +20,7 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.INGESTION)
+pytestmark = [pytest.mark.domain(Domain.INGESTION), pytest.mark.p0]
 
 test_aspect_name: str = "datasetProfile"
 test_dataset_urn: str = builder.make_dataset_urn_with_platform_instance(

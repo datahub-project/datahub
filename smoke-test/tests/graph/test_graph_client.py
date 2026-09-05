@@ -27,6 +27,7 @@ def ingest_cleanup_data(auth_session, graph_client):
     )
 
 
+@pytest.mark.p0
 def test_get_aspect_v2(graph_client, ingest_cleanup_data):
     urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-rollback,PROD)"
     schema_metadata: Optional[SchemaMetadataClass] = graph_client.get_aspect_v2(

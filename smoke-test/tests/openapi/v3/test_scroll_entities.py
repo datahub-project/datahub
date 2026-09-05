@@ -12,7 +12,7 @@ from datahub.metadata.schema_classes import DatasetKeyClass
 from tests.utilities.domains import Domain
 from tests.utils import with_test_retry
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = [pytest.mark.domain(Domain.PLATFORM), pytest.mark.p0]
 
 PLATFORM = "urn:li:dataPlatform:scrolltest"
 ALPHA = "urn:li:dataset:(urn:li:dataPlatform:scrolltest,alpha,PROD)"

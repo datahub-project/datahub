@@ -362,6 +362,7 @@ def _expected_top_users(fixture: Dict[str, Any]) -> List[str]:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.p0
 def test_dashboard_stats_summary(auth_session: Any) -> None:
     """
     Queries 3 dashboards in a single multi-alias request (exercises the DataLoader
@@ -401,6 +402,7 @@ def test_dashboard_stats_summary(auth_session: Any) -> None:
     assert_dashboard_summaries()
 
 
+@pytest.mark.p0
 def test_dataset_stats_summary(auth_session: Any) -> None:
     """
     Queries 3 datasets in a single multi-alias request (one GraphQL request → the DataLoader

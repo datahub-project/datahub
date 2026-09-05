@@ -280,6 +280,7 @@ class TestLifecycleStageAPIs:
         self.created_stage_urns.append(stage_urn)
         return stage_urn
 
+    @pytest.mark.p0
     def test_list_lifecycle_stages_includes_ingested(self, auth_session):
         """
         Ingest a custom lifecycle stage and verify it appears in listLifecycleStages.
@@ -306,6 +307,7 @@ class TestLifecycleStageAPIs:
         _assert_listed()
         logger.info("listLifecycleStages returns ingested stage")
 
+    @pytest.mark.p0
     def test_set_lifecycle_stage_mutation(self, auth_session):
         """
         setLifecycleStage mutation sets the stage on an entity and the
@@ -350,6 +352,7 @@ class TestLifecycleStageAPIs:
         assert status.get("lifecycleStage") is None
         logger.info("setLifecycleStage mutation set and cleared stage")
 
+    @pytest.mark.p0
     def test_hidden_stage_excludes_from_cross_entity_search(self, auth_session):
         """
         Entities in a hideInSearch=true stage are excluded from cross-entity

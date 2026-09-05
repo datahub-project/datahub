@@ -184,6 +184,7 @@ def seeded(graph_client: DataHubGraph):
         wait_for_writes_to_sync()
 
 
+@pytest.mark.p0
 def test_instance2instance_rewrites_lineage_and_migrates_aspects(
     graph_client: DataHubGraph, seeded
 ) -> None:

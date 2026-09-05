@@ -31,6 +31,7 @@ pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)
 # ==============================================
 
 
+@pytest.mark.p0
 def test_system_info_main_endpoint(auth_session):
     """Test that main system info endpoint returns expected structure with authentication."""
     response = auth_session.get(f"{auth_session.gms_url()}/openapi/v1/system-info")
@@ -129,6 +130,7 @@ def test_system_info_properties_endpoint(auth_session):
     logger.info("Detailed properties endpoint test passed")
 
 
+@pytest.mark.p0
 def test_system_info_simple_properties_endpoint(auth_session):
     """Test simple properties endpoint returns flat key-value map."""
     response = auth_session.get(
@@ -269,6 +271,7 @@ def extract_api_token_from_session(session):
     return token_data["accessToken"], token_data["metadata"]["id"]
 
 
+@pytest.mark.p0
 def test_system_info_authenticated_non_admin_user_returns_403(auth_session):
     """Test that system info endpoints return HTTP 403 for authenticated users without MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.
 
@@ -355,6 +358,7 @@ def test_system_info_authenticated_non_admin_user_returns_403(auth_session):
     )
 
 
+@pytest.mark.p0
 def test_system_info_unauthorized_access_returns_403():
     """Test that system info endpoints return 401/403 for unauthenticated users."""
     # Make unauthenticated requests (no session) to verify 401/403 responses
