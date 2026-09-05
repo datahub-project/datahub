@@ -122,8 +122,8 @@ public class BatchGetEntitiesResolverTest {
   @Test
   /**
    * Tests that a null entry in the provider's entity list (e.g. UrnToEntityMapper returning null
-   * for a urn whose entity type has no GraphQL mapping yet, such as an experimental entity type)
-   * is left unresolved in the response rather than throwing a NullPointerException, and that it
+   * for a urn whose entity type has no GraphQL mapping yet, such as an experimental entity type) is
+   * left unresolved in the response rather than throwing a NullPointerException, and that it
    * doesn't disrupt resolution of the other, mappable entities in the same batch.
    */
   public void testNullEntityIsSkippedNotThrown() throws Exception {
