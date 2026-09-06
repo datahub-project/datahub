@@ -11,7 +11,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
+        "runId": "iceberg-v3-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -23,9 +23,9 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "owner": "root",
                 "location": "s3://warehouse/wh",
-                "namespace_id": "01a0761a-7141-7982-8977-7b2672c12e9c",
-                "owner": "root"
+                "namespace_id": "01a0761b-1aa3-7be1-a181-f0bd0460a2b8"
             },
             "name": "nyc",
             "qualifiedName": "nyc",
@@ -34,85 +34,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "write.format.default": "parquet",
-                "owner": "root",
-                "location": "s3://warehouse/wh/01a07619-c9f4-7b40-9d8c-3a9ef23e3d2b",
-                "format-version": "2",
-                "partition-spec": "[{\"name\": \"trip_date\", \"transform\": \"identity\", \"source\": \"trip_date\", \"source-id\": 2, \"source-type\": \"timestamptz\", \"field-id\": 1000}]",
-                "snapshot-id": "2222066000199264269",
-                "manifest-list": "s3://warehouse/wh/01a07619-c9f4-7b40-9d8c-3a9ef23e3d2b/metadata/snap-2222066000199264269-1-b816bdc1-57f3-4a20-836a-454a882df68b.avro"
-            },
-            "name": "taxis",
-            "qualifiedName": "nyc.taxis",
-            "lastModified": {
-                "time": 1788687798550
-            },
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:25384e01fcde1063114925e9661766e7",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:25384e01fcde1063114925e9661766e7",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:iceberg"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
+        "runId": "iceberg-v3-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -130,13 +52,106 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
+        "runId": "iceberg-v3-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:25384e01fcde1063114925e9661766e7",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:iceberg"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-v3-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:25384e01fcde1063114925e9661766e7",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-v3-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis_v3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-v3-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis_v3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-v3-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis_v3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "owner": "root",
+                "location": "s3://warehouse/wh/01a07617-b9ba-7472-8162-27cfec62d4c9",
+                "format-version": "3",
+                "partition-spec": "[]"
+            },
+            "name": "taxis_v3",
+            "qualifiedName": "nyc.taxis_v3",
+            "lastModified": {
+                "time": 1788687661498
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-v3-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis_v3,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -160,18 +175,18 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
+        "runId": "iceberg-v3-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis_v3,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
-            "schemaName": "nyc.taxis",
+            "schemaName": "nyc.taxis_v3",
             "platform": "urn:li:dataPlatform:iceberg",
             "version": 0,
             "created": {
@@ -185,7 +200,7 @@
             "hash": "",
             "platformSchema": {
                 "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "table {\n  1: vendor_id: optional long\n  2: trip_date: optional timestamptz\n  3: trip_id: optional long\n  4: trip_distance: optional float\n  5: fare_amount: optional double\n  6: store_and_fwd_flag: optional string\n}"
+                    "rawSchema": "table {\n  1: vendor_id: optional long\n  2: trip_id: optional long\n  3: trip_distance: optional float\n  4: fare_amount: optional double\n  5: store_and_fwd_flag: optional string\n}"
                 }
             },
             "fields": [
@@ -200,19 +215,6 @@
                     "nativeDataType": "long",
                     "recursive": false,
                     "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "[version=2.0].[type=struct].[type=long].trip_date",
-                    "nullable": true,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.TimeType": {}
-                        }
-                    },
-                    "nativeDataType": "timestamptz",
-                    "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"logicalType\": \"timestamp-micros\"}"
                 },
                 {
                     "fieldPath": "[version=2.0].[type=struct].[type=long].trip_id",
@@ -267,13 +269,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
+        "runId": "iceberg-v3-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis_v3,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -283,47 +285,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
+        "runId": "iceberg-v3-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:25384e01fcde1063114925e9661766e7"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Table"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis_v3,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -338,7 +306,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-test",
+        "runId": "iceberg-v3-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,nyc.taxis_v3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:25384e01fcde1063114925e9661766e7"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-v3-test",
         "lastRunId": "no-run-id-provided"
     }
 }

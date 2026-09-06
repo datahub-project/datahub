@@ -16,6 +16,10 @@ from pyspark.sql.types import (
 def main(table_name: str) -> None:
     spark = SparkSession.builder.getOrCreate()
 
+    # The catalog does not auto-create namespaces on saveAsTable, so create it explicitly.
+    namespace = table_name.split(".")[0]
+    spark.sql(f"CREATE NAMESPACE IF NOT EXISTS {namespace}")
+
     schema = StructType(
         [
             StructField("vendor_id", LongType(), True),

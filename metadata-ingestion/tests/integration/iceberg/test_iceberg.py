@@ -26,6 +26,10 @@ PATHS_IN_GOLDEN_FILE_TO_IGNORE = [
     r"root\[\d+\].+\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['lastModified'\]",
     r"root\[\d+\].+\['customProperties'\]\['snapshot-id'\]",
     r"root\[\d+\].+\['customProperties'\]\['manifest-list'\]",
+    # The catalog generates a unique table location per table.
+    r"root\[\d+\].+\['customProperties'\]\['location'\]",
+    # The catalog assigns a unique namespace id per run.
+    r"root\[\d+\].+\['customProperties'\]\['namespace_id'\]",
 ]
 
 
@@ -101,6 +105,32 @@ def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
+def test_iceberg_v3_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
+
+    with docker_compose_runner(
+        test_resources_dir / "docker-compose.yml", "iceberg"
+    ) as docker_services:
+        wait_for_port(docker_services, "spark-iceberg", 8888, timeout=120)
+
+        # Run the create_v3.py pyspark file to populate a format-version 3 table.
+        spark_submit("/home/iceberg/setup/create_v3.py", "nyc.taxis_v3")
+
+        # Run the metadata ingestion pipeline.
+        config_file = (test_resources_dir / "iceberg_v3_to_file.yml").resolve()
+        run_datahub_cmd(
+            ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
+        )
+        # Verify the output.
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            ignore_paths=PATHS_IN_GOLDEN_FILE_TO_IGNORE,
+            output_path=tmp_path / "iceberg_v3_mcps.json",
+            golden_path=test_resources_dir / "iceberg_v3_ingest_mcps_golden.json",
+        )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_iceberg_stateful_ingest(
     docker_compose_runner, pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
@@ -114,11 +144,11 @@ def test_iceberg_stateful_ingest(
                 "catalog": {
                     "default": {
                         "type": "rest",
-                        "uri": "http://localhost:8181",
+                        "uri": "http://localhost:8181/catalog",
                         "s3.access-key-id": "admin",
                         "s3.secret-access-key": "password",
                         "s3.region": "us-east-1",
-                        "warehouse": "s3a://warehouse/wh/",
+                        "warehouse": "demo",
                         "s3.endpoint": "http://localhost:9000",
                     },
                 },

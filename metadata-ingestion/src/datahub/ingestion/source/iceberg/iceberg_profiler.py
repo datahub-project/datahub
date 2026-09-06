@@ -1,7 +1,9 @@
 import logging
+from datetime import timezone
 from typing import Any, Callable, Dict, Iterable, Optional, cast
 
 from pyiceberg.conversions import from_bytes
+from pyiceberg.manifest import DataFileContent
 from pyiceberg.schema import Schema
 from pyiceberg.table import Table
 from pyiceberg.types import (
@@ -13,12 +15,15 @@ from pyiceberg.types import (
     IntegerType,
     LongType,
     PrimitiveType,
+    TimestampNanoType,
     TimestampType,
+    TimestamptzNanoType,
     TimestamptzType,
     TimeType,
 )
 from pyiceberg.utils.datetime import (
     days_to_date,
+    nanos_to_timestamp,
     to_human_time,
     to_human_timestamp,
     to_human_timestamptz,
@@ -120,8 +125,15 @@ class IcebergProfiler:
                 # Table has no data, cannot profile, or we can't get current_snapshot.
                 return
 
+            # Per the Iceberg spec, "total-records" is the number of live rows in the snapshot
+            # (writers maintain it as previous + added - deleted), so no delete-count adjustment
+            # is needed even when position deletes or deletion vectors are present.
             row_count = (
-                int(current_snapshot.summary.additional_properties["total-records"])
+                int(
+                    current_snapshot.summary.additional_properties.get(
+                        "total-records", 0
+                    )
+                )
                 if current_snapshot.summary
                 else 0
             )
@@ -150,7 +162,6 @@ class IcebergProfiler:
             )
             dataset_profile.fieldProfiles = []
 
-            total_count = 0
             null_counts: Dict[int, int] = {}
             min_bounds: Dict[int, Any] = {}
             max_bounds: Dict[int, Any] = {}
@@ -158,6 +169,11 @@ class IcebergProfiler:
                 for manifest in current_snapshot.manifests(table.io):
                     for manifest_entry in manifest.fetch_manifest_entry(table.io):
                         data_file = manifest_entry.data_file
+                        # Only aggregate stats from data files. Position/equality delete files
+                        # carry no column statistics and must not contribute; deletion vectors
+                        # are not manifest entries at all (they live in referenced puffin files).
+                        if data_file.content != DataFileContent.DATA:
+                            continue
                         if self.config.include_field_null_count:
                             null_counts = self._aggregate_counts(
                                 null_counts, data_file.null_value_counts
@@ -176,7 +192,6 @@ class IcebergProfiler:
                                 max_bounds,
                                 data_file.upper_bounds,
                             )
-                        total_count += data_file.record_count
             except Exception as e:
                 self.report.warning(
                     title="Error when profiling a table",
@@ -232,6 +247,14 @@ class IcebergProfiler:
                 return to_human_timestamp(value)
             if isinstance(value_type, TimestamptzType):
                 return to_human_timestamptz(value)
+            if isinstance(value_type, TimestampNanoType):
+                # Python datetimes cap at microsecond precision, so nanosecond bounds are
+                # truncated when rendered.
+                return nanos_to_timestamp(value).isoformat()
+            if isinstance(value_type, TimestamptzNanoType):
+                return (
+                    nanos_to_timestamp(value).replace(tzinfo=timezone.utc).isoformat()
+                )
             elif isinstance(value_type, DateType):
                 return days_to_date(value).strftime("%Y-%m-%d")
             elif isinstance(value_type, TimeType):
@@ -263,7 +286,9 @@ class IcebergProfiler:
                 FloatType,
                 IntegerType,
                 LongType,
+                TimestampNanoType,
                 TimestampType,
+                TimestamptzNanoType,
                 TimestamptzType,
                 TimeType,
             ),

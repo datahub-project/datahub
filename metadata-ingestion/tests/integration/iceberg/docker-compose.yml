@@ -1,16 +1,17 @@
 services:
   spark-iceberg:
-    image: tabulario/spark-iceberg:3.3.2_1.3.0
+    image: tabulario/spark-iceberg:3.5.5_1.8.1
     container_name: spark-iceberg
     networks:
       iceberg_net:
     depends_on:
-      - rest
-      - minio
+      initialwarehouse:
+        condition: service_completed_successfully
     volumes:
       - ./warehouse:/home/iceberg/warehouse
       - ./notebooks:/home/iceberg/notebooks/notebooks
       - ./setup:/home/iceberg/setup
+      - ./spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
     environment:
       - AWS_ACCESS_KEY_ID=admin
       - AWS_SECRET_ACCESS_KEY=password
@@ -21,19 +22,79 @@ services:
       - 10000:10000
       - 10001:10001
   rest:
-    image: tabulario/iceberg-rest:0.5.0
+    image: quay.io/lakekeeper/catalog:v0.13.3
     container_name: iceberg-rest
+    command: ["serve"]
     networks:
       iceberg_net:
+    environment:
+      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
+      - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://postgres:password@db:5432/postgres
+      - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://postgres:password@db:5432/postgres
+    healthcheck:
+      test: ["CMD", "/home/nonroot/lakekeeper", "healthcheck"]
+      interval: 2s
+      timeout: 10s
+      retries: 15
+      start_period: 5s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
     ports:
       - 8181:8181
+  migrate:
+    image: quay.io/lakekeeper/catalog:v0.13.3
+    restart: "no"
+    command: ["migrate"]
+    networks:
+      iceberg_net:
     environment:
-      - AWS_ACCESS_KEY_ID=admin
-      - AWS_SECRET_ACCESS_KEY=password
-      - AWS_REGION=us-east-1
-      - CATALOG_WAREHOUSE=s3a://warehouse/wh/
-      - CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO
-      - CATALOG_S3_ENDPOINT=http://minio:9000
+      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
+      - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://postgres:password@db:5432/postgres
+      - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://postgres:password@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy
+  bootstrap:
+    image: curlimages/curl:8.9.1
+    restart: "no"
+    networks:
+      iceberg_net:
+    command:
+      ["-sS", "--fail-with-body", "-X", "POST", "http://rest:8181/management/v1/bootstrap", "-H", "Content-Type: application/json", "--data", '{"accept-terms-of-use": true}']
+    depends_on:
+      rest:
+        condition: service_healthy
+  initialwarehouse:
+    image: curlimages/curl:8.9.1
+    restart: "no"
+    networks:
+      iceberg_net:
+    # The storage endpoint uses `minio.localhost` on purpose: the catalog returns it as the
+    # s3.endpoint override to clients, and that name must be resolvable both from inside the
+    # docker network (network alias below) and from the host running the ingestion (where
+    # *.localhost resolves to 127.0.0.1 and MinIO's port is published).
+    command:
+      ["-sS", "--fail-with-body", "-X", "POST", "http://rest:8181/management/v1/warehouse", "-H", "Content-Type: application/json", "--data", '{"warehouse-name": "demo", "project-id": "00000000-0000-0000-0000-000000000000", "storage-profile": {"type": "s3", "bucket": "warehouse", "key-prefix": "wh", "assume-role-arn": null, "endpoint": "http://minio.localhost:9000", "region": "us-east-1", "path-style-access": true, "flavor": "s3-compat", "sts-enabled": false}, "storage-credential": {"type": "s3", "credential-type": "access-key", "access-key-id": "admin", "secret-access-key": "password"}}']
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+  db:
+    image: postgres:17
+    environment:
+      - POSTGRES_PASSWORD=password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -p 5432 -d postgres"]
+      interval: 2s
+      timeout: 10s
+      retries: 10
+      start_period: 5s
+    networks:
+      iceberg_net:
   minio:
     image: minio/minio
     container_name: minio
@@ -45,10 +106,17 @@ services:
       iceberg_net:
         aliases:
           - warehouse.minio
+          - minio.localhost
     ports:
       - 9001:9001
       - 9000:9000
     command: ["server", "/data", "--console-address", ":9001"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 2s
+      timeout: 10s
+      retries: 10
+      start_period: 5s
   mc:
     depends_on:
       - minio

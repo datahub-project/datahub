@@ -1,4 +1,4 @@
-run_id: iceberg-test
+run_id: iceberg-v3-test
 
 source:
   type: iceberg
@@ -14,8 +14,11 @@ source:
         s3.endpoint: http://localhost:9000
     user_ownership_property: owner
     group_ownership_property: owner
+    table_pattern:
+      allow:
+        - nyc.taxis_v3
 
 sink:
   type: file
   config:
-    filename: "./iceberg_mcps.json"
+    filename: "./iceberg_v3_mcps.json"
