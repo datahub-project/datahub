@@ -2876,3 +2876,61 @@ class TestGetWorkbookLineageHttp:
             result = api.get_workbook_lineage("wb-1")
         assert result is None
         assert api.report.warnings
+
+
+def _error_response(status_code: int) -> MagicMock:
+    """Response mock whose ``raise_for_status`` behaves like requests'."""
+    resp = MagicMock(status_code=status_code)
+    resp.raise_for_status.side_effect = requests.HTTPError(
+        f"{status_code} Client Error", response=resp
+    )
+    return resp
+
+
+class TestPaginationAbortAccounting:
+    """Every abort must be counted, however many share a warning title.
+
+    Report warnings are grouped by title, so ``warnings.total_elements`` stops
+    rising after the first abort of a given kind. Detecting a per-call abort by
+    watching that number therefore flagged the FIRST truncated endpoint and
+    silently missed every one after it -- on one tenant, 29 aborts read as 0.
+    """
+
+    def _failing(self) -> requests.Response:
+        resp = requests.Response()
+        resp.status_code = 400
+        resp._content = b"{}"
+        resp.url = "https://api.example.com/x"
+        return resp
+
+    def test_every_abort_is_counted_not_just_the_first(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=self._failing()):
+            for _ in range(3):
+                api._paginated_raw_entries("https://api.example.com/x", "ctx")
+        assert api.report.pagination_aborted == 3
+        # The warnings themselves still collapse to one titled entry -- which is
+        # precisely why the counter cannot be derived from them.
+        assert api.report.warnings.total_elements == 1
+
+    def test_workbook_columns_abort_flags_each_workbook(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=self._failing()):
+            api.get_workbook_column_formulas("wb-1")
+            api.get_workbook_column_formulas("wb-2")
+        assert api.report.column_formulas_fetch_partial == 2
+
+    def test_successful_fetch_is_not_flagged_partial(self) -> None:
+        """An unrelated warning during the call must not fake a partial fetch."""
+        api = _create_sigma_api()
+        ok = _paginated_response([{"elementId": "e1", "name": "c", "formula": "1"}])
+        with patch.object(api, "_get_api_call", return_value=ok):
+            api.report.warning(title="Something else", message="m")
+            api.get_workbook_column_formulas("wb-1")
+        assert api.report.column_formulas_fetch_partial == 0
+
+    def test_data_model_columns_abort_is_visible(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=self._failing()):
+            api._get_data_model_columns("dm-1")
+        assert api.report.data_model_columns_fetch_partial == 1

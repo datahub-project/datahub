@@ -18,7 +18,7 @@ Counters verified:
 
 import datetime as dt
 from typing import Dict, List, Optional, Set
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
@@ -179,6 +179,7 @@ def _build_fgls(
         entity_level_upstream_urns=entity_level_upstream_urns or set(),
         data_model=_dm(all_elements),
         warehouse_url_id_map=warehouse_map or {},
+        discovered_upstreams=set(),
     )
 
 
@@ -558,3 +559,289 @@ class TestBuildFglWarehouseIntegration:
         assert fgls[0].upstreams is not None
         expected_upstream = builder.make_schema_field_urn(_SF_DATASET_URN, "email")
         assert fgls[0].upstreams[0] == expected_upstream
+
+
+class TestNoBracketRefWarehouseFgl:
+    """Columns whose formula yields no bracket refs.
+
+    Sigma returns ``formula: ""`` for a plain pass-through column, and a constant
+    expression parses to zero refs. Both cases must still resolve warehouse
+    lineage from ``columnId``, which needs no formula.
+    """
+
+    def test_empty_formula_emits_warehouse_fgl(self):
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "")
+        elem = _element("el-customers", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert len(fgls) == 1
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "email")
+        ]
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
+        assert source.reporter.data_model_element_fgl_no_ref_warehouse_unresolved == 0
+
+    def test_none_formula_emits_warehouse_fgl(self):
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", None)
+        elem = _element("el-customers", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert len(fgls) == 1
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "email")
+        ]
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
+
+    def test_constant_formula_emits_warehouse_fgl(self):
+        """A non-empty formula with no bracket refs takes the same path."""
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", '"n/a"')
+        elem = _element("el-customers", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert len(fgls) == 1
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "email")
+        ]
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
+
+    def test_no_formula_and_failed_warehouse_resolve_is_counted(self):
+        """Empty formula + inode columnId but no warehouse map: counted, not silent.
+
+        The counter must not leak into _passthrough_deferred, which stays a
+        formula-bearing failure signal so its baseline remains comparable.
+        """
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "")
+        elem = _element("el-customers", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map={})
+
+        assert fgls == []
+        # inode columnId that failed to resolve is actionable, so it must NOT
+        # land in the expected-volume bucket.
+        assert source.reporter.data_model_element_fgl_no_ref_warehouse_unresolved == 1
+        assert source.reporter.data_model_element_fgl_no_ref_unresolved == 0
+        assert (
+            source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
+        )
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 0
+
+    def test_intra_dm_ref_does_not_also_emit_warehouse_edge(self):
+        """The post-loop append is gated on zero refs, not on warehouse_consumed.
+
+        One column carries BOTH an intra-DM formula ref and an inode columnId that
+        would resolve. Only the intra-DM edge is correct: gating on
+        "no warehouse append happened" would add a second, wrong upstream, because
+        intra-DM resolution never sets warehouse_consumed.
+        """
+        source = _make_source()
+        upstream_id = "el-upstream"
+        upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,el-upstream,PROD)"
+        upstream_elem = _element(upstream_id, "UPSTREAM", [_column("up-x", "x", None)])
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "[UPSTREAM/x]")
+        elem = _element(
+            "el-customers", "CUSTOMERS", [col], [_SF_INODE_SOURCE, upstream_id]
+        )
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            warehouse_map=_SF_WAREHOUSE_MAP,
+            element_name_to_eids={
+                "customers": [elem.elementId],
+                "upstream": [upstream_id],
+            },
+            elementId_to_dataset_urn={upstream_id: upstream_urn},
+            entity_level_upstream_urns={upstream_urn, _SF_DATASET_URN},
+            upstream_elements=[upstream_elem],
+        )
+
+        assert len(fgls) == 1
+        assert fgls[0].upstreams == [builder.make_schema_field_urn(upstream_urn, "x")]
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 0
+
+    def test_parameter_only_formula_still_resolves_warehouse(self):
+        """Refs that all skip resolution are the same blind spot as no refs.
+
+        `[P_Region]` parses to a ref, so a `not refs` gate would leave the
+        columnId-driven warehouse edge computed and discarded with no counter.
+        """
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "[P_Region]")
+        elem = _element("el-customers", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert len(fgls) == 1
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "email")
+        ]
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
+
+    def test_bare_sibling_ref_formula_still_resolves_warehouse(self):
+        """A bare `[col]` intra-element ref skips resolution the same way."""
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "Upper([Other Column])")
+        elem = _element("el-customers", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert len(fgls) == 1
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "email")
+        ]
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
+
+    def test_transitively_sourced_element_accepts_warehouse_column(self):
+        """Element declaring only cross-DM sources still resolves its columns.
+
+        The warehouse table is declared by the producer element in the other
+        Data Model, so requiring the inode in THIS element's source_ids rejects
+        every column -- the same shape of mistake as gating join-chain
+        resolution on Sigma's direct /lineage list.
+        """
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "")
+        elem = _element(
+            "el-consumer",
+            "Consumer",
+            [col],
+            ["producer-dm/suffix"],  # cross-DM only: no inode declared
+        )
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert len(fgls) == 1
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "email")
+        ]
+        assert source.reporter.dm_element_warehouse_transitive_inode_accepted == 1
+
+    def test_element_declaring_a_different_inode_is_still_rejected(self):
+        """Genuine payload drift must stay rejected.
+
+        The element declares its own inode and the column names a different
+        one -- that is not transitive sourcing, so the guard still applies.
+        """
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "")
+        elem = _element("el-x", "X", [col], [_RS_INODE_SOURCE])
+
+        fgls = _build_fgls(
+            source, elem, warehouse_map={**_SF_WAREHOUSE_MAP, **_RS_WAREHOUSE_MAP}
+        )
+
+        assert fgls == []
+        assert source.reporter.dm_element_warehouse_transitive_inode_accepted == 0
+        assert (
+            source.reporter.warehouse_passthrough_miss_reasons.get(
+                "url_id_not_in_element_source_ids"
+            )
+            == 1
+        )
+
+    def test_ref_naming_warehouse_table_resolves_with_opaque_column_id(self):
+        """The observed 'Dim mapping' shape: opaque columnId, table-named ref.
+
+        Every column carries an opaque columnId and a formula
+        '[WAREHOUSE_TABLE_A/Col Id]'. The columnId path
+        cannot help (nothing to parse) and no element bears the table's name, so
+        these refs previously resolved to nothing at all.
+        """
+        source = _make_source()
+        col = _column("opaque-col-1", "Customer Id", "[CUSTOMERS/Customer Id]")
+        elem = _element("el-mapping", "Dim mapping", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert len(fgls) == 1
+        # Display name "Customer Id" -> native CUSTOMER_ID -> snowflake lowercase.
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "customer_id")
+        ]
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_resolved == 1
+        # Reduced confidence: the table match is exact, the column name inferred.
+        assert fgls[0].confidenceScore == 0.5
+
+    def test_ref_naming_undeclared_warehouse_table_is_not_resolved(self):
+        """Only tables the element actually declares may be matched."""
+        source = _make_source()
+        col = _column("opaque", "Email", "[SOME_OTHER_TABLE/Email]")
+        elem = _element("el-x", "X", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(source, elem, warehouse_map=_SF_WAREHOUSE_MAP)
+
+        assert fgls == []
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_resolved == 0
+
+
+class TestDirectWarehouseUrlIdLookup:
+    """Recovery when a Data Model's /lineage omits a table its elements use.
+
+    Sigma reports fewer type=table rows than its own elements reference, so the
+    url_id is asked for directly via /v2/files/{urlId}. A 404 there is decisive
+    rather than inconclusive: the referenced table has been deleted from Sigma,
+    and no lookup can supply coordinates for an object that no longer exists.
+    """
+
+    def _source_with_file(self, entry):
+        source = _make_source()
+        source.sigma_api = MagicMock()
+        source.sigma_api.get_file_metadata_by_url_id.return_value = entry
+        return source
+
+    def test_url_id_absent_from_dm_map_is_recovered(self):
+        source = self._source_with_file(
+            {
+                "urlId": "missingUrlId",
+                "id": "inode-uuid",
+                "name": "CUSTOMERS",
+                "path": "Connection Root/PROD_DB/PUBLIC",
+            }
+        )
+        # The DM map holds a different table, from a single known connection.
+        urn = source._resolve_dm_element_warehouse_upstream(
+            url_id_suffix="missingUrlId", warehouse_map=_SF_WAREHOUSE_MAP
+        )
+        assert urn == _SF_DATASET_URN
+        assert source.reporter.dm_element_warehouse_recovered_from_global_index == 1
+
+    def test_unknown_url_id_is_reported_as_a_stale_reference(self):
+        source = self._source_with_file(None)
+        assert (
+            source._resolve_dm_element_warehouse_upstream(
+                url_id_suffix="neverListed", warehouse_map=_SF_WAREHOUSE_MAP
+            )
+            is None
+        )
+        assert source.reporter.dm_element_warehouse_stale_reference == 1
+        assert source.reporter.dm_element_warehouse_recovered_from_global_index == 0
+
+    def test_repeated_url_id_costs_one_call(self):
+        source = self._source_with_file(None)
+        for _ in range(3):
+            source._resolve_dm_element_warehouse_upstream(
+                url_id_suffix="sameOne", warehouse_map=_SF_WAREHOUSE_MAP
+            )
+        assert source.sigma_api.get_file_metadata_by_url_id.call_count == 1
+
+    def test_ambiguous_connection_refuses_to_guess(self):
+        """Two connections in the DM map: attributing the table would be a guess."""
+        source = self._source_with_file(
+            {"urlId": "u", "id": "i", "name": "T", "path": "Connection Root/D/S"}
+        )
+        mixed = {**_SF_WAREHOUSE_MAP, **_RS_WAREHOUSE_MAP}
+        assert (
+            source._resolve_dm_element_warehouse_upstream(
+                url_id_suffix="u", warehouse_map=mixed
+            )
+            is None
+        )
+        assert source.reporter.dm_element_warehouse_connection_ambiguous == 1
+        source.sigma_api.get_file_metadata_by_url_id.assert_not_called()

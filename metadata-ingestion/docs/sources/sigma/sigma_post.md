@@ -222,6 +222,52 @@ chart_sources_platform_mapping:
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
+#### Column-level lineage coverage for Data Model elements
+
+Column-level lineage for Data Model elements is derived from the column formulas returned by
+Sigma's `/v2/dataModels/{id}/columns` endpoint. A column gets one upstream edge per source
+its formula names, so coverage follows the formula rather than the element's table-level
+upstreams.
+
+The practical consequence shows up on joins. An element can have table-level lineage to two
+sources while one of its columns has a column-level edge to only one of them, because the
+column's formula names only that side — a join key typically resolves to whichever side
+Sigma kept. The join predicate itself is not exposed on `/columns` or on
+`/v2/dataModels/{id}/lineage`, the two endpoints this connector reads. Join keys are
+available on `/v2/dataModels/{id}/spec`, which the connector does not currently consume.
+
+A Data Model can also reference a warehouse table that has since been **deleted from
+Sigma**. The `inode-<urlId>` reference survives in the model while `/v2/files/{urlId}`
+returns 404, so no lookup can supply the table's coordinates and columns naming it can
+never receive warehouse column lineage. These are counted under
+`dm_element_warehouse_stale_reference` and are a tenant data-hygiene issue rather than an
+ingestion gap; on one tenant they accounted for every unresolved table reference.
+
+Two report counters mark data that never arrived, and should be read before treating a
+model's missing lineage as a resolution failure: `data_model_columns_fetch_partial` counts
+Data Models whose `/columns` pagination aborted (that endpoint is the only source of
+formulas and column ids), and `column_formulas_fetch_partial` counts workbooks whose
+`/columns` call aborted, leaving their chart columns with self-referential input fields.
+`pagination_aborted` gives the run-wide total.
+
+Columns no formula reference resolves for — a plain pass-through, which Sigma returns with
+an empty formula, a constant, or a formula using only parameters — still get column-level
+lineage to a warehouse table when their `columnId` identifies the warehouse column. Where
+it does not, the ingestion report separates the two outcomes:
+`data_model_element_fgl_no_ref_warehouse_unresolved` counts columns that named a warehouse
+column but could not be resolved to one, which is worth investigating, while
+`data_model_element_fgl_no_ref_unresolved` counts pass-throughs from another Data Model
+element or Sigma Dataset, which carry no warehouse identity to resolve and are expected.
+
+When a formula does name an upstream element but that element's column list came back
+empty, the edge is dropped under `data_model_element_fgl_upstream_schema_unavailable` (a
+sibling in the same Data Model) or
+`data_model_element_fgl_cross_dm_upstream_schema_unavailable` (an element in another Data
+Model), rather than under `data_model_element_fgl_dropped_unknown_upstream_column`, which
+means the column genuinely is not in the upstream's schema. A `Sigma paginated endpoint
+aborted` warning naming that Data Model confirms a failed fetch; its absence means the
+upstream element really has no columns.
+
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
