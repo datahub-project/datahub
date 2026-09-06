@@ -68,7 +68,8 @@ EXAMPLE_MANIFEST = [
     "glossary_term_create_simple.py",
     # Incident examples
     "incident_create.py",
-    "incident_query_rest_api.py",
+    # incident_query_rest_api.py is deliberately absent: incident_create.py generates a
+    # random uuid, so there is no deterministic incident for it to read back.
     # ML Feature examples
     "mlfeature_create.py",
     "mlfeature_read.py",

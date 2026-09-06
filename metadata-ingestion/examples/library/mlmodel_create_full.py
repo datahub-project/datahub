@@ -45,4 +45,4 @@ mlmodel = MLModel(
     },
 )
 
-client.entities.update(mlmodel)
+client.entities.upsert(mlmodel)
