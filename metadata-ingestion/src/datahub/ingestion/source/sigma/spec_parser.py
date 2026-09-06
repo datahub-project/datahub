@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -8,48 +8,59 @@ _PAGES = "pages"
 _ELEMENTS = "elements"
 _COLUMNS = "columns"
 _SOURCE = "source"
+_JOINS = "joins"
 _KIND = "kind"
 _ID = "id"
+_LEFT = "left"
+_RIGHT = "right"
+_ELEMENT_ID = "elementId"
 _JOIN_KIND = "join"
-
-# A join predicate equates two columns, so a descriptor that yields any other
-# count is not a key pair and is left alone rather than guessed at.
-_COLUMNS_PER_JOIN_PREDICATE = 2
 
 
 @dataclass(frozen=True)
 class SpecColumnRef:
-    """A column of a Data Model element, as the /spec document identifies it."""
+    """One side of a join predicate, as the /spec document spells it.
 
-    element_id: str
-    column_id: str
+    ``element_id`` is None when the side is a warehouse table rather than an
+    element in this Data Model: /spec identifies those by connection and path,
+    and their columns appear nowhere in the document, so nothing in this file
+    can map them to a Sigma column. The caller decides whether it can.
+    """
+
+    element_id: Optional[str]
+    column: str
 
 
 @dataclass
 class DataModelSpecIndex:
-    """What a Data Model's /spec document says about its joins.
+    """Join predicates read from a Data Model's /spec document.
 
-    ``element_id_by_column_id`` covers every column in the document; it is what
-    makes the join parsing self-validating, since a string that is a known
-    column id cannot be mistaken for a label or an opaque handle.
-
-    ``partners`` is the symmetric closure of the join predicates: a column maps
-    to every column a join equates it with. Symmetric because a predicate says
-    the two values are the same, without direction.
+    ``pairs`` holds ``(left, right)`` column equivalences in document order.
+    Both sides are kept verbatim; resolving a side's ``column`` to a real Sigma
+    column needs the element's ``/columns`` response, which this module does not
+    have.
     """
 
+    pairs: List["JoinPredicate"] = field(default_factory=list)
     element_id_by_column_id: Dict[str, str] = field(default_factory=dict)
-    partners: Dict[SpecColumnRef, Set[SpecColumnRef]] = field(default_factory=dict)
-    # Elements whose source.kind is 'join' but whose predicate could not be
-    # read. Non-empty means the shape assumption below is wrong for this tenant
-    # and the debug log holds the skeleton needed to correct it.
+    # Elements whose source.kind is 'join' but whose predicates could not be
+    # read. Non-empty means the shape below is wrong for this tenant, and the
+    # debug log holds the key skeleton needed to correct it.
     unreadable_join_element_ids: List[str] = field(default_factory=list)
-    # Every source.kind seen, with counts -- the cheapest way to learn the real
-    # vocabulary of a tenant without dumping any of its content.
     source_kind_counts: Dict[str, int] = field(default_factory=dict)
+    # Predicate sides that name a warehouse table rather than an element. Kept
+    # as a counter because they are a real, expected shape -- not a parse
+    # failure -- but cannot become element-to-element column lineage.
+    warehouse_side_predicates: int = 0
 
-    def partners_of(self, element_id: str, column_id: str) -> Set[SpecColumnRef]:
-        return self.partners.get(SpecColumnRef(element_id, column_id), set())
+
+@dataclass(frozen=True)
+class JoinPredicate:
+    """``left.column == right.column``, as stated by a join's ON clause."""
+
+    join_element_id: str
+    left: SpecColumnRef
+    right: SpecColumnRef
 
 
 def _iter_spec_elements(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -64,88 +75,70 @@ def _iter_spec_elements(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def _key_skeleton(node: Any, depth: int = 0) -> Any:
-    """Key names and container types only -- never values.
+    """Key names and container shapes only -- never values.
 
-    Used to log the shape of a join descriptor this parser could not read. A
-    Data Model spec is customer content, so nothing but structure is logged.
+    A Data Model spec is customer content, so an unreadable descriptor is
+    logged as structure alone. Leaf strings are described by length, which is
+    enough to tell an opaque id from a display name without printing either.
     """
-    if depth > 4:
+    if depth > 6:
         return "..."
     if isinstance(node, dict):
         return {k: _key_skeleton(v, depth + 1) for k, v in sorted(node.items())}
     if isinstance(node, list):
         return [_key_skeleton(node[0], depth + 1), f"...x{len(node)}"] if node else []
+    if isinstance(node, str):
+        return f"<str len={len(node)}>"
     return type(node).__name__
 
 
-def _known_column_ids_in(node: Any, known: Dict[str, str]) -> List[str]:
-    """Every string anywhere under ``node`` that is a column id of this spec.
+def _side_ref(descriptor: Any, column: Any) -> Optional[SpecColumnRef]:
+    """Build a predicate side from a join's ``left``/``right`` descriptor.
 
-    Sigma documents the join predicate as ``source.columns[].left`` /
-    ``.right``, but that spelling is unverified against a live tenant. Rather
-    than trust key names, this collects the strings that are *provably* column
-    ids of this same document -- an anchor no naming change can break.
+    Observed descriptor shapes:
+      * ``{elementId, groupingId, kind}`` -- an element in this Data Model
+      * ``{dataModelId, elementId, groupingId, kind}`` -- an element elsewhere
+      * ``{connectionId, kind, path[...]}`` -- a warehouse table, which has no
+        element id and whose columns are not described anywhere in the spec
     """
-    found: List[str] = []
-    if isinstance(node, str):
-        if node in known:
-            found.append(node)
-    elif isinstance(node, dict):
-        for value in node.values():
-            found.extend(_known_column_ids_in(value, known))
-    elif isinstance(node, list):
-        for value in node:
-            found.extend(_known_column_ids_in(value, known))
-    return found
+    if not isinstance(column, str) or not column:
+        return None
+    element_id = None
+    if isinstance(descriptor, dict):
+        raw = descriptor.get(_ELEMENT_ID)
+        if isinstance(raw, str) and raw:
+            element_id = raw
+    return SpecColumnRef(element_id=element_id, column=column)
 
 
-def _predicate_lists(source: Dict[str, Any]) -> List[Tuple[str, List[Any]]]:
-    """Candidate lists of join predicates inside a join source descriptor.
+def _predicates_for_join(
+    join: Dict[str, Any], *, join_element_id: str, index: DataModelSpecIndex
+) -> Tuple[List[JoinPredicate], int]:
+    """Returns (element-to-element predicates, well-formed entries examined).
 
-    The documented key is ``columns``; it is tried first and any other list of
-    objects is tried after, so a renamed field still resolves. Each candidate is
-    validated by column-id content before use, so a wrong guess yields nothing
-    rather than a wrong edge.
+    The second value is what tells "this shape is unreadable" apart from "read
+    fine, but every predicate had a warehouse table on one side" -- the latter
+    is the commonest real case and must not be reported as a parse failure.
     """
-    ordered: List[Tuple[str, List[Any]]] = []
-    documented = source.get(_COLUMNS)
-    if isinstance(documented, list):
-        ordered.append((_COLUMNS, documented))
-    for key, value in sorted(source.items()):
-        if key != _COLUMNS and isinstance(value, list):
-            ordered.append((key, value))
-    return ordered
-
-
-def _pairs_from_source(
-    *, element_id: str, source: Dict[str, Any], known: Dict[str, str]
-) -> List[Tuple[SpecColumnRef, SpecColumnRef]]:
-    for key, candidates in _predicate_lists(source):
-        pairs: List[Tuple[SpecColumnRef, SpecColumnRef]] = []
-        for candidate in candidates:
-            ids = _known_column_ids_in(candidate, known)
-            # Deduplicate while preserving order: a descriptor may repeat the
-            # same id in a label field alongside the reference itself.
-            unique = list(dict.fromkeys(ids))
-            if len(unique) != _COLUMNS_PER_JOIN_PREDICATE:
-                pairs = []
-                break
-            left, right = unique
-            pairs.append(
-                (
-                    SpecColumnRef(known[left], left),
-                    SpecColumnRef(known[right], right),
-                )
-            )
-        if pairs:
-            logger.debug(
-                "DM SPEC JOIN %s: read %d key pair(s) from source[%r]",
-                element_id,
-                len(pairs),
-                key,
-            )
-            return pairs
-    return []
+    out: List[JoinPredicate] = []
+    understood = 0
+    for entry in join.get(_COLUMNS) or []:
+        if not isinstance(entry, dict):
+            continue
+        left = _side_ref(join.get(_LEFT), entry.get(_LEFT))
+        right = _side_ref(join.get(_RIGHT), entry.get(_RIGHT))
+        if left is None or right is None:
+            continue
+        understood += 1
+        if left.element_id is None or right.element_id is None:
+            # One side is a warehouse table. Real and expected, but it cannot
+            # produce an element-to-element column edge from this document.
+            index.warehouse_side_predicates += 1
+            continue
+        out.append(
+            JoinPredicate(join_element_id=join_element_id, left=left, right=right)
+        )
+    return out, understood
 
 
 def parse_data_model_spec(
@@ -154,8 +147,21 @@ def parse_data_model_spec(
     """Extract join-key column equivalences from a Data Model /spec document.
 
     A join's output column carries a formula naming only one side, so the other
-    side's key column is unreachable from /columns alone. The predicate in the
+    side's key column is unreachable from /columns alone. The ON clause in the
     spec is the only statement that the two columns hold the same value.
+
+    Shape, confirmed from a live tenant's spec documents::
+
+        source = {"kind": "join",
+                  "primarySource": {...},
+                  "joins": [{"joinType": ..., "left": {...}, "right": {...},
+                             "columns": [{"left": ..., "right": ..., "op": ...}]}]}
+
+    ``columns[].left`` / ``.right`` name a column within the corresponding
+    ``left`` / ``right`` source descriptor. They are returned verbatim because
+    whether they are column ids or column names cannot be settled from the
+    document alone -- the caller resolves them against the element's real
+    columns and can try both.
     """
     index = DataModelSpecIndex()
     if not isinstance(spec, dict):
@@ -181,35 +187,43 @@ def parse_data_model_spec(
         index.source_kind_counts[kind] = index.source_kind_counts.get(kind, 0) + 1
         if kind != _JOIN_KIND or not element_id:
             continue
-        pairs = _pairs_from_source(
-            element_id=element_id, source=source, known=index.element_id_by_column_id
-        )
-        if not pairs:
+        joins = source.get(_JOINS)
+        found: List[JoinPredicate] = []
+        understood = 0
+        if isinstance(joins, list):
+            for join in joins:
+                if isinstance(join, dict):
+                    predicates, seen = _predicates_for_join(
+                        join, join_element_id=element_id, index=index
+                    )
+                    found.extend(predicates)
+                    understood += seen
+        index.pairs.extend(found)
+        # Readable when the descriptor parsed at all: an empty ``joins`` list is
+        # a join element with nothing to read, and a join whose every predicate
+        # names a warehouse table was understood perfectly well.
+        if not (isinstance(joins, list) and (joins == [] or understood)):
             index.unreadable_join_element_ids.append(element_id)
             logger.debug(
-                "DM SPEC JOIN %s/%s: source.kind=%r but no predicate list "
-                "yielded exactly %d known column ids per entry. Key skeleton "
-                "(structure only, no values): %r",
+                "DM SPEC JOIN %s/%s: source.kind=%r but no element-to-element "
+                "predicate could be read. Key skeleton (structure only, no "
+                "values): %r",
                 data_model_id,
                 element_id,
                 kind,
-                _COLUMNS_PER_JOIN_PREDICATE,
                 _key_skeleton(source),
             )
-            continue
-        for left, right in pairs:
-            index.partners.setdefault(left, set()).add(right)
-            index.partners.setdefault(right, set()).add(left)
 
     logger.debug(
         "DM SPEC %s: %d element(s), %d column id(s), source kinds=%r, "
-        "%d join key pair(s) over %d column(s), %d unreadable join element(s)",
+        "%d join predicate(s), %d warehouse-side predicate(s) skipped, "
+        "%d unreadable join element(s)",
         data_model_id,
         len(elements),
         len(index.element_id_by_column_id),
         index.source_kind_counts,
-        sum(len(v) for v in index.partners.values()) // 2,
-        len(index.partners),
+        len(index.pairs),
+        index.warehouse_side_predicates,
         len(index.unreadable_join_element_ids),
     )
     return index

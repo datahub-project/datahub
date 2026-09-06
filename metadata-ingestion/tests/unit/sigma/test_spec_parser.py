@@ -1,27 +1,35 @@
 """Unit tests for the Data Model /spec join-key parser.
 
-The join descriptor's exact key names are documented but were not present on
-any Data Model reachable from the integration credentials, so the parser
-anchors on column ids it can prove belong to the same document rather than on
-key names. These tests pin that behaviour: a renamed key still resolves, and a
-descriptor that yields anything other than two known column ids per predicate
-resolves to nothing rather than to a guess.
+The fixtures below mirror the shape a live tenant's /spec actually returns,
+recovered from the key skeletons this parser logs when it cannot read a
+descriptor::
 
-The element/column skeleton below matches a real /spec response's shape:
-    {"kind": "data-model", "pages": [{"elements": [
-        {"id", "kind", "order", "columns": [{"id", "formula"}], "source": {...}}]}]}
+    source = {"kind": "join",
+              "primarySource": {...},
+              "joins": [{"joinType": ..., "left": {...}, "right": {...},
+                         "columns": [{"left": ..., "right": ..., "op": ...}]}]}
+
+An earlier version looked for the predicate at ``source.columns[]`` and matched
+sides by scanning for column ids belonging to the same document. It read zero
+predicates across a full customer run, for two reasons pinned here: the
+predicate lives under ``joins``, and a join side is frequently a warehouse
+table whose columns the document never describes.
 """
 
 from typing import Any, Dict, List
 
-from datahub.ingestion.source.sigma.spec_parser import (
-    SpecColumnRef,
-    parse_data_model_spec,
-)
+from datahub.ingestion.source.sigma.spec_parser import parse_data_model_spec
 
 _LEFT_COL = "col-left-0000000000000000000000000"
 _RIGHT_COL = "col-right-000000000000000000000000"
-_OTHER_COL = "col-other-000000000000000000000000"
+
+_ELEMENT_SIDE_L = {"elementId": "el-left", "groupingId": "g1", "kind": "element"}
+_ELEMENT_SIDE_R = {"elementId": "el-right", "groupingId": "g2", "kind": "element"}
+_WAREHOUSE_SIDE = {
+    "connectionId": "conn-1",
+    "kind": "warehouse-table",
+    "path": ["Connection Root", "DB", "SCHEMA"],
+}
 
 
 def _element(
@@ -36,98 +44,143 @@ def _element(
     }
 
 
-def _spec(elements: List[Dict[str, Any]]) -> Dict[str, Any]:
-    return {"kind": "data-model", "pages": [{"id": "p1", "elements": elements}]}
-
-
-def _join_spec(join_source: Dict[str, Any]) -> Dict[str, Any]:
-    return _spec(
-        [
-            _element("el-left", [_LEFT_COL], {"kind": "warehouse-table"}),
-            _element("el-right", [_RIGHT_COL, _OTHER_COL], {"kind": "warehouse-table"}),
-            _element("el-join", [], join_source),
-        ]
-    )
-
-
-def test_documented_shape_yields_a_symmetric_pair() -> None:
-    index = parse_data_model_spec(
-        _join_spec(
+def _spec(join_source: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "kind": "data-model",
+        "pages": [
             {
-                "kind": "join",
-                "columns": [{"left": _LEFT_COL, "right": _RIGHT_COL}],
-            }
-        ),
-        data_model_id="dm-1",
-    )
-    left = SpecColumnRef("el-left", _LEFT_COL)
-    right = SpecColumnRef("el-right", _RIGHT_COL)
-    # A predicate is an equality, so it must be readable from either side.
-    assert index.partners_of("el-left", _LEFT_COL) == {right}
-    assert index.partners_of("el-right", _RIGHT_COL) == {left}
-    assert index.unreadable_join_element_ids == []
-
-
-def test_renamed_predicate_keys_still_resolve() -> None:
-    """Key names are unverified against a live tenant; column ids are not."""
-    index = parse_data_model_spec(
-        _join_spec(
-            {
-                "kind": "join",
-                "on": [
-                    {"lhs": {"columnId": _LEFT_COL}, "rhs": {"columnId": _RIGHT_COL}}
+                "id": "p1",
+                "elements": [
+                    _element("el-left", [_LEFT_COL], {"kind": "warehouse-table"}),
+                    _element("el-right", [_RIGHT_COL], {"kind": "warehouse-table"}),
+                    _element("el-join", [], join_source),
                 ],
             }
-        ),
-        data_model_id="dm-1",
-    )
-    assert index.partners_of("el-left", _LEFT_COL) == {
-        SpecColumnRef("el-right", _RIGHT_COL)
+        ],
     }
 
 
-def test_predicate_with_three_columns_is_refused() -> None:
-    """Only a two-column equality is a key pair; anything else is not guessed."""
-    index = parse_data_model_spec(
-        _join_spec(
-            {
-                "kind": "join",
-                "columns": [{"a": _LEFT_COL, "b": _RIGHT_COL, "c": _OTHER_COL}],
-            }
-        ),
-        data_model_id="dm-1",
-    )
-    assert index.partners == {}
-    assert index.unreadable_join_element_ids == ["el-join"]
+def _join(
+    left: Dict[str, Any], right: Dict[str, Any], columns: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    return {
+        "kind": "join",
+        "primarySource": {"kind": "warehouse-table", "connectionId": "c"},
+        "joins": [
+            {"joinType": "left", "left": left, "right": right, "columns": columns}
+        ],
+    }
 
 
-def test_join_naming_no_known_column_is_refused() -> None:
-    index = parse_data_model_spec(
-        _join_spec(
-            {"kind": "join", "columns": [{"left": "not-a-column-of-this-spec"}]}
-        ),
-        data_model_id="dm-1",
-    )
-    assert index.partners == {}
-    assert index.unreadable_join_element_ids == ["el-join"]
-
-
-def test_non_join_sources_produce_no_pairs_but_are_counted() -> None:
+def test_predicate_is_read_from_joins_not_from_source_columns() -> None:
     index = parse_data_model_spec(
         _spec(
-            [
-                _element("el-a", [_LEFT_COL], {"kind": "warehouse-table"}),
-                _element("el-b", [_RIGHT_COL], {"kind": "table"}),
-            ]
+            _join(
+                _ELEMENT_SIDE_L,
+                _ELEMENT_SIDE_R,
+                [{"left": _LEFT_COL, "right": _RIGHT_COL, "op": "equals"}],
+            )
         ),
         data_model_id="dm-1",
     )
-    assert index.partners == {}
-    assert index.source_kind_counts == {"warehouse-table": 1, "table": 1}
+    assert len(index.pairs) == 1
+    predicate = index.pairs[0]
+    assert predicate.join_element_id == "el-join"
+    assert (predicate.left.element_id, predicate.left.column) == ("el-left", _LEFT_COL)
+    assert (predicate.right.element_id, predicate.right.column) == (
+        "el-right",
+        _RIGHT_COL,
+    )
+    assert index.unreadable_join_element_ids == []
+
+
+def test_side_values_are_returned_verbatim_not_interpreted() -> None:
+    """The document does not say whether a side is a column id or a name."""
+    index = parse_data_model_spec(
+        _spec(
+            _join(
+                _ELEMENT_SIDE_L,
+                _ELEMENT_SIDE_R,
+                [{"left": "Account Number", "right": "Col B"}],
+            )
+        ),
+        data_model_id="dm-1",
+    )
+    assert (index.pairs[0].left.column, index.pairs[0].right.column) == (
+        "Account Number",
+        "Col B",
+    )
+
+
+def test_warehouse_side_is_counted_not_treated_as_a_parse_failure() -> None:
+    """The commonest real shape: one side is a table, with no columns in the doc."""
+    index = parse_data_model_spec(
+        _spec(
+            _join(
+                _WAREHOUSE_SIDE,
+                _ELEMENT_SIDE_R,
+                [{"left": "SOME_COL", "right": _RIGHT_COL}],
+            )
+        ),
+        data_model_id="dm-1",
+    )
+    assert index.pairs == []
+    assert index.warehouse_side_predicates == 1
+    # Crucially NOT reported as unreadable -- that counter must stay meaningful
+    # as "the shape assumption is wrong".
+    assert index.unreadable_join_element_ids == []
+
+
+def test_multiple_joins_and_multi_column_predicates() -> None:
+    source = _join(
+        _ELEMENT_SIDE_L,
+        _ELEMENT_SIDE_R,
+        [{"left": _LEFT_COL, "right": _RIGHT_COL}, {"left": "A", "right": "B"}],
+    )
+    source["joins"].append(
+        {
+            "joinType": "inner",
+            "left": _ELEMENT_SIDE_R,
+            "right": _ELEMENT_SIDE_L,
+            "columns": [{"left": "C", "right": "D"}],
+        }
+    )
+    index = parse_data_model_spec(_spec(source), data_model_id="dm-1")
+    assert [(p.left.column, p.right.column) for p in index.pairs] == [
+        (_LEFT_COL, _RIGHT_COL),
+        ("A", "B"),
+        ("C", "D"),
+    ]
+
+
+def test_empty_joins_list_is_not_unreadable() -> None:
+    index = parse_data_model_spec(
+        _spec({"kind": "join", "joins": [], "primarySource": {"kind": "table"}}),
+        data_model_id="dm-1",
+    )
+    assert index.pairs == []
+    assert index.unreadable_join_element_ids == []
+
+
+def test_unrecognised_join_shape_is_reported_as_unreadable() -> None:
+    index = parse_data_model_spec(
+        _spec({"kind": "join", "on": [{"lhs": "x", "rhs": "y"}]}),
+        data_model_id="dm-1",
+    )
+    assert index.pairs == []
+    assert index.unreadable_join_element_ids == ["el-join"]
+
+
+def test_source_kinds_are_counted() -> None:
+    index = parse_data_model_spec(
+        _spec(_join(_ELEMENT_SIDE_L, _ELEMENT_SIDE_R, [])),
+        data_model_id="dm-1",
+    )
+    assert index.source_kind_counts == {"warehouse-table": 2, "join": 1}
 
 
 def test_missing_or_malformed_spec_is_inert() -> None:
     for spec in (None, {}, {"pages": None}, {"pages": [{"elements": ["junk"]}]}):
         index = parse_data_model_spec(spec, data_model_id="dm-1")
-        assert index.partners == {}
+        assert index.pairs == []
         assert index.element_id_by_column_id == {}

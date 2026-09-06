@@ -246,12 +246,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # url_ids skipped because the connection to attribute them to could not be
     # inferred unambiguously (a /files entry carries no connectionId).
     dm_element_warehouse_connection_ambiguous: int = 0
-    # A Data Model element references a warehouse table by urlId that Sigma
-    # returns 404 for -- the table has been deleted but the reference remains.
-    # No lookup can supply coordinates for an object that no longer exists, so
-    # columns naming it can never receive warehouse column lineage. This is
-    # tenant data hygiene, not a connector gap; on one tenant it accounted for
-    # ALL 37 unresolved table references.
+    # A Data Model element references a warehouse table by urlId that
+    # /v2/files/{urlId} returns 404 for. The file may be deleted, or merely
+    # outside what the ingestion credential can see -- the API does not
+    # distinguish them -- so nothing is inferred beyond "not resolvable by this
+    # token". Columns naming it get no warehouse column lineage.
     dm_element_warehouse_stale_reference: int = 0
     # Paginated calls that aborted partway (HTTP error or a repeated cursor),
     # losing every entry after the failure point. The per-abort warnings group
@@ -310,6 +309,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # A join predicate named a column whose element or column is not part of
     # this run (filtered out by a pattern, or absent from /elements).
     data_model_join_key_partner_unresolved: int = 0
+    # Predicate sides naming a warehouse table rather than an element in this
+    # Data Model. /spec identifies those by connection and path and describes
+    # none of their columns, so they cannot become element-to-element column
+    # lineage. Expected, not a parse failure -- counted to keep the two apart.
+    data_model_join_warehouse_side_predicates: int = 0
     # Column edges added because a join predicate equates the column an existing
     # edge points at with a column on the other side of the join. These are the
     # edges no formula can produce: a join's output column names only one side.

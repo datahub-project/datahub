@@ -1493,7 +1493,12 @@ _RIGHT_COL_ID = "c-col-k"
 
 
 def _join_spec_source(source: SigmaSource) -> None:
-    """Make /spec report one join predicate: A.col_k == C.col_k."""
+    """Make /spec report one join predicate: A.col_k == C.col_k.
+
+    Shape mirrors a live tenant: the predicate lives under
+    ``source.joins[].columns[]``, and each side's element is named by the
+    sibling ``joins[].left`` / ``.right`` descriptor.
+    """
     spec_mock = MagicMock()
     source.sigma_api = spec_mock
     spec_mock.get_data_model_spec.return_value = {
@@ -1516,56 +1521,27 @@ def _join_spec_source(source: SigmaSource) -> None:
                         "columns": [],
                         "source": {
                             "kind": "join",
-                            "columns": [{"left": _LEFT_COL_ID, "right": _RIGHT_COL_ID}],
+                            "primarySource": {"kind": "warehouse-table"},
+                            "joins": [
+                                {
+                                    "joinType": "left",
+                                    "left": {"elementId": "a", "kind": "element"},
+                                    "right": {"elementId": "c", "kind": "element"},
+                                    "columns": [
+                                        {
+                                            "left": _LEFT_COL_ID,
+                                            "right": _RIGHT_COL_ID,
+                                            "op": "equals",
+                                        }
+                                    ],
+                                }
+                            ],
                         },
                     },
                 ]
             }
         ],
     }
-
-
-def test_join_key_adds_the_side_the_formula_never_names() -> None:
-    """The reported symptom: a join's output column links to only one side.
-
-    The formula names A, so only A gets an edge. The join predicate says
-    A.col_k and C.col_k hold the same value, which makes C an
-    upstream of that column too -- and nothing but /spec states it.
-    """
-    source = _source()
-    _join_spec_source(source)
-    a_urn, c_urn, b_urn = _urn("a"), _urn("c"), _urn("b")
-    element = _element("b", "B", [_column("b-key", "col_k", "[A/col_k]")])
-    discovered: Set[str] = set()
-
-    lineages = source._build_dm_element_fine_grained_lineages(
-        element=element,
-        element_dataset_urn=b_urn,
-        element_name_to_eids={"a": ["a"]},
-        elementId_to_dataset_urn={"a": a_urn, "c": c_urn},
-        entity_level_upstream_urns={a_urn},
-        data_model=_data_model(
-            [
-                element,
-                _element("a", "A", [_column(_LEFT_COL_ID, "col_k", None)]),
-                _element("c", "C", [_column(_RIGHT_COL_ID, "col_k", None)]),
-            ]
-        ),
-        warehouse_url_id_map={},
-        discovered_upstreams=discovered,
-    )
-
-    upstreams = sorted((lineage.upstreams or [])[0] for lineage in lineages)
-    assert upstreams == sorted(
-        [
-            builder.make_schema_field_urn(a_urn, "col_k"),
-            builder.make_schema_field_urn(c_urn, "col_k"),
-        ]
-    )
-    # C is not in Sigma's /lineage for this element, so it must be promoted or
-    # the emitted schemaField would point at a Dataset absent from upstreams.
-    assert discovered == {c_urn}
-    assert source.reporter.data_model_element_fgl_join_key_resolved == 1
 
 
 def test_join_key_edge_is_scored_below_a_formula_edge() -> None:

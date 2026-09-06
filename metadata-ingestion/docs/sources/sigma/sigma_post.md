@@ -245,12 +245,15 @@ models, and join keys are simply absent — everything else still ingests. If
 the shape the parser reads; run with `--debug` and look for `DM SPEC JOIN` lines, which log
 the descriptor's structure (key names and types only, never values).
 
-A Data Model can also reference a warehouse table that has since been **deleted from
-Sigma**. The `inode-<urlId>` reference survives in the model while `/v2/files/{urlId}`
-returns 404, so no lookup can supply the table's coordinates and columns naming it can
-never receive warehouse column lineage. These are counted under
-`dm_element_warehouse_stale_reference` and are a tenant data-hygiene issue rather than an
-ingestion gap; on one tenant they accounted for every unresolved table reference.
+A Data Model can reference a warehouse table that `/v2/files/{urlId}` cannot resolve for
+the ingestion credential. Those columns receive no warehouse column lineage and are counted
+under `dm_element_warehouse_stale_reference`; the API does not say whether the file was
+deleted or is simply outside what the token can see, so check the credential's access
+before assuming the reference is stale.
+
+Note that a table absent from `/v2/files?typeFilters=table` may still resolve through a
+direct `/v2/files/{urlId}` call — on one tenant the listing omitted 52 tables that the
+direct lookup returned in full. The connector uses the direct call for this reason.
 
 Two report counters mark data that never arrived, and should be read before treating a
 model's missing lineage as a resolution failure: `data_model_columns_fetch_partial` counts

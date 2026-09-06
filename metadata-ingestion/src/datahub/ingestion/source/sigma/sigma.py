@@ -72,6 +72,7 @@ from datahub.ingestion.source.sigma.sigma_api import (
 )
 from datahub.ingestion.source.sigma.spec_parser import (
     DataModelSpecIndex,
+    SpecColumnRef,
     parse_data_model_spec,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -1037,22 +1038,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Asks ``/v2/files/{urlId}`` directly, one call per distinct miss.
 
         An earlier version listed every table on the tenant and looked the
-        url_id up in that index. Measured against a live tenant, that cost 41
-        paged calls and recovered NOTHING: all 37 unresolved url_ids were absent
-        from a complete 40,564-row listing. Asking about each url_id directly is
-        both cheaper and strictly more informative, because it separates two
-        cases the listing could not:
+        url_id up in that index. That recovered NOTHING across a full customer
+        run, while this direct call recovered 52 -- the tenant's
+        ``/files?typeFilters=table`` listing does not include every table a
+        ``GET /files/{urlId}`` can resolve, so the listing was both more
+        expensive (~41 paged calls) and less complete.
 
-        * **200** -- the table exists but the Data Model's /lineage omitted it.
-          Recovered, which is what this method was always meant to do.
-        * **404** -- Sigma does not know this file at all. Every one of that
-          tenant's misses answered this way. Verified against a control url_id
-          taken from the listing, which returns 200, so ``/v2/files/{urlId}``
-          does accept a url_id and the 404s are real absences rather than an
-          id-space mismatch. The Data Model still carries an ``inode-<urlId>``
-          reference to a table that has been deleted, and no lookup strategy can
-          produce coordinates for an object that no longer exists -- so these
-          are reported as stale references instead of retried.
+        A 404 means only that this token cannot resolve the url_id -- the file
+        may be deleted, or simply outside what the credential can see. We cannot
+        tell which, so it is counted as an unresolved reference and nothing is
+        inferred about why.
         """
         if url_id not in self._warehouse_file_by_url_id:
             self._warehouse_file_by_url_id[url_id] = (
@@ -3454,8 +3449,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self.sigma_api.get_data_model_spec(dm_id), data_model_id=dm_id
             )
             self._dm_spec_index_cache[dm_id] = cached
-            self.reporter.data_model_join_key_pairs_read += (
-                sum(len(v) for v in cached.partners.values()) // 2
+            self.reporter.data_model_join_key_pairs_read += len(cached.pairs)
+            self.reporter.data_model_join_warehouse_side_predicates += (
+                cached.warehouse_side_predicates
             )
             self.reporter.data_model_join_elements_unreadable += len(
                 cached.unreadable_join_element_ids
@@ -3477,31 +3473,54 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """Add the other side of every join predicate an edge already touches.
 
         A join's output column carries a formula naming ONE side, so /columns
-        alone can only ever produce one edge -- the reported symptom. The join
-        predicate says the two key columns hold the same value, which makes the
-        unnamed side just as much an upstream of that output column as the named
-        one. Only columns an edge already reaches are expanded, so this never
-        invents lineage for a column the formulas said nothing about.
+        alone can only ever produce one edge -- the reported symptom. The ON
+        clause says the two key columns hold the same value, which makes the
+        unnamed side just as much an upstream of that output column. Only
+        columns an edge already reaches are expanded, so this never invents
+        lineage for a column the formulas said nothing about.
 
-        The predicate is an equality, not a copy, so these edges are scored
-        below a formula-derived one: consumers that want only value-propagation
-        lineage can filter them out by confidence.
+        The predicate is an equality, not a copy, so these edges score below a
+        formula-derived one: consumers wanting only value-propagation lineage
+        can filter them out by confidence.
         """
         spec = self._get_dm_spec_index(data_model)
-        if not spec.partners:
+        if not spec.pairs:
             return
         element_id_by_urn = {urn: eid for eid, urn in elementId_to_dataset_urn.items()}
-        # canonical column name -> columnId, and back, for every DM element.
-        col_id_by_name: Dict[str, Dict[str, str]] = {}
-        col_name_by_id: Dict[str, Dict[str, str]] = {}
+        # Each DM element's columns, addressable by columnId AND by lowercased
+        # name: /spec states a predicate side as a bare string and the document
+        # does not say which of the two it is, so both are tried.
+        col_name_by_key: Dict[str, Dict[str, str]] = {}
         for dm_el in data_model.elements:
             winners, _ = _dedup_dm_element_columns(dm_el.columns)
-            col_id_by_name[dm_el.elementId] = {
-                c.name: c.columnId for c in winners.values() if c.columnId
-            }
-            col_name_by_id[dm_el.elementId] = {
-                c.columnId: c.name for c in winners.values() if c.columnId
-            }
+            keys: Dict[str, str] = {}
+            for col in winners.values():
+                if col.columnId:
+                    keys[col.columnId] = col.name
+                keys[col.name.lower()] = col.name
+            col_name_by_key[dm_el.elementId] = keys
+
+        def resolve(side: "SpecColumnRef") -> Optional[Tuple[str, str]]:
+            if side.element_id is None:
+                return None
+            keys = col_name_by_key.get(side.element_id)
+            urn = elementId_to_dataset_urn.get(side.element_id)
+            if not keys or urn is None:
+                return None
+            name = keys.get(side.column) or keys.get(side.column.strip().lower())
+            return (urn, name) if name else None
+
+        # (urn, column name) -> the columns a predicate equates it with.
+        partners: Dict[Tuple[str, str], Set[Tuple[str, str]]] = {}
+        for predicate in spec.pairs:
+            a, b = resolve(predicate.left), resolve(predicate.right)
+            if a is None or b is None:
+                self.reporter.data_model_join_key_partner_unresolved += 1
+                continue
+            partners.setdefault(a, set()).add(b)
+            partners.setdefault(b, set()).add(a)
+        if not partners:
+            return
 
         added = 0
         for fgl in list(fgls) + list(cross_dm_fgls):
@@ -3512,42 +3531,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 upstream = SchemaFieldUrn.from_string(fgl.upstreams[0])
             except InvalidUrnError:
                 continue
-            src_element_id = element_id_by_urn.get(str(upstream.parent))
-            if src_element_id is None:
+            parent = str(upstream.parent)
+            if parent not in element_id_by_urn:
                 # A warehouse table or another Data Model's element: the spec
-                # describes only this model's own columns, so there is nothing
-                # to look up.
+                # describes only this model's own elements.
                 continue
-            column_id = col_id_by_name.get(src_element_id, {}).get(upstream.field_path)
-            if column_id is None:
-                continue
-            for partner in sorted(
-                spec.partners_of(src_element_id, column_id),
-                key=lambda p: (p.element_id, p.column_id),
+            for partner_urn, partner_col in sorted(
+                partners.get((parent, upstream.field_path), set())
             ):
-                partner_urn = elementId_to_dataset_urn.get(partner.element_id)
-                partner_col = col_name_by_id.get(partner.element_id, {}).get(
-                    partner.column_id
-                )
-                if partner_urn is None or partner_col is None:
-                    self.reporter.data_model_join_key_partner_unresolved += 1
-                    logger.debug(
-                        "JOIN KEY DM %s element %s: predicate partner %s/%s has "
-                        "no %s in this run; edge skipped",
-                        data_model.dataModelId,
-                        element.elementId,
-                        partner.element_id,
-                        partner.column_id,
-                        "dataset URN" if partner_urn is None else "column name",
-                    )
-                    continue
-                # Guard against the join element's own column pairing back to
-                # itself through a self-join.
                 canonical = (urn_to_cols.get(partner_urn) or {}).get(
                     partner_col.lower(), partner_col
                 )
                 partner_field = builder.make_schema_field_urn(partner_urn, canonical)
                 if partner_field == downstream_field:
+                    # A self-join can pair a column back to itself.
                     continue
                 pair = (downstream_field, partner_field)
                 if pair in emitted_pairs:
@@ -3566,15 +3563,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 added += 1
                 self.reporter.data_model_element_fgl_join_key_resolved += 1
                 logger.debug(
-                    "JOIN KEY DM %s element %s: %s already links to %s/%s; the "
-                    "join predicate equates that with %s/%s, so adding %s",
+                    "JOIN KEY DM %s element %s: %s already links to %s/%s; a "
+                    "join predicate equates that with %s, so adding it",
                     data_model.dataModelId,
                     element.elementId,
                     downstream_field,
-                    src_element_id,
+                    element_id_by_urn[parent],
                     upstream.field_path,
-                    partner.element_id,
-                    canonical,
                     partner_field,
                 )
         if added:

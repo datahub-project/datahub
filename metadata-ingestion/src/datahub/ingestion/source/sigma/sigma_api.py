@@ -1389,20 +1389,19 @@ class SigmaAPI:
         return entries
 
     def get_file_metadata_by_url_id(self, url_id: str) -> Optional[Dict[str, Any]]:
-        """Fetch ``/v2/files/{urlId}``, or None when Sigma does not know it.
+        """Fetch ``/v2/files/{urlId}``, or None when it cannot be resolved.
 
         ``/v2/files/{id}`` accepts either an inodeId (UUID) or a urlId and
-        returns the same document for both -- verified live against a url_id
-        taken from the table listing. That matters because a Data Model
+        returns the same document for both. That matters because a Data Model
         element's ``inode-<suffix>`` carries the urlId, not the UUID, so this is
-        the only way to ask about a table the Data Model's own /lineage never
-        described.
+        the only way to ask about a table the Data Model's own ``/lineage``
+        never described -- and it resolves tables the tenant-wide table listing
+        omits.
 
-        A 404 returns None WITHOUT a warning: on a live tenant every one of the
-        37 unresolved url_ids answered 404, meaning the Data Model references
-        tables that have since been deleted from Sigma. That is tenant hygiene
-        rather than an ingestion problem, so the caller counts it under
-        ``dm_element_warehouse_stale_reference`` instead of alarming operators.
+        A 404 returns None WITHOUT a warning. It means the token cannot resolve
+        that url_id, which may be a deleted file or one outside the credential's
+        visibility; the two are indistinguishable from here, so the caller only
+        counts it.
         """
         url = f"{self.config.api_url}/files/{quote(url_id, safe='')}"
         try:
