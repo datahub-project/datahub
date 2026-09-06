@@ -1025,3 +1025,48 @@ class TestGlobalWarehouseNameIndex:
         )
         assert not resolved
         assert source.reporter.dm_element_warehouse_name_index_miss == 1
+
+
+class TestColumnLevelDirectLookupRecovery:
+    """A column's table missing from the DM map must still reach /files/{urlId}.
+
+    The recovery was originally wired only into the entity-level upstream path,
+    so a Data Model gained a table-level edge while the column that motivated
+    the lookup stayed unresolved. On one tenant that left 1,305 columns behind.
+    """
+
+    def test_column_resolves_via_direct_lookup_when_map_lacks_the_url_id(self):
+        source = _make_source()
+        source.sigma_api = MagicMock()
+        source.sigma_api.get_file_metadata_by_url_id.return_value = {
+            "urlId": "otherUrlId",
+            "id": "inode-other",
+            "name": "ORDERS",
+            "path": "Connection Root/PROD_DB/PUBLIC",
+        }
+        col = _column("inode-otherUrlId/ORDER_ID", "Order Id", None)
+        elem = _element("e1", "E1", [col], ["inode-otherUrlId"])
+        fgl = _try_emit(source, col, elem, _SF_WAREHOUSE_MAP)
+        assert fgl is not None
+        assert fgl.upstreams == [
+            builder.make_schema_field_urn(
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+                "prod_db.public.orders,PROD)",
+                "order_id",
+            )
+        ]
+        assert source.reporter.dm_element_warehouse_column_recovered_by_lookup == 1
+
+    def test_unresolvable_url_id_still_counted_as_a_map_miss(self):
+        source = _make_source()
+        source.sigma_api = MagicMock()
+        source.sigma_api.get_file_metadata_by_url_id.return_value = None
+        col = _column("inode-nope/ORDER_ID", "Order Id", None)
+        elem = _element("e1", "E1", [col], ["inode-nope"])
+        assert _try_emit(source, col, elem, _SF_WAREHOUSE_MAP) is None
+        assert (
+            source.reporter.warehouse_passthrough_miss_reasons[
+                "url_id_not_in_warehouse_map"
+            ]
+            == 1
+        )

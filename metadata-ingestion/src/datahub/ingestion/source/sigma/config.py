@@ -243,6 +243,12 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # type=table rows than its own elements reference; without this those
     # elements resolve to no warehouse table at all.
     dm_element_warehouse_recovered_from_global_index: int = 0
+    # Sub-count of the above measured at the COLUMN level: a column's
+    # inode-shaped columnId named a table the Data Model's /lineage omits, and
+    # the direct /v2/files/{urlId} lookup supplied it. Before this the recovery
+    # reached only the entity-level upstream, leaving the column that motivated
+    # it unresolved -- 1,305 columns on one tenant.
+    dm_element_warehouse_column_recovered_by_lookup: int = 0
     # url_ids skipped because the connection to attribute them to could not be
     # inferred unambiguously (a /files entry carries no connectionId).
     dm_element_warehouse_connection_ambiguous: int = 0

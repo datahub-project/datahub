@@ -2573,10 +2573,32 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 element.source_ids,
             )
 
-        # Guard: url_id must resolve in the warehouse map (i.e. /files succeeded).
+        # The Data Model's /lineage does not describe every table its elements
+        # reference, so a miss here is not the end: ask /v2/files/{urlId}
+        # directly, exactly as the entity-level path does. Without this the
+        # recovery only ever produced a table-level edge while the COLUMN that
+        # motivated it stayed unresolved -- 1,305 columns on one tenant.
+        # The lookup is cached per url_id, so repeats across columns are free.
         wh_ref = warehouse_url_id_map.get(url_id)
         if wh_ref is None:
-            # /files never resolved this inode into db/schema/table.
+            inferred = self._infer_connection_id(warehouse_url_id_map)
+            if inferred is not None:
+                wh_ref = self._lookup_global_warehouse_table(url_id, inferred)
+            if wh_ref is not None:
+                self.reporter.dm_element_warehouse_column_recovered_by_lookup += 1
+                logger.debug(
+                    "WAREHOUSE COLUMN RECOVERED: element %s column %r url_id %r "
+                    "was absent from this Data Model's warehouse map but "
+                    "/v2/files/{urlId} resolved it to db=%r schema=%r table=%r",
+                    element.elementId,
+                    column.name,
+                    url_id,
+                    wh_ref.db,
+                    wh_ref.schema,
+                    wh_ref.table,
+                )
+        if wh_ref is None:
+            # Neither the DM's /lineage nor a direct lookup describes this table.
             self._note_warehouse_miss(
                 "url_id_not_in_warehouse_map", column, element, col_id
             )
@@ -2585,9 +2607,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Resolve the parent Dataset URN.  This is the only allowed path for
         # URN construction — env, platform_instance, and casing all live here,
         # so bypassing it risks orphan schemaFields on casing or instance drift.
-        parent_urn = self._resolve_dm_element_warehouse_upstream(
-            url_id_suffix=url_id,
-            warehouse_map=warehouse_url_id_map,
+        parent_urn = (
+            self._resolve_dm_element_warehouse_upstream(
+                url_id_suffix=url_id,
+                warehouse_map=warehouse_url_id_map,
+            )
+            if url_id in warehouse_url_id_map
+            else self._warehouse_urn_from_ref(
+                wh_ref, context=f"recovered url_id {url_id!r}"
+            )
         )
         if parent_urn is None:
             self._note_warehouse_miss("parent_urn_unresolved", column, element, col_id)
@@ -3516,6 +3544,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             a, b = resolve(predicate.left), resolve(predicate.right)
             if a is None or b is None:
                 self.reporter.data_model_join_key_partner_unresolved += 1
+                # Name WHICH side failed and what was tried. A predicate side is
+                # a bare string that may be a columnId or a column name, and
+                # silence here would leave "0 join edges" indistinguishable from
+                # "the predicate was read but neither spelling matched".
+                logger.debug(
+                    "JOIN KEY DM %s: predicate from join element %s did not "
+                    "resolve -- left(element=%s column=%r)=%s "
+                    "right(element=%s column=%r)=%s",
+                    data_model.dataModelId,
+                    predicate.join_element_id,
+                    predicate.left.element_id,
+                    predicate.left.column,
+                    "ok" if a else "UNRESOLVED",
+                    predicate.right.element_id,
+                    predicate.right.column,
+                    "ok" if b else "UNRESOLVED",
+                )
                 continue
             partners.setdefault(a, set()).add(b)
             partners.setdefault(b, set()).add(a)
