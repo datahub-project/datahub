@@ -1,6 +1,6 @@
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Dict, FrozenSet, Iterable, List, Literal, Optional, Set, Tuple
 
 import datahub.emitter.mce_builder as builder
@@ -66,7 +66,14 @@ from datahub.ingestion.source.sigma.formula_parser import (
     candidate_source_column_splits,
     extract_bracket_refs,
 )
-from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
+from datahub.ingestion.source.sigma.sigma_api import (
+    INGESTED_ELEMENT_TYPES,
+    SigmaAPI,
+)
+from datahub.ingestion.source.sigma.spec_parser import (
+    DataModelSpecIndex,
+    parse_data_model_spec,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -137,6 +144,15 @@ _FGL_CONFIDENCE_FORMULA_DERIVED: float = 0.1  # SELECT * synthesis from formula 
 # because a column with an opaque columnId carries no native name anywhere in
 # the API. Scored below an exact match so consumers can tell the two apart.
 _FGL_CONFIDENCE_WAREHOUSE_NAME_DERIVED: float = 0.5
+# Same as above, except the TABLE was not declared by the element either --
+# it was found by name in the tenant-wide /v2/files listing. Both ends of the
+# match are inferred, so it scores below the declared-table case.
+_FGL_CONFIDENCE_WAREHOUSE_GLOBAL_NAME_DERIVED: float = 0.3
+# The other side of a JOIN predicate. The two key columns are stated to hold
+# the same value, which makes the unnamed side a genuine upstream -- but it is
+# an equality, not a copy, so it scores below a formula-derived edge to let
+# consumers that want only value-propagation lineage filter these out.
+_FGL_CONFIDENCE_JOIN_KEY: float = 0.7
 
 
 def _warehouse_column_from_display_name(display_name: str) -> str:
@@ -472,6 +488,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # deleted table). One call per distinct url_id.
         self._warehouse_file_by_url_id: Dict[str, Optional[Dict[str, Any]]] = {}
         self._stale_warehouse_refs_seen: Set[str] = set()
+        # One /spec parse per Data Model, keyed by dataModelId.
+        self._dm_spec_index_cache: Dict[str, DataModelSpecIndex] = {}
+        # Built once per run, lazily, by _ensure_global_warehouse_index.
+        self._global_warehouse_index_built: bool = False
+        self._global_warehouse_file_entries: Dict[str, Dict[str, Any]] = {}
+        # Same entries keyed by casefolded table NAME. A name is not unique --
+        # the same table name recurs across schemas and databases -- so the
+        # value is a list and every consumer must resolve the ambiguity or
+        # refuse. See _lookup_global_warehouse_table_by_name.
+        self._global_warehouse_files_by_name: Dict[str, List[Dict[str, Any]]] = {}
         # Inodes whose /files path already produced an unparseable warning;
         # prevents N identical warnings when the same inode spans N DMs (H3).
         self._files_path_unparseable_seen: Set[str] = set()
@@ -846,6 +872,163 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         ]
         return mappable[0] if len(mappable) == 1 else None
 
+    def _ensure_global_warehouse_index(self, trigger: str) -> None:
+        """List /v2/files once per run and index it by url_id and by name.
+
+        Built lazily and only on first need, so tenants whose Data Model
+        /lineage is complete never pay for the listing.
+        """
+        if self._global_warehouse_index_built:
+            return
+        self._global_warehouse_index_built = True
+        logger.debug(
+            "GLOBAL WAREHOUSE INDEX: first miss (%s) -- listing "
+            "/v2/files?typeFilters=table. Built once per run and only on "
+            "demand, so a tenant whose lineage is complete never pays for "
+            "this.",
+            trigger,
+        )
+        entries = self.sigma_api.list_warehouse_table_files()
+        index: Dict[str, Dict[str, Any]] = {}
+        by_name: Dict[str, List[Dict[str, Any]]] = {}
+        for raw in entries:
+            key = str(raw.get("urlId") or "")
+            if key:
+                index[key] = raw
+            name = str(raw.get("name") or "").strip().casefold()
+            if name:
+                by_name.setdefault(name, []).append(raw)
+        self._global_warehouse_file_entries = index
+        self._global_warehouse_files_by_name = by_name
+
+        self.reporter.warehouse_files_listed = len(entries)
+        # 10,000 exactly is the number to watch: /v2/files reported
+        # 'total: 10000' on a live tenant, suspiciously round, so the
+        # listing may be server-capped. A capped listing is silently
+        # incomplete and would need name-filtered fetching instead.
+        truncated = len(entries) in (10000, 100000)
+        colliding = sum(1 for rows in by_name.values() if len(rows) > 1)
+        logger.debug(
+            "GLOBAL WAREHOUSE INDEX built from /v2/files: %d table entries, "
+            "%d distinct url_ids, %d entries lacking a urlId, %d distinct "
+            "table names of which %d are shared by 2+ tables (those can only "
+            "be resolved by name when the Data Model's own tables disambiguate "
+            "them)%s",
+            len(entries),
+            len(index),
+            len(entries) - len(index),
+            len(by_name),
+            colliding,
+            "  *** SUSPECT SERVER-SIDE CAP: listing may be truncated ***"
+            if truncated
+            else "",
+        )
+        if truncated:
+            self.reporter.warning(
+                title="Sigma /v2/files listing may be truncated",
+                message=(
+                    "The warehouse table listing returned exactly a round "
+                    "number of entries, which suggests a server-side cap "
+                    "rather than the true total. Data Model elements whose "
+                    "table falls outside the listing will still resolve to "
+                    "no warehouse lineage."
+                ),
+                context=f"entries={len(entries)}",
+            )
+
+    def _lookup_global_warehouse_table_by_name(
+        self,
+        *,
+        table_name: str,
+        warehouse_map: Dict[str, _WarehouseTableRef],
+    ) -> Optional[_WarehouseTableRef]:
+        """Resolve a warehouse table the element names but does not declare.
+
+        A formula can reference a warehouse table by name that the element's
+        own ``source_ids`` never mention -- the same Sigma under-reporting that
+        motivates the url_id path, one level further out. The only remaining
+        signal is the name, which is NOT unique: the same table name recurs
+        across schemas and databases, and picking the wrong one emits an edge
+        to a real but unrelated dataset.
+
+        So the match must be unambiguous. A single global entry is accepted
+        outright; several are narrowed to those sharing a (db, schema) with a
+        table this Data Model already resolved, and accepted only if exactly
+        one survives. Anything still ambiguous is refused, not guessed.
+        """
+        self._ensure_global_warehouse_index(f"table name {table_name!r}")
+        rows = self._global_warehouse_files_by_name.get(
+            table_name.strip().casefold(), []
+        )
+        if not rows:
+            self.reporter.dm_element_warehouse_name_index_miss += 1
+            logger.debug(
+                "GLOBAL WAREHOUSE NAME miss: no /v2/files table is named %r "
+                "(index holds %d distinct names)",
+                table_name,
+                len(self._global_warehouse_files_by_name),
+            )
+            return None
+        connection_id = self._infer_connection_id(warehouse_map)
+        if connection_id is None:
+            self.reporter.dm_element_warehouse_connection_ambiguous += 1
+            logger.debug(
+                "GLOBAL WAREHOUSE NAME: %r matched %d entries but the "
+                "connection to attribute them to could not be inferred; "
+                "refusing rather than guessing the platform",
+                table_name,
+                len(rows),
+            )
+            return None
+        candidates = [
+            ref
+            for ref in (
+                self._warehouse_ref_from_file_entry(row, connection_id) for row in rows
+            )
+            if ref is not None
+        ]
+        if not candidates:
+            self.reporter.dm_element_warehouse_path_unparseable += 1
+            return None
+        if len(candidates) > 1:
+            # Narrow by the scopes this Data Model already demonstrably reads
+            # from. A table in a schema the DM never touches is far more likely
+            # a same-named table elsewhere in the warehouse than the referent.
+            known_scopes = {(r.db, r.schema) for r in warehouse_map.values()}
+            narrowed = [c for c in candidates if (c.db, c.schema) in known_scopes]
+            logger.debug(
+                "GLOBAL WAREHOUSE NAME ambiguous: %r matched %d tables %r; "
+                "narrowing to the Data Model's own scopes %r left %d",
+                table_name,
+                len(candidates),
+                [(c.db, c.schema) for c in candidates],
+                sorted(known_scopes),
+                len(narrowed),
+            )
+            candidates = narrowed
+        if len(candidates) != 1:
+            self.reporter.dm_element_warehouse_name_index_ambiguous += 1
+            logger.debug(
+                "GLOBAL WAREHOUSE NAME unresolved: %r left %d candidates after "
+                "narrowing; no edge emitted",
+                table_name,
+                len(candidates),
+            )
+            return None
+        ref = candidates[0]
+        self.reporter.dm_element_warehouse_name_index_resolved += 1
+        logger.debug(
+            "GLOBAL WAREHOUSE NAME hit: %r -> db=%r schema=%r table=%r via "
+            "connection %r (inferred); this table is named by a formula but "
+            "declared by neither the element nor the Data Model's /lineage",
+            table_name,
+            ref.db,
+            ref.schema,
+            ref.table,
+            connection_id,
+        )
+        return ref
+
     def _lookup_global_warehouse_table(
         self, url_id: str, connection_id: str
     ) -> Optional[_WarehouseTableRef]:
@@ -1118,14 +1301,27 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
 
+        return self._warehouse_urn_from_ref(ref, context=f"url_id {url_id_suffix!r}")
+
+    def _warehouse_urn_from_ref(
+        self, ref: _WarehouseTableRef, *, context: str
+    ) -> Optional[str]:
+        """Turn resolved warehouse coordinates into a Dataset URN.
+
+        Split out of _resolve_dm_element_warehouse_upstream so a ref reached by
+        table NAME rather than by url_id produces an identically-shaped URN --
+        same casing, env and platform_instance overrides, same one-shot operator
+        warnings. ``context`` only labels the debug lines with how the ref was
+        reached.
+        """
         record = self.connection_registry.get(ref.connection_id)
         if record is None or not record.is_mappable:
             # Counter is bumped by caller gated on unresolved_seen to avoid
             # inflating on diamond source_ids.
             logger.debug(
-                "inode-%s: connectionId %r not resolvable to a warehouse platform "
+                "%s: connectionId %r not resolvable to a warehouse platform "
                 "(missing from registry or is_mappable=False).",
-                url_id_suffix,
+                context,
                 ref.connection_id,
             )
             return None
@@ -1145,9 +1341,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             conn_override.platform_instance if conn_override else None
         )
         logger.debug(
-            "WAREHOUSE RESOLVE hit: url_id %r -> platform=%r fq=%r env=%r "
+            "WAREHOUSE RESOLVE hit: %s -> platform=%r fq=%r env=%r "
             "platform_instance=%r (connection=%r)",
-            url_id_suffix,
+            context,
             record.datahub_platform,
             fq,
             target_env,
@@ -2992,9 +3188,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[FineGrainedLineageClass]:
         """Resolve a ref whose source is not a sibling element in this DM.
 
-        Tries the warehouse-table name first -- it appends to ``fgls`` itself and
-        returns None when it succeeds -- then falls back to cross-DM resolution,
-        whose result the caller appends to ``cross_dm_fgls``.
+        Three attempts, in descending order of how much of the match is
+        evidenced rather than inferred:
+
+        1. a warehouse table the element itself DECLARES (exact table match);
+        2. an element in another Data Model (exact name and column match);
+        3. a warehouse table found by NAME in the tenant-wide /v2/files listing,
+           which nothing declares -- the last resort, and the only one that can
+           trigger the extra listing call.
+
+        Steps 1 and 3 append to ``fgls`` themselves and return None on success;
+        step 2's result is returned for the caller to append to
+        ``cross_dm_fgls``.
         """
         if self._try_resolve_warehouse_table_name_ref(
             ref=ref,
@@ -3003,15 +3208,31 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             warehouse_url_id_map=warehouse_url_id_map,
             emitted_pairs=emitted_pairs,
             fgls=fgls,
+            allow_global_name_index=False,
         ):
             return None
-        return self._resolve_cross_dm_fgl(
+        cross_dm = self._resolve_cross_dm_fgl(
             ref=ref,
             element=element,
             element_dataset_urn=element_dataset_urn,
             entity_level_upstream_urns=entity_level_upstream_urns,
             downstream_field=downstream_field,
         )
+        if cross_dm is not None:
+            return cross_dm
+        # Nothing in the tenant's own Sigma graph names this source. Only now is
+        # the global /v2/files listing worth the call: it is the sole remaining
+        # place the referenced table could be described.
+        self._try_resolve_warehouse_table_name_ref(
+            ref=ref,
+            element=element,
+            downstream_field=downstream_field,
+            warehouse_url_id_map=warehouse_url_id_map,
+            emitted_pairs=emitted_pairs,
+            fgls=fgls,
+            allow_global_name_index=True,
+        )
+        return None
 
     def _try_resolve_warehouse_table_name_ref(
         self,
@@ -3022,6 +3243,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         warehouse_url_id_map: Dict[str, _WarehouseTableRef],
         emitted_pairs: Set[Tuple[str, str]],
         fgls: List[FineGrainedLineageClass],
+        allow_global_name_index: bool,
     ) -> bool:
         """Resolve a ref naming a warehouse TABLE the element declares.
 
@@ -3036,6 +3258,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         The table match is exact (the element declares that inode and the ref
         names that table). Only the warehouse column name is inferred, so the
         edge is emitted at a reduced confidence.
+
+        With ``allow_global_name_index`` the search widens to the tenant-wide
+        /v2/files table listing when the element declares no table of that name
+        -- Sigma also under-reports an element's tables, so a formula can name a
+        real warehouse table that appears in neither the element's source_ids
+        nor its Data Model's /lineage. That is strictly a last resort: it is the
+        only path that can trigger the listing call, and the table identity is
+        then inferred rather than declared, so callers should try every exact
+        match first.
         """
         if ref.column is None:
             return False
@@ -3048,20 +3279,63 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             and warehouse_url_id_map[sid[len("inode-") :]].table.strip().lower()
             == wanted
         ]
-        if len(matches) != 1:
-            if matches:
+        if len(matches) > 1:
+            logger.debug(
+                "WAREHOUSE NAME REF ambiguous: element %s ref %r matched %d "
+                "declared warehouse tables; skipping",
+                element.elementId,
+                ref.raw,
+                len(matches),
+            )
+            return False
+        derived_globally = not matches
+        if derived_globally:
+            if not allow_global_name_index:
+                # Deliberately quiet: the caller will retry with the global
+                # index enabled once the exact paths have all failed.
+                return False
+            if not any(sid.startswith("inode-") for sid in element.source_ids):
+                # This element reads from no inode at all, so a bare name in its
+                # formula is not plausibly a warehouse table -- and searching the
+                # tenant-wide listing for it would only risk a same-named
+                # coincidence. Also keeps elements sourced purely from other Data
+                # Models from triggering the listing call.
                 logger.debug(
-                    "WAREHOUSE NAME REF ambiguous: element %s ref %r matched %d "
-                    "declared warehouse tables; skipping",
+                    "WAREHOUSE NAME REF: element %s declares no inode source; "
+                    "not searching the global /v2/files index for ref %r",
                     element.elementId,
                     ref.raw,
-                    len(matches),
                 )
-            return False
-        url_id, wh_ref = matches[0]
-        parent_urn = self._resolve_dm_element_warehouse_upstream(
-            url_id_suffix=url_id, warehouse_map=warehouse_url_id_map
-        )
+                return False
+            # The element declares no table by this name. Sigma under-reports
+            # here exactly as it does for url_ids, so consult the tenant-wide
+            # /v2/files table listing before giving up.
+            logger.debug(
+                "WAREHOUSE NAME REF: element %s ref %r names no warehouse table "
+                "the element declares (declared: %r); trying the global index",
+                element.elementId,
+                ref.raw,
+                sorted(
+                    warehouse_url_id_map[sid[len("inode-") :]].table
+                    for sid in element.source_ids
+                    if sid.startswith("inode-")
+                    and sid[len("inode-") :] in warehouse_url_id_map
+                ),
+            )
+            global_ref = self._lookup_global_warehouse_table_by_name(
+                table_name=ref.source, warehouse_map=warehouse_url_id_map
+            )
+            if global_ref is None:
+                return False
+            url_id, wh_ref = "", global_ref
+            parent_urn = self._warehouse_urn_from_ref(
+                global_ref, context=f"global table name {ref.source!r}"
+            )
+        else:
+            url_id, wh_ref = matches[0]
+            parent_urn = self._resolve_dm_element_warehouse_upstream(
+                url_id_suffix=url_id, warehouse_map=warehouse_url_id_map
+            )
         record = self.connection_registry.get(wh_ref.connection_id)
         if parent_urn is None or record is None:
             return False
@@ -3082,17 +3356,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     downstreams=[downstream_field],
                     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                     upstreams=[upstream_field],
-                    confidenceScore=_FGL_CONFIDENCE_WAREHOUSE_NAME_DERIVED,
+                    confidenceScore=(
+                        _FGL_CONFIDENCE_WAREHOUSE_GLOBAL_NAME_DERIVED
+                        if derived_globally
+                        else _FGL_CONFIDENCE_WAREHOUSE_NAME_DERIVED
+                    ),
                 )
             )
         self.reporter.data_model_element_fgl_warehouse_table_name_resolved += 1
+        if derived_globally:
+            self.reporter.data_model_element_fgl_warehouse_global_name_resolved += 1
         logger.debug(
-            "WAREHOUSE NAME REF hit: element %s ref %r -> table %r (url_id=%r), "
-            "column display %r -> native %r, upstream=%s",
+            "WAREHOUSE NAME REF hit (%s): element %s ref %r -> table %r "
+            "(url_id=%r), column display %r -> native %r, upstream=%s",
+            "global /v2/files index" if derived_globally else "element-declared",
             element.elementId,
             ref.raw,
             wh_ref.table,
-            url_id,
+            url_id or "n/a",
             ref.column,
             native,
             parent_urn,
@@ -3156,6 +3437,153 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         emitted_pairs.add((downstream_field, warehouse_fgl.upstreams[0]))
         fgls.append(warehouse_fgl)
         self.reporter.data_model_element_fgl_warehouse_resolved += 1
+
+    def _get_dm_spec_index(self, data_model: SigmaDataModel) -> DataModelSpecIndex:
+        """Per-run cached join-key index for one Data Model.
+
+        Costs one ``/spec`` call per Data Model. That is negligible beside the
+        per-element fan-out that dominates a run, and unlike the warehouse
+        listing it cannot be deferred to a failure path: join-key edges are
+        ADDITIONAL to the edges a formula produces, so a column that resolved
+        perfectly well may still be missing its other side.
+        """
+        dm_id = data_model.dataModelId
+        cached = self._dm_spec_index_cache.get(dm_id)
+        if cached is None:
+            cached = parse_data_model_spec(
+                self.sigma_api.get_data_model_spec(dm_id), data_model_id=dm_id
+            )
+            self._dm_spec_index_cache[dm_id] = cached
+            self.reporter.data_model_join_key_pairs_read += (
+                sum(len(v) for v in cached.partners.values()) // 2
+            )
+            self.reporter.data_model_join_elements_unreadable += len(
+                cached.unreadable_join_element_ids
+            )
+        return cached
+
+    def _add_join_key_fgls(
+        self,
+        *,
+        element: SigmaDataModelElement,
+        data_model: SigmaDataModel,
+        elementId_to_dataset_urn: Dict[str, str],
+        urn_to_cols: Dict[str, Dict[str, str]],
+        fgls: List[FineGrainedLineageClass],
+        cross_dm_fgls: List[FineGrainedLineageClass],
+        emitted_pairs: Set[Tuple[str, str]],
+        discovered_upstreams: Set[str],
+    ) -> None:
+        """Add the other side of every join predicate an edge already touches.
+
+        A join's output column carries a formula naming ONE side, so /columns
+        alone can only ever produce one edge -- the reported symptom. The join
+        predicate says the two key columns hold the same value, which makes the
+        unnamed side just as much an upstream of that output column as the named
+        one. Only columns an edge already reaches are expanded, so this never
+        invents lineage for a column the formulas said nothing about.
+
+        The predicate is an equality, not a copy, so these edges are scored
+        below a formula-derived one: consumers that want only value-propagation
+        lineage can filter them out by confidence.
+        """
+        spec = self._get_dm_spec_index(data_model)
+        if not spec.partners:
+            return
+        element_id_by_urn = {urn: eid for eid, urn in elementId_to_dataset_urn.items()}
+        # canonical column name -> columnId, and back, for every DM element.
+        col_id_by_name: Dict[str, Dict[str, str]] = {}
+        col_name_by_id: Dict[str, Dict[str, str]] = {}
+        for dm_el in data_model.elements:
+            winners, _ = _dedup_dm_element_columns(dm_el.columns)
+            col_id_by_name[dm_el.elementId] = {
+                c.name: c.columnId for c in winners.values() if c.columnId
+            }
+            col_name_by_id[dm_el.elementId] = {
+                c.columnId: c.name for c in winners.values() if c.columnId
+            }
+
+        added = 0
+        for fgl in list(fgls) + list(cross_dm_fgls):
+            if not fgl.upstreams or not fgl.downstreams:
+                continue
+            downstream_field = fgl.downstreams[0]
+            try:
+                upstream = SchemaFieldUrn.from_string(fgl.upstreams[0])
+            except InvalidUrnError:
+                continue
+            src_element_id = element_id_by_urn.get(str(upstream.parent))
+            if src_element_id is None:
+                # A warehouse table or another Data Model's element: the spec
+                # describes only this model's own columns, so there is nothing
+                # to look up.
+                continue
+            column_id = col_id_by_name.get(src_element_id, {}).get(upstream.field_path)
+            if column_id is None:
+                continue
+            for partner in sorted(
+                spec.partners_of(src_element_id, column_id),
+                key=lambda p: (p.element_id, p.column_id),
+            ):
+                partner_urn = elementId_to_dataset_urn.get(partner.element_id)
+                partner_col = col_name_by_id.get(partner.element_id, {}).get(
+                    partner.column_id
+                )
+                if partner_urn is None or partner_col is None:
+                    self.reporter.data_model_join_key_partner_unresolved += 1
+                    logger.debug(
+                        "JOIN KEY DM %s element %s: predicate partner %s/%s has "
+                        "no %s in this run; edge skipped",
+                        data_model.dataModelId,
+                        element.elementId,
+                        partner.element_id,
+                        partner.column_id,
+                        "dataset URN" if partner_urn is None else "column name",
+                    )
+                    continue
+                # Guard against the join element's own column pairing back to
+                # itself through a self-join.
+                canonical = (urn_to_cols.get(partner_urn) or {}).get(
+                    partner_col.lower(), partner_col
+                )
+                partner_field = builder.make_schema_field_urn(partner_urn, canonical)
+                if partner_field == downstream_field:
+                    continue
+                pair = (downstream_field, partner_field)
+                if pair in emitted_pairs:
+                    continue
+                emitted_pairs.add(pair)
+                fgls.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[downstream_field],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[partner_field],
+                        confidenceScore=_FGL_CONFIDENCE_JOIN_KEY,
+                    )
+                )
+                discovered_upstreams.add(partner_urn)
+                added += 1
+                self.reporter.data_model_element_fgl_join_key_resolved += 1
+                logger.debug(
+                    "JOIN KEY DM %s element %s: %s already links to %s/%s; the "
+                    "join predicate equates that with %s/%s, so adding %s",
+                    data_model.dataModelId,
+                    element.elementId,
+                    downstream_field,
+                    src_element_id,
+                    upstream.field_path,
+                    partner.element_id,
+                    canonical,
+                    partner_field,
+                )
+        if added:
+            logger.debug(
+                "JOIN KEY DM %s element %s: added %d edge(s) from join predicates",
+                data_model.dataModelId,
+                element.elementId,
+                added,
+            )
 
     def _build_dm_element_fine_grained_lineages(
         self,
@@ -3409,6 +3837,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # FGL (both appended to `fgls`). Cross-DM is tracked separately via
         # fgl_cross_dm_resolved. Warehouse-passthrough is also sub-counted in
         # fgl_warehouse_resolved (overlap intentional for independent triage).
+        self._add_join_key_fgls(
+            element=element,
+            data_model=data_model,
+            elementId_to_dataset_urn=elementId_to_dataset_urn,
+            urn_to_cols=urn_to_cols,
+            fgls=fgls,
+            cross_dm_fgls=cross_dm_fgls,
+            emitted_pairs=emitted_pairs,
+            discovered_upstreams=discovered_upstreams,
+        )
         self.reporter.data_model_element_fgl_emitted += len(fgls)
         all_fgls = fgls + cross_dm_fgls
         all_fgls.sort(
@@ -4164,6 +4602,119 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 result[key] = urns
         return result
 
+    @staticmethod
+    def _chart_urn_column_index(
+        wb_element_index: Dict[str, List[Element]],
+        elementId_to_chart_urn: Dict[str, str],
+    ) -> Dict[str, Dict[str, str]]:
+        """chart URN -> {lowercased column name: column name} for this workbook.
+
+        The schema half of join-chain validation. Without it a mis-split emits
+        an InputField naming a column the upstream does not have, which renders
+        as a dangling field rather than as no lineage.
+        """
+        out: Dict[str, Dict[str, str]] = {}
+        for elements in wb_element_index.values():
+            for element in elements:
+                urn = elementId_to_chart_urn.get(element.elementId)
+                if urn:
+                    out.setdefault(urn, {}).update(
+                        {c.lower(): c for c in element.columns}
+                    )
+        return out
+
+    def _resolve_chart_join_chain_ref(
+        self,
+        ref: BracketRef,
+        *,
+        chart_element_id: str,
+        chart_upstream_element_ids: Set[str],
+        dm_upstream_urn_by_element_name: Dict[str, str],
+        wb_element_index: Dict[str, List[Element]],
+        element_warehouse_table_index: Dict[str, List[str]],
+        elementId_to_chart_urn: Dict[str, str],
+    ) -> Optional[Tuple[str, str]]:
+        """Resolve ``[JoinElement/SourceElement/Column]`` on the chart path.
+
+        The first-slash split reads such a ref as source=``JoinElement``,
+        column=``SourceElement/Column`` -- a column no upstream has. The Data
+        Model path already tries every split and validates each against the
+        candidate's real schema; this brings the chart path to the same
+        standard, which it needs more, not less: the chart resolver returns
+        ``ref.column`` verbatim, so a mis-split emits a dangling InputField
+        instead of simply resolving to nothing.
+
+        Only a candidate whose resolved upstream actually HAS the column is
+        accepted. When none does, this returns None and the caller keeps the
+        legacy first-slash reading, so nothing that resolves today stops
+        resolving.
+        """
+        candidates = candidate_source_column_splits(ref)
+        if len(candidates) < 2:
+            return None
+        chart_cols = self._chart_urn_column_index(
+            wb_element_index, elementId_to_chart_urn
+        )
+        trace: List[str] = []
+        for source, column in candidates:
+            probe = replace(
+                ref, source=source, column=column, segments=[source, column]
+            )
+            result = self._resolve_chart_formula_upstream(
+                probe,
+                chart_element_id=chart_element_id,
+                chart_upstream_element_ids=chart_upstream_element_ids,
+                dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+                wb_element_index=wb_element_index,
+                element_warehouse_table_index=element_warehouse_table_index,
+                elementId_to_chart_urn=elementId_to_chart_urn,
+            )
+            if result is None:
+                trace.append(f"{source!r}: no upstream")
+                continue
+            upstream_urn, field = result
+            known = chart_cols.get(upstream_urn) or self.dm_element_urn_to_cols.get(
+                upstream_urn
+            )
+            if known is None:
+                # A warehouse table: this connector never learns its columns, so
+                # the candidate cannot be confirmed. Refusing it keeps the
+                # guarantee that an accepted split was checked against a schema.
+                trace.append(f"{source!r}: upstream schema unknown (warehouse)")
+                self.reporter.chart_join_chain_upstream_schema_unavailable += 1
+                continue
+            canonical = known.get(column.lower())
+            if canonical is None:
+                trace.append(
+                    f"{source!r}: upstream found but column {column!r} absent "
+                    f"from its {len(known)} columns"
+                )
+                continue
+            self.reporter.chart_join_chain_resolved += 1
+            logger.debug(
+                "chart element %s: join-chain ref %r resolved to source=%r "
+                "column=%r (upstream=%s); rejected candidates=%r",
+                chart_element_id,
+                ref.raw,
+                source,
+                canonical,
+                upstream_urn,
+                trace,
+            )
+            return (upstream_urn, canonical)
+        self.reporter.chart_join_chain_unresolved += 1
+        logger.debug(
+            "chart element %s: no candidate split of join-chain ref %r "
+            "validated; candidates tried=%r verdicts=%r; falling back to the "
+            "first-slash split, which will name column %r",
+            chart_element_id,
+            ref.raw,
+            candidates,
+            trace,
+            ref.column,
+        )
+        return None
+
     def _resolve_chart_formula_upstream(
         self,
         ref: BracketRef,
@@ -4498,11 +5049,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             elif isinstance(upstream, SheetUpstream):
                 chart_urn = elementId_to_chart_urn.get(upstream.element_id)
                 if chart_urn is None:
-                    # Target element type not in our allow-list (e.g. pivot-table).
+                    # Target element type not in our allow-list.
                     logger.debug(
                         f"Upstream elementId {upstream.element_id} not in element map "
                         f"for element {element.name}; likely filtered by get_page_elements "
-                        f"(allowlist: table, visualization)"
+                        f"(allowlist: {sorted(INGESTED_ELEMENT_TYPES)})"
                     )
                     self.reporter.num_filtered_sheet_upstreams += 1
                     continue
@@ -4663,7 +5214,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         if ref.column is None:
                             sibling_count += 1
                             continue
-                        result = self._resolve_chart_formula_upstream(
+                        # A join-chain ref gets every split tried and validated
+                        # against the candidate upstream's schema first; only
+                        # when none holds does the legacy first-slash reading
+                        # apply, so no ref that resolves today stops resolving.
+                        result = self._resolve_chart_join_chain_ref(
+                            ref,
+                            chart_element_id=element.elementId,
+                            chart_upstream_element_ids=chart_upstream_eids,
+                            dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+                            wb_element_index=wb_element_index,
+                            element_warehouse_table_index=element_warehouse_table_index,
+                            elementId_to_chart_urn=elementId_to_chart_urn,
+                        ) or self._resolve_chart_formula_upstream(
                             ref,
                             chart_element_id=element.elementId,
                             chart_upstream_element_ids=chart_upstream_eids,
@@ -4987,7 +5550,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Both maps are built once at workbook scope — intra-workbook lineage can
         # cross pages, so all elements must be indexed before processing any page.
         # Keys mirror the chart-emission allow-list in get_page_elements
-        # (type in {"table","visualization"}); filtered types are absent from both.
+        # (INGESTED_ELEMENT_TYPES); filtered types are absent from both.
         elementId_to_chart_urn: Dict[str, str] = {
             element.elementId: builder.make_chart_urn(
                 platform=self.platform,

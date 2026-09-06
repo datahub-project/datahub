@@ -50,6 +50,19 @@ from datahub.ingestion.source.sigma.data_classes import (
 # Logger instance
 logger = logging.getLogger(__name__)
 
+# Workbook element types ingested as Charts. An element outside this set is
+# dropped before it is indexed, so a chart formula naming it can never resolve
+# and falls back to a self-reference.
+#
+# 'pivot-table' and 'input-table' were added after a tenant showed 992 and 201
+# of them dropped: both hold real columns that other elements' formulas
+# reference, and both are things a user sees on the page, so representing them
+# as Charts is consistent with how 'table' is treated. They cost the same two
+# per-element calls (/lineage and /query) as any other admitted element.
+INGESTED_ELEMENT_TYPES = frozenset(
+    {"table", "visualization", "pivot-table", "input-table"}
+)
+
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -68,6 +81,9 @@ class SigmaAPI:
         # cannot answer this: they are grouped by title, so total_elements stops
         # rising after the first abort of a given kind.
         self._pagination_aborts: int = 0
+        # /spec fails identically for every model when the token lacks the
+        # scope; warn once and let the counter carry the magnitude.
+        self._spec_unavailable_warned: bool = False
         self.session = requests.Session()
 
         # Configure retry strategy for 429/503 with exponential backoff.
@@ -737,8 +753,7 @@ class SigmaAPI:
             )
             response.raise_for_status()
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
-                # only element of table and visualization type have lineage and sql query supported
-                if element_dict.get("type") not in ["table", "visualization"]:
+                if element_dict.get("type") not in INGESTED_ELEMENT_TYPES:
                     # Skipped elements never enter the workbook element index, so
                     # any chart formula referencing one can never resolve and
                     # falls back to a self-reference. Log the elementId (always
@@ -780,10 +795,34 @@ class SigmaAPI:
                     self.config.extract_lineage
                     and self.config.workbook_lineage_pattern.allowed(workbook.name)
                 ):
-                    element.upstream_sources = self._get_element_upstream_sources(
-                        element, workbook
-                    )
-                    element.query = self._get_element_sql_query(element, workbook)
+                    # Scoped to this element on purpose. These two calls are the
+                    # only per-element network work here, and an escaping
+                    # exception would be caught by the page-level handler below,
+                    # which returns [] -- silently dropping EVERY element on the
+                    # page, including the ones that fetched cleanly. Losing one
+                    # element's lineage is the correct blast radius.
+                    try:
+                        element.upstream_sources = self._get_element_upstream_sources(
+                            element, workbook
+                        )
+                        element.query = self._get_element_sql_query(element, workbook)
+                    except Exception as e:
+                        self.report.workbook_element_lineage_fetch_failed += 1
+                        self.report.warning(
+                            title="Sigma element lineage fetch failed",
+                            message=(
+                                "Lineage and SQL query could not be fetched for one "
+                                "workbook element. The element is still emitted, "
+                                "without its upstream edges; other elements on the "
+                                "page are unaffected."
+                            ),
+                            context=(
+                                f"element={element.elementId}, "
+                                f"type={element_dict.get('type')!r}, "
+                                f"workbook={workbook.name}"
+                            ),
+                            exc=e,
+                        )
                 elements.append(element)
             return elements
         except Exception as e:
@@ -1321,6 +1360,34 @@ class SigmaAPI:
             len(data_model.source_dm_element_names),
         )
 
+    def list_warehouse_table_files(self) -> List[Dict[str, Any]]:
+        """List every ``type=table`` file, for the by-NAME warehouse index.
+
+        Used only by the name-based fallback: a formula can reference a
+        warehouse table by name that neither the element's ``source_ids`` nor
+        its Data Model's ``/lineage`` ever mentions, and a name is the only
+        signal left to resolve it by.
+
+        Deliberately NOT used for url_id resolution. Measured on a live tenant,
+        this listing costs ~41 paged calls and answered none of the 37
+        unresolved url_ids; ``get_file_metadata_by_url_id`` answers those in one
+        call each and distinguishes "absent from the Data Model's lineage" from
+        "deleted from Sigma". Each entry carries ``id``, ``urlId``, ``name`` and
+        ``path`` together, so no per-inode follow-up call is needed.
+        """
+        entries = self._paginated_raw_entries(
+            f"{self.config.api_url}/files?typeFilters=table&limit=1000",
+            "Unable to list warehouse table files.",
+        )
+        logger.debug(
+            "FILES LISTING: /v2/files?typeFilters=table returned %d entries; "
+            "%d carry a urlId, %d carry a path",
+            len(entries),
+            sum(1 for e in entries if e.get("urlId")),
+            sum(1 for e in entries if e.get("path")),
+        )
+        return entries
+
     def get_file_metadata_by_url_id(self, url_id: str) -> Optional[Dict[str, Any]]:
         """Fetch ``/v2/files/{urlId}``, or None when Sigma does not know it.
 
@@ -1361,6 +1428,76 @@ class SigmaAPI:
                 exc=e,
             )
             return None
+
+    def get_data_model_spec(self, data_model_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch ``/v2/dataModels/{id}/spec``, the Data Model's authoring document.
+
+        This is the only endpoint that describes a JOIN's predicate. Neither
+        ``/elements`` nor ``/columns`` nor ``/lineage`` carries it, so a join's
+        output column can only ever be linked to the side its formula names --
+        the other side's key column is invisible without this call.
+
+        Verified response shape on a live tenant::
+
+            {"kind": "data-model", "pages": [{"elements": [
+                {"id": ..., "kind": "table", "order": [columnId, ...],
+                 "columns": [{"id": ..., "formula": ...}],
+                 "source": {"kind": "warehouse-table"|"table",
+                            "connectionId": ..., "path": [...]}}]}]}
+
+        ``source.kind`` observed as ``table`` and ``warehouse-table``; the join
+        variant is documented but was not present on the probed models, so the
+        consumer parses it defensively and logs any shape it cannot read.
+
+        Returns the raw document, or None on non-200 / exception -- a Data Model
+        whose spec is unavailable simply gets no join-key lineage.
+        """
+        logger.debug("Fetching spec for data model '%s'.", data_model_id)
+        url = f"{self.config.api_url}/dataModels/{quote(data_model_id, safe='')}/spec"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code == 200:
+                return response.json()
+            self.report.data_model_spec_fetch_failed += 1
+            self._warn_spec_unavailable(
+                data_model_id=data_model_id,
+                detail=f"http_status={response.status_code}",
+            )
+            return None
+        except Exception as e:
+            self.report.data_model_spec_fetch_failed += 1
+            self._warn_spec_unavailable(
+                data_model_id=data_model_id, detail=f"error={type(e).__name__}"
+            )
+            return None
+
+    def _warn_spec_unavailable(self, *, data_model_id: str, detail: str) -> None:
+        """Report a /spec failure once per run, not once per Data Model.
+
+        A token without the data model read scope fails for EVERY model, so an
+        un-deduplicated warning would bury the report under hundreds of copies
+        of the same fact. The counter keeps the true magnitude.
+        """
+        if self._spec_unavailable_warned:
+            logger.debug(
+                "Data model spec unavailable for '%s' (%s); warning already "
+                "reported once this run.",
+                data_model_id,
+                detail,
+            )
+            return
+        self._spec_unavailable_warned = True
+        self.report.warning(
+            title="Sigma data model spec unavailable",
+            message=(
+                "Could not fetch the Data Model authoring spec, which is the "
+                "only source of JOIN key columns. Column lineage for affected "
+                "models will link only to the side each formula names. A 403 "
+                "usually means the API token lacks the data model read scope. "
+                "See data_model_spec_fetch_failed for how many models this hit."
+            ),
+            context=f"first_failure: data_model_id={data_model_id}, {detail}",
+        )
 
     def get_file_metadata(self, inode_id: str) -> Optional[Dict[str, Any]]:
         """Fetch /files/{inodeId} and return the raw JSON dict, or None on

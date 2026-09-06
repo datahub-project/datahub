@@ -1,5 +1,6 @@
 import datetime as dt
 from typing import Dict, List, Set
+from unittest.mock import MagicMock
 
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.source.sigma.config import SigmaSourceReport
@@ -17,6 +18,11 @@ def _source() -> SigmaSource:
     source.dm_element_urn_by_name = {}
     source.dm_element_urn_to_cols = {}
     source._upstream_schema_unavailable_warned = set()
+    # No /spec: these tests cover formula-derived lineage, and a Data Model with
+    # no readable join predicates must leave that lineage exactly as it was.
+    source._dm_spec_index_cache = {}
+    source.sigma_api = MagicMock()
+    source.sigma_api.get_data_model_spec.return_value = None
     return source
 
 
@@ -1476,3 +1482,175 @@ def test_orphan_ref_still_dropped_when_sibling_lacks_the_column() -> None:
     assert lineages == []
     assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
     assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+
+
+# ---------------------------------------------------------------------------
+# Join-key lineage from /spec
+# ---------------------------------------------------------------------------
+
+_LEFT_COL_ID = "a-col-k"
+_RIGHT_COL_ID = "c-col-k"
+
+
+def _join_spec_source(source: SigmaSource) -> None:
+    """Make /spec report one join predicate: A.col_k == C.col_k."""
+    spec_mock = MagicMock()
+    source.sigma_api = spec_mock
+    spec_mock.get_data_model_spec.return_value = {
+        "kind": "data-model",
+        "pages": [
+            {
+                "elements": [
+                    {
+                        "id": "a",
+                        "columns": [{"id": _LEFT_COL_ID, "formula": ""}],
+                        "source": {"kind": "warehouse-table"},
+                    },
+                    {
+                        "id": "c",
+                        "columns": [{"id": _RIGHT_COL_ID, "formula": ""}],
+                        "source": {"kind": "warehouse-table"},
+                    },
+                    {
+                        "id": "j",
+                        "columns": [],
+                        "source": {
+                            "kind": "join",
+                            "columns": [{"left": _LEFT_COL_ID, "right": _RIGHT_COL_ID}],
+                        },
+                    },
+                ]
+            }
+        ],
+    }
+
+
+def test_join_key_adds_the_side_the_formula_never_names() -> None:
+    """The reported symptom: a join's output column links to only one side.
+
+    The formula names A, so only A gets an edge. The join predicate says
+    A.col_k and C.col_k hold the same value, which makes C an
+    upstream of that column too -- and nothing but /spec states it.
+    """
+    source = _source()
+    _join_spec_source(source)
+    a_urn, c_urn, b_urn = _urn("a"), _urn("c"), _urn("b")
+    element = _element("b", "B", [_column("b-key", "col_k", "[A/col_k]")])
+    discovered: Set[str] = set()
+
+    lineages = source._build_dm_element_fine_grained_lineages(
+        element=element,
+        element_dataset_urn=b_urn,
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": a_urn, "c": c_urn},
+        entity_level_upstream_urns={a_urn},
+        data_model=_data_model(
+            [
+                element,
+                _element("a", "A", [_column(_LEFT_COL_ID, "col_k", None)]),
+                _element("c", "C", [_column(_RIGHT_COL_ID, "col_k", None)]),
+            ]
+        ),
+        warehouse_url_id_map={},
+        discovered_upstreams=discovered,
+    )
+
+    upstreams = sorted((lineage.upstreams or [])[0] for lineage in lineages)
+    assert upstreams == sorted(
+        [
+            builder.make_schema_field_urn(a_urn, "col_k"),
+            builder.make_schema_field_urn(c_urn, "col_k"),
+        ]
+    )
+    # C is not in Sigma's /lineage for this element, so it must be promoted or
+    # the emitted schemaField would point at a Dataset absent from upstreams.
+    assert discovered == {c_urn}
+    assert source.reporter.data_model_element_fgl_join_key_resolved == 1
+
+
+def test_join_key_edge_is_scored_below_a_formula_edge() -> None:
+    """A predicate is an equality, not a copy -- consumers must be able to tell."""
+    source = _source()
+    _join_spec_source(source)
+    a_urn, c_urn, b_urn = _urn("a"), _urn("c"), _urn("b")
+    element = _element("b", "B", [_column("b-key", "col_k", "[A/col_k]")])
+
+    lineages = source._build_dm_element_fine_grained_lineages(
+        element=element,
+        element_dataset_urn=b_urn,
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": a_urn, "c": c_urn},
+        entity_level_upstream_urns={a_urn},
+        data_model=_data_model(
+            [
+                element,
+                _element("a", "A", [_column(_LEFT_COL_ID, "col_k", None)]),
+                _element("c", "C", [_column(_RIGHT_COL_ID, "col_k", None)]),
+            ]
+        ),
+        warehouse_url_id_map={},
+        discovered_upstreams=set(),
+    )
+
+    by_upstream = {
+        (lineage.upstreams or [])[0]: lineage.confidenceScore for lineage in lineages
+    }
+    assert by_upstream[builder.make_schema_field_urn(a_urn, "col_k")] == 1.0
+    assert by_upstream[builder.make_schema_field_urn(c_urn, "col_k")] == 0.7
+
+
+def test_join_partner_outside_the_run_is_counted_not_emitted() -> None:
+    """The partner element was filtered out, so no dangling edge is invented."""
+    source = _source()
+    _join_spec_source(source)
+    a_urn, b_urn = _urn("a"), _urn("b")
+    element = _element("b", "B", [_column("b-key", "col_k", "[A/col_k]")])
+
+    lineages = source._build_dm_element_fine_grained_lineages(
+        element=element,
+        element_dataset_urn=b_urn,
+        element_name_to_eids={"a": ["a"]},
+        # 'c' deliberately absent.
+        elementId_to_dataset_urn={"a": a_urn},
+        entity_level_upstream_urns={a_urn},
+        data_model=_data_model(
+            [element, _element("a", "A", [_column(_LEFT_COL_ID, "col_k", None)])]
+        ),
+        warehouse_url_id_map={},
+        discovered_upstreams=set(),
+    )
+
+    assert [(lineage.upstreams or [])[0] for lineage in lineages] == [
+        builder.make_schema_field_urn(a_urn, "col_k")
+    ]
+    assert source.reporter.data_model_join_key_partner_unresolved == 1
+    assert source.reporter.data_model_element_fgl_join_key_resolved == 0
+
+
+def test_column_with_no_edge_gets_no_join_key_edge() -> None:
+    """Only columns an edge already reaches are expanded -- never invented."""
+    source = _source()
+    _join_spec_source(source)
+    a_urn, c_urn = _urn("a"), _urn("c")
+    # Formula names nothing resolvable, so no edge exists to expand.
+    element = _element("b", "B", [_column("b-key", "col_k", "[P_Param]")])
+
+    lineages = source._build_dm_element_fine_grained_lineages(
+        element=element,
+        element_dataset_urn=_urn("b"),
+        element_name_to_eids={},
+        elementId_to_dataset_urn={"a": a_urn, "c": c_urn},
+        entity_level_upstream_urns=set(),
+        data_model=_data_model(
+            [
+                element,
+                _element("a", "A", [_column(_LEFT_COL_ID, "col_k", None)]),
+                _element("c", "C", [_column(_RIGHT_COL_ID, "col_k", None)]),
+            ]
+        ),
+        warehouse_url_id_map={},
+        discovered_upstreams=set(),
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_join_key_resolved == 0

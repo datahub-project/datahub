@@ -229,12 +229,21 @@ Sigma's `/v2/dataModels/{id}/columns` endpoint. A column gets one upstream edge 
 its formula names, so coverage follows the formula rather than the element's table-level
 upstreams.
 
-The practical consequence shows up on joins. An element can have table-level lineage to two
-sources while one of its columns has a column-level edge to only one of them, because the
-column's formula names only that side — a join key typically resolves to whichever side
-Sigma kept. The join predicate itself is not exposed on `/columns` or on
-`/v2/dataModels/{id}/lineage`, the two endpoints this connector reads. Join keys are
-available on `/v2/dataModels/{id}/spec`, which the connector does not currently consume.
+The practical consequence shows up on joins. A join's output column carries a formula
+naming only one side, so `/columns` alone can only ever produce an edge to that side. The
+predicate itself is exposed on `/v2/dataModels/{id}/spec`, which the connector now reads
+once per Data Model: where a predicate equates a column an edge already reaches with a
+column on the other side, the other side is emitted as an additional upstream. Because a
+predicate is an equality rather than a value copy, those edges carry a lower
+`confidenceScore` (0.7) than formula-derived ones, so consumers wanting only
+value-propagation lineage can filter them out.
+
+The `/spec` call needs the API token's data model read scope. Without it the call fails,
+one warning is reported for the run, `data_model_spec_fetch_failed` counts the affected
+models, and join keys are simply absent — everything else still ingests. If
+`data_model_join_elements_unreadable` is non-zero, Sigma's join descriptor did not match
+the shape the parser reads; run with `--debug` and look for `DM SPEC JOIN` lines, which log
+the descriptor's structure (key names and types only, never values).
 
 A Data Model can also reference a warehouse table that has since been **deleted from
 Sigma**. The `inode-<urlId>` reference survives in the model while `/v2/files/{urlId}`

@@ -887,3 +887,107 @@ class TestBridgeWarehouseColumnName:
         )
         assert result == "visit_id"
         assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 0
+
+
+# ---------------------------------------------------------------------------
+# _resolve_chart_join_chain_ref
+# ---------------------------------------------------------------------------
+
+
+class TestChartJoinChainRef:
+    """[JoinElement/SourceElement/Column] on the chart path.
+
+    The first-slash split reads the column as "SourceElement/Column", which no
+    upstream has, so the InputField emitted is dangling. Every split is tried
+    and validated against the candidate upstream's real column list instead.
+    """
+
+    def _source(self):
+        source = _make_source()
+        source.reporter.chart_join_chain_resolved = 0
+        source.reporter.chart_join_chain_unresolved = 0
+        source.reporter.chart_join_chain_upstream_schema_unavailable = 0
+        source.dm_element_urn_to_cols = {}
+        return source
+
+    def _resolve(self, source, formula, *, elements, upstream_ids, chart_urns):
+        ref = extract_bracket_refs(formula)[0]
+        index: Dict[str, List[Element]] = {}
+        for element in elements:
+            index.setdefault(element.name, []).append(element)
+        return source._resolve_chart_join_chain_ref(
+            ref,
+            chart_element_id="chart-1",
+            chart_upstream_element_ids=set(upstream_ids),
+            dm_upstream_urn_by_element_name={},
+            wb_element_index=index,
+            element_warehouse_table_index={},
+            elementId_to_chart_urn=chart_urns,
+        )
+
+    def test_owning_element_is_the_segment_before_the_column(self) -> None:
+        source = self._source()
+        join = _make_element("e-join", "Joined", ["Col K"])
+        owner = _make_element("e-owner", "Element B", ["Col K"])
+        result = self._resolve(
+            source,
+            "[Joined/Element B/Col K]",
+            elements=[join, owner],
+            upstream_ids=["e-join", "e-owner"],
+            chart_urns={
+                "e-join": "urn:li:chart:(sigma,join)",
+                "e-owner": "urn:li:chart:(sigma,owner)",
+            },
+        )
+        assert result == ("urn:li:chart:(sigma,owner)", "Col K")
+        assert source.reporter.chart_join_chain_resolved == 1
+
+    def test_candidate_whose_column_is_absent_is_rejected(self) -> None:
+        """The join element resolves, but does not have the named column."""
+        source = self._source()
+        # Neither the join element nor the named source has the column, so
+        # no candidate split validates.
+        join = _make_element("e-join", "Joined", ["Other"])
+        owner = _make_element("e-owner", "Element B", ["Other"])
+        result = self._resolve(
+            source,
+            "[Joined/Element B/Col K]",
+            elements=[join, owner],
+            upstream_ids=["e-join", "e-owner"],
+            chart_urns={
+                "e-join": "urn:li:chart:(sigma,join)",
+                "e-owner": "urn:li:chart:(sigma,owner)",
+            },
+        )
+        assert result is None
+        assert source.reporter.chart_join_chain_unresolved == 1
+
+    def test_single_slash_ref_is_left_to_the_legacy_path(self) -> None:
+        source = self._source()
+        owner = _make_element("e-owner", "Element B", ["Col K"])
+        result = self._resolve(
+            source,
+            "[Element B/Col K]",
+            elements=[owner],
+            upstream_ids=["e-owner"],
+            chart_urns={"e-owner": "urn:li:chart:(sigma,owner)"},
+        )
+        assert result is None
+        assert source.reporter.chart_join_chain_resolved == 0
+        assert source.reporter.chart_join_chain_unresolved == 0
+
+    def test_column_casing_is_normalised_to_the_upstream_spelling(self) -> None:
+        source = self._source()
+        join = _make_element("e-join", "Joined", [])
+        owner = _make_element("e-owner", "Element B", ["Col K"])
+        result = self._resolve(
+            source,
+            "[Joined/Element B/col k]",
+            elements=[join, owner],
+            upstream_ids=["e-join", "e-owner"],
+            chart_urns={
+                "e-join": "urn:li:chart:(sigma,join)",
+                "e-owner": "urn:li:chart:(sigma,owner)",
+            },
+        )
+        assert result == ("urn:li:chart:(sigma,owner)", "Col K")

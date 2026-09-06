@@ -618,8 +618,10 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
                         "vizualizationType": "bar",
                     },
                     {
-                        # Filtered by get_page_elements (not in allowlist) — never
-                        # enters the elementId-to-chart_urn map.
+                        # In the allowlist since INGESTED_ELEMENT_TYPES gained
+                        # pivot-table: it holds real columns other elements'
+                        # formulas reference, so filtering it made those refs
+                        # permanently unresolvable.
                         "elementId": "pivotElem01",
                         "type": "pivot-table",
                         "name": "Pivot Table Element",
@@ -627,8 +629,16 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
                         "vizualizationType": "pivot",
                     },
                     {
-                        # References pivotElem01 as upstream — chart_urn lookup returns
-                        # None, so no inputEdges should be emitted for this element.
+                        # Still filtered by get_page_elements — never enters the
+                        # elementId-to-chart_urn map.
+                        "elementId": "controlElem01",
+                        "type": "control",
+                        "name": "Control Element",
+                        "columns": [],
+                    },
+                    {
+                        # References controlElem01 as upstream — chart_urn lookup
+                        # returns None, so no inputEdges are emitted here.
                         "elementId": "filteredUpstreamElem",
                         "type": "visualization",
                         "name": "Downstream Of Filtered Element",
@@ -647,7 +657,7 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
                         "vizualizationType": "bar",
                     },
                 ],
-                "total": 6,
+                "total": 7,
                 "nextPage": None,
             },
         },
@@ -782,9 +792,20 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
             "status_code": 404,
             "json": {},
         },
-        # filteredUpstreamElem: sheet upstream points to pivotElem01, which was
-        # filtered by get_page_elements and is absent from the chart map.
-        # The chart should be emitted with no inputEdges.
+        # pivotElem01 is now ingested, so its per-element calls must be mocked.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/pivotElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"dependencies": {}, "edges": []},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/pivotElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # filteredUpstreamElem: sheet upstream points to controlElem01, a type
+        # that is still filtered by get_page_elements and so absent from the
+        # chart map. The chart should be emitted with no inputEdges.
         "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/filteredUpstreamElem": {
             "method": "GET",
             "status_code": 200,
@@ -798,8 +819,8 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
                     },
                     "src_node_pivot": {
                         "nodeId": "src_node_pivot",
-                        "elementId": "pivotElem01",
-                        "name": "Pivot Table Element",
+                        "elementId": "controlElem01",
+                        "name": "Control Element",
                         "type": "sheet",
                     },
                 },

@@ -35,6 +35,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataModelColumn,
     SigmaDataModelElement,
 )
+from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
 from datahub.ingestion.source.sigma.sigma import (
     SigmaSource,
     _WarehouseTableRef,
@@ -104,6 +105,10 @@ _RS_WAREHOUSE_MAP: Dict[str, _WarehouseTableRef] = {_RS_URL_ID: _RS_REF}
 _RS_DATASET_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:redshift,"
     "analytics.demo_schema.base_table,PROD)"
+)
+
+_DOWNSTREAM_FIELD = builder.make_schema_field_urn(
+    "urn:li:dataset:(urn:li:dataPlatform:sigma,e1,PROD)", "some_column"
 )
 
 
@@ -845,3 +850,178 @@ class TestDirectWarehouseUrlIdLookup:
         )
         assert source.reporter.dm_element_warehouse_connection_ambiguous == 1
         source.sigma_api.get_file_metadata_by_url_id.assert_not_called()
+
+
+class TestGlobalWarehouseNameIndex:
+    """A formula names a warehouse table nothing in the Data Model declares.
+
+    Sigma under-reports an element's tables the same way it under-reports a
+    Data Model's: an element can declare inode A while its formula references
+    table B, with B appearing in neither the element's source_ids nor the Data
+    Model's /lineage. The tenant-wide /v2/files listing is the only place B is
+    described, so it is consulted by NAME -- but only as a last resort, and only
+    when the match is unambiguous.
+    """
+
+    def _source_with_files(self, entries):
+        source = _make_source()
+        source.sigma_api = MagicMock()
+        source.sigma_api.list_warehouse_table_files.return_value = entries
+        return source
+
+    def _resolve(self, source, *, ref_source, ref_column, source_ids, allow=True):
+        fgls: List[FineGrainedLineageClass] = []
+        resolved = source._try_resolve_warehouse_table_name_ref(
+            ref=extract_bracket_refs(f"[{ref_source}/{ref_column}]")[0],
+            element=_element("e1", "Some Element", [], source_ids=source_ids),
+            downstream_field=_DOWNSTREAM_FIELD,
+            warehouse_url_id_map=_SF_WAREHOUSE_MAP,
+            emitted_pairs=set(),
+            fgls=fgls,
+            allow_global_name_index=allow,
+        )
+        return resolved, fgls
+
+    def test_undeclared_table_resolved_by_name(self):
+        source = self._source_with_files(
+            [
+                {
+                    "urlId": "otherUrlId",
+                    "id": "inode-other",
+                    "name": "ORDERS",
+                    "path": "Connection Root/PROD_DB/PUBLIC",
+                }
+            ]
+        )
+        resolved, fgls = self._resolve(
+            source,
+            ref_source="ORDERS",
+            ref_column="Order Id",
+            # Declares a DIFFERENT table -- the whole point of the fallback.
+            source_ids=[_SF_INODE_SOURCE],
+        )
+        assert resolved
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+                "prod_db.public.orders,PROD)",
+                "order_id",
+            )
+        ]
+        # Both table and column are inferred, so this scores below a declared
+        # table's name-derived edge (0.5).
+        assert fgls[0].confidenceScore == 0.3
+        assert source.reporter.dm_element_warehouse_name_index_resolved == 1
+        assert (
+            source.reporter.data_model_element_fgl_warehouse_global_name_resolved == 1
+        )
+
+    def test_same_name_in_two_schemas_is_refused(self):
+        source = self._source_with_files(
+            [
+                {
+                    "urlId": "a",
+                    "id": "i1",
+                    "name": "ORDERS",
+                    "path": "Connection Root/PROD_DB/SALES",
+                },
+                {
+                    "urlId": "b",
+                    "id": "i2",
+                    "name": "ORDERS",
+                    "path": "Connection Root/PROD_DB/MARKETING",
+                },
+            ]
+        )
+        resolved, fgls = self._resolve(
+            source,
+            ref_source="ORDERS",
+            ref_column="Order Id",
+            source_ids=[_SF_INODE_SOURCE],
+        )
+        assert not resolved
+        assert fgls == []
+        assert source.reporter.dm_element_warehouse_name_index_ambiguous == 1
+
+    def test_collision_broken_by_the_data_models_own_schema(self):
+        """One of the same-named tables sits in a schema this DM demonstrably reads."""
+        source = self._source_with_files(
+            [
+                {
+                    "urlId": "a",
+                    "id": "i1",
+                    "name": "ORDERS",
+                    # PROD_DB/PUBLIC is where _SF_WAREHOUSE_MAP's table lives.
+                    "path": "Connection Root/PROD_DB/PUBLIC",
+                },
+                {
+                    "urlId": "b",
+                    "id": "i2",
+                    "name": "ORDERS",
+                    "path": "Connection Root/OTHER_DB/MARKETING",
+                },
+            ]
+        )
+        resolved, fgls = self._resolve(
+            source,
+            ref_source="ORDERS",
+            ref_column="Order Id",
+            source_ids=[_SF_INODE_SOURCE],
+        )
+        assert resolved
+        assert "prod_db.public.orders" in fgls[0].upstreams[0]
+        assert source.reporter.dm_element_warehouse_name_index_resolved == 1
+
+    def test_element_with_no_inode_never_triggers_the_listing(self):
+        """An element reading only from other Data Models is not a warehouse reader."""
+        source = self._source_with_files(
+            [
+                {
+                    "urlId": "a",
+                    "id": "i1",
+                    "name": "ORDERS",
+                    "path": "Connection Root/PROD_DB/PUBLIC",
+                }
+            ]
+        )
+        resolved, _ = self._resolve(
+            source,
+            ref_source="ORDERS",
+            ref_column="Order Id",
+            source_ids=["otherDmUrlId/element-1"],
+        )
+        assert not resolved
+        source.sigma_api.list_warehouse_table_files.assert_not_called()
+
+    def test_disabled_flag_skips_the_index_entirely(self):
+        """The caller tries every exact path before paying for the listing."""
+        source = self._source_with_files(
+            [
+                {
+                    "urlId": "a",
+                    "id": "i1",
+                    "name": "ORDERS",
+                    "path": "Connection Root/PROD_DB/PUBLIC",
+                }
+            ]
+        )
+        resolved, _ = self._resolve(
+            source,
+            ref_source="ORDERS",
+            ref_column="Order Id",
+            source_ids=[_SF_INODE_SOURCE],
+            allow=False,
+        )
+        assert not resolved
+        source.sigma_api.list_warehouse_table_files.assert_not_called()
+
+    def test_unlisted_table_counted_as_a_miss(self):
+        source = self._source_with_files([])
+        resolved, _ = self._resolve(
+            source,
+            ref_source="NOT_A_TABLE",
+            ref_column="Some Column",
+            source_ids=[_SF_INODE_SOURCE],
+        )
+        assert not resolved
+        assert source.reporter.dm_element_warehouse_name_index_miss == 1

@@ -264,12 +264,76 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # unrelated to resolution. Check this before reading a model's missing FGL
     # as a resolver defect.
     data_model_columns_fetch_partial: int = 0
+    # Entries returned by the /v2/files warehouse-table listing, which backs the
+    # by-name fallback only. A value that is an exact round number (10,000)
+    # would suggest a server-side cap; a live tenant returned 40,564 across 41
+    # pages, so the listing itself is complete.
+    warehouse_files_listed: int = 0
     # Formula refs naming a warehouse TABLE the element declares, resolved to
     # that table's column. The columnId path covers pass-throughs; this covers
     # columns with an opaque columnId, whose display name is the only remaining
     # signal for the warehouse column name -- so these edges carry a reduced
     # confidence score.
     data_model_element_fgl_warehouse_table_name_resolved: int = 0
+    # Sub-count of the above: the table was not declared by the element either,
+    # and was found by NAME in the tenant-wide /v2/files listing. Both the table
+    # and the column are inferred, so these carry the lowest confidence score of
+    # any warehouse edge -- watch this number if spurious edges are reported.
+    data_model_element_fgl_warehouse_global_name_resolved: int = 0
+    # A formula named a warehouse table that appears nowhere in the /v2/files
+    # listing. Distinguishes "Sigma under-reported the element's tables" (which
+    # the name index fixes) from "the ref does not name a warehouse table at
+    # all" -- most of these are refs to something other than a table.
+    dm_element_warehouse_name_index_miss: int = 0
+    # A formula named a warehouse table that several /v2/files tables share, and
+    # narrowing to the Data Model's own databases/schemas did not leave exactly
+    # one. Refused rather than guessed: the wrong pick emits an edge to a real
+    # but unrelated dataset. A large value means table names collide heavily on
+    # this tenant and some legitimate edges are being left on the table.
+    dm_element_warehouse_name_index_ambiguous: int = 0
+    # A formula-named warehouse table resolved unambiguously via the /v2/files
+    # name index.
+    dm_element_warehouse_name_index_resolved: int = 0
+
+    # --- Join-key lineage, from /v2/dataModels/{id}/spec ---
+    # /spec could not be fetched for a Data Model (commonly a token without the
+    # data model read scope). Those models get no join-key edges at all.
+    data_model_spec_fetch_failed: int = 0
+    # Join predicates read across all Data Models. Zero on a tenant that has
+    # joins means the spec's join shape does not match what the parser expects
+    # -- check data_model_join_elements_unreadable and the DM SPEC JOIN debug
+    # lines, which log the descriptor's key skeleton.
+    data_model_join_key_pairs_read: int = 0
+    # Elements whose source.kind is 'join' but whose predicate the parser could
+    # not read. Non-zero is the signal that the shape assumption is wrong.
+    data_model_join_elements_unreadable: int = 0
+    # A join predicate named a column whose element or column is not part of
+    # this run (filtered out by a pattern, or absent from /elements).
+    data_model_join_key_partner_unresolved: int = 0
+    # Column edges added because a join predicate equates the column an existing
+    # edge points at with a column on the other side of the join. These are the
+    # edges no formula can produce: a join's output column names only one side.
+    data_model_element_fgl_join_key_resolved: int = 0
+    # A single workbook element's lineage/query fetch raised. The element is
+    # still emitted without upstreams; previously such an exception escaped to
+    # the page handler and silently discarded every element on that page.
+    workbook_element_lineage_fetch_failed: int = 0
+
+    # --- Chart join-chain refs ([JoinElement/SourceElement/Column]) ---
+    # A candidate split was validated against the resolved upstream's real
+    # column list and accepted. Without this the first-slash reading names the
+    # column "SourceElement/Column", which no upstream has, so the InputField
+    # emitted is dangling rather than absent.
+    chart_join_chain_resolved: int = 0
+    # No split validated, so the legacy first-slash reading was kept. Compare
+    # against chart_input_fields_multi_segment_ref to see the share still
+    # falling through.
+    chart_join_chain_unresolved: int = 0
+    # A candidate resolved to a warehouse table, whose columns this connector
+    # never learns, so the split could not be confirmed and was refused. A large
+    # value means join-chain refs on the chart path point mostly at warehouse
+    # tables and need a different validation source.
+    chart_join_chain_upstream_schema_unavailable: int = 0
     # Column whose formula refs are exclusively parameter refs (e.g. [P_*]).
     chart_input_fields_skipped_parameter: int = 0
     # Column whose formula refs are exclusively bare sibling refs (e.g. [col]).
