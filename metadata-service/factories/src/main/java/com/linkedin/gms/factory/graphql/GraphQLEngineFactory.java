@@ -97,7 +97,7 @@ import org.springframework.context.annotation.Import;
 })
 public class GraphQLEngineFactory {
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
 
@@ -364,7 +364,7 @@ public class GraphQLEngineFactory {
   @Nonnull
   private AnalyticsService createAnalyticsService() {
     DefaultAnalyticsService defaultAnalytics =
-        new DefaultAnalyticsService(elasticClient, indexConvention);
+        elasticClient != null ? new DefaultAnalyticsService(elasticClient, indexConvention) : null;
     if (configProvider.getPlatformAnalytics().getUsageEvents().usePostgresql()) {
       if (pgAnalyticsStoreRegistry == null) {
         throw new IllegalStateException(
@@ -377,7 +377,14 @@ public class GraphQLEngineFactory {
               indexConvention);
       PostgresAnalyticsService postgresAnalytics =
           new PostgresAnalyticsService(indexConvention, queries);
+      if (defaultAnalytics == null) {
+        return postgresAnalytics;
+      }
       return new CompositeAnalyticsService(postgresAnalytics, defaultAnalytics);
+    }
+    if (defaultAnalytics == null) {
+      throw new IllegalStateException(
+          "Analytics charts require elasticsearch.enabled=true or pgAnalytics");
     }
     return defaultAnalytics;
   }

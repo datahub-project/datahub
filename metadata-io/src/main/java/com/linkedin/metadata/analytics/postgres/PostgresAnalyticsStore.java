@@ -65,6 +65,14 @@ public class PostgresAnalyticsStore {
     return c;
   }
 
+  /** Read-only checkout: autocommit so Hikari does not warn on a dirty connection return. */
+  @Nonnull
+  private Connection openReadConnection() throws SQLException {
+    Connection c = database.dataSource().getConnection();
+    c.setAutoCommit(true);
+    return c;
+  }
+
   public void insertEvents(@Nonnull List<PostgresAnalyticsEventInsert> rows) throws SQLException {
     if (rows.isEmpty()) {
       return;
@@ -352,7 +360,7 @@ public class PostgresAnalyticsStore {
             + " WHERE bucket_start = ? AND grain = ? AND metric_family = ? AND metric_name = ?"
             + " AND actor_class = ?";
     long cardinality;
-    try (Connection c = database.dataSource().getConnection();
+    try (Connection c = openReadConnection();
         PreparedStatement ps = c.prepareStatement(countSql)) {
       PostgresPreparedBinder.bind(
           ps, List.of(Timestamp.from(bucketStart), grain, metricFamily, metricName, actorClass));
@@ -417,7 +425,7 @@ public class PostgresAnalyticsStore {
         "SELECT sealed_through FROM "
             + qualifiedWatermarkTable()
             + " WHERE layer = ? AND metric_family = ? AND partition_key = ?";
-    try (Connection c = database.dataSource().getConnection();
+    try (Connection c = openReadConnection();
         PreparedStatement ps = c.prepareStatement(sql)) {
       PostgresPreparedBinder.bind(ps, List.of(layer, metricFamily, partitionKey));
       try (ResultSet rs = ps.executeQuery()) {
@@ -440,7 +448,7 @@ public class PostgresAnalyticsStore {
         "SELECT MAX(sealed_through) FROM "
             + qualifiedWatermarkTable()
             + " WHERE layer = ? AND metric_family = ?";
-    try (Connection c = database.dataSource().getConnection();
+    try (Connection c = openReadConnection();
         PreparedStatement ps = c.prepareStatement(sql)) {
       PostgresPreparedBinder.bind(ps, List.of(AnalyticsMetricFamilies.LAYER_HOUR, metricFamily));
       try (ResultSet rs = ps.executeQuery()) {
@@ -484,7 +492,7 @@ public class PostgresAnalyticsStore {
             + placeholders
             + ") AND sealed_through IS NOT NULL";
     java.util.Set<String> sealed = new java.util.HashSet<>();
-    try (Connection c = database.dataSource().getConnection();
+    try (Connection c = openReadConnection();
         PreparedStatement ps = c.prepareStatement(sql)) {
       List<Object> binds = new ArrayList<>();
       binds.add(layer);
@@ -525,7 +533,7 @@ public class PostgresAnalyticsStore {
             + " AND (usage_source IS NULL OR usage_source <> 'backend')"
             + " GROUP BY event_type";
     List<Map.Entry<String, Long>> rows = new ArrayList<>();
-    try (Connection c = database.dataSource().getConnection();
+    try (Connection c = openReadConnection();
         PreparedStatement ps = c.prepareStatement(sql)) {
       PostgresPreparedBinder.bind(
           ps,
@@ -641,7 +649,7 @@ public class PostgresAnalyticsStore {
             + qualifiedRollupTable()
             + " WHERE metric_family = ? AND grain = ? AND merge_kind = ? AND bucket_start >= ? AND"
             + " bucket_start < ? GROUP BY metric_name, group_key, group_dims::text";
-    try (Connection c = database.dataSource().getConnection();
+    try (Connection c = openReadConnection();
         PreparedStatement ps = c.prepareStatement(sql)) {
       PostgresPreparedBinder.bind(
           ps,
@@ -683,7 +691,7 @@ public class PostgresAnalyticsStore {
             + qualifiedRollupTable()
             + " WHERE metric_family = ? AND grain = ? AND merge_kind = ? AND bucket_start >= ? AND"
             + " bucket_start < ? ORDER BY metric_name, group_key, bucket_start DESC";
-    try (Connection c = database.dataSource().getConnection();
+    try (Connection c = openReadConnection();
         PreparedStatement ps = c.prepareStatement(sql)) {
       PostgresPreparedBinder.bind(
           ps,
@@ -738,7 +746,7 @@ public class PostgresAnalyticsStore {
         "SELECT DISTINCT metric_name, actor_class FROM "
             + qualifiedDistinctSetTable()
             + " WHERE metric_family = ? AND grain = ? AND bucket_start = ?";
-    try (Connection c = database.dataSource().getConnection();
+    try (Connection c = openReadConnection();
         PreparedStatement ps = c.prepareStatement(metricsSql)) {
       PostgresPreparedBinder.bind(ps, List.of(metricFamily, toGrain, Timestamp.from(bucketStart)));
       try (ResultSet rs = ps.executeQuery()) {

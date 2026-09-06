@@ -23,7 +23,7 @@ public class ScheduledAnalyticsFactory {
   @ConditionalOnProperty("telemetry.enabledServer")
   public DailyReport dailyReport(
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
-      @Qualifier("searchClientShim") SearchClientShim<?> elasticClient,
+      @Autowired(required = false) @Qualifier("searchClientShim") SearchClientShim<?> elasticClient,
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
       GitVersion gitVersion,

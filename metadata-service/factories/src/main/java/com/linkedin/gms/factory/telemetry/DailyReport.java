@@ -27,6 +27,7 @@ import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -101,7 +102,7 @@ public class DailyReport {
 
   public DailyReport(
       @Nonnull OperationContext systemOperationContext,
-      SearchClientShim<?> elasticClient,
+      @Nullable SearchClientShim<?> elasticClient,
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
       GitVersion gitVersion) {
@@ -116,7 +117,7 @@ public class DailyReport {
 
   public DailyReport(
       @Nonnull OperationContext systemOperationContext,
-      SearchClientShim<?> elasticClient,
+      @Nullable SearchClientShim<?> elasticClient,
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
       GitVersion gitVersion,
@@ -239,6 +240,9 @@ public class DailyReport {
    * @return the count of users, or 0 if an error occurs
    */
   private int getTotalUserCount() {
+    if (_elasticClient == null) {
+      return 0;
+    }
     try {
       String corpUserIndex =
           systemOperationContext
@@ -271,6 +275,9 @@ public class DailyReport {
    * @return the count of service accounts, or 0 if an error occurs
    */
   private int getServiceAccountCount() {
+    if (_elasticClient == null) {
+      return 0;
+    }
     try {
       String corpUserIndex =
           systemOperationContext
@@ -500,7 +507,9 @@ public class DailyReport {
     IndexConvention indexConvention =
         systemOperationContext.getSearchContext().getIndexConvention();
     DefaultAnalyticsService defaultAnalytics =
-        new DefaultAnalyticsService(_elasticClient, indexConvention);
+        _elasticClient != null
+            ? new DefaultAnalyticsService(_elasticClient, indexConvention)
+            : null;
     if (_configurationProvider.getPlatformAnalytics().getUsageEvents().usePostgresql()) {
       if (_pgAnalyticsStoreRegistry == null) {
         throw new IllegalStateException(
@@ -511,8 +520,16 @@ public class DailyReport {
           new PostgresAnalyticsQueries(
               _pgAnalyticsStoreRegistry.resolve(AnalyticsMetricFamilies.DATAHUB_USAGE).getStore(),
               indexConvention);
-      return new CompositeAnalyticsService(
-          new PostgresAnalyticsService(indexConvention, queries), defaultAnalytics);
+      PostgresAnalyticsService postgresAnalytics =
+          new PostgresAnalyticsService(indexConvention, queries);
+      if (defaultAnalytics == null) {
+        return postgresAnalytics;
+      }
+      return new CompositeAnalyticsService(postgresAnalytics, defaultAnalytics);
+    }
+    if (defaultAnalytics == null) {
+      throw new IllegalStateException(
+          "Daily telemetry analytics require elasticsearch.enabled=true or pgAnalytics");
     }
     return defaultAnalytics;
   }
