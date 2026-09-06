@@ -75,6 +75,8 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.reporter = MagicMock()
     source.reporter.chart_input_fields_resolved = 0
     source.reporter.chart_input_fields_self_ref_fallback = 0
+    source.reporter.chart_ref_source_normalized_match = 0
+    source.reporter.chart_ref_source_normalized_ambiguous = 0
     source.reporter.chart_input_fields_skipped_parameter = 0
     source.reporter.chart_input_fields_skipped_sibling = 0
     source.reporter.chart_input_fields_case_mismatch = 0
@@ -307,8 +309,16 @@ class TestResolveChartFormulaUpstream:
         )
         assert result is None
 
-    def test_case_mismatched_workbook_element_ref_is_diagnosed(self) -> None:
-        """Workbook element names are exact-case; near misses are counted."""
+    def test_case_mismatched_workbook_element_ref_resolves_to_the_element(
+        self,
+    ) -> None:
+        """A case-only difference resolves to the element, not the warehouse table.
+
+        Sigma element names carry leading/trailing whitespace, non-breaking
+        spaces and case differences from what a formula ref spells, leaving the
+        element sitting in the index unreachable. The normalized lookup finds
+        it; note the element still wins over the same-named warehouse table.
+        """
         upstream_elem = _make_element("sourceElem", "T Source")
         wh_urn = (
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.T SOURCE,PROD)"
@@ -325,8 +335,30 @@ class TestResolveChartFormulaUpstream:
             elementId_to_chart_urn={"sourceElem": "urn:source"},
         )
 
+        assert result == ("urn:source", "col")
+        assert self.src.reporter.chart_ref_source_normalized_match == 1
+        assert self.src.reporter.chart_input_fields_case_mismatch == 0
+
+    def test_normalized_ref_source_ambiguity_is_not_guessed(self) -> None:
+        """Two distinct element names collapsing to one normalized key stay unresolved."""
+        ref = _make_ref("shared", "col")
+
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="downstreamElem",
+            chart_upstream_element_ids={"a", "b"},
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={
+                "Shared": [_make_element("a", "Shared")],
+                "Shared\xa0": [_make_element("b", "Shared\xa0")],
+            },
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={"a": "urn:a", "b": "urn:b"},
+        )
+
         assert result is None
-        assert self.src.reporter.chart_input_fields_case_mismatch == 1
+        assert self.src.reporter.chart_ref_source_normalized_ambiguous == 1
+        assert self.src.reporter.chart_ref_source_normalized_match == 0
 
     def test_exact_workbook_name_without_lineage_match_falls_through_to_warehouse(
         self,

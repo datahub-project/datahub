@@ -16,6 +16,7 @@ def _source() -> SigmaSource:
     source.reporter = SigmaSourceReport()
     source.dm_element_urn_by_name = {}
     source.dm_element_urn_to_cols = {}
+    source._upstream_schema_unavailable_warned = set()
     return source
 
 
@@ -87,6 +88,7 @@ def _build(
         entity_level_upstream_urns=entity_level_upstream_urns or set(),
         data_model=_data_model(all_elements),
         warehouse_url_id_map={},
+        discovered_upstreams=set(),
     )
 
 
@@ -146,6 +148,10 @@ def test_bare_sibling_ref_is_skipped() -> None:
 
     assert _build(source, element) == []
     assert source.reporter.data_model_element_fgl_emitted == 0
+    # The ref is parsed but never reaches a resolver, so the column falls
+    # through to the no-resolvable-ref path (non-inode columnId).
+    assert source.reporter.data_model_element_fgl_no_ref_unresolved == 1
+    assert source.reporter.data_model_element_fgl_no_ref_warehouse_unresolved == 0
 
 
 def test_parameter_ref_is_skipped() -> None:
@@ -154,6 +160,8 @@ def test_parameter_ref_is_skipped() -> None:
 
     assert _build(source, element) == []
     assert source.reporter.data_model_element_fgl_emitted == 0
+    assert source.reporter.data_model_element_fgl_no_ref_unresolved == 1
+    assert source.reporter.data_model_element_fgl_no_ref_warehouse_unresolved == 0
 
 
 def test_cross_dm_ref_is_counted_unresolved() -> None:
@@ -367,6 +375,9 @@ def test_unknown_upstream_column_is_dropped() -> None:
 
     assert lineages == []
     assert source.reporter.data_model_element_fgl_dropped_unknown_upstream_column == 1
+    # The upstream HAS a schema; the column name simply is not in it. Must not
+    # also land in the fetch-failure bucket.
+    assert source.reporter.data_model_element_fgl_upstream_schema_unavailable == 0
 
 
 def test_duplicate_element_names_different_schemas_validates_correct_element() -> None:
@@ -699,6 +710,10 @@ def test_cross_dm_unknown_upstream_column_is_dropped() -> None:
     )
     assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+    # Producer schema is non-empty, so the fetch-failure bucket must stay clear.
+    assert (
+        source.reporter.data_model_element_fgl_cross_dm_upstream_schema_unavailable == 0
+    )
 
 
 def test_self_named_cross_dm_element_resolves_fgl() -> None:
@@ -843,7 +858,9 @@ def test_orphan_branch_not_rescued_without_cross_dm_sources() -> None:
         [_column("c1", "x", "[Shared/x]")],
         # source_ids=[] — no cross-DM refs
     )
-    sibling = _upstream_element("sibling-eid", "Shared", ["x"])
+    # Sibling does NOT own "x": schema-based orphan recovery must not fire,
+    # so the cross-DM guard under test is still the behaviour exercised.
+    sibling = _upstream_element("sibling-eid", "Shared", ["other"])
 
     lineages = _build(
         source,
@@ -885,7 +902,9 @@ def test_intra_dm_only_source_ids_not_treated_as_cross_dm() -> None:
         # Intra-DM source IDs only — no "/" separator, not cross-DM shaped.
         source_ids=["some-intra-dm-eid"],
     )
-    sibling = _upstream_element("sibling-eid", "Shared", ["x"])
+    # Sibling does NOT own "x": schema-based orphan recovery must not fire,
+    # so the cross-DM guard under test is still the behaviour exercised.
+    sibling = _upstream_element("sibling-eid", "Shared", ["other"])
 
     lineages = _build(
         source,
@@ -956,7 +975,9 @@ def test_inode_source_ids_excluded_from_cross_dm_guard() -> None:
         # inode-shaped entry has '/' but is NOT a cross-DM source ID.
         source_ids=["inode-abc123/some-suffix"],
     )
-    sibling = _upstream_element("sibling-eid", "Shared", ["x"])
+    # Sibling does NOT own "x": schema-based orphan recovery must not fire,
+    # so the cross-DM guard under test is still the behaviour exercised.
+    sibling = _upstream_element("sibling-eid", "Shared", ["other"])
 
     lineages = _build(
         source,
@@ -977,3 +998,481 @@ def test_inode_source_ids_excluded_from_cross_dm_guard() -> None:
     assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
     assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
+
+
+def test_empty_upstream_schema_is_counted_separately() -> None:
+    """An upstream element with no columns is an API failure, not a name mismatch.
+
+    One failed /columns fetch empties every element in a data model, so folding
+    this into dropped_unknown_upstream_column hides the real cause.
+    """
+    source = _source()
+    upstream_urn = _urn("a")
+    downstream_urn = _urn("b")
+    element = _element("b", "B", [_column("b-x", "x", "[A/x]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": upstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+        upstream_elements=[_upstream_element("a", "A", [])],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_upstream_schema_unavailable == 1
+    assert source.reporter.data_model_element_fgl_dropped_unknown_upstream_column == 0
+
+
+def test_cross_dm_empty_upstream_schema_is_counted_separately() -> None:
+    """Cross-DM producer present in the bridge map but with an empty schema."""
+    source = _source()
+    dm_url_id = "other-dm"
+    upstream_urn = _urn("other-dm-element")
+    downstream_urn = _urn("elem-downstream")
+    element = _element(
+        "elem-downstream",
+        "Downstream",
+        [_column("c1", "city", "[other_dm_element/city]")],
+        source_ids=[f"{dm_url_id}/suffix"],
+    )
+    source.dm_element_urn_by_name = {dm_url_id: {"other_dm_element": [upstream_urn]}}
+    source.dm_element_urn_to_cols = {upstream_urn: {}}
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"downstream": ["elem-downstream"]},
+        elementId_to_dataset_urn={"elem-downstream": downstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+    )
+
+    assert lineages == []
+    assert (
+        source.reporter.data_model_element_fgl_cross_dm_upstream_schema_unavailable == 1
+    )
+    # Intra-DM counter must not absorb a cross-DM producer.
+    assert source.reporter.data_model_element_fgl_upstream_schema_unavailable == 0
+    assert (
+        source.reporter.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column
+        == 0
+    )
+    # A producer missing from the bridge map entirely stays on `deferred`.
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+
+
+def test_cross_dm_absent_producer_stays_deferred() -> None:
+    """Producer not in dm_element_urn_to_cols at all keeps the deferred counter."""
+    source = _source()
+    dm_url_id = "other-dm"
+    upstream_urn = _urn("other-dm-element")
+    downstream_urn = _urn("elem-downstream")
+    element = _element(
+        "elem-downstream",
+        "Downstream",
+        [_column("c1", "city", "[other_dm_element/city]")],
+        source_ids=[f"{dm_url_id}/suffix"],
+    )
+    source.dm_element_urn_by_name = {dm_url_id: {"other_dm_element": [upstream_urn]}}
+    source.dm_element_urn_to_cols = {}
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"downstream": ["elem-downstream"]},
+        elementId_to_dataset_urn={"elem-downstream": downstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 1
+    assert (
+        source.reporter.data_model_element_fgl_cross_dm_upstream_schema_unavailable == 0
+    )
+
+
+def test_formula_less_column_does_not_guess_intra_dm_upstream() -> None:
+    """A formula-less column must never be name-matched against siblings.
+
+    There is no bracket ref to resolve, so matching on column name alone would
+    fabricate an edge to every same-named sibling -- both sides of a join.
+    """
+    source = _source()
+    upstream_urn = _urn("a")
+    downstream_urn = _urn("b")
+    element = _element("b", "B", [_column("b-account-id", "Col Id", "")])
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"a": ["a"], "b": ["b"]},
+        elementId_to_dataset_urn={"a": upstream_urn, "b": downstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+        upstream_elements=[_upstream_element("a", "A", ["Col Id"])],
+    )
+
+    assert lineages == []
+    # Non-inode columnId: nothing to resolve against, expected volume.
+    assert source.reporter.data_model_element_fgl_no_ref_unresolved == 1
+    assert source.reporter.data_model_element_fgl_no_ref_warehouse_unresolved == 0
+    assert source.reporter.data_model_element_fgl_emitted == 0
+
+
+def test_empty_upstream_schema_warns_once_per_upstream() -> None:
+    """One empty upstream must not emit a warning per referencing column.
+
+    A partial /columns abort leaves many refs pointing at the same empty
+    element; the dedupe set is the only thing keeping that out of the report.
+    """
+    source = _source()
+    upstream_urn = _urn("a")
+    downstream_urn = _urn("b")
+    element = _element(
+        "b",
+        "B",
+        [
+            _column("b-x", "x", "[A/x]"),
+            _column("b-y", "y", "[A/y]"),
+        ],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": upstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+        upstream_elements=[_upstream_element("a", "A", [])],
+    )
+
+    assert lineages == []
+    # Both columns counted, one warning.
+    assert source.reporter.data_model_element_fgl_upstream_schema_unavailable == 2
+    assert len(source.reporter.warnings) == 1
+
+
+# ---------------------------------------------------------------------------
+# Join-chain refs: [JoinElement/SourceElement/Column]
+#
+# Sigma encodes a column reached through a join this way, so the element that
+# owns the column is the second-to-last segment. The legacy first-slash split
+# picks the join element instead, which is a real sibling -- it resolves, then
+# fails the column lookup, and the edge is silently dropped.
+# ---------------------------------------------------------------------------
+
+
+def test_join_chain_resolves_to_owning_element() -> None:
+    """The reported shape: [GRP_A/GRP_A DIM_B/Col Id].
+
+    An element named "GRP_A" also exists, so the first segment resolves to the
+    wrong sibling. The edge must land on the owning element instead.
+    """
+    source = _source()
+    join_urn = _urn("join")
+    owner_urn = _urn("owner")
+    downstream_urn = _urn("consumer")
+    element = _element(
+        "consumer",
+        "Consumer",
+        [_column("c-col-id", "Col Id", "[GRP_A/GRP_A DIM_B/Col Id]")],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"grp_a": ["join"], "grp_a dim_b": ["owner"]},
+        elementId_to_dataset_urn={"join": join_urn, "owner": owner_urn},
+        entity_level_upstream_urns={join_urn, owner_urn},
+        upstream_elements=[
+            # The join element deliberately has a column that is NOT the target,
+            # mirroring production: the first segment matches but the qualified
+            # column name cannot exist there.
+            _upstream_element("join", "GRP_A", ["Some Other Column"]),
+            _upstream_element("owner", "GRP_A DIM_B", ["Col Id"]),
+        ],
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(owner_urn, "Col Id")]
+    assert source.reporter.data_model_element_fgl_join_chain_resolved == 1
+    assert source.reporter.data_model_element_fgl_dropped_unknown_upstream_column == 0
+    assert source.reporter.data_model_element_fgl_join_chain_unresolved == 0
+
+
+def test_nested_join_chain_resolves_to_deepest_element() -> None:
+    source = _source()
+    owner_urn = _urn("e3")
+    downstream_urn = _urn("consumer")
+    element = _element("consumer", "Consumer", [_column("c-x", "x", "[E1/E2/E3/col]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"e3": ["e3"]},
+        elementId_to_dataset_urn={"e3": owner_urn},
+        entity_level_upstream_urns={owner_urn},
+        upstream_elements=[_upstream_element("e3", "E3", ["col"])],
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(owner_urn, "col")]
+    assert source.reporter.data_model_element_fgl_join_chain_resolved == 1
+
+
+def test_join_chain_on_self_named_consumer_still_resolves() -> None:
+    """Consumer named E1 with formula [E1/E2/col].
+
+    The legacy path treats the first segment as a self-reference and diverts to
+    warehouse-passthrough, never looking at E2. Self-strip must be applied per
+    candidate so the owning element is still reached.
+    """
+    source = _source()
+    owner_urn = _urn("e2")
+    downstream_urn = _urn("e1")
+    element = _element("e1", "E1", [_column("e1-x", "x", "[E1/E2/col]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"e1": ["e1"], "e2": ["e2"]},
+        elementId_to_dataset_urn={"e1": downstream_urn, "e2": owner_urn},
+        entity_level_upstream_urns={owner_urn},
+        upstream_elements=[_upstream_element("e2", "E2", ["col"])],
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(owner_urn, "col")]
+    assert source.reporter.data_model_element_fgl_join_chain_resolved == 1
+    assert source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
+
+
+def test_join_chain_owning_element_in_another_dm_resolves_cross_dm() -> None:
+    """E1 is a local sibling but E2 lives in a source data model.
+
+    Committing to the first segment would keep the ref on the intra-DM path and
+    drop it; each candidate must be tried intra-DM then cross-DM.
+    """
+    source = _source()
+    dm_url_id = "other-dm"
+    e1_urn = _urn("e1")
+    e2_urn = _urn("other-dm-e2")
+    downstream_urn = _urn("consumer")
+    element = _element(
+        "consumer",
+        "Consumer",
+        [_column("c-x", "x", "[E1/E2/col]")],
+        source_ids=[f"{dm_url_id}/suffix"],
+    )
+    source.dm_element_urn_by_name = {dm_url_id: {"e2": [e2_urn]}}
+    source.dm_element_urn_to_cols = {e2_urn: {"col": "col"}}
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"e1": ["e1"]},
+        elementId_to_dataset_urn={"e1": e1_urn},
+        entity_level_upstream_urns={e1_urn},
+        upstream_elements=[_upstream_element("e1", "E1", ["unrelated"])],
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(e2_urn, "col")]
+    assert source.reporter.data_model_element_fgl_join_chain_resolved == 1
+    assert source.reporter.data_model_element_fgl_dropped_unknown_upstream_column == 0
+
+
+def test_join_chain_prefers_owning_element_over_qualified_column() -> None:
+    """Collision: E2 has `col` AND E1 has a column literally named `E2/col`.
+
+    Join-chain reading wins -- 1608 real join chains in the observed tenant
+    versus no confirmed slash-containing column name.
+    """
+    source = _source()
+    e1_urn = _urn("e1")
+    e2_urn = _urn("e2")
+    downstream_urn = _urn("consumer")
+    element = _element("consumer", "Consumer", [_column("c-x", "x", "[E1/E2/col]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"e1": ["e1"], "e2": ["e2"]},
+        elementId_to_dataset_urn={"e1": e1_urn, "e2": e2_urn},
+        entity_level_upstream_urns={e1_urn, e2_urn},
+        upstream_elements=[
+            _upstream_element("e1", "E1", ["E2/col"]),
+            _upstream_element("e2", "E2", ["col"]),
+        ],
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(e2_urn, "col")]
+
+
+def test_slash_containing_element_name_still_resolves() -> None:
+    """No candidate matches the join-chain reading, so the prefix wins."""
+    source = _source()
+    owner_urn = _urn("weird")
+    downstream_urn = _urn("consumer")
+    element = _element("consumer", "Consumer", [_column("c-x", "x", "[a/b/c]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"a/b": ["weird"]},
+        elementId_to_dataset_urn={"weird": owner_urn},
+        entity_level_upstream_urns={owner_urn},
+        upstream_elements=[_upstream_element("weird", "a/b", ["c"])],
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(owner_urn, "c")]
+
+
+def test_join_chain_with_no_valid_candidate_is_sub_counted() -> None:
+    """Nothing validates: falls back to the legacy path, counted once there."""
+    source = _source()
+    join_urn = _urn("join")
+    downstream_urn = _urn("consumer")
+    element = _element("consumer", "Consumer", [_column("c-x", "x", "[GRP_A/E2/col]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"grp_a": ["join"]},
+        elementId_to_dataset_urn={"join": join_urn},
+        entity_level_upstream_urns={join_urn},
+        upstream_elements=[_upstream_element("join", "GRP_A", ["unrelated"])],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_join_chain_unresolved == 1
+    assert source.reporter.data_model_element_fgl_join_chain_resolved == 0
+    # Residual bucket is owned by the legacy path and counted exactly once.
+    assert source.reporter.data_model_element_fgl_dropped_unknown_upstream_column == 1
+
+
+def test_single_slash_ref_does_not_touch_join_chain_counters() -> None:
+    source = _source()
+    upstream_urn = _urn("a")
+    element = _element("b", "B", [_column("b-x", "x", "[A/x]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": upstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+        upstream_elements=[_upstream_element("a", "A", ["x"])],
+    )
+
+    assert len(lineages) == 1
+    assert source.reporter.data_model_element_fgl_join_chain_resolved == 0
+    assert source.reporter.data_model_element_fgl_join_chain_unresolved == 0
+
+
+def test_inode_column_id_still_tries_cross_dm_when_warehouse_fails() -> None:
+    """A failed warehouse lookup must not abort cross-DM resolution.
+
+    On a cross-DM-sourced element the warehouse inode belongs to the PRODUCER,
+    so failing to resolve it locally says nothing about whether the formula's
+    ref resolves. Short-circuiting there lost every such edge: the observed
+    element carried columnId='inode-<urlId>/<COL>' with formula
+    '[Producer/Column]' and emitted nothing at all.
+    """
+    source = _source()
+    dm_url_id = "producer-dm"
+    producer_urn = _urn("producer-el")
+    downstream_urn = _urn("consumer")
+    element = _element(
+        "consumer",
+        "Consumer",
+        # inode-shaped columnId, but no warehouse map is supplied so the
+        # warehouse path must fail.
+        [_column("inode-abc/COL_ID", "Col Id", "[Producer/Col Id]")],
+        source_ids=[f"{dm_url_id}/suffix"],
+    )
+    source.dm_element_urn_by_name = {dm_url_id: {"producer": [producer_urn]}}
+    source.dm_element_urn_to_cols = {producer_urn: {"col id": "Col Id"}}
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        entity_level_upstream_urns={producer_urn},
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [
+        builder.make_schema_field_urn(producer_urn, "Col Id")
+    ]
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 1
+    # The warehouse attempt still failed and is still reported.
+    assert source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 1
+
+
+def test_orphan_ref_recovered_when_sibling_owns_the_column() -> None:
+    """/lineage omitting an intra-DM sibling is a reporting gap, not evidence.
+
+    Where the named sibling demonstrably owns the referenced column, the ref is
+    trustworthy and the edge is emitted, with the sibling promoted to an
+    entity-level upstream. Measured at 162 of 167 orphan drops on a real tenant.
+    """
+    source = _source()
+    sibling_urn = _urn("sibling-eid")
+    downstream_urn = _urn("consumer")
+    discovered: set = set()
+    element = _element("consumer", "Consumer", [_column("c1", "x", "[Shared/x]")])
+
+    lineages = source._build_dm_element_fine_grained_lineages(
+        element=element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"shared": ["sibling-eid"]},
+        elementId_to_dataset_urn={"sibling-eid": sibling_urn},
+        # Sigma did not list the sibling as an upstream.
+        entity_level_upstream_urns=set(),
+        data_model=_data_model(
+            [element, _upstream_element("sibling-eid", "Shared", ["x"])]
+        ),
+        warehouse_url_id_map={},
+        discovered_upstreams=discovered,
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(sibling_urn, "x")]
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 1
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 0
+    assert discovered == {sibling_urn}
+
+
+def test_orphan_ref_still_dropped_when_sibling_lacks_the_column() -> None:
+    """Recovery is earned by the schema, not assumed from the name match."""
+    source = _source()
+    sibling_urn = _urn("sibling-eid")
+    element = _element("consumer", "Consumer", [_column("c1", "x", "[Shared/x]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"shared": ["sibling-eid"]},
+        elementId_to_dataset_urn={"sibling-eid": sibling_urn},
+        entity_level_upstream_urns=set(),
+        upstream_elements=[_upstream_element("sibling-eid", "Shared", ["other"])],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0

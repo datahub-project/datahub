@@ -63,6 +63,11 @@ class SigmaAPI:
         # report summary readable on large tenants with repeated unknown
         # node types.
         self._unknown_lineage_node_types_warned: Set[str] = set()
+        # Monotonic count of pagination aborts. Callers snapshot it around a
+        # paginated call to learn whether THAT call lost data. Report warnings
+        # cannot answer this: they are grouped by title, so total_elements stops
+        # rising after the first abort of a given kind.
+        self._pagination_aborts: int = 0
         self.session = requests.Session()
 
         # Configure retry strategy for 429/503 with exponential backoff.
@@ -136,7 +141,12 @@ class SigmaAPI:
             )
 
     def _get_api_call(self, url: str) -> requests.Response:
-        """Make an API call with automatic retry on 429/503 and token refresh on 401."""
+        """Make an API call with token refresh on 401.
+
+        The session adapter retries 429/503 for every endpoint; nothing else is
+        retried. A 409 on the Data Model endpoints was tried and reverted --
+        it proved persistent rather than transient on a real tenant.
+        """
         get_response = self.session.get(url)
 
         # Handle token refresh on 401
@@ -682,7 +692,7 @@ class SigmaAPI:
         the partial-data workbook is distinguishable from one with few formulas.
         """
         error_ctx = f"Unable to fetch column formulas for workbook {workbook_id}."
-        warnings_before = self.report.warnings.total_elements
+        aborts_before = self._pagination_aborts
         result: Dict[str, Dict[str, Optional[str]]] = {}
         col_ids: Dict[str, Dict[str, str]] = {}
         for col in self._paginated_raw_entries(
@@ -698,8 +708,17 @@ class SigmaAPI:
                 result.setdefault(elem_id, {})[name] = formula
                 if column_id:
                     col_ids.setdefault(elem_id, {})[name] = column_id
-        if self.report.warnings.total_elements > warnings_before:
+        if self._pagination_aborts > aborts_before:
             self.report.column_formulas_fetch_partial += 1
+            logger.debug(
+                "COLUMNS PARTIAL workbook %s: pagination aborted; %d element(s) "
+                "carry formulas. Every chart column absent from this response "
+                "falls back to a self-referential InputField, so this workbook's "
+                "chart_input_fields_self_ref_* share is not evidence of a "
+                "resolver defect.",
+                workbook_id,
+                len(result),
+            )
         return result, col_ids
 
     def get_page_elements(
@@ -720,8 +739,24 @@ class SigmaAPI:
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
                 # only element of table and visualization type have lineage and sql query supported
                 if element_dict.get("type") not in ["table", "visualization"]:
+                    # Skipped elements never enter the workbook element index, so
+                    # any chart formula referencing one can never resolve and
+                    # falls back to a self-reference. Log the elementId (always
+                    # present) as well as the name, which is frequently absent
+                    # here -- without it a self-ref miss cannot be matched
+                    # against the element that caused it.
+                    el_type = str(element_dict.get("type"))
+                    self.report.workbook_elements_skipped_by_type[el_type] = (
+                        self.report.workbook_elements_skipped_by_type.get(el_type, 0)
+                        + 1
+                    )
                     logger.debug(
-                        f"Skipping lineage and sql query extraction for element {element_dict.get('name')} of type {element_dict.get('type')} of workbook '{workbook.name}'"
+                        "Skipping lineage and sql query extraction for element "
+                        "name=%r elementId=%r of type %r of workbook %r",
+                        element_dict.get("name"),
+                        element_dict.get(Constant.ELEMENTID),
+                        el_type,
+                        workbook.name,
                     )
                     continue
 
@@ -824,6 +859,7 @@ class SigmaAPI:
         try:
             while True:
                 response = self._get_api_call(url)
+                # Swallow expected "no data" statuses before raise_for_status.
                 if first_page and response.status_code in silent_statuses:
                     logger.debug(
                         f"{error_ctx} Swallowed expected status "
@@ -836,6 +872,13 @@ class SigmaAPI:
                 for entry in response_dict.get(Constant.ENTRIES, []):
                     if isinstance(entry, dict):
                         raw_entries.append(entry)
+                logger.debug(
+                    "PAGE %s: +%d entries (running total %d) reported_total=%s",
+                    error_ctx,
+                    len(response_dict.get(Constant.ENTRIES, []) or []),
+                    len(raw_entries),
+                    response_dict.get("total"),
+                )
                 next_page = response_dict.get(Constant.NEXTPAGE)
                 next_token = response_dict.get(Constant.NEXTPAGETOKEN)
                 if next_page:
@@ -847,6 +890,8 @@ class SigmaAPI:
                 else:
                     break
                 if cursor_key in seen_cursors:
+                    self._pagination_aborts += 1
+                    self.report.pagination_aborted += 1
                     self.report.warning(
                         message="Pagination cursor repeated; aborting",
                         context=f"{error_ctx} url={base_url}, cursor={cursor}, "
@@ -870,6 +915,8 @@ class SigmaAPI:
                 if isinstance(e, requests.HTTPError) and e.response is not None
                 else None
             )
+            self._pagination_aborts += 1
+            self.report.pagination_aborted += 1
             self.report.warning(
                 title="Sigma paginated endpoint aborted",
                 message="Pagination aborted; partial results preserved.",
@@ -945,7 +992,8 @@ class SigmaAPI:
 
     def _get_data_model_columns(self, data_model_id: str) -> List[SigmaDataModelColumn]:
         logger.debug(f"Fetching columns for data model '{data_model_id}'.")
-        return self._paginated_entries(
+        aborts_before = self._pagination_aborts
+        columns = self._paginated_entries(
             f"{self.config.api_url}/dataModels/{data_model_id}/columns",
             SigmaDataModelColumn,
             f"Unable to fetch columns for data model '{data_model_id}'.",
@@ -956,6 +1004,18 @@ class SigmaAPI:
             # columns from consumer elements' schemaMetadata.
             dedup_key=lambda column: (column.elementId, column.columnId),
         )
+        if self._pagination_aborts > aborts_before:
+            self.report.data_model_columns_fetch_partial += 1
+            logger.debug(
+                "COLUMNS PARTIAL DM %s: pagination aborted with %d column(s) "
+                "recovered. /columns is the ONLY source of formulas and "
+                "columnIds, so every element in this Data Model loses column "
+                "lineage it would otherwise have -- read this before treating "
+                "the model's empty FGL as a resolver failure.",
+                data_model_id,
+                len(columns),
+            )
+        return columns
 
     def _get_data_model_lineage_entries(
         self, data_model_id: str
@@ -1218,11 +1278,89 @@ class SigmaAPI:
                     )
             # ``type: dataset`` entries (CSV uploads) are terminal.
 
+        self._log_dm_lineage_shape(data_model, lineage_entries)
+
         for element in elements:
             element.columns = columns_by_element.get(element.elementId, [])
             element.source_ids = source_ids_by_element.get(element.elementId, [])
+            logger.debug(
+                "DM ELEMENT ASSEMBLED %s/%s %r: type=%r columns=%d source_ids=%r",
+                data_model.dataModelId,
+                element.elementId,
+                element.name,
+                element.type,
+                len(element.columns),
+                element.source_ids,
+            )
 
         data_model.elements = elements
+
+    @staticmethod
+    def _log_dm_lineage_shape(
+        data_model: SigmaDataModel, lineage_entries: List[Dict[str, Any]]
+    ) -> None:
+        """Classify a Data Model's /lineage payload by entry type.
+
+        Decisive for "why does this element have no warehouse column lineage":
+        the warehouse url_id map is built ONLY from type=table rows, so a Data
+        Model reporting none can never resolve an inode-shaped columnId no
+        matter what its columns say.
+        """
+        entry_types: Dict[str, int] = {}
+        for entry in lineage_entries:
+            key = str(entry.get(Constant.TYPE))
+            entry_types[key] = entry_types.get(key, 0) + 1
+        logger.debug(
+            "DM LINEAGE %s: %d entries by type=%r; table inodes stashed=%d; "
+            "customSQL names=%d; source-DM names=%d",
+            data_model.dataModelId,
+            len(lineage_entries),
+            entry_types,
+            len(data_model.warehouse_inodes_by_inode_id),
+            len(data_model.custom_sql_by_name),
+            len(data_model.source_dm_element_names),
+        )
+
+    def get_file_metadata_by_url_id(self, url_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch ``/v2/files/{urlId}``, or None when Sigma does not know it.
+
+        ``/v2/files/{id}`` accepts either an inodeId (UUID) or a urlId and
+        returns the same document for both -- verified live against a url_id
+        taken from the table listing. That matters because a Data Model
+        element's ``inode-<suffix>`` carries the urlId, not the UUID, so this is
+        the only way to ask about a table the Data Model's own /lineage never
+        described.
+
+        A 404 returns None WITHOUT a warning: on a live tenant every one of the
+        37 unresolved url_ids answered 404, meaning the Data Model references
+        tables that have since been deleted from Sigma. That is tenant hygiene
+        rather than an ingestion problem, so the caller counts it under
+        ``dm_element_warehouse_stale_reference`` instead of alarming operators.
+        """
+        url = f"{self.config.api_url}/files/{quote(url_id, safe='')}"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code == 200:
+                return response.json()
+            if response.status_code != 404:
+                self.report.warning(
+                    title="Sigma /files lookup by urlId returned non-200",
+                    message=(
+                        "Could not resolve a warehouse table referenced by a "
+                        "Data Model element. Column lineage to that table is "
+                        "skipped."
+                    ),
+                    context=f"url_id={url_id}, http_status={response.status_code}",
+                )
+            return None
+        except Exception as e:
+            self.report.warning(
+                title="Sigma /files lookup by urlId failed",
+                message="Exception resolving a warehouse table by urlId.",
+                context=f"url_id={url_id}",
+                exc=e,
+            )
+            return None
 
     def get_file_metadata(self, inode_id: str) -> Optional[Dict[str, Any]]:
         """Fetch /files/{inodeId} and return the raw JSON dict, or None on
