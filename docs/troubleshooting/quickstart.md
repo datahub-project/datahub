@@ -72,26 +72,19 @@ environment variable but does **not** read Docker CLI _contexts_. Alternative ru
 Colima, Rancher Desktop, and Podman install a context instead of exporting `DOCKER_HOST`, so the
 SDK falls back to the default socket path and waits there.
 
-Check which endpoint your active context uses, then export it:
+Point `DOCKER_HOST` at the endpoint of your active context, then run the quickstart:
 
 ```sh
-docker context inspect --format '{{.Endpoints.docker.Host}}'
-```
-
-```sh
-# Colima
-export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock"
-
-# Rancher Desktop
-export DOCKER_HOST="unix://$HOME/.rd/docker.sock"
-
-# Podman (rootless)
-export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/podman/podman.sock"
-
+docker context inspect --format '{{.Endpoints.docker.Host}}'   # see which socket is active
+export DOCKER_HOST="$(docker context inspect --format '{{.Endpoints.docker.Host}}')"
 datahub docker quickstart
 ```
 
-Add the `export` line to your shell profile to make it persistent.
+Taking the endpoint from the active context works for every runtime, including custom Colima
+profiles, Rancher Desktop, and rootless Podman, whose socket paths differ between installations.
+Re-run the `export` after switching Docker contexts: the SDK keeps using whatever `DOCKER_HOST`
+held when it was set. To have it set automatically in new shells, add the `export` line above,
+rather than a fixed socket path, to your shell profile so that it follows the active context.
 
 </details>
 
