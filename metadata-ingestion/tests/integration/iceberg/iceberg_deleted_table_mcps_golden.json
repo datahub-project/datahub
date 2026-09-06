@@ -24,7 +24,9 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "location": "s3a://warehouse/wh/nyc"
+                "owner": "root",
+                "location": "s3://warehouse/wh",
+                "namespace_id": "01a0761d-9155-74d0-bff1-27f998e332e4"
             },
             "name": "nyc",
             "qualifiedName": "nyc",
@@ -33,7 +35,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-2020_04_14-07_00_00-mbclry",
+        "runId": "iceberg-2020_04_14-07_00_00-fwv8mw",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -64,28 +66,24 @@
         "json": {
             "customProperties": {
                 "owner": "root",
-                "created-at": "2025-03-19T21:17:41.030353172Z",
                 "write.format.default": "parquet",
-                "location": "s3a://warehouse/wh/nyc/another_taxis",
-                "format-version": "1",
+                "location": "s3://warehouse/wh/01a0761d-a5cc-7633-b830-8c26fc5e7a3f",
+                "format-version": "2",
                 "partition-spec": "[{\"name\": \"trip_date\", \"transform\": \"identity\", \"source\": \"trip_date\", \"source-id\": 2, \"source-type\": \"timestamptz\", \"field-id\": 1000}]",
-                "snapshot-id": "9029364459435844499",
-                "manifest-list": "s3a://warehouse/wh/nyc/another_taxis/metadata/snap-9029364459435844499-1-6caf92f5-5b22-4e75-bdf1-83259b7887fb.avro"
+                "snapshot-id": "7490242901819888555",
+                "manifest-list": "s3://warehouse/wh/01a0761d-a5cc-7633-b830-8c26fc5e7a3f/metadata/snap-7490242901819888555-1-a188371a-f045-4f63-851c-df1e7121f96e.avro"
             },
             "name": "another_taxis",
             "qualifiedName": "nyc.another_taxis",
-            "created": {
-                "time": 1742419061030
-            },
             "lastModified": {
-                "time": 1742419062548
+                "time": 1788688051440
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
-        "runId": "iceberg-2020_04_14-07_00_00-prds53",
+        "runId": "iceberg-2020_04_14-07_00_00-fwv8mw",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
