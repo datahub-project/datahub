@@ -683,7 +683,7 @@ Response:
 To get full details of each instance, fetch the entities:
 
 ```bash
-curl 'http://localhost:8080/entities/urn%3Ali%3AdataProcessInstance%3Aabc123...'
+curl 'http://localhost:8080/entitiesV2/urn%3Ali%3AdataProcessInstance%3Aabc123...'
 ```
 
 Response includes all aspects:

@@ -882,7 +882,7 @@ An example of `group.yaml` would look like as in [foo.group.dhub.yaml](https://g
 ```yaml
 id: foogroup@acryl.io
 display_name: Foo Group
-admins:
+owners:
   - datahub
 members:
   - bar@acryl.io # refer to a user either by id or by urn

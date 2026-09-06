@@ -1,12 +1,8 @@
 # metadata-ingestion/examples/library/corpuser_create_basic.py
-import logging
 import os
 
 from datahub.api.entities.corpuser.corpuser import CorpUser
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 # Create a basic user with essential information
 user = CorpUser(
@@ -30,4 +26,4 @@ datahub_graph = DataHubGraph(DataHubGraphConfig(server=gms_server, token=token))
 for event in user.generate_mcp():
     datahub_graph.emit(event)
 
-log.info(f"Created user {user.urn}")
+print(f"Created user {user.urn}")

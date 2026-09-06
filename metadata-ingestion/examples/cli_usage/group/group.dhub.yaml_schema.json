@@ -1,159 +1,327 @@
 {
-    "title": "CorpGroupFile",
-    "anyOf": [
-        {
-            "$ref": "#/definitions/CorpGroup"
-        },
-        {
-            "$ref": "#/definitions/CorpGroupList"
-        }
-    ],
-    "definitions": {
-        "CorpUser": {
-            "title": "CorpUser",
-            "description": "This is a CorpUser class which represents a CorpUser\n\nArgs:\n    id (str): The id of the user\n    display_name (Optional[str]): The name of the user to display in the UI\n    email (Optional[str]): email address of this user\n    title (Optional[str]): title of this user\n    manager_urn (Optional[str]): direct manager of this user\n    department_id (Optional[int]): department id this user belongs to\n    department_name (Optional[str]): department name this user belongs to\n    first_name (Optional[str]): first name of this user\n    last_name (Optional[str]): last name of this user\n    full_name (Optional[str]): Common name of this user, format is firstName + lastName (split by a whitespace)\n    country_code (Optional[str]): two uppercase letters country code. e.g.  US\n    groups (List[str]): List of group ids the user belongs to\n    description (Optional[str]): A description string for the user\n    slack (Optional[str]): Slack handle for the user",
-            "type": "object",
+    "$defs": {
+        "CorpGroup": {
+            "description": "This is a CorpGroup class which represents a CorpGroup\n\nArgs:\n    id (str): The id of the group\n    display_name (Optional[str]): The name of the group\n    email (Optional[str]): email of this group\n    description (Optional[str]): A description of the group\n    overrideEditable (bool): If True, group information that is editable in the UI will be overridden\n    picture_link (Optional[str]): A URL which points to a picture which user wants to set as the photo for the group\n    slack (Optional[str]): Slack channel for the group\n    owners (List[Union[str, CorpUser]]): A list of owner/administrator ids (or urns) for the group. You can also provide the user record for the owner inline within this section\n    members (List[Union[str, CorpUser]]): A list of member ids (or urns) for the group.",
             "properties": {
                 "id": {
                     "title": "Id",
                     "type": "string"
                 },
                 "display_name": {
-                    "title": "Display Name",
-                    "type": "string"
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Display Name"
                 },
                 "email": {
-                    "title": "Email",
-                    "type": "string"
-                },
-                "title": {
-                    "title": "Title",
-                    "type": "string"
-                },
-                "manager_urn": {
-                    "title": "Manager Urn",
-                    "type": "string"
-                },
-                "department_id": {
-                    "title": "Department Id",
-                    "type": "integer"
-                },
-                "department_name": {
-                    "title": "Department Name",
-                    "type": "string"
-                },
-                "first_name": {
-                    "title": "First Name",
-                    "type": "string"
-                },
-                "last_name": {
-                    "title": "Last Name",
-                    "type": "string"
-                },
-                "full_name": {
-                    "title": "Full Name",
-                    "type": "string"
-                },
-                "country_code": {
-                    "title": "Country Code",
-                    "type": "string"
-                },
-                "groups": {
-                    "title": "Groups",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Email"
                 },
                 "description": {
-                    "title": "Description",
-                    "type": "string"
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Description"
+                },
+                "overrideEditable": {
+                    "default": false,
+                    "title": "Overrideeditable",
+                    "type": "boolean"
+                },
+                "picture_link": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Picture Link"
                 },
                 "slack": {
-                    "title": "Slack",
-                    "type": "string"
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Slack"
+                },
+                "owners": {
+                    "default": [],
+                    "items": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "$ref": "#/$defs/CorpUser"
+                            }
+                        ]
+                    },
+                    "title": "Owners",
+                    "type": "array"
+                },
+                "members": {
+                    "default": [],
+                    "items": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "$ref": "#/$defs/CorpUser"
+                            }
+                        ]
+                    },
+                    "title": "Members",
+                    "type": "array"
                 }
             },
             "required": [
                 "id"
             ],
-            "additionalProperties": false
-        },
-        "CorpGroup": {
             "title": "CorpGroup",
-            "description": "This is a CorpGroup class which represents a CorpGroup\n\nArgs:\n    id (str): The id of the group\n    display_name (Optional[str]): The name of the group\n    email (Optional[str]): email of this group\n    description (Optional[str]): A description of the group\n    overrideEditable (bool): If True, group information that is editable in the UI will be overridden\n    picture_link (Optional[str]): A URL which points to a picture which user wants to set as the photo for the group\n    slack (Optional[str]): Slack channel for the group\n    admins (List[Union[str, CorpUser]]): A list of administrator ids (or urns) for the group. You can also provide the user record for the admin inline within this section\n    members (List[Union[str, CorpUser]]): A list of member ids (or urns) for the group.",
-            "type": "object",
+            "type": "object"
+        },
+        "CorpGroupList": {
+            "items": {
+                "$ref": "#/$defs/CorpGroup"
+            },
+            "title": "CorpGroupList",
+            "type": "array"
+        },
+        "CorpUser": {
+            "additionalProperties": false,
+            "description": "This is a CorpUser class which represents a CorpUser\n\nArgs:\n    id (str): The id of the user\n    display_name (Optional[str]): The name of the user to display in the UI\n    email (Optional[str]): email address of this user\n    title (Optional[str]): title of this user\n    manager_urn (Optional[str]): direct manager of this user\n    department_id (Optional[int]): department id this user belongs to\n    department_name (Optional[str]): department name this user belongs to\n    first_name (Optional[str]): first name of this user\n    last_name (Optional[str]): last name of this user\n    full_name (Optional[str]): Common name of this user, format is firstName + lastName (split by a whitespace)\n    country_code (Optional[str]): two uppercase letters country code. e.g.  US\n    groups (List[str]): List of group ids the user belongs to\n    description (Optional[str]): A description string for the user\n    slack (Optional[str]): Slack handle for the user\n    picture_link (Optional[str]): A resolvable url for the user's picture icon\n    phone (Optional(str)): A phone number for the user",
             "properties": {
                 "id": {
                     "title": "Id",
                     "type": "string"
                 },
                 "display_name": {
-                    "title": "Display Name",
-                    "type": "string"
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Display Name"
                 },
                 "email": {
-                    "title": "Email",
-                    "type": "string"
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Email"
+                },
+                "title": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Title"
+                },
+                "manager_urn": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Manager Urn"
+                },
+                "department_id": {
+                    "anyOf": [
+                        {
+                            "type": "integer"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Department Id"
+                },
+                "department_name": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Department Name"
+                },
+                "first_name": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "First Name"
+                },
+                "last_name": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Last Name"
+                },
+                "full_name": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Full Name"
+                },
+                "country_code": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Country Code"
+                },
+                "groups": {
+                    "anyOf": [
+                        {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Groups"
                 },
                 "description": {
-                    "title": "Description",
-                    "type": "string"
-                },
-                "overrideEditable": {
-                    "title": "Overrideeditable",
-                    "default": false,
-                    "type": "boolean"
-                },
-                "picture_link": {
-                    "title": "Picture Link",
-                    "type": "string"
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Description"
                 },
                 "slack": {
-                    "title": "Slack",
-                    "type": "string"
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Slack"
                 },
-                "admins": {
-                    "title": "Admins",
-                    "default": [],
-                    "type": "array",
-                    "items": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "$ref": "#/definitions/CorpUser"
-                            }
-                        ]
-                    }
+                "picture_link": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Picture Link"
                 },
-                "members": {
-                    "title": "Members",
-                    "default": [],
-                    "type": "array",
-                    "items": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "$ref": "#/definitions/CorpUser"
-                            }
-                        ]
-                    }
+                "phone": {
+                    "anyOf": [
+                        {
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Phone"
                 }
             },
             "required": [
                 "id"
-            ]
-        },
-        "CorpGroupList": {
-            "title": "CorpGroupList",
-            "type": "array",
-            "items": {
-                "$ref": "#/definitions/CorpGroup"
-            }
+            ],
+            "title": "CorpUser",
+            "type": "object"
         }
-    }
+    },
+    "anyOf": [
+        {
+            "$ref": "#/$defs/CorpGroup"
+        },
+        {
+            "$ref": "#/$defs/CorpGroupList"
+        }
+    ],
+    "title": "CorpGroupFile"
 }

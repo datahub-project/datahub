@@ -16,28 +16,28 @@ field_urn = builder.make_schema_field_urn(
 
 entity = graph.get_entity_semityped(entity_urn=field_urn)
 
-if entity:
-    print(f"Schema Field URN: {field_urn}")
-    print(f"Entity Type: {entity.get('entityType')}")
+if not entity:
+    raise SystemExit(f"Schema field not found: {field_urn}")
 
-    aspects = cast(dict[str, Any], entity.get("aspects", {}))
+print(f"Schema Field URN: {field_urn}")
+print(f"Entity Type: {entity.get('entityType')}")
 
-    if "globalTags" in aspects:
-        tags = aspects["globalTags"]["tags"]
-        print(f"Tags: {[tag['tag'] for tag in tags]}")
+aspects = cast(dict[str, Any], entity.get("aspects", {}))
 
-    if "glossaryTerms" in aspects:
-        terms = aspects["glossaryTerms"]["terms"]
-        print(f"Glossary Terms: {[term['urn'] for term in terms]}")
+if "globalTags" in aspects:
+    tags = aspects["globalTags"]["tags"]
+    print(f"Tags: {[tag['tag'] for tag in tags]}")
 
-    if "documentation" in aspects:
-        docs = aspects["documentation"]["documentations"]
-        for doc in docs:
-            print(f"Documentation: {doc['documentation'][:100]}...")
+if "glossaryTerms" in aspects:
+    terms = aspects["glossaryTerms"]["terms"]
+    print(f"Glossary Terms: {[term['urn'] for term in terms]}")
 
-    if "structuredProperties" in aspects:
-        props = aspects["structuredProperties"]["properties"]
-        for prop in props:
-            print(f"Property {prop['propertyUrn']}: {prop['values']}")
-else:
-    print(f"Schema field {field_urn} not found")
+if "documentation" in aspects:
+    docs = aspects["documentation"]["documentations"]
+    for doc in docs:
+        print(f"Documentation: {doc['documentation'][:100]}...")
+
+if "structuredProperties" in aspects:
+    props = aspects["structuredProperties"]["properties"]
+    for prop in props:
+        print(f"Property {prop['propertyUrn']}: {prop['values']}")

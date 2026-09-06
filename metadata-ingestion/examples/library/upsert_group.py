@@ -1,14 +1,9 @@
-import logging
-
 from datahub.api.entities.corpgroup.corpgroup import (
     CorpGroup,
     CorpGroupGenerationConfig,
 )
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.metadata.urns import CorpUserUrn
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 group_email = "foogroup@acryl.io"
 group = CorpGroup(
@@ -33,4 +28,4 @@ for event in group.generate_mcp(
     )
 ):
     datahub_graph.emit(event)
-log.info(f"Upserted group {group.urn}")
+print(f"Upserted group {group.urn}")
