@@ -734,7 +734,7 @@ def browser_sso_login(
     ticket_id: Optional[str] = None,
     fresh_login: bool = False,
     seed_profile: Optional[str] = None,
-    remember_session: bool = False,
+    remember_session: bool = True,
 ) -> Tuple[str, str]:
     """Open browser for SSO login, extract session, generate access token.
 
@@ -755,10 +755,11 @@ def browser_sso_login(
             time this instance is used, so an identity provider session already
             in that profile skips even the first login. Must be a copy, not a
             profile the browser currently has open.
-        remember_session: If True, store the cookies this login establishes and
-            replay them next time. Needed when the identity provider issues an
-            in-memory session, which no browser writes to disk. Writes that
-            session to ~/.datahub/sso-sessions as 0600.
+        remember_session: If True, the default, store the cookies this login
+            establishes and replay them next time. A provider that issues an
+            in-memory session gives the browser nothing to persist, so without
+            this every run signs in again. Writes that session to
+            ~/.datahub/sso-sessions as 0600.
 
     Returns:
         Tuple of (token_name, access_token).

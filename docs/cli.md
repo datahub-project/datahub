@@ -553,11 +553,11 @@ It opens that browser with **its own profile**, not your everyday one, so your n
 
 **Signing in only once.** The profile is kept under `~/.datahub/sso-browser-profiles`, one directory per instance and per browser, created `0700`. While your identity provider session is still valid, later runs skip the login form. Support logins get their own directory, so they are never reused as a normal login.
 
-| Flag                 | Use it when                                                                             |
-| -------------------- | --------------------------------------------------------------------------------------- |
-| `--fresh-login`      | Signing in as somebody else. Discards the saved profiles and session for this instance. |
-| `--seed-profile DIR` | You want the very first login skipped too. See below.                                   |
-| `--remember-session` | Your provider makes you log in every time despite the above. See below.                 |
+| Flag                    | Use it when                                                                             |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| `--fresh-login`         | Signing in as somebody else. Discards the saved profiles and session for this instance. |
+| `--seed-profile DIR`    | You want the very first login skipped too. See below.                                   |
+| `--no-remember-session` | You would rather the CLI kept nothing outside the browser profile. See below.           |
 
 All three are rejected without `--sso`.
 
@@ -576,9 +576,11 @@ Three things to know:
 
 Seeding happens only while the CLI's own profile directory is empty. Anything an earlier run left there makes it non-empty and the seed is skipped, including remnants of an attempt that failed, so use `--fresh-login` to clear it and seed again.
 
-**`--remember-session`** stores the cookies the login establishes in `~/.datahub/sso-sessions` — the directory `0700`, the files inside it `0600` — and replays them next time. You only need it if your provider issues a session cookie with no expiry — no browser writes one of those to disk, so profile reuse alone cannot carry it across a browser restart. With a stored session the next login is tried headlessly first, showing no window; if that does not authenticate, a visible browser opens as usual.
+**`--remember-session`** is **on by default**. It stores the cookies the login establishes in `~/.datahub/sso-sessions` — the directory `0700`, the files inside it `0600` — and replays them next time. The next login is then tried headlessly first, showing no window; if that does not authenticate, a visible browser opens as usual.
 
-It is opt-in because it takes a credential your provider deliberately kept in memory and writes it to a file. Prefer plain profile reuse where that is enough.
+This exists because many providers issue a session cookie with no expiry. No browser writes one of those to disk, so profile reuse alone loses it the moment the browser exits, and you sign in on every run.
+
+**`--no-remember-session`** turns it off, so nothing is written outside the browser profile. Use it if you would rather not have a credential your provider kept in memory stored in a file, and accept signing in more often. On a provider whose session cookie does persist, you lose nothing by opting out.
 
 #### Environment variables supported
 

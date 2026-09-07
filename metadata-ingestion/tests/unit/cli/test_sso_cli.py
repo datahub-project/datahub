@@ -89,6 +89,9 @@ def mock_playwright(tmp_path: Path) -> Iterator[dict]:
         ),
         patch("datahub.cli.sso_cli._check_playwright_ready"),
         patch("datahub.cli.sso_cli.SSO_PROFILE_ROOT", tmp_path / "profiles"),
+        # Remembering is on by default, so every login here writes a session.
+        # Without this the suite writes into the developer's own ~/.datahub.
+        patch("datahub.cli.sso_cli.SSO_SESSION_ROOT", tmp_path / "sessions"),
     ):
         pw = MagicMock()
         mock_sync_pw.return_value.__enter__ = MagicMock(return_value=pw)
@@ -1133,10 +1136,28 @@ class TestRememberSession:
 
         mock_playwright["context"].add_cookies.assert_called_once_with(saved)
 
-    def test_nothing_is_written_without_the_flag(
+    def test_nothing_is_written_when_opted_out(
         self, mock_playwright: dict, _sessions_in_tmp: Path
     ) -> None:
-        """Persisting a provider session must stay opt-in."""
+        """--no-remember-session keeps the session in the browser profile only."""
+        self._cookies(
+            mock_playwright,
+            [{"domain": "acryl.okta.com", "name": "sid", "value": "s", "path": "/"}],
+        )
+
+        self._login(remember_session=False)
+
+        assert not _sessions_in_tmp.exists()
+        mock_playwright["context"].add_cookies.assert_not_called()
+
+    def test_the_session_is_remembered_by_default(
+        self, mock_playwright: dict, _sessions_in_tmp: Path
+    ) -> None:
+        """A provider with an in-memory session forces a login on every run.
+
+        Reusing the browser profile cannot carry a cookie the browser never
+        writes to disk, so the default has to store it here instead.
+        """
         self._cookies(
             mock_playwright,
             [{"domain": "acryl.okta.com", "name": "sid", "value": "s", "path": "/"}],
@@ -1144,8 +1165,8 @@ class TestRememberSession:
 
         self._login()
 
-        assert not _sessions_in_tmp.exists()
-        mock_playwright["context"].add_cookies.assert_not_called()
+        saved = json.loads((_sessions_in_tmp / "dev01.acryl.io.json").read_text())
+        assert [c["name"] for c in saved] == ["sid"]
 
     def test_fresh_login_forgets_the_saved_session(
         self, mock_playwright: dict, _sessions_in_tmp: Path

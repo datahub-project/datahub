@@ -87,11 +87,12 @@ later runs.
   must come from the same engine as the browser being driven, and for Chromium
   must be the user data directory rather than a single profile inside it; both
   mismatches are refused.
-- `--remember-session` stores the login cookies in `~/.datahub/sso-sessions`
-  (directory 0700, per-instance JSON files 0600) and replays them, for
-  providers whose session cookie no browser persists. The next run then tries
-  the login headlessly first and opens a visible browser if that does not
-  authenticate.
+- `--remember-session` is on by default. It stores the login cookies in
+  `~/.datahub/sso-sessions` (directory 0700, per-instance JSON files 0600) and
+  replays them, which is what carries a session cookie no browser persists. The
+  next run then tries the login headlessly first and opens a visible browser if
+  that does not authenticate. `--no-remember-session` turns it off and keeps the
+  session in the browser profile only.
 
 All three require `--sso`.
 
