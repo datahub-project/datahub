@@ -19,6 +19,9 @@ _ELEMENT_ID = "elementId"
 # A side with no elementId is a warehouse table only if it says so.
 _WAREHOUSE_SIDE_KEYS = ("connectionId", "path")
 _JOIN_KIND = "join"
+_JOIN_TYPE = "joinType"
+# Join types whose ON equality holds only on matched rows.
+_OUTER_JOIN_TYPES = frozenset({"left", "right", "full", "outer", "full-outer"})
 
 
 @dataclass(frozen=True)
@@ -65,11 +68,23 @@ class DataModelSpecIndex:
 
 @dataclass(frozen=True)
 class JoinPredicate:
-    """``left.column == right.column``, as stated by a join's ON clause."""
+    """``left.column == right.column``, as stated by a join's ON clause.
+
+    ``join_type`` is Sigma's ``joinType`` verbatim, lowercased. It matters
+    because the equality is only asserted for rows the join matched: under an
+    outer join the unmatched side is NULL, so the two columns are equal on a
+    subset of rows rather than on all of them. Consumers score those edges
+    lower rather than dropping them -- the column is still a genuine upstream.
+    """
 
     join_element_id: str
     left: SpecColumnRef
     right: SpecColumnRef
+    join_type: str = ""
+
+    @property
+    def is_outer(self) -> bool:
+        return self.join_type in _OUTER_JOIN_TYPES
 
 
 def _iter_spec_elements(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -168,6 +183,7 @@ def _predicates_for_join(
     """
     out: List[JoinPredicate] = []
     understood = 0
+    join_type = str(join.get(_JOIN_TYPE) or "").strip().lower()
     for entry in join.get(_COLUMNS) or []:
         if not isinstance(entry, dict):
             continue
@@ -182,7 +198,12 @@ def _predicates_for_join(
             index.warehouse_side_predicates += 1
             continue
         out.append(
-            JoinPredicate(join_element_id=join_element_id, left=left, right=right)
+            JoinPredicate(
+                join_element_id=join_element_id,
+                left=left,
+                right=right,
+                join_type=join_type,
+            )
         )
     return out, understood
 

@@ -112,6 +112,30 @@ Sigma connection record omits `database`/`schema`, set `default_database` in
 | `chart_warehouse_table_node_skipped`   | Lineage node missing `name` field or has unexpected ID format; skipped                                            |
 | `chart_warehouse_table_name_ambiguous` | Table name matched multiple warehouse URNs; edge skipped — set `default_database` in `connection_to_platform_map` |
 
+#### Chart formula refs that reach through a join
+
+Sigma writes a column reached through a join as `[JoinElement/SourceElement/Column]`. Read
+at the first slash that names a column `SourceElement/Column`, which the upstream does not
+have, so the `InputField` produced pointed at a field that does not exist. The connector
+now tries every split of such a ref and accepts only one whose upstream actually has the
+column, including the case where the middle segment is a table joined in inside a Data
+Model (resolved among that model's own elements).
+
+> **Some `InputFields` that previously named an upstream now self-reference.** When no
+> split validates, the ref is dropped rather than emitted at the first slash, because the
+> old reading produced a dangling `schemaFieldUrn`. The column still appears in the chart's
+> column list, pointing at itself. `chart_join_chain_dangling_suppressed` counts these, and
+> `chart_input_fields_self_ref_unresolved_refs` rises by the same amount that
+> `chart_input_fields_resolved` falls.
+
+| Counter                                | Meaning                                                                 |
+| -------------------------------------- | ----------------------------------------------------------------------- |
+| `chart_join_chain_resolved`            | Multi-segment refs resolved and schema-validated                        |
+| `chart_join_chain_sibling_resolved`    | Subset resolved via a sibling element of the first segment's Data Model |
+| `chart_join_chain_unresolved`          | No split validated; the column self-references                          |
+| `chart_join_chain_dangling_suppressed` | Refs dropped rather than emitted as a dangling field                    |
+| `chart_join_chain_sibling_ambiguous`   | Two sibling elements share the middle segment's name; refused           |
+
 #### Workbook chart inputFields warehouse column-level qualification
 
 When `extract_lineage: true` (default), the connector qualifies chart column `InputFields` to
@@ -235,8 +259,21 @@ predicate itself is exposed on `/v2/dataModels/{id}/spec`, which the connector n
 once per Data Model: where a predicate equates a column an edge already reaches with a
 column on the other side, the other side is emitted as an additional upstream. Because a
 predicate is an equality rather than a value copy, those edges carry a lower
-`confidenceScore` (0.7) than formula-derived ones, so consumers wanting only
+`confidenceScore` than formula-derived ones (0.7 for an inner join, 0.6 for an outer join,
+where the equality holds only on the rows the join matched), so consumers wanting only
 value-propagation lineage can filter them out.
+
+A predicate is applied only to elements that read **through** its join — the join element
+must be in the element's own upstream chain. Two elements can reference the same key column
+while only one of them flows through the join that constrains it, and expanding the other
+would assert an equality its data path never applies.
+`data_model_join_key_out_of_join_path` counts predicates skipped for this reason.
+
+> **Confidence filtering does not remove the table-level edge.** When a join partner is a
+> Data Model element the chart or dataset did not already depend on, that element is also
+> added to `upstreamLineage.upstreams`. `Upstream` has no `confidenceScore`, so a consumer
+> filtering the 0.6/0.7 column edges still keeps the table-level edge those column edges
+> introduced. Set `extract_join_key_lineage: false` to suppress both.
 
 The `/spec` call needs the API token's data model read scope. Without it the call fails,
 one warning is reported for the run, `data_model_spec_fetch_failed` counts the affected

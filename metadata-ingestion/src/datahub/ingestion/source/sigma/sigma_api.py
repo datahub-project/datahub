@@ -79,7 +79,9 @@ class SigmaAPI:
         # scope; warn once and let the counter carry the magnitude.
         self._spec_unavailable_warned: bool = False
         self._element_fetch_failed_warned: bool = False
-        self._ingested_element_types = (
+        # Public: callers log which types were admitted, and naming the module
+        # constant instead would report types this run never accepted.
+        self.ingested_element_types = (
             INGESTED_ELEMENT_TYPES
             if config.ingest_pivot_and_input_tables
             else BASE_ELEMENT_TYPES
@@ -766,7 +768,7 @@ class SigmaAPI:
             )
             response.raise_for_status()
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
-                if element_dict.get("type") not in self._ingested_element_types:
+                if element_dict.get("type") not in self.ingested_element_types:
                     # Skipped elements never enter the workbook element index, so
                     # any chart formula referencing one can never resolve and
                     # falls back to a self-reference. Log the elementId (always
@@ -817,30 +819,34 @@ class SigmaAPI:
                     # Two separate blocks: a lineage failure must not also
                     # cost the SQL query, which is an independent call that may
                     # well have succeeded.
-                    for fetch in ("lineage", "query"):
-                        try:
-                            if fetch == "lineage":
-                                element.upstream_sources = (
-                                    self._get_element_upstream_sources(
-                                        element, workbook
-                                    )
-                                )
-                            else:
-                                element.query = self._get_element_sql_query(
-                                    element, workbook
-                                )
-                        except Exception as e:
-                            # Backstop only. Both fetchers handle their own
-                            # HTTP errors and return empty, so in practice
-                            # nothing reaches here -- which is exactly why the
-                            # counter must also be recorded inside them.
-                            self._record_element_fetch_failure(
-                                element_id=element.elementId,
-                                element_type=str(element_dict.get("type")),
-                                workbook_name=workbook.name,
-                                fetch=fetch,
-                                exc=e,
-                            )
+                    #
+                    # Both are backstops. Each fetcher handles its own HTTP
+                    # errors and returns empty, so in practice nothing reaches
+                    # these handlers -- which is exactly why the failure counter
+                    # is recorded inside the fetchers too.
+                    el_type = str(element_dict.get("type"))
+                    try:
+                        element.upstream_sources = self._get_element_upstream_sources(
+                            element, workbook
+                        )
+                    except Exception as e:
+                        self._record_element_fetch_failure(
+                            element_id=element.elementId,
+                            element_type=el_type,
+                            workbook_name=workbook.name,
+                            fetch="lineage",
+                            exc=e,
+                        )
+                    try:
+                        element.query = self._get_element_sql_query(element, workbook)
+                    except Exception as e:
+                        self._record_element_fetch_failure(
+                            element_id=element.elementId,
+                            element_type=el_type,
+                            workbook_name=workbook.name,
+                            fetch="query",
+                            exc=e,
+                        )
                 elements.append(element)
             return elements
         except Exception as e:

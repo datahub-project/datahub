@@ -93,8 +93,8 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source._workbook_customsql_formula_fields = {}
     source._bridge_unresolved_warned = set()
     # Memos for maps derived from the per-workbook indexes.
-    source._normalized_index_cache = {}
-    source._chart_cols_cache = {}
+    source._normalized_index_memo = None
+    source._chart_cols_memo = None
     return source
 
 

@@ -363,6 +363,14 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # the table joined into it is that element's sibling and is invisible from
     # the chart side, which is why the plain candidate search cannot see it.
     # A subset of chart_join_chain_resolved, not an addition to it.
+    # A join predicate named a column this element references, but the join it
+    # came from is not in the element's upstream closure -- two elements can
+    # read the same key column while only one flows through the join. Expanding
+    # the other would assert an equality its data path never applies, so the
+    # predicate is skipped. A large value beside a small
+    # data_model_element_fgl_join_key_resolved means the scoping is doing most
+    # of the work; a large value with resolved at 0 means it is too tight.
+    data_model_join_key_out_of_join_path: int = 0
     chart_join_chain_sibling_resolved: int = 0
     # The first segment resolved, but to a chart or warehouse table rather than
     # a Data Model element, so there were no siblings to search.

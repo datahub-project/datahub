@@ -28,6 +28,7 @@ def _source() -> SigmaSource:
     )
     source._dm_spec_index_cache = {}
     source._join_partner_cache = {}
+    source._dm_ancestors_cache = {}
     source.sigma_api = MagicMock()
     source.sigma_api.get_data_model_spec.return_value = None
     return source
@@ -1499,7 +1500,7 @@ _LEFT_COL_ID = "a-col-k"
 _RIGHT_COL_ID = "c-col-k"
 
 
-def _join_spec_source(source: SigmaSource) -> None:
+def _join_spec_source(source: SigmaSource, join_type: str = "left") -> None:
     """Make /spec report one join predicate: A.col_k == C.col_k.
 
     Shape mirrors a live tenant: the predicate lives under
@@ -1531,7 +1532,7 @@ def _join_spec_source(source: SigmaSource) -> None:
                             "primarySource": {"kind": "warehouse-table"},
                             "joins": [
                                 {
-                                    "joinType": "left",
+                                    "joinType": join_type,
                                     "left": {"elementId": "a", "kind": "element"},
                                     "right": {"elementId": "c", "kind": "element"},
                                     # Sides are Sigma FORMULAS, not identifiers:
@@ -1559,7 +1560,11 @@ def test_join_key_edge_is_scored_below_a_formula_edge() -> None:
     source = _source()
     _join_spec_source(source)
     a_urn, c_urn, b_urn = _urn("a"), _urn("c"), _urn("b")
-    element = _element("b", "B", [_column("b-key", "col_k", "[A/col_k]")])
+    # source_ids=["j"]: B reads through the join, which is what makes the
+    # predicate evidence about B at all.
+    element = _element(
+        "b", "B", [_column("b-key", "col_k", "[A/col_k]")], source_ids=["j"]
+    )
 
     lineages = source._build_dm_element_fine_grained_lineages(
         element=element,
@@ -1572,6 +1577,7 @@ def test_join_key_edge_is_scored_below_a_formula_edge() -> None:
                 element,
                 _element("a", "A", [_column(_LEFT_COL_ID, "col_k", None)]),
                 _element("c", "C", [_column(_RIGHT_COL_ID, "col_k", None)]),
+                _element("j", "J", [], source_ids=["a", "c"]),
             ]
         ),
         warehouse_url_id_map={},
@@ -1582,7 +1588,83 @@ def test_join_key_edge_is_scored_below_a_formula_edge() -> None:
         (lineage.upstreams or [])[0]: lineage.confidenceScore for lineage in lineages
     }
     assert by_upstream[builder.make_schema_field_urn(a_urn, "col_k")] == 1.0
+    # The fixture's joinType is "left", so the equality holds only on matched
+    # rows and the edge lands in the outer-join tier rather than at 0.7.
+    assert by_upstream[builder.make_schema_field_urn(c_urn, "col_k")] == 0.6
+
+
+def test_inner_join_key_edge_scores_above_an_outer_one() -> None:
+    """An inner join asserts the equality for every row it produces."""
+    source = _source()
+    _join_spec_source(source, join_type="inner")
+    a_urn, c_urn, b_urn = _urn("a"), _urn("c"), _urn("b")
+    element = _element(
+        "b", "B", [_column("b-key", "col_k", "[A/col_k]")], source_ids=["j"]
+    )
+
+    lineages = source._build_dm_element_fine_grained_lineages(
+        element=element,
+        element_dataset_urn=b_urn,
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": a_urn, "c": c_urn},
+        entity_level_upstream_urns={a_urn},
+        data_model=_data_model(
+            [
+                element,
+                _element("a", "A", [_column(_LEFT_COL_ID, "col_k", None)]),
+                _element("c", "C", [_column(_RIGHT_COL_ID, "col_k", None)]),
+                _element("j", "J", [], source_ids=["a", "c"]),
+            ]
+        ),
+        warehouse_url_id_map={},
+        discovered_upstreams=set(),
+    )
+
+    by_upstream = {
+        (lineage.upstreams or [])[0]: lineage.confidenceScore for lineage in lineages
+    }
     assert by_upstream[builder.make_schema_field_urn(c_urn, "col_k")] == 0.7
+
+
+def test_element_off_the_join_path_gets_no_join_key_edge() -> None:
+    """A predicate constrains only the elements that read through its join.
+
+    D references the same key column as the join's left side but never touches
+    the join. Expanding it would assert an equality D's data path never applies
+    -- lineage invented from a predicate about somebody else.
+    """
+    source = _source()
+    _join_spec_source(source)
+    a_urn, c_urn, d_urn = _urn("a"), _urn("c"), _urn("d")
+    # source_ids names A directly, NOT the join element 'j'.
+    element = _element(
+        "d", "D", [_column("d-key", "col_k", "[A/col_k]")], source_ids=["a"]
+    )
+
+    lineages = source._build_dm_element_fine_grained_lineages(
+        element=element,
+        element_dataset_urn=d_urn,
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": a_urn, "c": c_urn},
+        entity_level_upstream_urns={a_urn},
+        data_model=_data_model(
+            [
+                element,
+                _element("a", "A", [_column(_LEFT_COL_ID, "col_k", None)]),
+                _element("c", "C", [_column(_RIGHT_COL_ID, "col_k", None)]),
+                _element("j", "J", [], source_ids=["a", "c"]),
+            ]
+        ),
+        warehouse_url_id_map={},
+        discovered_upstreams=set(),
+    )
+
+    # The formula edge stands; the join partner does not come along with it.
+    assert [(lineage.upstreams or [])[0] for lineage in lineages] == [
+        builder.make_schema_field_urn(a_urn, "col_k")
+    ]
+    assert source.reporter.data_model_element_fgl_join_key_resolved == 0
+    assert source.reporter.data_model_join_key_out_of_join_path == 1
 
 
 def test_join_partner_outside_the_run_is_counted_not_emitted() -> None:

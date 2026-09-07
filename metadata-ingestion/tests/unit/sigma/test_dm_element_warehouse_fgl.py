@@ -774,6 +774,59 @@ class TestNoBracketRefWarehouseFgl:
         # Reduced confidence: the table match is exact, the column name inferred.
         assert fgls[0].confidenceScore == 0.5
 
+    def test_element_named_after_its_own_table_resolves_by_name(self):
+        """A single-element DM named after the warehouse table it reads.
+
+        Every column's formula names the element's own name, so every intra-DM
+        candidate is a self-reference. That branch used to dead-end: with no
+        cross-DM sources and a columnId that is not ``inode-<urlId>/<NATIVE>``
+        there was no pre-built warehouse FGL, and the ref was dropped -- the
+        Data Model emitted table-level lineage and no column lineage at all,
+        which is exactly what a customer reported.
+        """
+        source = _make_source()
+        col = _column("el-self/CUSTOMER_ID", "Customer Id", "[CUSTOMERS/Customer Id]")
+        # The element's NAME is the table name -- that is what makes the ref
+        # look like a self-reference.
+        elem = _element("el-self", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            warehouse_map=_SF_WAREHOUSE_MAP,
+            # Without this the ref does not look like a self-reference and the
+            # test passes for the wrong reason, via the no-candidate branch.
+            element_name_to_eids={"customers": ["el-self"]},
+        )
+
+        assert len(fgls) == 1
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "customer_id")
+        ]
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_resolved == 1
+
+    def test_self_named_element_still_prefers_the_columnid_derived_edge(self):
+        """The name-derived edge is a fallback, never a replacement.
+
+        With an inode-shaped columnId the warehouse FGL is exact, so it must
+        win and the lower-confidence name-derived path must not also fire.
+        """
+        source = _make_source()
+        col = _column(f"inode-{_SF_URL_ID}/EMAIL", "Email", "[CUSTOMERS/Email]")
+        elem = _element("el-self", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            warehouse_map=_SF_WAREHOUSE_MAP,
+            element_name_to_eids={"customers": ["el-self"]},
+        )
+
+        assert len(fgls) == 1
+        assert fgls[0].confidenceScore == 1.0
+        assert source.reporter.data_model_element_fgl_warehouse_resolved == 1
+        assert source.reporter.data_model_element_fgl_warehouse_table_name_resolved == 0
+
     def test_ref_naming_undeclared_warehouse_table_is_not_resolved(self):
         """Only tables the element actually declares may be matched."""
         source = _make_source()

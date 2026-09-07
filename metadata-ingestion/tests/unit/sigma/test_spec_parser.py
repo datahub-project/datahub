@@ -119,6 +119,29 @@ def test_side_expression_yields_the_column_it_references() -> None:
     assert index.pairs[0].right.expression == "Coalesce([Col B], -2)"
 
 
+def test_join_type_is_captured_and_outer_joins_are_flagged() -> None:
+    """An outer join's ON equality holds only on the rows it matched.
+
+    The consumer scores those edges lower, so the parser has to carry the type
+    rather than discard it.
+    """
+    for join_type, expected_outer in (
+        ("inner", False),
+        ("left", True),
+        ("full-outer", True),
+        ("", False),
+    ):
+        source = _join(
+            _ELEMENT_SIDE_L,
+            _ELEMENT_SIDE_R,
+            [{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}],
+        )
+        source["joins"][0]["joinType"] = join_type
+        index = parse_data_model_spec(_spec(source), data_model_id="dm-1")
+        assert index.pairs[0].join_type == join_type
+        assert index.pairs[0].is_outer is expected_outer
+
+
 def test_composite_or_literal_side_is_refused() -> None:
     """Two columns or none is not a simple key equality."""
     for expr in ("[A] = [B]", "42"):

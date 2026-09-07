@@ -67,6 +67,7 @@ from datahub.ingestion.source.sigma.formula_parser import (
     extract_bracket_refs,
 )
 from datahub.ingestion.source.sigma.sigma_api import (
+    BASE_ELEMENT_TYPES,
     INGESTED_ELEMENT_TYPES,
     SigmaAPI,
 )
@@ -154,6 +155,10 @@ _FGL_CONFIDENCE_WAREHOUSE_GLOBAL_NAME_DERIVED: float = 0.3
 # an equality, not a copy, so it scores below a formula-derived edge to let
 # consumers that want only value-propagation lineage filter these out.
 _FGL_CONFIDENCE_JOIN_KEY: float = 0.7
+# Same, under an OUTER join. The equality holds only for rows the join matched;
+# on the rest the unmatched side is NULL. Still a real upstream, but a weaker
+# claim than an inner join's, so it gets its own tier rather than being dropped.
+_FGL_CONFIDENCE_JOIN_KEY_OUTER: float = 0.6
 
 
 def _warehouse_column_from_display_name(display_name: str) -> str:
@@ -496,8 +501,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # first time a Data Model's own /lineage turns out to omit a table its
         # elements reference. None until built; {} means built-and-empty.
         # Single-entry memos for maps derived from per-workbook indexes.
-        self._normalized_index_cache: Dict[int, Dict[str, List[Element]]] = {}
-        self._chart_cols_cache: Dict[Tuple[int, int], Dict[str, Dict[str, str]]] = {}
+        #
+        # Each holds the SOURCE objects alongside the derived map and the
+        # reader compares them with `is`. Keying on id() alone was wrong:
+        # CPython reuses an address once an object is freed, and these indexes
+        # are built and dropped one per workbook, so the next workbook's index
+        # could land on the previous one's address and be served its data --
+        # which for _chart_cols_memo is a wrong column list used to VALIDATE a
+        # join-chain split, i.e. a wrong split accepted rather than a miss.
+        self._normalized_index_memo: Optional[
+            Tuple[Dict[str, List[Element]], Dict[str, List[Element]]]
+        ] = None
+        self._chart_cols_memo: Optional[
+            Tuple[
+                Dict[str, List[Element]],
+                Dict[str, str],
+                Dict[str, Dict[str, str]],
+            ]
+        ] = None
         # urlId -> /files entry, or None when Sigma 404s (a stale reference to a
         # deleted table). One call per distinct url_id.
         self._warehouse_file_by_url_id: Dict[str, Optional[Dict[str, Any]]] = {}
@@ -506,8 +527,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._dm_spec_index_cache: Dict[str, DataModelSpecIndex] = {}
         # Join partners, built once per Data Model rather than per element.
         self._join_partner_cache: Dict[
-            Tuple[str, int], Dict[Tuple[str, str], Set[Tuple[str, str]]]
+            str, Dict[Tuple[str, str], Set[Tuple[str, str, str, bool]]]
         ] = {}
+        # Intra-DM element ancestry, keyed by dataModelId.
+        self._dm_ancestors_cache: Dict[str, Dict[str, Set[str]]] = {}
         # Built once per run, lazily, by _ensure_global_warehouse_index.
         self._global_warehouse_index_built: bool = False
         self._global_warehouse_file_entries: Dict[str, Dict[str, Any]] = {}
@@ -3421,16 +3444,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
         return True
 
+    def _admitted_element_types(self) -> FrozenSet[str]:
+        """The workbook element types this run actually ingests.
+
+        Mirrors SigmaAPI's own narrowing so a log line cannot name a type that
+        was never admitted.
+        """
+        return (
+            INGESTED_ELEMENT_TYPES
+            if self.config.ingest_pivot_and_input_tables
+            else BASE_ELEMENT_TYPES
+        )
+
     def _resolve_no_ref_column_fgl(
         self,
         *,
         column: SigmaDataModelColumn,
-        element: SigmaDataModelElement,
-        element_dataset_urn: str,
         warehouse_fgl: Optional[FineGrainedLineageClass],
         downstream_field: str,
         fgls: List[FineGrainedLineageClass],
-        cross_dm_fgls: List[FineGrainedLineageClass],
         emitted_pairs: Set[Tuple[str, str]],
     ) -> None:
         """Handle a column no bracket ref could be resolved from.
@@ -3512,12 +3544,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         spec: DataModelSpecIndex,
         data_model: SigmaDataModel,
         elementId_to_dataset_urn: Dict[str, str],
-    ) -> Dict[Tuple[str, str], Set[Tuple[str, str]]]:
-        """(urn, column name) -> the columns a join predicate equates it with.
+    ) -> Dict[Tuple[str, str], Set[Tuple[str, str, str, bool]]]:
+        """(urn, column name) -> (join element id, partner urn, partner column, is_outer).
 
         A predicate side names its column by DISPLAY NAME, but columnId is also
         accepted: the spec does not label which it uses, and matching both costs
         nothing while making the lookup robust if Sigma switches.
+
+        The join element id travels with each partner because a predicate is
+        only evidence for elements that read THROUGH that join. Without it the
+        map is Data-Model-wide and any element referencing a key column would
+        inherit the other side, inventing lineage for a path the join is not on.
         """
         col_name_by_key: Dict[str, Dict[str, str]] = {}
         for dm_el in data_model.elements:
@@ -3539,7 +3576,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             name = keys.get(side.column) or keys.get(side.column.strip().lower())
             return (urn, name) if name else None
 
-        partners: Dict[Tuple[str, str], Set[Tuple[str, str]]] = {}
+        partners: Dict[Tuple[str, str], Set[Tuple[str, str, str, bool]]] = {}
         for predicate in spec.pairs:
             a, b = resolve(predicate.left), resolve(predicate.right)
             if a is None or b is None:
@@ -3563,8 +3600,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     "ok" if b else "UNRESOLVED",
                 )
                 continue
-            partners.setdefault(a, set()).add(b)
-            partners.setdefault(b, set()).add(a)
+            join_id = predicate.join_element_id
+            outer = predicate.is_outer
+            partners.setdefault(a, set()).add((join_id, b[0], b[1], outer))
+            partners.setdefault(b, set()).add((join_id, a[0], a[1], outer))
         logger.debug(
             "JOIN KEY DM %s: %d predicate(s) -> %d column(s) with partners",
             data_model.dataModelId,
@@ -3573,10 +3612,46 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
         return partners
 
+    def _dm_element_ancestors(self, data_model: SigmaDataModel) -> Dict[str, Set[str]]:
+        """elementId -> every intra-DM element it reads from, plus itself.
+
+        Memoized per Data Model: the walk is O(elements x edges) and every
+        element of the model asks for it.
+
+        ``source_ids`` entries are ``inode-<urlId>`` for a warehouse table and
+        ``<dm-url-id>/<suffix>`` for another Data Model; a bare id is a sibling
+        element in this model. Only the last kind can carry a join, so only it
+        is walked.
+        """
+        memo = self._dm_ancestors_cache.get(data_model.dataModelId)
+        if memo is not None:
+            return memo
+        direct: Dict[str, Set[str]] = {}
+        for el in data_model.elements:
+            direct[el.elementId] = {
+                sid
+                for sid in el.source_ids
+                if "/" not in sid and not sid.startswith("inode-")
+            }
+        closure: Dict[str, Set[str]] = {}
+        for start in direct:
+            seen = {start}
+            stack = list(direct[start])
+            while stack:
+                node = stack.pop()
+                if node in seen:
+                    continue
+                seen.add(node)
+                stack.extend(direct.get(node, ()))
+            closure[start] = seen
+        self._dm_ancestors_cache[data_model.dataModelId] = closure
+        return closure
+
     def _add_join_key_fgls(
         self,
         *,
         element: SigmaDataModelElement,
+        element_dataset_urn: str,
         data_model: SigmaDataModel,
         elementId_to_dataset_urn: Dict[str, str],
         urn_to_cols: Dict[str, Dict[str, str]],
@@ -3594,6 +3669,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         columns an edge already reaches are expanded, so this never invents
         lineage for a column the formulas said nothing about.
 
+        A predicate applies only to elements that read THROUGH its join. Two
+        elements can reference the same key column while only one of them sits
+        downstream of the join that constrains it; expanding the other would
+        assert an equality its data path never applies. The join element must
+        therefore be in the element's own upstream closure, and predicates
+        skipped by that test are counted in
+        ``data_model_join_key_out_of_join_path``.
+
         The predicate is an equality, not a copy, so these edges score below a
         formula-derived one: consumers wanting only value-propagation lineage
         can filter them out by confidence.
@@ -3605,18 +3688,26 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # element re-walked every element's columns and re-counted every
         # unresolved predicate -- on one tenant 61 predicates were reported as
         # 1,234 failures, which made the counter unreadable.
-        cache_key = (data_model.dataModelId, id(elementId_to_dataset_urn))
-        partners = self._join_partner_cache.get(cache_key)
+        # Keyed by dataModelId alone. The element->URN map was part of the key
+        # via id(), which added nothing (the URNs are a pure function of the
+        # model) and risked a reused address matching a different map.
+        dm_id = data_model.dataModelId
+        partners = self._join_partner_cache.get(dm_id)
         if partners is None:
             partners = self._build_join_partner_map(
                 spec=spec,
                 data_model=data_model,
                 elementId_to_dataset_urn=elementId_to_dataset_urn,
             )
-            self._join_partner_cache = {cache_key: partners}
+            self._join_partner_cache = {dm_id: partners}
         if not partners:
             return
         element_id_by_urn = {urn: eid for eid, urn in elementId_to_dataset_urn.items()}
+        # The joins this element actually reads through: itself (a join
+        # element's own output IS the join) plus every intra-DM ancestor.
+        in_scope_joins = self._dm_element_ancestors(data_model).get(
+            element.elementId, {element.elementId}
+        )
 
         added = 0
         # (element id, field) pairs this element's edges actually reached.
@@ -3635,9 +3726,29 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # describes only this model's own elements.
                 continue
             looked_up.add((element_id_by_urn[parent], upstream.field_path))
-            for partner_urn, partner_col in sorted(
+            for join_element_id, partner_urn, partner_col, is_outer in sorted(
                 partners.get((parent, upstream.field_path), set())
             ):
+                if join_element_id not in in_scope_joins:
+                    # This element references a key column but does not read
+                    # through the join that constrains it.
+                    self.reporter.data_model_join_key_out_of_join_path += 1
+                    logger.debug(
+                        "JOIN KEY DM %s element %s: predicate from join element "
+                        "%s names %s/%s, but that join is not in this element's "
+                        "upstream closure %r -- skipping",
+                        data_model.dataModelId,
+                        element.elementId,
+                        join_element_id,
+                        element_id_by_urn[parent],
+                        upstream.field_path,
+                        sorted(in_scope_joins)[:10],
+                    )
+                    continue
+                if partner_urn == element_dataset_urn:
+                    # The partner is this element itself; a self-loop upstream
+                    # is not lineage.
+                    continue
                 canonical = (urn_to_cols.get(partner_urn) or {}).get(
                     partner_col.lower(), partner_col
                 )
@@ -3655,7 +3766,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         downstreams=[downstream_field],
                         upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                         upstreams=[partner_field],
-                        confidenceScore=_FGL_CONFIDENCE_JOIN_KEY,
+                        confidenceScore=(
+                            _FGL_CONFIDENCE_JOIN_KEY_OUTER
+                            if is_outer
+                            else _FGL_CONFIDENCE_JOIN_KEY
+                        ),
                     )
                 )
                 discovered_upstreams.add(partner_urn)
@@ -3696,6 +3811,37 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 sorted(looked_up)[:10],
                 sorted(partners)[:10],
             )
+
+    @staticmethod
+    def _log_dm_column_outcome(
+        *,
+        data_model_id: str,
+        element_id: str,
+        column: SigmaDataModelColumn,
+        resolution_attempted: bool,
+        new_fgls: List[FineGrainedLineageClass],
+    ) -> None:
+        """Per-column verdict line for the Data Model FGL builder.
+
+        Guarded, and extracted for it: logger.debug evaluates its arguments
+        eagerly, so re-parsing every formula for a line the default log level
+        discards is pure waste on a path that runs for every column of every
+        element.
+        """
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        logger.debug(
+            "COLUMN DM %s element %s %r: columnId=%r formula=%r refs=%r "
+            "ref_resolution_attempted=%s -> emitted=%r",
+            data_model_id,
+            element_id,
+            column.name,
+            column.columnId,
+            column.formula,
+            [r.raw for r in extract_bracket_refs(column.formula)],
+            resolution_attempted,
+            [(f.upstreams or [""])[0] for f in new_fgls],
+        )
 
     def _build_dm_element_fine_grained_lineages(
         self,
@@ -3841,15 +3987,38 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         # No cross-DM match; element is named after its warehouse source.
                         if not warehouse_consumed:
                             warehouse_consumed = True
-                            if warehouse_fgl is None:
-                                self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
-                            else:
+                            if warehouse_fgl is not None:
                                 assert warehouse_fgl.upstreams
                                 pair = (downstream_field, warehouse_fgl.upstreams[0])
                                 if pair not in emitted_pairs:
                                     emitted_pairs.add(pair)
                                     fgls.append(warehouse_fgl)
                                     self.reporter.data_model_element_fgl_warehouse_resolved += 1
+                                continue
+                            self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+                        # There is no pre-built warehouse FGL, because that is
+                        # derived from an ``inode-<urlId>/<NATIVE>`` columnId and
+                        # this column's is ``<element>/<NATIVE>``. The ref still
+                        # names the warehouse table, and the element declares
+                        # exactly that table, so resolve it by name.
+                        #
+                        # Without this the branch dead-ended: a single-element
+                        # Data Model named after its own warehouse table emitted
+                        # table-level lineage and NO column lineage at all, while
+                        # every one of its columns carried a formula naming the
+                        # table. Kept to tables the element DECLARES
+                        # (allow_global_name_index=False) so the tenant-wide
+                        # /v2/files listing is not triggered from a path that
+                        # deferred ~10,700 times in one run.
+                        self._try_resolve_warehouse_table_name_ref(
+                            ref=ref,
+                            element=element,
+                            downstream_field=downstream_field,
+                            warehouse_url_id_map=warehouse_url_id_map,
+                            emitted_pairs=emitted_pairs,
+                            fgls=fgls,
+                            allow_global_name_index=False,
+                        )
                         continue
                     # No intra-DM candidate. Before cross-DM search, try the
                     # warehouse path via columnId. Sigma elements sometimes use
@@ -3921,29 +4090,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if not resolution_attempted:
                 self._resolve_no_ref_column_fgl(
                     column=column,
-                    element=element,
-                    element_dataset_urn=element_dataset_urn,
                     warehouse_fgl=warehouse_fgl,
                     downstream_field=downstream_field,
                     fgls=fgls,
-                    cross_dm_fgls=cross_dm_fgls,
                     emitted_pairs=emitted_pairs,
                 )
 
-            emitted_now = [(f.upstreams or [""])[0] for f in fgls[fgl_mark:]] + [
-                (f.upstreams or [""])[0] for f in cross_dm_fgls[cross_mark:]
-            ]
-            logger.debug(
-                "COLUMN DM %s element %s %r: columnId=%r formula=%r refs=%r "
-                "ref_resolution_attempted=%s -> emitted=%r",
-                data_model.dataModelId,
-                element.elementId,
-                column.name,
-                column.columnId,
-                column.formula,
-                [r.raw for r in extract_bracket_refs(column.formula)],
-                resolution_attempted,
-                emitted_now,
+            self._log_dm_column_outcome(
+                data_model_id=data_model.dataModelId,
+                element_id=element.elementId,
+                column=column,
+                resolution_attempted=resolution_attempted,
+                new_fgls=fgls[fgl_mark:] + cross_dm_fgls[cross_mark:],
             )
         # fgl_emitted is the umbrella count for everything appended to `fgls`:
         # intra-DM, warehouse-passthrough, warehouse-table-name and join-key
@@ -3952,6 +4110,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # fgl_join_key_resolved) so each mechanism can be triaged on its own.
         self._add_join_key_fgls(
             element=element,
+            element_dataset_urn=element_dataset_urn,
             data_model=data_model,
             elementId_to_dataset_urn=elementId_to_dataset_urn,
             urn_to_cols=urn_to_cols,
@@ -4497,16 +4656,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         The exact-match miss path is one of the hottest in the connector -- one
         tenant reached it ~51k times -- and rebuilding this map each time walked
-        every element in the workbook. Keyed on the identity of the index it
-        derives from, which is rebuilt per workbook, so a new workbook naturally
-        gets a new entry and the cache never serves a stale one.
+        every element in the workbook.
+
+        The memo holds the source index itself and compares with ``is``, rather
+        than keying on ``id()``: an id is only unique among LIVE objects, and
+        these indexes are built and dropped one per workbook, so a freed one's
+        address can be reused by the next workbook's index and serve it the
+        previous workbook's elements.
         """
-        key = id(wb_element_index)
-        cached = self._normalized_index_cache.get(key)
-        if cached is None:
-            cached = self._build_normalized_element_index(wb_element_index)
-            self._normalized_index_cache = {key: cached}
-        return cached
+        memo = self._normalized_index_memo
+        if memo is not None and memo[0] is wb_element_index:
+            return memo[1]
+        built = self._build_normalized_element_index(wb_element_index)
+        self._normalized_index_memo = (wb_element_index, built)
+        return built
 
     @staticmethod
     def _build_normalized_element_index(
@@ -4784,15 +4947,28 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         candidates = candidate_source_column_splits(ref)
         if len(candidates) < 2:
             return None
-        key = (id(wb_element_index), id(elementId_to_chart_urn))
-        chart_cols = self._chart_cols_cache.get(key)
-        if chart_cols is None:
+        # Identity comparison, not id(): a freed workbook index's address can be
+        # reused by the next one, and this map is what VALIDATES a candidate
+        # split -- serving another workbook's columns would accept a wrong
+        # split, not merely miss a right one.
+        memo = self._chart_cols_memo
+        if (
+            memo is not None
+            and memo[0] is wb_element_index
+            and memo[1] is elementId_to_chart_urn
+        ):
+            chart_cols = memo[2]
+        else:
             chart_cols = self._chart_urn_column_index(
                 wb_element_index, elementId_to_chart_urn
             )
-            # Single-entry cache: both maps are rebuilt per workbook, so holding
-            # more would just retain dead workbooks' columns.
-            self._chart_cols_cache = {key: chart_cols}
+            # Single entry: both maps are rebuilt per workbook, so holding more
+            # would just retain dead workbooks' columns.
+            self._chart_cols_memo = (
+                wb_element_index,
+                elementId_to_chart_urn,
+                chart_cols,
+            )
         trace: List[str] = []
         for source, column in candidates:
             probe = replace(
@@ -5086,16 +5262,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     # strict", which the normalized retry has since fixed.
                     if count:
                         self.reporter.chart_ref_source_near_miss += 1
-                logger.debug(
-                    "No exact-case workbook element match for formula ref source "
-                    "%r (normalized=%r); near_matches=%r; index_size=%d "
-                    "index_sample=%r; falling back to warehouse-table resolution.",
-                    ref.source,
-                    normalized,
-                    near,
-                    len(wb_element_index),
-                    sorted(wb_element_index)[:15],
-                )
+                # Guarded: this is one of the hottest paths in the connector
+                # (~51k hits on one tenant) and sorting the whole workbook
+                # index for a discarded log line is pure waste.
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "No exact-case workbook element match for formula ref "
+                        "source %r (normalized=%r); near_matches=%r; "
+                        "index_size=%d index_sample=%r; falling back to "
+                        "warehouse-table resolution.",
+                        ref.source,
+                        normalized,
+                        near,
+                        len(wb_element_index),
+                        sorted(wb_element_index)[:15],
+                    )
 
         return candidates
 
@@ -5380,7 +5561,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     logger.debug(
                         f"Upstream elementId {upstream.element_id} not in element map "
                         f"for element {element.name}; likely filtered by get_page_elements "
-                        f"(allowlist: {sorted(INGESTED_ELEMENT_TYPES)})"
+                        # Narrowed when ingest_pivot_and_input_tables is off,
+                        # so the line never names a type this run rejected.
+                        f"(allowlist: {sorted(self._admitted_element_types())})"
                     )
                     self.reporter.num_filtered_sheet_upstreams += 1
                     continue
@@ -5916,7 +6099,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Both maps are built once at workbook scope — intra-workbook lineage can
         # cross pages, so all elements must be indexed before processing any page.
         # Keys mirror the chart-emission allow-list in get_page_elements
-        # (INGESTED_ELEMENT_TYPES); filtered types are absent from both.
+        # (SigmaAPI.ingested_element_types); filtered types are absent from both.
         elementId_to_chart_urn: Dict[str, str] = {
             element.elementId: builder.make_chart_urn(
                 platform=self.platform,
