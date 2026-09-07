@@ -4,9 +4,9 @@ import com.datahub.context.OperationFingerprint;
 import javax.annotation.Nonnull;
 
 /**
- * Central read path for configuration values that may vary per operation. Every read resolves to
- * the statically bound value the caller passed — the value Spring already validated and bound at
- * startup.
+ * Central read path for configuration values that may vary per operation. Reads go through the
+ * installed {@link ConfigValueProvider} — by default {@link DefaultConfigValueProvider}, which
+ * returns the statically bound value; {@link #setProvider} installs an override.
  */
 public final class ConfigResolution {
 
