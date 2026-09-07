@@ -2,7 +2,7 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
-### Semantic models and metrics
+#### Semantic models and metrics
 
 `emit_semantic_model_entities` works the same way here as for dbt Core — see
 [Semantic Models and Metrics](/docs/generated/ingestion/sources/dbt#semantic-models-and-metrics)
