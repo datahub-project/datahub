@@ -1,9 +1,11 @@
 import importlib.metadata
 import importlib.util
 import os
+import sys
 
 import pytest
 
+from datahub.utilities import pkg_resources_shim
 from datahub.utilities.pkg_resources_shim import (
     DistributionNotFound,
     ensure_pkg_resources,
@@ -111,3 +113,38 @@ def test_stranded_dialects_import_after_shim(mod):
     if importlib.util.find_spec(mod) is None:
         pytest.skip(f"{mod} not installed")
     importlib.import_module(mod)  # must not raise
+
+
+def test_make_shim_exposes_documented_api_and_rejects_others():
+    # Exercise the fallback module directly, so its API and the loud __getattr__
+    # are covered even in environments where real pkg_resources is present.
+    shim = pkg_resources_shim._make_shim()
+    assert shim.__datahub_shim__ is True
+    assert shim.get_distribution(_PKG).version == importlib.metadata.version(_PKG)
+    assert shim.require(_PKG)[0].version == importlib.metadata.version(_PKG)
+    assert shim.parse_version("2.5") == parse_version("2.5")
+    with pytest.raises(AttributeError):
+        _ = shim.working_set  # unimplemented -> module __getattr__ raises
+
+
+def test_namespace_helpers_are_noops():
+    # Both are no-ops for PEP 420; call them for coverage (they return None).
+    pkg_resources_shim.declare_namespace("foo.bar")
+    pkg_resources_shim.fixup_namespace_packages("/some/path")
+
+
+def test_ensure_pkg_resources_installs_shim_when_import_fails(monkeypatch):
+    # Force the real pkg_resources to be unimportable so the fallback-install
+    # branch runs (the py3.12 / setuptools-absent scenario). monkeypatch.delitem
+    # snapshots and restores the original entry on teardown.
+    monkeypatch.delitem(sys.modules, "pkg_resources", raising=False)
+    real_import = importlib.import_module
+
+    def fake_import(name, *args, **kwargs):
+        if name == "pkg_resources":
+            raise ImportError("blocked for test")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(importlib, "import_module", fake_import)
+    pkg_resources_shim.ensure_pkg_resources()
+    assert getattr(sys.modules["pkg_resources"], "__datahub_shim__", False) is True

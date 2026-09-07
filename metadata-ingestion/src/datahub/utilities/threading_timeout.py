@@ -51,7 +51,7 @@ class _ThreadingTimeout:
                     self._target_tid,
                 )
                 return
-            if affected > 1:
+            if affected > 1:  # pragma: no cover
                 # Should never happen; undo to avoid poisoning other threads.
                 _set_async_exc(self._target_tid, None)
                 logger.error(
@@ -110,7 +110,7 @@ def threading_timeout(timeout: float) -> ContextManager[None]:
     if timeout <= 0:
         return contextlib.nullcontext()
 
-    if not _is_cpython():
+    if not _is_cpython():  # pragma: no cover
         raise RuntimeError(
             f"Timeout is only supported on CPython, not {platform.python_implementation()}"
         )

@@ -3,7 +3,11 @@ import time
 
 import pytest
 
-from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
+from datahub.utilities.threading_timeout import (
+    TimeoutException,
+    _ThreadingTimeout,
+    threading_timeout,
+)
 
 
 def test_timeout_no_timeout():
@@ -80,3 +84,18 @@ def test_timeout_targets_the_entering_thread_not_the_constructor():
     t.join(5.0)
     assert seen["target_tid"] == seen["worker_tid"]
     assert seen["target_tid"] != threading.get_ident()  # not the constructing thread
+
+
+def test_exit_without_enter_raises():
+    # Exiting the context without entering it is a programming error.
+    ctx = _ThreadingTimeout(1.0)
+    with pytest.raises(RuntimeError):
+        ctx.__exit__(None, None, None)
+
+
+def test_on_timeout_when_target_thread_absent_does_not_mark_timed_out():
+    # If the target thread is gone when the watchdog fires, the async exception
+    # cannot be delivered, so the block is left to run rather than timing out.
+    ctx = _ThreadingTimeout(1.0)  # _target_tid defaults to 0 (no such thread)
+    ctx._on_timeout()
+    assert ctx._timed_out is False
