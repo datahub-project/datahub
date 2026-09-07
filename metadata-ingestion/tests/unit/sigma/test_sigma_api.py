@@ -87,9 +87,10 @@ class TestTokenRefreshOn401:
 
 
 def _make_element(element_id: str = "elem1", name: str = "My Chart") -> MagicMock:
-    element = MagicMock(spec=["elementId", "name"])
+    element = MagicMock(spec=["elementId", "name", "type"])
     element.elementId = element_id
     element.name = name
+    element.type = "visualization"
     return element
 
 
@@ -704,6 +705,30 @@ class TestGetElementUpstreamSources:
             result = api._get_element_upstream_sources(element, workbook)
 
         assert result == {}
+        assert len(api.report.warnings) == 1
+        assert api.report.workbook_element_lineage_fetch_failed == 1
+
+    def test_http_error_is_counted_not_only_warned(self) -> None:
+        """The counter must fire from the handler that catches the error.
+
+        This method swallows HTTP failures and returns empty, so an increment
+        placed only in the caller's ``except`` never runs. On a live tenant 200
+        elements failed with HTTP 409 while the counter read 0, so the report
+        claimed every element had been fetched cleanly.
+        """
+        api = _create_sigma_api()
+        response = MagicMock(status_code=409)
+        response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "409 Client Error: Conflict", response=response
+        )
+        with patch.object(api, "_get_api_call", return_value=response):
+            for i in range(3):
+                api._get_element_upstream_sources(
+                    _make_element(f"elem{i}"), _make_workbook()
+                )
+
+        assert api.report.workbook_element_lineage_fetch_failed == 3
+        # Deduplicated: the magnitude lives in the counter, not in 3 copies.
         assert len(api.report.warnings) == 1
 
     @pytest.mark.parametrize("status_code", [500, 403, 400])

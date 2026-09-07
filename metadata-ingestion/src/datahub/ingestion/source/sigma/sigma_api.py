@@ -532,9 +532,15 @@ class SigmaAPI:
             response.raise_for_status()
             response_dict = response.json()
         except requests.exceptions.RequestException as e:
-            self.report.warning(
-                message="Failed to fetch Sigma element lineage",
-                context=f"element={element.name}, workbook={workbook.name}",
+            # Recorded HERE, not in the caller's try/except: this handler
+            # returns normally, so nothing propagates for the caller to catch.
+            # Counting only in the caller left the counter reading 0 on a
+            # tenant where 200 elements failed with HTTP 409.
+            self._record_element_fetch_failure(
+                element_id=element.elementId,
+                element_type=str(element.type),
+                workbook_name=workbook.name,
+                fetch="lineage",
                 exc=e,
             )
             return {}
@@ -684,6 +690,13 @@ class SigmaAPI:
             if "sql" in response_dict:
                 return response_dict["sql"]
         except Exception as e:
+            self._record_element_fetch_failure(
+                element_id=element.elementId,
+                element_type=str(element.type),
+                workbook_name=workbook.name,
+                fetch="query",
+                exc=e,
+            )
             self._log_http_error(
                 message=f"Unable to fetch sql query for element {element.name} of workbook '{workbook.name}'. Exception: {e}"
             )
@@ -817,8 +830,11 @@ class SigmaAPI:
                                     element, workbook
                                 )
                         except Exception as e:
-                            self.report.workbook_element_lineage_fetch_failed += 1
-                            self._warn_element_fetch_failed(
+                            # Backstop only. Both fetchers handle their own
+                            # HTTP errors and return empty, so in practice
+                            # nothing reaches here -- which is exactly why the
+                            # counter must also be recorded inside them.
+                            self._record_element_fetch_failure(
                                 element_id=element.elementId,
                                 element_type=str(element_dict.get("type")),
                                 workbook_name=workbook.name,
@@ -1469,6 +1485,33 @@ class SigmaAPI:
                 data_model_id=data_model_id, detail=f"error={type(e).__name__}"
             )
             return None
+
+    def _record_element_fetch_failure(
+        self,
+        *,
+        element_id: str,
+        element_type: str,
+        workbook_name: str,
+        fetch: str,
+        exc: Exception,
+    ) -> None:
+        """Count and report one per-element fetch failure.
+
+        Must be called from the handler that actually catches the error.
+        ``_get_element_upstream_sources`` and ``_get_element_sql_query`` both
+        swallow HTTP failures and return empty, so an increment placed only in
+        their caller's ``except`` never runs: on one tenant 200 elements failed
+        with HTTP 409 while this counter read 0, making the report claim every
+        element had been fetched cleanly.
+        """
+        self.report.workbook_element_lineage_fetch_failed += 1
+        self._warn_element_fetch_failed(
+            element_id=element_id,
+            element_type=element_type,
+            workbook_name=workbook_name,
+            fetch=fetch,
+            exc=exc,
+        )
 
     def _warn_element_fetch_failed(
         self,
