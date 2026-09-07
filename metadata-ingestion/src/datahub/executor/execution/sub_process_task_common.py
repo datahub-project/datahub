@@ -29,6 +29,7 @@ from datahub.executor.common.config import PermissiveConfigModel
 from datahub.executor.context.execution_context import ExecutionContext
 from datahub.executor.context.executor_context import ExecutorContext
 from datahub.executor.execution import venv_utils
+from datahub.executor.execution.runner import referenced_env_values
 from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.masking.secret_registry import SecretRegistry
 
@@ -214,6 +215,20 @@ class SubProcessTaskUtil:
     def _get_plugin_from_recipe(recipe: dict) -> str:
         # The source type -- ASSUMPTION ALERT: This should always correspond to the plugin name.
         return recipe["source"]["type"]
+
+    @staticmethod
+    def subprocess_env_secrets(args: "SubProcessRecipeTaskArgs") -> dict[str, str]:
+        """Env values referenced in pip requirements, for the subprocess stdin
+        envelope. Names the user overrides via extra_env_vars are excluded so
+        recipe resolution keeps get_combined_env_vars precedence (user value
+        wins); setup_venv registers all referenced values for masking."""
+        return {
+            name: value
+            for name, value in referenced_env_values(
+                args.extra_pip_requirements
+            ).items()
+            if name not in args.extra_env_vars
+        }
 
     @staticmethod
     def _remove_directory(dir_path: str) -> None:

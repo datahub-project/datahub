@@ -64,7 +64,7 @@ def _expand_pip_req(req: str) -> str:
         ) from e
 
 
-def _referenced_env_values(reqs: list[str]) -> dict[str, str]:
+def referenced_env_values(reqs: list[str]) -> dict[str, str]:
     """Values of only the env vars the user references in pip requirements."""
     values: dict[str, str] = {}
     for req in reqs:
@@ -528,7 +528,7 @@ async def setup_venv(
 
     # Handle dynamic venvs
     SecretRegistry.get_instance().register_secrets_batch(
-        _referenced_env_values(venv_config.extra_pip_requirements)
+        referenced_env_values(venv_config.extra_pip_requirements)
     )
 
     # Expand env-var templates once so that the venv cache key and the

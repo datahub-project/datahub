@@ -264,6 +264,8 @@ class SubProcessIngestionTask(Task):
         Secrets and recipe are passed via stdin as a JSON envelope to avoid
         writing secrets to env vars or recipe to disk.
         """
+        user_env_secrets = SubProcessTaskUtil.subprocess_env_secrets(validated_args)
+
         # First, set up the venv using Python utilities with shared logging
         venv_ref = await self._setup_venv(
             validated_args, plugin, exec_out_dir, shared_logs
@@ -295,10 +297,11 @@ class SubProcessIngestionTask(Task):
         # __recipe_yaml__ and __secrets__ are consumed by datahub's config_loader.
         # __report_out_file__ and __debug_mode__ are consumed by the wrapper script.
         # All envelope keys use dunder prefix to distinguish from recipe content.
+        # Per-run values only, never the whole registry; recipe values win on collision.
         stdin_envelope = json.dumps(
             {
                 "__recipe_yaml__": yaml.dump(recipe),
-                "__secrets__": secret_values,
+                "__secrets__": {**user_env_secrets, **secret_values},
                 "__report_out_file__": report_out_file,
                 "__debug_mode__": debug_mode,
             }

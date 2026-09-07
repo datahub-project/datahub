@@ -191,6 +191,8 @@ async def test_execute_success(
         assert yaml.safe_load(stdin_payload["__recipe_yaml__"]) == {
             "source": {"type": "demo-data"}
         }
+        # Recipe secrets plus pip-referenced env values; extra_env_vars are
+        # deliberately NOT treated as secrets (plaintext in the source config).
         assert stdin_payload["__secrets__"] == {"SOME_SECRET": "val"}
         mock_process.stdin.close.assert_called_once()
 

@@ -90,6 +90,8 @@ class SubProcessTestConnectionTask(Task):
             extra_pip_plugins=validated_args.extra_pip_plugins,
             extra_env_vars=validated_args.extra_env_vars,
         )
+        user_env_secrets = SubProcessTaskUtil.subprocess_env_secrets(validated_args)
+
         venv_setup_logs = LogHolder()
         venv_runner = SubprocessRunner(logs=venv_setup_logs)
         try:
@@ -123,10 +125,11 @@ class SubProcessTestConnectionTask(Task):
 
         # Build stdin envelope in datahub-compatible format.
         # All envelope keys use dunder prefix to distinguish from recipe content.
+        # Per-run values only, never the whole registry; recipe values win on collision.
         stdin_envelope = json.dumps(
             {
                 "__recipe_yaml__": yaml.dump(recipe),
-                "__secrets__": secret_values,
+                "__secrets__": {**user_env_secrets, **secret_values},
                 "__report_out_file__": report_out_file,
             }
         )
