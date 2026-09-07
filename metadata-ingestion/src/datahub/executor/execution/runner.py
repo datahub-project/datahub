@@ -27,10 +27,14 @@ from expandvars import (
 )
 from loguru import logger
 
+# TODO: promote to a public config_loader helper.
+from datahub.configuration.config_loader import _extract_env_var_names
 from datahub.executor.common.env_config import (
     get_bundled_venv_path,
     get_dependency_resolution_enabled,
 )
+from datahub.masking.masking_filter import SecretMaskingFilter
+from datahub.masking.secret_registry import SecretRegistry
 
 
 def _expand_pip_req(req: str) -> str:
@@ -56,6 +60,17 @@ def _expand_pip_req(req: str) -> str:
         raise RuntimeError(
             f"pip requirement {req!r} has invalid environment variable syntax: {e}"
         ) from e
+
+
+def _referenced_env_values(reqs: list[str]) -> dict[str, str]:
+    """Values of only the env vars the user references in pip requirements."""
+    values: dict[str, str] = {}
+    for req in reqs:
+        for name in _extract_env_var_names(req):
+            value = os.environ.get(name)
+            if value is not None:
+                values[name] = value
+    return values
 
 
 _DEFAULT_MAX_LOG_LINES = 2000
@@ -138,6 +153,12 @@ class LogHolder:
         self._lines.clear()
         self._create_new_line = True
         self.most_recent_log_ts = None
+
+    def append_masked(self, content: str) -> None:
+        """Masks the whole buffer before splitting, so multi-line secrets cannot straddle lines."""
+        masked = SecretMaskingFilter(SecretRegistry.get_instance()).mask_text(content)
+        for line in masked.splitlines():
+            self.append(f"{line}\n")
 
     def append(self, partial_line: str) -> None:
         self.most_recent_log_ts = datetime.now(tz=timezone.utc)
@@ -502,6 +523,10 @@ async def setup_venv(
         )
 
     # Handle dynamic venvs
+    SecretRegistry.get_instance().register_secrets_batch(
+        _referenced_env_values(venv_config.extra_pip_requirements)
+    )
+
     # Expand env-var templates once so that the venv cache key and the
     # requirements file see the same os.environ snapshot.
     expanded_pip_reqs = venv_config.resolve_pip_requirements()
@@ -550,7 +575,7 @@ async def setup_venv(
         runner._logs.append(
             f"Installing requirements from: {venv_config.requirements_file}\n"
         )
-        await runner.execute(["cat", str(venv_config.requirements_file)])
+        runner._logs.append_masked(venv_config.requirements_file.read_text())
         install_cmd = [
             _find_uv(),
             "pip",
@@ -614,7 +639,7 @@ async def setup_venv(
         extra_req_file = venv_loc / "extra-requirements.txt"
         extra_req_file.write_text("\n".join(expanded_pip_reqs))
         runner._logs.append(f"Installing extra requirements from: {extra_req_file}\n")
-        await runner.execute(["cat", str(extra_req_file)])
+        runner._logs.append_masked("\n".join(expanded_pip_reqs))
         await runner.execute(
             [_find_uv(), "pip", "install", "-r", str(extra_req_file)],
             env=venv_env,
