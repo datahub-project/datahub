@@ -7,7 +7,7 @@ code reads -- DBC.TablesV, DBA_TABLES, sys.tables -- and from the query-text
 surfaces sitting beside them in the same schemas.
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Iterator, List, Tuple
 
 import pytest
 
@@ -251,6 +251,37 @@ _DEFAULT_SCOPE_REVIEWED = frozenset(
 )
 
 
+def _declared_scopes() -> Iterator[Tuple[str, CatalogScope]]:
+    """Every source's declared scope, resolved the way _enforce_gates resolves it.
+
+    Two homes, because there are two shapes: the SQLAlchemy family declares it on
+    the config, a connector with its own provider class declares it there. Shared
+    by the two registry-wide scans below so they cannot drift apart on which
+    sources they cover. Sources whose optional deps are absent are skipped -- the
+    dialects that matter here load on core deps alone, which the scans assert.
+    """
+    from datahub.ingestion.agent.probe_methods import _provider_class
+    from datahub.ingestion.source.source_registry import source_registry
+
+    for source_type in sorted(source_registry.mapping):
+        try:
+            provider = _provider_class(source_type)
+        except Exception:
+            continue
+        if provider is None:
+            continue
+        # Read from the provider's own __dict__ rather than with getattr, so the
+        # base class's default does not shadow a config that declares one.
+        scope = provider.__dict__.get("catalog_scope")
+        if not isinstance(scope, CatalogScope):
+            try:
+                scope = config_class_for(source_type).probe_catalog_scope()
+            except Exception:
+                continue
+        if isinstance(scope, CatalogScope):
+            yield source_type, scope
+
+
 def test_a_source_on_the_default_scope_has_been_reviewed_for_it():
     """Force a decision when a connector inherits the bare default.
 
@@ -262,29 +293,10 @@ def test_a_source_on_the_default_scope_has_been_reviewed_for_it():
     permitted. A schema-level allow is a denylist, so somebody has to have looked
     at that dialect's information_schema and confirmed it carries no query text.
     """
-    from datahub.ingestion.agent.probe_methods import _provider_class
-    from datahub.ingestion.source.source_registry import source_registry
-
     default = CatalogScope()
     unreviewed: List[str] = []
     scanned = 0
-    for source_type in sorted(source_registry.mapping):
-        try:
-            provider = _provider_class(source_type)
-        except Exception:
-            # Optional deps absent in this environment; the dialects that matter
-            # here load on core deps alone (asserted below).
-            continue
-        if provider is None:
-            continue
-        scope = provider.__dict__.get("catalog_scope")
-        if not isinstance(scope, CatalogScope):
-            try:
-                scope = config_class_for(source_type).probe_catalog_scope()
-            except Exception:
-                continue
-        if not isinstance(scope, CatalogScope):
-            continue
+    for source_type, scope in _declared_scopes():
         scanned += 1
         if scope == default and source_type not in _DEFAULT_SCOPE_REVIEWED:
             unreviewed.append(source_type)
@@ -300,63 +312,56 @@ def test_a_source_on_the_default_scope_has_been_reviewed_for_it():
     )
 
 
-def test_every_declared_relation_is_reachable_through_the_matcher():
-    """A scope must permit what it lists, or the list is decoration.
+def test_every_declared_relation_does_work():
+    """A scope must not list a relation that changes nothing.
 
     This is the shape of the original Redshift bug: pg_catalog was allowed at
     schema level *and* relations were listed, with a comment claiming the list
     was what kept the query-text views out. It was not -- the schema allow
-    short-circuited first, so every entry in that list was dead code, and
-    nothing said so. An entry that the matcher can never reach is either a typo,
-    a wrong separator, or a misunderstanding of what the entry means, and all
-    three are silent today.
-    """
-    from datahub.ingestion.agent.probe_methods import _provider_class
-    from datahub.ingestion.source.source_registry import source_registry
+    short-circuits first, so every entry in that list was dead code, and
+    nothing said so.
 
-    unreachable: List[str] = []
+    Two checks, and both can actually fire. An earlier version of this test also
+    asked whether the matcher could reach each entry, which was tautological: a
+    qualified entry always matches its own suffix, so that branch could never
+    fail, and the typo detection it advertised was imaginary. Checking the
+    entry's shape directly is what catches a malformed one.
+    """
+    problems: List[str] = []
     checked = 0
-    for source_type in sorted(source_registry.mapping):
-        try:
-            provider = _provider_class(source_type)
-        except Exception:
+    for source_type, scope in _declared_scopes():
+        if not scope.relations:
             continue
-        if provider is None:
-            continue
-        scope = provider.__dict__.get("catalog_scope")
-        if not isinstance(scope, CatalogScope):
-            try:
-                scope = config_class_for(source_type).probe_catalog_scope()
-            except Exception:
-                continue
-        if not isinstance(scope, CatalogScope) or not scope.relations:
-            continue
-        # Judged against the relations alone. Asking the whole scope would answer
-        # "permitted" for an entry whose schema is separately allowed, which is
-        # precisely the case that hid the original bug.
-        relations_only = CatalogScope(relations=scope.relations)
         allowed_schemas = {s.lower() for s in scope.schemas}
         for entry in sorted(scope.relations):
-            parts = entry.split(".")
             checked += 1
-            if len(parts) == 1:
-                if not relations_only.permits_unqualified(entry):
-                    unreachable.append(f"{source_type}: {entry} (bare, unreachable)")
+            parts = entry.split(".")
+            # An empty or padded segment names something no reference can be:
+            # "pg_catalog..pg_class", "sys. tables". A non-dot separator
+            # collapses the whole entry into one segment holding punctuation.
+            if any(part.strip() != part or not part for part in parts):
+                problems.append(
+                    f"{source_type}: {entry!r} has an empty or padded segment, "
+                    f"so no reference can match it"
+                )
                 continue
-            if not relations_only.permits_path(parts):
-                unreachable.append(f"{source_type}: {entry} (no match)")
-            elif parts[-2].lower() in allowed_schemas:
-                unreachable.append(
-                    f"{source_type}: {entry} (shadowed by the '{parts[-2]}' "
-                    f"schema-level allow, so it restricts nothing)"
+            if any(ch in entry for ch in "/\\ \t"):
+                problems.append(f"{source_type}: {entry!r} is not dot-separated")
+                continue
+            # The dead-list check, judged against the scope's own schemas: an
+            # entry whose schema is allowed wholesale restricts nothing while
+            # reading as though it did.
+            if len(parts) >= 2 and parts[-2].lower() in allowed_schemas:
+                problems.append(
+                    f"{source_type}: {entry} is shadowed by the '{parts[-2]}' "
+                    f"schema-level allow, so it restricts nothing"
                 )
 
     assert checked, "checked no relations at all, so this proved nothing"
-    assert not unreachable, (
-        "these relations are listed but do no work. Either the matcher cannot "
-        "reach the entry, or the entry's schema is allowed wholesale and the "
-        "entry only reads as though it narrowed something:\n  "
-        + "\n  ".join(unreachable)
+    assert not problems, (
+        "these relations are listed but do no work. Either the entry is "
+        "malformed, or its schema is allowed wholesale and the entry only reads "
+        "as though it narrowed something:\n  " + "\n  ".join(problems)
     )
 
 

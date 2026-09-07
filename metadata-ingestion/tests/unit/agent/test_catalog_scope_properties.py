@@ -20,7 +20,7 @@ from typing import List
 
 from hypothesis import HealthCheck, assume, given, settings, strategies as st
 
-from datahub.ingestion.agent.sql_gate import CatalogScope
+from datahub.ingestion.agent.sql_gate import INFORMATION_SCHEMA, CatalogScope
 
 # No dots: a dot is the separator, so an identifier containing one would be
 # describing a different path than the test thinks it is.
@@ -118,10 +118,32 @@ def test_matching_ignores_case_in_both_directions(
 
 @settings(max_examples=100)
 @given(parts=_PATH)
-def test_an_empty_scope_permits_nothing(parts: List[str]) -> None:
-    """Fail closed: a connector that has declared nothing exposes nothing."""
-    assert not CatalogScope().permits_path(parts)
-    assert not CatalogScope().permits_unqualified(parts[-1])
+def test_a_scope_declaring_nothing_permits_nothing(parts: List[str]) -> None:
+    """Fail closed: no schemas and no relations means nothing is in scope.
+
+    Spelled out rather than written CatalogScope(), which is NOT empty -- its
+    schemas default to {information_schema}. The earlier version of this test
+    used the bare constructor and passed only because generated identifiers are
+    at most six characters and so can never spell "information_schema": a
+    property whose generator cannot reach the interesting input proves nothing.
+    The default's own behaviour is asserted separately, below.
+    """
+    nothing = CatalogScope(schemas=frozenset(), relations=frozenset())
+    assert not nothing.permits_path(parts)
+    assert not nothing.permits_unqualified(parts[-1])
+
+
+@settings(max_examples=100)
+@given(relation=_IDENT)
+def test_the_bare_default_allows_information_schema_and_only_that(
+    relation: str,
+) -> None:
+    """The framework default is a schema-level allow, which is why every source
+    inheriting it has to be reviewed. Pinned here so the constructor's meaning
+    is not something a reader has to infer."""
+    default = CatalogScope()
+    assert default.permits_path([INFORMATION_SCHEMA, relation])
+    assert not default.permits_path(["pg_catalog", relation])
 
 
 @settings(max_examples=200)

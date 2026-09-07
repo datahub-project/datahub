@@ -86,6 +86,44 @@ def test_athena_substitutes_the_dialect_its_source_uses():
     )
     config.probe_prepare_engine(engine)
     assert isinstance(engine.dialect, CustomAthenaRestDialect)
-    # Constructed without a report, so the S3 Tables fallback must stay silent
-    # rather than raising on a None report.
-    assert engine.dialect._report is None
+
+
+def test_an_unreadable_athena_schema_fails_instead_of_looking_empty():
+    """The dialect's S3 Tables fallback logs, warns and returns an empty list.
+
+    That is right for ingestion, which emits what it can and reports the gap.
+    A probe has nowhere to record the gap, and its own comment says what the
+    silence costs: missing IAM permissions and expired credentials look
+    identical to an empty schema. Reporting "no tables" when the truth is
+    "could not read" is the confusion this interface exists to prevent, so on
+    the probe path the warning has to become the failure.
+    """
+    import pytest
+
+    from datahub.ingestion.source.sql.athena import (
+        AthenaConfig,
+        AthenaProbeReadFailed,
+    )
+
+    class _Engine:
+        dialect: Any = "stock"
+
+    engine = _Engine()
+    AthenaConfig.parse_obj(
+        {
+            "aws_region": "us-east-1",
+            "query_result_location": "s3://bucket/prefix/",
+            "work_group": "primary",
+        }
+    ).probe_prepare_engine(engine)
+
+    # Exactly the call the fallback's except-branch makes.
+    with pytest.raises(AthenaProbeReadFailed, match="catalog=c"):
+        engine.dialect._report.warning(
+            message="Failed to list S3 Tables via boto3 fallback.",
+            context="catalog=c, schema=s",
+            exc=RuntimeError("AccessDenied"),
+        )
+    # Not a ValueError: nothing is wrong with the caller's arguments, the source
+    # could not be read, so it must exit 3 rather than 2.
+    assert not issubclass(AthenaProbeReadFailed, ValueError)
