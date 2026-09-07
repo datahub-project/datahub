@@ -10,8 +10,17 @@ its driver can ask for.
 from typing import List
 
 import pytest
+import sqlalchemy
 
 from datahub.ingestion.agent.sql_passthrough import QueryBudget, SqlCatalogPassthrough
+from datahub.ingestion.source.bigquery_v2.bigquery_probe import BigQueryMetadataProbe
+from datahub.ingestion.source.snowflake.snowflake_probe import SnowflakeMetadataProbe
+from datahub.ingestion.source.sql.sql_probe import (
+    applies_statement_timeout,
+    effective_budget,
+    engine_options,
+    install_statement_timeout,
+)
 
 
 def test_a_provider_that_declares_nothing_still_gets_a_ceiling():
@@ -41,9 +50,6 @@ def test_bigquery_refuses_the_job_over_a_byte_ceiling():
     not we are still waiting. maximum_bytes_billed makes BigQuery refuse the job
     up front instead, which is the difference between a cap and a hope.
     """
-    from datahub.ingestion.source.bigquery_v2.bigquery_probe import (
-        BigQueryMetadataProbe,
-    )
 
     captured = {}
 
@@ -84,9 +90,6 @@ def test_snowflake_asks_the_server_to_stop_rather_than_stopping_waiting():
     A client that gives up leaves the warehouse running the query and billing for
     it, so the timeout has to be set on the session before the query is sent.
     """
-    from datahub.ingestion.source.snowflake.snowflake_probe import (
-        SnowflakeMetadataProbe,
-    )
 
     issued = []
 
@@ -123,11 +126,6 @@ def test_the_mysql_family_gets_no_connect_arg_because_mariadb_shares_its_scheme(
     So this asserts the absence of the connect_arg AND that the budget declines
     to claim a ceiling it cannot show.
     """
-    from datahub.ingestion.source.sql.sql_probe import (
-        applies_statement_timeout,
-        effective_budget,
-        engine_options,
-    )
 
     class _Config:
         def get_sql_alchemy_url(self) -> str:
@@ -146,9 +144,6 @@ def test_the_mysql_family_gets_no_connect_arg_because_mariadb_shares_its_scheme(
 def test_the_attempt_is_still_installed_even_though_it_is_not_claimed(monkeypatch):
     """Declining to report a ceiling must not mean declining to try for one --
     the listener is still best-effort defence on a server that has the variable."""
-    import sqlalchemy
-
-    from datahub.ingestion.source.sql.sql_probe import install_statement_timeout
 
     listened: List[str] = []
 
@@ -178,7 +173,6 @@ def test_the_sqlalchemy_family_gets_a_timeout_through_its_engine(
 
     Wiring this per connector would mean fifteen chances to forget.
     """
-    from datahub.ingestion.source.sql.sql_probe import engine_options
 
     class _Config:
         def get_sql_alchemy_url(self) -> str:
@@ -195,7 +189,6 @@ def test_a_dialect_with_no_known_timeout_knob_is_left_alone():
     A wrong connect_args does not degrade the probe -- it stops the connector
     opening a connection at all, which is a worse failure than an unbounded query.
     """
-    from datahub.ingestion.source.sql.sql_probe import engine_options
 
     class _Config:
         def get_sql_alchemy_url(self) -> str:
@@ -214,7 +207,6 @@ def test_a_probe_reports_the_ceiling_it_actually_got_not_the_one_declared():
     exist -- and an operator reading it concludes the probe is bounded when it is
     not.
     """
-    from datahub.ingestion.source.sql.sql_probe import effective_budget
 
     bounded = effective_budget("postgresql://u:p@h/db", QueryBudget(timeout_seconds=30))
     assert bounded.timeout_seconds == 30
@@ -229,7 +221,6 @@ def test_a_probe_reports_the_ceiling_it_actually_got_not_the_one_declared():
 
 def test_the_engine_keeps_the_connector_s_own_options():
     """The budget is additive. A connector's ssl/connect_args must survive it."""
-    from datahub.ingestion.source.sql.sql_probe import engine_options
 
     class _Config:
         def get_options(self):

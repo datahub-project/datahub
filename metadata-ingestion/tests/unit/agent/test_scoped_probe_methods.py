@@ -6,6 +6,8 @@ the same path as `columns` or `topics`. What keeps them safe is that the getter
 it before invoking -- a connector cannot forget a check it does not perform.
 """
 
+import datetime
+import decimal
 from typing import Dict, List, Sequence
 
 import pytest
@@ -20,6 +22,8 @@ from datahub.ingestion.agent.probe_methods import (
 )
 from datahub.ingestion.agent.sql_gate import SqlScopeError
 from datahub.ingestion.agent.sql_passthrough import sql_result
+from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
+from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
 
 
 class FakeSqlProvider:
@@ -223,8 +227,6 @@ def test_sql_result_trims_to_the_limit_and_flags_truncation():
 
 
 def test_sql_result_coerces_values_the_json_encoder_cannot_handle():
-    import datetime
-    import decimal
 
     out = sql_result(
         ["d", "n", "b"],
@@ -238,7 +240,6 @@ def test_sql_result_coerces_values_the_json_encoder_cannot_handle():
 def test_a_listing_command_declares_the_kind_it_returns():
     # The getter knows what it returns; making the caller retype an exact subtype
     # string is a guess it should never have to make.
-    from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
 
     spec = _spec(KafkaMetadataProbe, "topics")
     assert spec.kind == "Topic"
@@ -246,6 +247,5 @@ def test_a_listing_command_declares_the_kind_it_returns():
 
 
 def test_sql_declares_no_kind_because_the_caller_chooses_what_to_select():
-    from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
 
     assert _spec(SqlAlchemyMetadataProbe, "sql").kind is None

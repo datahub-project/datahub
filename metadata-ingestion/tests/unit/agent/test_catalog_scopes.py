@@ -11,13 +11,16 @@ from typing import Any, Dict, Iterator, List, Tuple
 
 import pytest
 
-from datahub.ingestion.agent.probe_methods import config_class_for
+from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.probe_methods import _provider_class, config_class_for
 from datahub.ingestion.agent.sql_gate import (
     INFORMATION_SCHEMA,
     CatalogScope,
     SqlScopeError,
     check_query_scope,
 )
+from datahub.ingestion.source.source_registry import source_registry
+from datahub.ingestion.source.sql.sqlalchemy_probe import sqlglot_dialect_for
 
 # (source_type, sqlglot platform, query, should the gate permit it)
 PERMITTED: List[Tuple[str, str, str]] = [
@@ -152,7 +155,6 @@ def _scope(source_type: str) -> CatalogScope:
     Read from the provider's own __dict__ rather than with getattr, so the base
     class's default does not shadow a config that declares one.
     """
-    from datahub.ingestion.agent.probe_methods import _provider_class
 
     provider = _provider_class(source_type)
     declared = provider.__dict__.get("catalog_scope") if provider else None
@@ -203,7 +205,6 @@ def test_dialects_the_gate_cannot_resolve(platform: str) -> None:
 def test_cockroachdb_is_parsed_as_postgres_because_that_is_what_it_speaks():
     # Not a near-enough guess: CockroachDB implements the Postgres wire protocol and
     # dialect. Before the mapping its sql command failed closed on every query.
-    from datahub.ingestion.source.sql.sqlalchemy_probe import sqlglot_dialect_for
 
     assert sqlglot_dialect_for("cockroachdb") == "postgres"
     check_query_scope(
@@ -260,8 +261,6 @@ def _declared_scopes() -> Iterator[Tuple[str, CatalogScope]]:
     sources they cover. Sources whose optional deps are absent are skipped -- the
     dialects that matter here load on core deps alone, which the scans assert.
     """
-    from datahub.ingestion.agent.probe_methods import _provider_class
-    from datahub.ingestion.source.source_registry import source_registry
 
     for source_type in sorted(source_registry.mapping):
         try:
@@ -447,7 +446,6 @@ def test_a_redshift_schema_verdict_reports_the_string_that_decided_it():
     contradicts its own explanation -- and would "fix" the pattern in the wrong
     direction. `target` is the one field probe filter exists to get right.
     """
-    from datahub.ingestion.agent.filter_check import check_filters
 
     base: Dict[str, Any] = {
         "host_port": "h:5439",
@@ -481,7 +479,6 @@ def test_a_redshift_schema_verdict_reports_the_string_that_decided_it():
 
 
 def test_without_the_flag_redshift_matches_the_bare_schema_name():
-    from datahub.ingestion.agent.filter_check import check_filters
 
     result = check_filters(
         source_type="redshift",

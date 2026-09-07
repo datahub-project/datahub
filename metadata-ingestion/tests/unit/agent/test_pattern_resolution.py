@@ -1,13 +1,18 @@
+import importlib
+import pkgutil
 import re
+from collections import defaultdict
 from types import SimpleNamespace
 from typing import Annotated
 
 import pytest
 from pydantic import Field
 
+import datahub.ingestion.source as srcpkg
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.ingestion.agent.introspect import (
     _pattern_field_for_config_class,
+    describe_source,
     is_pattern_field,
     pattern_field_for_config,
 )
@@ -179,15 +184,11 @@ def test_an_object_without_model_fields_still_resolves_by_convention():
 def test_no_probe_capable_config_declares_conflicting_hints():
     """A second field claiming a kind would make resolution ambiguous, and the
     probe would silently filter on the wrong pattern."""
-    # function-scoped: walking every connector package is expensive and must not
-    # run at collection time for the rest of this module's fast unit tests.
-    import importlib
-    import pkgutil
-    from collections import defaultdict
-
-    import datahub.ingestion.source as srcpkg
-    from datahub.configuration.common import Filters
-
+    # The walk below imports every connector package, which is slow and drags in
+    # optional dependencies. It stays inside the test body so it runs when this
+    # test runs, not at collection time for the rest of this module. The package
+    # handle itself is imported at module level -- its __init__ is empty, so
+    # holding it back bought nothing.
     conflicts = {}
     for mod in pkgutil.walk_packages(srcpkg.__path__, srcpkg.__name__ + "."):
         try:
@@ -214,7 +215,6 @@ def test_describe_marks_which_pattern_fields_gate_a_level():
     # walking the source has to tell them apart, and the field name alone does
     # not say -- procedure_pattern and profile_pattern look exactly like
     # table_pattern.
-    from datahub.ingestion.agent.introspect import describe_source
 
     by_name = {f.name: f for f in describe_source("postgres").fields}
     assert by_name["database_pattern"].filters == "Database"
@@ -232,7 +232,6 @@ def test_a_two_tier_source_does_not_report_schema_as_a_level():
     # MySQL's container is the database; its schema_pattern is vestigial (and
     # HiddenFromDocs). Reporting it as a level would send a caller to edit a
     # field that gates nothing.
-    from datahub.ingestion.agent.introspect import describe_source
 
     by_name = {f.name: f for f in describe_source("mysql").fields}
     assert by_name["database_pattern"].filters == "Database"

@@ -1,8 +1,15 @@
+import json
+
 from click.testing import CliRunner
 
 import datahub.cli.recipe_cli as rc
 from datahub.cli.recipe_cli import recipe
-from datahub.ingestion.agent.probe_methods import ProbeMethodResult
+from datahub.ingestion.agent.filter_check import FilterCheckResult, FilterVerdict
+from datahub.ingestion.agent.probe_methods import (
+    ProbeMethodResult,
+    ProbeMethodSpec,
+    ProbeParam,
+)
 from datahub.ingestion.agent.redact import collect_nested_secret_values
 from datahub.ingestion.agent.verdicts import ProbeSoftError
 
@@ -53,7 +60,6 @@ def test_probe_run(monkeypatch, tmp_path):
 
 
 def test_probe_methods_lists(monkeypatch, tmp_path):
-    from datahub.ingestion.agent.probe_methods import ProbeMethodSpec, ProbeParam
 
     monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
     monkeypatch.setattr(
@@ -170,9 +176,6 @@ def test_report_to_writes_the_redacted_payload(monkeypatch, tmp_path):
     # The report file exists for a caller that captures a structured result
     # instead of parsing stdout, so it must carry no more than stdout does --
     # in particular the same redaction.
-    import json
-
-    from datahub.ingestion.agent.filter_check import FilterCheckResult, FilterVerdict
 
     monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("mysql", {}, {"s3cr3t"}))
     monkeypatch.setattr(

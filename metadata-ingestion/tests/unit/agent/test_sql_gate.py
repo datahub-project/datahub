@@ -1,6 +1,7 @@
 import pytest
 
 from datahub.ingestion.agent.sql_gate import SqlScopeError, check_query_scope
+from datahub.ingestion.source.sql.postgres.source import PostgresConfig
 
 CATALOG_QUERY = (
     "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
@@ -21,7 +22,6 @@ def test_pg_catalog_is_permitted_only_because_postgres_declares_it():
     # No longer central. The gate's default is information_schema and nothing else,
     # so pg_catalog is reachable only through PostgresConfig's declaration -- which
     # is the point: a central table had to know every dialect and did not.
-    from datahub.ingestion.source.sql.postgres.source import PostgresConfig
 
     query = "SELECT relname FROM pg_catalog.pg_class"
     with pytest.raises(SqlScopeError, match="outside the catalog metadata"):
@@ -162,7 +162,6 @@ def test_rejects_snowflakes_query_history_table_function():
 
 
 def _postgres_scope():
-    from datahub.ingestion.source.sql.postgres.source import PostgresConfig
 
     return PostgresConfig.probe_catalog_scope()
 

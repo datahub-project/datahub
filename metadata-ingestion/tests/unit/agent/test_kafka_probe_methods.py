@@ -1,3 +1,4 @@
+from datahub.ingestion.agent.probe_methods import _iter_specs
 from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
 
 
@@ -122,7 +123,6 @@ def test_schema_explicit_version():
 
 
 def test_topics_command_names_registered():
-    from datahub.ingestion.agent.probe_methods import _iter_specs
 
     commands = [c for c, _ in _iter_specs(KafkaMetadataProbe)]
     for expected in ["consumer_groups", "schema", "subjects", "topic_config", "topics"]:

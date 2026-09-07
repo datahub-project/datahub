@@ -2,6 +2,7 @@
 driver adapter cannot silently make every result look complete.
 """
 
+import importlib
 from typing import Any, List
 
 import pytest
@@ -132,7 +133,6 @@ def test_every_warehouse_probe_supplies_only_its_driver_adapter(
 ) -> None:
     # Each of these had its own copy of the sql method. What remains connector-side
     # is execute_catalog_query and nothing else about the command.
-    import importlib
 
     cls: Any = getattr(importlib.import_module(provider_module), provider_name)
     assert issubclass(cls, SqlCatalogPassthrough)

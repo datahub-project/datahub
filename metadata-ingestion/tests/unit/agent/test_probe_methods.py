@@ -1,15 +1,18 @@
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 
 import pytest
 
+import datahub.ingestion.agent.probe_methods as pm
 from datahub.ingestion.agent.probe_methods import (
     ProbeMethodSpec,
     ProbeParam,
     _coerce,
+    _iter_specs,
     list_probe_methods,
     probe_method,
     run_probe_method,
 )
+from datahub.ingestion.agent.sql_gate import SqlScopeError
 
 
 def _spec(fn: Callable) -> ProbeMethodSpec:
@@ -51,7 +54,6 @@ def test_name_override_and_optional_param():
 
 
 def test_optional_annotation_is_not_required():
-    from typing import Optional
 
     class P:
         @probe_method()
@@ -104,7 +106,6 @@ def test_to_dict_shape():
 
 
 def test_iter_specs_walks_mro_sorted():
-    from datahub.ingestion.agent.probe_methods import _iter_specs
 
     class Base:
         @probe_method()
@@ -149,7 +150,6 @@ class _FakeConfig:
 
 
 def _patch(monkeypatch):
-    import datahub.ingestion.agent.probe_methods as pm
 
     monkeypatch.setattr(pm, "_provider_class", lambda st: _FakeProvider)
     monkeypatch.setattr(pm, "config_class_for", lambda st: _FakeConfig)
@@ -207,7 +207,6 @@ class _FakeProviderWithWarnings(_FakeProvider):
 
 
 def test_run_probe_method_surfaces_a_providers_own_warnings(monkeypatch):
-    import datahub.ingestion.agent.probe_methods as pm
 
     monkeypatch.setattr(pm, "_provider_class", lambda st: _FakeProviderWithWarnings)
     monkeypatch.setattr(pm, "config_class_for", lambda st: _FakeConfig)
@@ -283,7 +282,6 @@ class _GatedConfig:
 
 
 def _patch_gated(monkeypatch):
-    import datahub.ingestion.agent.probe_methods as pm
 
     _GatedProvider.ran = []
     monkeypatch.setattr(pm, "_provider_class", lambda st: _GatedProvider)
@@ -292,7 +290,6 @@ def _patch_gated(monkeypatch):
 
 
 def test_run_probe_method_refuses_a_query_the_gate_rejects(monkeypatch):
-    from datahub.ingestion.agent.sql_gate import SqlScopeError
 
     pm = _patch_gated(monkeypatch)
     with pytest.raises(SqlScopeError):
@@ -320,7 +317,6 @@ def test_a_dialect_that_cannot_answer_says_so_instead_of_looking_unreachable(
     source", so an agent concludes the source is unreachable and retries. Exit 2 is
     the truth: the connection was fine, the command was the wrong one to ask for.
     """
-    import datahub.ingestion.agent.probe_methods as pm
 
     class _Unsupporting:
         @classmethod

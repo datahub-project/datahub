@@ -10,7 +10,17 @@ ingestion it exists to predict.
 
 from typing import Any, List
 
+import pytest
+import sqlalchemy
+
+from datahub.ingestion.source.sql import sqlalchemy_probe
+from datahub.ingestion.source.sql.athena import (
+    AthenaConfig,
+    AthenaProbeReadFailed,
+    CustomAthenaRestDialect,
+)
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
 
 
 class _PlainConfig(SQLCommonConfig):
@@ -36,10 +46,6 @@ def test_the_default_hook_leaves_the_engine_alone():
 def test_for_config_calls_the_hook_on_the_engine_it_built(monkeypatch):
     """The wiring itself: a connector that overrides the hook must see the
     provider's own engine, or the override protects nothing."""
-    import sqlalchemy
-
-    from datahub.ingestion.source.sql import sqlalchemy_probe
-    from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
 
     prepared: List[object] = []
 
@@ -68,10 +74,6 @@ def test_athena_substitutes_the_dialect_its_source_uses():
     """PyAthena's own dialect omits ICEBERG from get_table_names and mis-parses
     complex column types, which is why AthenaSource.get_inspectors replaces it.
     The probe must make the same substitution or report a different catalog."""
-    from datahub.ingestion.source.sql.athena import (
-        AthenaConfig,
-        CustomAthenaRestDialect,
-    )
 
     class _Engine:
         dialect: Any = "stock"
@@ -98,12 +100,6 @@ def test_an_unreadable_athena_schema_fails_instead_of_looking_empty():
     "could not read" is the confusion this interface exists to prevent, so on
     the probe path the warning has to become the failure.
     """
-    import pytest
-
-    from datahub.ingestion.source.sql.athena import (
-        AthenaConfig,
-        AthenaProbeReadFailed,
-    )
 
     class _Engine:
         dialect: Any = "stock"

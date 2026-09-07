@@ -15,6 +15,7 @@ from datahub.ingestion.agent.probe_methods import (
     ProbeMethodSpec,
     _iter_specs,
     config_class_for,
+    probe_method,
 )
 from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
 
@@ -63,7 +64,6 @@ def test_a_listing_declares_the_container_it_was_asked_about():
 
 
 def test_declaring_a_parent_param_that_does_not_exist_is_rejected_at_import():
-    from datahub.ingestion.agent.probe_methods import probe_method
 
     with pytest.raises(ValueError, match="no such parameter"):
 

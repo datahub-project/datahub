@@ -2,8 +2,10 @@ import json
 
 import pytest
 from click.testing import CliRunner
+from pydantic import SecretStr
 
-from datahub.cli.recipe_cli import recipe
+import datahub.cli.recipe_cli as mod
+from datahub.cli.recipe_cli import _json_default, recipe
 
 
 def test_describe_outputs_json():
@@ -46,8 +48,6 @@ def test_probe_error_output_redacts_secret(tmp_path, monkeypatch):
         "    password: '${MY_PW}'\n"
     )
 
-    import datahub.cli.recipe_cli as mod
-
     def boom(*a, **k):
         raise RuntimeError("connection failed for account with password s3cr3t")
 
@@ -72,8 +72,6 @@ def test_probe_error_output_redacts_nested_secret(tmp_path, monkeypatch):
         "      client_secret: '${NESTED_PW}'\n"
     )
 
-    import datahub.cli.recipe_cli as mod
-
     def boom(*a, **k):
         raise RuntimeError("connection failed with client_secret nestedsecret")
 
@@ -86,9 +84,6 @@ def test_probe_error_output_redacts_nested_secret(tmp_path, monkeypatch):
 
 
 def test_json_default_masks_secret_str():
-    from pydantic import SecretStr
-
-    from datahub.cli.recipe_cli import _json_default
 
     report = {"password": SecretStr("topsecret"), "host": "example"}
     serialized = json.dumps(report, default=_json_default)

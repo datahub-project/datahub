@@ -1,11 +1,24 @@
 from types import SimpleNamespace
-from typing import Any, Callable, List
+from typing import Any, Callable, List, cast
 
+from sqlalchemy.engine.reflection import Inspector
+
+import datahub.ingestion.source.sql.sql_probe as sql_probe_module
+from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.verdicts import ClassifyContext
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.redshift.config import RedshiftConfig
+from datahub.ingestion.source.sql.db2 import Db2Config
+from datahub.ingestion.source.sql.druid import DruidConfig
+from datahub.ingestion.source.sql.mysql import MySQLConfig
+from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 from datahub.ingestion.source.sql.sql_probe import (
     _identifier_target,
     _shim_inspector,
 )
+from datahub.ingestion.source.sql.starrocks import StarRocksConfig
+from datahub.ingestion.source.sql.trino import TrinoConfig
+from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 
 
 def _ignore_warn(message: str) -> None:
@@ -69,9 +82,6 @@ def test_shim_matches_get_identifier_for_each_sql_source():
         druid   (config-level get_identifier)  : orders
         mysql   (config-level get_identifier)  : app.orders
     """
-    from datahub.ingestion.source.sql.druid import DruidConfig
-    from datahub.ingestion.source.sql.mysql import MySQLConfig
-    from datahub.ingestion.source.sql.trino import TrinoConfig
 
     # Kept as separate, concretely-typed assertions (rather than one loop over
     # a mixed list) so each config's own get_identifier is checked against its
@@ -101,12 +111,6 @@ def test_shim_matches_a_real_postgres_source_instance():
     identically to a real instance, not just plausibly. Covers both of
     postgres's branches: database taken from the live connection, and
     database pinned explicitly in the recipe."""
-    from typing import cast
-
-    from sqlalchemy.engine.reflection import Inspector
-
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 
     from_connection = PostgresConfig(
         host_port="localhost:5432",
@@ -141,12 +145,6 @@ def test_postgres_identifier_target_pins_the_database_from_a_database_level():
     silently report whatever config.database/the bare connection happens to
     be, wrong for any database other than the first one iterated). No
     double-prefixing: the result has exactly three dot-separated parts."""
-    from typing import cast
-
-    from sqlalchemy.engine.reflection import Inspector
-
-    from datahub.ingestion.api.common import PipelineContext
-    from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 
     config = PostgresConfig(host_port="localhost:5432")
     ctx = ClassifyContext(
@@ -180,7 +178,6 @@ def test_postgres_identifier_target_unaffected_without_a_database_level():
     existed (get_db_name's default-connection fallback), a regression guard
     against the length check in _identifier_target misfiring for every other
     SQL connector."""
-    from datahub.ingestion.source.sql.postgres import PostgresConfig
 
     config = PostgresConfig(
         host_port="localhost:5432",
@@ -194,7 +191,6 @@ def test_druid_target_stays_the_bare_table_name():
     qualified, so DruidConfig.get_identifier drops the schema entirely. Any
     structural (schema.table) rule would get this wrong -- if this test ever
     starts failing, the fix has gone structural again."""
-    from datahub.ingestion.source.sql.druid import DruidConfig
 
     config = DruidConfig(host_port="localhost:8082")
     ctx = _ctx(config, "public", "orders")
@@ -207,7 +203,6 @@ def test_db2_shim_still_applies_the_uppercase_db_name_override():
     (uninitialized) Db2Source instance, not a generic stand-in carrying only
     the base get_db_name, or this override's super() call would either raise
     or silently skip the uppercasing."""
-    from datahub.ingestion.source.sql.db2 import Db2Config
 
     config = Db2Config(host_port="localhost:50000", database="mydb")
     ctx = _ctx(config, "public", "orders")
@@ -229,7 +224,6 @@ def test_starrocks_shim_primes_current_catalog_to_its_init_state():
     fix (every table reported excluded_by: table_pattern while ingestion
     ingested them all). No warning: this is a real (if partial -- external
     catalogs still can't be resolved) answer, not a degrade."""
-    from datahub.ingestion.source.sql.starrocks import StarRocksConfig
 
     config = StarRocksConfig()
     warn = _WarningCollector()
@@ -250,7 +244,6 @@ def test_attribute_error_fallback_message_excludes_fqn_so_dedupe_works(monkeypat
     connector) keeps this test valid regardless of which real connectors do
     or don't exercise the fallback at any given time.
     """
-    import datahub.ingestion.source.sql.sql_probe as sql_probe_module
 
     class _FakeSource:
         def get_identifier(self, *, schema, entity, inspector):
@@ -279,7 +272,6 @@ def test_redshift_probe_filter_target_includes_the_database_segment():
     ingestion's own "database.schema.table" target instead (see
     redshift.py's _process_table / _process_view / cache_tables_and_views,
     which all match table_pattern/view_pattern against that same string)."""
-    from datahub.ingestion.source.redshift.config import RedshiftConfig
 
     config = RedshiftConfig(host_port="localhost:5439", database="analytics")
     assert _identifier_target(_ctx(config, "public", "orders")) == (
@@ -293,7 +285,6 @@ def test_unity_catalog_probe_filter_target_includes_the_catalog_segment():
     i.e. "catalog.schema.table". A recipe pinning exactly one catalog gives
     UnityCatalogSourceConfig.probe_filter_target an unambiguous answer -- the
     normal, non-degraded case, so it must record no warning."""
-    from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 
     config = UnityCatalogSourceConfig.model_validate(
         {
@@ -318,7 +309,6 @@ def test_unity_catalog_probe_filter_target_falls_back_without_one_pinned_catalog
     no accompanying warning is exactly the silent-mismatch defect this whole
     stage exists to remove, so both ambiguous shapes (no catalogs, several
     catalogs) must record one."""
-    from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 
     no_catalogs = UnityCatalogSourceConfig.model_validate(
         {"token": "token", "workspace_url": "https://workspace_url"}
@@ -351,7 +341,6 @@ def test_unity_catalog_probe_warning_is_not_duplicated_per_node():
     classified in one list_children() call -- see ClientProbe.list_children's
     warn dedup. Simulates classifying two different tables under the same
     ambiguous config within one probe call."""
-    from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 
     config = UnityCatalogSourceConfig.model_validate(
         {"token": "token", "workspace_url": "https://workspace_url"}
@@ -364,7 +353,6 @@ def test_unity_catalog_probe_warning_is_not_duplicated_per_node():
 
 def _schema_verdict(config_dict, name="public"):
     """Drive the same Redshift rule through the command that owns it now."""
-    from datahub.ingestion.agent.filter_check import check_filters
 
     result = check_filters(
         source_type="redshift",

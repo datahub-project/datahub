@@ -6,6 +6,7 @@ import pytest
 import requests
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.agent.probe_methods import _iter_specs
 from datahub.ingestion.agent.verdicts import ProbeSoftError
 from datahub.ingestion.source.mode import ModeAPIConfig, ModeConfig, ModeSource
 from datahub.ingestion.source.mode_probe import (
@@ -560,7 +561,6 @@ def test_get_embedded_paged_raises_instead_of_returning_partial_pages():
 
 
 def test_probe_methods_registered():
-    from datahub.ingestion.agent.probe_methods import _iter_specs
 
     # _iter_specs uses dir(), which includes inherited attributes -- so
     # data_sources/definitions (annotated on ModeSource itself) are found on
