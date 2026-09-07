@@ -4,15 +4,17 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 #### Iceberg table format version 3 (V3)
 
-Tables of any Iceberg format version are ingested, including tables written with the [V3 table format](https://iceberg.apache.org/spec/#table-format-versions). The table's `format-version` is surfaced as a dataset custom property.
+Tables using Iceberg format versions 1, 2, and 3 are ingested, including tables written with the [V3 table format](https://iceberg.apache.org/spec/#table-format-versions). The table's `format-version` is surfaced as a dataset custom property.
 
 For V3-specific schema features:
 
 - Column defaults (`initial-default` and `write-default`) appear in the field description as `Field default value: <value>`. When both defaults are present and differ, the initial default is additionally noted as `Initial default value: <value>`.
 - Nanosecond-precision timestamps (`timestamp_ns`, `timestamptz_ns`) are mapped to `timestamp-micros`, losing sub-microsecond precision; the original Iceberg type is preserved in the field's native data type.
-- `unknown`, `geometry`, and `geography` columns are mapped to strings, with the original type (including CRS for geospatial types) preserved in the field's native data type. Geospatial payloads are not decoded.
+- `unknown` columns are mapped to strings, with the original type preserved in the field's native data type.
+- Collection defaults (lists, maps, and structs) cannot be deserialized by PyIceberg 0.11.x.
+- Geospatial columns (`geometry` and `geography`) require a newer PyIceberg release and are not supported by the current 0.11.x dependency.
 
-Profiling notes for tables with row deletions: per-file statistics come from data files only (position/equality delete files are excluded), but those statistics reflect the state at write time — rows later removed by delete files or deletion vectors are still counted in per-file null counts and min/max bounds. The profile's row count comes from the snapshot summary's `total-records`, which per the Iceberg specification is the number of live rows in the snapshot.
+Profiling notes for tables with row deletions: per-file statistics come from data files only (position/equality delete files are excluded), but those statistics reflect the state at write time — rows later removed by delete files or deletion vectors are still counted in per-file null counts and min/max bounds. The profile's row count comes from the snapshot summary's `total-records`; it counts records in data files and may include rows removed by delete files or deletion vectors.
 
 #### Setting up connection to an Iceberg catalog
 
