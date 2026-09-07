@@ -16,7 +16,7 @@ inputs:
     required: false
     default: ""
   slack-bot-token:
-    description: Slack bot token (pass secrets.CI_NOTIFIER_SLACK_BOT_TOKEN)
+    description: Slack bot token used to post the message
     required: true
 
 runs:
