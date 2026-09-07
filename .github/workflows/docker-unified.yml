@@ -129,7 +129,7 @@ jobs:
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
       playwright_matrix: ${{ steps.set-playwright-matrix.outputs.matrix }}
       playwright_change: ${{ steps.ci-optimize.outputs.playwright-change == 'true' }}
-      embedding_ai_change: ${{ steps.ci-optimize.outputs.embedding-ai-change == 'true' }}
+      embedding_ai_change: ${{ steps.ci-optimize.outputs.embedding-ai-change == 'true' || github.event_name != 'pull_request' }}
       smoke_build_task: ${{ steps.smoke-profile.outputs.smoke_build_task }}
       smoke_profile_name: ${{ steps.smoke-profile.outputs.smoke_profile_name }}
       # Gradle modules base_build has to bake; empty means every image in the
@@ -1066,8 +1066,10 @@ jobs:
     needs: [setup, base_build]
     timeout-minutes: 90
     # See pytest_tests for why the status-check function is required (downstream
-    # of the optionally-skipped base_build on fork PRs). Gated to embedding /
-    # semantic-search path changes (and workflow_dispatch) so ordinary PRs skip it.
+    # of the optionally-skipped base_build on fork PRs). On a PR this is gated to
+    # embedding / semantic-search path changes so ordinary PRs skip it; every
+    # non-PR event (post-merge push, release, dispatch) runs it unconditionally,
+    # which is what replaces the standalone workflow's nightly cron.
     if: ${{ always() && !failure() && !cancelled() && needs.setup.outputs.embedding_ai_change == 'true' }}
     env:
       LOCAL_EMBEDDING_MODEL: ${{ github.event.inputs.embedding_model || 'nomic-embed-text' }}
