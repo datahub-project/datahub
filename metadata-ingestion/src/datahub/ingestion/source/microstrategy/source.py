@@ -3,6 +3,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Tupl
 
 from pydantic import ValidationError
 
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -39,6 +40,7 @@ from datahub.ingestion.source.microstrategy.lineage import (
     ModelLineageIndex,
     WarehouseLineageContext,
     bind_visualizations_by_derived_objects,
+    ensure_sql_lineage_dependencies,
     matching_datasource_for_context,
     metric_fact_ids_from_model,
     metric_metric_ids_from_model,
@@ -124,6 +126,14 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self.client = MicroStrategyClient(config, self.report)
         self.mapper = MicroStrategyMapper(config, self.report)
         self.lineage = self.mapper.lineage
+        if self.config.extract_lineage and (
+            self.config.extract_warehouse_lineage
+            or self.config.extract_report_sql_lineage
+        ):
+            # Fail at construction, not per SQL view: a missing parser module
+            # would otherwise be swallowed into per-statement parse warnings
+            # and the run would report SUCCESS with zero warehouse lineage.
+            ensure_sql_lineage_dependencies()
         self._metric_model_cache: Dict[str, Dict[str, object]] = {}
         self._model_document_unavailable_projects: Set[str] = set()
         self._predefined_folder_cache: Dict[str, PredefinedFolderResolution] = {}
@@ -222,6 +232,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     )
                     auth_lost = True
                     break
+                except ConfigurationError:
+                    # Environmental (e.g. a missing parser dependency): every
+                    # remaining project would fail identically, so surface it
+                    # as a run failure instead of per-project noise.
+                    raise
                 except Exception as error:
                     self.report.failure(
                         title="Failed to Process Project",
@@ -235,7 +250,29 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if self.config.extract_usage_statistics and not auth_lost:
                 yield from self._process_usage_statistics(projects)
         finally:
+            self._warn_if_every_sql_view_failed()
             self.client.close()
+
+    def _warn_if_every_sql_view_failed(self) -> None:
+        """SQL-view lineage that fails on every single statement is almost
+        never a per-statement problem (an unsupported dialect, a missing
+        dependency, a broken warehouse context); make that pattern obvious in
+        the report instead of leaving N identical parse warnings to be read."""
+        parsed = self.report.sql_views_parsed
+        failed = self.report.sql_parse_failure_count
+        if parsed == 0 or failed < parsed:
+            return
+        first_failure = next(iter(self.report.sql_parse_failures), "")
+        self.report.warning(
+            title="Every MicroStrategy SQL view failed to parse",
+            message=(
+                f"All {parsed} SQL views submitted for warehouse lineage failed to "
+                "parse, so no dataset-to-warehouse lineage was emitted this run. "
+                "This usually indicates an environment problem rather than bad "
+                "SQL; see the first failure for the cause."
+            ),
+            context=f"first_failure={first_failure}",
+        )
 
     def _process_usage_statistics(
         self,
@@ -471,7 +508,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     lineage_context,
                     linked_report_ids,
                 )
-            except MicroStrategyAuthError:
+            except (MicroStrategyAuthError, ConfigurationError):
                 # Not a per-dashboard problem; must abort the whole run.
                 raise
             except Exception as error:
@@ -825,7 +862,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 report_object,
                 lineage_context,
             )
-        except MicroStrategyAuthError:
+        except (MicroStrategyAuthError, ConfigurationError):
             # Not a per-report problem; must abort the whole run.
             raise
         except Exception as error:

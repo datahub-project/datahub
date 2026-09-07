@@ -12,6 +12,7 @@ from typing import (
 )
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.microstrategy.config import (
@@ -257,11 +258,16 @@ class MicroStrategyLineageExtractor:
 
         # Deferred import: sqlglot_lineage pulls in the full sqlglot parser,
         # which is expensive to import and only needed for opt-in SQL lineage.
-        from datahub.sql_parsing.split_statements import split_statements
-        from datahub.sql_parsing.sql_parsing_common import get_dialect_str
-        from datahub.sql_parsing.sqlglot_lineage import (
-            create_lineage_from_sql_statements,
-        )
+        # A missing module here is an installation problem, never a
+        # per-statement parse failure, so it must surface as one.
+        try:
+            from datahub.sql_parsing.split_statements import split_statements
+            from datahub.sql_parsing.sql_parsing_common import get_dialect_str
+            from datahub.sql_parsing.sqlglot_lineage import (
+                create_lineage_from_sql_statements,
+            )
+        except ImportError as error:
+            raise _sql_lineage_dependency_error(error) from error
 
         # Resolve the sqlglot dialect through DataHub's central platform->dialect
         # map so tokenization matches what the parser itself uses.
@@ -274,6 +280,7 @@ class MicroStrategyLineageExtractor:
         if not statements:
             return SqlViewLineage([], {})
 
+        self.report.report_sql_view_parsed()
         created_tables = _created_table_leaf_names(statements)
         # Column lineage needs the final SELECT wrapped as a sentinel CTAS so its
         # projection is a concrete downstream; table-level upstreams don't, so
@@ -298,6 +305,11 @@ class MicroStrategyLineageExtractor:
                 graph=graph,
                 is_temp_table=lambda name: _leaf_identifier(name) in created_tables,
             )
+        except ImportError as error:
+            # The parser lazily imports some of its own dependencies; an
+            # ImportError is environmental (every statement would fail the
+            # same way), not something to count against this SQL view.
+            raise _sql_lineage_dependency_error(error) from error
         except Exception as error:
             self._report_sql_parse_failure(sql, context, error)
             return SqlViewLineage([], {})
@@ -539,6 +551,30 @@ class MicroStrategyLineageExtractor:
             )
             return []
         return unique_inputs
+
+
+def ensure_sql_lineage_dependencies() -> None:
+    """Import the SQL-view lineage parser eagerly so a broken install fails the
+    run at startup with a clear message instead of silently emitting zero
+    lineage. create_lineage_from_sql_statements lazily imports the
+    SqlParsingAggregator module on first use, and that module transitively
+    needs sqlparse (usage_common -> sql_formatter), which the `microstrategy`
+    extra now declares; an environment built from an older extra, or from a
+    bare wheel, lacks it and used to fail one SQL view at a time."""
+    try:
+        import datahub.sql_parsing.sql_parsing_aggregator
+        import datahub.sql_parsing.sqlglot_lineage  # noqa: F401
+    except ImportError as error:
+        raise _sql_lineage_dependency_error(error) from error
+
+
+def _sql_lineage_dependency_error(error: ImportError) -> ConfigurationError:
+    return ConfigurationError(
+        "MicroStrategy SQL-view lineage (extract_warehouse_lineage / "
+        "extract_report_sql_lineage) needs DataHub's SQL parsing dependencies, "
+        f"which are not installed: {error}. Install the connector with its extra, "
+        "`pip install 'acryl-datahub[microstrategy]'`, or disable those flags."
+    )
 
 
 def datahub_platform_for_datasource(

@@ -61,6 +61,8 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     filtered_dashboards: LossyList[str] = field(default_factory=LossyList)
     filtered_reports: LossyList[str] = field(default_factory=LossyList)
     sql_parse_failures: LossyList[str] = field(default_factory=LossyList)
+    sql_parse_failure_count: int = 0
+    sql_views_parsed: int = 0
     sql_view_rows_unmatched: int = 0
     sql_view_rows_without_context: int = 0
     sql_views_without_statement: int = 0
@@ -216,6 +218,10 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_sql_parse_failure(self, context: str) -> None:
         self.sql_parse_failures.append(context)
+        self.sql_parse_failure_count += 1
+
+    def report_sql_view_parsed(self) -> None:
+        self.sql_views_parsed += 1
 
     def report_sql_view_row_unmatched(self) -> None:
         self.sql_view_rows_unmatched += 1
