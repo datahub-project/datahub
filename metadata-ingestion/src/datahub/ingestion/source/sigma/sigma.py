@@ -1,7 +1,18 @@
 import logging
 import re
 from dataclasses import dataclass, replace
-from typing import Any, Dict, FrozenSet, Iterable, List, Literal, Optional, Set, Tuple
+from typing import (
+    AbstractSet,
+    Any,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+)
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
@@ -215,21 +226,29 @@ def _is_warehouse_column_id(column_id: Optional[str]) -> bool:
     return (column_id or "").startswith("inode-")
 
 
-def _native_column_from_column_id(column_id: Optional[str]) -> Optional[str]:
+def _native_column_from_column_id(
+    column_id: Optional[str], *, allowed_prefixes: AbstractSet[str]
+) -> Optional[str]:
     """The warehouse column name Sigma already put in a ``columnId``.
 
     Sigma spells a pass-through column ``<prefix>/<NATIVE_NAME>`` -- the prefix
     is ``inode-<urlId>`` when /columns reports the table, and the element's own
-    url id when it does not. Either way the segment after the last slash IS the
-    warehouse column name, so it beats re-deriving one from the display name:
-    "Order Ref Id" only round-trips to ORDER_REF_ID by convention, and any
-    column whose display name was edited breaks that convention silently.
+    id when it does not. The segment after the slash IS the warehouse column
+    name, so it beats re-deriving one from the display name: "Order Ref Id"
+    only round-trips to ORDER_REF_ID by convention, and a column whose
+    display name was edited breaks that convention silently.
 
-    Returns None for an opaque columnId (a calculated or renamed column), where
-    the display name really is the only signal.
+    The prefix must be one the caller RECOGNISES, not merely present. "Has a
+    slash" is not evidence of this shape, and a columnId in some other two-part
+    form would otherwise mint a fabricated field path at full confidence --
+    wrong and trusted at once. Same rule as ``_side_ref`` in the spec parser:
+    the shape identifies itself or it is refused.
+
+    Returns None for an opaque or unrecognised columnId, where the display name
+    really is the only signal and the edge is scored as inferred.
     """
     prefix, sep, native = (column_id or "").rpartition("/")
-    if not sep or not prefix or not native:
+    if not sep or not native or prefix not in allowed_prefixes:
         return None
     return native
 
@@ -3435,7 +3454,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Prefer the name Sigma already recorded. Deriving it from the display
         # name is a convention ("Order Ref Id" -> ORDER_REF_ID) that a
         # renamed column breaks without saying so.
-        exact = _native_column_from_column_id(column.columnId if column else None)
+        # The prefixes this element can legitimately produce: its own id, and
+        # any warehouse inode it declares.
+        exact = _native_column_from_column_id(
+            column.columnId if column else None,
+            allowed_prefixes={element.elementId, *element.source_ids},
+        )
         native = _normalize_warehouse_identifier(
             exact
             if exact is not None

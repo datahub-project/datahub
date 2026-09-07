@@ -831,6 +831,51 @@ class TestNoBracketRefWarehouseFgl:
         ]
         assert fgls[0].confidenceScore == 1.0
 
+    def test_unrecognised_column_id_prefix_is_not_trusted(self):
+        """ "Has a slash" is not evidence of the <prefix>/<NATIVE> shape.
+
+        The prefix here belongs to neither the element nor any inode it
+        declares. Reading the tail anyway would mint a field path from an
+        unknown convention and stamp it 1.0 -- wrong and trusted at once. It
+        falls back to the display name at reduced confidence instead.
+        """
+        source = _make_source()
+        col = _column(
+            "some-other-thing/NOT_A_COLUMN", "Customer Id", "[CUSTOMERS/Customer Id]"
+        )
+        elem = _element("el-self", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            warehouse_map=_SF_WAREHOUSE_MAP,
+            element_name_to_eids={"customers": ["el-self"]},
+        )
+
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "customer_id")
+        ]
+        assert fgls[0].confidenceScore == 0.5
+
+    def test_inode_prefixed_column_id_is_recognised_too(self):
+        """The other legal prefix: the warehouse inode the element declares."""
+        source = _make_source()
+        col = _column(
+            f"{_SF_INODE_SOURCE}/CUSTOMER_ID", "Cust ID", "[CUSTOMERS/Cust ID]"
+        )
+        elem = _element("el-self", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            warehouse_map=_SF_WAREHOUSE_MAP,
+            element_name_to_eids={"customers": ["el-self"]},
+        )
+
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "customer_id")
+        ]
+
     def test_opaque_column_id_still_falls_back_to_the_display_name(self):
         """With no native name to read, the inference stays -- and stays 0.5."""
         source = _make_source()
