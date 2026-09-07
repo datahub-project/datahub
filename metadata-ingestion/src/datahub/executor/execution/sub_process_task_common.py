@@ -88,14 +88,16 @@ class SubProcessTaskUtil:
         return text
 
     @staticmethod
-    def _resolve_secrets(secret_names: list[str], ctx: ExecutorContext) -> dict:
+    def _resolve_secrets(
+        secret_names: list[str], ctx: ExecutorContext
+    ) -> dict[str, str]:
         # Attempt to resolve secret using by checking each configured secret store.
         secret_stores = ctx.get_secret_stores()
         store_ids = [s.get_id() for s in secret_stores]
         logger.info(
             f"Resolving {len(secret_names)} secret(s) across {len(secret_stores)} store(s): {store_ids}"
         )
-        final_secret_values = dict({})
+        final_secret_values: dict[str, str] = {}
 
         for secret_store in secret_stores:
             try:
@@ -185,23 +187,15 @@ class SubProcessTaskUtil:
                     )
                     secret_values_dict[secret_name] = ""
 
-        # Set up secret masking in the executor process (for masking logs/reports)
         if secrets_to_resolve:
-            try:
-                initialize_secret_masking()
-                registry = SecretRegistry.get_instance()
-                for secret_name in secrets_to_resolve:
-                    secret_value = secret_values_dict.get(secret_name)
-                    if secret_value:
-                        registry.register_secret(secret_name, secret_value)
-
-                logger.info(
-                    f"Secret masking enabled for {registry.get_count()} secret(s)"
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Failed to set up secret masking: {e}. Continuing without masking."
-                )
+            initialize_secret_masking()
+            SecretRegistry.get_instance().register_secrets_batch(
+                {
+                    name: secret_values_dict[name]
+                    for name in secrets_to_resolve
+                    if secret_values_dict.get(name)
+                }
+            )
 
         # Validate secret values and warn on potential issues
         if secret_matches:
