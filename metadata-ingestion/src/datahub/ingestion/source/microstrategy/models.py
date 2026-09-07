@@ -7,6 +7,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Literal,
     Optional,
     Set,
     Type,
@@ -20,6 +21,9 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DATABASE_PARAM_RE,
     MSTR_DATASET_CONTAINER_KEYS,
     MSTR_DATASET_KEY_RE,
+    MSTR_GRID_ATTRIBUTE_TYPE,
+    MSTR_GRID_AXES,
+    MSTR_GRID_COLUMN_SETS_KEY,
     MSTR_GRID_METRIC_ELEMENT_TYPE,
     MSTR_GRID_TEMPLATE_METRICS_TYPE,
     MSTR_KEYS_DATABASE_NAME,
@@ -171,6 +175,35 @@ class GridMetricElement(MicroStrategyBaseModel):
     @property
     def display_name(self) -> str:
         return self.name or self.id or "unknown"
+
+
+class GridAttributeForm(MicroStrategyBaseModel):
+    id: Optional[str] = None
+    name: Optional[str] = None
+
+
+class GridUnit(MicroStrategyBaseModel):
+    """One header cell of a runtime grid, in the order Strategy renders them:
+    an attribute (with the forms the grid actually shows) or a metric element
+    (whose `name` is the header text -- a dossier-level alias when it differs
+    from the catalog object's name). Units inside a compound grid's column set
+    carry that group's key and name; row/column/page-by units carry none."""
+
+    kind: Literal["attribute", "metric"]
+    id: Optional[str] = None
+    name: Optional[str] = None
+    derived: bool = False
+    column_set_key: Optional[str] = None
+    column_set_name: Optional[str] = None
+    forms: List[GridAttributeForm] = Field(default_factory=list)
+
+    @property
+    def form_ids(self) -> List[str]:
+        return [form.id for form in self.forms if form.id]
+
+    @property
+    def form_names(self) -> List[str]:
+        return [form.name for form in self.forms if form.name]
 
 
 class ColumnSet(MicroStrategyBaseModel):
@@ -379,6 +412,9 @@ class Visualization(MicroStrategyBaseModel):
     datasets: List[str] = Field(default_factory=list)
     object_ids: List[str] = Field(default_factory=list)
     column_sets: List[ColumnSet] = Field(default_factory=list)
+    # Header cells in grid order (rows, columns, page-by, then each column
+    # set's units); empty when no runtime grid definition was fetched.
+    grid_units: List[GridUnit] = Field(default_factory=list)
     raw: MicroStrategyDict = Field(default_factory=dict)
 
     @model_validator(mode="before")
@@ -398,6 +434,7 @@ class Visualization(MicroStrategyBaseModel):
             result["datasets"] = _extract_dataset_ids(result)
             result["object_ids"] = _extract_object_ids(result)
             result["column_sets"] = _extract_column_sets(result)
+            result["grid_units"] = _extract_grid_units(result)
             result["raw"] = data
             return result
         return data
@@ -809,6 +846,95 @@ def _extract_column_sets(data: MicroStrategyDict) -> List[MicroStrategyDict]:
             if isinstance(column_set, dict)
         ]
     return []
+
+
+def _runtime_grid_definition(data: MicroStrategyDict) -> Optional[MicroStrategyDict]:
+    """The runtime grid dict (rows/columns/pageBy/columnSets): nested under
+    `definition.grid` for dossier visualizations, or directly under
+    `definition` on servers that flatten it."""
+    runtime = data.get("runtimeDefinition")
+    if not isinstance(runtime, dict):
+        return None
+    definition = runtime.get("definition")
+    if not isinstance(definition, dict):
+        return None
+    grid = definition.get("grid")
+    if isinstance(grid, dict):
+        return grid
+    if any(key in definition for key in MSTR_GRID_AXES):
+        return definition
+    return None
+
+
+def _extract_grid_units(data: MicroStrategyDict) -> List[MicroStrategyDict]:
+    """Header cells of a runtime grid in render order. Row, column and page-by
+    units are ungrouped; a compound grid's column-set units carry their group."""
+    grid = _runtime_grid_definition(data)
+    if grid is None:
+        return []
+    units: List[MicroStrategyDict] = []
+    for axis in MSTR_GRID_AXES:
+        units.extend(_grid_units_from_columns(grid.get(axis), None))
+    column_sets = grid.get(MSTR_GRID_COLUMN_SETS_KEY)
+    for column_set in column_sets if isinstance(column_sets, list) else []:
+        if not isinstance(column_set, dict):
+            continue
+        units.extend(_grid_units_from_columns(column_set.get("columns"), column_set))
+    return units
+
+
+def _grid_units_from_columns(
+    columns: object, column_set: Optional[MicroStrategyDict]
+) -> List[MicroStrategyDict]:
+    group: MicroStrategyDict = {}
+    if column_set is not None:
+        group = {
+            "column_set_key": _first_str(column_set, ("key",))
+            or _first_str(column_set, ("name",)),
+            "column_set_name": _first_str(column_set, ("name",)),
+        }
+    units: List[MicroStrategyDict] = []
+    for column in columns if isinstance(columns, list) else []:
+        if not isinstance(column, dict):
+            continue
+        column_type = str(column.get("type") or "").lower()
+        if column_type == MSTR_GRID_ATTRIBUTE_TYPE:
+            forms = column.get("forms")
+            units.append(
+                {
+                    "kind": "attribute",
+                    "id": _first_str(column, MSTR_KEYS_ID),
+                    "name": _first_str(column, MSTR_KEYS_NAME),
+                    "forms": [
+                        {
+                            "id": _first_str(form, MSTR_KEYS_ID),
+                            "name": _first_str(form, MSTR_KEYS_NAME),
+                        }
+                        for form in (forms if isinstance(forms, list) else [])
+                        if isinstance(form, dict)
+                    ],
+                    **group,
+                }
+            )
+        elif column_type == MSTR_GRID_TEMPLATE_METRICS_TYPE:
+            elements = column.get("elements")
+            for element in elements if isinstance(elements, list) else []:
+                if (
+                    not isinstance(element, dict)
+                    or str(element.get("type") or "").lower()
+                    != MSTR_GRID_METRIC_ELEMENT_TYPE
+                ):
+                    continue
+                units.append(
+                    {
+                        "kind": "metric",
+                        "id": _first_str(element, MSTR_KEYS_ID),
+                        "name": _first_str(element, MSTR_KEYS_NAME),
+                        "derived": bool(element.get("derived")),
+                        **group,
+                    }
+                )
+    return units
 
 
 def _column_set_from_grid(column_set: MicroStrategyDict) -> MicroStrategyDict:
