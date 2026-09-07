@@ -135,9 +135,10 @@ def test_namespace_helpers_are_noops():
 
 def test_ensure_pkg_resources_installs_shim_when_import_fails(monkeypatch):
     # Force the real pkg_resources to be unimportable so the fallback-install
-    # branch runs (the py3.12 / setuptools-absent scenario). monkeypatch.delitem
-    # snapshots and restores the original entry on teardown.
-    monkeypatch.delitem(sys.modules, "pkg_resources", raising=False)
+    # branch runs (the py3.12 / setuptools-absent scenario). ensure_pkg_resources
+    # writes sys.modules directly, and monkeypatch cannot restore a key that never
+    # existed, so snapshot and restore it ourselves to keep the test isolated.
+    saved = sys.modules.pop("pkg_resources", None)
     real_import = importlib.import_module
 
     def fake_import(name, *args, **kwargs):
@@ -146,5 +147,10 @@ def test_ensure_pkg_resources_installs_shim_when_import_fails(monkeypatch):
         return real_import(name, *args, **kwargs)
 
     monkeypatch.setattr(importlib, "import_module", fake_import)
-    pkg_resources_shim.ensure_pkg_resources()
-    assert getattr(sys.modules["pkg_resources"], "__datahub_shim__", False) is True
+    try:
+        pkg_resources_shim.ensure_pkg_resources()
+        assert getattr(sys.modules["pkg_resources"], "__datahub_shim__", False) is True
+    finally:
+        sys.modules.pop("pkg_resources", None)
+        if saved is not None:
+            sys.modules["pkg_resources"] = saved
