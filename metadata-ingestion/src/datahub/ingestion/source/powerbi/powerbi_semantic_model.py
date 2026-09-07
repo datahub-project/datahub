@@ -13,6 +13,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper import data_classes
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
+    ContainerClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     DialectClass,
@@ -69,6 +70,16 @@ class PowerBiSemanticModelMapper:
         extract_dataset_schema: Callable[
             [data_classes.Table, str], List[MetadataChangeProposalWrapper]
         ],
+        extract_profile: Callable[
+            [
+                List[MetadataChangeProposalWrapper],
+                data_classes.Workspace,
+                data_classes.PowerBIDataset,
+                data_classes.Table,
+                str,
+            ],
+            None,
+        ],
         data_platform_instance_aspect: Callable[[], DataPlatformInstanceClass],
         workspace_container_urn: Callable[[data_classes.Workspace], str],
         append_tag_mcp: Callable[
@@ -81,6 +92,7 @@ class PowerBiSemanticModelMapper:
         self._table_dataset_urn = table_dataset_urn
         self._extract_lineage = extract_lineage
         self._extract_dataset_schema = extract_dataset_schema
+        self._extract_profile = extract_profile
         self._data_platform_instance_aspect = data_platform_instance_aspect
         self._workspace_container_urn = workspace_container_urn
         self._append_tag_mcp = append_tag_mcp
@@ -107,6 +119,9 @@ class PowerBiSemanticModelMapper:
             mcps.extend(
                 self._logical_dataset_mcps(dataset, table, ds_urn, model_urn, workspace)
             )
+            # Profiling is anchored on the logical dataset URN (unchanged from the
+            # classic path), so honor an enabled `profiling` config here too.
+            self._extract_profile(mcps, workspace, dataset, table, ds_urn)
             self._report.semantic_model_datasets_emitted += 1
             for measure in table.measures or []:
                 metric = self._metric(
@@ -116,6 +131,16 @@ class PowerBiSemanticModelMapper:
                 self._report.metrics_emitted += 1
 
         return mcps
+
+    def _scoped_path(self, base: str) -> str:
+        """Prefix a URN path with the platform instance so semanticModel/metric
+        URNs stay unique when several Power BI instances reuse workspace/dataset
+        IDs. The semanticModelKey/metricKey have no instance field of their own
+        (unlike the logical dataset URNs, which are already instance-scoped), so
+        the instance has to live in the shared identity path -- exactly once.
+        """
+        instance = self._config.platform_instance
+        return f"{instance}.{base}" if instance else base
 
     def _semantic_model(
         self,
@@ -133,7 +158,7 @@ class PowerBiSemanticModelMapper:
         )
         return SemanticModel(
             platform=Constant.PLATFORM_NAME,
-            path=workspace_part,
+            path=self._scoped_path(workspace_part),
             id=dataset.id,
             platform_instance=self._config.platform_instance,
             name=dataset.name or dataset.id,
@@ -196,6 +221,23 @@ class PowerBiSemanticModelMapper:
             ),
         ]
 
+        # Workspace container membership. The classic path attaches each table to
+        # its workspace container via `append_container_mcp`; without this the
+        # logical dataset drops off the workspace container page. Emitting it also
+        # overwrites any stale dataset-container relationship left over from a run
+        # that used `extract_datasets_to_containers` before switching to semantic
+        # mode. (The `semanticModel` entity itself has no `container` aspect, so it
+        # relies on `browsePathsV2` for workspace navigation.)
+        if self._config.extract_workspaces_to_containers:
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=ds_urn,
+                    aspect=ContainerClass(
+                        container=self._workspace_container_urn(workspace)
+                    ),
+                )
+            )
+
         if table.expression:
             converted = native_sql_parser.remove_special_characters(table.expression)
             mcps.append(
@@ -210,9 +252,12 @@ class PowerBiSemanticModelMapper:
             )
 
         # Schema first (the annotation MCPs are anchored on the schemaField URNs
-        # these fields create), then the per-field semantic annotations.
-        mcps.extend(self._extract_dataset_schema(table, ds_urn))
-        mcps.extend(self._field_annotation_mcps(table, ds_urn, alias))
+        # these fields create), then the per-field semantic annotations. Both are
+        # gated on `extract_dataset_schema` to match the classic path and the
+        # documented behavior of the flag.
+        if self._config.extract_dataset_schema:
+            mcps.extend(self._extract_dataset_schema(table, ds_urn))
+            mcps.extend(self._field_annotation_mcps(table, ds_urn, alias))
 
         if (
             self._config.extract_ownership
@@ -307,7 +352,7 @@ class PowerBiSemanticModelMapper:
             )
         return Metric(
             platform=Constant.PLATFORM_NAME,
-            path=f"{workspace_part}.{dataset.id}.{table.name}",
+            path=self._scoped_path(f"{workspace_part}.{dataset.id}.{table.name}"),
             id=measure.name,
             semantic_model=model_urn,
             platform_instance=self._config.platform_instance,

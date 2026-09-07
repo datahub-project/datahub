@@ -144,6 +144,7 @@ class Mapper:
             table_dataset_urn=self._table_dataset_urn,
             extract_lineage=self.extract_lineage,
             extract_dataset_schema=self.extract_dataset_schema,
+            extract_profile=self.extract_profile,
             data_platform_instance_aspect=self._get_data_platform_instance_aspect,
             workspace_container_urn=self.make_container_urn_for_workspace,
             append_tag_mcp=self.append_tag_mcp,

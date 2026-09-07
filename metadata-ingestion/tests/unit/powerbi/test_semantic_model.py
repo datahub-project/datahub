@@ -19,9 +19,12 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Workspace,
 )
 from datahub.metadata.schema_classes import (
+    ContainerClass,
+    DatasetProfileClass,
     MetricInfoClass,
     MetricUpstreamsClass,
     NumberTypeClass,
+    SchemaMetadataClass,
     SemanticFieldAnnotationClass,
     SemanticFieldTypeClass,
     SemanticModelInfoClass,
@@ -39,13 +42,13 @@ _DS_URN = (
 )
 
 
-@pytest.fixture
-def mapper() -> Mapper:
+def _build_mapper(**config_overrides: object) -> Mapper:
     config = PowerBiDashboardSourceConfig(
         tenant_id="test-tenant-id",
         client_id="test-client-id",
         client_secret="test-client-secret",
         emit_semantic_model_entities=True,
+        **config_overrides,
     )
     return Mapper(
         ctx=PipelineContext(run_id="test-run-id"),
@@ -55,6 +58,11 @@ def mapper() -> Mapper:
             config
         ),
     )
+
+
+@pytest.fixture
+def mapper() -> Mapper:
+    return _build_mapper()
 
 
 def _workspace() -> Workspace:
@@ -209,3 +217,66 @@ def test_report_counts_semantic_entities(mapper: Mapper) -> None:
     assert report.semantic_models_emitted == 1
     assert report.semantic_model_datasets_emitted == 1
     assert report.metrics_emitted == 1
+
+
+def test_logical_dataset_joins_workspace_container(mapper: Mapper) -> None:
+    workspace = _workspace()
+    mcps = mapper.to_datahub_dataset(_dataset(), workspace)
+
+    # The logical dataset stays a member of its workspace container (parity with
+    # the classic path), so it does not drop off the workspace container page.
+    containers = [
+        mcp.aspect
+        for mcp in mcps
+        if mcp.entityUrn == _DS_URN and isinstance(mcp.aspect, ContainerClass)
+    ]
+    assert len(containers) == 1
+    assert containers[0].container == mapper.make_container_urn_for_workspace(workspace)
+
+
+def test_container_skipped_when_workspaces_to_containers_disabled() -> None:
+    mapper = _build_mapper(extract_workspaces_to_containers=False)
+    mcps = mapper.to_datahub_dataset(_dataset(), _workspace())
+    assert not _aspects_of(mcps, ContainerClass)
+
+
+def test_schema_skipped_when_extract_dataset_schema_disabled() -> None:
+    # Column-level lineage requires schema, so it must be off to disable schema.
+    mapper = _build_mapper(
+        extract_dataset_schema=False, extract_column_level_lineage=False
+    )
+    mcps = mapper.to_datahub_dataset(_dataset(), _workspace())
+    assert not _aspects_of(mcps, SchemaMetadataClass)
+    assert not _aspects_of(mcps, SemanticFieldAnnotationClass)
+
+
+def test_platform_instance_scopes_model_and_metric_urns() -> None:
+    mapper = _build_mapper(platform_instance="my_instance")
+    mcps = mapper.to_datahub_dataset(_dataset(), _workspace())
+
+    sm_urn = next(
+        mcp.entityUrn for mcp in mcps if isinstance(mcp.aspect, SemanticModelInfoClass)
+    )
+    metric_urn = next(
+        mcp.entityUrn for mcp in mcps if isinstance(mcp.aspect, MetricInfoClass)
+    )
+    # The instance is embedded in the shared identity path exactly once (the key
+    # aspects have no instance field of their own), so instances that reuse the
+    # same workspace/dataset IDs no longer collide.
+    assert sm_urn.count("my_instance") == 1
+    assert metric_urn.count("my_instance") == 1
+
+
+def test_profiling_emitted_for_logical_dataset() -> None:
+    mapper = _build_mapper(profiling={"enabled": True})
+    dataset = _dataset()
+    dataset.tables[0].row_count = 42
+    mcps = mapper.to_datahub_dataset(dataset, _workspace())
+
+    profiles = [
+        mcp.aspect
+        for mcp in mcps
+        if mcp.entityUrn == _DS_URN and isinstance(mcp.aspect, DatasetProfileClass)
+    ]
+    assert len(profiles) == 1
+    assert profiles[0].rowCount == 42
