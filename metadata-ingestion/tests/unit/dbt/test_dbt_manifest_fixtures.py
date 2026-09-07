@@ -36,7 +36,11 @@ def test_manifest_fixture_matches_the_dbt_schema_it_declares(
 
     Only versions we have vendored a schema for are checked; the others are
     skipped rather than silently passing. Schemas are vendored (not fetched)
-    so the test never depends on network access.
+    so the test never depends on network access, and stored minified to keep
+    the repo weight down -- refresh one with:
+
+        curl -s https://schemas.getdbt.com/dbt/manifest/vNN.json \
+          | python3 -c 'import json,sys; json.dump(json.load(sys.stdin), sys.stdout, separators=(",",":"))'
     """
     manifest = json.loads(path.read_text())
     version = _schema_version(manifest)
