@@ -11,6 +11,7 @@ export * from './components/BarChart';
 export * from './components/Button';
 export * from './components/ButtonTabs';
 export * from './components/CalendarChart';
+export * from './components/CalloutCard';
 export * from './components/Card';
 export * from './components/Carousel';
 export * from './components/Checkbox';

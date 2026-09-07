@@ -4,6 +4,8 @@ export type GraphCardProps = {
     loading?: boolean;
     graphHeight?: string;
     width?: string;
+    /** Gap between the card header and graph body. Forwarded to CardContainer. */
+    gap?: string;
     renderGraph: () => React.ReactNode;
     renderControls?: () => React.ReactNode;
     isEmpty?: boolean;
