@@ -7,6 +7,7 @@ import sys
 import types
 from typing import List
 
+from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version, parse as _parse
 
 logger = logging.getLogger(__name__)
@@ -14,7 +15,9 @@ logger = logging.getLogger(__name__)
 _SHIM_NAME = "pkg_resources"
 
 # sqlalchemy-redshift and sqlalchemy-cockroachdb import pkg_resources at module
-# load; setuptools>=82 removed it. This provides the minimal API they use.
+# load; setuptools>=82 removed it. This shim implements only the pkg_resources
+# API those dialects use; any other attribute raises via __getattr__ below, so a
+# new dependency needing more must add it here after checking the real semantics.
 
 
 class DistributionNotFound(Exception):
@@ -36,10 +39,25 @@ class _Distribution:
 
 
 def get_distribution(name: str) -> "_Distribution":
+    # Accept a bare project name or a PEP 508 requirement string; real
+    # pkg_resources parses both. We only read the installed version.
+    project = name
+    specifier = None
     try:
-        return _Distribution(name, _im.version(name))
+        req = Requirement(name)
+        project = req.name
+        specifier = req.specifier
+    except InvalidRequirement:
+        pass  # not a requirement expression; treat the input as a plain name
+
+    try:
+        version = _im.version(project)
     except _im.PackageNotFoundError as e:
         raise DistributionNotFound(str(e)) from e
+
+    if specifier and not specifier.contains(version, prereleases=True):
+        raise DistributionNotFound(f"{project} {version} does not satisfy {specifier}")
+    return _Distribution(project, version)
 
 
 def require(requirement: str) -> List["_Distribution"]:

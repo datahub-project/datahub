@@ -1,5 +1,4 @@
 import pytest
-import setuptools
 
 from datahub.testing.check_imports import (
     ban_direct_datahub_imports,
@@ -9,6 +8,9 @@ from datahub.testing.check_str_enum import ensure_no_enum_mixin
 
 
 def test_package_list_match_inits():
+    # find_packages is a build-tool operation; py3.12 venvs no longer seed
+    # setuptools and it is intentionally not a dependency.
+    setuptools = pytest.importorskip("setuptools")
     where = "./src"
     package_list = set(setuptools.find_packages(where))
     namespace_packages = set(setuptools.find_namespace_packages(where))

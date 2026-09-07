@@ -33,7 +33,7 @@ def _set_async_exc(thread_id: int, exc: Optional[Type[BaseException]]) -> int:
 class _ThreadingTimeout:
     def __init__(self, seconds: float) -> None:
         self._seconds = seconds
-        self._target_tid = threading.get_ident()
+        self._target_tid = 0  # set in __enter__ to the thread that runs the block
         self._timer: Optional[threading.Timer] = None
         self._lock = threading.Lock()
         self._timed_out = False
@@ -65,6 +65,8 @@ class _ThreadingTimeout:
         # Reset so a reused instance starts clean.
         self._timed_out = False
         self._finished = False
+        # Target the entering thread, not whichever thread constructed this.
+        self._target_tid = threading.get_ident()
         self._timer = threading.Timer(self._seconds, self._on_timeout)
         self._timer.start()
 

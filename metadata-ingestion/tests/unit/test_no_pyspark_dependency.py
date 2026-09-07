@@ -8,10 +8,9 @@ fails if either dependency reappears in any of them.
 
 import runpy
 import sys
+import types
 from pathlib import Path
 from typing import Any, Dict
-
-import setuptools
 
 SETUP_PY = Path(__file__).parent.parent.parent / "setup.py"
 FORBIDDEN = ("pyspark", "pydeequ")
@@ -23,14 +22,26 @@ def _extras_require() -> Dict[str, Any]:
     def fake_setup(**kwargs: Any) -> None:
         captured.update(kwargs)
 
-    original = setuptools.setup
-    setuptools.setup = fake_setup  # type: ignore[assignment]
+    # setup.py imports setuptools; py3.12 venvs no longer seed it and it is
+    # intentionally not a dependency. Stub it, scoped to this exec, to capture
+    # the setup() kwargs without a global sys.modules leak.
+    stub = types.ModuleType("setuptools")
+    stub.__dict__.update(
+        setup=fake_setup,
+        find_packages=lambda *a, **k: [],
+        find_namespace_packages=lambda *a, **k: [],
+    )
+    saved = sys.modules.get("setuptools")
+    sys.modules["setuptools"] = stub
     original_argv = sys.argv
     sys.argv = ["setup.py"]
     try:
         runpy.run_path(str(SETUP_PY), run_name="__main__")
     finally:
-        setuptools.setup = original  # type: ignore[assignment]
+        if saved is None:
+            sys.modules.pop("setuptools", None)
+        else:
+            sys.modules["setuptools"] = saved
         sys.argv = original_argv
 
     return captured["extras_require"]

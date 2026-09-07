@@ -1,3 +1,4 @@
+import threading
 import time
 
 import pytest
@@ -58,3 +59,37 @@ def test_repeated_clean_exits_do_not_leak():
         for i in range(100_000):
             acc += i
     assert acc > 0
+
+
+def test_timeout_interrupts_entering_thread_not_constructing_thread():
+    # The watchdog must interrupt the thread that ENTERS the block, not the one
+    # that constructed the context manager. Construction happens in the main
+    # thread but the block runs in a worker, so the worker's busy loop must be
+    # cut short. If the timer targeted the constructing thread instead, the
+    # worker runs to completion and only __exit__ reports the timeout.
+    ctx = threading_timeout(0.2)
+    outcome: dict = {}
+
+    def worker() -> None:
+        start = time.monotonic()
+        try:
+            with ctx:
+                deadline = time.monotonic() + 3.0
+                while time.monotonic() < deadline:
+                    pass  # bytecode boundaries let the async exception land
+            outcome["result"] = "completed"
+        except TimeoutException:
+            outcome["result"] = "timed_out"
+        outcome["elapsed"] = time.monotonic() - start
+
+    t = threading.Thread(target=worker)
+    t.start()
+    try:
+        t.join(10.0)
+    except TimeoutException:
+        # If the timer targeted this (constructing) thread, the exception is
+        # mis-delivered here instead of into the worker.
+        outcome.setdefault("result", "mis-delivered-to-constructing-thread")
+    assert outcome.get("result") == "timed_out"
+    # The block must have been interrupted early, not run its full 3s.
+    assert outcome.get("elapsed", 99) < 1.5

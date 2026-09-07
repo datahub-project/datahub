@@ -13,10 +13,12 @@ Usage:
     python scripts/generate_pyproject_deps.py
 """
 
+import contextlib
 import sys
+import types
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, Iterator, List, Set, Tuple
 
 from packaging.requirements import Requirement
 from packaging.version import Version
@@ -29,17 +31,49 @@ METADATA_INGESTION_DIR = SCRIPT_DIR.parent
 CIRCULAR_EXTRAS = {"airflow", "great-expectations", "sqlmesh"}
 
 
+@contextlib.contextmanager
+def _stub_setuptools() -> Iterator[None]:
+    saved = sys.modules.get("setuptools")
+    stub = types.ModuleType("setuptools")
+    stub.__dict__.update(
+        setup=lambda *args, **kwargs: None,
+        find_packages=lambda *args, **kwargs: [],
+        find_namespace_packages=lambda *args, **kwargs: [],
+    )
+    sys.modules["setuptools"] = stub
+    try:
+        yield
+    finally:
+        if saved is None:
+            sys.modules.pop("setuptools", None)
+        else:
+            sys.modules["setuptools"] = saved
+
+
 def load_setup_py_variables() -> Dict:
     """Load variables from setup.py by executing it in a controlled namespace."""
     setup_py_path = METADATA_INGESTION_DIR / "setup.py"
-    namespace: Dict = {
-        "__name__": "__not_main__",
-        "__file__": str(setup_py_path),
-    }
-    with open(setup_py_path) as f:
-        code = f.read()
-    code = code.replace("setuptools.setup(", "_setup_args = dict(")
-    exec(code, namespace)
+    code = setup_py_path.read_text().replace("setuptools.setup(", "_setup_args = dict(")
+
+    def _run() -> Dict:
+        namespace: Dict = {
+            "__name__": "__not_main__",
+            "__file__": str(setup_py_path),
+        }
+        exec(code, namespace)
+        return namespace
+
+    try:
+        namespace = _run()
+    except ModuleNotFoundError as e:
+        # Python 3.12 venvs no longer seed setuptools, and it is intentionally
+        # not a dependency. We only read setup.py's module variables, so a stub
+        # is enough to exec it.
+        if e.name != "setuptools":
+            raise
+        with _stub_setuptools():
+            namespace = _run()
+
     assert "_setup_args" in namespace, (
         "setup.py did not produce _setup_args — the setuptools.setup() replacement failed. "
         "Check if setup.py changed its calling convention."
