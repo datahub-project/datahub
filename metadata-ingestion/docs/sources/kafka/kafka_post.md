@@ -76,9 +76,9 @@ source:
 
 #### Confluent Cloud Stream Catalog
 
-On Confluent Cloud, tags and business metadata curated in Stream Governance are held in the
-Stream Catalog rather than on the topics themselves. Enable the `confluent_catalog` block to
-bring them across onto the corresponding DataHub topic datasets.
+On Confluent Cloud, the tags, business metadata, owner and description curated in Stream
+Governance are held in the Stream Catalog rather than on the topics themselves. Enable the
+`confluent_catalog` block to bring them across onto the corresponding DataHub topic datasets.
 
 The catalog is served from the Schema Registry endpoint and accepts the same API key, so a
 recipe that already reaches Schema Registry needs nothing beyond `enabled: true`:
@@ -97,8 +97,19 @@ source:
       enabled: true
 ```
 
-Confluent tags become DataHub tags and business metadata attributes become custom properties on
-the topic. Set `include_tags` or `include_business_metadata` to `false` to take only one of the two.
+Confluent tags become DataHub tags, business metadata attributes become custom properties, the
+topic owner becomes a DataHub technical owner, and the topic description fills the dataset
+description. Each is independently switchable via `include_tags`, `include_business_metadata`,
+`include_owners` and `include_descriptions`.
+
+Two details worth knowing about the last two:
+
+- Ownership is taken from the catalog's `ownerEmail`, since the owner display name on its own
+  cannot identify a DataHub user. A topic owned by name but with no email recorded is left
+  unowned rather than guessed at, and counted in the report as `catalog_owners_without_email`.
+  `strip_user_ids_from_email` applies here as it does to `meta_mapping` owners.
+- A description parsed from the Avro schema's `doc` field takes precedence over the catalog's,
+  so `include_descriptions` only fills topics that would otherwise have none.
 
 Requirements and limitations:
 
