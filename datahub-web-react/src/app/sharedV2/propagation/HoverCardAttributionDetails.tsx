@@ -75,7 +75,7 @@ export default function HoverCardAttributionDetails({ propagationDetails, addMar
     const viaEntity = sourceDetail.via.entity;
 
     return (
-        <DetailsWrapper $addMargin={addMargin}>
+        <DetailsWrapper $addMargin={addMargin} data-testid="docPropagationIndicator">
             <Text color="gray" weight="bold" colorLevel={600} size="sm">
                 {t('propagated')}
             </Text>

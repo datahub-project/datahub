@@ -7,13 +7,15 @@ export interface CardProps {
     subTitle?: string | React.ReactNode;
     percent?: number;
     button?: React.ReactNode;
-    onClick?: () => void;
+    onClick?: (event: React.MouseEvent) => void;
     icon?: React.ReactNode;
     iconAlignment?: IconAlignmentOptions;
     children?: React.ReactNode;
     width?: string;
     maxWidth?: string;
     height?: string;
+    padding?: string;
+    gap?: string;
     isEmpty?: boolean;
     style?: React.CSSProperties;
     isCardClickable?: boolean;

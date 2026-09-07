@@ -546,7 +546,7 @@ export const MATERIAL_UI_ICONS = [
     'ZoomOutMap',
 ];
 
-export const PHOSPHOR_ICONS = [
+const PHOSPHOR_ICONS = [
     'Activity',
     'AddressBook',
     'Airplane',

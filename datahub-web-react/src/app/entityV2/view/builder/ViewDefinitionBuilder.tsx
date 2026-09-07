@@ -8,6 +8,7 @@ import {
     BUILD_FILTERS_TAB_KEY,
     DEFAULT_DYNAMIC_FILTER,
     SELECT_ASSETS_TAB_KEY,
+    URN_FILTER_NAME,
 } from '@app/entityV2/view/builder/constants';
 import { ViewBuilderMode, ViewFilter } from '@app/entityV2/view/builder/types';
 import { useViewBuilderProperties } from '@app/entityV2/view/builder/useViewBuilderProperties';
@@ -52,17 +53,28 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     // State for Select Assets tab
     const [selectedUrns, setSelectedUrns] = useState<string[]>(() => filtersToSelectedUrns(existingFilters));
 
-    // State for Build Filters tab
+    // State for Build Filters tab. Seeded regardless of the active tab: a view with
+    // pinned assets opens on Select Assets, and switching tabs serializes this state —
+    // leaving it null there would clear the saved filters on a mere tab click. URN
+    // filters are excluded because they belong to the Select Assets tab, not this one.
     const [dynamicFilter, setDynamicFilter] = useState<LogicalPredicate | null>(() => {
-        if (existingFilters.length > 0 && activeTab === BUILD_FILTERS_TAB_KEY) {
-            return filtersToLogicalPredicate(existingOperator, existingFilters);
-        }
-        return null;
+        const seedFilters = existingFilters.filter((filter) => filter.field !== URN_FILTER_NAME);
+        return seedFilters.length > 0 ? filtersToLogicalPredicate(existingOperator, seedFilters) : null;
     });
 
     // Use a ref to access current state without adding it to effect dependencies
     const stateRef = useRef(state);
     stateRef.current = state;
+
+    // Both tabs edit filters only. The view's entity-type scope is a separate field
+    // that this builder does not expose, so it is carried through every write rather
+    // than recomputed — recomputing it is what silently cleared an ingested view's
+    // scope on save.
+    const toDefinition = useCallback(
+        (operator: LogicalOperator, filters: ViewFilter[]) =>
+            buildViewDefinition(operator, filters, stateRef.current.definition?.entityTypes ?? []),
+        [],
+    );
 
     // Update parent state when Select Assets tab changes.
     // URN selections always use OR so the view matches any of the selected assets.
@@ -70,9 +82,9 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
         (newUrns: string[]) => {
             setSelectedUrns(newUrns);
             const filters = selectedUrnsToFilters(newUrns);
-            updateState({ ...stateRef.current, definition: buildViewDefinition(LogicalOperator.Or, filters) });
+            updateState({ ...stateRef.current, definition: toDefinition(LogicalOperator.Or, filters) });
         },
-        [updateState],
+        [toDefinition, updateState],
     );
 
     // Update parent state when Build Filters tab changes
@@ -81,12 +93,12 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
             setDynamicFilter(newPredicate || null);
             if (newPredicate) {
                 const { operator, filters } = logicalPredicateToFilters(newPredicate);
-                updateState({ ...stateRef.current, definition: buildViewDefinition(operator, filters) });
+                updateState({ ...stateRef.current, definition: toDefinition(operator, filters) });
             } else {
-                updateState({ ...stateRef.current, definition: buildViewDefinition(LogicalOperator.And, []) });
+                updateState({ ...stateRef.current, definition: toDefinition(LogicalOperator.And, []) });
             }
         },
-        [updateState],
+        [toDefinition, updateState],
     );
 
     const handleTabChange = useCallback(
@@ -94,13 +106,13 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
             setActiveTab(newTabKey);
             if (newTabKey === SELECT_ASSETS_TAB_KEY) {
                 const filters = selectedUrnsToFilters(selectedUrns);
-                updateState({ ...stateRef.current, definition: buildViewDefinition(LogicalOperator.Or, filters) });
+                updateState({ ...stateRef.current, definition: toDefinition(LogicalOperator.Or, filters) });
             } else {
                 const { operator, filters } = logicalPredicateToFilters(dynamicFilter);
-                updateState({ ...stateRef.current, definition: buildViewDefinition(operator, filters) });
+                updateState({ ...stateRef.current, definition: toDefinition(operator, filters) });
             }
         },
-        [selectedUrns, dynamicFilter, updateState],
+        [selectedUrns, dynamicFilter, toDefinition, updateState],
     );
 
     const isDisabled = mode === ViewBuilderMode.PREVIEW;

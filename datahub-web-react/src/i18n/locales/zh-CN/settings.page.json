@@ -1,0 +1,22 @@
+{
+    "logOut": "退出登录",
+    "nav.access": "访问",
+    "nav.accessTokens": "访问令牌",
+    "nav.appearance": "外观",
+    "nav.collapseSidebar": "折叠设置侧边栏",
+    "nav.developer": "开发者",
+    "nav.expandSidebar": "展开设置侧边栏",
+    "nav.features": "功能",
+    "nav.homePage": "主页",
+    "nav.manage": "管理",
+    "nav.myNotifications": "我的通知",
+    "nav.mySubscriptions": "我的订阅",
+    "nav.ownershipTypes": "所有权类型",
+    "nav.permissions": "权限",
+    "nav.personal": "个人",
+    "nav.preferences": "偏好设置",
+    "nav.usersGroups": "用户与用户组",
+    "nav.views": "视图",
+    "subTitle": "管理你的设置",
+    "title": "设置"
+}

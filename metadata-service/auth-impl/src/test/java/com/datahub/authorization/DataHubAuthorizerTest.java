@@ -45,6 +45,7 @@ import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
@@ -102,7 +103,11 @@ public class DataHubAuthorizerTest {
   public void setupTest() throws Exception {
     _entityClient = mock(SystemEntityClient.class);
     _groupService =
-        new GroupService(_entityClient, mock(EntityService.class), mock(GraphClient.class));
+        new GroupService(
+            _entityClient,
+            mock(EntityService.class),
+            mock(GraphClient.class),
+            mock(GraphService.class));
 
     // Init mocks.
     final Urn activePolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:0");

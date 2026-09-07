@@ -59,7 +59,10 @@ export default function useFileUpload({ scenario, assetUrn, schemaField }: Props
             throw new Error(`Failed to upload file: ${error}`);
         }
 
-        return resolveRuntimePath(`/openapi/v1/files/${PRODUCT_ASSETS_FOLDER}/${fileId}`);
+        // Absolute URL so LinkUtils scheme validation accepts the link; encode fileId so
+        // spaces/reserved chars in the original filename do not break URI.create.
+        const path = resolveRuntimePath(`/openapi/v1/files/${PRODUCT_ASSETS_FOLDER}/${encodeURIComponent(fileId)}`);
+        return `${window.location.origin}${path}`;
     };
 
     return isDocumentationFileUploadV1Enabled ? { uploadFile } : { uploadFile: undefined };
