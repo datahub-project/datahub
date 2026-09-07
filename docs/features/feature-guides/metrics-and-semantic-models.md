@@ -221,10 +221,15 @@ We're actively investing in the Metrics experience. Near-term work includes:
 No. DataHub is a catalog for metric _definitions_ — the calculation, dimensional context, lineage, and governance. Value computation and visualization stay in your BI tool or semantic layer.
 
 **Do I need Snowflake to use Metrics?**
-No. The Python SDK lets you emit Semantic Models and Metrics from any source. Snowflake Semantic Views is the first turnkey ingestion path; more are in progress.
+No. The Python SDK lets you emit Semantic Models and Metrics from any source, and there are several turnkey ingestion paths: Snowflake Semantic Views, dbt's semantic layer (`emit_semantic_model_entities: true` on the dbt or dbt-cloud source), Cube, and MicroStrategy.
 
 **What happens to my existing Snowflake Semantic Views ingested before this feature launched?**
 They stay in DataHub as legacy `Semantic View` datasets. When you're ready to move to the new model, the `datahub migrate snowflake-semantic-views` CLI copies governance (owners, domains, tags, glossary terms, documentation, deprecation, applications, column-level tags/terms) onto the new Semantic Model and Metric URNs. The migration is not automatic — reach out to your DataHub representative to plan the cutover. Lineage and policies are not migrated by the CLI; run Snowflake ingestion with `emit_semantic_model_entities: true` afterward to fill structural aspects.
+
+**What happens to my existing dbt semantic models ingested before this feature launched?**
+They stay in DataHub as legacy `Semantic Model` datasets. Setting `emit_semantic_model_entities: true` emits a project-level Semantic Model, one `Semantic Model Dataset` per dbt semantic model, and Metrics — at new URNs, so it is a replacement rather than an in-place upgrade. The `datahub migrate dbt-semantic-models` CLI copies governance across, and works in both directions so the flag stays reversible.
+
+One thing to know up front: unlike Snowflake, the dbt destination is a **dataset** (the Semantic Model Dataset), not the Semantic Model. A dbt Semantic Model is project-scoped and shared by every semantic model in the project, so copying each legacy dataset's owners and tags onto it would leave only the last one's. Governance therefore moves to the corresponding Semantic Model Dataset. Run dbt ingestion with the flag on afterward to fill structural aspects, and with stateful ingestion enabled so the legacy datasets are soft-deleted.
 
 **Are metrics environment-specific?**
 No. Metric URNs deliberately omit the environment qualifier (`PROD`, `STAGING`, etc.) — `total_revenue` in PROD and STAGING resolve to the same metric entity. Cross-platform metrics (e.g. the same measure defined in both dbt and Snowflake) remain distinct because the platform is encoded in the URN.

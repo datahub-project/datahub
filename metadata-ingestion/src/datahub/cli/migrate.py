@@ -9,7 +9,11 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 import click
 import progressbar
 
-from datahub.cli import delete_cli, migration_utils
+from datahub.cli import (
+    dbt_semantic_model_migration as dbt_migration,
+    delete_cli,
+    migration_utils,
+)
 from datahub.cli.migration_utils import ALL_ENTITY_TYPES
 from datahub.cli.snowflake_semantic_view_migration import (
     SEMANTIC_VIEW_SUBTYPE,
@@ -1230,6 +1234,281 @@ def snowflake_semantic_views(
         platform_instance=platform_instance,
         convert_urns_to_lowercase=convert_urns_to_lowercase,
         env=env,
+        dry_run=dry_run,
+        report_inbound_refs=report_inbound_refs,
+        subtype_skipped=subtype_skipped,
+    )
+    click.echo(f"{report}")
+
+
+def _read_urn_pairs_from_file(path: str) -> Dict[str, str]:
+    """Read explicit ``<legacy urn>\t<new urn>`` pairs, one per line."""
+    pairs: Dict[str, str] = {}
+    with open(path) as f:
+        for lineno, raw in enumerate(f, 1):
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split("\t") if "\t" in line else line.split()
+            if len(parts) != 2:
+                raise click.ClickException(
+                    f"{path}:{lineno}: expected two whitespace- or tab-separated "
+                    f"urns, got {len(parts)}"
+                )
+            pairs[parts[0]] = parts[1]
+    return pairs
+
+
+# See the NOTE above snowflake-semantic-views for why this is a governance copy
+# rather than the shared URN-move migration engine. The dbt destination is a
+# *dataset* (the Semantic Model Dataset), not a semanticModel -- see the
+# command docstring.
+@migrate.command(name="dbt-semantic-models")
+@click.option(
+    "--direction",
+    type=click.Choice([d.value for d in MigrationDirection]),
+    required=True,
+    help="dataset-to-sm migrates legacy 'Semantic Model' datasets to the new "
+    "'Semantic Model Dataset' entities (flag OFF->ON). sm-to-dataset migrates "
+    "them back (flag ON->OFF).",
+)
+@click.option(
+    "--env",
+    type=str,
+    default=DEFAULT_ENV,
+    help="Env for both sides of the mapping. Unlike the Snowflake migration, "
+    "both dbt sides are datasets carrying env, so PROD and DEV do not collide.",
+)
+@click.option(
+    "--platform-instance",
+    type=str,
+    default=None,
+    help="Platform instance used by the dbt ingestion recipe, if any. Must match "
+    "the recipe exactly or urn mapping will be wrong. Also filters discovery.",
+)
+@click.option(
+    "--convert-urns-to-lowercase/--no-convert-urns-to-lowercase",
+    default=True,
+    help="Must match the dbt recipe's convert_urns_to_lowercase (default: true).",
+)
+@click.option(
+    "--convert-column-urns-to-lowercase/--no-convert-column-urns-to-lowercase",
+    default=False,
+    help="Must match the dbt recipe's convert_column_urns_to_lowercase "
+    "(connector default: false, but forced true for target_platform snowflake). "
+    "Only used when the destination has no schemaMetadata yet and the field path "
+    "must be synthesized.",
+)
+@click.option(
+    "--project-name",
+    type=str,
+    default=None,
+    help="dbt project name, as it appears in the new dataset urns. The only "
+    "option that works before the new-side ingest has run, since it synthesizes "
+    "the destination urns. Forward direction only.",
+)
+@click.option(
+    "--mapping-file",
+    type=str,
+    default=None,
+    help="File of explicit '<source urn><TAB><destination urn>' pairs, one per "
+    "line. Takes precedence over every other mapping option.",
+)
+@click.option(
+    "--pair-by-name/--no-pair-by-name",
+    default=True,
+    help="Match the two sides on the semantic model name, the one component both "
+    "urn shapes share. Requires both sides to exist. An ambiguous name is "
+    "reported and skipped, never guessed.",
+)
+@click.option(
+    "--urn",
+    "urns",
+    type=str,
+    multiple=True,
+    help="Specific source urn(s) to migrate. Repeatable. If omitted, sources are "
+    "discovered by subtype.",
+)
+@click.option(
+    "--urn-file",
+    type=str,
+    default=None,
+    help="File of source urns, one per line ('#' comments allowed).",
+)
+@click.option(
+    "--include-soft-deleted/--exclude-soft-deleted",
+    default=False,
+    help="Include soft-deleted sources in discovery. After a flag flip, stateful "
+    "ingestion soft-deletes the previous side, so this is usually needed for "
+    "rollback.",
+)
+@click.option("--dry-run", "-n", type=bool, is_flag=True, default=False)
+@click.option(
+    "-F",
+    "--force",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Skip the subtype check and skip the confirmation prompt.",
+)
+@click.option(
+    "--report-inbound-refs",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="List relationships pointing at the source urn that this command does "
+    "not repoint.",
+)
+@telemetry.with_telemetry()
+@upgrade.check_upgrade
+def dbt_semantic_models(
+    direction: str,
+    env: str,
+    platform_instance: Optional[str],
+    convert_urns_to_lowercase: bool,
+    convert_column_urns_to_lowercase: bool,
+    project_name: Optional[str],
+    mapping_file: Optional[str],
+    pair_by_name: bool,
+    urns: Tuple[str, ...],
+    urn_file: Optional[str],
+    include_soft_deleted: bool,
+    dry_run: bool,
+    force: bool,
+    report_inbound_refs: bool,
+) -> None:
+    """Copy governance between legacy dbt "Semantic Model" datasets and the
+    "Semantic Model Dataset" entities emitted with emit_semantic_model_entities.
+
+    Both sides are datasets. The project-level semanticModel entity is NOT a
+    governance destination: it is shared by every semantic model in the project,
+    so copying each legacy dataset onto it would keep only the last one's
+    owners, tags and domain.
+
+    Copies entity-level ownership, domains, tags, glossary terms, institutional
+    memory, structured properties, documentation, deprecation, applications, and
+    the editable description. Column tags/terms are merged into the
+    destination's editableSchemaMetadata, preserving existing descriptions and
+    unioning tags by URN. Does NOT touch lineage, policies, data products, or
+    soft/hard-delete.
+
+    The dbt project name is in neither urn shape, and the legacy
+    database.schema prefix is not in the new one, so the two sides cannot be
+    paired from a single urn. Supply --mapping-file, --project-name (forward,
+    pre-ingest), or rely on --pair-by-name (both sides must exist).
+    """
+    migration_direction = MigrationDirection(direction)
+    if project_name and migration_direction == MigrationDirection.SM_TO_DATASET:
+        raise click.ClickException(
+            "--project-name only applies to --direction dataset-to-sm; the legacy "
+            "database.schema prefix cannot be synthesized from a project name. "
+            "Use --mapping-file or --pair-by-name for rollback."
+        )
+
+    graph = get_default_graph(ClientMode.CLI)
+    explicit_pairs = _read_urn_pairs_from_file(mapping_file) if mapping_file else None
+
+    forward = migration_direction == MigrationDirection.DATASET_TO_SM
+    expected_subtype = (
+        dbt_migration.LEGACY_SUBTYPE
+        if forward
+        else dbt_migration.SEMANTIC_MODEL_DATASET_SUBTYPE
+    )
+
+    urns_to_process: List[str] = list(urns)
+    if urn_file:
+        urns_to_process.extend(_read_urns_from_file(urn_file))
+    # Preserve order while dropping duplicates from --urn / --urn-file.
+    urns_to_process = list(dict.fromkeys(urns_to_process))
+    used_discovery = not bool(urns_to_process)
+
+    discover = (
+        dbt_migration.discover_legacy_dataset_urns
+        if forward
+        else dbt_migration.discover_semantic_model_dataset_urns
+    )
+
+    subtype_skipped: List[str] = []
+    if urns_to_process:
+        urns_to_process, subtype_skipped = dbt_migration.filter_by_expected_subtype(
+            graph, urns_to_process, force, migration_direction
+        )
+    else:
+        urns_to_process = discover(
+            graph,
+            env=env,
+            platform_instance=platform_instance,
+            include_soft_deleted=include_soft_deleted,
+        )
+
+    if not urns_to_process:
+        if subtype_skipped:
+            click.echo(
+                f"No entities found to migrate: all {len(subtype_skipped)} provided "
+                f"urn(s) lack the '{expected_subtype}' subtype. Pass --force to "
+                "bypass this check."
+            )
+            return
+        if used_discovery and not include_soft_deleted:
+            soft_only = discover(
+                graph,
+                env=env,
+                platform_instance=platform_instance,
+                only_soft_deleted=True,
+            )
+            if soft_only:
+                click.echo(
+                    f"No live entities found to migrate, but found {len(soft_only)} "
+                    f"soft-deleted '{expected_subtype}' dataset"
+                    f"{'s' if len(soft_only) != 1 else ''}. Did ingest already run? "
+                    "Re-run with --include-soft-deleted after reviewing that set."
+                )
+                return
+        click.echo("No entities found to migrate.")
+        return
+
+    mapping = dbt_migration.build_mapping(
+        graph,
+        migration_direction,
+        urns_to_process,
+        project_name=project_name,
+        explicit_pairs=explicit_pairs,
+        pair_by_name=pair_by_name,
+        platform_instance=platform_instance,
+        env=env,
+        convert_urns_to_lowercase=convert_urns_to_lowercase,
+    )
+    if not mapping.pairs:
+        click.echo(
+            f"Found {len(urns_to_process)} entities, but no destination urn could "
+            "be resolved for any of them:"
+        )
+        for note in mapping.notes[:10]:
+            click.echo(f"  {note}")
+        return
+
+    click.echo(dbt_migration.semantic_model_not_a_destination_note())
+    click.echo(
+        f"Found {len(urns_to_process)} entities to migrate ({direction}); "
+        f"{len(mapping.pairs)} mapped."
+        + (
+            f" Skipped {len(subtype_skipped)} without '{expected_subtype}' subtype."
+            if subtype_skipped
+            else ""
+        )
+    )
+    if not force and not dry_run:
+        sample = list(mapping.pairs.items())[:5]
+        for src, dst in sample:
+            click.echo(f"  {src} -> {dst}")
+        click.confirm("Ok to proceed?", abort=True)
+
+    report = dbt_migration.run_migration(
+        graph=graph,
+        direction=migration_direction,
+        urns=urns_to_process,
+        mapping=mapping,
+        convert_column_urns_to_lowercase=convert_column_urns_to_lowercase,
         dry_run=dry_run,
         report_inbound_refs=report_inbound_refs,
         subtype_skipped=subtype_skipped,
