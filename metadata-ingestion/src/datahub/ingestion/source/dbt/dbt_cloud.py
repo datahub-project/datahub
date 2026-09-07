@@ -38,6 +38,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
     DBTExposure,
+    DBTMetric,
     DBTNode,
     DBTSemanticModelDefinition,
     DBTSourceBase,
@@ -746,8 +747,16 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     else:
                         raw_nodes.extend(data["job"][node_type])
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to fetch {node_type} from job {job_id}: {e}. Continuing with other jobs."
+                    # A GraphQL failure here silently drops an entire node
+                    # type -- every semantic model, say -- so it must be
+                    # operator-visible in the report, not just in the log.
+                    self.report.warning(
+                        title="Failed to fetch dbt Cloud nodes",
+                        message="No metadata was ingested for this node type "
+                        "from this job. Ingestion continued with the other "
+                        "node types and jobs.",
+                        context=f"{node_type} from job {job_id}",
+                        exc=e,
                     )
                     continue
 
@@ -862,6 +871,27 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 },
             )
         return test_info, test_result
+
+    def load_metrics(self) -> List[DBTMetric]:
+        """dbt Cloud cannot supply top-level `metrics:` definitions yet.
+
+        The Discovery API does not expose the semantic graph; metric
+        definitions with their expressions and derivations live in the
+        separate Semantic Layer GraphQL API, which needs its own endpoint and
+        a token carrying the "Semantic Layer Only" permission set. Metrics
+        from `create_metric` measures are unaffected -- those come from the
+        semanticModels query, which already selects `createMetric`.
+        """
+        if self.config.emit_semantic_model_entities:
+            self.report.info(
+                title="dbt Cloud does not ingest top-level metric definitions",
+                message="Metrics declared in a `metrics:` block are not "
+                "ingested from dbt Cloud, because the Discovery API does not "
+                "expose them. Metrics from measures with `create_metric: true` "
+                "are ingested as normal. Use the dbt Core source if you need "
+                "the `metrics:` block.",
+            )
+        return super().load_metrics()
 
     def _parse_into_dbt_node(self, node: Dict) -> DBTNode:
         key = node["uniqueId"]
