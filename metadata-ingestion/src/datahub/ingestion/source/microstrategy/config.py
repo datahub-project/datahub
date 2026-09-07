@@ -219,15 +219,17 @@ class MicroStrategyConfig(
     extract_derived_metrics: bool = Field(
         default=True,
         description=(
-            "Whether to surface visualization-local derived metrics (grid "
-            "columns marked `derived: true`, which exist only inside a dossier "
-            "visualization and not in the metadata catalog) as schema fields "
-            "on the dataset backing their column group, tagged `Derived`. "
-            "MicroStrategy's REST API exposes no formula for these objects, so "
-            "the fields carry provenance but no expression. Reads the runtime "
-            "grids already fetched for lineage — adds no API calls — and "
-            "therefore requires `extract_lineage` and "
-            "`extract_visualization_details` to have anything to extract."
+            "Whether to surface derived metrics (grid columns marked "
+            "`derived: true`) as schema fields on the dataset backing their "
+            "column group, tagged `Derived`. When the dataset is a report, its "
+            "definition is fetched (GET /api/model/reports/{id}, falling back "
+            "to GET /api/v2/reports/{id}) so report-level derived metrics carry "
+            "the report's object name and formula; every derived metric the "
+            "report defines is emitted, not only those a grid displays. "
+            "Derived metrics no definition exposes are visualization-local and "
+            "carry provenance but no expression. Adds one or two API calls per "
+            "distinct report-backed dataset per project. Grid input requires "
+            "`extract_lineage` and `extract_visualization_details`."
         ),
     )
     extract_metric_formula_lineage: bool = Field(

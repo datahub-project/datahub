@@ -19,6 +19,7 @@ from datahub.ingestion.source.microstrategy.models import (
     MicroStrategyObject,
     PredefinedFolderResolution,
     ReportDefinition,
+    ReportDerivedMetric,
     extract_folder_parts,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -2167,3 +2168,188 @@ def test_dataset_schema_field_paths_are_unchanged_by_grid_display_names() -> Non
     assert "District Number.DESC" in paths
     assert "Salon RTL % Plan" in paths
     assert "Salon RTL Plan $" not in paths
+
+
+def _report_definitions() -> "list[ReportDerivedMetric]":
+    return [
+        ReportDerivedMetric(
+            id="D-RTL",
+            name="RTL PLN",
+            expression_text="([Net Sales Retail Amt]/[Salon RTL % Plan])-1",
+            source="report",
+        ),
+        ReportDerivedMetric(
+            id="D-QTY-VAR",
+            name="Qty Var LYS %",
+            expression_text="{Net Sales Qty} - 1",
+            source="report",
+        ),
+    ]
+
+
+def test_report_derived_metrics_upgrade_grid_specs_and_add_missing_ones() -> None:
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    retail = dashboard.datasets[0]
+    # The grid showed D-RTL under its dossier alias; nothing showed D-QTY-VAR.
+    assert retail.derived_metrics["D-RTL"].name == "RET % PLN"
+    assert "D-QTY-VAR" not in retail.derived_metrics
+
+    mapper.attach_report_derived_metrics(retail, _report_definitions())
+
+    # Same id: upgraded in place (report object name + formula), not duplicated.
+    assert sorted(retail.derived_metrics) == ["D-QTY-VAR", "D-RTL"]
+    upgraded = retail.derived_metrics["D-RTL"]
+    assert upgraded.name == "RTL PLN"
+    assert upgraded.definition_source == "report"
+    assert upgraded.expression_text == "([Net Sales Retail Amt]/[Salon RTL % Plan])-1"
+    # Grid provenance survives the upgrade.
+    assert upgraded.column_set_name == "RETAIL"
+    added = retail.derived_metrics["D-QTY-VAR"]
+    assert added.source_visualization_key is None
+    assert added.expression_text == "{Net Sales Qty} - 1"
+
+
+def test_report_derived_metrics_match_by_name_when_ids_differ() -> None:
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    retail = dashboard.datasets[0]
+
+    mapper.attach_report_derived_metrics(
+        retail,
+        [ReportDerivedMetric(id="OTHER-ID", name="ret % pln", expression_text="1")],
+    )
+
+    assert sorted(retail.derived_metrics) == ["D-RTL"]
+    assert retail.derived_metrics["D-RTL"].expression_text == "1"
+
+
+def test_report_derived_metrics_never_shadow_catalog_objects() -> None:
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    retail = dashboard.datasets[0]
+
+    mapper.attach_report_derived_metrics(
+        retail,
+        [
+            ReportDerivedMetric(
+                id="M-NET", name="Net Sales Retail Amt", expression_text="x"
+            )
+        ],
+    )
+
+    assert retail.derived_metrics == {}
+
+
+def test_report_derived_metric_fields_carry_formula_and_provenance() -> None:
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    retail = dashboard.datasets[0]
+    mapper.attach_report_derived_metrics(retail, _report_definitions())
+
+    schema = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1", dashboard, retail, mapper.project_key("project-1")
+        ),
+        SchemaMetadataClass,
+    )
+    fields = {field.fieldPath: field for field in schema.fields}
+
+    # Named as the report names it, not as the dossier grid aliases it.
+    assert "RTL PLN" in fields
+    assert "RET % PLN" not in fields
+    rtl = fields["RTL PLN"]
+    assert _tag_urns(rtl) == {MEASURE_TAG_URN, DERIVED_TAG_URN}
+    assert rtl.description is not None
+    assert rtl.description.startswith(
+        "Derived metric defined on report 'RETAIL SALES YESTERDAY'."
+    )
+    assert rtl.description.endswith(
+        "```\n([Net Sales Retail Amt]/[Salon RTL % Plan])-1\n```"
+    )
+    props = json.loads(rtl.jsonProps or "{}")
+    assert props["microstrategyObjectType"] == "derivedMetric"
+    assert props["microstrategyDerivedMetricSource"] == "report"
+    assert (
+        props["microstrategyMetricExpressionText"]
+        == "([Net Sales Retail Amt]/[Salon RTL % Plan])-1"
+    )
+    assert props["microstrategyColumnGroup"] == "RETAIL"
+    # A grid-only derived metric on another dataset keeps visualization provenance
+    # and says so, since no definition exposed a formula.
+    service = dashboard.datasets[1]
+    service_schema = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1", dashboard, service, mapper.project_key("project-1")
+        ),
+        SchemaMetadataClass,
+    )
+    ser = next(
+        field for field in service_schema.fields if field.fieldPath == "SER % PLN"
+    )
+    assert ser.description is not None
+    assert "No report or document definition exposes a formula" in ser.description
+    assert json.loads(ser.jsonProps or "{}")["microstrategyDerivedMetricSource"] == (
+        "visualization"
+    )
+
+
+def test_report_derived_metric_formulas_join_metric_formula_lineage() -> None:
+    mapper = _mapper(extract_metric_formula_lineage=True)
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    retail = dashboard.datasets[0]
+    mapper.attach_report_derived_metrics(retail, _report_definitions())
+
+    upstream_lineage = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1", dashboard, retail, mapper.project_key("project-1")
+        ),
+        UpstreamLineageClass,
+    )
+    edges = {
+        lineage.downstreams[0].rsplit(",", 1)[-1]: {
+            urn.rsplit(",", 1)[-1] for urn in (lineage.upstreams or [])
+        }
+        for lineage in upstream_lineage.fineGrainedLineages or []
+        if lineage.downstreams
+    }
+
+    # [Name] references resolve against the dataset's own fields.
+    assert edges["RTL PLN)"] == {"Net Sales Retail Amt)", "Salon RTL % Plan)"}
+    # {Net Sales Qty} is not a field of this dataset: counted, not guessed.
+    assert "Qty Var LYS %)" not in edges
+    assert mapper.report.metric_formula_refs_unresolved == 1
+
+
+def test_chart_input_fields_show_grid_alias_for_report_derived_metric() -> None:
+    # The dataset field is "RTL PLN" (report name); the grid header is the
+    # dossier alias, which is what the chart shows, with the object name kept.
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    mapper.attach_report_derived_metrics(dashboard.datasets[0], _report_definitions())
+
+    workunits = list(
+        mapper.gen_chart_workunits(
+            "project-1",
+            dashboard,
+            dashboard.visualizations[0],
+            mapper.project_key("project-1"),
+        )
+    )
+    input_fields = _aspect(workunits, InputFieldsClass)
+    entry = next(
+        f
+        for f in input_fields.fields
+        if f.schemaField and f.schemaField.fieldPath == "RETAIL.RET % PLN"
+    )
+    assert entry.schemaFieldUrn.endswith(",RTL PLN)")
+    assert entry.schemaField is not None
+    assert (
+        json.loads(entry.schemaField.jsonProps or "{}")["microstrategyObjectName"]
+        == "RTL PLN"
+    )

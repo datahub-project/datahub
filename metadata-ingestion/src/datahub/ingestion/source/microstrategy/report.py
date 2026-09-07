@@ -44,6 +44,8 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     column_sets_unbound: int = 0
     derived_metric_fields_scanned: int = 0
     derived_metrics_unattached: int = 0
+    report_derived_metrics_extracted: int = 0
+    report_definition_failures: int = 0
     metric_formula_lineage_edges: int = 0
     metric_formula_refs_unresolved: int = 0
     metric_formula_unresolved_ref_samples: LossyList[str] = field(
@@ -160,6 +162,12 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_derived_metric_unattached(self) -> None:
         self.derived_metrics_unattached += 1
+
+    def report_report_derived_metrics_extracted(self, count: int) -> None:
+        self.report_derived_metrics_extracted += count
+
+    def report_report_definition_failure(self) -> None:
+        self.report_definition_failures += 1
 
     def report_metric_formula_lineage_edges(self, count: int) -> None:
         self.metric_formula_lineage_edges += count
