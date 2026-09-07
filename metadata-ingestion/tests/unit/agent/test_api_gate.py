@@ -69,3 +69,19 @@ def test_an_empty_allowlist_permits_nothing():
     # Fail closed: a connector that has not opted in exposes no endpoints.
     with pytest.raises(ApiScopeError):
         check_api_request("GET", "/spaces", [])
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        # Matches "^/spaces/[^/]+/reports$" because "a#b" holds no "/", but the
+        # client drops everything from "#" and fetches "/spaces" instead --
+        # a listed template validating an unlisted request.
+        "/spaces/a#b/reports",
+        "/spaces/a%23b/reports",  # percent-encoded; the client decodes it too
+        "/spaces#",
+    ],
+)
+def test_rejects_a_fragment_because_the_client_would_request_a_shorter_path(path):
+    with pytest.raises(ApiScopeError, match="fragment"):
+        check_api_request("GET", path, ALLOWLIST)

@@ -19,6 +19,10 @@ _SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
     "token",
     "basic.auth.user.info",
     "ssl.key",
+    # Key-pair auth (Snowflake) and service-account JSON (GCP) both carry the
+    # key under this name, nested one level down (`credential.private_key`), so
+    # the top-level SecretStr sweep misses it even though the field is typed.
+    "private_key",
 )
 
 

@@ -80,7 +80,7 @@ def pattern_verdict(config: Any, pattern_field: Optional[str], target: str) -> V
     return _INCLUDED if pattern.allowed(target) else Verdict(False, pattern_field)
 
 
-class ProbeSoftError(Exception):
+class ProbeSoftError(ValueError):
     """A connector's list_names raises this to report that one endpoint
     couldn't be read cleanly -- a 404 on a resource deleted between listing
     and fetch, or a 403 on something this token can't read -- and that
@@ -107,6 +107,15 @@ class ProbeSoftError(Exception):
     run_probe_method records str(exc) on ProbeMethodResult.warnings and continues
     with the remaining sibling levels. Source-agnostic: any connector's
     lister may raise it, not just Mode's.
+
+    Subclasses ValueError deliberately. When one does reach the CLI uncaught,
+    what it reports is that the caller named something that isn't there ("no
+    report named 'x'"), which is a bad argument, not an unreachable source --
+    so it must exit 2, not 3, or the agent retries the connection instead of
+    fixing the name. Declaring the category on the exception routes it through
+    every existing handler at once; the CLI has four such ladders, and adding
+    a clause to three of four is how this landed on the wrong code to begin
+    with.
     """
 
 

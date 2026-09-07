@@ -1,6 +1,11 @@
 from typing import Dict
 
-from datahub.ingestion.agent.redact import collect_secret_values, redact
+from datahub.ingestion.agent.redact import (
+    _SENSITIVE_KEY_HINTS,
+    collect_nested_secret_values,
+    collect_secret_values,
+    redact,
+)
 
 
 def test_redacts_exact_and_embedded_values():
@@ -75,3 +80,15 @@ def test_overlapping_secrets_are_masked_longest_first():
         assert "SECRETTAIL" not in out, (
             f"leaked tail for {{{short!r}, {long!r}}}: {out!r}"
         )
+
+
+def test_a_nested_private_key_is_collected():
+    """Key-pair and service-account credentials nest one level down, where the
+    top-level SecretStr sweep does not reach -- so the name hints must cover
+    them or an inline key reaches the transcript unmasked."""
+    key = "-----BEGIN PRIVATE KEY-----\nabc\n"
+    cfg = {"credential": {"private_key": key, "project_id": "proj"}}
+    values = collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS)
+    assert key in values
+    assert "proj" not in values
+    assert key not in str(redact(cfg, values))

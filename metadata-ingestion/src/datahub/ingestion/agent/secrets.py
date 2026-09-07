@@ -22,6 +22,16 @@ class EnvVarResolver:
         return os.environ.get(ref)
 
 
+# ~/.datahubenv nests everything under `gms:` (DatahubConfig.gms), so a flat
+# top-level lookup resolves nothing at all. These map the two names a recipe
+# actually spells -- the same ones the CLI documents as env vars -- onto where
+# the file keeps them.
+_DATAHUB_ENV_ALIASES = {
+    "DATAHUB_GMS_URL": "gms.server",
+    "DATAHUB_GMS_TOKEN": "gms.token",
+}
+
+
 class DatahubEnvResolver:
     def resolve(self, ref: str) -> Optional[str]:
         # Lazy import: only touch the CLI config file when this resolver is actually used.
@@ -33,8 +43,21 @@ class DatahubEnvResolver:
 
         with open(DATAHUB_CONFIG_PATH) as stream:
             data = yaml.safe_load(stream) or {}
-        value = data.get(ref)
+        # Read the file directly rather than through get_url_and_token(): that
+        # path raises on a missing config and warns on an expired token, and
+        # this command emits JSON on stdout.
+        value = _lookup_path(data, _DATAHUB_ENV_ALIASES.get(ref, ref))
         return str(value) if value is not None else None
+
+
+def _lookup_path(data: object, path: str) -> Optional[object]:
+    """Resolve a dotted path, so a recipe may name `${gms.server}` directly."""
+    node: object = data
+    for part in path.split("."):
+        if not isinstance(node, dict):
+            return None
+        node = node.get(part)
+    return None if isinstance(node, (dict, list)) else node
 
 
 def default_resolvers() -> List[SecretResolver]:

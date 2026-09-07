@@ -1,6 +1,8 @@
 import pytest
 
+from datahub.cli import config_utils
 from datahub.ingestion.agent.secrets import (
+    DatahubEnvResolver,
     EnvVarResolver,
     resolve_config,
     resolve_config_collecting,
@@ -46,3 +48,30 @@ def test_collecting_records_nested_ref(monkeypatch):
     assert isinstance(b, dict)
     assert b["pw"] == "nestedsecret"
     assert "nestedsecret" in out.secret_values
+
+
+def test_datahubenv_refs_resolve_through_the_gms_block(monkeypatch, tmp_path):
+    """The file nests under `gms:`, so a flat top-level lookup found nothing.
+
+    Both spellings must work: the dotted path a recipe can write directly, and
+    the DATAHUB_GMS_* names the CLI documents as env vars, which people carry
+    into recipes out of habit.
+    """
+    env_file = tmp_path / "datahubenv"
+    env_file.write_text("gms:\n  server: http://gms:8080\n  token: tok-abc\n")
+    monkeypatch.setattr(config_utils, "DATAHUB_CONFIG_PATH", str(env_file))
+    resolver = DatahubEnvResolver()
+    assert resolver.resolve("gms.server") == "http://gms:8080"
+    assert resolver.resolve("DATAHUB_GMS_TOKEN") == "tok-abc"
+
+
+def test_datahubenv_resolver_declines_what_it_cannot_supply(monkeypatch, tmp_path):
+    """A miss must return None so the caller raises "unresolved ref" rather
+    than substituting a subtree or a partial path."""
+    env_file = tmp_path / "datahubenv"
+    env_file.write_text("gms:\n  server: http://gms:8080\n")
+    monkeypatch.setattr(config_utils, "DATAHUB_CONFIG_PATH", str(env_file))
+    resolver = DatahubEnvResolver()
+    assert resolver.resolve("gms") is None
+    assert resolver.resolve("gms.server.deeper") is None
+    assert resolver.resolve("nope") is None

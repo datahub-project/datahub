@@ -4,6 +4,7 @@ import datahub.cli.recipe_cli as rc
 from datahub.cli.recipe_cli import recipe
 from datahub.ingestion.agent.probe_methods import ProbeMethodResult
 from datahub.ingestion.agent.redact import collect_nested_secret_values
+from datahub.ingestion.agent.verdicts import ProbeSoftError
 
 
 def _recipe_file(tmp_path):
@@ -114,6 +115,23 @@ def test_probe_run_normalizes_then_redacts(monkeypatch, tmp_path):
     assert res.exit_code == 0, res.output
     assert "topsecret" not in res.output
     assert "***" in res.output
+
+
+def test_a_soft_error_exits_on_the_bad_argument_code(monkeypatch, tmp_path):
+    """A soft error reports that the caller named something absent, so it is a
+    bad argument (2), not an unreachable source (3). Reported as 3, an agent
+    retries the connection instead of fixing the name it passed."""
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
+
+    def fake_run(st, cfg, cmd, kwargs):
+        raise ProbeSoftError("no report named 'nope' found in space 's'")
+
+    monkeypatch.setattr(rc, "run_probe_method", fake_run)
+    res = CliRunner().invoke(
+        recipe, ["probe", "run", "reports", "--recipe", _recipe_file(tmp_path)]
+    )
+    assert res.exit_code == 2, res.output
+    assert "no report named" in res.output
 
 
 def test_report_to_writes_the_redacted_payload(monkeypatch, tmp_path):

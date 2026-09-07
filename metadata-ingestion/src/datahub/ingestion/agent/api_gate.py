@@ -60,6 +60,18 @@ def check_api_request(method: str, path: str, allowlist: Iterable[str]) -> None:
         )
     if "://" in decoded:
         raise ApiScopeError(f"'{path}' must be a path, not a full URL")
+    if "#" in decoded:
+        # A fragment is never sent to the server, so the client requests only
+        # the part before it -- while the allowlist matched the whole string.
+        # "/spaces/a#b/reports" satisfies "/spaces/{token}/reports" (the
+        # placeholder spans one segment and "a#b" holds no "/") and then
+        # fetches "/spaces/a", which nobody listed. Validating one path and
+        # issuing another is the bypass; refuse it, since a fragment cannot
+        # mean anything to an API read.
+        raise ApiScopeError(
+            f"'{path}' may not contain a fragment: the client would drop it "
+            f"and request a different path than the one checked"
+        )
     if any(segment == ".." for segment in decoded.split("?")[0].split("/")):
         # The path is concatenated onto the connector's base URI, so traversal
         # would aim its credentials somewhere it never meant to call.
