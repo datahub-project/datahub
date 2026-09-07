@@ -494,6 +494,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._stale_warehouse_refs_seen: Set[str] = set()
         # One /spec parse per Data Model, keyed by dataModelId.
         self._dm_spec_index_cache: Dict[str, DataModelSpecIndex] = {}
+        # Join partners, built once per Data Model rather than per element.
+        self._join_partner_cache: Dict[
+            Tuple[str, int], Dict[Tuple[str, str], Set[Tuple[str, str]]]
+        ] = {}
         # Built once per run, lazily, by _ensure_global_warehouse_index.
         self._global_warehouse_index_built: bool = False
         self._global_warehouse_file_entries: Dict[str, Dict[str, Any]] = {}
@@ -3492,6 +3496,73 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         return cached
 
+    def _build_join_partner_map(
+        self,
+        *,
+        spec: DataModelSpecIndex,
+        data_model: SigmaDataModel,
+        elementId_to_dataset_urn: Dict[str, str],
+    ) -> Dict[Tuple[str, str], Set[Tuple[str, str]]]:
+        """(urn, column name) -> the columns a join predicate equates it with.
+
+        A predicate side names its column by DISPLAY NAME, but columnId is also
+        accepted: the spec does not label which it uses, and matching both costs
+        nothing while making the lookup robust if Sigma switches.
+        """
+        col_name_by_key: Dict[str, Dict[str, str]] = {}
+        for dm_el in data_model.elements:
+            winners, _ = _dedup_dm_element_columns(dm_el.columns)
+            keys: Dict[str, str] = {}
+            for col in winners.values():
+                if col.columnId:
+                    keys[col.columnId] = col.name
+                keys[col.name.strip().lower()] = col.name
+            col_name_by_key[dm_el.elementId] = keys
+
+        def resolve(side: SpecColumnRef) -> Optional[Tuple[str, str]]:
+            if side.element_id is None:
+                return None
+            keys = col_name_by_key.get(side.element_id)
+            urn = elementId_to_dataset_urn.get(side.element_id)
+            if not keys or urn is None:
+                return None
+            name = keys.get(side.column) or keys.get(side.column.strip().lower())
+            return (urn, name) if name else None
+
+        partners: Dict[Tuple[str, str], Set[Tuple[str, str]]] = {}
+        for predicate in spec.pairs:
+            a, b = resolve(predicate.left), resolve(predicate.right)
+            if a is None or b is None:
+                self.reporter.data_model_join_key_partner_unresolved += 1
+                # Name WHICH side failed and what it referenced. A side is a
+                # Sigma formula, so this line is the only place that shows both
+                # the raw expression and the column extracted from it.
+                logger.debug(
+                    "JOIN KEY DM %s: predicate from join element %s did not "
+                    "resolve -- left(element=%s column=%r expr=%r)=%s "
+                    "right(element=%s column=%r expr=%r)=%s",
+                    data_model.dataModelId,
+                    predicate.join_element_id,
+                    predicate.left.element_id,
+                    predicate.left.column,
+                    predicate.left.expression,
+                    "ok" if a else "UNRESOLVED",
+                    predicate.right.element_id,
+                    predicate.right.column,
+                    predicate.right.expression,
+                    "ok" if b else "UNRESOLVED",
+                )
+                continue
+            partners.setdefault(a, set()).add(b)
+            partners.setdefault(b, set()).add(a)
+        logger.debug(
+            "JOIN KEY DM %s: %d predicate(s) -> %d column(s) with partners",
+            data_model.dataModelId,
+            len(spec.pairs),
+            len(partners),
+        )
+        return partners
+
     def _add_join_key_fgls(
         self,
         *,
@@ -3520,58 +3591,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         spec = self._get_dm_spec_index(data_model)
         if not spec.pairs:
             return
-        element_id_by_urn = {urn: eid for eid, urn in elementId_to_dataset_urn.items()}
-        # Each DM element's columns, addressable by columnId AND by lowercased
-        # name: /spec states a predicate side as a bare string and the document
-        # does not say which of the two it is, so both are tried.
-        col_name_by_key: Dict[str, Dict[str, str]] = {}
-        for dm_el in data_model.elements:
-            winners, _ = _dedup_dm_element_columns(dm_el.columns)
-            keys: Dict[str, str] = {}
-            for col in winners.values():
-                if col.columnId:
-                    keys[col.columnId] = col.name
-                keys[col.name.lower()] = col.name
-            col_name_by_key[dm_el.elementId] = keys
-
-        def resolve(side: "SpecColumnRef") -> Optional[Tuple[str, str]]:
-            if side.element_id is None:
-                return None
-            keys = col_name_by_key.get(side.element_id)
-            urn = elementId_to_dataset_urn.get(side.element_id)
-            if not keys or urn is None:
-                return None
-            name = keys.get(side.column) or keys.get(side.column.strip().lower())
-            return (urn, name) if name else None
-
-        # (urn, column name) -> the columns a predicate equates it with.
-        partners: Dict[Tuple[str, str], Set[Tuple[str, str]]] = {}
-        for predicate in spec.pairs:
-            a, b = resolve(predicate.left), resolve(predicate.right)
-            if a is None or b is None:
-                self.reporter.data_model_join_key_partner_unresolved += 1
-                # Name WHICH side failed and what was tried. A predicate side is
-                # a bare string that may be a columnId or a column name, and
-                # silence here would leave "0 join edges" indistinguishable from
-                # "the predicate was read but neither spelling matched".
-                logger.debug(
-                    "JOIN KEY DM %s: predicate from join element %s did not "
-                    "resolve -- left(element=%s column=%r)=%s "
-                    "right(element=%s column=%r)=%s",
-                    data_model.dataModelId,
-                    predicate.join_element_id,
-                    predicate.left.element_id,
-                    predicate.left.column,
-                    "ok" if a else "UNRESOLVED",
-                    predicate.right.element_id,
-                    predicate.right.column,
-                    "ok" if b else "UNRESOLVED",
-                )
-                continue
-            partners.setdefault(a, set()).add(b)
-            partners.setdefault(b, set()).add(a)
+        # Built once per Data Model, not once per element. Rebuilding it per
+        # element re-walked every element's columns and re-counted every
+        # unresolved predicate -- on one tenant 61 predicates were reported as
+        # 1,234 failures, which made the counter unreadable.
+        cache_key = (data_model.dataModelId, id(elementId_to_dataset_urn))
+        partners = self._join_partner_cache.get(cache_key)
+        if partners is None:
+            partners = self._build_join_partner_map(
+                spec=spec,
+                data_model=data_model,
+                elementId_to_dataset_urn=elementId_to_dataset_urn,
+            )
+            self._join_partner_cache = {cache_key: partners}
         if not partners:
             return
+        element_id_by_urn = {urn: eid for eid, urn in elementId_to_dataset_urn.items()}
 
         added = 0
         for fgl in list(fgls) + list(cross_dm_fgls):

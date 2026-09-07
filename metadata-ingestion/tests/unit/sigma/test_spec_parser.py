@@ -20,8 +20,9 @@ from typing import Any, Dict, List
 
 from datahub.ingestion.source.sigma.spec_parser import parse_data_model_spec
 
-_LEFT_COL = "col-left-0000000000000000000000000"
-_RIGHT_COL = "col-right-000000000000000000000000"
+# A predicate side is a Sigma formula, not an identifier.
+_LEFT_EXPR = "[Col A]"
+_RIGHT_EXPR = "[Col B]"
 
 _ELEMENT_SIDE_L = {"elementId": "el-left", "groupingId": "g1", "kind": "element"}
 _ELEMENT_SIDE_R = {"elementId": "el-right", "groupingId": "g2", "kind": "element"}
@@ -51,8 +52,8 @@ def _spec(join_source: Dict[str, Any]) -> Dict[str, Any]:
             {
                 "id": "p1",
                 "elements": [
-                    _element("el-left", [_LEFT_COL], {"kind": "warehouse-table"}),
-                    _element("el-right", [_RIGHT_COL], {"kind": "warehouse-table"}),
+                    _element("el-left", ["c-a"], {"kind": "warehouse-table"}),
+                    _element("el-right", ["c-b"], {"kind": "warehouse-table"}),
                     _element("el-join", [], join_source),
                 ],
             }
@@ -78,7 +79,7 @@ def test_predicate_is_read_from_joins_not_from_source_columns() -> None:
             _join(
                 _ELEMENT_SIDE_L,
                 _ELEMENT_SIDE_R,
-                [{"left": _LEFT_COL, "right": _RIGHT_COL, "op": "equals"}],
+                [{"left": _LEFT_EXPR, "right": _RIGHT_EXPR, "op": "equals"}],
             )
         ),
         data_model_id="dm-1",
@@ -86,30 +87,50 @@ def test_predicate_is_read_from_joins_not_from_source_columns() -> None:
     assert len(index.pairs) == 1
     predicate = index.pairs[0]
     assert predicate.join_element_id == "el-join"
-    assert (predicate.left.element_id, predicate.left.column) == ("el-left", _LEFT_COL)
+    assert (predicate.left.element_id, predicate.left.column) == ("el-left", "Col A")
     assert (predicate.right.element_id, predicate.right.column) == (
         "el-right",
-        _RIGHT_COL,
+        "Col B",
     )
     assert index.unreadable_join_element_ids == []
 
 
-def test_side_values_are_returned_verbatim_not_interpreted() -> None:
-    """The document does not say whether a side is a column id or a name."""
+def test_side_expression_yields_the_column_it_references() -> None:
+    """Sides are formulas: a wrapped column is still a key equality.
+
+    A live tenant spells them "[Col A]" and "Coalesce([Col A], -2)".
+    Treating the raw string as an identifier read 61 predicates and resolved 0.
+    """
     index = parse_data_model_spec(
         _spec(
             _join(
                 _ELEMENT_SIDE_L,
                 _ELEMENT_SIDE_R,
-                [{"left": "Account Number", "right": "Col B"}],
+                [{"left": "[Col A]", "right": "Coalesce([Col B], -2)"}],
             )
         ),
         data_model_id="dm-1",
     )
     assert (index.pairs[0].left.column, index.pairs[0].right.column) == (
-        "Account Number",
+        "Col A",
         "Col B",
     )
+    # The raw text is kept so a log line can show what was parsed.
+    assert index.pairs[0].right.expression == "Coalesce([Col B], -2)"
+
+
+def test_composite_or_literal_side_is_refused() -> None:
+    """Two columns or none is not a simple key equality."""
+    for expr in ("[A] = [B]", "42"):
+        index = parse_data_model_spec(
+            _spec(
+                _join(
+                    _ELEMENT_SIDE_L, _ELEMENT_SIDE_R, [{"left": expr, "right": "[B]"}]
+                )
+            ),
+            data_model_id="dm-1",
+        )
+        assert index.pairs == []
 
 
 def test_warehouse_side_is_counted_not_treated_as_a_parse_failure() -> None:
@@ -119,7 +140,7 @@ def test_warehouse_side_is_counted_not_treated_as_a_parse_failure() -> None:
             _join(
                 _WAREHOUSE_SIDE,
                 _ELEMENT_SIDE_R,
-                [{"left": "SOME_COL", "right": _RIGHT_COL}],
+                [{"left": "[SOME_COL]", "right": _RIGHT_EXPR}],
             )
         ),
         data_model_id="dm-1",
@@ -135,19 +156,19 @@ def test_multiple_joins_and_multi_column_predicates() -> None:
     source = _join(
         _ELEMENT_SIDE_L,
         _ELEMENT_SIDE_R,
-        [{"left": _LEFT_COL, "right": _RIGHT_COL}, {"left": "A", "right": "B"}],
+        [{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}, {"left": "[A]", "right": "[B]"}],
     )
     source["joins"].append(
         {
             "joinType": "inner",
             "left": _ELEMENT_SIDE_R,
             "right": _ELEMENT_SIDE_L,
-            "columns": [{"left": "C", "right": "D"}],
+            "columns": [{"left": "[C]", "right": "[D]"}],
         }
     )
     index = parse_data_model_spec(_spec(source), data_model_id="dm-1")
     assert [(p.left.column, p.right.column) for p in index.pairs] == [
-        (_LEFT_COL, _RIGHT_COL),
+        ("Col A", "Col B"),
         ("A", "B"),
         ("C", "D"),
     ]
@@ -203,7 +224,7 @@ def test_renamed_side_descriptors_are_unreadable_not_warehouse_side() -> None:
                     {
                         "lhs": _ELEMENT_SIDE_L,
                         "rhs": _ELEMENT_SIDE_R,
-                        "columns": [{"left": _LEFT_COL, "right": _RIGHT_COL}],
+                        "columns": [{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}],
                     }
                 ],
             }

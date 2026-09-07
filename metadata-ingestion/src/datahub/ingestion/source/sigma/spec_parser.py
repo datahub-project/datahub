@@ -2,6 +2,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
+
 logger = logging.getLogger(__name__)
 
 _PAGES = "pages"
@@ -21,16 +23,21 @@ _JOIN_KIND = "join"
 
 @dataclass(frozen=True)
 class SpecColumnRef:
-    """One side of a join predicate, as the /spec document spells it.
+    """One side of a join predicate.
 
     ``element_id`` is None when the side is a warehouse table rather than an
     element in this Data Model: /spec identifies those by connection and path,
     and their columns appear nowhere in the document, so nothing in this file
     can map them to a Sigma column. The caller decides whether it can.
+
+    ``column`` is the single column the side's expression references, by DISPLAY
+    NAME. ``expression`` keeps the raw text, which is a Sigma formula rather
+    than a bare identifier -- see :func:`_column_from_expression`.
     """
 
     element_id: Optional[str]
     column: str
+    expression: str = ""
 
 
 @dataclass
@@ -94,6 +101,29 @@ def _key_skeleton(node: Any, depth: int = 0) -> Any:
     return type(node).__name__
 
 
+def _column_from_expression(expression: str) -> Optional[str]:
+    """The one column a predicate side references, or None.
+
+    A predicate side is a Sigma FORMULA, not a column id and not a bare column
+    name -- confirmed from a live tenant, where sides read ``[Col A]``,
+    ``Coalesce([Col A], -2)`` and ``[Join Key]``. Treating the raw string
+    as an identifier matched nothing: 61 predicates read, 0 resolved.
+
+    A side that references exactly one column is a key equality, whether or not
+    the value is wrapped in a function -- the join still ties the two columns
+    together. Zero references (a literal) or several (a composite expression)
+    are not a simple key equality and are refused rather than guessed at.
+    """
+    refs = [
+        ref
+        for ref in extract_bracket_refs(expression)
+        if not ref.is_parameter and ref.column is None
+    ]
+    if len(refs) != 1:
+        return None
+    return refs[0].source
+
+
 def _side_ref(descriptor: Any, column: Any) -> Optional[SpecColumnRef]:
     """Build a predicate side from a join's ``left``/``right`` descriptor.
 
@@ -115,12 +145,15 @@ def _side_ref(descriptor: Any, column: Any) -> Optional[SpecColumnRef]:
         return None
     if not isinstance(descriptor, dict):
         return None
+    resolved = _column_from_expression(column)
+    if resolved is None:
+        return None
     raw = descriptor.get(_ELEMENT_ID)
     if isinstance(raw, str) and raw:
-        return SpecColumnRef(element_id=raw, column=column)
+        return SpecColumnRef(element_id=raw, column=resolved, expression=column)
     # No element id: accept as a warehouse table only on a positive signal.
     if any(key in descriptor for key in _WAREHOUSE_SIDE_KEYS):
-        return SpecColumnRef(element_id=None, column=column)
+        return SpecColumnRef(element_id=None, column=resolved, expression=column)
     return None
 
 

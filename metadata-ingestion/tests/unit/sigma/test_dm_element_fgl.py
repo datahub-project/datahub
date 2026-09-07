@@ -27,6 +27,7 @@ def _source() -> SigmaSource:
         {"client_id": "t", "client_secret": "t"}
     )
     source._dm_spec_index_cache = {}
+    source._join_partner_cache = {}
     source.sigma_api = MagicMock()
     source.sigma_api.get_data_model_spec.return_value = None
     return source
@@ -1533,10 +1534,13 @@ def _join_spec_source(source: SigmaSource) -> None:
                                     "joinType": "left",
                                     "left": {"elementId": "a", "kind": "element"},
                                     "right": {"elementId": "c", "kind": "element"},
+                                    # Sides are Sigma FORMULAS, not identifiers:
+                                    # a live tenant spells them "[Col]" and
+                                    # "Coalesce([Col], -2)".
                                     "columns": [
                                         {
-                                            "left": _LEFT_COL_ID,
-                                            "right": _RIGHT_COL_ID,
+                                            "left": "[col_k]",
+                                            "right": "Coalesce([col_k], -2)",
                                             "op": "equals",
                                         }
                                     ],
