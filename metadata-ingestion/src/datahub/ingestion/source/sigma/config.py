@@ -248,7 +248,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # inode-shaped columnId named a table the Data Model's /lineage omits, and
     # the direct /v2/files/{urlId} lookup supplied it. Before this the recovery
     # reached only the entity-level upstream, leaving the column that motivated
-    # it unresolved -- 1,305 columns on one tenant.
+    # it unresolved -- 1,305 columns on one tenant (2026-09).
     dm_element_warehouse_column_recovered_by_lookup: int = 0
     # url_ids skipped because the connection to attribute them to could not be
     # inferred unambiguously (a /files entry carries no connectionId).
@@ -272,7 +272,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_columns_fetch_partial: int = 0
     # Entries returned by the /v2/files warehouse-table listing, which backs the
     # by-name fallback only. A value that is an exact round number (10,000)
-    # would suggest a server-side cap; a live tenant returned 40,564 across 41
+    # would suggest a server-side cap; a live tenant returned 40,564 across 41 (2026-09)
     # pages, so the listing itself is complete.
     warehouse_files_listed: int = 0
     # Formula refs naming a warehouse TABLE the element declares, resolved to
@@ -370,6 +370,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # predicate is skipped. A large value beside a small
     # data_model_element_fgl_join_key_resolved means the scoping is doing most
     # of the work; a large value with resolved at 0 means it is too tight.
+    # Sub-count of data_model_element_fgl_warehouse_passthrough_deferred: the
+    # element is named after its own warehouse table and the column's columnId
+    # is not inode-shaped, so no pre-built warehouse edge existed. These are the
+    # ones the by-name resolver then attempts; the remainder of the umbrella
+    # counter is inode-shaped columnIds whose warehouse resolution failed, which
+    # is a different problem with a different fix.
+    data_model_element_fgl_self_named_no_passthrough: int = 0
     data_model_join_key_out_of_join_path: int = 0
     chart_join_chain_sibling_resolved: int = 0
     # The first segment resolved, but to a chart or warehouse table rather than

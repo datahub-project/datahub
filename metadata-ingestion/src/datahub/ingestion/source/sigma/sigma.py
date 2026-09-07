@@ -146,6 +146,10 @@ _FGL_CONFIDENCE_FORMULA_DERIVED: float = 0.1  # SELECT * synthesis from formula 
 # because a column with an opaque columnId carries no native name anywhere in
 # the API. Scored below an exact match so consumers can tell the two apart.
 _FGL_CONFIDENCE_WAREHOUSE_NAME_DERIVED: float = 0.5
+# Same declared-table match, but the column name was read from the columnId
+# rather than inferred from the display name, so nothing about the edge is a
+# guess -- it ranks with the columnId-driven pass-through path.
+_FGL_CONFIDENCE_WAREHOUSE_NAME_EXACT_COLUMN: float = 1.0
 # Same as above, except the TABLE was not declared by the element either --
 # it was found by name in the tenant-wide /v2/files listing. Both ends of the
 # match are inferred, so it scores below the declared-table case.
@@ -193,7 +197,7 @@ def _normalize_element_name(name: str) -> str:
     Sigma element names routinely carry trailing non-breaking spaces, leading
     spaces, and case differences from what a formula ref spells. Those refs
     resolve to nothing today: the lookup is exact-match, so the element sits in
-    the index unreachable. Observed on one tenant as 6,493 near-misses plus 30
+    the index unreachable. Observed on one tenant (2026-09) as 6,493 near-misses plus 30
     case-only mismatches -- e.g. 'Some Joined Element\xa0'
     and ' Another Element'.
     """
@@ -209,6 +213,25 @@ def _is_warehouse_column_id(column_id: Optional[str]) -> bool:
     and start mis-bucketing a real /files miss as expected volume.
     """
     return (column_id or "").startswith("inode-")
+
+
+def _native_column_from_column_id(column_id: Optional[str]) -> Optional[str]:
+    """The warehouse column name Sigma already put in a ``columnId``.
+
+    Sigma spells a pass-through column ``<prefix>/<NATIVE_NAME>`` -- the prefix
+    is ``inode-<urlId>`` when /columns reports the table, and the element's own
+    url id when it does not. Either way the segment after the last slash IS the
+    warehouse column name, so it beats re-deriving one from the display name:
+    "Order Ref Id" only round-trips to ORDER_REF_ID by convention, and any
+    column whose display name was edited breaks that convention silently.
+
+    Returns None for an opaque columnId (a calculated or renamed column), where
+    the display name really is the only signal.
+    """
+    prefix, sep, native = (column_id or "").rpartition("/")
+    if not sep or not prefix or not native:
+        return None
+    return native
 
 
 def _dedup_dm_element_columns(
@@ -944,7 +967,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         self.reporter.warehouse_files_listed = len(entries)
         # 10,000 exactly is the number to watch: /v2/files reported
-        # 'total: 10000' on a live tenant, suspiciously round, so the
+        # 'total: 10000' on a live tenant (2026-09), suspiciously round, so the
         # listing may be server-capped. A capped listing is silently
         # incomplete and would need name-filtered fetching instead.
         truncated = len(entries) in (10000, 100000)
@@ -2564,7 +2587,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Parse columnId → url_id + warehouse column name.
         # Every early return below records WHY, because
         # fgl_warehouse_passthrough_deferred is the largest bucket in the report
-        # (10,806 on one tenant) and previously said nothing about cause.
+        # (10,806 on one tenant, 2026-09) and previously said nothing about cause.
         col_id = column.columnId or ""
         if not _is_warehouse_column_id(col_id):
             self._note_warehouse_miss(
@@ -2618,7 +2641,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # reference, so a miss here is not the end: ask /v2/files/{urlId}
         # directly, exactly as the entity-level path does. Without this the
         # recovery only ever produced a table-level edge while the COLUMN that
-        # motivated it stayed unresolved -- 1,305 columns on one tenant.
+        # motivated it stayed unresolved -- 1,305 columns on one tenant (2026-09).
         # The lookup is cached per url_id, so repeats across columns are free.
         wh_ref = warehouse_url_id_map.get(url_id)
         if wh_ref is None:
@@ -3243,6 +3266,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         *,
         ref: "BracketRef",
         element: SigmaDataModelElement,
+        column: Optional[SigmaDataModelColumn],
         element_dataset_urn: str,
         entity_level_upstream_urns: Set[str],
         downstream_field: str,
@@ -3268,6 +3292,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if self._try_resolve_warehouse_table_name_ref(
             ref=ref,
             element=element,
+            column=column,
             downstream_field=downstream_field,
             warehouse_url_id_map=warehouse_url_id_map,
             emitted_pairs=emitted_pairs,
@@ -3290,6 +3315,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._try_resolve_warehouse_table_name_ref(
             ref=ref,
             element=element,
+            column=column,
             downstream_field=downstream_field,
             warehouse_url_id_map=warehouse_url_id_map,
             emitted_pairs=emitted_pairs,
@@ -3303,6 +3329,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         *,
         ref: "BracketRef",
         element: SigmaDataModelElement,
+        column: Optional[SigmaDataModelColumn],
         downstream_field: str,
         warehouse_url_id_map: Dict[str, _WarehouseTableRef],
         emitted_pairs: Set[Tuple[str, str]],
@@ -3405,8 +3432,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return False
         conn_override = self.config.connection_to_platform_map.get(wh_ref.connection_id)
         lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
+        # Prefer the name Sigma already recorded. Deriving it from the display
+        # name is a convention ("Order Ref Id" -> ORDER_REF_ID) that a
+        # renamed column breaks without saying so.
+        exact = _native_column_from_column_id(column.columnId if column else None)
         native = _normalize_warehouse_identifier(
-            _warehouse_column_from_display_name(ref.column),
+            exact
+            if exact is not None
+            else _warehouse_column_from_display_name(ref.column),
             record.datahub_platform,
             lowercase,
         )
@@ -3423,6 +3456,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     confidenceScore=(
                         _FGL_CONFIDENCE_WAREHOUSE_GLOBAL_NAME_DERIVED
                         if derived_globally
+                        else _FGL_CONFIDENCE_WAREHOUSE_NAME_EXACT_COLUMN
+                        if exact is not None
                         else _FGL_CONFIDENCE_WAREHOUSE_NAME_DERIVED
                     ),
                 )
@@ -3686,7 +3721,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return
         # Built once per Data Model, not once per element. Rebuilding it per
         # element re-walked every element's columns and re-counted every
-        # unresolved predicate -- on one tenant 61 predicates were reported as
+        # unresolved predicate -- on one tenant (2026-09) 61 predicates were reported as
         # 1,234 failures, which made the counter unreadable.
         # Keyed by dataModelId alone. The element->URN map was part of the key
         # via id(), which added nothing (the URNs are a pure function of the
@@ -3996,6 +4031,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                                     self.reporter.data_model_element_fgl_warehouse_resolved += 1
                                 continue
                             self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+                            # Sub-count naming WHICH of the two deferral sites
+                            # fired. Both bump the counter above, so without
+                            # this the self-named case is indistinguishable
+                            # from an inode columnId that failed to resolve --
+                            # and they need opposite fixes.
+                            self.reporter.data_model_element_fgl_self_named_no_passthrough += 1
                         # There is no pre-built warehouse FGL, because that is
                         # derived from an ``inode-<urlId>/<NATIVE>`` columnId and
                         # this column's is ``<element>/<NATIVE>``. The ref still
@@ -4009,10 +4050,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         # table. Kept to tables the element DECLARES
                         # (allow_global_name_index=False) so the tenant-wide
                         # /v2/files listing is not triggered from a path that
-                        # deferred ~10,700 times in one run.
+                        # deferred ~10,700 times in one run (2026-09).
                         self._try_resolve_warehouse_table_name_ref(
                             ref=ref,
                             element=element,
+                            column=column,
                             downstream_field=downstream_field,
                             warehouse_url_id_map=warehouse_url_id_map,
                             emitted_pairs=emitted_pairs,
@@ -4055,6 +4097,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     cross_dm_fgl = self._resolve_non_sibling_ref(
                         ref=ref,
                         element=element,
+                        column=column,
                         element_dataset_urn=element_dataset_urn,
                         entity_level_upstream_urns=entity_level_upstream_urns,
                         downstream_field=downstream_field,
@@ -5085,11 +5128,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         in the chart's own indices. So the middle segment is looked up among
         the siblings of whatever Data Model the first segment resolved into.
 
-        Measured on one tenant: 806 of 832 multi-segment refs failed with the
+        Measured on one tenant (2026-09): 806 of 832 multi-segment refs failed with the
         verdict pair "<middle>: no upstream" and "<first>: upstream found but
         column absent" -- the exact signature of this shape. The Data Model
         path already resolves the same refs this way (via
-        ``element_name_to_eids``) and succeeds ~1,470 times per run.
+        ``element_name_to_eids``) and succeeds ~1,470 times per run (2026-09).
 
         Like that path, this deliberately does NOT require the sibling to be a
         declared upstream: Sigma's element-level lineage lists only the direct
@@ -5263,7 +5306,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     if count:
                         self.reporter.chart_ref_source_near_miss += 1
                 # Guarded: this is one of the hottest paths in the connector
-                # (~51k hits on one tenant) and sorting the whole workbook
+                # (~51k hits on one tenant, 2026-09) and sorting the whole workbook
                 # index for a discarded log line is pure waste.
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug(
@@ -5861,7 +5904,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
                     self.reporter.chart_input_fields_self_ref_fallback += 1
                     # Split the fallback bucket by cause. It is the largest
-                    # bucket in the report (~81k on one tenant) and today says
+                    # bucket in the report (~81k on one tenant, 2026-09) and today says
                     # nothing about why: a column with no formula at all is
                     # expected, whereas a column whose refs failed to resolve is
                     # the population that could be hiding a parse defect. Only

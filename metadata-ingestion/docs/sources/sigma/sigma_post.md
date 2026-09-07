@@ -288,7 +288,7 @@ the descriptor's structure (key names and types only, never values).
 and `visualization`. They hold real columns that other elements' formulas reference, so
 excluding them left those references permanently unresolvable.
 
-> **This emits chart entities that earlier versions did not.** On one tenant it added
+> **This emits chart entities that earlier versions did not.** On one tenant (2026-09) it added
 > roughly 1,200 charts. It also costs two extra API calls per newly-admitted element. Set
 > `ingest_pivot_and_input_tables: false` to keep the previous entity set.
 
@@ -302,7 +302,7 @@ deleted or is simply outside what the token can see, so check the credential's a
 before assuming the reference is stale.
 
 Note that a table absent from `/v2/files?typeFilters=table` may still resolve through a
-direct `/v2/files/{urlId}` call — on one tenant the listing omitted 52 tables that the
+direct `/v2/files/{urlId}` call — on one tenant (2026-09) the listing omitted 52 tables that the
 direct lookup returned in full. The connector uses the direct call for this reason.
 
 Two report counters mark data that never arrived, and should be read before treating a

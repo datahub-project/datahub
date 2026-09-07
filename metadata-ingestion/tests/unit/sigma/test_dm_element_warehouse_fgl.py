@@ -804,6 +804,50 @@ class TestNoBracketRefWarehouseFgl:
             builder.make_schema_field_urn(_SF_DATASET_URN, "customer_id")
         ]
         assert source.reporter.data_model_element_fgl_warehouse_table_name_resolved == 1
+        assert source.reporter.data_model_element_fgl_self_named_no_passthrough == 1
+        # The columnId carried the native name, so nothing was inferred.
+        assert fgls[0].confidenceScore == 1.0
+
+    def test_columnid_native_name_beats_the_display_name_convention(self):
+        """A renamed column breaks the display-name convention silently.
+
+        "Cust ID" would derive CUST_ID, which the table does not have, while
+        the columnId already states the real name. Reading it also means the
+        edge is exact rather than inferred, so it is not scored down.
+        """
+        source = _make_source()
+        col = _column("el-self/CUSTOMER_ID", "Cust ID", "[CUSTOMERS/Cust ID]")
+        elem = _element("el-self", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            warehouse_map=_SF_WAREHOUSE_MAP,
+            element_name_to_eids={"customers": ["el-self"]},
+        )
+
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "customer_id")
+        ]
+        assert fgls[0].confidenceScore == 1.0
+
+    def test_opaque_column_id_still_falls_back_to_the_display_name(self):
+        """With no native name to read, the inference stays -- and stays 0.5."""
+        source = _make_source()
+        col = _column("opaque-col-9", "Customer Id", "[CUSTOMERS/Customer Id]")
+        elem = _element("el-self", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+
+        fgls = _build_fgls(
+            source,
+            elem,
+            warehouse_map=_SF_WAREHOUSE_MAP,
+            element_name_to_eids={"customers": ["el-self"]},
+        )
+
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "customer_id")
+        ]
+        assert fgls[0].confidenceScore == 0.5
 
     def test_self_named_element_still_prefers_the_columnid_derived_edge(self):
         """The name-derived edge is a fallback, never a replacement.
@@ -927,6 +971,9 @@ class TestGlobalWarehouseNameIndex:
         resolved = source._try_resolve_warehouse_table_name_ref(
             ref=extract_bracket_refs(f"[{ref_source}/{ref_column}]")[0],
             element=_element("e1", "Some Element", [], source_ids=source_ids),
+            # No column: this helper exercises TABLE resolution, so the native
+            # column name has to come from the display name.
+            column=None,
             downstream_field=_DOWNSTREAM_FIELD,
             warehouse_url_id_map=_SF_WAREHOUSE_MAP,
             emitted_pairs=set(),

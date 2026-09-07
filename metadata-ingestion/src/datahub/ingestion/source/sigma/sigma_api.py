@@ -1390,7 +1390,7 @@ class SigmaAPI:
         its Data Model's ``/lineage`` ever mentions, and a name is the only
         signal left to resolve it by.
 
-        Deliberately NOT used for url_id resolution. Measured on a live tenant,
+        Deliberately NOT used for url_id resolution. Measured on a live tenant (2026-09),
         this listing costs ~41 paged calls and answered none of the 37
         unresolved url_ids; ``get_file_metadata_by_url_id`` answers those in one
         call each and distinguishes "absent from the Data Model's lineage" from
@@ -1506,7 +1506,7 @@ class SigmaAPI:
         Must be called from the handler that actually catches the error.
         ``_get_element_upstream_sources`` and ``_get_element_sql_query`` both
         swallow HTTP failures and return empty, so an increment placed only in
-        their caller's ``except`` never runs: on one tenant 200 elements failed
+        their caller's ``except`` never runs: on one tenant (2026-09) 200 elements failed
         with HTTP 409 while this counter read 0, making the report claim every
         element had been fetched cleanly.
         """
