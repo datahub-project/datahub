@@ -1207,3 +1207,132 @@
     displayName: Monte Carlo
     type: OTHERS
     logoUrl: "assets/platforms/montecarlologo.png"
+- entityUrn: urn:li:dataPlatform:abs
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "/"
+    name: abs
+    displayName: ABS Data Lake
+    type: FILE_SYSTEM
+    logoUrl: "assets/platforms/adlslogo.png"
+- entityUrn: urn:li:dataPlatform:azure-ad
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: azure-ad
+    displayName: Azure AD
+    type: OTHERS
+    logoUrl: "assets/platforms/azure-ad.png"
+- entityUrn: urn:li:dataPlatform:confluence
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: confluence
+    displayName: Confluence
+    type: OTHERS
+    logoUrl: "assets/platforms/confluencelogo.svg"
+- entityUrn: urn:li:dataPlatform:hive-metastore
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: hive-metastore
+    displayName: Hive Metastore
+    type: FILE_SYSTEM
+    logoUrl: "assets/platforms/hivelogo.png"
+- entityUrn: urn:li:dataPlatform:ldap
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: ldap
+    displayName: LDAP
+    type: OTHERS
+- entityUrn: urn:li:dataPlatform:matillion-dpc
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: matillion-dpc
+    displayName: Matillion
+    type: OTHERS
+    logoUrl: "assets/platforms/matillionlogo.png"
+- entityUrn: urn:li:dataPlatform:okta
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: okta
+    displayName: Okta
+    type: OTHERS
+    logoUrl: "assets/platforms/oktalogo.png"
+- entityUrn: urn:li:dataPlatform:openapi
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: openapi
+    displayName: OpenAPI
+    type: OTHERS
+    logoUrl: "assets/platforms/openapilogo.png"
+- entityUrn: urn:li:dataPlatform:pinecone
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: pinecone
+    displayName: Pinecone
+    type: OTHERS
+    logoUrl: "assets/platforms/pineconelogo.png"
+- entityUrn: urn:li:dataPlatform:powerbi-report-server
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: powerbi-report-server
+    displayName: PowerBI Report Server
+    type: OTHERS
+    logoUrl: "assets/platforms/powerbireportserverlogo.svg"
+- entityUrn: urn:li:dataPlatform:quicksight
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: quicksight
+    displayName: QuickSight
+    type: OTHERS
+    logoUrl: "assets/platforms/quicksightlogo.svg"
+- entityUrn: urn:li:dataPlatform:rdf
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: rdf
+    displayName: RDF
+    type: OTHERS
+    logoUrl: "assets/platforms/rdflogo.svg"
+- entityUrn: urn:li:dataPlatform:starrocks
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: starrocks
+    displayName: StarRocks
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/starrockslogo.svg"

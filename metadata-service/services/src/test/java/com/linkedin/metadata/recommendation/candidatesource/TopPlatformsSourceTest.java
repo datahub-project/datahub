@@ -1,16 +1,13 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import static com.linkedin.metadata.Constants.DATA_PLATFORM_INFO_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
-import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationContent;
@@ -19,7 +16,6 @@ import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.EntitySearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,9 +26,10 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
- * Proves the TopPlatforms candidate source validates all platform candidates with a single batched
- * lookup rather than one lookup per candidate (the N+1 that used to live in {@code
- * isValidCandidateUrn}).
+ * Behavior of the home-page "Platforms" candidate source. The source must NOT drop platforms that
+ * lack a logo (regression guard: a platform that was searchable but had no dataPlatformInfo/logoUrl
+ * was previously hidden from the Platforms module). It surfaces the top platforms by asset count,
+ * capped at {@link TopPlatformsSource#getMaxContent()}.
  */
 public class TopPlatformsSourceTest {
 
@@ -52,6 +49,9 @@ public class TopPlatformsSourceTest {
     Mockito.reset(entityService, entitySearchService);
     opContext = TestOperationContexts.userContextNoSearchAuthorization(USER);
     source = new TopPlatformsSource(entitySearchService, entityService, entityRegistry);
+    // Every candidate platform exists (the only validation the source applies).
+    Mockito.when(entityService.exists(any(OperationContext.class), anySet(), anyBoolean()))
+        .thenAnswer(invocation -> invocation.getArgument(1));
   }
 
   /** Aggregation returns {@code total} platform urns (platform-0 .. platform-{total-1}). */
@@ -66,67 +66,38 @@ public class TopPlatformsSourceTest {
         .thenReturn(agg);
   }
 
-  /** Only the first {@code withLogoCount} platforms have a logo (i.e. are valid candidates). */
-  private Set<Urn> stubPlatformAspects(int total, int withLogoCount) {
-    Map<Urn, List<RecordTemplate>> aspects = new HashMap<>();
-    for (int i = 0; i < total; i++) {
-      Urn urn = new DataPlatformUrn("platform-" + i);
-      DataPlatformInfo info = new DataPlatformInfo().setName("platform-" + i);
-      if (i < withLogoCount) {
-        info.setLogoUrl(new Url("http://logo/" + i));
-      }
-      aspects.put(urn, List.of(info));
-    }
-    Mockito.when(
-            entityService.getLatestAspects(
-                any(OperationContext.class),
-                anySet(),
-                eq(Set.of(DATA_PLATFORM_INFO_ASPECT_NAME)),
-                eq(false)))
-        .thenReturn(aspects);
-    return aspects.entrySet().stream()
-        .filter(e -> ((DataPlatformInfo) e.getValue().get(0)).hasLogoUrl())
-        .map(Map.Entry::getKey)
-        .collect(Collectors.toSet());
-  }
-
   @Test
-  public void testValidationIsBatchedNotPerCandidate() {
-    // 30 candidate platforms, 20 of which have logos.
-    stubAggregation(30);
-    Set<Urn> expectedValid = stubPlatformAspects(30, 20);
+  public void testPlatformsWithoutLogosAreStillRecommended() {
+    // 5 platforms with assets; none of them are gated on having a logoUrl.
+    stubAggregation(5);
 
     List<RecommendationContent> results = source.getRecommendations(opContext, HOME, null);
 
-    // Functional: only the platforms with logos are recommended.
     Set<Urn> recommended =
         results.stream().map(RecommendationContent::getEntity).collect(Collectors.toSet());
-    assertEquals(recommended, expectedValid);
-    assertEquals(results.size(), 20);
-
-    // Performance: validation happened in exactly ONE batched call regardless of 30 candidates,
-    // and the old per-candidate single-aspect fetch is never used.
-    verify(entityService, times(1))
-        .getLatestAspects(any(), anySet(), eq(Set.of(DATA_PLATFORM_INFO_ASPECT_NAME)), eq(false));
-    verify(entityService, never()).getLatestAspect(any(), any(Urn.class), anyString());
+    Set<Urn> expected =
+        Set.of(
+            new DataPlatformUrn("platform-0"),
+            new DataPlatformUrn("platform-1"),
+            new DataPlatformUrn("platform-2"),
+            new DataPlatformUrn("platform-3"),
+            new DataPlatformUrn("platform-4"));
+    assertEquals(recommended, expected);
+    // The source must not fetch dataPlatformInfo just to gate on logoUrl.
+    verify(entityService, never()).getLatestAspects(any(), anySet(), any(), anyBoolean());
   }
 
   @Test
-  public void testCallCountIsConstantRegardlessOfCandidateCount() {
-    // Small input.
-    stubAggregation(3);
-    stubPlatformAspects(3, 3);
-    source.getRecommendations(opContext, HOME, null);
-    verify(entityService, times(1))
-        .getLatestAspects(any(), anySet(), eq(Set.of(DATA_PLATFORM_INFO_ASPECT_NAME)), eq(false));
+  public void testRecommendationsAreCappedAtMaxContent() {
+    // More platforms than the cap: only the top getMaxContent() by count are returned.
+    stubAggregation(source.getMaxContent() + 10);
 
-    // Large input: still exactly one batched call — call count does not scale with N.
-    clearInvocations(entityService);
-    stubAggregation(30);
-    stubPlatformAspects(30, 30);
-    source.getRecommendations(opContext, HOME, null);
-    verify(entityService, times(1))
-        .getLatestAspects(any(), anySet(), eq(Set.of(DATA_PLATFORM_INFO_ASPECT_NAME)), eq(false));
-    verify(entityService, never()).getLatestAspect(any(), any(Urn.class), anyString());
+    List<RecommendationContent> results = source.getRecommendations(opContext, HOME, null);
+
+    assertEquals(results.size(), source.getMaxContent());
+    // Highest-count platform (platform-0) is kept.
+    Set<Urn> recommended =
+        results.stream().map(RecommendationContent::getEntity).collect(Collectors.toSet());
+    assertTrue(recommended.contains(new DataPlatformUrn("platform-0")));
   }
 }

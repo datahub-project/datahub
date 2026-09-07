@@ -1138,7 +1138,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             type=PlatformTypeClass.OTHERS,
             datasetNameDelimiter=".",
             displayName="Confluence",
-            logoUrl="https://cdn.worldvectorlogo.com/logos/confluence-1.svg",
+            logoUrl="assets/platforms/confluencelogo.svg",
         )
         yield MetadataChangeProposalWrapper(
             entityUrn=platform_urn,
