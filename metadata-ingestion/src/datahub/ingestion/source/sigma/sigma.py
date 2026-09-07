@@ -3690,7 +3690,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             direct[el.elementId] = {
                 sid
                 for sid in el.source_ids
-                if "/" not in sid and not sid.startswith("inode-")
+                # ``sid`` truthiness matters: one tenant's source_ids carried an
+                # empty entry, which would otherwise sit in the closure as a
+                # blank element id.
+                if sid and "/" not in sid and not sid.startswith("inode-")
             }
         closure: Dict[str, Set[str]] = {}
         for start in direct:
