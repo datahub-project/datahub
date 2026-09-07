@@ -11,6 +11,9 @@ TOPIC_CATALOG_QUERY: Final[str] = """
     name
     qualifiedName
     logical_cluster_id
+    owner
+    ownerEmail
+    description
     tags
     business_metadata {
       name

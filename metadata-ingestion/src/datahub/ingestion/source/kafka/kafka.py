@@ -68,6 +68,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_tag_urn,
+    make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -112,7 +113,9 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DatasetProfileClass,
     KafkaSchemaClass,
+    OwnerClass,
     OwnershipSourceTypeClass,
+    OwnershipTypeClass,
     SchemaMetadataClass,
     StatusClass,
 )
@@ -1280,8 +1283,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         for tag_association in meta_tags_aspect.tags
                     ]
 
+        catalog_owners: List[str] = []
         if not is_subject:
-            self._apply_catalog_metadata(topic, all_tags, custom_props)
+            catalog_description = self._apply_catalog_metadata(
+                topic, all_tags, custom_props, catalog_owners
+            )
+            # The schema's own doc is the more specific description, so only fall back
+            # to the catalog's when the schema did not supply one.
+            if catalog_description and not description:
+                description = catalog_description
+                self.report.catalog_topics_with_descriptions += 1
 
         if self.source_config.external_url_base:
             base_url = self.source_config.external_url_base.rstrip("/")
@@ -1309,15 +1320,25 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             external_url=external_url,
             custom_properties=custom_props if custom_props else None,
             tags=tag_urns,
+            owners=[
+                OwnerClass(owner=owner_urn, type=OwnershipTypeClass.TECHNICAL_OWNER)
+                for owner_urn in catalog_owners
+            ]
+            if catalog_owners
+            else None,
             domain=domain_urn,
             extra_aspects=extra_aspects,
         )
 
     def _apply_catalog_metadata(
-        self, topic: str, all_tags: List[str], custom_props: Dict[str, str]
-    ) -> None:
+        self,
+        topic: str,
+        all_tags: List[str],
+        custom_props: Dict[str, str],
+        catalog_owners: List[str],
+    ) -> Optional[str]:
         if self.topic_catalog is None:
-            return
+            return None
 
         config = self.source_config.confluent_catalog
         # Only a partial read that actually applies replacement metadata can drop a
@@ -1337,7 +1358,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         catalog_topic = self.topic_catalog.get_topic(topic)
         if catalog_topic is None:
-            return
+            return None
 
         if config.include_tags and catalog_topic.tags:
             all_tags.extend(
@@ -1356,6 +1377,20 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             if properties:
                 custom_props.update(properties)
                 self.report.catalog_topics_with_business_metadata += 1
+
+        if config.include_owners:
+            if catalog_topic.owner_email:
+                owner_id = catalog_topic.owner_email
+                if self.source_config.strip_user_ids_from_email:
+                    owner_id = owner_id.split("@", 1)[0]
+                catalog_owners.append(make_user_urn(owner_id))
+                self.report.catalog_topics_with_owners += 1
+            elif catalog_topic.owner:
+                # A display name cannot be resolved to a user, so the owner is dropped
+                # rather than guessed at. Counted so the gap is visible in the report.
+                self.report.catalog_owners_without_email += 1
+
+        return catalog_topic.description if config.include_descriptions else None
 
     def build_custom_properties(
         self,

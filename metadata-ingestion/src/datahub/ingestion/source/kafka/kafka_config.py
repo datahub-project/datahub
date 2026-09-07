@@ -85,6 +85,18 @@ class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
         description="Emit Confluent Cloud business metadata attributes on topics as DataHub "
         "custom properties.",
     )
+    include_owners: bool = Field(
+        default=True,
+        description="Emit the Stream Catalog topic owner as a DataHub owner. Requires the "
+        "topic's `ownerEmail` to be set in Confluent, since the owner display name alone "
+        "cannot identify a user. Honours `strip_user_ids_from_email`.",
+    )
+    include_descriptions: bool = Field(
+        default=True,
+        description="Use the Stream Catalog topic description as the dataset description "
+        "for topics whose schema does not supply one. A description parsed from the Avro "
+        "schema's `doc` field takes precedence, so enabling this only fills gaps.",
+    )
 
 
 class KafkaSourceConfig(
