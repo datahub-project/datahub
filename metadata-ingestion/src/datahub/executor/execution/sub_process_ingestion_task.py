@@ -294,8 +294,8 @@ class SubProcessIngestionTask(Task):
         }
 
         # Build stdin envelope in datahub-compatible format.
-        # __recipe_yaml__ and __secrets__ are consumed by datahub's config_loader.
-        # __report_out_file__ and __debug_mode__ are consumed by the wrapper script.
+        # The wrapper consumes the envelope and forwards it to the CLI's
+        # config_loader when the venv CLI supports it.
         # All envelope keys use dunder prefix to distinguish from recipe content.
         # Per-run values only, never the whole registry; recipe values win on collision.
         stdin_envelope = json.dumps(
