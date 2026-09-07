@@ -1,7 +1,5 @@
 from typing import Dict, List
 
-import pytest
-
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 
@@ -13,6 +11,14 @@ MYSQL_CONFIG: Dict[str, object] = {
 }
 
 TABLES = ["orders", "users", "audit_log_v2"]
+
+# Mode declares Dataset and Query levels that it offers no pattern for, which is
+# the real case behind "a kind with no filter" rather than a contrived one.
+MODE_CONFIG: Dict[str, object] = {
+    "token": "t",
+    "password": "p",
+    "workspace": "w",
+}
 
 
 def _check(names: List[str], **kwargs: object) -> FilterCheckResult:
@@ -81,15 +87,42 @@ def test_the_same_pattern_qualified_matches():
     assert by_name["users"] is False
 
 
-def test_a_kind_the_config_has_no_pattern_for_is_a_clear_error():
-    with pytest.raises(ValueError, match="Nonsense"):
-        check_filters(
-            source_type="mysql",
-            config_dict=MYSQL_CONFIG,
-            kind="Nonsense",
-            parent_path=["information_schema"],
-            names=TABLES,
-        )
+def test_a_kind_with_no_filter_reports_every_name_included():
+    """The question is "would these be ingested", and where nothing filters them
+    the answer is "yes, all of them". Refusing said something was wrong when
+    nothing was. A null pattern_field is how the result says why."""
+    result = check_filters(
+        source_type="mode",
+        config_dict=MODE_CONFIG,
+        kind="Dataset",
+        parent_path=[],
+        names=["a", "b"],
+    )
+    assert result.pattern_field is None
+    assert [v.included for v in result.results] == [True, True]
+    assert all(v.excluded_by is None for v in result.results)
+    # A level the source genuinely does not filter is not a problem to report.
+    assert result.warnings == []
+
+
+def test_an_unknown_kind_still_answers_but_says_it_is_unrecognised():
+    """A misspelling is more likely than a level without a filter, and answering
+    "all included" for one silently would be a wrong answer delivered
+    confidently. It warns rather than raises because the kinds are not fully
+    enumerable without a connection, so a strict check would refuse valid input."""
+    result = check_filters(
+        source_type="mysql",
+        config_dict=MYSQL_CONFIG,
+        kind="Nonsense",
+        parent_path=["information_schema"],
+        names=TABLES,
+    )
+    assert all(v.included for v in result.results)
+    assert result.pattern_field is None
+    assert len(result.warnings) == 1
+    assert "no kind 'Nonsense'" in result.warnings[0]
+    # And it must name the kinds that would have worked.
+    assert "Table" in result.warnings[0]
 
 
 def test_a_table_with_no_parent_is_judged_on_its_bare_name_with_a_warning():

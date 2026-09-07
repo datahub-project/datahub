@@ -152,6 +152,28 @@ def _structural_verdict(
     return None
 
 
+def _declared_kinds(source_type: str, config: Any) -> Set[str]:
+    """The kinds this source's probe methods name, as far as is knowable without
+    a connection.
+
+    Incomplete on purpose, and only ever used to warn. `containers` takes its
+    kind from the recipe (schema on a three-tier source, database on a two-tier
+    one), which is why probe_container_kind is consulted here rather than read
+    off a provider instance -- building one of those needs a connection.
+    """
+    from datahub.ingestion.agent.probe_methods import list_probe_methods
+
+    kinds = {spec.kind for spec in list_probe_methods(source_type) if spec.kind}
+    container_kind = getattr(config, "probe_container_kind", None)
+    if callable(container_kind):
+        try:
+            kinds.add(str(container_kind()))
+        except Exception:
+            # A config that cannot answer it does not get a worse warning.
+            pass
+    return kinds
+
+
 def check_filters(
     source_type: str,
     config_dict: Dict[str, object],
@@ -174,12 +196,37 @@ def check_filters(
         raise ValueError(f"unknown source type '{source_type}'")
     config = config_cls.model_validate(config_dict)
 
-    pattern_field = pattern_field_for_config(config, kind)
-    if pattern_field is None:
-        raise ValueError(
-            f"'{source_type}' declares no filter for kind '{kind}'; "
-            f"nothing would exclude these names at that level"
-        )
+    warnings: List[str] = []
+    seen: Set[str] = set()
+
+    def warn(message: str) -> None:
+        if message not in seen:
+            seen.add(message)
+            warnings.append(message)
+
+    resolved = pattern_field_for_config(config, kind)
+    # Two ways to arrive with no pattern, and they mean the same thing to a
+    # caller: the source offers no filter at this level (UNFILTERED, declared;
+    # Mode's datasets and queries) or none could be resolved for the kind. The
+    # question asked is "would these be ingested", and where nothing filters
+    # them the answer is "yes, all of them" -- an error would say something is
+    # wrong when nothing is. pattern_field comes back null to say why.
+    pattern_field = None if resolved == UNFILTERED else resolved
+
+    if resolved is None:
+        # A kind the source never declares is more likely a typo than a level
+        # without a filter, and answering "all included" for a misspelling would
+        # be a wrong answer delivered confidently. It is a warning rather than
+        # an error because the kinds are not fully enumerable here -- container
+        # kinds are decided per recipe -- so a strict check would refuse valid
+        # input, which is the failure being fixed.
+        declared = _declared_kinds(source_type, config)
+        if declared and kind not in declared:
+            warn(
+                f"'{source_type}' declares no kind '{kind}' and no filter for it, "
+                f"so every name is reported included. Kinds it does declare: "
+                f"{', '.join(sorted(declared))}"
+            )
 
     tried: Optional[Dict[str, List[str]]] = None
     if try_allow or try_deny:
@@ -188,18 +235,10 @@ def check_filters(
             deny=list(try_deny) if try_deny else [],
         )
         tried = {"allow": list(pattern.allow), "deny": list(pattern.deny)}
-    elif pattern_field == UNFILTERED:
+    elif pattern_field is None:
         pattern = AllowDenyPattern.allow_all()
     else:
         pattern = getattr(config, pattern_field)
-
-    warnings: List[str] = []
-    seen: Set[str] = set()
-
-    def warn(message: str) -> None:
-        if message not in seen:
-            seen.add(message)
-            warnings.append(message)
 
     prefix = ".".join(parent_path)
     results: List[FilterVerdict] = []

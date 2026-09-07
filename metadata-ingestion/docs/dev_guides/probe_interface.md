@@ -465,6 +465,13 @@ net — it masks credentials drawn from the recipe, not data drawn from the sour
 collection_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(...)
 ```
 
+Some levels have no filter at all — Mode's datasets and queries are reachable but nothing
+narrows them. `probe filter` answers those normally, reporting every name as included with
+`pattern_field: null`; the question is whether these would be ingested, and where nothing
+filters them the answer is yes. A kind the source never declares is answered the same way but
+carries a warning naming the kinds that do exist, since a misspelling is likelier than a level
+without a filter and a silent "all included" would be a wrong answer stated confidently.
+
 **What string the pattern is matched against.** This is the one that bites. `AllowDenyPattern`
 uses a start-anchored `re.match`, and ingestion rarely matches the bare name — MySQL matches
 `schema.table`, Postgres `db.schema.table`, Druid the bare name. Get it wrong and `^orders$`
