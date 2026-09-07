@@ -3659,11 +3659,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           collectMetrics(opContext.getMetricUtils().orElse(null), exceptions).toString());
     }
 
-    // Hard delete wipes all aspects in one shot; capture propertyDefinition before deleteUrn so
-    // PropertyDefinitionDeleteSideEffect can scroll ES and emit PATCH REMOVE MCPs (see
-    // docs/api/tutorials/structured-properties.md).
+    // Hard delete wipes all aspects in one shot; capture aspects needed by post-commit side
+    // effects before deleteUrn. Structured properties: PropertyDefinitionDeleteSideEffect.
+    // Data products: DataProductAssetsSideEffect scrubs asset-side dataProducts membership.
     final PropertyDefinitionBeforeHardDelete propertyDefinitionBeforeHardDelete =
         new PropertyDefinitionBeforeHardDelete();
+    final DataProductPropertiesBeforeHardDelete dataProductPropertiesBeforeHardDelete =
+        new DataProductPropertiesBeforeHardDelete();
 
     // Ordinary destructive deletion of a structured property (hard-deleting the entity, or
     // directly deleting its propertyDefinition aspect) is only permitted once the property is
@@ -3907,6 +3909,22 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                   urn);
                             }
                           }
+                          if (DATA_PRODUCT_ENTITY_NAME.equals(entityUrn.getEntityType())) {
+                            SystemAspect propertiesAspect =
+                                aspectDao.getLatestAspect(
+                                    opContext, urn, DATA_PRODUCT_PROPERTIES_ASPECT_NAME, false);
+                            if (propertiesAspect != null) {
+                              dataProductPropertiesBeforeHardDelete.properties =
+                                  propertiesAspect.getRecordTemplate();
+                              dataProductPropertiesBeforeHardDelete.metadata =
+                                  propertiesAspect.getSystemMetadata();
+                            } else {
+                              log.debug(
+                                  "No {} aspect to capture before hard delete of {}",
+                                  DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
+                                  urn);
+                            }
+                          }
                           additionalRowsDeleted = aspectDao.deleteUrn(opContext, txContext, urn);
                         } else if (deleteItem
                             .getEntitySpec()
@@ -4008,6 +4026,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 null,
                 propertyDefinitionBeforeHardDelete.definition,
                 propertyDefinitionBeforeHardDelete.metadata));
+      }
+      if (dataProductPropertiesBeforeHardDelete.properties != null) {
+        mclsForSideEffects.add(
+            constructMCL(
+                null,
+                urnToEntityName(entityUrn),
+                entityUrn,
+                ChangeType.DELETE,
+                DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
+                auditStamp,
+                null,
+                null,
+                dataProductPropertiesBeforeHardDelete.properties,
+                dataProductPropertiesBeforeHardDelete.metadata));
       }
       mclsForSideEffects.add(result.toMCL(auditStamp));
       processPostCommitMCLSideEffects(opContext, mclsForSideEffects);
@@ -5048,6 +5080,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   /** Mutable holder for propertyDefinition captured inside a transaction lambda. */
   private static final class PropertyDefinitionBeforeHardDelete {
     private RecordTemplate definition;
+    private SystemMetadata metadata;
+  }
+
+  /** Mutable holder for dataProductProperties captured inside a transaction lambda. */
+  private static final class DataProductPropertiesBeforeHardDelete {
+    private RecordTemplate properties;
     private SystemMetadata metadata;
   }
 }

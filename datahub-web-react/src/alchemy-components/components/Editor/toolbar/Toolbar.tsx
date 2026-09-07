@@ -41,9 +41,19 @@ const Container = styled.div<{ $fixedBottom?: boolean }>`
         line-height: 0;
     }
     display: flex;
-    justify-content: start;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
     box-shadow: ${(props) => (props.$fixedBottom ? props.theme.colors.shadowLg : props.theme.colors.shadowSm)};
+`;
+
+const BelowToolbarRow = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 4px 0 4px;
+    margin-top: 4px;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const InnerContainer = styled.div`
@@ -60,9 +70,11 @@ const CustomDivider = styled(Divider)`
 interface Props {
     styles?: React.CSSProperties;
     fixedBottom?: boolean;
+    /** Optional content rendered below the formatting buttons inside the toolbar card. */
+    belowToolbar?: React.ReactNode;
 }
 
-export const Toolbar = ({ styles, fixedBottom }: Props) => {
+export const Toolbar = ({ styles, fixedBottom, belowToolbar }: Props) => {
     const commands = useCommands();
     const active = useActive(true);
     const theme = useTheme();
@@ -143,6 +155,7 @@ export const Toolbar = ({ styles, fixedBottom }: Props) => {
                 />
                 <FileUploadButton />
             </InnerContainer>
+            {belowToolbar && <BelowToolbarRow>{belowToolbar}</BelowToolbarRow>}
         </Container>
     );
 };
