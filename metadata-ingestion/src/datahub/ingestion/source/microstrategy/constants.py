@@ -394,9 +394,12 @@ MSTR_USAGE_NAME_FORM_NAME = "Name"
 MSTR_USAGE_ID_FORM_NAME = "ID"
 MSTR_USAGE_USER_FORM_NAMES = ("Login", "Name")
 
-# Intelligent cube (776) and super cube (779) subtypes; the quick search for the
-# cube name can also match plain reports, which must be skipped.
-MSTR_USAGE_CUBE_SUBTYPES = frozenset({"776", "779"})
+# Intelligent cube (776) and super cube (779) subtypes. Cubes share object type
+# 3 with reports; only the subtype tells them apart. Used to skip plain reports
+# in the usage-cube quick search and to decide whether a dataset object can be
+# opened in Library (reports can, cubes cannot).
+MSTR_CUBE_SUBTYPES = frozenset({"776", "779"})
+MSTR_USAGE_CUBE_SUBTYPES = MSTR_CUBE_SUBTYPES
 
 # Date form values are rendered strings whose format follows the Intelligence
 # Server locale; month-first is the shipped default.

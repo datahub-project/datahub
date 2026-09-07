@@ -26,6 +26,7 @@ from datahub.ingestion.source.microstrategy.source import (
     MicroStrategySource,
     _LazyProjectLineage,
 )
+from datahub.metadata.schema_classes import ContainerClass, DatasetPropertiesClass
 
 
 def _source(extra_config: dict | None = None) -> MicroStrategySource:
@@ -1131,3 +1132,134 @@ def test_extract_derived_metrics_flag_gates_attachment(flag: bool) -> None:
             )
         )
     assert attach.called is flag
+
+
+class _DatasetLookupClient:
+    """Two dossiers sharing one dataset; counts object-info lookups."""
+
+    def __init__(self, fail: bool = False) -> None:
+        self.fail = fail
+        self.lookups: List[str] = []
+
+    def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter(
+            [
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": dash_id,
+                        "name": f"Dash {dash_id}",
+                        "ancestors": [{"id": "f-1", "name": "Shared Reports"}],
+                    }
+                )
+                for dash_id in ("dash-1", "dash-2")
+            ]
+        )
+
+    def get_predefined_folders(
+        self, project_id: str, folder_types: List[int]
+    ) -> List[PredefinedFolder]:
+        return []
+
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
+        return {
+            "result": {
+                "definition": {
+                    "datasets": [{"id": "ds-shared", "name": "Retail Sales Yesterday"}],
+                    "chapters": [],
+                }
+            }
+        }
+
+    def get_object_info(
+        self, project_id: str, object_id: str, object_type: int
+    ) -> MicroStrategyObject:
+        self.lookups.append(object_id)
+        if self.fail:
+            raise MicroStrategyAPIError("boom")
+        return MicroStrategyObject.model_validate(
+            {
+                "id": object_id,
+                "name": "Retail Sales Yesterday",
+                "type": "3",
+                "subtype": "768",
+                "ancestors": [
+                    {"id": "f-1", "name": "Shared Reports"},
+                    {"id": "f-2", "name": "Salon Retail Sales"},
+                ],
+            }
+        )
+
+
+def _dataset_lookup_source() -> MicroStrategySource:
+    return _source(
+        {
+            "extract_warehouse_lineage": False,
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+            "extract_metric_expressions": False,
+            "extract_model_lineage": False,
+        }
+    )
+
+
+def _dataset_container_parents(workunits: List[Any]) -> Dict[str, str]:
+    parents: Dict[str, str] = {}
+    for workunit in workunits:
+        container = workunit.get_aspect_of_type(ContainerClass)
+        if container and workunit.get_urn().startswith("urn:li:dataset:"):
+            parents[workunit.get_urn()] = container.container
+    return parents
+
+
+def test_dataset_object_info_is_fetched_once_per_dataset_across_dossiers() -> None:
+    source = _dataset_lookup_source()
+    client = _DatasetLookupClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    # The same dataset under two dossiers is two entities but one lookup.
+    assert client.lookups == ["ds-shared"]
+    assert source.report.dataset_object_lookups == 1
+    own_folder = source.mapper.folder_key(
+        "project-1", "Shared Reports/Salon Retail Sales"
+    ).as_urn()
+    parents = _dataset_container_parents(workunits)
+    assert len(parents) == 2
+    assert set(parents.values()) == {own_folder}
+
+
+def test_dataset_object_lookup_failure_falls_back_to_dossier_folder() -> None:
+    source = _dataset_lookup_source()
+    client = _DatasetLookupClient(fail=True)
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    # Failure is memoized (one attempt), counted, and degrades to the
+    # dossier's folder and URL rather than failing the dashboards.
+    assert client.lookups == ["ds-shared"]
+    assert source.report.dataset_object_lookup_failures == 1
+    dossier_folder = source.mapper.folder_key("project-1", "Shared Reports").as_urn()
+    parents = _dataset_container_parents(workunits)
+    assert len(parents) == 2
+    assert set(parents.values()) == {dossier_folder}
+    urls = set()
+    for workunit in workunits:
+        properties = workunit.get_aspect_of_type(DatasetPropertiesClass)
+        if properties is not None:
+            urls.add(properties.externalUrl)
+    assert urls == {
+        "https://mstr.example.com/MicroStrategyLibrary/app/project-1/dash-1",
+        "https://mstr.example.com/MicroStrategyLibrary/app/project-1/dash-2",
+    }
