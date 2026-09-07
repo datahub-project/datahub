@@ -116,8 +116,8 @@ jobs:
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
       smoke_test_change: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
       java_client_change: ${{ steps.ci-optimize.outputs.java-client-change == 'true' || github.event_name != 'pull_request' }}
-      integrations_service_change: "false"
-      datahub_executor_change: "false"
+      playwright_change: ${{ steps.ci-optimize.outputs.playwright-change == 'true' }}
+      embedding_ai_change: ${{ steps.ci-optimize.outputs.embedding-ai-change == 'true' || github.event_name != 'pull_request' }}
 
       build_runner_type: ${{ steps.set-runner.outputs.build_runner_type }}
       test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
@@ -128,8 +128,6 @@ jobs:
       yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
       playwright_matrix: ${{ steps.set-playwright-matrix.outputs.matrix }}
-      playwright_change: ${{ steps.ci-optimize.outputs.playwright-change == 'true' }}
-      embedding_ai_change: ${{ steps.ci-optimize.outputs.embedding-ai-change == 'true' || github.event_name != 'pull_request' }}
       smoke_build_task: ${{ steps.smoke-profile.outputs.smoke_build_task }}
       smoke_profile_name: ${{ steps.smoke-profile.outputs.smoke_profile_name }}
       # Gradle modules base_build has to bake; empty means every image in the
