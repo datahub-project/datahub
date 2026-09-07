@@ -327,14 +327,14 @@
                     "fieldPath": "trip_distance",
                     "nullCount": 0,
                     "nullProportion": 0.0,
-                    "min": "0.8999999761581421",
+                    "min": "0.0",
                     "max": "8.399999618530273"
                 },
                 {
                     "fieldPath": "fare_amount",
                     "nullCount": 0,
                     "nullProportion": 0.0,
-                    "min": "9.01",
+                    "min": "0.0",
                     "max": "42.13"
                 },
                 {

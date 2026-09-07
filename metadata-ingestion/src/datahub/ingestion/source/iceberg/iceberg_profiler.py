@@ -85,7 +85,7 @@ class IcebergProfiler:
                     agg_value = aggregated_values.get(field_id)
                     aggregated_values[field_id] = (
                         aggregator(agg_value, value_decoded)
-                        if agg_value
+                        if agg_value is not None
                         else value_decoded
                     )
 
@@ -125,9 +125,7 @@ class IcebergProfiler:
                 # Table has no data, cannot profile, or we can't get current_snapshot.
                 return
 
-            # Per the Iceberg spec, "total-records" is the number of live rows in the snapshot
-            # (writers maintain it as previous + added - deleted), so no delete-count adjustment
-            # is needed even when position deletes or deletion vectors are present.
+            # Snapshot totals count records in data files, which may include deleted rows.
             row_count = (
                 int(
                     current_snapshot.summary.additional_properties.get(
