@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
@@ -10,6 +11,7 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    Tuple,
     Union,
 )
 
@@ -49,6 +51,7 @@ from datahub.ingestion.source.microstrategy.models import (
     DerivedMetricSpec,
     FolderKey,
     FolderPart,
+    GridUnit,
     MetricEnrichment,
     MicroStrategyObject,
     PredefinedFolderResolution,
@@ -106,10 +109,12 @@ from datahub.utilities.urns.error import InvalidUrnError
 
 @dataclass
 class DatasetSchemaFields:
-    """A dataset's schema fields plus an index from source object id to fields."""
+    """A dataset's schema fields plus an index from source object id to fields
+    and the catalog name of each object (keyed by normalized object id)."""
 
     fields: List[SchemaFieldClass]
     by_object_id: Dict[str, List[SchemaFieldClass]]
+    object_names: Dict[str, str]
 
 
 class MicroStrategyMapper:
@@ -750,8 +755,10 @@ class MicroStrategyMapper:
     ) -> DatasetSchemaFields:
         fields: List[SchemaFieldClass] = []
         fields_by_object_id: Dict[str, List[SchemaFieldClass]] = {}
+        object_names: Dict[str, str] = {}
 
         for spec in _iter_dataset_fields(dataset):
+            _record_object_name(object_names, spec.item)
             if spec.kind == "metric":
                 metric = spec.item
                 enrichment = _metric_enrichment_for(dataset, metric)
@@ -861,6 +868,7 @@ class MicroStrategyMapper:
         return DatasetSchemaFields(
             fields=sorted(fields, key=lambda field: field.fieldPath),
             by_object_id=fields_by_object_id,
+            object_names=object_names,
         )
 
     def _visualization_input_fields(
@@ -870,61 +878,83 @@ class MicroStrategyMapper:
         visualization: Visualization,
         input_urns: Sequence[str],
     ) -> Optional[InputFieldsClass]:
+        """Chart input fields named and ordered the way the grid shows them.
+
+        With a runtime grid definition, each header cell becomes one input
+        field in render order: row/column attributes first (unqualified, with
+        only the forms the grid displays, so a single displayed form is just
+        the attribute name), then each column group's metrics as
+        `GROUP.header` where the header is the grid's own text (a dossier
+        alias when it differs from the catalog metric name, which is kept in
+        the description and jsonProps). Each header cell is attributed to one
+        dataset: the group's bound dataset, or for ungrouped cells the first
+        input dataset (in group order) that carries the object.
+
+        Objects the visualization references outside any grid cell -- and
+        every object when no runtime grid was fetched -- keep the previous
+        treatment: emitted from every input dataset, prefixed with the group
+        (else dataset) name whenever more than one dataset feeds the chart.
+
+        Only the embedded display copy is renamed; the schemaField urn always
+        keeps the dataset's real field path so column lineage is unaffected."""
         if not visualization.object_ids or not input_urns:
             return None
 
         input_urn_set = set(input_urns)
-        visualization_object_ids = {
-            normalize_object_id(object_id) for object_id in visualization.object_ids
-        }
-        # A compound grid repeats the same catalog object once per column
-        # group, each copy reading a different dataset — so the same field
-        # name legitimately appears once per input dataset. Qualify each
-        # entry's displayed name with its group (falling back to the dataset
-        # name) so the UI never treats the copies as one column, and stamp
-        # the description with the full source context. Only the embedded
-        # display copy is renamed; the schemaField urn keeps the dataset's
-        # real field path, so column lineage joins are unaffected.
-        annotate_source = len(input_urn_set) > 1
-        group_by_dataset_id = self._column_group_by_dataset_id(dashboard, visualization)
-        input_fields_by_urn: Dict[str, InputFieldClass] = {}
-        for dataset in dashboard.datasets:
-            dataset_urn = self.lineage.dataset_urn(project_id, dashboard.id, dataset)
-            if dataset_urn not in input_urn_set:
+        binding = (
+            bind_visualization_column_sets(dashboard, visualization)
+            if visualization.column_sets
+            else ColumnSetBinding({}, [])
+        )
+        input_datasets = [
+            dataset
+            for dataset in dashboard.datasets
+            if self.lineage.dataset_urn(project_id, dashboard.id, dataset)
+            in input_urn_set
+        ]
+        ordered_datasets = _datasets_in_grid_order(
+            input_datasets, visualization, binding
+        )
+        builder_state = _InputFieldBuilder(
+            annotate_source=len(input_urn_set) > 1,
+            urn_by_dataset_id={
+                dataset.id: self.lineage.dataset_urn(project_id, dashboard.id, dataset)
+                for dataset in ordered_datasets
+            },
+            schema_by_dataset_id={
+                dataset.id: self._schema_fields_and_object_map(dataset)
+                for dataset in ordered_datasets
+            },
+            group_by_dataset_id=self._column_group_by_dataset_id(
+                dashboard, visualization
+            ),
+        )
+
+        placed_cells: Set[Tuple[str, Optional[str]]] = set()
+        for unit in visualization.grid_units:
+            if not unit.id:
                 continue
-            schema_fields = self._schema_fields_and_object_map(dataset)
-            group_name = group_by_dataset_id.get(dataset.id)
-            source_context = (
-                _input_field_source_context(group_name, dataset.name)
-                if annotate_source
+            cell = (normalize_object_id(unit.id), unit.column_set_key)
+            if cell in placed_cells:
+                continue
+            placed_cells.add(cell)
+            bound_id = (
+                binding.dataset_id_by_column_set.get(unit.column_set_key)
+                if unit.column_set_key
                 else None
             )
-            display_prefix = (group_name or dataset.name) if annotate_source else None
-            for object_id in visualization_object_ids:
-                for schema_field in schema_fields.by_object_id.get(object_id, []):
-                    # Urn must come from the dataset's real field path, before
-                    # any display renaming.
-                    schema_field_urn = builder.make_schema_field_urn(
-                        dataset_urn, schema_field.fieldPath
-                    )
-                    if source_context:
-                        # Fresh per-call instances, so mutation cannot leak
-                        # into the dataset's own schema emission.
-                        schema_field.description = (
-                            f"{source_context}\n\n{schema_field.description}"
-                            if schema_field.description
-                            else source_context
-                        )
-                    if display_prefix:
-                        schema_field.fieldPath = (
-                            f"{display_prefix}.{schema_field.fieldPath}"
-                        )
-                    input_fields_by_urn[schema_field_urn] = InputFieldClass(
-                        schemaFieldUrn=schema_field_urn,
-                        schemaField=schema_field,
-                    )
+            candidates = [
+                dataset for dataset in ordered_datasets if dataset.id == bound_id
+            ] or ordered_datasets
+            builder_state.place_grid_cell(unit, candidates)
 
-        return _input_fields_aspect(input_fields_by_urn)
+        builder_state.place_leftovers(
+            ordered_datasets,
+            {normalize_object_id(object_id) for object_id in visualization.object_ids},
+        )
+        if not builder_state.entries:
+            return None
+        return InputFieldsClass(fields=builder_state.entries)
 
     @staticmethod
     def _column_group_by_dataset_id(
@@ -1561,8 +1591,233 @@ def _metric_field_description(
 
 def _input_field_source_context(group_name: Optional[str], dataset_name: str) -> str:
     if group_name:
-        return f"**{group_name}** — {dataset_name}"
+        return f"**{group_name}** - {dataset_name}"
     return f"**{dataset_name}**"
+
+
+def _clean_name(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    cleaned = MSTR_WHITESPACE_RE.sub(" ", value).strip()
+    return cleaned or None
+
+
+def _record_object_name(object_names: Dict[str, str], item: Dict[str, object]) -> None:
+    name = _clean_name(_optional_str(item.get("name")))
+    if not name:
+        return
+    for key in ("id", "objectId"):
+        value = item.get(key)
+        if value:
+            object_names.setdefault(normalize_object_id(value), name)
+
+
+def _datasets_in_grid_order(
+    input_datasets: List[DatasetObject],
+    visualization: Visualization,
+    binding: ColumnSetBinding,
+) -> List[DatasetObject]:
+    """Datasets bound to column groups first, in grid order, so an ungrouped
+    header (a row attribute) attributes to the leftmost group's dataset;
+    unbound input datasets follow in dossier order."""
+    ordered: List[DatasetObject] = []
+    for column_set in visualization.column_sets:
+        bound_id = binding.dataset_id_by_column_set.get(column_set.identifier)
+        for dataset in input_datasets:
+            if dataset.id == bound_id and dataset not in ordered:
+                ordered.append(dataset)
+    for dataset in input_datasets:
+        if dataset not in ordered:
+            ordered.append(dataset)
+    return ordered
+
+
+class _InputFieldBuilder:
+    """Accumulates a visualization's input fields in emission order. Display
+    copies are renamed to match the grid; schemaField urns keep the dataset's
+    real field paths."""
+
+    def __init__(
+        self,
+        annotate_source: bool,
+        urn_by_dataset_id: Dict[str, str],
+        schema_by_dataset_id: Dict[str, DatasetSchemaFields],
+        group_by_dataset_id: Dict[str, str],
+    ) -> None:
+        self.annotate_source = annotate_source
+        self.urn_by_dataset_id = urn_by_dataset_id
+        self.schema_by_dataset_id = schema_by_dataset_id
+        self.group_by_dataset_id = group_by_dataset_id
+        self.entries: List[InputFieldClass] = []
+        self.used_display_names: Set[str] = set()
+        self.placed_object_ids: Set[str] = set()
+
+    def emit(
+        self,
+        dataset: DatasetObject,
+        schema_field: SchemaFieldClass,
+        display_name: str,
+        group_name: Optional[str],
+        aliased_object_name: Optional[str],
+    ) -> None:
+        display_copy = deepcopy(schema_field)
+        if display_name in self.used_display_names:
+            # Two header cells with identical text from different datasets;
+            # keep both visible rather than let the UI merge them.
+            display_name = f"{display_name} ({dataset.name})"
+        self.used_display_names.add(display_name)
+        context_lines: List[str] = []
+        if self.annotate_source:
+            context_lines.append(_input_field_source_context(group_name, dataset.name))
+        json_props = json.loads(display_copy.jsonProps or "{}")
+        if group_name:
+            json_props["microstrategyColumnGroup"] = group_name
+        if aliased_object_name:
+            # The grid header is a dossier alias; keep the catalog name.
+            context_lines.append(f"MicroStrategy object: {aliased_object_name}")
+            json_props["microstrategyObjectName"] = aliased_object_name
+        if context_lines:
+            context = "\n\n".join(context_lines)
+            display_copy.description = (
+                f"{context}\n\n{display_copy.description}"
+                if display_copy.description
+                else context
+            )
+        display_copy.jsonProps = json.dumps(json_props, sort_keys=True)
+        display_copy.fieldPath = display_name
+        self.entries.append(
+            InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(
+                    self.urn_by_dataset_id[dataset.id], schema_field.fieldPath
+                ),
+                schemaField=display_copy,
+            )
+        )
+
+    def place_grid_cell(self, unit: GridUnit, candidates: List[DatasetObject]) -> None:
+        """Emit one grid header cell from the first candidate dataset that
+        carries its object: the displayed forms of an attribute, or the
+        metric under the grid's own header text, prefixed with its group."""
+        if not unit.id:
+            return
+        object_id = normalize_object_id(unit.id)
+        for dataset in candidates:
+            schema = self.schema_by_dataset_id[dataset.id]
+            fields = schema.by_object_id.get(object_id, [])
+            if not fields:
+                continue
+            object_name = schema.object_names.get(object_id)
+            header = _clean_name(unit.name)
+            aliased_object_name = (
+                object_name
+                if header and object_name and header != object_name
+                else None
+            )
+            fields = _grid_unit_fields(unit, fields, schema)
+            for schema_field in fields:
+                display_name = _grid_unit_display_name(
+                    unit, schema_field, object_name, len(fields)
+                )
+                if unit.column_set_name:
+                    display_name = f"{unit.column_set_name}.{display_name}"
+                self.emit(
+                    dataset,
+                    schema_field,
+                    display_name,
+                    unit.column_set_name,
+                    aliased_object_name,
+                )
+            self.placed_object_ids.add(object_id)
+            return
+
+    def place_leftovers(
+        self,
+        ordered_datasets: List[DatasetObject],
+        visualization_object_ids: Set[str],
+    ) -> None:
+        """Objects referenced outside any grid header cell (and every object
+        when no runtime grid is available): emitted from every input dataset,
+        prefixed with the group (else dataset) name when several datasets feed
+        the chart, in urn order."""
+        leftover_ids = visualization_object_ids - self.placed_object_ids
+        leftover_by_urn: Dict[str, Tuple[DatasetObject, SchemaFieldClass, str]] = {}
+        for dataset in ordered_datasets:
+            schema = self.schema_by_dataset_id[dataset.id]
+            group_name = self.group_by_dataset_id.get(dataset.id)
+            prefix = (group_name or dataset.name) if self.annotate_source else None
+            for object_id in leftover_ids:
+                for schema_field in schema.by_object_id.get(object_id, []):
+                    schema_field_urn = builder.make_schema_field_urn(
+                        self.urn_by_dataset_id[dataset.id], schema_field.fieldPath
+                    )
+                    display_name = (
+                        f"{prefix}.{schema_field.fieldPath}"
+                        if prefix
+                        else schema_field.fieldPath
+                    )
+                    leftover_by_urn[schema_field_urn] = (
+                        dataset,
+                        schema_field,
+                        display_name,
+                    )
+        for schema_field_urn in sorted(leftover_by_urn):
+            dataset, schema_field, display_name = leftover_by_urn[schema_field_urn]
+            self.emit(
+                dataset,
+                schema_field,
+                display_name,
+                self.group_by_dataset_id.get(dataset.id)
+                if self.annotate_source
+                else None,
+                None,
+            )
+
+
+def _grid_unit_fields(
+    unit: GridUnit,
+    fields: List[SchemaFieldClass],
+    schema: DatasetSchemaFields,
+) -> List[SchemaFieldClass]:
+    """The dataset fields a grid header cell actually displays. A metric cell
+    is one field; an attribute cell shows only the forms the grid lists, so
+    the other forms of a multi-form attribute are not chart inputs."""
+    if unit.kind != "attribute" or len(fields) <= 1:
+        return fields
+    by_form_id: List[SchemaFieldClass] = []
+    for form_id in unit.form_ids:
+        for candidate in schema.by_object_id.get(normalize_object_id(form_id), []):
+            if any(candidate is field for field in fields) and not any(
+                candidate is chosen for chosen in by_form_id
+            ):
+                by_form_id.append(candidate)
+    if by_form_id:
+        return by_form_id
+    form_names = {name.lower() for name in unit.form_names}
+    by_form_name = [
+        field
+        for field in fields
+        if field.fieldPath.rsplit(".", 1)[-1].lower() in form_names
+    ]
+    return by_form_name or fields
+
+
+def _grid_unit_display_name(
+    unit: GridUnit,
+    schema_field: SchemaFieldClass,
+    object_name: Optional[str],
+    displayed_field_count: int,
+) -> str:
+    """Header text for one displayed field: the grid's own header for a metric
+    (its alias when renamed in the dossier); for an attribute the bare
+    attribute name when a single form is shown, else `Attribute.FORM`."""
+    header = _clean_name(unit.name) or object_name or schema_field.fieldPath
+    if unit.kind == "metric" or displayed_field_count == 1:
+        return header
+    attribute_name = object_name or header
+    if schema_field.fieldPath.startswith(f"{attribute_name}."):
+        form_name = schema_field.fieldPath[len(attribute_name) + 1 :]
+        return f"{header}.{form_name}"
+    return schema_field.fieldPath
 
 
 def _derived_metric_description(derived: DerivedMetricSpec) -> str:

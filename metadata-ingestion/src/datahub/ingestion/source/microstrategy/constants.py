@@ -152,10 +152,15 @@ MSTR_OBJECT_ID_PARENT_KEYS = frozenset(
     {"metric", "metrics", "attribute", "attributes", "templatemetrics"}
 )
 MSTR_OBJECT_TYPES = frozenset({"metric", "attribute"})
-# Lowercased grid unit types used when walking a compound grid's columnSets:
-# the metrics container column and the metric elements inside it.
+# Lowercased grid unit types used when walking a runtime grid definition: the
+# metrics container column, the metric elements inside it, and attribute units.
 MSTR_GRID_TEMPLATE_METRICS_TYPE = "templatemetrics"
 MSTR_GRID_METRIC_ELEMENT_TYPE = "metric"
+MSTR_GRID_ATTRIBUTE_TYPE = "attribute"
+# Grid axes in the order Strategy renders their headers (row attributes on the
+# left, then column units, then page-by); a compound grid's columnSets follow.
+MSTR_GRID_AXES = ("rows", "columns", "pageBy")
+MSTR_GRID_COLUMN_SETS_KEY = "columnSets"
 
 # Pre-compiled regexes. Matched case-insensitively; declared once so the
 # hot-path normalizers reuse a single compiled pattern.

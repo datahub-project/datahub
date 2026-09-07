@@ -1435,7 +1435,7 @@ def test_chart_input_fields_include_derived_metrics() -> None:
     assert store_entry.schemaFieldUrn.endswith(",Net Amount)")
     assert store_entry.schemaField is not None
     assert store_entry.schemaField.description is not None
-    assert store_entry.schemaField.description.startswith("**STORE** — STORE SALES WTD")
+    assert store_entry.schemaField.description.startswith("**STORE** - STORE SALES WTD")
 
     column_groups = {
         prop: value for prop, value in (chart_info.customProperties or {}).items()
@@ -1886,3 +1886,284 @@ def test_dataset_folder_parent_key_falls_back_without_ancestors() -> None:
         )
         == dossier_key
     )
+
+
+def _salon_grid_definition() -> DashboardDefinition:
+    """Mirror of a live compound grid: two ungrouped row attributes (one with
+    a second form the grid does not show), three column groups bound to three
+    per-family datasets, one metric renamed in the dossier, one derived."""
+
+    def dataset(dataset_id: str, name: str, plan_id: str, plan_name: str) -> dict:
+        return {
+            "id": dataset_id,
+            "name": name,
+            "availableObjects": {
+                "metrics": [
+                    {"id": "M-NET", "name": "Net Sales Retail Amt"},
+                    {"id": plan_id, "name": plan_name},
+                ],
+                "attributes": [
+                    {
+                        "id": "A-REGION",
+                        "name": "Region Number",
+                        "forms": [{"id": "F-REGION-NUM", "name": "NUMBER"}],
+                    },
+                    {
+                        "id": "A-DISTRICT",
+                        "name": "District Number",
+                        "forms": [
+                            {"id": "F-DISTRICT-NUM", "name": "NUMBER"},
+                            {"id": "F-DISTRICT-DESC", "name": "DESC"},
+                        ],
+                    },
+                ],
+            },
+        }
+
+    def attribute_unit(attribute_id: str, name: str, form_id: str) -> dict:
+        return {
+            "type": "attribute",
+            "id": attribute_id,
+            "name": name,
+            "forms": [{"id": form_id, "name": "NUMBER"}],
+        }
+
+    def group(
+        key: str, name: str, plan_id: str, plan_header: str, derived_id: str
+    ) -> dict:
+        return {
+            "key": key,
+            "name": name,
+            "columns": _metrics_column(
+                [
+                    {"type": "metric", "id": "M-NET", "name": "Net Sales Retail Amt"},
+                    {"type": "metric", "id": plan_id, "name": plan_header},
+                    {
+                        "type": "metric",
+                        "id": derived_id,
+                        "name": f"{name[:3]} % PLN",
+                        "derived": True,
+                    },
+                ]
+            ),
+        }
+
+    return DashboardDefinition.from_api_response(
+        object_id="dash-salon",
+        object_name="Salon Sales To Plan",
+        response={
+            "definition": {
+                "datasets": [
+                    dataset(
+                        "ds-retail",
+                        "RETAIL SALES YESTERDAY",
+                        "M-RTL-PLAN",
+                        "Salon RTL % Plan",
+                    ),
+                    dataset(
+                        "ds-service",
+                        "SERVICE SALES YESTERDAY",
+                        "M-SRVC-PLAN",
+                        "SRVC PLAN $",
+                    ),
+                    dataset(
+                        "ds-total",
+                        "TOTAL SALON SALES-YESTERDAY",
+                        "M-TOT-PLAN",
+                        "TOTAL PLAN",
+                    ),
+                ],
+                "chapters": [
+                    {
+                        "key": "ch-1",
+                        "pages": [
+                            {
+                                "key": "pg-yesterday",
+                                "name": "YESTERDAY",
+                                "visualizations": [
+                                    {
+                                        "key": "viz-yesterday",
+                                        "name": "Salon Sales Yesterday",
+                                        "visualizationType": "compound_grid",
+                                        "runtimeDefinition": {
+                                            "definition": {
+                                                "grid": {
+                                                    "rows": [
+                                                        attribute_unit(
+                                                            "A-REGION",
+                                                            "Region Number",
+                                                            "F-REGION-NUM",
+                                                        ),
+                                                        attribute_unit(
+                                                            "A-DISTRICT",
+                                                            "District Number",
+                                                            "F-DISTRICT-NUM",
+                                                        ),
+                                                    ],
+                                                    "columns": [],
+                                                    "columnSets": [
+                                                        # The dossier renamed this metric's header.
+                                                        group(
+                                                            "cs-retail",
+                                                            "RETAIL",
+                                                            "M-RTL-PLAN",
+                                                            "Salon RTL Plan $",
+                                                            "D-RTL",
+                                                        ),
+                                                        group(
+                                                            "cs-service",
+                                                            "SERVICE",
+                                                            "M-SRVC-PLAN",
+                                                            "SRVC PLAN $",
+                                                            "D-SRVC",
+                                                        ),
+                                                        group(
+                                                            "cs-total",
+                                                            "TOTAL SALES",
+                                                            "M-TOT-PLAN",
+                                                            "TOTAL PLAN",
+                                                            "D-TOT",
+                                                        ),
+                                                    ],
+                                                }
+                                            }
+                                        },
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        },
+    )
+
+
+def _salon_input_fields(mapper: MicroStrategyMapper) -> InputFieldsClass:
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    workunits = list(
+        mapper.gen_chart_workunits(
+            "project-1",
+            dashboard,
+            dashboard.visualizations[0],
+            mapper.project_key("project-1"),
+        )
+    )
+    chart_info = _aspect(workunits, ChartInfoClass)
+    assert len(chart_info.inputs or []) == 3
+    return _aspect(workunits, InputFieldsClass)
+
+
+def test_ungrouped_grid_attributes_carry_no_group_prefix_or_form_suffix() -> None:
+    # (a) row attributes sit outside every column group, so no "RETAIL."
+    # prefix; (b) the grid shows one form, so no ".NUMBER" suffix either.
+    input_fields = _salon_input_fields(_mapper())
+    by_display = {
+        field.schemaField.fieldPath: field
+        for field in input_fields.fields
+        if field.schemaField
+    }
+
+    assert "Region Number" in by_display
+    assert "District Number" in by_display
+    assert not any(name.endswith(".NUMBER") for name in by_display)
+    assert not any(
+        name.endswith("Region Number") and name != "Region Number"
+        for name in by_display
+    )
+    # Each ungrouped header is attributed to one dataset (the leftmost
+    # group's), and the urn keeps the dataset's real form field path.
+    assert by_display["Region Number"].schemaFieldUrn.endswith(
+        "dash-salon.ds-retail,PROD),Region Number.NUMBER)"
+    )
+    # Only the displayed form of the two-form attribute is a chart input.
+    district_urns = [
+        field.schemaFieldUrn
+        for field in input_fields.fields
+        if "District Number" in field.schemaFieldUrn
+    ]
+    assert district_urns == [
+        by_display["District Number"].schemaFieldUrn,
+    ]
+    assert district_urns[0].endswith(",District Number.NUMBER)")
+
+
+def test_grouped_metrics_keep_group_prefix_and_use_grid_header_alias() -> None:
+    # (c) the grid header wins over the catalog metric name, with the catalog
+    # name retained in the description and jsonProps; genuinely grouped
+    # metrics keep the "GROUP.name" style.
+    input_fields = _salon_input_fields(_mapper())
+    by_display = {
+        field.schemaField.fieldPath: field
+        for field in input_fields.fields
+        if field.schemaField
+    }
+
+    assert "RETAIL.Net Sales Retail Amt" in by_display
+    assert "SERVICE.Net Sales Retail Amt" in by_display
+    assert "TOTAL SALES.Net Sales Retail Amt" in by_display
+    aliased = by_display["RETAIL.Salon RTL Plan $"]
+    assert "RETAIL.Salon RTL % Plan" not in by_display
+    assert aliased.schemaFieldUrn.endswith(
+        "dash-salon.ds-retail,PROD),Salon RTL % Plan)"
+    )
+    assert aliased.schemaField is not None
+    assert aliased.schemaField.description is not None
+    assert aliased.schemaField.description.startswith(
+        "**RETAIL** - RETAIL SALES YESTERDAY\n\nMicroStrategy object: Salon RTL % Plan"
+    )
+    props = json.loads(aliased.schemaField.jsonProps or "{}")
+    assert props["microstrategyObjectName"] == "Salon RTL % Plan"
+    assert props["microstrategyColumnGroup"] == "RETAIL"
+    # A header that matches the catalog name carries no alias note.
+    net = by_display["RETAIL.Net Sales Retail Amt"]
+    assert net.schemaField is not None
+    assert "MicroStrategy object:" not in (net.schemaField.description or "")
+    assert "microstrategyObjectName" not in (net.schemaField.jsonProps or "")
+
+
+def test_chart_input_fields_follow_grid_order() -> None:
+    # Attributes first as laid out in the rows, then each column group in
+    # grid order with its metrics in element order -- not alphabetical.
+    input_fields = _salon_input_fields(_mapper())
+    display_names = [
+        field.schemaField.fieldPath
+        for field in input_fields.fields
+        if field.schemaField
+    ]
+
+    assert display_names == [
+        "Region Number",
+        "District Number",
+        "RETAIL.Net Sales Retail Amt",
+        "RETAIL.Salon RTL Plan $",
+        "RETAIL.RET % PLN",
+        "SERVICE.Net Sales Retail Amt",
+        "SERVICE.SRVC PLAN $",
+        "SERVICE.SER % PLN",
+        "TOTAL SALES.Net Sales Retail Amt",
+        "TOTAL SALES.TOTAL PLAN",
+        "TOTAL SALES.TOT % PLN",
+    ]
+
+
+def test_dataset_schema_field_paths_are_unchanged_by_grid_display_names() -> None:
+    # Only the chart's display copies are renamed; the dataset schema (and
+    # therefore every schemaField urn) keeps its form-qualified paths.
+    mapper = _mapper()
+    dashboard = _salon_grid_definition()
+    mapper.attach_derived_metrics(dashboard)
+    retail = dashboard.datasets[0]
+    schema = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1", dashboard, retail, mapper.project_key("project-1")
+        ),
+        SchemaMetadataClass,
+    )
+    paths = [field.fieldPath for field in schema.fields]
+    assert "Region Number.NUMBER" in paths
+    assert "District Number.NUMBER" in paths
+    assert "District Number.DESC" in paths
+    assert "Salon RTL % Plan" in paths
+    assert "Salon RTL Plan $" not in paths
