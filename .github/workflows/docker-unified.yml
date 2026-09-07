@@ -82,6 +82,44 @@ permissions:
   id-token: write
 
 jobs:
+  # Announce build start in the release Slack channel when a GitHub release is
+  # published, linking to this run. Non-blocking: never gates the actual build.
+  # Only fires on release events — not on ordinary pushes to releases/**
+  # branches, which would notify on every merge.
+  notify_release_build_start:
+    name: Notify Release Channel of Build Start
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release scripts
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: true
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Notify release channel of build start
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.CI_NOTIFIER_SLACK_BOT_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          PYTHONPATH: ${{ github.workspace }}/.github/scripts:${{ github.workspace }}/.github/scripts/release
+        run: |
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          MESSAGE="*Docker build started* for \`${RELEASE_TAG}\` — <${RUN_URL}|view run>"
+          python3 .github/scripts/release/notify_release_channel.py \
+            --version "${RELEASE_TAG}" \
+            --emoji ":hammer_and_wrench:" \
+            --message "${MESSAGE}"
+
   setup:
     runs-on: depot-ubuntu-24.04-small
     outputs:
