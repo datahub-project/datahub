@@ -29,10 +29,6 @@ ANSI_ESCAPE_CHARACTERS = r"\x1b\[[0-9;]*m"
 # EXTERNAL_QUERY args are string literals, not table ids — handled in extract_external_queries.
 EXTERNAL_QUERY_FUNCTION_NAME = "EXTERNAL_QUERY"
 
-EXTERNAL_QUERY_PATTERN = re.compile(
-    rf"\b{EXTERNAL_QUERY_FUNCTION_NAME}\s*\(", re.IGNORECASE
-)
-
 # Inert FROM/JOIN stand-in; original source alias is reused when present.
 EXTERNAL_QUERY_PLACEHOLDER_SQL = "(SELECT 1 AS pbi_federation_placeholder)"
 
@@ -199,19 +195,23 @@ def contains_external_query_call(query: str, platform: str) -> bool:
 
     The tokenizer is lenient and still succeeds on SQL the parser rejects, so a genuine
     federation call is detected even inside an otherwise-unparseable batch. If tokenizing
-    itself fails (pathological input), fall back to the raw regex so detection is never
-    weaker than before.
+    itself fails (e.g. an unterminated comment or string raises ``TokenError``), return
+    False: at that point we cannot tell a real call from ``EXTERNAL_QUERY(`` sitting inside
+    the unterminated comment/string, and the raw regex cannot either — it would re-introduce
+    the very comment/string false positive this tokenizer gate exists to avoid, routing an
+    unrelated (and now unparseable) query into federation handling and discarding its native
+    lineage. Not federating an already-broken query is the safe default.
     """
     dialect = _resolve_dialect(platform)
     try:
         tokens = (dialect or sqlglot.Dialect()).tokenize(query)
     except Exception:
         logger.debug(
-            "EXTERNAL_QUERY tokenization failed; falling back to regex detection: %s",
+            "EXTERNAL_QUERY tokenization failed; treating query as no federation call: %s",
             query,
             exc_info=True,
         )
-        return bool(EXTERNAL_QUERY_PATTERN.search(query))
+        return False
 
     for index, token in enumerate(tokens):
         if (

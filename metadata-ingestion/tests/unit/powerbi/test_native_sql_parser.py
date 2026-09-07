@@ -563,6 +563,18 @@ def test_contains_external_query_call_comment_between_name_and_paren():
     )
 
 
+def test_contains_external_query_call_unterminated_comment_is_not_a_call():
+    # An unterminated /* comment raises TokenError from the tokenizer. EXTERNAL_QUERY(
+    # appears only inside that comment, so there is no real federation call. Tokenizing
+    # fails, and we must return False rather than fall back to the raw regex — the regex
+    # would match the commented-out text and hijack this (already broken) native query
+    # into federation handling, dropping its lineage and firing a bogus warning.
+    assert not native_sql_parser.contains_external_query_call(
+        "select name from my_project.my_dataset.native_table /* EXTERNAL_QUERY(c, s)",
+        "bigquery",
+    )
+
+
 def test_get_tables_blank_query_returns_empty():
     """sqlparse yields no statements at all for blank input, which a native query
     can become once the M-Query escape sequences are stripped."""
