@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
@@ -28,6 +27,7 @@ from datahub.ingestion.source.microstrategy.client import (
 from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
+    MSTR_CUBE_SUBTYPES,
     MSTR_OBJECT_SUBTYPE_DOCUMENT,
     MSTR_OBJECT_TYPE_REPORT,
     MSTR_PREDEFINED_FOLDER_LABELS,
@@ -64,7 +64,10 @@ from datahub.ingestion.source.microstrategy.models import (
     Project,
     ProjectKey,
     ReportDefinition,
+    ReportDerivedMetric,
     Visualization,
+    extract_embedded_metric_definitions,
+    metric_enrichment_from_expression,
     normalize_object_id,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
@@ -128,6 +131,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         # failed so the same dataset is never re-fetched for another dossier.
         self._dataset_object_cache: Dict[
             Tuple[str, str], Optional[MicroStrategyObject]
+        ] = {}
+        # (project id, report id) -> derived metric definitions, or None once
+        # every definition endpoint failed for it.
+        self._report_derived_metric_cache: Dict[
+            Tuple[str, str], Optional[List[ReportDerivedMetric]]
         ] = {}
         if self.config.extract_derived_metrics and not (
             self.config.extract_lineage and self.config.extract_visualization_details
@@ -575,6 +583,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self.mapper.attach_model_lineage(dashboard, model_lineage_index)
         if self.config.extract_derived_metrics:
             self.mapper.attach_derived_metrics(dashboard)
+            self._enrich_report_derived_metrics(project_id, dashboard)
         if linked_report_ids is not None:
             linked_report_ids.update(
                 dependency.id.upper()
@@ -635,6 +644,86 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_dataset_object_lookup_failure()
         self._dataset_object_cache[cache_key] = dataset_object
         return dataset_object
+
+    def _enrich_report_derived_metrics(
+        self,
+        project_id: str,
+        dashboard: DashboardDefinition,
+    ) -> None:
+        """Upgrade grid-derived metrics with their report definitions. A dossier
+        dataset that is a report can define report-level derived metrics; the
+        grid only shows them as `derived: true` elements, but the report's
+        definition carries their object names and formulas. Cubes cannot
+        define derived metrics and are skipped; a dataset whose type is
+        unknown is only consulted when a grid actually showed derived metrics
+        for it, so the extra calls stay proportional to the evidence."""
+        for dataset in dashboard.datasets:
+            dataset_object = self._dataset_object_info(project_id, dataset.id)
+            subtype = (dataset_object.subtype or "").strip() if dataset_object else ""
+            if subtype in MSTR_CUBE_SUBTYPES:
+                continue
+            if dataset_object is None and not dataset.derived_metrics:
+                continue
+            definitions = self._report_derived_metric_definitions(
+                project_id, dataset.id
+            )
+            if definitions:
+                self.mapper.attach_report_derived_metrics(dataset, definitions)
+
+    def _report_derived_metric_definitions(
+        self,
+        project_id: str,
+        report_id: str,
+    ) -> Optional[List[ReportDerivedMetric]]:
+        """Derived metric definitions of one report, fetched once per project.
+        The Modeling endpoint (GET /api/model/reports/{id}) is preferred because
+        it carries expressions; the v2 definition (GET /api/v2/reports/{id})
+        is the fallback and may name derived metrics without a formula. None
+        means both failed (counted in report_definition_failures)."""
+        cache_key = (project_id, normalize_object_id(report_id))
+        if cache_key in self._report_derived_metric_cache:
+            return self._report_derived_metric_cache[cache_key]
+
+        definitions: List[ReportDerivedMetric] = []
+        errors: List[Exception] = []
+        try:
+            definitions = extract_embedded_metric_definitions(
+                self.client.get_model_report(project_id, report_id)
+            )
+        except MicroStrategyAuthError:
+            raise
+        except Exception as error:
+            errors.append(error)
+        if not definitions:
+            try:
+                definitions = extract_embedded_metric_definitions(
+                    self.client.get_report_definition(project_id, report_id)
+                )
+            except MicroStrategyAuthError:
+                raise
+            except Exception as error:
+                errors.append(error)
+
+        result: Optional[List[ReportDerivedMetric]] = definitions
+        if len(errors) == 2:
+            result = None
+            self.report.report_report_definition_failure()
+            self.report.warning(
+                title="Report definition unavailable for derived metrics",
+                message=(
+                    "Neither the Modeling nor the v2 report definition endpoint "
+                    "returned this dataset's report, so its derived metrics keep "
+                    "only grid-level provenance (no report object name or "
+                    "formula)."
+                ),
+                context=f"project_id={project_id}, report_id={report_id}",
+                exc=errors[-1],
+                log=False,
+            )
+        elif definitions:
+            self.report.report_report_derived_metrics_extracted(len(definitions))
+        self._report_derived_metric_cache[cache_key] = result
+        return result
 
     def _process_project_reports(
         self,
@@ -1632,42 +1721,4 @@ def _metric_expression_summary(model: Dict[str, object]) -> Optional[MetricEnric
     expression = model.get("expression")
     if not isinstance(expression, dict):
         return None
-    expression_text: Optional[str] = None
-    expression_tokens: Optional[str] = None
-    text = expression.get("text") or expression.get("tree")
-    if text:
-        expression_text = str(text)
-    tokens = expression.get("tokens")
-    if isinstance(tokens, list):
-        object_tokens = []
-        for token in tokens:
-            if not isinstance(token, dict):
-                continue
-            # Object references may nest under target/value or sit directly on
-            # the token, depending on the MicroStrategy version.
-            reference = token.get("target") or token.get("value")
-            if not isinstance(reference, dict):
-                reference = token
-            token_id = reference.get("objectId") or reference.get("id")
-            token_name = reference.get("name")
-            token_type = reference.get("type")
-            if token_id or token_name:
-                object_tokens.append(
-                    {
-                        key: str(value)
-                        for key, value in {
-                            "id": token_id,
-                            "name": token_name,
-                            "type": token_type,
-                        }.items()
-                        if value is not None
-                    }
-                )
-        if object_tokens:
-            expression_tokens = json.dumps(object_tokens, sort_keys=True)
-    if expression_text is None and expression_tokens is None:
-        return None
-    return MetricEnrichment(
-        expression_text=expression_text,
-        expression_tokens=expression_tokens,
-    )
+    return metric_enrichment_from_expression(expression)

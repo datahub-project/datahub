@@ -234,9 +234,25 @@ MSTR_NAME_TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 MSTR_NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 # SQL identifier (column/table token) extractor for expression parsing.
 MSTR_SQL_IDENTIFIER_RE = re.compile(r"[A-Za-z_][\w$#]*")
-# Metric formulas reference sibling catalog objects as `{Object Name}` tokens,
-# e.g. `({Net Amt} - {Net Amt LY}) / Abs({Net Amt LY})`.
-MSTR_METRIC_REFERENCE_RE = re.compile(r"\{([^{}]+)\}")
+# Metric formulas reference sibling catalog objects as `{Object Name}` tokens
+# in the Modeling API's expression text, e.g. `({Net Amt} - {Net Amt LY}) /
+# Abs({Net Amt LY})`, and as `[Object Name]` in Strategy Web's editor syntax,
+# e.g. `([Net Amt] / [Plan Amt]) - 1`; report-level derived metric formulas
+# can surface in either form depending on the endpoint that returned them.
+MSTR_METRIC_REFERENCE_RE = re.compile(r"\{([^{}]+)\}|\[([^\[\]]+)\]")
+# Object type / subtype words that identify an embedded expression-bearing
+# node as a metric definition, and words that rule one out (filters and
+# thresholds also carry expression-like text in report definitions).
+MSTR_METRIC_DEFINITION_TYPE_WORDS = ("metric",)
+MSTR_NON_METRIC_DEFINITION_TYPE_WORDS = (
+    "attribute",
+    "consolidation",
+    "fact",
+    "filter",
+    "prompt",
+    "qualification",
+    "threshold",
+)
 # A 32-char hex string is MicroStrategy's canonical object-id form.
 MSTR_HEX_OBJECT_ID_RE = re.compile(r"[0-9A-Fa-f]{32}")
 # Collapses internal whitespace runs to a single space.

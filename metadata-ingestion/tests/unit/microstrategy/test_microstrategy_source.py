@@ -26,7 +26,11 @@ from datahub.ingestion.source.microstrategy.source import (
     MicroStrategySource,
     _LazyProjectLineage,
 )
-from datahub.metadata.schema_classes import ContainerClass, DatasetPropertiesClass
+from datahub.metadata.schema_classes import (
+    ContainerClass,
+    DatasetPropertiesClass,
+    SchemaMetadataClass,
+)
 
 
 def _source(extra_config: dict | None = None) -> MicroStrategySource:
@@ -1263,3 +1267,236 @@ def test_dataset_object_lookup_failure_falls_back_to_dossier_folder() -> None:
         "https://mstr.example.com/MicroStrategyLibrary/app/project-1/dash-1",
         "https://mstr.example.com/MicroStrategyLibrary/app/project-1/dash-2",
     }
+
+
+class _ReportDerivedClient(_DatasetLookupClient):
+    """One dossier over a report-backed dataset whose grid shows a derived
+    metric; the report definition endpoints can be made to fail."""
+
+    def __init__(
+        self,
+        model_fails: bool = False,
+        v2_fails: bool = False,
+        subtype: str = "768",
+    ) -> None:
+        super().__init__()
+        self.model_fails = model_fails
+        self.v2_fails = v2_fails
+        self.subtype = subtype
+        self.model_calls: List[str] = []
+        self.v2_calls: List[str] = []
+
+    def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter([MicroStrategyObject.model_validate({"id": "dash-1", "name": "D"})])
+
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
+        return {
+            "definition": {
+                "datasets": [
+                    {
+                        "id": "ds-shared",
+                        "name": "Retail Sales Yesterday",
+                        "availableObjects": {
+                            "metrics": [{"id": "M-NET", "name": "Net Sales Retail Amt"}]
+                        },
+                    }
+                ],
+                "chapters": [
+                    {
+                        "key": "ch",
+                        "pages": [
+                            {
+                                "key": "pg",
+                                "name": "YESTERDAY",
+                                "visualizations": [
+                                    {
+                                        "key": "viz",
+                                        "name": "Grid",
+                                        "runtimeDefinition": {
+                                            "definition": {
+                                                "grid": {
+                                                    "columnSets": [
+                                                        {
+                                                            "key": "cs",
+                                                            "name": "RETAIL",
+                                                            "columns": [
+                                                                {
+                                                                    "type": "templateMetrics",
+                                                                    "elements": [
+                                                                        {
+                                                                            "type": "metric",
+                                                                            "id": "M-NET",
+                                                                            "name": "Net Sales Retail Amt",
+                                                                        },
+                                                                        {
+                                                                            "type": "metric",
+                                                                            "id": "D-RTL",
+                                                                            "name": "RTL % PLN",
+                                                                            "derived": True,
+                                                                        },
+                                                                    ],
+                                                                }
+                                                            ],
+                                                        }
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        }
+
+    def get_object_info(
+        self, project_id: str, object_id: str, object_type: int
+    ) -> MicroStrategyObject:
+        self.lookups.append(object_id)
+        return MicroStrategyObject.model_validate(
+            {
+                "id": object_id,
+                "name": "Retail Sales Yesterday",
+                "type": "3",
+                "subtype": self.subtype,
+            }
+        )
+
+    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.model_calls.append(report_id)
+        if self.model_fails:
+            raise MicroStrategyAPIError("404")
+        return {
+            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "dataSource": {
+                "dataTemplate": {
+                    "units": [
+                        {
+                            "type": "metrics",
+                            "elements": [
+                                {
+                                    "id": "D-RTL",
+                                    "name": "RTL PLN",
+                                    "subType": "derived_metric",
+                                    "expression": {
+                                        "text": "([Net Sales Retail Amt]/[Plan])-1"
+                                    },
+                                }
+                            ],
+                        }
+                    ]
+                }
+            },
+        }
+
+    def get_report_definition(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.v2_calls.append(report_id)
+        if self.v2_fails:
+            raise MicroStrategyAPIError("403")
+        return {
+            "definition": {
+                "availableObjects": {
+                    "metrics": [
+                        {
+                            "id": "M-NET",
+                            "name": "Net Sales Retail Amt",
+                            "type": "metric",
+                        },
+                        {
+                            "id": "D-RTL",
+                            "name": "RTL PLN",
+                            "type": "metric",
+                            "derived": True,
+                        },
+                    ]
+                }
+            }
+        }
+
+
+def _derived_field(workunits: List[Any], name: str) -> Any:
+    for workunit in workunits:
+        schema = workunit.get_aspect_of_type(SchemaMetadataClass)
+        if schema:
+            for schema_field in schema.fields:
+                if schema_field.fieldPath == name:
+                    return schema_field
+    return None
+
+
+def test_report_derived_metrics_come_from_model_report_definition() -> None:
+    source = _dataset_lookup_source()
+    client = _ReportDerivedClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert client.model_calls == ["ds-shared"]
+    assert client.v2_calls == []
+    assert source.report.report_derived_metrics_extracted == 1
+    assert source.report.report_definition_failures == 0
+    rtl = _derived_field(workunits, "RTL PLN")
+    assert rtl is not None
+    assert "([Net Sales Retail Amt]/[Plan])-1" in (rtl.description or "")
+    assert _derived_field(workunits, "RTL % PLN") is None
+
+
+def test_report_derived_metrics_fall_back_to_v2_definition_names() -> None:
+    source = _dataset_lookup_source()
+    client = _ReportDerivedClient(model_fails=True)
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert client.model_calls == ["ds-shared"]
+    assert client.v2_calls == ["ds-shared"]
+    assert source.report.report_definition_failures == 0
+    rtl = _derived_field(workunits, "RTL PLN")
+    assert rtl is not None
+    # The v2 definition named it but exposed no formula, and the field says so.
+    assert "formula is not exposed" in (rtl.description or "")
+
+
+def test_report_derived_metrics_keep_grid_provenance_when_definitions_fail() -> None:
+    source = _dataset_lookup_source()
+    client = _ReportDerivedClient(model_fails=True, v2_fails=True)
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert source.report.report_definition_failures == 1
+    assert source.report.report_derived_metrics_extracted == 0
+    grid_only = _derived_field(workunits, "RTL % PLN")
+    assert grid_only is not None
+    assert "visualization 'Grid'" in (grid_only.description or "")
+
+
+def test_report_derived_metrics_skip_cube_datasets() -> None:
+    source = _dataset_lookup_source()
+    client = _ReportDerivedClient(subtype="776")
+    source.client = client  # type: ignore[assignment]
+
+    list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert client.model_calls == []
+    assert client.v2_calls == []

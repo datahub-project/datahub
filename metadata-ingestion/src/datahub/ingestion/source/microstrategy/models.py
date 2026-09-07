@@ -54,6 +54,8 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_KEYS_SOURCE_OBJECT_ID,
     MSTR_KEYS_VISUALIZATION_KEY,
     MSTR_KEYS_VISUALIZATION_TYPE,
+    MSTR_METRIC_DEFINITION_TYPE_WORDS,
+    MSTR_NON_METRIC_DEFINITION_TYPE_WORDS,
     MSTR_NULL_OBJECT_ID,
     MSTR_OBJECT_ID_PARENT_KEYS,
     MSTR_OBJECT_TYPES,
@@ -223,16 +225,38 @@ class ColumnSet(MicroStrategyBaseModel):
 
 
 class DerivedMetricSpec(MicroStrategyBaseModel):
-    """A visualization-local derived metric (grid `derived: true`). These exist
-    only inside the visualization template — not in the metadata catalog — so
-    the REST API exposes no formula or model object for them."""
+    """A derived metric attached to a dataset. Seen first as a grid element
+    flagged `derived: true`; when the dataset is a report whose definition
+    exposes the metric (report-level derived metrics are report objects with
+    a formula), the spec is upgraded with the report's object name and
+    expression and `definition_source` records where the formula came from.
+    A spec with no expression is visualization-local as far as the REST API
+    can tell: the catalog has no object for it."""
 
     id: str
     name: str
     data_type: Optional[str] = None
     column_set_name: Optional[str] = None
-    source_visualization_key: str
+    source_visualization_key: Optional[str] = None
     source_visualization_name: Optional[str] = None
+    expression_text: Optional[str] = None
+    expression_tokens: Optional[str] = None
+    # "report" or "document" when a definition supplied the formula; None for
+    # a grid-only derived metric.
+    definition_source: Optional[str] = None
+
+
+class ReportDerivedMetric(MicroStrategyBaseModel):
+    """A derived metric found in a report (or document) definition payload:
+    the object name the report shows, plus its expression when the endpoint
+    exposed one."""
+
+    id: str
+    name: str
+    data_type: Optional[str] = None
+    expression_text: Optional[str] = None
+    expression_tokens: Optional[str] = None
+    source: str = "report"
 
 
 @dataclass(frozen=True)
@@ -979,6 +1003,147 @@ def _extract_object_ids(value: object) -> List[str]:
 
     visit(value)
     return sorted(set(object_ids))
+
+
+def metric_enrichment_from_expression(expression: object) -> Optional[MetricEnrichment]:
+    """Text and object-reference tokens of a Modeling API `expression` value.
+    Object references may nest under a token's target/value or sit directly on
+    the token, depending on the MicroStrategy version."""
+    if isinstance(expression, str):
+        return MetricEnrichment(expression_text=expression) if expression else None
+    if not isinstance(expression, dict):
+        return None
+    expression_text: Optional[str] = None
+    expression_tokens: Optional[str] = None
+    text = expression.get("text") or expression.get("tree")
+    if text:
+        expression_text = str(text)
+    tokens = expression.get("tokens")
+    if isinstance(tokens, list):
+        object_tokens = []
+        for token in tokens:
+            if not isinstance(token, dict):
+                continue
+            reference = token.get("target") or token.get("value")
+            if not isinstance(reference, dict):
+                reference = token
+            token_id = reference.get("objectId") or reference.get("id")
+            token_name = reference.get("name")
+            token_type = reference.get("type")
+            if token_id or token_name:
+                object_tokens.append(
+                    {
+                        key: str(value)
+                        for key, value in {
+                            "id": token_id,
+                            "name": token_name,
+                            "type": token_type,
+                        }.items()
+                        if value is not None
+                    }
+                )
+        if object_tokens:
+            expression_tokens = json.dumps(object_tokens, sort_keys=True)
+    if expression_text is None and expression_tokens is None:
+        return None
+    return MetricEnrichment(
+        expression_text=expression_text,
+        expression_tokens=expression_tokens,
+    )
+
+
+def _node_type_words(node: MicroStrategyDict) -> str:
+    return " ".join(
+        str(node.get(key) or "") for key in ("type", "subType", "subtype", "objectType")
+    ).lower()
+
+
+def _is_metric_definition_node(
+    node: MicroStrategyDict, identity: MicroStrategyDict, parent_key: str
+) -> bool:
+    words = f"{_node_type_words(node)} {_node_type_words(identity)}"
+    if any(word in words for word in MSTR_NON_METRIC_DEFINITION_TYPE_WORDS):
+        return False
+    if any(word in words for word in MSTR_METRIC_DEFINITION_TYPE_WORDS):
+        return True
+    if any(word in parent_key.lower() for word in MSTR_METRIC_DEFINITION_TYPE_WORDS):
+        return True
+    return bool(node.get("derived") or node.get("isDerived"))
+
+
+def _definition_identity(
+    node: MicroStrategyDict, parent: Optional[MicroStrategyDict]
+) -> Optional[MicroStrategyDict]:
+    """The dict carrying an expression-bearing node's id and name: the node
+    itself, its `information` block, or (for a `definition` sub-object) its
+    parent element."""
+    for candidate in (node, node.get("information"), parent):
+        if isinstance(candidate, dict) and _first_str(candidate, MSTR_KEYS_ID):
+            return candidate
+    return None
+
+
+def extract_embedded_metric_definitions(
+    payload: MicroStrategyDict,
+) -> List[ReportDerivedMetric]:
+    """Metric definitions embedded in a report or document definition payload:
+    any metric-typed node carrying an `expression`, plus metric nodes flagged
+    `derived`/`isDerived` (which name a derived metric even when the endpoint
+    omits its formula). Walked generically because the Modeling API nests
+    report objects differently across versions; filters, thresholds and
+    attributes are excluded by type so their expression text is never
+    mistaken for a metric formula. Keyed by normalized id; the first
+    expression-bearing occurrence wins."""
+    found: Dict[str, ReportDerivedMetric] = {}
+
+    def record(
+        node: MicroStrategyDict, identity: MicroStrategyDict, source: str
+    ) -> None:
+        object_id = _first_str(identity, MSTR_KEYS_ID)
+        if not object_id or object_id == MSTR_NULL_OBJECT_ID:
+            return
+        name = _first_str(identity, MSTR_KEYS_NAME) or _first_str(node, MSTR_KEYS_NAME)
+        if not name:
+            return
+        enrichment = metric_enrichment_from_expression(
+            node.get("expression") or node.get("formula")
+        )
+        key = normalize_object_id(object_id)
+        existing = found.get(key)
+        if existing is not None and (existing.expression_text or enrichment is None):
+            return
+        found[key] = ReportDerivedMetric(
+            id=object_id,
+            name=name,
+            data_type=_first_str(identity, ("dataType",))
+            or _first_str(node, ("dataType",)),
+            expression_text=enrichment.expression_text if enrichment else None,
+            expression_tokens=enrichment.expression_tokens if enrichment else None,
+            source=source,
+        )
+
+    def visit(
+        value: object, parent_key: str, parent: Optional[MicroStrategyDict]
+    ) -> None:
+        if isinstance(value, dict):
+            has_expression = isinstance(value.get("expression"), (dict, str)) or (
+                isinstance(value.get("formula"), str)
+            )
+            flagged_derived = bool(value.get("derived") or value.get("isDerived"))
+            if has_expression or flagged_derived:
+                identity = _definition_identity(value, parent)
+                if identity is not None and _is_metric_definition_node(
+                    value, identity, parent_key
+                ):
+                    record(value, identity, "report")
+            for child_key, child in value.items():
+                visit(child, str(child_key), value)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child, parent_key, parent)
+
+    visit(payload, "", None)
+    return list(found.values())
 
 
 def extract_folder_parts(raw_object: MicroStrategyDict) -> List[FolderPart]:

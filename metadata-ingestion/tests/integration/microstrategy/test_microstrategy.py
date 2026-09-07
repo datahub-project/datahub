@@ -184,6 +184,57 @@ def _dataset_object_info_under_reports_folder(
     )
 
 
+def _model_report(
+    _client: MicroStrategyClient,
+    project_id: str,
+    report_id: str,
+) -> Dict[str, Any]:
+    # GET /api/model/reports/{id}: only the report-backed dataset (ds-2) is
+    # consulted; ds-1 is a cube and cubes cannot define derived metrics. The
+    # report defines the derived metric the grid shows plus one no grid uses.
+    assert project_id == "project-1"
+    assert report_id == "ds-2"
+    return {
+        "information": {"objectId": "ds-2", "name": "Cost Cube"},
+        "dataSource": {
+            "dataTemplate": {
+                "units": [
+                    {
+                        "type": "metrics",
+                        "elements": [
+                            {"id": "metric-2", "name": "Cost", "subType": "metric"},
+                            {
+                                "id": "derived-2",
+                                "name": "Cost Pct",
+                                "subType": "derived_metric",
+                                "expression": {
+                                    "text": "{Cost} / 100",
+                                    "tokens": [
+                                        {
+                                            "type": "object_reference",
+                                            "target": {
+                                                "objectId": "metric-2",
+                                                "subType": "metric",
+                                                "name": "Cost",
+                                            },
+                                        }
+                                    ],
+                                },
+                            },
+                            {
+                                "id": "derived-3",
+                                "name": "Cost Var LY",
+                                "subType": "derived_metric",
+                                "expression": {"text": "[Cost] - [Cost LY]"},
+                            },
+                        ],
+                    }
+                ]
+            }
+        },
+    }
+
+
 def _dashboard_dependencies(
     _client: MicroStrategyClient,
     project_id: str,
@@ -579,6 +630,7 @@ def test_microstrategy_ingestion(pytestconfig: Any, tmp_path: Path) -> None:
         ),
         patch.object(MicroStrategyClient, "search_dashboards", _dashboards),
         patch.object(MicroStrategyClient, "get_object_info", _dataset_object_info),
+        patch.object(MicroStrategyClient, "get_model_report", _model_report),
         patch.object(
             MicroStrategyClient,
             "get_dossier_definition",
@@ -686,6 +738,7 @@ def test_microstrategy_sql_view_temp_table_column_lineage(
         ),
         patch.object(MicroStrategyClient, "search_dashboards", _dashboards),
         patch.object(MicroStrategyClient, "get_object_info", _dataset_object_info),
+        patch.object(MicroStrategyClient, "get_model_report", _model_report),
         patch.object(
             MicroStrategyClient, "get_dossier_definition", _dossier_definition
         ),
@@ -766,6 +819,7 @@ def _run_predefined_folder_pipeline(config: Dict[str, Any]) -> List[Dict[str, An
             "get_object_info",
             _dataset_object_info_under_reports_folder,
         ),
+        patch.object(MicroStrategyClient, "get_model_report", _model_report),
         patch.object(
             MicroStrategyClient, "get_dossier_definition", _dossier_definition
         ),

@@ -58,6 +58,7 @@ from datahub.ingestion.source.microstrategy.models import (
     Project,
     ProjectKey,
     ReportDefinition,
+    ReportDerivedMetric,
     Visualization,
     extract_folder_parts,
     normalize_object_id,
@@ -258,6 +259,47 @@ class MicroStrategyMapper:
                         source_visualization_name=visualization.name,
                     ),
                 )
+
+    def attach_report_derived_metrics(
+        self,
+        dataset: DatasetObject,
+        definitions: Sequence[ReportDerivedMetric],
+    ) -> None:
+        """Merge a report's derived metric definitions into the dataset's
+        derived specs: a grid-derived spec with the same object id (or, failing
+        that, the same normalized name) is upgraded in place with the report's
+        object name and formula rather than duplicated; definitions no grid
+        showed are added, so the dataset lists every derived metric the report
+        defines. Catalog objects are never shadowed."""
+        catalog_ids = dataset.normalized_object_ids()
+        key_by_name = {
+            _normalized_name(spec.name): key
+            for key, spec in dataset.derived_metrics.items()
+        }
+        for definition in definitions:
+            object_id = normalize_object_id(definition.id)
+            if object_id in catalog_ids:
+                continue
+            key = object_id
+            if key not in dataset.derived_metrics:
+                key = key_by_name.get(_normalized_name(definition.name), object_id)
+            spec = dataset.derived_metrics.get(key)
+            if spec is None:
+                dataset.derived_metrics[object_id] = DerivedMetricSpec(
+                    id=definition.id,
+                    name=definition.name,
+                    data_type=definition.data_type,
+                    expression_text=definition.expression_text,
+                    expression_tokens=definition.expression_tokens,
+                    definition_source=definition.source,
+                )
+                continue
+            spec.name = definition.name
+            spec.data_type = spec.data_type or definition.data_type
+            if definition.expression_text or definition.expression_tokens:
+                spec.expression_text = definition.expression_text
+                spec.expression_tokens = definition.expression_tokens
+            spec.definition_source = definition.source
 
     def dataset_field_paths(self, dataset: DatasetObject) -> List[str]:
         return [spec.field_path for spec in _iter_dataset_fields(dataset)]
@@ -800,13 +842,22 @@ class MicroStrategyMapper:
                 schema_field = self._make_schema_field(
                     field_path=spec.field_path,
                     native_type=derived.data_type or "Derived Metric",
-                    description=_derived_metric_description(derived),
+                    description=_derived_metric_description(derived, dataset),
                     tag_urns=derived_tag_urns,
                     json_props={
                         key: value
                         for key, value in {
                             "microstrategyObjectId": derived.id,
                             "microstrategyObjectType": "derivedMetric",
+                            "microstrategyDerivedMetricSource": (
+                                derived.definition_source or "visualization"
+                            ),
+                            "microstrategyMetricExpressionText": (
+                                derived.expression_text
+                            ),
+                            "microstrategyMetricExpressionTokens": (
+                                derived.expression_tokens
+                            ),
                             "microstrategyColumnGroup": derived.column_set_name,
                             "microstrategySourceVisualization": (
                                 derived.source_visualization_name
@@ -1040,13 +1091,17 @@ class MicroStrategyMapper:
         dataset_urn: str,
         dataset: DatasetObject,
     ) -> List[FineGrainedLineageClass]:
-        """Field-to-field edges from a catalog metric to the sibling fields its
-        formula references as `{Name}` tokens. Same-dataset edges only;
-        references that don't resolve to a field of this dataset are counted
-        and skipped rather than guessed."""
+        """Field-to-field edges from a catalog metric (or a report-level
+        derived metric whose definition was fetched) to the sibling fields its
+        formula references as `{Name}` or `[Name]` tokens. Same-dataset edges
+        only; references that don't resolve to a field of this dataset are
+        counted and skipped rather than guessed."""
         if not self.config.extract_metric_formula_lineage:
             return []
-        if not dataset.metric_enrichments:
+        has_derived_formula = any(
+            spec.expression_text for spec in dataset.derived_metrics.values()
+        )
+        if not dataset.metric_enrichments and not has_derived_formula:
             return []
 
         specs = list(_iter_dataset_fields(dataset))
@@ -1062,13 +1117,17 @@ class MicroStrategyMapper:
         lineages: List[FineGrainedLineageClass] = []
         unresolved = 0
         for spec in specs:
-            if spec.kind != "metric":
-                continue
-            enrichment = _metric_enrichment_for(dataset, spec.item)
-            if enrichment is None or not enrichment.expression_text:
+            expression_text: Optional[str] = None
+            if spec.kind == "metric":
+                enrichment = _metric_enrichment_for(dataset, spec.item)
+                if enrichment is not None:
+                    expression_text = enrichment.expression_text
+            elif spec.kind == "derived_metric" and spec.derived is not None:
+                expression_text = spec.derived.expression_text
+            if not expression_text:
                 continue
             upstream_paths: Set[str] = set()
-            for reference in metric_formula_references(enrichment.expression_text):
+            for reference in metric_formula_references(expression_text):
                 resolved = path_by_name.get(reference.lower())
                 if resolved is None:
                     unresolved += 1
@@ -1820,7 +1879,22 @@ def _grid_unit_display_name(
     return schema_field.fieldPath
 
 
-def _derived_metric_description(derived: DerivedMetricSpec) -> str:
+def _derived_metric_description(
+    derived: DerivedMetricSpec, dataset: DatasetObject
+) -> str:
+    """Where the derived metric is defined, then its formula as a fenced block
+    when a report/document definition exposed one. Only a metric no definition
+    exposed is described as visualization-local."""
+    if derived.definition_source:
+        where = (
+            f"report '{dataset.name}'"
+            if derived.definition_source == "report"
+            else f"the dossier that embeds '{dataset.name}'"
+        )
+        sentence = f"Derived metric defined on {where}."
+        if derived.expression_text:
+            return f"{sentence}\n\n```\n{derived.expression_text}\n```"
+        return f"{sentence} Its formula is not exposed by the MicroStrategy REST API."
     location = (
         f"the '{derived.column_set_name}' column group of "
         if derived.column_set_name
@@ -1829,7 +1903,14 @@ def _derived_metric_description(derived: DerivedMetricSpec) -> str:
     visualization = (
         derived.source_visualization_name or derived.source_visualization_key
     )
-    return f"Derived metric defined in {location}visualization '{visualization}'."
+    return (
+        f"Derived metric defined in {location}visualization '{visualization}'. "
+        "No report or document definition exposes a formula for it."
+    )
+
+
+def _normalized_name(value: str) -> str:
+    return MSTR_WHITESPACE_RE.sub(" ", value).strip().lower()
 
 
 def _column_group_json_props(

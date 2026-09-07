@@ -1068,10 +1068,12 @@ def _column_set_member_ids(column_set: ColumnSet) -> Set[str]:
 
 
 def metric_formula_references(expression_text: str) -> List[str]:
-    """Sibling-object names a metric formula references as `{Name}` tokens."""
+    """Sibling-object names a metric formula references as `{Name}` (Modeling
+    API text) or `[Name]` (Strategy Web editor syntax) tokens."""
     return _dedupe_sorted(
         reference.strip()
-        for reference in MSTR_METRIC_REFERENCE_RE.findall(expression_text)
+        for braced, bracketed in MSTR_METRIC_REFERENCE_RE.findall(expression_text)
+        for reference in (braced or bracketed,)
         if reference.strip()
     )
 

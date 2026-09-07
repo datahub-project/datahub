@@ -362,6 +362,16 @@ class MicroStrategyClient:
             project_id=project_id,
         )
 
+    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, object]:
+        """GET /api/model/reports/{id} (Modeling service, 2021 Update 7+): the
+        report's full definition including its report-level derived metrics
+        with expressions; parsed by models.extract_embedded_metric_definitions."""
+        return self._get_json(
+            f"/api/model/reports/{report_id}",
+            project_id=project_id,
+            params={"showExpressionAs": "tokens"},
+        )
+
     def get_model_document(
         self, project_id: str, document_id: str
     ) -> Dict[str, object]:

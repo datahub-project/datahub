@@ -215,3 +215,161 @@ def test_report_definition_extracts_source_and_available_objects() -> None:
     assert definition.object_ids == ["attr-1", "metric-1"]
     assert definition.prompt_count == 1
     assert definition.has_filter is True
+
+
+def _model_report_payload() -> dict:
+    # Shape modelled on GET /api/model/reports/{id}: catalog metrics as plain
+    # elements, report-level derived metrics with expressions, a report
+    # filter and a threshold that also carry expression-like text.
+    return {
+        "information": {"objectId": "REPORT-1", "name": "RETAIL SALES YESTERDAY"},
+        "dataSource": {
+            "dataTemplate": {
+                "units": [
+                    {
+                        "type": "metrics",
+                        "elements": [
+                            {
+                                "id": "M-NET",
+                                "name": "Net Sales Retail Amt",
+                                "subType": "metric",
+                            },
+                            {
+                                "id": "D-RTL-PLN",
+                                "name": "RTL PLN",
+                                "subType": "derived_metric",
+                                "expression": {
+                                    "text": (
+                                        "([Net Sales Retail Amt]/"
+                                        "[Salon Merch OPR Net Sales Retail Amt])-1"
+                                    ),
+                                    "tokens": [
+                                        {
+                                            "type": "object_reference",
+                                            "target": {
+                                                "objectId": "M-NET",
+                                                "name": "Net Sales Retail Amt",
+                                                "subType": "metric",
+                                            },
+                                        }
+                                    ],
+                                },
+                            },
+                            {
+                                "id": "D-AMT-VAR",
+                                "name": "Amt Var LYS %",
+                                "subType": "metric",
+                                "derived": True,
+                                "definition": {
+                                    "expression": {"text": "{Net Sales Retail Amt} - 1"}
+                                },
+                            },
+                        ],
+                    }
+                ]
+            },
+            "filter": {
+                "id": "FILTER-1",
+                "name": "Yesterday",
+                "subType": "filter",
+                "expression": {"text": "{Day} = Yesterday"},
+            },
+        },
+        "grid": {
+            "viewTemplate": {
+                "columns": {
+                    "units": [
+                        {
+                            "type": "metrics",
+                            "elements": [
+                                {
+                                    "id": "M-NET",
+                                    "name": "Net Sales Retail Amt",
+                                    "subType": "metric",
+                                    "thresholds": [
+                                        {
+                                            "name": "Positive",
+                                            "condition": {
+                                                "text": "{Net Sales Retail Amt} > 0"
+                                            },
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ]
+                }
+            }
+        },
+    }
+
+
+def test_extract_embedded_metric_definitions_finds_derived_metrics_only() -> None:
+    from datahub.ingestion.source.microstrategy.models import (
+        extract_embedded_metric_definitions,
+    )
+
+    definitions = {
+        definition.id: definition
+        for definition in extract_embedded_metric_definitions(_model_report_payload())
+    }
+
+    # Catalog metrics (no expression), the filter and the threshold are not
+    # metric definitions; the two derived metrics are, whichever way their
+    # expression is nested.
+    assert set(definitions) == {"D-RTL-PLN", "D-AMT-VAR"}
+    rtl = definitions["D-RTL-PLN"]
+    assert rtl.name == "RTL PLN"
+    assert rtl.expression_text == (
+        "([Net Sales Retail Amt]/[Salon Merch OPR Net Sales Retail Amt])-1"
+    )
+    assert rtl.expression_tokens is not None
+    assert "Net Sales Retail Amt" in rtl.expression_tokens
+    assert rtl.source == "report"
+    assert definitions["D-AMT-VAR"].expression_text == "{Net Sales Retail Amt} - 1"
+
+
+def test_extract_embedded_metric_definitions_names_flagged_derived_without_formula() -> (
+    None
+):
+    from datahub.ingestion.source.microstrategy.models import (
+        extract_embedded_metric_definitions,
+    )
+
+    # v2 report definitions may flag a derived metric without exposing its
+    # expression; the object name is still worth having.
+    payload = {
+        "definition": {
+            "availableObjects": {
+                "metrics": [
+                    {"id": "M-NET", "name": "Net Sales Retail Amt", "type": "metric"},
+                    {
+                        "id": "D-RTL-PLN",
+                        "name": "RTL PLN",
+                        "type": "metric",
+                        "derived": True,
+                    },
+                ]
+            }
+        }
+    }
+    definitions = extract_embedded_metric_definitions(payload)
+    assert [(d.id, d.name, d.expression_text) for d in definitions] == [
+        ("D-RTL-PLN", "RTL PLN", None)
+    ]
+
+
+def test_metric_formula_references_accept_braces_and_brackets() -> None:
+    from datahub.ingestion.source.microstrategy.lineage import (
+        metric_formula_references,
+    )
+
+    assert metric_formula_references(
+        "([Net Sales Retail Amt]/[Salon Merch OPR Net Sales Retail Amt])-1"
+    ) == ["Net Sales Retail Amt", "Salon Merch OPR Net Sales Retail Amt"]
+    assert metric_formula_references(
+        "({Revenue} - {Revenue LY}) / Abs({Revenue LY})"
+    ) == [
+        "Revenue",
+        "Revenue LY",
+    ]
