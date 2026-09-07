@@ -1,6 +1,7 @@
 import json
 import uuid
 from collections import defaultdict
+from datetime import datetime
 from decimal import Decimal
 from typing import (
     Any,
@@ -19,6 +20,7 @@ import pytest
 from botocore.exceptions import ClientError
 from pydantic import ValidationError
 from pyiceberg.catalog import Catalog
+from pyiceberg.conversions import to_bytes
 from pyiceberg.exceptions import (
     NoSuchIcebergTableError,
     NoSuchNamespaceError,
@@ -45,8 +47,6 @@ from pyiceberg.types import (
     DoubleType,
     FixedType,
     FloatType,
-    GeographyType,
-    GeometryType,
     IcebergType,
     IntegerType,
     ListType,
@@ -75,6 +75,7 @@ from datahub.ingestion.source.iceberg.iceberg import (
     IcebergSource,
     IcebergSourceConfig,
     ToAvroSchemaIcebergVisitor,
+    _render_default,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
@@ -214,8 +215,6 @@ def test_config_support_nested_dicts():
         (DoubleType(), NumberTypeClass),
         (FixedType(4), FixedTypeClass),
         (FloatType(), NumberTypeClass),
-        (GeographyType(), StringTypeClass),
-        (GeometryType(), StringTypeClass),
         (IntegerType(), NumberTypeClass),
         (LongType(), NumberTypeClass),
         (StringType(), StringTypeClass),
@@ -309,8 +308,6 @@ def test_iceberg_primitive_type_to_schema_field(
             "uuid",
         ),
         (UnknownType(), "string"),
-        (GeometryType(), "string"),
-        (GeographyType(), "string"),
     ],
 )
 def test_iceberg_list_to_schema_field(
@@ -405,8 +402,6 @@ def test_iceberg_list_to_schema_field(
             StringTypeClass,
         ),
         (UnknownType(), StringTypeClass),
-        (GeometryType(), StringTypeClass),
-        (GeographyType(), StringTypeClass),
     ],
 )
 def test_iceberg_map_to_schema_field(
@@ -508,8 +503,6 @@ def test_iceberg_map_to_schema_field(
             StringTypeClass,
         ),
         (UnknownType(), StringTypeClass),
-        (GeometryType(), StringTypeClass),
-        (GeographyType(), StringTypeClass),
     ],
 )
 def test_iceberg_struct_to_schema_field(
@@ -705,8 +698,8 @@ def test_iceberg_profiler_skips_delete_file_entries() -> None:
 def test_iceberg_profiler_row_count_ignores_delete_summary_keys() -> None:
     """Test that rowCount stays at total-records even when delete-related summary keys are present.
 
-    Per the Iceberg spec, total-records is the number of live rows in the snapshot, maintained
-    by writers as previous + added - deleted, so no adjustment is applied.
+    Delete summary counters cannot reliably determine the number of live rows.
+    The profile reports the data-file record count without adjustment.
     """
     from datahub.metadata.schema_classes import DatasetProfileClass
 
@@ -837,55 +830,6 @@ def test_visit_unknown() -> None:
     assert result["native_data_type"] == "unknown"
 
 
-def test_visit_geometry() -> None:
-    """
-    Test the visit_geometry method for handling Iceberg V3 geospatial types.
-    """
-    visitor = ToAvroSchemaIcebergVisitor()
-
-    result = visitor.visit_geometry(GeometryType())
-
-    # WKB geometries have no Avro equivalent, so they are treated as opaque strings
-    assert result["type"] == "string"
-    assert result["native_data_type"] == "geometry"
-
-
-def test_visit_geometry_with_crs() -> None:
-    """
-    Test that a geometry type's CRS is preserved in the native data type.
-    """
-    visitor = ToAvroSchemaIcebergVisitor()
-
-    result = visitor.visit_geometry(GeometryType("EPSG:4326"))
-
-    assert result["type"] == "string"
-    assert result["native_data_type"] == "geometry('EPSG:4326')"
-
-
-def test_visit_geography() -> None:
-    """
-    Test the visit_geography method for handling Iceberg V3 geospatial types.
-    """
-    visitor = ToAvroSchemaIcebergVisitor()
-
-    result = visitor.visit_geography(GeographyType())
-
-    assert result["type"] == "string"
-    assert result["native_data_type"] == "geography"
-
-
-def test_visit_geography_with_crs_and_algorithm() -> None:
-    """
-    Test that a geography type's CRS and serialization algorithm are preserved in the native data type.
-    """
-    visitor = ToAvroSchemaIcebergVisitor()
-
-    result = visitor.visit_geography(GeographyType("EPSG:4326", "planar"))
-
-    assert result["type"] == "string"
-    assert result["native_data_type"] == "geography('EPSG:4326', 'planar')"
-
-
 def test_iceberg_column_write_default_in_description() -> None:
     """
     Test that an Iceberg V3 column write default is surfaced in the field description.
@@ -910,7 +854,7 @@ def test_iceberg_column_write_default_in_description() -> None:
 
 def test_iceberg_column_timestamp_default_in_description() -> None:
     """
-    Test that a timestamp column default, which pyiceberg deserializes into a datetime,
+    Test that a timestamp column default supplied as a datetime
     is rendered in a JSON-safe way in the field description.
     """
     iceberg_source_instance = with_iceberg_source()
@@ -920,7 +864,7 @@ def test_iceberg_column_timestamp_default_in_description() -> None:
         TimestampType(),
         True,
         "field documentation",
-        write_default="2023-07-05T12:18:08.157000",
+        write_default=datetime(2023, 7, 5, 12, 18, 8, 157000),
     )
     schema_fields = iceberg_source_instance._get_schema_fields_for_schema(
         Schema(column)
@@ -2616,3 +2560,32 @@ class TestDomainAssignment:
 
         # domain adds 1 MCP per table + 1 MCP per namespace
         assert len(wus_with) == len(wus_without) + 2
+
+
+@pytest.mark.parametrize("field_type", [TimestampNanoType(), TimestamptzNanoType()])
+@pytest.mark.parametrize("aggregator, next_value", [(min, 1000), (max, -1000)])
+def test_iceberg_profiler_preserves_epoch_zero_bound(
+    field_type: PrimitiveType, aggregator: Callable, next_value: int
+) -> None:
+    profiler = with_iceberg_profiler()
+    schema = Schema(NestedField(1, "timestamp_col", field_type))
+    bounds: Dict[int, Any] = {}
+    for value in (0, next_value):
+        profiler._aggregate_bounds(
+            schema, aggregator, bounds, {1: to_bytes(field_type, value)}
+        )
+    assert bounds == {1: 0}
+
+
+def test_iceberg_collection_defaults_preserve_shape() -> None:
+    timestamp = datetime(2023, 7, 5, 12, 18, 8, 157000)
+    # PyIceberg 0.11 cannot deserialize collection defaults. Exercise rendering directly
+    # so nested defaults stay JSON-safe when newer readers supply native collections.
+    rendered = _render_default(
+        {"items": [timestamp, {"amount": Decimal("12.34")}], "empty": []}
+    )
+    assert rendered == {
+        "items": [timestamp.isoformat(), {"amount": "12.34"}],
+        "empty": [],
+    }
+    assert json.loads(json.dumps(rendered)) == rendered

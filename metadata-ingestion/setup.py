@@ -368,10 +368,7 @@ iceberg_common = {
     # - Versions 0.7.0 - 0.8.1 use variable DEPRECATED_BOTOCORE_SESSION instead of BOTOCORE_SESSION, the latter is
     #   expected by the connector
     # - v0.11.0 dropped the `zstandard` extra (now a core dependency).
-    # - v0.12.0 raises the pyarrow floor to >=18 (already satisfied by pyarrow_common), pulls
-    #   pyiceberg-core>=0.10.1,<0.11.0, and adds the Geometry/Geography types, whose
-    #   visit_geometry/visit_geography are now abstract on SchemaVisitorPerPrimitiveType.
-    "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.12.0,<0.13.0",
+    "pyiceberg[glue,hive,dynamodb,snappy,s3fs,adlfs,pyarrow]>=0.11.0,<0.12.0",
     # iceberg_common.py imports SortedList directly. This was pulled in transitively
     # by pyiceberg <=0.10, but v0.11.0 dropped it, so declare it explicitly.
     "sortedcontainers>=2.4.0,<3.0.0",

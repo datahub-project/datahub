@@ -26,8 +26,6 @@ from pyiceberg.types import (
     DoubleType,
     FixedType,
     FloatType,
-    GeographyType,
-    GeometryType,
     IntegerType,
     ListType,
     LongType,
@@ -689,7 +687,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         return None
 
 
-def _render_default(value: Any) -> Any:
+def _render_default(value: object) -> object:
     """Renders an Iceberg V3 column default (a native Python object) into a JSON-safe value.
 
     Defaults are embedded in the Avro schema dict, which is serialized with json.dumps before being
@@ -700,8 +698,10 @@ def _render_default(value: Any) -> Any:
         return value.isoformat()
     if isinstance(value, (Decimal, bytes, uuid.UUID)):
         return str(value)
-    if isinstance(value, (dict, list)):
-        return json.dumps(value)
+    if isinstance(value, dict):
+        return {key: _render_default(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_render_default(item) for item in value]
     return value
 
 
@@ -947,21 +947,4 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
         return {
             "type": "string",
             "native_data_type": str(unknown_type),
-        }
-
-    def visit_geometry(self, geometry_type: GeometryType) -> Dict[str, Any]:
-        # Iceberg V3 geospatial type, stored as WKB. There is no Avro equivalent, so it is treated
-        # as an opaque string; native_data_type preserves the type along with its CRS.
-        return {
-            "type": "string",
-            "native_data_type": str(geometry_type),
-        }
-
-    def visit_geography(self, geography_type: GeographyType) -> Dict[str, Any]:
-        # Iceberg V3 geospatial type, stored as WKB. There is no Avro equivalent, so it is treated
-        # as an opaque string; native_data_type preserves the type along with its CRS and
-        # serialization algorithm.
-        return {
-            "type": "string",
-            "native_data_type": str(geography_type),
         }
