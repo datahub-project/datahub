@@ -58,7 +58,9 @@ public class TopPlatformsSourceTest {
     return new DataPlatformUrn("platform-" + i);
   }
 
-  /** Aggregation returns {@code total} platform urns with descending counts (platform-0 highest). */
+  /**
+   * Aggregation returns {@code total} platform urns with descending counts (platform-0 highest).
+   */
   private void stubAggregation(int total) {
     Map<String, Long> agg = new LinkedHashMap<>();
     for (int i = 0; i < total; i++) {
