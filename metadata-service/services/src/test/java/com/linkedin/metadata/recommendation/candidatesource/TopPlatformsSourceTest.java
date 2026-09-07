@@ -3,7 +3,6 @@ package com.linkedin.metadata.recommendation.candidatesource;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
@@ -21,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -28,8 +28,8 @@ import org.testng.annotations.Test;
 /**
  * Behavior of the home-page "Platforms" candidate source. The source must NOT drop platforms that
  * lack a logo (regression guard: a platform that was searchable but had no dataPlatformInfo/logoUrl
- * was previously hidden from the Platforms module). It surfaces the top platforms by asset count,
- * capped at {@link TopPlatformsSource#getMaxContent()}.
+ * was previously hidden from the Platforms module). It surfaces platforms ranked by asset count,
+ * capped at {@link TopPlatformsSource#getMaxContent()}, and drops candidates that do not exist.
  */
 public class TopPlatformsSourceTest {
 
@@ -49,16 +49,20 @@ public class TopPlatformsSourceTest {
     Mockito.reset(entityService, entitySearchService);
     opContext = TestOperationContexts.userContextNoSearchAuthorization(USER);
     source = new TopPlatformsSource(entitySearchService, entityService, entityRegistry);
-    // Every candidate platform exists (the only validation the source applies).
+    // By default every candidate platform exists.
     Mockito.when(entityService.exists(any(OperationContext.class), anySet(), anyBoolean()))
         .thenAnswer(invocation -> invocation.getArgument(1));
   }
 
-  /** Aggregation returns {@code total} platform urns (platform-0 .. platform-{total-1}). */
+  private static Urn platform(int i) {
+    return new DataPlatformUrn("platform-" + i);
+  }
+
+  /** Aggregation returns {@code total} platform urns with descending counts (platform-0 highest). */
   private void stubAggregation(int total) {
     Map<String, Long> agg = new LinkedHashMap<>();
     for (int i = 0; i < total; i++) {
-      agg.put(new DataPlatformUrn("platform-" + i).toString(), (long) (total - i));
+      agg.put(platform(i).toString(), (long) (total - i));
     }
     Mockito.when(
             entitySearchService.aggregateByValue(
@@ -66,38 +70,50 @@ public class TopPlatformsSourceTest {
         .thenReturn(agg);
   }
 
+  private List<Urn> recommendedPlatforms() {
+    return source.getRecommendations(opContext, HOME, null).stream()
+        .map(RecommendationContent::getEntity)
+        .collect(Collectors.toList());
+  }
+
   @Test
-  public void testPlatformsWithoutLogosAreStillRecommended() {
-    // 5 platforms with assets; none of them are gated on having a logoUrl.
+  public void testPlatformsWithoutLogosAreRecommendedInRankOrder() {
+    // 5 platforms with assets; none are gated on having a logoUrl, and rank order is preserved.
     stubAggregation(5);
 
-    List<RecommendationContent> results = source.getRecommendations(opContext, HOME, null);
-
-    Set<Urn> recommended =
-        results.stream().map(RecommendationContent::getEntity).collect(Collectors.toSet());
-    Set<Urn> expected =
-        Set.of(
-            new DataPlatformUrn("platform-0"),
-            new DataPlatformUrn("platform-1"),
-            new DataPlatformUrn("platform-2"),
-            new DataPlatformUrn("platform-3"),
-            new DataPlatformUrn("platform-4"));
-    assertEquals(recommended, expected);
+    assertEquals(
+        recommendedPlatforms(),
+        List.of(platform(0), platform(1), platform(2), platform(3), platform(4)));
     // The source must not fetch dataPlatformInfo just to gate on logoUrl.
     verify(entityService, never()).getLatestAspects(any(), anySet(), any(), anyBoolean());
   }
 
   @Test
-  public void testRecommendationsAreCappedAtMaxContent() {
-    // More platforms than the cap: only the top getMaxContent() by count are returned.
+  public void testRecommendationsAreCappedAtMaxContentInRankOrder() {
+    // More platforms than the cap: the top getMaxContent() by count are kept, highest first.
     stubAggregation(source.getMaxContent() + 10);
 
-    List<RecommendationContent> results = source.getRecommendations(opContext, HOME, null);
+    List<Urn> recommended = recommendedPlatforms();
+    assertEquals(recommended.size(), source.getMaxContent());
+    assertEquals(
+        recommended,
+        IntStream.range(0, source.getMaxContent())
+            .mapToObj(TopPlatformsSourceTest::platform)
+            .collect(Collectors.toList()));
+  }
 
-    assertEquals(results.size(), source.getMaxContent());
-    // Highest-count platform (platform-0) is kept.
-    Set<Urn> recommended =
-        results.stream().map(RecommendationContent::getEntity).collect(Collectors.toSet());
-    assertTrue(recommended.contains(new DataPlatformUrn("platform-0")));
+  @Test
+  public void testNonExistentPlatformsAreFilteredOut() {
+    // Only a subset of the aggregated platforms actually exist; only those are recommended.
+    stubAggregation(5);
+    Set<Urn> existing = Set.of(platform(0), platform(2), platform(4));
+    Mockito.when(entityService.exists(any(OperationContext.class), anySet(), anyBoolean()))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> candidates = invocation.getArgument(1);
+              return candidates.stream().filter(existing::contains).collect(Collectors.toSet());
+            });
+
+    assertEquals(recommendedPlatforms(), List.of(platform(0), platform(2), platform(4)));
   }
 }

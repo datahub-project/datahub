@@ -390,6 +390,7 @@
     displayName: OpenAPI
     type: OTHERS
     logoUrl: "assets/platforms/openapilogo.png"
+    logoUrl: "assets/platforms/openapilogo.png"
 - entityUrn: urn:li:dataPlatform:oracle
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -1057,7 +1058,7 @@
     name: timescaledb
     displayName: TimescaleDB
     type: RELATIONAL_DB
-    logoUrl: "assets/platforms/timescaledblogo.png"
+    logoUrl: "assets/platforms/timescalelogo.png"
 - entityUrn: urn:li:dataPlatform:abinitio
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -1237,16 +1238,6 @@
     displayName: Confluence
     type: OTHERS
     logoUrl: "assets/platforms/confluencelogo.svg"
-- entityUrn: urn:li:dataPlatform:hive-metastore
-  entityType: dataPlatform
-  aspectName: dataPlatformInfo
-  changeType: UPSERT
-  aspect:
-    datasetNameDelimiter: "."
-    name: hive-metastore
-    displayName: Hive Metastore
-    type: FILE_SYSTEM
-    logoUrl: "assets/platforms/hivelogo.png"
 - entityUrn: urn:li:dataPlatform:ldap
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -1256,16 +1247,6 @@
     name: ldap
     displayName: LDAP
     type: OTHERS
-- entityUrn: urn:li:dataPlatform:matillion-dpc
-  entityType: dataPlatform
-  aspectName: dataPlatformInfo
-  changeType: UPSERT
-  aspect:
-    datasetNameDelimiter: "."
-    name: matillion-dpc
-    displayName: Matillion
-    type: OTHERS
-    logoUrl: "assets/platforms/matillionlogo.png"
 - entityUrn: urn:li:dataPlatform:okta
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -1276,16 +1257,6 @@
     displayName: Okta
     type: OTHERS
     logoUrl: "assets/platforms/oktalogo.png"
-- entityUrn: urn:li:dataPlatform:openapi
-  entityType: dataPlatform
-  aspectName: dataPlatformInfo
-  changeType: UPSERT
-  aspect:
-    datasetNameDelimiter: "."
-    name: openapi
-    displayName: OpenAPI
-    type: OTHERS
-    logoUrl: "assets/platforms/openapilogo.png"
 - entityUrn: urn:li:dataPlatform:pinecone
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -1296,16 +1267,6 @@
     displayName: Pinecone
     type: OTHERS
     logoUrl: "assets/platforms/pineconelogo.png"
-- entityUrn: urn:li:dataPlatform:powerbi-report-server
-  entityType: dataPlatform
-  aspectName: dataPlatformInfo
-  changeType: UPSERT
-  aspect:
-    datasetNameDelimiter: "."
-    name: powerbi-report-server
-    displayName: PowerBI Report Server
-    type: OTHERS
-    logoUrl: "assets/platforms/powerbireportserverlogo.svg"
 - entityUrn: urn:li:dataPlatform:quicksight
   entityType: dataPlatform
   aspectName: dataPlatformInfo
