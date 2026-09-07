@@ -2,7 +2,7 @@ package com.linkedin.metadata.config.productupdate;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.metadata.config.usage.cigate.UsageRegistryRepoPaths;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,7 +40,7 @@ public class ProductUpdateReleaseSyncTest {
 
   @BeforeClass
   public void setUp() {
-    repoRoot = UsageRegistryRepoPaths.repoRoot();
+    repoRoot = resolveRepoRoot();
   }
 
   @DataProvider(name = "flavors")
@@ -141,6 +141,27 @@ public class ProductUpdateReleaseSyncTest {
             + " references image "
             + imagePath
             + ", which does not exist in the repo. The toast would render with a broken image.");
+  }
+
+  @Nonnull
+  private static Path resolveRepoRoot() {
+    String override = System.getProperty("datahub.repoRoot");
+    if (override != null && !override.isBlank()) {
+      return Path.of(override).toAbsolutePath().normalize();
+    }
+    Path cwd = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
+    Path current = cwd;
+    while (current != null) {
+      if (new File(current.toFile(), "docs/how/updating-datahub.md").isFile()
+          && new File(current.toFile(), "metadata-service/configuration").isDirectory()) {
+        return current;
+      }
+      current = current.getParent();
+    }
+    throw new IllegalStateException(
+        "Could not locate DataHub repo root from user.dir="
+            + cwd
+            + "; set -Ddatahub.repoRoot=/path/to/datahub");
   }
 
   @Nonnull
