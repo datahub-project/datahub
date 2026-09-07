@@ -4,6 +4,7 @@ import dataclasses
 import functools
 import hashlib
 import json
+import logging
 import os
 import pathlib
 import shlex
@@ -25,7 +26,6 @@ from expandvars import (
     UnboundVariable,
     expand as _expandvars_expand,
 )
-from loguru import logger
 
 # TODO: promote to a public config_loader helper.
 from datahub.configuration.config_loader import _extract_env_var_names
@@ -35,6 +35,8 @@ from datahub.executor.common.env_config import (
 )
 from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
+
+logger = logging.getLogger(__name__)
 
 
 def _expand_pip_req(req: str) -> str:
@@ -185,7 +187,9 @@ class LogHolder:
         # If partial_line ends with a '\n', then the line is complete.
         if partial_line.endswith("\n"):
             if self._echo_logs_prefix is not None:
-                logger.opt(raw=True).debug(f"{self._echo_logs_prefix}{self._lines[-1]}")
+                logger.debug(
+                    "%s%s", self._echo_logs_prefix, self._lines[-1].rstrip("\n")
+                )
 
             # On the next append, we'll create a new line.
             self._create_new_line = True
