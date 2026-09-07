@@ -117,6 +117,73 @@ def _dashboards(
     ]
 
 
+def _dataset_object_info(
+    _client: MicroStrategyClient,
+    project_id: str,
+    object_id: str,
+    object_type: int,
+) -> MicroStrategyObject:
+    # GET /api/objects/{id}?type=3 for each dossier dataset: its own subtype
+    # and folder ancestry, which is one level deeper than the dossier's.
+    assert project_id == "project-1"
+    assert object_type == 3
+    if object_id == "ds-1":
+        return MicroStrategyObject.model_validate(
+            {
+                "id": "ds-1",
+                "name": "Sales Cube",
+                "type": "3",
+                "subtype": "776",
+                "owner": {"username": "cube_owner"},
+                "ancestors": [
+                    {"id": "folder-1", "name": "Shared Reports"},
+                    {"id": "folder-2", "name": "Finance"},
+                    {"id": "folder-3", "name": "Cubes"},
+                ],
+            }
+        )
+    assert object_id == "ds-2"
+    return MicroStrategyObject.model_validate(
+        {
+            "id": "ds-2",
+            "name": "Cost Cube",
+            "type": "3",
+            "subtype": "768",
+            "owner": {"username": "cost_owner"},
+            "ancestors": [
+                {"id": "folder-1", "name": "Shared Reports"},
+                {"id": "folder-2", "name": "Finance"},
+                {"id": "folder-4", "name": "Cost Reports"},
+            ],
+        }
+    )
+
+
+def _dataset_object_info_under_reports_folder(
+    _client: MicroStrategyClient,
+    project_id: str,
+    object_id: str,
+    object_type: int,
+) -> MicroStrategyObject:
+    # Raw ancestor chain as a live instance returns it, so the dataset's own
+    # path goes through the same predefined-folder relabelling as the dossier.
+    return MicroStrategyObject.model_validate(
+        {
+            "id": object_id,
+            "name": "Sales Cube" if object_id == "ds-1" else "Cost Cube",
+            "type": "3",
+            "subtype": "776" if object_id == "ds-1" else "768",
+            "ancestors": [
+                {"id": "project-root-id", "name": "Sales Analytics"},
+                {"id": "public-objects-id", "name": "Public Objects"},
+                {"id": "reports-folder-id", "name": "Reports"},
+                {"id": "finance-folder-id", "name": "Finance"},
+                {"id": "cubes-folder-id", "name": "Cubes"},
+            ],
+        }
+    )
+
+
 def _dashboard_dependencies(
     _client: MicroStrategyClient,
     project_id: str,
@@ -511,6 +578,7 @@ def test_microstrategy_ingestion(pytestconfig: Any, tmp_path: Path) -> None:
             _source_connection,
         ),
         patch.object(MicroStrategyClient, "search_dashboards", _dashboards),
+        patch.object(MicroStrategyClient, "get_object_info", _dataset_object_info),
         patch.object(
             MicroStrategyClient,
             "get_dossier_definition",
@@ -617,6 +685,7 @@ def test_microstrategy_sql_view_temp_table_column_lineage(
             MicroStrategyClient, "get_datasource_connection", _source_connection
         ),
         patch.object(MicroStrategyClient, "search_dashboards", _dashboards),
+        patch.object(MicroStrategyClient, "get_object_info", _dataset_object_info),
         patch.object(
             MicroStrategyClient, "get_dossier_definition", _dossier_definition
         ),
@@ -691,6 +760,11 @@ def _run_predefined_folder_pipeline(config: Dict[str, Any]) -> List[Dict[str, An
         ),
         patch.object(
             MicroStrategyClient, "search_dashboards", _dashboards_under_reports_folder
+        ),
+        patch.object(
+            MicroStrategyClient,
+            "get_object_info",
+            _dataset_object_info_under_reports_folder,
         ),
         patch.object(
             MicroStrategyClient, "get_dossier_definition", _dossier_definition

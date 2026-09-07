@@ -1768,3 +1768,121 @@ def test_gen_folder_containers_hides_system_folders() -> None:
         "project-1", dashboard_object, predefined_folders=resolution
     )
     assert parent_key == mapper.folder_key("project-1", "Shared Reports/Finance")
+
+
+def _dataset_object(subtype: str, ancestors: "list[dict]") -> MicroStrategyObject:
+    return MicroStrategyObject.model_validate(
+        {
+            "id": "ds-1",
+            "name": "Sales Cube",
+            "type": "3",
+            "subtype": subtype,
+            "owner": {"username": "cube_owner"},
+            "ancestors": ancestors,
+        }
+    )
+
+
+def test_dataset_external_url_opens_the_dataset_object_for_reports() -> None:
+    # A report used as a dossier dataset is its own Library-openable object;
+    # "View in MicroStrategy" must land on it, not on the dossier.
+    mapper = _mapper()
+    dashboard = _definition()
+    dataset = dashboard.datasets[0]
+    report_backed = _dataset_object("768", [{"id": "f-1", "name": "Shared Reports"}])
+
+    properties = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1",
+            dashboard,
+            dataset,
+            mapper.project_key("project-1"),
+            dataset_object=report_backed,
+        ),
+        DatasetPropertiesClass,
+    )
+
+    assert properties.externalUrl == (
+        "https://mstr.example.com/MicroStrategyLibrary/app/project-1/ds-1"
+    )
+    assert properties.customProperties["microstrategyObjectSubtype"] == "768"
+    assert properties.customProperties["microstrategyOwner"] == "cube_owner"
+
+
+def test_dataset_external_url_falls_back_to_parent_for_cubes_and_unknowns() -> None:
+    # Library has no viewer for intelligent/super cubes, and a dataset whose
+    # object info could not be fetched keeps today's behaviour.
+    mapper = _mapper()
+    dashboard = _definition()
+    dataset = dashboard.datasets[0]
+    parent_url = "https://mstr.example.com/MicroStrategyLibrary/app/project-1/dash-1"
+
+    cube = _dataset_object("776", [{"id": "f-1", "name": "Shared Reports"}])
+    assert (
+        mapper.dataset_external_url("project-1", dashboard.id, dataset, cube)
+        == parent_url
+    )
+    assert (
+        mapper.dataset_external_url("project-1", dashboard.id, dataset, None)
+        == parent_url
+    )
+    properties = _aspect(
+        mapper.gen_dataset_workunits(
+            "project-1", dashboard, dataset, mapper.project_key("project-1")
+        ),
+        DatasetPropertiesClass,
+    )
+    assert properties.externalUrl == parent_url
+
+
+def test_dataset_folder_parent_key_uses_own_ancestors_with_folder_labels() -> None:
+    # The dataset's own ancestry (one folder deeper than the dossier) drives
+    # its browse path, with the same predefined-folder relabelling and
+    # system-folder hiding the dossier path gets.
+    mapper = _mapper()
+    dossier_key = mapper.folder_key("project-1", "Shared Reports/SALON SALES VAR PLAN")
+    dataset_object = _dataset_object(
+        "768",
+        [
+            {"id": "project-root-id", "name": "Adhoc_RMA"},
+            {"id": "public-objects-id", "name": "Public Objects"},
+            {"id": "reports-folder-id", "name": "Reports"},
+            {"id": "f-plan", "name": "SALON SALES VAR PLAN"},
+            {"id": "f-retail", "name": "SALON RETAIL SALES"},
+        ],
+    )
+    resolution = PredefinedFolderResolution(
+        labels={"REPORTS-FOLDER-ID": "Shared Reports"},
+        hidden_ids={"PROJECT-ROOT-ID", "PUBLIC-OBJECTS-ID"},
+    )
+
+    parent_key = mapper.dataset_folder_parent_key(
+        "project-1", dataset_object, dossier_key, resolution
+    )
+
+    assert parent_key == mapper.folder_key(
+        "project-1", "Shared Reports/SALON SALES VAR PLAN/SALON RETAIL SALES"
+    )
+    names = set(
+        _container_names(
+            mapper.gen_folder_containers(
+                "project-1", dataset_object, predefined_folders=resolution
+            )
+        ).values()
+    )
+    assert names == {"Shared Reports", "SALON SALES VAR PLAN", "SALON RETAIL SALES"}
+
+
+def test_dataset_folder_parent_key_falls_back_without_ancestors() -> None:
+    mapper = _mapper()
+    dossier_key = mapper.folder_key("project-1", "Shared Reports/Finance")
+
+    assert (
+        mapper.dataset_folder_parent_key("project-1", None, dossier_key) == dossier_key
+    )
+    assert (
+        mapper.dataset_folder_parent_key(
+            "project-1", _dataset_object("768", []), dossier_key
+        )
+        == dossier_key
+    )

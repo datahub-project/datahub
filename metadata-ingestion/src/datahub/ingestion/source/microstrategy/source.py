@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from pydantic import ValidationError
 
@@ -124,6 +124,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._metric_model_cache: Dict[str, Dict[str, object]] = {}
         self._model_document_unavailable_projects: Set[str] = set()
         self._predefined_folder_cache: Dict[str, PredefinedFolderResolution] = {}
+        # (project id, dataset object id) -> object info, or None once a lookup
+        # failed so the same dataset is never re-fetched for another dossier.
+        self._dataset_object_cache: Dict[
+            Tuple[str, str], Optional[MicroStrategyObject]
+        ] = {}
         if self.config.extract_derived_metrics and not (
             self.config.extract_lineage and self.config.extract_visualization_details
         ):
@@ -588,7 +593,48 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             dashboard,
             parent_key,
             extra_chart_urns=extra_chart_urns,
+            predefined_folders=predefined_folders,
         )
+
+    def _dataset_object_info(
+        self,
+        project_id: str,
+        dataset_id: str,
+    ) -> Optional[MicroStrategyObject]:
+        """Object info (subtype + folder ancestors) for a dataset backing a
+        dossier or report, fetched once per distinct dataset per project.
+        Reports and cubes share object type 3, so one lookup covers both. Any
+        failure degrades to the pre-lookup behaviour (dataset parented under
+        the dossier's folder, linking to the dossier) and is counted."""
+        cache_key = (project_id, normalize_object_id(dataset_id))
+        if cache_key in self._dataset_object_cache:
+            return self._dataset_object_cache[cache_key]
+        dataset_object: Optional[MicroStrategyObject] = None
+        try:
+            dataset_object = self.client.get_object_info(
+                project_id, dataset_id, MSTR_OBJECT_TYPE_REPORT
+            )
+        except MicroStrategyAuthError:
+            raise
+        except Exception as error:
+            self.report.report_dataset_object_lookup_failure()
+            self.report.warning(
+                title="Dataset object info unavailable",
+                message=(
+                    "Could not fetch a dataset's own object info, so its browse "
+                    "path and external URL fall back to the dossier/report that "
+                    "embeds it."
+                ),
+                context=f"project_id={project_id}, dataset_id={dataset_id}",
+                exc=error,
+                log=False,
+            )
+        else:
+            self.report.report_dataset_object_lookup()
+            if dataset_object is None:
+                self.report.report_dataset_object_lookup_failure()
+        self._dataset_object_cache[cache_key] = dataset_object
+        return dataset_object
 
     def _process_project_reports(
         self,
@@ -747,11 +793,19 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     source_dataset,
                     model_lineage_index,
                 )
+            dataset_object = self._dataset_object_info(project_id, source_dataset.id)
+            if dataset_object is not None:
+                yield from self.mapper.gen_folder_containers(
+                    project_id, dataset_object, predefined_folders
+                )
             yield from self.mapper.gen_report_source_dataset_workunits(
                 project_id,
                 report_object,
                 source_dataset,
-                parent_key,
+                self.mapper.dataset_folder_parent_key(
+                    project_id, dataset_object, parent_key, predefined_folders
+                ),
+                dataset_object=dataset_object,
             )
         yield from self.mapper.gen_report_workunits(
             project_id,
@@ -1456,11 +1510,25 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         dashboard: DashboardDefinition,
         parent_key: ProjectKey,
         extra_chart_urns: Sequence[str] = (),
+        predefined_folders: Optional[PredefinedFolderResolution] = None,
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.extract_cubes:
             for dataset in dashboard.datasets:
+                # A dataset is its own catalog object (report or cube) with its
+                # own folder, which is usually not the dossier's folder.
+                dataset_object = self._dataset_object_info(project_id, dataset.id)
+                if dataset_object is not None:
+                    yield from self.mapper.gen_folder_containers(
+                        project_id, dataset_object, predefined_folders
+                    )
                 yield from self.mapper.gen_dataset_workunits(
-                    project_id, dashboard, dataset, parent_key
+                    project_id,
+                    dashboard,
+                    dataset,
+                    self.mapper.dataset_folder_parent_key(
+                        project_id, dataset_object, parent_key, predefined_folders
+                    ),
+                    dataset_object=dataset_object,
                 )
 
         if self.config.extract_charts:

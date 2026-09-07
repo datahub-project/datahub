@@ -51,6 +51,8 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     )
     warehouse_upstreams_pruned_by_field_evidence: int = 0
     predefined_folder_labels_resolved: int = 0
+    dataset_object_lookups: int = 0
+    dataset_object_lookup_failures: int = 0
     api_errors: int = 0
     malformed_objects_skipped: LossyList[str] = field(default_factory=LossyList)
     filtered_projects: LossyList[str] = field(default_factory=LossyList)
@@ -191,6 +193,12 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_predefined_folder_labels_resolved(self, count: int) -> None:
         self.predefined_folder_labels_resolved += count
+
+    def report_dataset_object_lookup(self) -> None:
+        self.dataset_object_lookups += 1
+
+    def report_dataset_object_lookup_failure(self) -> None:
+        self.dataset_object_lookup_failures += 1
 
     def report_api_error(self) -> None:
         self.api_errors += 1

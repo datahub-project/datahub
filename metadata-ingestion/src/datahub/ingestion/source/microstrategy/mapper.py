@@ -27,6 +27,7 @@ from datahub.ingestion.source.microstrategy.constants import (
     DERIVED_TAG_URN,
     DIMENSION_TAG_URN,
     MEASURE_TAG_URN,
+    MSTR_CUBE_SUBTYPES,
     MSTR_DOT_COLLAPSE_RE,
     MSTR_OBJECT_TIMESTAMP_FORMATS,
     MSTR_WHITESPACE_RE,
@@ -317,24 +318,71 @@ class MicroStrategyMapper:
             return self.project_key(project_id)
         return self.folder_key(project_id, "/".join(allowed_names))
 
+    def dataset_folder_parent_key(
+        self,
+        project_id: str,
+        dataset_object: Optional[MicroStrategyObject],
+        fallback_key: ProjectKey,
+        predefined_folders: Optional[PredefinedFolderResolution] = None,
+    ) -> ProjectKey:
+        """The folder container a dossier/report source dataset belongs in: the
+        dataset object's OWN folder ancestry (a report used as a dossier dataset
+        commonly lives in a different, often deeper, folder than the dossier).
+        Falls back to the parent dossier/report's folder when the dataset's
+        object info or ancestors could not be resolved, which is what the
+        connector emitted before it looked datasets up at all."""
+        if dataset_object is None:
+            return fallback_key
+        if not extract_folder_parts(dataset_object.model_dump()):
+            return fallback_key
+        return self.folder_container_for_dashboard(
+            project_id, dataset_object, predefined_folders
+        )
+
+    def dataset_external_url(
+        self,
+        project_id: str,
+        parent_id: str,
+        dataset: DatasetObject,
+        dataset_object: Optional[MicroStrategyObject],
+    ) -> str:
+        """Library URL for the dataset object itself when Library can open it.
+        Library renders dossiers, documents and reports by id, but has no viewer
+        for intelligent/super cubes: a cube URL would land on an error page, so
+        cubes (and datasets whose object info was unavailable) keep linking to
+        the parent dossier/report that embeds them."""
+        parent_url = f"{self.config.base_url}/app/{project_id}/{parent_id}"
+        if dataset_object is None:
+            return parent_url
+        if (dataset_object.subtype or "").strip() in MSTR_CUBE_SUBTYPES:
+            return parent_url
+        return f"{self.config.base_url}/app/{project_id}/{dataset.id}"
+
     def gen_dataset_workunits(
         self,
         project_id: str,
         dashboard: DashboardDefinition,
         dataset: DatasetObject,
         parent_key: ProjectKey,
+        dataset_object: Optional[MicroStrategyObject] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        custom_properties = self._dataset_custom_properties(
+            project_id=project_id,
+            dashboard=dashboard,
+            dataset=dataset,
+        )
+        if dataset_object is not None:
+            custom_properties.update(self._dashboard_object_properties(dataset_object))
         yield from self._gen_dataset_entity_workunits(
             project_id=project_id,
             parent_id=dashboard.id,
             dataset=dataset,
             parent_key=parent_key,
-            custom_properties=self._dataset_custom_properties(
-                project_id=project_id,
-                dashboard=dashboard,
-                dataset=dataset,
-            ),
+            custom_properties=custom_properties,
             include_coarse_lineage=self.config.extract_warehouse_lineage,
+            external_url=self.dataset_external_url(
+                project_id, dashboard.id, dataset, dataset_object
+            ),
         )
 
     def gen_report_source_dataset_workunits(
@@ -343,18 +391,25 @@ class MicroStrategyMapper:
         report_object: MicroStrategyObject,
         dataset: DatasetObject,
         parent_key: ProjectKey,
+        dataset_object: Optional[MicroStrategyObject] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        custom_properties = self._report_source_dataset_custom_properties(
+            project_id=project_id,
+            report_object=report_object,
+            dataset=dataset,
+        )
+        if dataset_object is not None:
+            custom_properties.update(self._dashboard_object_properties(dataset_object))
         yield from self._gen_dataset_entity_workunits(
             project_id=project_id,
             parent_id=report_object.id,
             dataset=dataset,
             parent_key=parent_key,
-            custom_properties=self._report_source_dataset_custom_properties(
-                project_id=project_id,
-                report_object=report_object,
-                dataset=dataset,
-            ),
+            custom_properties=custom_properties,
             include_coarse_lineage=self.config.extract_report_sql_lineage,
+            external_url=self.dataset_external_url(
+                project_id, report_object.id, dataset, dataset_object
+            ),
         )
 
     def _gen_dataset_entity_workunits(
@@ -365,6 +420,7 @@ class MicroStrategyMapper:
         parent_key: ProjectKey,
         custom_properties: Dict[str, str],
         include_coarse_lineage: bool,
+        external_url: str,
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_dataset_scanned()
         dataset_urn = self.lineage.dataset_urn(project_id, parent_id, dataset)
@@ -376,7 +432,7 @@ class MicroStrategyMapper:
                 name=dataset.name,
                 description=dataset.description,
                 qualifiedName=f"{project_id}.{parent_id}.{dataset.id}".lower(),
-                externalUrl=f"{self.config.base_url}/app/{project_id}/{parent_id}",
+                externalUrl=external_url,
                 customProperties=custom_properties,
             ),
         ).as_workunit()

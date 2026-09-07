@@ -251,11 +251,22 @@ class MicroStrategyClient:
         report_id: str,
     ) -> Optional[MicroStrategyObject]:
         """Fetch one report (with folder ancestors) by id, avoiding a full library scan."""
-        path = MSTR_API_OBJECT.format(object_id=report_id)
+        return self.get_object_info(project_id, report_id, MSTR_OBJECT_TYPE_REPORT)
+
+    def get_object_info(
+        self,
+        project_id: str,
+        object_id: str,
+        object_type: int,
+    ) -> Optional[MicroStrategyObject]:
+        """GET /api/objects/{id}?type=... -- one object's metadata including its
+        subtype and folder ancestors. Reports and cubes both use object type 3
+        (EnumDSSXMLObjectTypes report definition); the subtype tells them apart."""
+        path = MSTR_API_OBJECT.format(object_id=object_id)
         payload = self._get_json(
             path,
             project_id=project_id,
-            params={"type": MSTR_OBJECT_TYPE_REPORT},
+            params={"type": object_type},
         )
         item = payload
         if "id" not in item and isinstance(item.get("result"), dict):
@@ -268,7 +279,10 @@ class MicroStrategyClient:
         return self._parse_model(
             MicroStrategyObject,
             item,
-            f"report object info project_id={project_id}, report_id={report_id}",
+            (
+                f"object info project_id={project_id}, object_id={object_id}, "
+                f"type={object_type}"
+            ),
         )
 
     def _search_typed_objects(
