@@ -1,4 +1,5 @@
 import React from 'react';
+import styled from 'styled-components';
 
 import {
     ActionButtonsContainer,
@@ -8,6 +9,13 @@ import {
     SelectValue,
 } from '@components/components/Select/components';
 import { SelectLabelVariantProps, SelectOption } from '@components/components/Select/types';
+
+// Keeps the option icon at its natural size instead of getting squeezed
+// alongside the truncating SelectValue text.
+const IconWrapper = styled.span`
+    display: inline-flex;
+    flex-shrink: 0;
+`;
 
 export default function SingleSelectDefault<OptionType extends SelectOption>({
     selectedOptions,
@@ -24,7 +32,7 @@ export default function SingleSelectDefault<OptionType extends SelectOption>({
             {!isMultiSelect && (
                 <>
                     <ActionButtonsContainer>
-                        {selectedOptions[0]?.icon}
+                        {selectedOptions[0]?.icon && <IconWrapper>{selectedOptions[0]?.icon}</IconWrapper>}
                         <SelectValue data-testid={value ? `value-${value}` : undefined}>
                             {selectedOptions[0]?.label}
                         </SelectValue>

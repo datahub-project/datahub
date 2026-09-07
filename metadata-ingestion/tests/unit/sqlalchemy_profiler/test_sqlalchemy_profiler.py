@@ -20,6 +20,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
 from datahub.metadata.schema_classes import DatasetFieldProfileClass
+from datahub.utilities.stats_collections import float_top_k_dict
 
 
 @pytest.fixture
@@ -76,6 +77,10 @@ def mock_report():
     report = MagicMock(spec=SQLSourceReport)
     report.report_dropped = MagicMock()
     report.warning = MagicMock()
+    report.info = MagicMock()
+    # Dataclass fields with default_factory are not class attributes, so a spec'd mock
+    # does not expose them; wire the real TopKDict so the profiler's finally block can write.
+    report.profiling_time_taken_per_table_secs = float_top_k_dict()
     return report
 
 

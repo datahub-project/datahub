@@ -77,7 +77,7 @@ jobs:
     runs-on: ${{ inputs.test_runner_type }}
     timeout-minutes: 60
     steps:
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/yarn
           key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}
@@ -101,7 +101,7 @@ jobs:
           cache: "pip"
 
       - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
 
@@ -330,13 +330,13 @@ jobs:
 
       - name: Upload test results to Codecov
         if: "!cancelled()"
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: ${{ github.ref == 'refs/heads/master' && inputs.shard == '1' }}
         with:
           path: ~/.cache/yarn

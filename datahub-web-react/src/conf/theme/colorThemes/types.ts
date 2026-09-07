@@ -155,6 +155,10 @@ export default interface ColorTheme {
     chartsGreenMedium: string;
     chartsGreenLow: string;
     chartsGreenBase: string;
+    chartsYellowHigh: string;
+    chartsYellowMedium: string;
+    chartsYellowLow: string;
+    chartsYellowBase: string;
     chartsBrandContrast: string;
     chartsBrandHigh: string;
     chartsBrandMedium: string;

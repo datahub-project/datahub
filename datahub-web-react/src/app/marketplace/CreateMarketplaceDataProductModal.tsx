@@ -106,6 +106,7 @@ export default function CreateMarketplaceDataProductModal({ open, onClose, onCre
                         selectedDomains={selectedDomainUrns}
                         onDomainsChange={(urns) => setSelectedDomainUrns(urns.length ? [urns[0]] : [])}
                         isMultiSelect={false}
+                        isRequired
                     />
                     <DataProductBuilderForm builderState={builderState} updateBuilderState={updateBuilderState} />
                 </FormFields>

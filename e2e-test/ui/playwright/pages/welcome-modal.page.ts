@@ -58,7 +58,6 @@ export class WelcomeModalPage extends BasePage {
     } else {
       await this.navigate('/');
     }
-    await this.waitForPageLoad();
   }
 
   async expectModalVisible(): Promise<void> {

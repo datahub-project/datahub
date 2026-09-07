@@ -1003,6 +1003,12 @@ class OracleLineage(AbstractLineage):
         return False
 
 
+# Databricks navigation chains are ordered catalog -> schema -> table, so a step
+# that omits Kind (valid M that Power BI refreshes) takes the first level the
+# chain has not filled yet.
+_DATABRICKS_NAVIGATION_LEVELS: Tuple[str, ...] = ("Database", "Schema", "Table")
+
+
 class DatabricksLineage(AbstractLineage):
     def form_qualified_table_name(
         self,
@@ -1051,7 +1057,30 @@ class DatabricksLineage(AbstractLineage):
                 table_detail["Schema"] = temp_accessor.items["Schema"]
                 table_detail["Table"] = temp_accessor.items["Item"]
             else:
-                table_detail[temp_accessor.items["Kind"]] = temp_accessor.items["Name"]
+                name: Optional[str] = temp_accessor.items.get("Name")
+                level: Optional[str] = temp_accessor.items.get("Kind")
+                if level is None:
+                    level = next(
+                        (
+                            candidate
+                            for candidate in _DATABRICKS_NAVIGATION_LEVELS
+                            if candidate not in table_detail
+                        ),
+                        None,
+                    )
+
+                if name is None or level is None:
+                    self.reporter.warning(
+                        title="Unusable M-Query navigation step",
+                        message="A navigation step could not be mapped to a Databricks "
+                        "catalog, schema or table. Lineage will be missing for this "
+                        "table.",
+                        context=f"table-full-name={self.table.full_name}, "
+                        f"navigation-step={temp_accessor.items}",
+                    )
+                    return Lineage.empty()
+
+                table_detail[level] = name
 
             if temp_accessor.next is not None:
                 temp_accessor = temp_accessor.next
@@ -1496,11 +1525,22 @@ class GoogleBigQueryLineage(ThreeStepDataAccessPattern):
         )
 
 
+# Both Databricks connectors are called as (host, http path, [Database=…,
+# Catalog=…]), so a native query's database resolves identically for either.
+_DATABRICKS_NATIVE_QUERY_FUNCTIONS = frozenset(
+    {
+        FunctionName.DATABRICK_DATA_ACCESS.value,
+        FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value,
+    }
+)
+
+
 class NativeQueryLineage(AbstractLineage):
     # Maps the full data-access function name (e.g. "Snowflake.Databases") to its platform.
     SUPPORTED_NATIVE_QUERY_DATA_PLATFORM: dict = {
         FunctionName.SNOWFLAKE_DATA_ACCESS.value: SupportedDataPlatform.SNOWFLAKE,
         FunctionName.AMAZON_REDSHIFT_DATA_ACCESS.value: SupportedDataPlatform.AMAZON_REDSHIFT,
+        FunctionName.DATABRICK_DATA_ACCESS.value: SupportedDataPlatform.DATABRICKS_SQL,
         FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value: SupportedDataPlatform.DatabricksMultiCloud_SQL,
         FunctionName.MSSQL_DATA_ACCESS.value: SupportedDataPlatform.MS_SQL,
         FunctionName.POSTGRESQL_DATA_ACCESS.value: SupportedDataPlatform.POSTGRES_SQL,
@@ -1553,10 +1593,7 @@ class NativeQueryLineage(AbstractLineage):
         return Lineage(upstreams=dataplatform_tables, column_lineage=column_lineage)
 
     def get_db_name(self, data_access_tokens: List[str]) -> Optional[str]:
-        if (
-            data_access_tokens[0]
-            == FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value
-        ):
+        if data_access_tokens[0] in _DATABRICKS_NATIVE_QUERY_FUNCTIONS:
             database: Optional[str] = get_next_item(data_access_tokens, "Database")
 
             if (

@@ -48,6 +48,15 @@ public final class GraphScrollFallback {
     Set<Urn> frontier = new LinkedHashSet<>(Set.of(rootUrn));
     while (!frontier.isEmpty()) {
       DirectChildrenResult level = childrenOf(opContext, spec, frontier);
+      if (level.isTruncated()) {
+        // A frontier scroll failed. Returning the descendants gathered so far as if the set were
+        // complete silently under-restricts access-control filters built from it, so fail closed
+        // rather than hand back a partial hierarchy that looks whole.
+        throw new IllegalStateException(
+            "Descendant expansion truncated for graph "
+                + spec.getBinding().getGraphId()
+                + "; refusing to return a partial hierarchy as complete");
+      }
       Set<Urn> nextFrontier = new LinkedHashSet<>();
       for (Urn child : level.getChildUrns()) {
         if (descendants.add(child)) {

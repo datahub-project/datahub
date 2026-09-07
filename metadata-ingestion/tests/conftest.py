@@ -27,6 +27,14 @@ os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 # between retries.
 os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 
+# Give column-level lineage a large budget rather than the 10s default. The deadline
+# is wall-clock (time.perf_counter_ns), so a CI runner that stalls under load exhausts
+# it without the parser doing any work; column lineage is then dropped and the affected
+# node is emitted with an empty schema and no fineGrainedLineages, which reads as a
+# golden-file mismatch rather than the graceful degradation it is in production. A 30x
+# budget makes that vanishingly unlikely while still bounding a pathological parse.
+os.environ["SQL_LINEAGE_TIMEOUT_SECONDS"] = "300"
+
 
 @atexit.register
 def _report_threads_alive_at_exit() -> None:
@@ -46,6 +54,9 @@ def _report_threads_alive_at_exit() -> None:
 
 # We need our imports to go below the os.environ updates, since mere act
 # of importing some datahub modules will load env variables.
+from datahub.sql_parsing.sqlglot_lineage import (  # noqa: E402
+    SQL_LINEAGE_TIMEOUT_SECONDS,
+)
 from datahub.testing.pytest_hooks import (  # noqa: F401,E402
     load_golden_flags,
     local_timezone,
@@ -59,6 +70,17 @@ from tests.test_helpers.docker_helpers import (  # noqa: F401,E402
 from tests.test_helpers.state_helpers import (  # noqa: F401,E402
     mock_datahub_graph,
     mock_datahub_graph_instance,
+)
+
+# sqlglot_lineage reads SQL_LINEAGE_TIMEOUT_SECONDS into a module constant at import
+# time, so the env var above only has an effect while it is set before that import.
+# Moving these imports above the env block would silently restore the 10s deadline and
+# with it the flake, so assert the outcome rather than trusting the ordering to survive
+# a tidy-up.
+assert SQL_LINEAGE_TIMEOUT_SECONDS >= 300, (
+    f"SQL lineage timeout is {SQL_LINEAGE_TIMEOUT_SECONDS}s, not the 300s set above:"
+    " the os.environ block in this file has to stay above the datahub imports for it"
+    " to take effect."
 )
 
 _MOCK_TIME = 1615443388.0975091  # 2021-03-11 06:16:28.097509+00:00

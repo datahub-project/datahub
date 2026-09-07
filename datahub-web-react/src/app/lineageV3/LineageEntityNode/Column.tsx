@@ -165,7 +165,6 @@ export default function Column({
     const turnOnDisabledTooltipOnHover = useCallback(() => setShowDisabledTooltipOnHover(true), []);
 
     const { initiateRequest, cancelRequest, loading } = useFetchColumnCounts(
-        parentUrn,
         schemaFieldUrn,
         lineageAsset,
         turnOnDisabledTooltipOnHover,

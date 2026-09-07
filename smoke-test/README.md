@@ -2,6 +2,10 @@
 
 This directory contains end-to-end smoke tests for DataHub functionality. These tests can be run locally for faster development and debugging compared to the full CI pipeline.
 
+**Writing tests:** follow [`AGENTS.md`](AGENTS.md) (isolation, fixtures, markers, cleanup).
+**Running tests:** this README, or from the repo root
+`scripts/dev/datahub-dev.sh test <test-path>` (preferred over `./gradlew quickstartDebug`).
+
 ## Quick Start
 
 ### Prerequisites

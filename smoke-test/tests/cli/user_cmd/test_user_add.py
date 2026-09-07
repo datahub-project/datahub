@@ -11,7 +11,7 @@ from tests.utils import run_datahub_cmd, unique_suffix
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.INGESTION, Domain.PLATFORM)
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 
 def generate_test_email() -> str:
