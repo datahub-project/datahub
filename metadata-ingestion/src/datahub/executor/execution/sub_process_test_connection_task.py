@@ -38,9 +38,7 @@ from datahub.executor.execution.sub_process_task_common import (
     resolve_wrapper_script,
 )
 from datahub.executor.execution.task import Task, TaskError
-from datahub.masking.bootstrap import shutdown_secret_masking
 from datahub.masking.masking_filter import SecretMaskingFilter
-from datahub.masking.secret_registry import SecretRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -151,28 +149,14 @@ class SubProcessTestConnectionTask(Task):
         ingest_process.stdin.write(stdin_envelope)
         ingest_process.stdin.close()
 
-        try:
-            # Create masking filter for subprocess stdout
-            # Masking was already set up in _resolve_recipe for the executor process
-            masking_filter = None
-            try:
-                registry = SecretRegistry.get_instance()
-                if registry and registry.get_count() > 0:
-                    masking_filter = SecretMaskingFilter(registry)
-                    logger.info(
-                        f"[TEST_CONNECTION] Created masking filter with {registry.get_count()} secret(s)"
-                    )
-            except Exception as e:
-                logger.warning(
-                    f"[TEST_CONNECTION] Failed to create masking filter: {e}"
-                )
+        masking_filter = SecretMaskingFilter()
 
+        try:
             while ingest_process.poll() is None:
                 assert ingest_process.stdout
                 line = ingest_process.stdout.readline()
 
-                # Mask secrets before writing to stdout
-                masked_line = masking_filter.mask_text(line) if masking_filter else line
+                masked_line = masking_filter.mask_text(line)
                 sys.stdout.write(masked_line)
                 stdout_lines.append(masked_line)
                 await asyncio.sleep(0)
@@ -188,32 +172,19 @@ class SubProcessTestConnectionTask(Task):
             if os.path.exists(report_out_file):
                 with open(report_out_file) as structured_report_fp:
                     report_content = structured_report_fp.read()
+                    ctx.get_report().set_structured_report(
+                        masking_filter.mask_text(report_content)
+                    )
 
-                    # Mask secrets in structured report
-                    try:
-                        registry = SecretRegistry.get_instance()
-                        if registry and registry.get_count() > 0:
-                            temp_filter = SecretMaskingFilter(registry)
-                            report_content = temp_filter.mask_text(report_content)
-                    except Exception:
-                        logger.warning(
-                            "Failed to mask structured report, using original"
-                        )
-
-                    ctx.get_report().set_structured_report(report_content)
-
+            # Whole-buffer mask: covers multi-line secrets that the per-line masking cannot.
             ctx.get_report().set_logs(
-                SubProcessTaskUtil._format_log_lines(stdout_lines)
+                masking_filter.mask_text(
+                    SubProcessTaskUtil._format_log_lines(stdout_lines)
+                )
             )
 
             # Cleanup execution directory
             SubProcessTaskUtil._remove_directory(exec_out_dir)
-
-            # Shutdown DataHub masking framework
-            try:
-                shutdown_secret_masking()
-            except Exception as e:
-                logger.warning(f"Failed to shutdown secret masking: {e}")
 
         if return_code != 0:
             # Failed

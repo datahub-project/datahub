@@ -137,9 +137,6 @@ async def test_execute_success(
         patch(
             "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._remove_directory"
         ) as _mock_remove_dir,
-        patch(
-            "datahub.executor.execution.sub_process_test_connection_task.shutdown_secret_masking"
-        ),
     ):
         # Setup mocks: _resolve_recipe now returns (recipe, secret_values)
         mock_resolve.return_value = (
@@ -257,9 +254,6 @@ async def test_execute_failure_raises(
         patch(
             "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._remove_directory"
         ) as _mock_remove_dir,
-        patch(
-            "datahub.executor.execution.sub_process_test_connection_task.shutdown_secret_masking"
-        ),
     ):
         # Setup mocks: _resolve_recipe now returns (recipe, secret_values)
         mock_resolve.return_value = ({"source": {"type": "demo-data"}}, {})
@@ -342,9 +336,6 @@ async def test_cancellation_terminates_the_subprocess(
         patch("os.path.exists", return_value=False),
         patch(
             "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._remove_directory"
-        ),
-        patch(
-            "datahub.executor.execution.sub_process_test_connection_task.shutdown_secret_masking"
         ),
     ):
         mock_resolve.return_value = ({"source": {"type": "demo-data"}}, {})
