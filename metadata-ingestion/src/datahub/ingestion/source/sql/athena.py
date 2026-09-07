@@ -465,6 +465,18 @@ class AthenaConfig(SQLCommonConfig):
             },
         )
 
+    def probe_prepare_engine(self, engine: Any) -> None:
+        # Same substitution get_inspectors() makes, and for the same reason: the
+        # stock PyAthena dialect omits ICEBERG from get_table_names (so S3 Tables
+        # go missing) and does not unpack the complex types Athena reports as DDL
+        # strings. A probe on the stock dialect would answer differently from the
+        # ingestion it exists to predict.
+        #
+        # No report is wired: SQLSourceReport belongs to a running pipeline, and
+        # the dialect's only use of it is guarded (`if self._report is not None`),
+        # so the S3 Tables fallback stays silent here rather than warning.
+        engine.dialect = CustomAthenaRestDialect()
+
 
 @dataclass
 class Partitionitem:

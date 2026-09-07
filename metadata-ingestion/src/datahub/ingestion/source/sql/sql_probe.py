@@ -1,3 +1,4 @@
+import logging
 import sys
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, Optional, Protocol, Type, cast
@@ -5,6 +6,8 @@ from typing import Any, Callable, Dict, Optional, Protocol, Type, cast
 from datahub.ingestion.agent.sql_passthrough import QueryBudget
 from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
+
+logger = logging.getLogger(__name__)
 
 # Naming convention linking a config class to the Source class whose
 # get_identifier() owns it -- see _source_class_for.
@@ -51,6 +54,11 @@ _TIMEOUT_CONNECT_ARGS: Dict[str, Any] = {
 # So the statement is issued after connecting, where failure is survivable, and
 # whichever variable the server has wins. A server with neither runs unbounded,
 # which is the correct outcome for a dialect that offers no ceiling.
+#
+# Best-effort, and reported as such: max_execution_time bounds read-only SELECTs
+# and not the SHOW statements the Inspector issues for the typed listings, so even
+# a server that accepts it is only partly bounded. applies_statement_timeout
+# therefore excludes this family -- see the reasoning there.
 _MYSQL_SCHEMES = frozenset({"mysql", "mariadb"})
 
 _MYSQL_TIMEOUT_STATEMENTS = (
@@ -77,6 +85,14 @@ def _install_mysql_statement_timeout(engine: Any, seconds: int) -> None:
             except Exception:
                 # Unknown system variable on this server; try the other spelling.
                 continue
+        # Both spellings refused. The budget already reports no ceiling for this
+        # family (see applies_statement_timeout), so nothing is being
+        # misrepresented -- but a query that then runs long has a reason, and
+        # this is the only place that knows it.
+        logger.debug(
+            "neither %s applied; probe queries on this server are unbounded",
+            " nor ".join(t.split("=")[0] for t in _MYSQL_TIMEOUT_STATEMENTS),
+        )
 
     # event.listen rather than the @event.listens_for decorator: the decorator is
     # untyped, so applying it would make _set_timeout untyped to mypy.
@@ -104,11 +120,31 @@ def _timeout_connect_args(url: str, seconds: Optional[int]) -> Dict[str, Any]:
 
 
 def applies_statement_timeout(url: str, seconds: Optional[int]) -> bool:
-    """Whether this dialect gets a server-side statement ceiling, by any route."""
+    """Whether a server-side ceiling can be *shown* to bound every probe statement.
+
+    Only the connect_args dialects qualify. There the setting rides on the
+    connection itself, so it is deterministic and covers whatever is then sent.
+
+    The MySQL family is deliberately excluded even though install_statement_timeout
+    still makes the attempt, for two independent reasons:
+
+    - Whether either variable exists is not knowable from the URL. A server with
+      neither leaves the listener with nothing to do, and it finds out after this
+      function has already answered.
+    - Where it does work, MySQL's max_execution_time bounds read-only SELECTs and
+      nothing else, so the Inspector's SHOW-based listings (containers, tables,
+      views) stay unbounded regardless. MariaDB's max_statement_time is broader,
+      and the URL cannot tell us which server we have.
+
+    So the attempt stays as best-effort defence and the ceiling is reported absent.
+    Understating a protection is the safe direction; the alternative is the failure
+    the QueryBudget docstring warns about -- a ceiling that reads as present and is
+    not. Reporting it per command, true for `sql` and false for the listings, would
+    need a budget attached to commands rather than to the provider.
+    """
     if seconds is None or seconds <= 0:
         return False
-    scheme = _scheme_of(url)
-    return scheme in _TIMEOUT_CONNECT_ARGS or scheme in _MYSQL_SCHEMES
+    return _scheme_of(url) in _TIMEOUT_CONNECT_ARGS
 
 
 def effective_budget(url: str, budget: QueryBudget) -> QueryBudget:

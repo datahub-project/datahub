@@ -228,6 +228,23 @@ class SQLCommonConfig(
         """
         return CatalogScope()
 
+    def probe_prepare_engine(self, engine: Any) -> None:
+        """Apply connection-time setup that a bare create_engine() would miss.
+
+        The probe builds its own engine rather than constructing the connector's
+        Source, which fires ingestion telemetry and wants a PipelineContext. That
+        keeps the probe cheap and side-effect free, at the cost of skipping
+        whatever the Source does to its engine after building it -- and some
+        connectors do a lot. Athena replaces the dialect outright, because
+        PyAthena's own omits ICEBERG from get_table_names and mis-parses complex
+        column types.
+
+        A no-op by default, because most dialects need nothing. Override it where
+        the connector's own engine is not a plain one, and keep it to setup that
+        is safe without a report or a running pipeline.
+        """
+        return None
+
     @classmethod
     def probe_provider_class(cls) -> type:
         from datahub.ingestion.source.sql.sqlalchemy_probe import (

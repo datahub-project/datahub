@@ -197,6 +197,7 @@ _CONFIG_HOOKS = frozenset(
         "probe_match_target",
         "probe_filter_target",
         "probe_schema_verdict_override",
+        "probe_prepare_engine",
     }
 )
 

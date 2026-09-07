@@ -70,6 +70,10 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         # Dialects whose ceiling cannot ride on connect_args get it here instead,
         # applied per connection where a wrong variable name is survivable.
         install_statement_timeout(engine, url, cls.query_budget.timeout_seconds)
+        # Whatever the connector does to its own engine that a bare create_engine
+        # does not. Called before the Inspector is built, since a replaced dialect
+        # has to be in place by then to have any effect.
+        config.probe_prepare_engine(engine)
         probe = cls(engine)
         # Report what this dialect actually enforces, not what the class declared:
         # only some dialects have a knob to apply the timeout through.

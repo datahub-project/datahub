@@ -300,6 +300,66 @@ def test_a_source_on_the_default_scope_has_been_reviewed_for_it():
     )
 
 
+def test_every_declared_relation_is_reachable_through_the_matcher():
+    """A scope must permit what it lists, or the list is decoration.
+
+    This is the shape of the original Redshift bug: pg_catalog was allowed at
+    schema level *and* relations were listed, with a comment claiming the list
+    was what kept the query-text views out. It was not -- the schema allow
+    short-circuited first, so every entry in that list was dead code, and
+    nothing said so. An entry that the matcher can never reach is either a typo,
+    a wrong separator, or a misunderstanding of what the entry means, and all
+    three are silent today.
+    """
+    from datahub.ingestion.agent.probe_methods import _provider_class
+    from datahub.ingestion.source.source_registry import source_registry
+
+    unreachable: List[str] = []
+    checked = 0
+    for source_type in sorted(source_registry.mapping):
+        try:
+            provider = _provider_class(source_type)
+        except Exception:
+            continue
+        if provider is None:
+            continue
+        scope = provider.__dict__.get("catalog_scope")
+        if not isinstance(scope, CatalogScope):
+            try:
+                scope = config_class_for(source_type).probe_catalog_scope()
+            except Exception:
+                continue
+        if not isinstance(scope, CatalogScope) or not scope.relations:
+            continue
+        # Judged against the relations alone. Asking the whole scope would answer
+        # "permitted" for an entry whose schema is separately allowed, which is
+        # precisely the case that hid the original bug.
+        relations_only = CatalogScope(relations=scope.relations)
+        allowed_schemas = {s.lower() for s in scope.schemas}
+        for entry in sorted(scope.relations):
+            parts = entry.split(".")
+            checked += 1
+            if len(parts) == 1:
+                if not relations_only.permits_unqualified(entry):
+                    unreachable.append(f"{source_type}: {entry} (bare, unreachable)")
+                continue
+            if not relations_only.permits_path(parts):
+                unreachable.append(f"{source_type}: {entry} (no match)")
+            elif parts[-2].lower() in allowed_schemas:
+                unreachable.append(
+                    f"{source_type}: {entry} (shadowed by the '{parts[-2]}' "
+                    f"schema-level allow, so it restricts nothing)"
+                )
+
+    assert checked, "checked no relations at all, so this proved nothing"
+    assert not unreachable, (
+        "these relations are listed but do no work. Either the matcher cannot "
+        "reach the entry, or the entry's schema is allowed wholesale and the "
+        "entry only reads as though it narrowed something:\n  "
+        + "\n  ".join(unreachable)
+    )
+
+
 def test_the_postgres_declaration_is_inherited_by_its_derivatives():
     # One declaration covers three connectors; CockroachDB and TimescaleDB extend
     # PostgresConfig rather than restating it.

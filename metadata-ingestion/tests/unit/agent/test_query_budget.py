@@ -7,6 +7,8 @@ pin the second ceiling, per connector, because only the connector knows which ki
 its driver can ask for.
 """
 
+from typing import List
+
 import pytest
 
 from datahub.ingestion.agent.sql_passthrough import QueryBudget, SqlCatalogPassthrough
@@ -114,9 +116,12 @@ def test_the_mysql_family_gets_no_connect_arg_because_mariadb_shares_its_scheme(
     URL cannot tell them apart -- and an init_command naming the wrong variable runs
     on every connection, which is a connection failure rather than a slow probe.
 
-    The ceiling still applies; it is issued after connecting instead, where the
-    wrong spelling is survivable. So this asserts the absence of the connect_arg
-    AND that the budget still reports a ceiling.
+    The attempt is still made, after connecting, where the wrong spelling is
+    survivable. But it is not *reported* as a ceiling: whether either variable
+    exists is unknowable from the URL, and where max_execution_time does work it
+    bounds SELECTs only, leaving the Inspector's SHOW-based listings unbounded.
+    So this asserts the absence of the connect_arg AND that the budget declines
+    to claim a ceiling it cannot show.
     """
     from datahub.ingestion.source.sql.sql_probe import (
         applies_statement_timeout,
@@ -132,8 +137,31 @@ def test_the_mysql_family_gets_no_connect_arg_because_mariadb_shares_its_scheme(
     assert "init_command" not in str(options.get("connect_args", {}))
 
     url = "mysql+pymysql://u:p@h/db"
-    assert applies_statement_timeout(url, 30)
-    assert effective_budget(url, QueryBudget(timeout_seconds=30)).timeout_seconds == 30
+    assert not applies_statement_timeout(url, 30)
+    assert (
+        effective_budget(url, QueryBudget(timeout_seconds=30)).timeout_seconds is None
+    )
+
+
+def test_the_attempt_is_still_installed_even_though_it_is_not_claimed(monkeypatch):
+    """Declining to report a ceiling must not mean declining to try for one --
+    the listener is still best-effort defence on a server that has the variable."""
+    import sqlalchemy
+
+    from datahub.ingestion.source.sql.sql_probe import install_statement_timeout
+
+    listened: List[str] = []
+
+    class _FakeEngine:
+        pass
+
+    monkeypatch.setattr(
+        sqlalchemy.event,
+        "listen",
+        lambda target, name, fn: listened.append(name),
+    )
+    install_statement_timeout(_FakeEngine(), "mysql+pymysql://u:p@h/db", 30)
+    assert listened == ["connect"]
 
 
 @pytest.mark.parametrize(
