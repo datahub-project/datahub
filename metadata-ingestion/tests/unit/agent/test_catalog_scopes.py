@@ -35,7 +35,13 @@ PERMITTED: List[Tuple[str, str, str]] = [
     ("mysql", "mysql", "SELECT table_name FROM information_schema.tables"),
     ("snowflake", "snowflake", "SELECT table_name FROM information_schema.tables"),
     ("snowflake", "snowflake", "SELECT * FROM snowflake.account_usage.tables"),
-    ("snowflake", "snowflake", "SELECT * FROM account_usage.object_dependencies"),
+    (
+        "snowflake",
+        "snowflake",
+        "SELECT * FROM snowflake.account_usage.object_dependencies",
+    ),
+    ("redshift", "redshift", "SELECT * FROM pg_catalog.svv_redshift_schemas"),
+    ("redshift", "redshift", "SELECT * FROM pg_catalog.pg_class"),
     ("bigquery", "bigquery", "SELECT * FROM myds.INFORMATION_SCHEMA.TABLES"),
     ("bigquery", "bigquery", "SELECT * FROM myds.INFORMATION_SCHEMA.COLUMNS"),
     ("bigquery", "bigquery", "SELECT * FROM myds.INFORMATION_SCHEMA.TABLE_OPTIONS"),
@@ -68,7 +74,43 @@ REFUSED_QUERY_TEXT: List[Tuple[str, str, str]] = [
         "snowflake",
         "SELECT * FROM snowflake.account_usage.access_history",
     ),
+    # Redshift keeps its executed SQL in pg_catalog alongside the svv_* metadata
+    # views. The first version of this declaration allowed pg_catalog at schema
+    # level *and* listed relations, believing the list was what kept these out --
+    # but permits() short-circuits on the schema, so all three were readable.
+    ("redshift", "redshift", "SELECT querytxt FROM pg_catalog.stl_query"),
+    ("redshift", "redshift", "SELECT text FROM pg_catalog.stl_querytext"),
+    ("redshift", "redshift", "SELECT text FROM pg_catalog.svl_statementtext"),
+    # Postgres holds the text of prepared statements here. pg_stat_statements and
+    # pg_stat_activity were excluded; this one was missed.
+    (
+        "postgres",
+        "postgres",
+        "SELECT statement FROM pg_catalog.pg_prepared_statements",
+    ),
 ]
+
+# A catalog-qualified relation must pin its catalog. Snowflake's ACCOUNT_USAGE is a
+# schema inside the SNOWFLAKE database, but nothing stops a user creating their own
+# database with a schema of the same name -- and a scope that only ever compares the
+# last two path segments would read that user's tables as though they were the
+# system view.
+REFUSED_CATALOG_IMPERSONATION: List[Tuple[str, str, str]] = [
+    ("snowflake", "snowflake", "SELECT * FROM attacker_db.account_usage.tables"),
+    ("snowflake", "snowflake", "SELECT * FROM my_db.ACCOUNT_USAGE.COLUMNS"),
+    # Two parts alone cannot be shown to be the system schema either: an
+    # unqualified reference resolves against whatever database is current.
+    ("snowflake", "snowflake", "SELECT * FROM account_usage.tables"),
+]
+
+
+@pytest.mark.parametrize("source_type,platform,query", REFUSED_CATALOG_IMPERSONATION)
+def test_a_lookalike_schema_in_another_catalog_is_refused(
+    source_type: str, platform: str, query: str
+) -> None:
+    with pytest.raises(SqlScopeError):
+        check_query_scope(query, platform=platform, scope=_scope(source_type))
+
 
 REFUSED_USER_DATA: List[Tuple[str, str, str]] = [
     ("mssql", "mssql", "SELECT * FROM dbo.orders"),

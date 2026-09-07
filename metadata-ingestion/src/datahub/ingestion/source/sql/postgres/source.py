@@ -173,7 +173,17 @@ class BasePostgresConfig(BasicSQLAlchemyConfig):
         # Inherited by CockroachDB and TimescaleDB.
         return CatalogScope(
             schemas=frozenset({INFORMATION_SCHEMA, "pg_catalog"}),
-            excluded_relations=frozenset({"pg_stat_statements", "pg_stat_activity"}),
+            # pg_prepared_statements holds the text of prepared statements, so it
+            # belongs with the other two. Missing it is the hazard a schema-level
+            # allow always carries: the exclusions have to be complete, and nothing
+            # tells you when they are not.
+            excluded_relations=frozenset(
+                {
+                    "pg_stat_statements",
+                    "pg_stat_activity",
+                    "pg_prepared_statements",
+                }
+            ),
         )
 
 

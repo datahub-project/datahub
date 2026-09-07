@@ -57,6 +57,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         from datahub.ingestion.source.sql.sql_probe import (
             effective_budget,
             engine_options,
+            install_statement_timeout,
         )
 
         # The budget rides on the engine rather than on each statement, because
@@ -65,9 +66,11 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         # the Inspector below inherits it, so the typed listings are bounded too and
         # not just `sql`.
         url = config.get_sql_alchemy_url()
-        probe = cls(
-            create_engine(url, **engine_options(config, budget=cls.query_budget))
-        )
+        engine = create_engine(url, **engine_options(config, budget=cls.query_budget))
+        # Dialects whose ceiling cannot ride on connect_args get it here instead,
+        # applied per connection where a wrong variable name is survivable.
+        install_statement_timeout(engine, url, cls.query_budget.timeout_seconds)
+        probe = cls(engine)
         # Report what this dialect actually enforces, not what the class declared:
         # only some dialects have a knob to apply the timeout through.
         probe.query_budget = effective_budget(url, cls.query_budget)

@@ -353,17 +353,31 @@ class RedshiftConfig(
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:
-        # Postgres-derived catalog, plus the svv_* system views ingestion reads.
-        # stl_query and stl_querytext hold executed SQL, so they are not listed --
-        # naming relations rather than a schema is what keeps them out.
+        # pg_catalog is named relation by relation here, NOT allowed at schema
+        # level, because Redshift keeps executed SQL in that schema: stl_query
+        # (querytxt), stl_querytext (text) and svl_statementtext (text) sit right
+        # beside the svv_* metadata views.
+        #
+        # An earlier version of this declaration allowed the schema *and* listed
+        # relations, with a comment claiming the list was what kept the query-text
+        # tables out. It was not: permits_path short-circuits on a schema-level
+        # allow, so the list was dead code and all three were readable. Naming
+        # relations only works when the schema is not also allowed.
+        #
+        # Deliberately absent beyond the query-text tables: pg_user, svv_user_info
+        # and svl_user_info, which carry user names rather than schema shape.
         return CatalogScope(
-            schemas=frozenset({INFORMATION_SCHEMA, "pg_catalog"}),
-            excluded_relations=frozenset({"pg_stat_statements", "pg_stat_activity"}),
+            schemas=frozenset({INFORMATION_SCHEMA}),
             relations=frozenset(
                 {
                     "pg_catalog.svv_table_info",
                     "pg_catalog.svv_external_schemas",
                     "pg_catalog.svv_redshift_databases",
+                    "pg_catalog.svv_redshift_schemas",
+                    "pg_catalog.svv_datashares",
+                    "pg_catalog.svv_mv_info",
+                    "pg_catalog.pg_class",
+                    "pg_catalog.pg_namespace",
                 }
             ),
         )

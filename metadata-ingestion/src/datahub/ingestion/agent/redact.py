@@ -60,7 +60,12 @@ def redact(payload: object, secret_values: Set[str]) -> object:
         # transformed or encoded on the way out. Over-masking is the safe
         # failure, so it stays.
         redacted = payload
-        for secret in secret_values:
+        # Longest first. Two registered secrets can overlap -- a password and a
+        # connection string containing it, say -- and replacing the shorter one
+        # first destroys the match for the longer, leaving its tail in the output
+        # ("***SECRETTAIL"). Set iteration order is arbitrary, so without this the
+        # leak is real but intermittent.
+        for secret in sorted(secret_values, key=len, reverse=True):
             if not secret:
                 continue
             if len(secret) < _MIN_SUBSTRING_SECRET_LEN:

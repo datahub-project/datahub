@@ -56,3 +56,22 @@ def test_a_realistic_secret_is_still_masked_inside_longer_text():
         {"hunter2"},
     )
     assert "hunter2" not in str(out)
+
+
+def test_overlapping_secrets_are_masked_longest_first():
+    """A shorter secret must not be replaced first and strand the longer one's tail.
+
+    Two registered secrets can overlap -- a password and a connection string
+    containing it. Replacing the short one first destroys the match for the long
+    one, leaving its remainder in the output. Set iteration order is arbitrary, so
+    the leak was real but intermittent; the loop range makes the check
+    order-independent rather than lucky.
+    """
+    for i in range(40):
+        short = f"pw{i}a"
+        long = short + "SECRETTAIL"
+        out = redact("conn=" + long + ";x", {short, long})
+        assert isinstance(out, str)
+        assert "SECRETTAIL" not in out, (
+            f"leaked tail for {{{short!r}, {long!r}}}: {out!r}"
+        )

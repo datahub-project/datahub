@@ -47,10 +47,34 @@ class CatalogScope:
     # and its query-text views.
     excluded_relations: FrozenSet[str] = field(default_factory=frozenset)
 
-    def permits(self, schema: str, relation: str) -> bool:
+    def permits_path(self, parts: List[str]) -> bool:
+        """Whether a reference, given as its dotted path parts, is in scope.
+
+        A `relations` entry is matched against the *suffix* of the reference, so an
+        entry may pin as much of the path as it needs to. Two parts
+        ("pg_catalog.svv_table_info") name a schema and relation and accept any
+        catalog above them. Three parts ("snowflake.account_usage.tables") pin the
+        catalog as well, which is the only way to tell a system schema from a
+        user-created one wearing the same name: nothing stops somebody creating a
+        database whose schema is called ACCOUNT_USAGE, and matching only the last
+        two segments would read their tables as though they were Snowflake's.
+        """
+        schema, relation = parts[-2], parts[-1]
         if schema.lower() in {s.lower() for s in self.schemas}:
             return relation.lower() not in {r.lower() for r in self.excluded_relations}
-        return f"{schema}.{relation}".lower() in {r.lower() for r in self.relations}
+        lowered = [part.lower() for part in parts]
+        for entry in self.relations:
+            entry_parts = entry.lower().split(".")
+            if len(entry_parts) > len(lowered):
+                # The entry pins more of the path than the reference supplies, so
+                # the reference cannot be shown to be that relation.
+                continue
+            if lowered[-len(entry_parts) :] == entry_parts:
+                return True
+        return False
+
+    def permits(self, schema: str, relation: str) -> bool:
+        return self.permits_path([schema, relation])
 
     def permits_unqualified(self, relation: str) -> bool:
         return relation.lower() in {r.lower() for r in self.relations if "." not in r}
@@ -248,10 +272,9 @@ def _check_table(table: exp.Table, scope: CatalogScope, cte_names: Set[str]) -> 
             f"use one of the relations this source lists"
         )
 
-    relation, schema = parts[-1], parts[-2]
     rendered = ".".join(parts)
 
-    if not scope.permits(schema, relation):
+    if not scope.permits_path(parts):
         raise SqlScopeError(
             f"'{rendered}' is outside the catalog metadata this probe may read; "
             f"this source permits {scope.describe()}"

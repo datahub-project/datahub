@@ -34,38 +34,92 @@ def _postgres_timeout(seconds: int) -> Dict[str, Any]:
     return {"options": f"-c statement_timeout={seconds * 1000}"}
 
 
-def _mysql_timeout(seconds: int) -> Dict[str, Any]:
-    # MySQL 5.7.8+; the server aborts the statement itself. MariaDB spells this
-    # max_statement_time (and in seconds), which is why mariadb is not listed.
-    return {"init_command": f"SET SESSION max_execution_time={seconds * 1000}"}
-
-
 _TIMEOUT_CONNECT_ARGS: Dict[str, Any] = {
     "postgresql": _postgres_timeout,
     "postgres": _postgres_timeout,
     "redshift": _postgres_timeout,
     "cockroachdb": _postgres_timeout,
-    "mysql": _mysql_timeout,
 }
+
+# The MySQL family cannot use connect_args at all. MySQL 5.7.8+ bounds a statement
+# with max_execution_time (milliseconds); MariaDB uses max_statement_time (seconds)
+# and errors on the MySQL name. Both share the mysql+pymysql scheme -- MariaDB's
+# source is declared @config_class(MySQLConfig) -- so the URL cannot tell them
+# apart, and an init_command naming the wrong variable does not degrade the probe:
+# it runs on every connection and stops the connector connecting at all.
+#
+# So the statement is issued after connecting, where failure is survivable, and
+# whichever variable the server has wins. A server with neither runs unbounded,
+# which is the correct outcome for a dialect that offers no ceiling.
+_MYSQL_SCHEMES = frozenset({"mysql", "mariadb"})
+
+_MYSQL_TIMEOUT_STATEMENTS = (
+    "SET SESSION max_execution_time={ms}",
+    "SET SESSION max_statement_time={seconds}",
+)
+
+
+def _install_mysql_statement_timeout(engine: Any, seconds: int) -> None:
+    """Ask a MySQL-or-MariaDB server to bound each statement, after connecting."""
+    # lazy: sqlalchemy is only needed once a probe actually runs
+    from sqlalchemy import event
+
+    def _set_timeout(dbapi_connection: Any, _record: Any) -> None:
+        for template in _MYSQL_TIMEOUT_STATEMENTS:
+            statement = template.format(ms=seconds * 1000, seconds=seconds)
+            try:
+                cursor = dbapi_connection.cursor()
+                try:
+                    cursor.execute(statement)
+                finally:
+                    cursor.close()
+                return
+            except Exception:
+                # Unknown system variable on this server; try the other spelling.
+                continue
+
+    # event.listen rather than the @event.listens_for decorator: the decorator is
+    # untyped, so applying it would make _set_timeout untyped to mypy.
+    event.listen(engine, "connect", _set_timeout)
+
+
+def _scheme_of(url: str) -> str:
+    return url.split("://", 1)[0].split("+", 1)[0].lower()
+
+
+def install_statement_timeout(engine: Any, url: str, seconds: Optional[int]) -> None:
+    """Apply a statement ceiling that connect_args cannot carry, if this dialect
+    needs one. A no-op for every dialect whose ceiling is already on the engine."""
+    if seconds is None or seconds <= 0:
+        return
+    if _scheme_of(url) in _MYSQL_SCHEMES:
+        _install_mysql_statement_timeout(engine, seconds)
 
 
 def _timeout_connect_args(url: str, seconds: Optional[int]) -> Dict[str, Any]:
     if seconds is None or seconds <= 0:
         return {}
-    scheme = url.split("://", 1)[0].split("+", 1)[0].lower()
-    builder = _TIMEOUT_CONNECT_ARGS.get(scheme)
+    builder = _TIMEOUT_CONNECT_ARGS.get(_scheme_of(url))
     return builder(seconds) if builder else {}
+
+
+def applies_statement_timeout(url: str, seconds: Optional[int]) -> bool:
+    """Whether this dialect gets a server-side statement ceiling, by any route."""
+    if seconds is None or seconds <= 0:
+        return False
+    scheme = _scheme_of(url)
+    return scheme in _TIMEOUT_CONNECT_ARGS or scheme in _MYSQL_SCHEMES
 
 
 def effective_budget(url: str, budget: QueryBudget) -> QueryBudget:
     """The budget as it will actually be enforced for this dialect.
 
-    The declared default carries a timeout, but only the dialects above have a
-    knob to apply it through. Reporting the declared value on the rest would be
-    the failure the QueryBudget docstring warns about -- a ceiling that reads as
-    present and is not -- so the timeout is dropped where nothing applies it.
+    The declared default carries a timeout, but only some dialects have a knob to
+    apply it through. Reporting the declared value on the rest would be the failure
+    the QueryBudget docstring warns about -- a ceiling that reads as present and is
+    not -- so the timeout is dropped where nothing applies it.
     """
-    if _timeout_connect_args(url, budget.timeout_seconds):
+    if applies_statement_timeout(url, budget.timeout_seconds):
         return budget
     return QueryBudget(timeout_seconds=None, max_bytes_billed=budget.max_bytes_billed)
 

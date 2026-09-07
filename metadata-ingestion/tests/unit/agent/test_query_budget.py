@@ -105,12 +105,42 @@ def test_snowflake_asks_the_server_to_stop_rather_than_stopping_waiting():
     assert issued.index(timeout_statements[0]) < issued.index("SELECT 1")
 
 
+def test_the_mysql_family_gets_no_connect_arg_because_mariadb_shares_its_scheme():
+    """A connect_arg here would stop MariaDB connecting at all.
+
+    MySQL 5.7.8+ bounds a statement with max_execution_time (ms); MariaDB uses
+    max_statement_time (seconds) and errors on the MySQL name. MariaDB's source is
+    declared @config_class(MySQLConfig) and inherits scheme "mysql+pymysql", so the
+    URL cannot tell them apart -- and an init_command naming the wrong variable runs
+    on every connection, which is a connection failure rather than a slow probe.
+
+    The ceiling still applies; it is issued after connecting instead, where the
+    wrong spelling is survivable. So this asserts the absence of the connect_arg
+    AND that the budget still reports a ceiling.
+    """
+    from datahub.ingestion.source.sql.sql_probe import (
+        applies_statement_timeout,
+        effective_budget,
+        engine_options,
+    )
+
+    class _Config:
+        def get_sql_alchemy_url(self) -> str:
+            return "mysql+pymysql://u:p@h/db"
+
+    options = engine_options(_Config(), budget=QueryBudget(timeout_seconds=30))
+    assert "init_command" not in str(options.get("connect_args", {}))
+
+    url = "mysql+pymysql://u:p@h/db"
+    assert applies_statement_timeout(url, 30)
+    assert effective_budget(url, QueryBudget(timeout_seconds=30)).timeout_seconds == 30
+
+
 @pytest.mark.parametrize(
     "url,expected_fragment",
     [
         ("postgresql://u:p@h/db", "statement_timeout"),
         ("redshift+psycopg2://u:p@h/db", "statement_timeout"),
-        ("mysql+pymysql://u:p@h/db", "max_execution_time"),
     ],
 )
 def test_the_sqlalchemy_family_gets_a_timeout_through_its_engine(

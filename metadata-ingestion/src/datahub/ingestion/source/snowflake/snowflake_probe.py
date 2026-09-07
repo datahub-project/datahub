@@ -23,8 +23,13 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 #   users                           names and email addresses. Ingestion reads it to
 #                                   map ownership; that is personal data, and a probe
 #                                   result is read into a model's context.
+# Catalog-qualified on purpose. ACCOUNT_USAGE is a schema inside the SNOWFLAKE
+# database, but nothing stops a user creating their own database with a schema of
+# that name -- and a two-part entry would match the last two path segments of
+# ATTACKER_DB.ACCOUNT_USAGE.TABLES just as happily as the real system view,
+# handing back that user's rows. Pinning the catalog is what distinguishes them.
 _ACCOUNT_USAGE_RELATIONS = frozenset(
-    f"account_usage.{view}"
+    f"snowflake.account_usage.{view}"
     for view in (
         "databases",
         "schemata",
