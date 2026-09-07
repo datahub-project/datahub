@@ -149,15 +149,16 @@ def test_emits_semantic_model_metric_and_logical_dataset(mapper: Mapper) -> None
     sm_urn = next(
         mcp.entityUrn for mcp in mcps if isinstance(mcp.aspect, SemanticModelInfoClass)
     )
+    assert sm_urn is not None
     assert sm_urn.startswith("urn:li:semanticModel:")
 
     # The table keeps its dataset URN but becomes a Semantic Model Dataset.
     subtypes = [
-        mcp
+        mcp.aspect
         for mcp in mcps
         if mcp.entityUrn == _DS_URN and isinstance(mcp.aspect, SubTypesClass)
     ]
-    assert subtypes[0].aspect.typeNames == [DatasetSubTypes.SEMANTIC_MODEL_DATASET]
+    assert subtypes[0].typeNames == [DatasetSubTypes.SEMANTIC_MODEL_DATASET]
 
     props = [
         mcp.aspect
@@ -176,6 +177,7 @@ def test_field_annotations_distinguish_measure_from_dimension(mapper: Mapper) ->
         mcp.entityUrn: mcp.aspect
         for mcp in mcps
         if isinstance(mcp.aspect, SemanticFieldAnnotationClass)
+        and mcp.entityUrn is not None
     }
     measure_ann = next(a for urn, a in annotations.items() if "Total Trips" in urn)
     dim_ann = next(a for urn, a in annotations.items() if "pickup_date" in urn)
@@ -260,6 +262,7 @@ def test_platform_instance_scopes_model_and_metric_urns() -> None:
     metric_urn = next(
         mcp.entityUrn for mcp in mcps if isinstance(mcp.aspect, MetricInfoClass)
     )
+    assert sm_urn is not None and metric_urn is not None
     # The instance is embedded in the shared identity path exactly once (the key
     # aspects have no instance field of their own), so instances that reuse the
     # same workspace/dataset IDs no longer collide.
