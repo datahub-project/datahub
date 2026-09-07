@@ -23,9 +23,7 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "location": "s3://warehouse/wh",
-                "namespace_id": "01a0761c-7eb1-7662-aa8e-74b3fa911157",
-                "owner": "root"
+                "location": "s3a://warehouse/wh/nyc"
             },
             "name": "nyc",
             "qualifiedName": "nyc",
@@ -62,18 +60,22 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "write.format.default": "parquet",
                 "owner": "root",
-                "location": "s3://warehouse/wh/01a0761c-7fe6-7fc1-8dd8-f8f0576aef75",
-                "format-version": "2",
+                "created-at": "2025-03-19T21:18:14.546679716Z",
+                "write.format.default": "parquet",
+                "location": "s3a://warehouse/wh/nyc/taxis",
+                "format-version": "1",
                 "partition-spec": "[{\"name\": \"trip_date\", \"transform\": \"identity\", \"source\": \"trip_date\", \"source-id\": 2, \"source-type\": \"timestamptz\", \"field-id\": 1000}]",
-                "snapshot-id": "1425333966738229612",
-                "manifest-list": "s3://warehouse/wh/01a0761c-7fe6-7fc1-8dd8-f8f0576aef75/metadata/snap-1425333966738229612-1-76beb980-13cc-4743-87c3-add853cdf101.avro"
+                "snapshot-id": "619209364256161352",
+                "manifest-list": "s3a://warehouse/wh/nyc/taxis/metadata/snap-619209364256161352-1-c017d37f-7fe5-4772-858f-20bc8bcbd40c.avro"
             },
             "name": "taxis",
             "qualifiedName": "nyc.taxis",
+            "created": {
+                "time": 1742419094546
+            },
             "lastModified": {
-                "time": 1788687976191
+                "time": 1742419096166
             },
             "tags": []
         }
@@ -301,6 +303,7 @@
             },
             "rowCount": 5,
             "columnCount": 6,
+            "sizeInBytes": 7451,
             "fieldProfiles": [
                 {
                     "fieldPath": "vendor_id",
@@ -342,8 +345,7 @@
                     "nullCount": 0,
                     "nullProportion": 0.0
                 }
-            ],
-            "sizeInBytes": 7839
+            ]
         }
     },
     "systemMetadata": {
