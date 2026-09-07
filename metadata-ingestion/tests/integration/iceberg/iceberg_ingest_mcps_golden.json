@@ -23,9 +23,7 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "location": "s3://warehouse/wh",
-                "namespace_id": "01a0761a-7141-7982-8977-7b2672c12e9c",
-                "owner": "root"
+                "location": "s3a://warehouse/wh/nyc"
             },
             "name": "nyc",
             "qualifiedName": "nyc",
@@ -62,18 +60,22 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "write.format.default": "parquet",
                 "owner": "root",
-                "location": "s3://warehouse/wh/01a07619-c9f4-7b40-9d8c-3a9ef23e3d2b",
-                "format-version": "2",
+                "created-at": "2025-03-19T21:17:06.624715545Z",
+                "write.format.default": "parquet",
+                "location": "s3a://warehouse/wh/nyc/taxis",
+                "format-version": "1",
                 "partition-spec": "[{\"name\": \"trip_date\", \"transform\": \"identity\", \"source\": \"trip_date\", \"source-id\": 2, \"source-type\": \"timestamptz\", \"field-id\": 1000}]",
-                "snapshot-id": "2222066000199264269",
-                "manifest-list": "s3://warehouse/wh/01a07619-c9f4-7b40-9d8c-3a9ef23e3d2b/metadata/snap-2222066000199264269-1-b816bdc1-57f3-4a20-836a-454a882df68b.avro"
+                "snapshot-id": "3974925306106521667",
+                "manifest-list": "s3a://warehouse/wh/nyc/taxis/metadata/snap-3974925306106521667-1-12108a06-7bab-4fe4-b7a2-97029eefb051.avro"
             },
             "name": "taxis",
             "qualifiedName": "nyc.taxis",
+            "created": {
+                "time": 1742419026624
+            },
             "lastModified": {
-                "time": 1788687798550
+                "time": 1742419028234
             },
             "tags": []
         }
