@@ -560,6 +560,18 @@
     "duration": "0.713s"
   },
   {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-semantic-model-entities-platform-instance]",
+    "duration": "0.400s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-semantic-model-entities]",
+    "duration": "0.400s"
+  },
+  {
+    "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-semantic-models-legacy]",
+    "duration": "0.600s"
+  },
+  {
     "testId": "tests.integration.dbt.test_dbt::test_dbt_ingest[dbt-test-target-platform-primary-siblings]",
     "duration": "0.801s"
   },

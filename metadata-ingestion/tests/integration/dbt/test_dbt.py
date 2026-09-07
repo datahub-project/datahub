@@ -331,6 +331,40 @@ class DbtTestConfig:
             manifest_file="dbt_manifest_with_queries.json",
             source_config_modifiers={},  # queries enabled by default via entities_enabled.queries
         ),
+        # Pins the legacy behaviour: semantic models as datasets with subtype
+        # "Semantic Model". This is what "unchanged when the flag is off" means.
+        DbtTestConfig(
+            "dbt-test-semantic-models-legacy",
+            "dbt_test_semantic_models_legacy.json",
+            "dbt_test_semantic_models_legacy_golden.json",
+            manifest_file="dbt_manifest_semantic_models.json",
+            catalog_file="sample_dbt_catalog_2.json",
+            sources_file="sample_dbt_sources_2.json",
+            source_config_modifiers={},
+        ),
+        DbtTestConfig(
+            "dbt-test-semantic-model-entities",
+            "dbt_test_semantic_model_entities.json",
+            "dbt_test_semantic_model_entities_golden.json",
+            manifest_file="dbt_manifest_semantic_models.json",
+            catalog_file="sample_dbt_catalog_2.json",
+            sources_file="sample_dbt_sources_2.json",
+            source_config_modifiers={"emit_semantic_model_entities": True},
+        ),
+        # platform_instance is the easiest thing to get wrong: it must be
+        # folded into the semanticModel path but not the dataset name.
+        DbtTestConfig(
+            "dbt-test-semantic-model-entities-platform-instance",
+            "dbt_test_semantic_model_entities_platform_instance.json",
+            "dbt_test_semantic_model_entities_platform_instance_golden.json",
+            manifest_file="dbt_manifest_semantic_models.json",
+            catalog_file="sample_dbt_catalog_2.json",
+            sources_file="sample_dbt_sources_2.json",
+            source_config_modifiers={
+                "emit_semantic_model_entities": True,
+                "platform_instance": "dbt-instance-1",
+            },
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
