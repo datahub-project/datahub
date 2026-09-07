@@ -62,6 +62,9 @@ from datahub.ingestion.api.incremental_lineage_helper import (
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.common.semantic_model_gate import (
+    resolve_emit_semantic_model_entities,
+)
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,

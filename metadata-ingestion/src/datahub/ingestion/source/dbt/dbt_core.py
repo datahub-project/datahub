@@ -1,7 +1,7 @@
 import dataclasses
 import json
 import logging
-from typing import Any, Dict, List, Literal, Optional, Tuple, cast
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple, cast
 
 from packaging import version
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -35,6 +35,7 @@ from datahub.ingestion.source.common.object_store_files import (
 from datahub.ingestion.source.dbt.dbt_common import (
     DBT_EXPOSURE_MATURITY,
     DBT_EXPOSURE_TYPES,
+    METRIC_TYPE_SIMPLE,
     DBTColumn,
     DBTCommonConfig,
     DBTExposure,
@@ -44,7 +45,6 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
-    METRIC_TYPE_SIMPLE,
     convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
     parse_semantic_model_definition,
@@ -517,9 +517,7 @@ def _metric_input(value: Any) -> Optional[DBTMetricInput]:
 def _metric_inputs(values: Any) -> List[DBTMetricInput]:
     if not isinstance(values, list):
         return []
-    return [
-        parsed for parsed in (_metric_input(value) for value in values) if parsed
-    ]
+    return [parsed for parsed in (_metric_input(value) for value in values) if parsed]
 
 
 def _dedupe_metric_inputs(inputs: List[DBTMetricInput]) -> List[DBTMetricInput]:

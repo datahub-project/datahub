@@ -13,6 +13,7 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt import dbt_cloud
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
+    DEFAULT_PROJECT_NAME,
     DBTColumn,
     DBTEntitiesEnabled,
     DBTExposure,
@@ -4650,3 +4651,87 @@ def test_load_file_as_json_handles_utf8_bom():
         assert DBTCoreSource.load_file_as_json(
             "https://example.com/manifest.json", None
         ) == {"nodes": {}}
+
+
+def _semantic_model_source(**config_overrides: Any) -> DBTCoreSource:
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config_dict = create_base_dbt_config()
+    config_dict.update(config_overrides)
+    return DBTCoreSource(DBTCoreConfig(**config_dict), ctx)
+
+
+def test_emit_semantic_model_entities_defaults_to_off():
+    """Existing semantic-model dataset URNs must stay stable by default."""
+    source = _semantic_model_source()
+    assert source.config.emit_semantic_model_entities is None
+    assert source._emit_semantic_model_entities() is False
+    assert source.report.semantic_model_emission_effective is False
+
+
+def test_emit_semantic_model_entities_enabled_without_a_graph():
+    """OSS semantics: an explicit recipe opt-in is honoured with no graph."""
+    source = _semantic_model_source(emit_semantic_model_entities=True)
+    assert source._emit_semantic_model_entities() is True
+    assert source.report.semantic_model_emission_reason is not None
+
+
+def test_resolve_semantic_model_project_name_prefers_the_config_override():
+    source = _semantic_model_source(semantic_model_project_name="pinned")
+    source._project_name = "from_manifest"
+    assert source._resolve_semantic_model_project_name([]) == "pinned"
+
+
+def test_resolve_semantic_model_project_name_uses_the_manifest_name():
+    source = _semantic_model_source()
+    source._project_name = "from_manifest"
+    assert source._resolve_semantic_model_project_name([]) == "from_manifest"
+
+
+def test_resolve_semantic_model_project_name_falls_back_to_the_package_name():
+    """dbt Cloud has no manifest metadata, but does return packageName."""
+    source = _semantic_model_source()
+    nodes = [
+        _make_semantic_model_node("orders", package_name="jaffle_shop"),
+        _make_semantic_model_node("customers", package_name="jaffle_shop"),
+        _make_semantic_model_node("vendored", package_name="some_package"),
+    ]
+    assert source._resolve_semantic_model_project_name(nodes) == "jaffle_shop"
+
+
+def test_resolve_semantic_model_project_name_warns_when_undeterminable():
+    """The generic fallback must not silently become part of every URN."""
+    source = _semantic_model_source()
+    assert source._resolve_semantic_model_project_name([]) == DEFAULT_PROJECT_NAME
+    assert any(
+        w.title == "Could not determine the dbt project name"
+        for w in source.report.warnings
+    )
+
+
+def _make_semantic_model_node(name: str, *, package_name: str) -> DBTNode:
+    return DBTNode(
+        database="analytics",
+        schema="public",
+        name=name,
+        alias=name,
+        dbt_name=f"semantic_model.{package_name}.{name}",
+        dbt_adapter="snowflake",
+        node_type="semantic_model",
+        max_loaded_at=None,
+        materialization=None,
+        comment="",
+        description="",
+        dbt_file_path=None,
+        catalog_type=None,
+        language="yaml",
+        raw_code=None,
+        dbt_package_name=package_name,
+        missing_from_catalog=False,
+        owner=None,
+        semantic_model_def=parse_semantic_model_definition(
+            {
+                "entities": [{"name": f"{name}_id", "type": "primary"}],
+                "measures": [{"name": "total", "agg": "sum"}],
+            }
+        ),
+    )

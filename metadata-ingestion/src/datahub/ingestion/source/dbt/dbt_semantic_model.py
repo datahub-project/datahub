@@ -22,6 +22,7 @@ from datahub.metadata.schema_classes import (
     SemanticFieldTypeClass,
 )
 from datahub.metadata.urns import MetricUrn, SemanticModelUrn
+from datahub.sdk.dataset import UpstreamLineageInputType
 from datahub.sdk.metric import Metric
 from datahub.sdk.semantic_model import (
     DialectExpressionInput,
@@ -280,11 +281,11 @@ class DbtSemanticModelMapper:
 
     def _upstreams(
         self, node: DBTNode, all_nodes_map: Dict[str, DBTNode]
-    ) -> List[str]:
+    ) -> UpstreamLineageInputType:
         # Reuses the shared helper so semantic-model lineage honours
         # skip_sources_in_lineage, ephemeral nodes and target_platform_instance
         # exactly as every other dbt edge does.
-        return get_upstreams(
+        upstream_urns: List[str] = get_upstreams(
             upstreams=node.upstream_nodes,
             all_nodes=all_nodes_map,
             target_platform=self.config.target_platform,
@@ -293,6 +294,7 @@ class DbtSemanticModelMapper:
             platform_instance=self.config.platform_instance,
             skip_sources_in_lineage=self.config.skip_sources_in_lineage,
         )
+        return list(upstream_urns)
 
     def _semantic_fields(
         self, node: DBTNode, definition: DBTSemanticModelDefinition
@@ -317,7 +319,11 @@ class DbtSemanticModelMapper:
             )
         for dimension in definition.dimensions:
             self._add_field(
-                fields, node, dimension.name, "dimension", self._dimension_field(dimension)
+                fields,
+                node,
+                dimension.name,
+                "dimension",
+                self._dimension_field(dimension),
             )
         for measure in definition.measures:
             self._add_field(
