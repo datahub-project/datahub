@@ -39,10 +39,12 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTCommonConfig,
     DBTExposure,
     DBTNode,
+    DBTSemanticModelDefinition,
     DBTSourceBase,
     DBTSourceReport,
     convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
+    parse_semantic_model_definition,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
@@ -939,16 +941,10 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     )
 
         columns: List[DBTColumn] = []
+        semantic_model_def: Optional[DBTSemanticModelDefinition] = None
         if resource_type == "semantic_model":
-            # For semantic models, convert entities/dimensions/measures to columns
-            entities = node.get("entities", [])
-            dimensions = node.get("dimensions", [])
-            measures = node.get("measures", [])
-            columns = convert_semantic_model_fields_to_columns(
-                entities=entities,
-                dimensions=dimensions,
-                measures=measures,
-            )
+            semantic_model_def = parse_semantic_model_definition(node)
+            columns = convert_semantic_model_fields_to_columns(semantic_model_def)
         elif "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = list(
@@ -996,6 +992,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             test_results=[test_result] if test_result else [],
             model_performances=[],  # TODO: support model performance with dbt Cloud
             freshness_info=freshness_info,
+            semantic_model_def=semantic_model_def,
         )
 
     def _parse_into_dbt_column(

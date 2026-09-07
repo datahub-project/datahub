@@ -20,11 +20,9 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceReport,
     EmitDirective,
     NullTypeClass,
-    SemanticModelDimension,
-    SemanticModelEntity,
-    SemanticModelMeasure,
     convert_semantic_model_fields_to_columns,
     get_column_type,
+    parse_semantic_model_definition,
     parse_semantic_view_cll,
 )
 from datahub.ingestion.source.dbt.dbt_core import (
@@ -3474,20 +3472,36 @@ def test_extract_catalog_stats_partial_only_row_count() -> None:
 
 def test_convert_semantic_model_fields_to_columns_basic():
     """Test converting semantic model entities, dimensions, and measures to columns."""
-    entities: list[SemanticModelEntity] = [
-        {"name": "order_id", "type": "primary", "description": "Primary order key"},
-        {"name": "customer_id", "type": "foreign", "description": ""},
-    ]
-    dimensions: list[SemanticModelDimension] = [
-        {"name": "order_date", "type": "time", "description": "When order was placed"},
-        {"name": "status", "type": "categorical", "description": ""},
-    ]
-    measures: list[SemanticModelMeasure] = [
-        {"name": "total_revenue", "agg": "sum", "description": "Sum of order amounts"},
-        {"name": "order_count", "agg": "count", "description": ""},
-    ]
+    definition = parse_semantic_model_definition(
+        {
+            "entities": [
+                {
+                    "name": "order_id",
+                    "type": "primary",
+                    "description": "Primary order key",
+                },
+                {"name": "customer_id", "type": "foreign", "description": ""},
+            ],
+            "dimensions": [
+                {
+                    "name": "order_date",
+                    "type": "time",
+                    "description": "When order was placed",
+                },
+                {"name": "status", "type": "categorical", "description": ""},
+            ],
+            "measures": [
+                {
+                    "name": "total_revenue",
+                    "agg": "sum",
+                    "description": "Sum of order amounts",
+                },
+                {"name": "order_count", "agg": "count", "description": ""},
+            ],
+        }
+    )
 
-    columns = convert_semantic_model_fields_to_columns(entities, dimensions, measures)
+    columns = convert_semantic_model_fields_to_columns(definition)
 
     assert len(columns) == 6
 
@@ -3510,17 +3524,17 @@ def test_convert_semantic_model_fields_to_columns_basic():
 
 def test_convert_semantic_model_fields_empty_descriptions():
     """Test default description generation when descriptions are empty."""
-    entities: list[SemanticModelEntity] = [
-        {"name": "id", "type": "primary", "description": ""},
-    ]
-    dimensions: list[SemanticModelDimension] = [
-        {"name": "category", "type": "categorical", "description": ""},
-    ]
-    measures: list[SemanticModelMeasure] = [
-        {"name": "total", "agg": "sum", "description": ""},
-    ]
+    definition = parse_semantic_model_definition(
+        {
+            "entities": [{"name": "id", "type": "primary", "description": ""}],
+            "dimensions": [
+                {"name": "category", "type": "categorical", "description": ""}
+            ],
+            "measures": [{"name": "total", "agg": "sum", "description": ""}],
+        }
+    )
 
-    columns = convert_semantic_model_fields_to_columns(entities, dimensions, measures)
+    columns = convert_semantic_model_fields_to_columns(definition)
 
     assert len(columns) == 3
 
@@ -3679,6 +3693,72 @@ def test_extract_semantic_models_basic():
     # Check tags have prefix
     assert "dbt:metrics" in node.tags
     assert "dbt:orders" in node.tags
+
+    # The typed definition is retained alongside the flattened columns; the
+    # first-class semanticModel path reads it instead of the columns.
+    definition = node.semantic_model_def
+    assert definition is not None
+    assert [e.name for e in definition.entities] == ["order_id"]
+    assert definition.entities[0].is_key
+    assert definition.dimensions[0].is_time
+    assert definition.dimensions[0].time_granularity is None
+    assert definition.measures[0].agg == "sum"
+    assert not definition.measures[0].create_metric
+
+
+def test_parse_semantic_model_definition_camel_and_snake_case_agree():
+    """dbt Core sends snake_case; the dbt Cloud Discovery API sends camelCase."""
+    snake = parse_semantic_model_definition(
+        {
+            "primary_entity": "orders",
+            "dimensions": [
+                {
+                    "name": "ordered_at",
+                    "type": "time",
+                    "type_params": {"time_granularity": "day", "is_primary": True},
+                }
+            ],
+            "measures": [
+                {"name": "revenue", "agg": "sum", "create_metric": True},
+            ],
+        }
+    )
+    camel = parse_semantic_model_definition(
+        {
+            "primaryEntity": "orders",
+            "dimensions": [
+                {
+                    "name": "ordered_at",
+                    "type": "time",
+                    "typeParams": {"timeGranularity": "day", "is_primary": True},
+                }
+            ],
+            "measures": [
+                {"name": "revenue", "agg": "sum", "createMetric": True},
+            ],
+        }
+    )
+
+    assert snake == camel
+    assert snake.primary_entity == "orders"
+    assert snake.dimensions[0].time_granularity == "day"
+    assert snake.dimensions[0].is_primary_time
+    assert snake.measures[0].create_metric
+
+
+def test_parse_semantic_model_definition_tolerates_missing_and_empty_sections():
+    """dbt Cloud returns `typeParams: {}` and omits sections entirely."""
+    definition = parse_semantic_model_definition(
+        {"dimensions": [{"name": "status", "type": "categorical", "typeParams": {}}]}
+    )
+
+    assert definition.entities == []
+    assert definition.measures == []
+    assert definition.primary_entity is None
+    assert definition.dimensions[0].time_granularity is None
+    assert not definition.dimensions[0].is_time
+    assert not definition.is_empty()
+    assert parse_semantic_model_definition({}).is_empty()
 
 
 def test_extract_semantic_models_fallback_to_depends_on():

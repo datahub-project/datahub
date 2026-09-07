@@ -13,12 +13,11 @@ from typing import (
     Iterable,
     List,
     Literal,
+    Mapping,
     Optional,
-    Sequence,
     Set,
     Tuple,
     Type,
-    TypedDict,
     Union,
 )
 
@@ -842,86 +841,200 @@ class DBTColumn:
     datahub_data_type: Optional[SchemaFieldDataType] = None
 
 
-# Semantic model constants and types
-SEMANTIC_MODEL_UNKNOWN_DATA_TYPE = "UNKNOWN"
+# dbt defaults applied at parse time so the legacy flattened-column
+# representation stays byte-identical to the pre-dataclass `.get(key, default)`
+# behavior. The semantic-model mapper re-normalizes these itself.
+SEMANTIC_ENTITY_TYPE_UNKNOWN = "unknown"
+SEMANTIC_DIMENSION_TYPE_CATEGORICAL = "categorical"
+SEMANTIC_MEASURE_AGG_UNKNOWN = "unknown"
+
+# Entity types that identify a row: valid join targets, and part of the key.
+SEMANTIC_KEY_ENTITY_TYPES = frozenset({"primary", "unique", "natural"})
+# Entity types that reference another semantic model: valid join sources.
+SEMANTIC_JOIN_SOURCE_ENTITY_TYPES = frozenset({"foreign", "unique", "natural"})
+
+SEMANTIC_DIMENSION_TYPE_TIME = "time"
 
 
-class SemanticModelEntity(TypedDict, total=False):
-    """TypedDict for dbt semantic model entity definition."""
-
+@dataclass
+class DBTSemanticEntity:
     name: str
-    type: str  # e.g., "primary", "foreign", "natural"
-    description: str
-    expr: str
+    type: Optional[str]
+    description: Optional[str]
+    expr: Optional[str]
+
+    @property
+    def is_key(self) -> bool:
+        return (self.type or "").lower() in SEMANTIC_KEY_ENTITY_TYPES
+
+    @property
+    def is_join_source(self) -> bool:
+        return (self.type or "").lower() in SEMANTIC_JOIN_SOURCE_ENTITY_TYPES
 
 
-class SemanticModelDimension(TypedDict, total=False):
-    """TypedDict for dbt semantic model dimension definition."""
-
+@dataclass
+class DBTSemanticDimension:
     name: str
-    type: str  # e.g., "categorical", "time"
-    description: str
-    expr: str
-    type_params: Dict[str, Any]  # For time dimensions: time_granularity, etc.
+    type: Optional[str]
+    description: Optional[str]
+    expr: Optional[str]
+    time_granularity: Optional[str] = None
+    is_primary_time: bool = False
+
+    @property
+    def is_time(self) -> bool:
+        return (self.type or "").lower() == SEMANTIC_DIMENSION_TYPE_TIME
 
 
-class SemanticModelMeasure(TypedDict, total=False):
-    """TypedDict for dbt semantic model measure definition."""
-
+@dataclass
+class DBTSemanticMeasure:
     name: str
-    agg: str  # Aggregation type: sum, count, average, min, max, count_distinct
-    description: str
-    expr: str
-    create_metric: bool
+    agg: Optional[str]
+    description: Optional[str]
+    expr: Optional[str]
+    create_metric: bool = False
+    agg_time_dimension: Optional[str] = None
+
+
+@dataclass
+class DBTSemanticModelDefinition:
+    entities: List[DBTSemanticEntity] = field(default_factory=list)
+    dimensions: List[DBTSemanticDimension] = field(default_factory=list)
+    measures: List[DBTSemanticMeasure] = field(default_factory=list)
+    # dbt allows declaring `primary_entity` on the semantic model instead of
+    # listing an entity of type `primary`; MetricFlow joins on it either way.
+    primary_entity: Optional[str] = None
+
+    def is_empty(self) -> bool:
+        return not (self.entities or self.dimensions or self.measures)
+
+
+def _first_present(raw: Mapping[str, Any], *keys: str) -> Any:
+    """Read the first key that is present and non-None.
+
+    The dbt manifest uses snake_case (`type_params`, `create_metric`) while the
+    dbt Cloud Discovery API returns camelCase (`typeParams`, `createMetric`).
+    """
+    for key in keys:
+        value = raw.get(key)
+        if value is not None:
+            return value
+    return None
+
+
+def _optional_str(value: Any) -> Optional[str]:
+    return value if isinstance(value, str) else None
+
+
+def parse_semantic_model_definition(
+    raw: Mapping[str, Any],
+) -> DBTSemanticModelDefinition:
+    """Parse a raw semantic model node into a typed definition.
+
+    Accepts either a manifest.json `semantic_models` entry or a dbt Cloud
+    Discovery API `semanticModels` node.
+    """
+    entities = [
+        DBTSemanticEntity(
+            name=raw_entity["name"],
+            # Defaulted here, not at use, to preserve the legacy column
+            # `data_type` strings exactly (see the constants above).
+            type=raw_entity.get("type", SEMANTIC_ENTITY_TYPE_UNKNOWN),
+            description=raw_entity.get("description", ""),
+            expr=_optional_str(raw_entity.get("expr")),
+        )
+        for raw_entity in _iter_mappings(raw.get("entities"))
+    ]
+
+    dimensions = []
+    for raw_dimension in _iter_mappings(raw.get("dimensions")):
+        type_params = _first_present(raw_dimension, "type_params", "typeParams")
+        if not isinstance(type_params, Mapping):
+            type_params = {}
+        dimensions.append(
+            DBTSemanticDimension(
+                name=raw_dimension["name"],
+                type=raw_dimension.get("type", SEMANTIC_DIMENSION_TYPE_CATEGORICAL),
+                description=raw_dimension.get("description", ""),
+                expr=_optional_str(raw_dimension.get("expr")),
+                time_granularity=_optional_str(
+                    _first_present(type_params, "time_granularity", "timeGranularity")
+                ),
+                is_primary_time=bool(type_params.get("is_primary")),
+            )
+        )
+
+    measures = [
+        DBTSemanticMeasure(
+            name=raw_measure["name"],
+            agg=raw_measure.get("agg", SEMANTIC_MEASURE_AGG_UNKNOWN),
+            description=raw_measure.get("description", ""),
+            expr=_optional_str(raw_measure.get("expr")),
+            create_metric=bool(
+                _first_present(raw_measure, "create_metric", "createMetric")
+            ),
+            agg_time_dimension=_optional_str(
+                _first_present(raw_measure, "agg_time_dimension", "aggTimeDimension")
+            ),
+        )
+        for raw_measure in _iter_mappings(raw.get("measures"))
+    ]
+
+    return DBTSemanticModelDefinition(
+        entities=entities,
+        dimensions=dimensions,
+        measures=measures,
+        primary_entity=_optional_str(
+            _first_present(raw, "primary_entity", "primaryEntity")
+        ),
+    )
+
+
+def _iter_mappings(value: Any) -> List[Mapping[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, Mapping)]
 
 
 def convert_semantic_model_fields_to_columns(
-    entities: Sequence[SemanticModelEntity],
-    dimensions: Sequence[SemanticModelDimension],
-    measures: Sequence[SemanticModelMeasure],
+    definition: DBTSemanticModelDefinition,
 ) -> List[DBTColumn]:
     """Convert semantic model fields to DBTColumn objects for schema display."""
     columns: List[DBTColumn] = []
     index = 0
 
-    for entity in entities:
-        entity_type = entity.get("type", "unknown")
-        description = entity.get("description", "") or f"Entity ({entity_type})"
+    for entity in definition.entities:
         columns.append(
             DBTColumn(
-                name=entity["name"],
+                name=entity.name,
                 comment="",
-                description=description,
+                description=entity.description or f"Entity ({entity.type})",
                 index=index,
-                data_type=f"entity:{entity_type}",
+                data_type=f"entity:{entity.type}",
             )
         )
         index += 1
 
-    for dimension in dimensions:
-        dim_type = dimension.get("type", "categorical")
-        description = dimension.get("description", "") or f"Dimension ({dim_type})"
+    for dimension in definition.dimensions:
         columns.append(
             DBTColumn(
-                name=dimension["name"],
+                name=dimension.name,
                 comment="",
-                description=description,
+                description=dimension.description or f"Dimension ({dimension.type})",
                 index=index,
-                data_type=f"dimension:{dim_type}",
+                data_type=f"dimension:{dimension.type}",
             )
         )
         index += 1
 
-    for measure in measures:
-        agg_type = measure.get("agg", "unknown")
-        description = measure.get("description", "") or f"Measure ({agg_type})"
+    for measure in definition.measures:
         columns.append(
             DBTColumn(
-                name=measure["name"],
+                name=measure.name,
                 comment="",
-                description=description,
+                description=measure.description or f"Measure ({measure.agg})",
                 index=index,
-                data_type=f"measure:{agg_type}",
+                data_type=f"measure:{measure.agg}",
             )
         )
         index += 1
@@ -1104,10 +1217,8 @@ class DBTNode:
 
     owner: Optional[str]
 
-    # Semantic view specific fields (only populated when materialization == 'semantic_view')
-    entities: List[Dict[str, Any]] = field(default_factory=list)
-    dimensions: List[Dict[str, Any]] = field(default_factory=list)
-    measures: List[Dict[str, Any]] = field(default_factory=list)
+    # Populated only for node_type == "semantic_model".
+    semantic_model_def: Optional[DBTSemanticModelDefinition] = None
 
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_nodes: List[str] = field(default_factory=list)  # list of upstream dbt_name
@@ -1280,6 +1391,66 @@ class DBTExposure:
             name=self.unique_id,
             platform_instance=platform_instance,
         ).urn()
+
+
+# dbt metric types. `simple` is also the fallback when `type` is absent.
+METRIC_TYPE_SIMPLE = "simple"
+METRIC_TYPE_RATIO = "ratio"
+METRIC_TYPE_DERIVED = "derived"
+METRIC_TYPE_CUMULATIVE = "cumulative"
+METRIC_TYPE_CONVERSION = "conversion"
+
+# Metric types whose type_params reference other metrics rather than measures.
+METRIC_TYPES_WITH_METRIC_INPUTS = frozenset(
+    {METRIC_TYPE_RATIO, METRIC_TYPE_DERIVED, METRIC_TYPE_CONVERSION}
+)
+
+
+@dataclass(frozen=True)
+class DBTMetricInput:
+    """A measure or metric reference inside a dbt metric's `type_params`.
+
+    dbt >= 1.7 uses ``{"name": ..., "filter": ..., "alias": ...}``; dbt 1.6
+    sometimes uses a bare string.
+    """
+
+    name: str
+    alias: Optional[str] = None
+
+
+@dataclass
+class DBTMetric:
+    """A dbt metric from the manifest's top-level `metrics` block.
+
+    Separate from ``semantic_models``: a metric aggregates a measure declared
+    on a semantic model, or derives from other metrics.
+    See https://docs.getdbt.com/docs/build/metrics-overview
+    """
+
+    name: str
+    unique_id: str  # e.g. "metric.my_project.revenue"
+    label: Optional[str] = None
+    description: Optional[str] = None
+    type: str = METRIC_TYPE_SIMPLE
+    # type_params.measure + type_params.input_measures
+    measures: List[DBTMetricInput] = field(default_factory=list)
+    # type_params.metrics + metric-valued numerator/denominator
+    input_metrics: List[DBTMetricInput] = field(default_factory=list)
+    expr: Optional[str] = None
+    filter: Optional[str] = None
+    meta: Dict[str, Any] = field(default_factory=dict)
+    tags: List[str] = field(default_factory=list)
+    depends_on: List[str] = field(default_factory=list)
+    dbt_package_name: Optional[str] = None
+    dbt_file_path: Optional[str] = None
+
+    @property
+    def display_name(self) -> str:
+        return self.label or self.name
+
+    @property
+    def references_metrics(self) -> bool:
+        return self.type in METRIC_TYPES_WITH_METRIC_INPUTS
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -1489,6 +1660,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._query_timestamp_cache: Optional[int] = None
         # Exposures loaded by subclass (manifest or dbt Cloud API)
         self._exposures: List[DBTExposure] = []
+        self._metrics: List[DBTMetric] = []
+        # dbt project name, used in the semanticModel URN. Set by subclasses.
+        self._project_name: Optional[str] = None
         # Cache for upstream existence checks (skip_missing_upstreams_in_lineage)
         self._upstream_exists_cache: Dict[str, bool] = {}
 
@@ -1821,6 +1995,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def load_exposures(self) -> List[DBTExposure]:
         """Return dbt exposures. Subclasses populate self._exposures during load."""
         return self._exposures
+
+    def load_metrics(self) -> List[DBTMetric]:
+        """Return dbt metrics. Subclasses populate self._metrics during load."""
+        return self._metrics
 
     def create_exposure_mcps(
         self,

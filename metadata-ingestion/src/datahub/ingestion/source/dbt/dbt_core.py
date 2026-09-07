@@ -38,12 +38,16 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
     DBTExposure,
+    DBTMetric,
+    DBTMetricInput,
     DBTModelPerformance,
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    METRIC_TYPE_SIMPLE,
     convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
+    parse_semantic_model_definition,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
@@ -492,6 +496,133 @@ def extract_dbt_exposures(
     return exposures
 
 
+def _metric_input(value: Any) -> Optional[DBTMetricInput]:
+    """Coerce a dbt measure/metric reference into a DBTMetricInput.
+
+    dbt >= 1.7 emits ``{"name": ..., "alias": ...}``; dbt 1.6 sometimes emits a
+    bare string. Anything else (including a null) yields None.
+    """
+    if isinstance(value, str):
+        return DBTMetricInput(name=value) if value else None
+    if isinstance(value, dict):
+        name = value.get("name")
+        if isinstance(name, str) and name:
+            alias = value.get("alias")
+            return DBTMetricInput(
+                name=name, alias=alias if isinstance(alias, str) else None
+            )
+    return None
+
+
+def _metric_inputs(values: Any) -> List[DBTMetricInput]:
+    if not isinstance(values, list):
+        return []
+    return [
+        parsed for parsed in (_metric_input(value) for value in values) if parsed
+    ]
+
+
+def _dedupe_metric_inputs(inputs: List[DBTMetricInput]) -> List[DBTMetricInput]:
+    seen: Set[str] = set()
+    deduped: List[DBTMetricInput] = []
+    for item in inputs:
+        if item.name in seen:
+            continue
+        seen.add(item.name)
+        deduped.append(item)
+    return deduped
+
+
+def _metric_filter(value: Any) -> Optional[str]:
+    """Flatten a dbt metric filter into a single SQL predicate.
+
+    dbt >= 1.7 emits ``{"where_filters": [{"where_sql_template": "..."}]}``;
+    dbt 1.6 emitted a bare string.
+    """
+    if isinstance(value, str):
+        return value or None
+    if isinstance(value, dict):
+        where_filters = value.get("where_filters")
+        if isinstance(where_filters, list):
+            templates = [
+                where_filter["where_sql_template"]
+                for where_filter in where_filters
+                if isinstance(where_filter, dict)
+                and isinstance(where_filter.get("where_sql_template"), str)
+            ]
+            if templates:
+                return " AND ".join(templates)
+    return None
+
+
+def extract_dbt_metrics(
+    manifest_metrics: Dict[str, Dict[str, Any]],
+    tag_prefix: str,
+) -> List[DBTMetric]:
+    """Extract dbt metrics from the manifest.json metrics section (dbt 1.6+)."""
+    metrics: List[DBTMetric] = []
+    for key, metric_node in manifest_metrics.items():
+        type_params = metric_node.get("type_params")
+        if not isinstance(type_params, dict):
+            type_params = {}
+
+        metric_type = metric_node.get("type") or METRIC_TYPE_SIMPLE
+
+        measures = _metric_inputs(type_params.get("input_measures"))
+        single_measure = _metric_input(type_params.get("measure"))
+        if single_measure:
+            measures.append(single_measure)
+
+        input_metrics = _metric_inputs(type_params.get("metrics"))
+        # A ratio's numerator/denominator name metrics in modern dbt but named
+        # measures in early 1.6. Collect both; the emitter resolves against the
+        # known metric names first and falls back to measures.
+        for ratio_key in ("numerator", "denominator"):
+            ratio_input = _metric_input(type_params.get(ratio_key))
+            if ratio_input:
+                input_metrics.append(ratio_input)
+
+        # dbt 1.9 moved conversion/cumulative inputs into their own blocks.
+        for nested_key, measure_keys in (
+            ("conversion_type_params", ("base_measure", "conversion_measure")),
+            ("cumulative_type_params", ("measure",)),
+        ):
+            nested = type_params.get(nested_key)
+            if not isinstance(nested, dict):
+                continue
+            for measure_key in measure_keys:
+                nested_measure = _metric_input(nested.get(measure_key))
+                if nested_measure:
+                    measures.append(nested_measure)
+
+        depends_on = metric_node.get("depends_on")
+        depends_on_nodes = (
+            depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+        )
+
+        tags = [tag_prefix + tag for tag in metric_node.get("tags") or []]
+
+        metrics.append(
+            DBTMetric(
+                name=metric_node.get("name", ""),
+                unique_id=key,
+                label=metric_node.get("label"),
+                description=metric_node.get("description"),
+                type=metric_type,
+                measures=_dedupe_metric_inputs(measures),
+                input_metrics=_dedupe_metric_inputs(input_metrics),
+                expr=type_params.get("expr"),
+                filter=_metric_filter(metric_node.get("filter")),
+                meta=metric_node.get("meta") or {},
+                tags=tags,
+                depends_on=depends_on_nodes,
+                dbt_package_name=metric_node.get("package_name"),
+                dbt_file_path=metric_node.get("original_file_path"),
+            )
+        )
+    return metrics
+
+
 def _resolve_database_schema(
     node_relation: Dict[str, Any],
     depends_on: Dict[str, Any],
@@ -538,15 +669,8 @@ def extract_semantic_models(
         )
         alias = node_relation.get("alias")
 
-        entities = sm_node.get("entities", [])
-        dimensions = sm_node.get("dimensions", [])
-        measures = sm_node.get("measures", [])
-
-        columns = convert_semantic_model_fields_to_columns(
-            entities=entities,
-            dimensions=dimensions,
-            measures=measures,
-        )
+        definition = parse_semantic_model_definition(sm_node)
+        columns = convert_semantic_model_fields_to_columns(definition)
 
         tags = sm_node.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
@@ -581,6 +705,7 @@ def extract_semantic_models(
                 columns=columns,
                 compiled_code=None,
                 raw_code=None,
+                semantic_model_def=definition,
             )
         )
 
@@ -882,6 +1007,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             dbt_version=dbt_manifest_metadata.get("dbt_version", "unknown"),
             project_name=dbt_manifest_metadata.get("project_name", "unknown"),
         )
+        # Read separately from report.manifest_info, whose "unknown" default
+        # must never reach a semanticModel URN.
+        self._project_name = dbt_manifest_metadata.get("project_name")
 
         dbt_catalog_json = None
         dbt_catalog_metadata = None
@@ -940,6 +1068,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         manifest_nodes = dbt_manifest_json["nodes"]
         manifest_sources = dbt_manifest_json["sources"]
         manifest_exposures = dbt_manifest_json.get("exposures", {})
+        manifest_metrics = dbt_manifest_json.get("metrics", {})
         manifest_semantic_models = dbt_manifest_json.get("semantic_models", {})
 
         all_manifest_entities = {**manifest_nodes, **manifest_sources}
@@ -967,6 +1096,11 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         # Extract exposures from manifest
         self._exposures = extract_dbt_exposures(
             manifest_exposures=manifest_exposures,
+            tag_prefix=self.config.tag_prefix,
+        )
+
+        self._metrics = extract_dbt_metrics(
+            manifest_metrics=manifest_metrics,
             tag_prefix=self.config.tag_prefix,
         )
 
