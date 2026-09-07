@@ -65,8 +65,16 @@ def _write_report(report_to: Optional[str], payload: object) -> None:
     # a structured report instead of parsing stdout, and it must carry no more
     # than stdout does.
     if report_to:
-        with open(report_to, "w") as f:
-            json.dump(payload, f)
+        try:
+            with open(report_to, "w") as f:
+                json.dump(payload, f)
+        except OSError as exc:
+            # An unwritable path or missing parent directory is the caller's
+            # argument being wrong, so it must read as EXIT_USER like any other
+            # bad argument -- not escape as a traceback, and not fall through to
+            # the connection-error handler, which would send an agent looking
+            # at the source instead of at its own --report-to.
+            raise ValueError(f"cannot write report to '{report_to}': {exc}") from exc
 
 
 def _fail(message: str, code: int) -> NoReturn:
@@ -82,6 +90,11 @@ def _load_recipe(path: str) -> Dict[str, object]:
         # Surface a bad --recipe path as a user error (EXIT_USER) rather than an
         # uncaught traceback or a mislabeled connection error.
         raise ValueError(f"cannot read recipe file '{path}': {exc}") from exc
+    except yaml.YAMLError as exc:
+        # Same reasoning, different failure: a recipe that does not parse is the
+        # caller's file being wrong. YAMLError is not a ValueError, so without
+        # this it reached the connection-error handler.
+        raise ValueError(f"cannot parse recipe file '{path}': {exc}") from exc
     if not isinstance(loaded, dict):
         raise ValueError("recipe must be a YAML mapping")
     return loaded

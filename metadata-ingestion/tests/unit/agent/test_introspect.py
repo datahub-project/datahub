@@ -61,6 +61,32 @@ def test_describe_source_snowflake():
     assert spec.source_type == "snowflake"
 
 
+class _PEP604Config(ConfigModel):
+    """The same three fields written with "X | None" instead of Optional[X].
+
+    Both spellings mean one thing and report different typing origins
+    (types.UnionType against typing.Union), so matching only the older one
+    classifies these as plain fields -- a pattern that reports no filter, and a
+    secret that never gets masked.
+    """
+
+    secret: SecretStr | None = None
+    table_pattern: AllowDenyPattern | None = None
+    nested: _Nested | None = None
+
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("secret", FieldKind.SECRET),
+        ("table_pattern", FieldKind.PATTERN),
+        ("nested", FieldKind.NESTED),
+    ],
+)
+def test_the_newer_optional_syntax_classifies_the_same(name, expected):
+    assert _classify(name, _PEP604Config.model_fields[name]).kind == expected
+
+
 def test_describe_source_unknown_raises():
     # source_registry.get() raises KeyError/ConfigurationError on miss.
     with pytest.raises(Exception) as exc_info:

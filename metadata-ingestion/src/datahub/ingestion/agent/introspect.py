@@ -1,4 +1,5 @@
 import re
+import types
 import typing
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
@@ -28,7 +29,12 @@ def _strip_annotated(annotation: object) -> object:
 def _unwrap_optional(annotation: object) -> List[object]:
     # Return the non-None members of an Optional/Union annotation (or [annotation] itself).
     origin = typing.get_origin(annotation)
-    if origin is typing.Union:
+    # "X | None" and "Optional[X]" mean the same thing and report different
+    # origins -- types.UnionType against typing.Union. Matching only the latter
+    # silently misclassifies a field written in the newer syntax: an
+    # "AllowDenyPattern | None" reads as a plain field, so pattern resolution
+    # reports no filter for that level.
+    if origin is typing.Union or origin is types.UnionType:
         return [
             _strip_annotated(a)
             for a in typing.get_args(annotation)

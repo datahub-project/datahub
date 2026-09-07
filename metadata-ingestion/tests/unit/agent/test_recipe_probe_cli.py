@@ -117,6 +117,38 @@ def test_probe_run_normalizes_then_redacts(monkeypatch, tmp_path):
     assert "***" in res.output
 
 
+def test_malformed_yaml_is_a_bad_argument_not_a_connection_failure(tmp_path):
+    """YAMLError is not a ValueError, so it reached the connection handler."""
+    p = tmp_path / "bad.yml"
+    p.write_text("source:\n  type: postgres\n   config: [unclosed\n")
+    res = CliRunner().invoke(recipe, ["validate", str(p)])
+    assert res.exit_code == 2, res.output
+    assert "cannot parse recipe file" in res.output
+
+
+def test_an_unwritable_report_path_is_a_bad_argument(monkeypatch, tmp_path):
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
+    monkeypatch.setattr(
+        rc,
+        "run_probe_method",
+        lambda st, cfg, cmd, kwargs: ProbeMethodResult(st, cmd, kwargs, {"a": 1}),
+    )
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "run",
+            "tables",
+            "--recipe",
+            _recipe_file(tmp_path),
+            "--report-to",
+            str(tmp_path / "no_such_dir" / "r.json"),
+        ],
+    )
+    assert res.exit_code == 2, res.output
+    assert "cannot write report" in res.output
+
+
 def test_a_soft_error_exits_on_the_bad_argument_code(monkeypatch, tmp_path):
     """A soft error reports that the caller named something absent, so it is a
     bad argument (2), not an unreachable source (3). Reported as 3, an agent

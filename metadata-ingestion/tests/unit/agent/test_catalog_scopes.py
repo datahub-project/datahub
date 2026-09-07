@@ -45,6 +45,15 @@ PERMITTED: List[Tuple[str, str, str]] = [
     ("bigquery", "bigquery", "SELECT * FROM myds.INFORMATION_SCHEMA.TABLES"),
     ("bigquery", "bigquery", "SELECT * FROM myds.INFORMATION_SCHEMA.COLUMNS"),
     ("bigquery", "bigquery", "SELECT * FROM myds.INFORMATION_SCHEMA.TABLE_OPTIONS"),
+    # Read by each source's own queries, and refused by the first cut of these
+    # declarations. Naming too few relations fails as surely as naming too
+    # many: the probe exists to show what the recipe will see.
+    ("redshift", "redshift", "SELECT datname FROM pg_catalog.pg_database"),
+    ("redshift", "redshift", "SELECT * FROM pg_catalog.svv_redshift_columns"),
+    ("redshift", "redshift", "SELECT * FROM pg_catalog.svv_external_tables"),
+    ("redshift", "redshift", "SELECT attname FROM pg_catalog.pg_attribute"),
+    ("mssql", "mssql", "SELECT * FROM sys.sql_expression_dependencies"),
+    ("mssql", "mssql", "SELECT * FROM sys.database_query_store_options"),
 ]
 
 # The text-bearing relation that sits in the same catalog as the ones above. Each of
@@ -52,6 +61,9 @@ PERMITTED: List[Tuple[str, str, str]] = [
 REFUSED_QUERY_TEXT: List[Tuple[str, str, str]] = [
     ("mssql", "mssql", "SELECT definition FROM sys.sql_modules"),
     ("mssql", "mssql", "SELECT plan FROM sys.dm_exec_cached_plans"),
+    # Query Store's *configuration* is permitted above; its captured text is
+    # not, and the two sit one name apart.
+    ("mssql", "mssql", "SELECT query_sql_text FROM sys.query_store_query_text"),
     ("teradata", "teradata", "SELECT QueryText FROM DBC.QryLogV"),
     ("oracle", "oracle", "SELECT text FROM dba_source"),
     ("clickhouse", "clickhouse", "SELECT query FROM system.query_log"),

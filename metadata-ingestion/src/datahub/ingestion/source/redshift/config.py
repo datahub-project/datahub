@@ -364,20 +364,47 @@ class RedshiftConfig(
         # allow, so the list was dead code and all three were readable. Naming
         # relations only works when the schema is not also allowed.
         #
-        # Deliberately absent beyond the query-text tables: pg_user, svv_user_info
-        # and svl_user_info, which carry user names rather than schema shape.
+        # The list is derived from redshift/query.py: every catalog relation
+        # ingestion reads for schema shape belongs here, so the probe can see
+        # what the recipe will see. Naming too few is its own failure -- the
+        # first cut omitted pg_database, which list_databases reads, so the
+        # probe could not answer a question ingestion answers routinely.
+        #
+        # Deliberately absent, and the reason each is:
+        #   stl_query, stl_querytext, svl_statementtext -- executed SQL, which
+        #     carries literal values out of users' queries.
+        #   pg_user, pg_user_info, svv_user_info, svl_user_info -- user names
+        #     rather than schema shape.
+        #   stl_insert/delete/scan/load_commits/unload_log,
+        #     svl_query_metrics_summary -- operational history feeding lineage
+        #     and usage, not shape a probe needs to report.
         return CatalogScope(
             schemas=frozenset({INFORMATION_SCHEMA}),
             relations=frozenset(
                 {
+                    # svv_* metadata views
                     "pg_catalog.svv_table_info",
+                    "pg_catalog.svv_all_schemas",
                     "pg_catalog.svv_external_schemas",
+                    "pg_catalog.svv_external_tables",
+                    "pg_catalog.svv_external_columns",
                     "pg_catalog.svv_redshift_databases",
                     "pg_catalog.svv_redshift_schemas",
+                    "pg_catalog.svv_redshift_tables",
+                    "pg_catalog.svv_redshift_columns",
                     "pg_catalog.svv_datashares",
                     "pg_catalog.svv_mv_info",
+                    "pg_catalog.stv_mv_info",
+                    # Postgres-inherited catalog: names, columns, comments and
+                    # dependencies. No statement text in any of these.
+                    "pg_catalog.pg_database",
                     "pg_catalog.pg_class",
+                    "pg_catalog.pg_class_info",
                     "pg_catalog.pg_namespace",
+                    "pg_catalog.pg_attribute",
+                    "pg_catalog.pg_attrdef",
+                    "pg_catalog.pg_depend",
+                    "pg_catalog.pg_description",
                 }
             ),
         )

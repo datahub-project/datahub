@@ -422,6 +422,13 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
                     "sys.parameters",
                     "sys.extended_properties",
                     "sys.databases",
+                    # Read by ingestion and omitted at first: the dependency
+                    # view drives lineage (source.py), and query_store_options
+                    # is Query Store *configuration* -- capture mode and
+                    # retention, not captured text. sys.query_store_query_text
+                    # is the one that carries statements, and stays out.
+                    "sys.sql_expression_dependencies",
+                    "sys.database_query_store_options",
                 }
             ),
         )

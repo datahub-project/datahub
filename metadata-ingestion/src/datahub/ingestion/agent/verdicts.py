@@ -74,7 +74,12 @@ def pattern_verdict(config: Any, pattern_field: Optional[str], target: str) -> V
     Exported so a custom level classifier can defer to it after its own
     structural exclusions.
     """
-    if pattern_field is None:
+    if pattern_field is None or pattern_field == UNFILTERED:
+        # UNFILTERED is a sentinel, not a field name: looking it up would ask
+        # the config for an attribute called "__unfiltered__". Its meaning is
+        # "no filter at this level", which is the same include that None gets.
+        # filter_check guards this before calling, but the sentinel and this
+        # function are exported from the same module and read as composable.
         return _INCLUDED
     pattern = getattr(config, pattern_field)
     return _INCLUDED if pattern.allowed(target) else Verdict(False, pattern_field)

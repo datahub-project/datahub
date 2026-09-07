@@ -173,3 +173,15 @@ def test_a_source_that_filters_on_a_qualified_identifier_still_asks():
     assert with_parent.results[0].target == "analytics.orders"
     assert with_parent.results[0].included is True
     assert with_parent.warnings == []
+
+
+def test_the_unfiltered_sentinel_is_an_include_not_a_field_name():
+    """UNFILTERED is a marker, not an attribute: reading it off the config asks
+    for "__unfiltered__" and raises. check_filters guards it before calling,
+    but the sentinel and pattern_verdict are exported together and read as
+    composable, so the guard belongs in both."""
+    from datahub.ingestion.agent.verdicts import UNFILTERED, pattern_verdict
+
+    v = pattern_verdict(object(), UNFILTERED, "anything")
+    assert v.included is True
+    assert v.excluded_by is None

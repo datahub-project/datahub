@@ -58,3 +58,21 @@ def test_validate_unknown_source_type_no_crash():
     )
     assert result["valid"] is False
     assert result["errors"]
+
+
+@pytest.mark.parametrize("bad", [[], "", 0])
+def test_a_non_mapping_config_is_named_as_such(bad):
+    """`or {}` swallowed every falsey value, so the error named whichever field
+    happened to be required rather than the config's shape -- telling an agent
+    to add host_port to a config that is a list."""
+    result = validate_recipe({"source": {"type": "postgres", "config": bad}})
+    assert result["valid"] is False
+    assert result["errors"] == ["recipe.source.config must be a mapping"]
+
+
+@pytest.mark.parametrize("recipe_config", [{"config": None}, {}])
+def test_an_absent_or_null_config_still_means_no_config(recipe_config):
+    """A bare "config:" is YAML null and is how a source needing no config is
+    written, so it must not be rejected as malformed."""
+    result = validate_recipe({"source": {"type": "demo-data", **recipe_config}})
+    assert "must be a mapping" not in str(result["errors"])

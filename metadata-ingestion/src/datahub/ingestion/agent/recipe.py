@@ -37,7 +37,14 @@ def validate_recipe(recipe: Dict[str, object]) -> Dict[str, object]:
             "warnings": [],
         }
     source_type = str(source["type"])
-    config = source.get("config") or {}
+    # `or {}` would swallow every falsey value, so a "config: []" reached the
+    # config class as {} and failed on whatever field happened to be required
+    # -- an error naming host_port when the real problem is the config's shape.
+    # A bare "config:" is YAML null and does mean "no config", so it alone
+    # still defaults.
+    config = source.get("config", {})
+    if config is None:
+        config = {}
     if not isinstance(config, dict):
         return {
             "valid": False,
