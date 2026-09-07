@@ -113,6 +113,14 @@ REFUSED_CATALOG_IMPERSONATION: List[Tuple[str, str, str]] = [
     # Two parts alone cannot be shown to be the system schema either: an
     # unqualified reference resolves against whatever database is current.
     ("snowflake", "snowflake", "SELECT * FROM account_usage.tables"),
+    # The same mistake in the other direction, and the one suffix matching
+    # introduced: Oracle lists its dictionary views bare, because they are
+    # public synonyms read unqualified. Suffix-matching a bare entry licensed
+    # the name under every schema, so a user table called all_tables read as
+    # catalog metadata. Bare entries belong to permits_unqualified alone.
+    ("oracle", "oracle", "SELECT * FROM hr.all_tables"),
+    ("oracle", "oracle", "SELECT * FROM my_schema.dba_tables"),
+    ("oracle", "oracle", "SELECT * FROM some_db.hr.all_tab_columns"),
 ]
 
 

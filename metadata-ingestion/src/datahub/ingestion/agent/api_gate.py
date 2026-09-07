@@ -60,14 +60,15 @@ def check_api_request(method: str, path: str, allowlist: Iterable[str]) -> None:
         )
     if "://" in decoded:
         raise ApiScopeError(f"'{path}' must be a path, not a full URL")
-    if "#" in decoded:
-        # A fragment is never sent to the server, so the client requests only
-        # the part before it -- while the allowlist matched the whole string.
-        # "/spaces/a#b/reports" satisfies "/spaces/{token}/reports" (the
-        # placeholder spans one segment and "a#b" holds no "/") and then
-        # fetches "/spaces/a", which nobody listed. Validating one path and
-        # issuing another is the bypass; refuse it, since a fragment cannot
-        # mean anything to an API read.
+    # Checked on the RAW path, not the decoded one, and this is the one check
+    # here where that distinction matters. A literal "#" starts the fragment, so
+    # the client sends only what precedes it -- "/spaces/a#b/reports" satisfies
+    # "/spaces/{token}/reports" (the placeholder spans one segment and "a#b"
+    # holds no "/") and then fetches "/spaces/a", which nobody listed. That is
+    # the bypass: one path validated, another issued. "%23" is the *encoded*
+    # character and is sent through intact, so it truncates nothing and is
+    # ordinary data -- rejecting it would refuse a legitimate "?filter=%23tag".
+    if "#" in path:
         raise ApiScopeError(
             f"'{path}' may not contain a fragment: the client would drop it "
             f"and request a different path than the one checked"

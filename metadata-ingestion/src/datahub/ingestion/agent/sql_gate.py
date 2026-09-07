@@ -58,6 +58,13 @@ class CatalogScope:
         user-created one wearing the same name: nothing stops somebody creating a
         database whose schema is called ACCOUNT_USAGE, and matching only the last
         two segments would read their tables as though they were Snowflake's.
+
+        A *bare* entry takes no part in this. Those exist because some dialects
+        expose their catalog unqualified -- Oracle's dictionary views are public
+        synonyms -- and permits_unqualified is where they are honoured. Suffix
+        matching them here would be the same mistake in the other direction:
+        "all_tables" would license `hr.all_tables`, so a user table wearing a
+        dictionary view's name would read as catalog metadata under any schema.
         """
         schema, relation = parts[-2], parts[-1]
         if schema.lower() in {s.lower() for s in self.schemas}:
@@ -65,9 +72,10 @@ class CatalogScope:
         lowered = [part.lower() for part in parts]
         for entry in self.relations:
             entry_parts = entry.lower().split(".")
-            if len(entry_parts) > len(lowered):
-                # The entry pins more of the path than the reference supplies, so
-                # the reference cannot be shown to be that relation.
+            if len(entry_parts) < 2 or len(entry_parts) > len(lowered):
+                # Bare entries are unqualified-only (see above); an entry that
+                # pins more of the path than the reference supplies cannot be
+                # shown to be that relation.
                 continue
             if lowered[-len(entry_parts) :] == entry_parts:
                 return True

@@ -75,13 +75,29 @@ def test_an_empty_allowlist_permits_nothing():
     "path",
     [
         # Matches "^/spaces/[^/]+/reports$" because "a#b" holds no "/", but the
-        # client drops everything from "#" and fetches "/spaces" instead --
+        # client drops everything from "#" and fetches "/spaces/a" instead --
         # a listed template validating an unlisted request.
         "/spaces/a#b/reports",
-        "/spaces/a%23b/reports",  # percent-encoded; the client decodes it too
         "/spaces#",
+        # A literal "#" truncates wherever it sits, query string included.
+        "/spaces?filter=#tag",
     ],
 )
 def test_rejects_a_fragment_because_the_client_would_request_a_shorter_path(path):
     with pytest.raises(ApiScopeError, match="fragment"):
         check_api_request("GET", path, ALLOWLIST)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/spaces?filter=%23tag",
+        "/spaces/a%23b/reports",
+    ],
+)
+def test_an_encoded_hash_is_data_and_stays_usable(path):
+    """An encoded hash is data, sent through intact -- so it truncates nothing
+    and the request issued is the one that was checked. Only a literal "#"
+    starts a fragment, so the check reads the raw path rather than the decoded
+    one, which is the single place here that distinction matters."""
+    check_api_request("GET", path, ALLOWLIST)
