@@ -268,6 +268,13 @@ jobs:
         with:
           python-version: "3.11"
           cache: "pip"
+
+      # Ahead of the uv/gradle steps on purpose: the check is stdlib-only, so it
+      # still runs when the venv install breaks, and it fails in seconds rather
+      # than after the install.
+      - name: Check p0 test dependencies
+        run: python ./.github/scripts/check_p0_dependencies.py
+
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
       # Restore-only: this workflow is pull_request-only, so a save here would be
       # ref-scoped to the PR and never shared. The master-scoped entry is written by
