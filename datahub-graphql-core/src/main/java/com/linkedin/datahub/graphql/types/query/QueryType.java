@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.query;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.QUERY_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -9,6 +10,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
@@ -57,12 +59,15 @@ public class QueryType
 
     try {
       log.debug("Fetching query entities: {}", viewUrns);
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(context, name(), ASPECTS_TO_FETCH, QUERY_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               QUERY_ENTITY_NAME,
               new HashSet<>(viewUrns),
-              ASPECTS_TO_FETCH);
+              aspectsToResolve);
 
       final Set<Urn> viewableQueryUrns;
       if (context

@@ -70,6 +70,7 @@ class PostHogCIReporter:
             "base_branch": w.get("base_branch"),
             "head_branch": w.get("head_branch"),
             "head_sha": w.get("head_sha"),
+            "is_community_contribution": w.get("is_community_contribution", False),
             "conclusion": w.get("conclusion"),
             "created_at": parse_dt(w.get("created_at")),
             "started_at": parse_dt(w.get("started_at")),

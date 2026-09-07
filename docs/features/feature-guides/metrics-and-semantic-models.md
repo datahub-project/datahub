@@ -178,7 +178,7 @@ The **Metrics** left-nav item opens `/metrics`, a landing page with a browse tre
 
 ### Search
 
-Discovery today is centered on the `/metrics` landing page and its browse tree. Surfacing Metrics and Semantic Models as first-class entity types in universal Search and Browse — plus retrieval via DataHub MCP for agentic workflows — is on the near-term roadmap.
+Metrics and Semantic Models appear in **global Search** and the **search-bar autocomplete** when `METRICS_ENABLED=true`. Search by display name, description, or platform; use the **Type** filter to narrow to Metrics or Semantic Models. The dedicated **`/metrics`** browse tree remains the best way to explore metrics grouped by Semantic Model. Browse V2 does not list these entity types — use Search or `/metrics` instead.
 
 ### Lineage
 
@@ -209,7 +209,7 @@ Future releases will ensure AI Context feeds directly into Ask DataHub and any a
 
 We're actively investing in the Metrics experience. Near-term work includes:
 
-- **Metrics & Semantic Models in universal Search and Browse** and available via **DataHub MCP** so agents can retrieve them during agentic workflows.
+- **Metrics & Semantic Models via DataHub MCP** so agents can retrieve them during agentic workflows.
 - **Additional ingestion sources.** Expanding beyond Snowflake Semantic Views to cover dbt Semantic Layer / MetricFlow, Databricks Unity Catalog metric views, Sigma, and BI-tool measures.
 - **Column-level lineage from source columns through to metrics.** Full column-to-metric impact analysis — see which KPIs are affected by a change to a raw column.
 - **Lineage visualization improvements.** Cleaner node labels, collapsed intermediate nodes, and a Semantic Model container view that reduces graph noise.

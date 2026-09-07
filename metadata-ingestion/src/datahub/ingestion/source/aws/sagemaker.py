@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("SageMaker")
 @config_class(SagemakerSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class SagemakerSource(StatefulIngestionSourceBase):
     """

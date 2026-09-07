@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.utils import (
     entity_urns_from_ingest_file,
     searchable_ingest_urns,
@@ -11,7 +12,7 @@ from tests.utils import (
     wait_for_ingested_urns_searchable,
 )
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
 
 SNAPSHOT_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-3,PROD)"
 MCP_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.table,PROD)"

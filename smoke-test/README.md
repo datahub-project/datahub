@@ -2,6 +2,10 @@
 
 This directory contains end-to-end smoke tests for DataHub functionality. These tests can be run locally for faster development and debugging compared to the full CI pipeline.
 
+**Writing tests:** follow [`AGENTS.md`](AGENTS.md) (isolation, fixtures, markers, cleanup).
+**Running tests:** this README, or from the repo root
+`scripts/dev/datahub-dev.sh test <test-path>` (preferred over `./gradlew quickstartDebug`).
+
 ## Quick Start
 
 ### Prerequisites
@@ -56,6 +60,26 @@ pytest test_system_info.py::test_system_info_main_endpoint -vv
 # Run multiple specific tests
 pytest test_e2e.py::test_healthchecks test_e2e.py::test_gms_usage_fetch -v
 ```
+
+#### Selecting tests by domain
+
+Tests can declare the product domain that owns them with
+`@pytest.mark.domain(...)`, using the `Domain` enum in
+`tests/utilities/domains.py` (`platform`, `observe`, `ingestion`, `ai`,
+`catalog`). The `--domain` option then runs only the tests those domains own:
+
+```bash
+# One domain
+pytest --domain catalog -vv
+
+# Several — a test owned by any of them runs
+pytest --domain catalog --domain ingestion -vv
+```
+
+A test that spans domains declares all of them, e.g.
+`@pytest.mark.domain(Domain.CATALOG, Domain.INGESTION)`, and is selected by
+either. Tests marked `p0` are the ones critical enough to run on every pull
+request; combine the two with `pytest -m p0 --domain catalog`.
 
 ## Test Categories
 

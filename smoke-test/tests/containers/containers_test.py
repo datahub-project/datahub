@@ -4,6 +4,7 @@ from typing import Any, Dict
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.utilities.metadata_operations import add_tag, add_term, update_description
 from tests.utils import (
     delete_urns_from_file,
@@ -26,6 +27,9 @@ class ContainerFixtures:
     tag_urn: str
     term_urn: str
     owner_urn: str
+
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 @pytest.fixture(scope="module", autouse=False)

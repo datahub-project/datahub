@@ -42,6 +42,15 @@ repos:
         stages:
           - pre-push
 
+      - id: datahub-web-react-graphqlPrettierWriteChanged
+        name: graphqlPrettierWriteChanged
+        entry: ./gradlew :datahub-web-react:graphqlPrettierWriteChanged -x generateGitPropertiesGlobal
+        language: system
+        files: ^datahub-graphql-core/src/main/resources/.*\.graphql$
+        pass_filenames: false
+        stages:
+          - pre-push
+
       - id: contrib-metadata-model-extensions-datahub-demo-dataset-governance-validator-spotless
         name: contrib/metadata-model-extensions/datahub-demo-dataset-governance-validator
           Spotless Apply
@@ -681,6 +690,15 @@ repos:
           -x generateGitPropertiesGlobal
         language: system
         files: ^e2e-test/ui/playwright/.*\.ts$
+        pass_filenames: false
+        stages:
+          - pre-push
+
+      - id: docs-website-prettier
+        name: docs-website Prettier
+        entry: ./gradlew :docs-website:yarnLintFix -x generateGitPropertiesGlobal
+        language: system
+        files: ^docs-website/(generateDocsDir\.ts|sidebars\.js|src/pages/index\.js)$
         pass_filenames: false
         stages:
           - pre-push

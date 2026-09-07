@@ -134,27 +134,28 @@ type Form implements Entity {
   """
   A primary key associated with the Form
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Information about this form
   """
-  info: FormInfo!
+  info: FormInfo! @aspectMapping(aspects: ["formInfo"])
 
   """
   Ownership metadata of the form
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """

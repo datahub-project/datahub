@@ -222,12 +222,14 @@ class UnityCatalogUsageExtractor:
             self.report.num_queries_skipped_without_system_table_lineage
         )
         fallback = self.report.num_queries_preparsed_fallback_to_sqlglot
+        redacted = self.report.num_queries_with_redacted_text
         preparsed_pct = round(100 * preparsed / total, 1) if total else 0.0
         logger.info(
             "Unity usage routing summary (system-table join): "
             "total=%s preparsed=%s (%.1f%%) "
             "sqlglot_no_lineage=%s skipped_no_system_table_lineage=%s "
-            "sqlglot_urn_fallback=%s sqlglot_total=%s unresolvable_lineage_tables=%s",
+            "sqlglot_urn_fallback=%s sqlglot_total=%s unresolvable_lineage_tables=%s "
+            "redacted=%s",
             total,
             preparsed,
             preparsed_pct,
@@ -236,6 +238,7 @@ class UnityCatalogUsageExtractor:
             fallback,
             self.report.num_queries_observed_sqlglot,
             self.report.num_lineage_tables_unresolvable,
+            redacted,
         )
 
     def _query_fingerprint(
@@ -248,6 +251,13 @@ class UnityCatalogUsageExtractor:
         already resolved, so a fingerprinting hiccup must not drop the query — fall
         back to a deterministic id derived from the (always-present) statement_id.
         """
+        if query.is_query_text_redacted:
+            # Redacted text is identical across queries, so the text-based
+            # fingerprint would collapse every redacted query into one Query
+            # entity with a summed query_count. Use the statement_id fallback so
+            # each redacted query stays distinct.
+            base = f"unity-stmt-{query.query_id}"
+            return f"{base}-{secondary_id}" if secondary_id else base
         try:
             return get_query_fingerprint(
                 query.query_text,
@@ -272,6 +282,13 @@ class UnityCatalogUsageExtractor:
         ts = normalize_timestamp_to_utc(query.start_time)
         user = self._user_urn(query)
         query_type = self._query_type(query.statement_type)
+        # Keep the "<REDACTED>" placeholder as-is on the aggregator's usage
+        # path — it's the QUERY-dim key that lets UsageAggregator increment
+        # totalSqlQueries; blanking it to "" would silently drop those events
+        # from the per-table count. We still suppress Query-entity emission
+        # via redacted_query_text below so DataHub isn't polluted with
+        # placeholder Query entities that carry no useful SQL.
+        redacted = query.is_query_text_redacted
 
         if not targets:
             return [
@@ -285,6 +302,7 @@ class UnityCatalogUsageExtractor:
                     user=user,
                     timestamp=ts,
                     query_type=query_type,
+                    redacted_query_text=redacted,
                 )
             ]
 
@@ -302,6 +320,7 @@ class UnityCatalogUsageExtractor:
                     user=user,
                     timestamp=ts,
                     query_type=query_type,
+                    redacted_query_text=redacted,
                 )
             )
         return preparsed
@@ -329,7 +348,19 @@ class UnityCatalogUsageExtractor:
         query: Query,
         default_db: Optional[str],
     ) -> None:
+        # Count every redacted query at the top so the warning fires regardless
+        # of which branch below handles it. The preparsed branch still emits
+        # table-level usage for redacted queries (upstreams/downstreams come
+        # from system.access.table_lineage, not SQL text); the other branches
+        # need SQL text and drop the query.
+        if query.is_query_text_redacted:
+            self.report.num_queries_with_redacted_text += 1
+
         if self.config.include_column_usage_stats:
+            # Column usage stats require parsing the SQL text, so redacted
+            # queries can't contribute and are dropped here.
+            if query.is_query_text_redacted:
+                return
             self._add_observed_query(aggregator, query, default_db)
             return
 
@@ -354,6 +385,13 @@ class UnityCatalogUsageExtractor:
                     sum(len(p.upstreams) for p in preparsed_queries),
                     sum(1 for p in preparsed_queries if p.downstream),
                 )
+                return
+
+            # System-table lineage was present but produced no resolvable
+            # dataset URNs. For redacted queries we can't run sqlglot either,
+            # so drop silently — bumping num_queries_preparsed_fallback_to_sqlglot
+            # would produce a "parsed with sqlglot" warning that isn't true.
+            if query.is_query_text_redacted:
                 return
 
             self.report.num_queries_preparsed_fallback_to_sqlglot += 1
@@ -381,6 +419,11 @@ class UnityCatalogUsageExtractor:
                 )
                 return
 
+            # Same rationale as the preparsed branch above: don't misreport
+            # dropped redacted queries as sqlglot fallbacks.
+            if query.is_query_text_redacted:
+                return
+
             self.report.num_queries_without_system_table_lineage += 1
             logger.debug(
                 "Usage query routed to sqlglot: no system.access.table_lineage rows "
@@ -390,6 +433,10 @@ class UnityCatalogUsageExtractor:
                 self._statement_type_label(query),
                 self._query_preview(query),
             )
+        elif query.is_query_text_redacted:
+            # Neither preparsed nor system-tables path is available (REST API
+            # path). Redacted queries can't be parsed by sqlglot; drop silently.
+            return
 
         self._add_observed_query(aggregator, query, default_db)
 
@@ -423,6 +470,32 @@ class UnityCatalogUsageExtractor:
                     context=f"count={count}",
                     log=False,
                 )
+
+        if self.report.num_queries_with_redacted_text > 0:
+            # Logged once (no log=False) because this is an actionable operator
+            # condition, not a routine routing detail like the count-only
+            # warnings above.
+            self.report.warning(
+                title="Databricks query text is redacted",
+                message=(
+                    "Databricks returned <REDACTED> instead of SQL statement text. "
+                    "On the default system-tables path (usage_data_source=AUTO "
+                    "with warehouse_id set, or SYSTEM_TABLES) with "
+                    "include_column_usage_stats=false, table-level usage "
+                    "statistics (totalSqlQueries, uniqueUserCount, userCounts) "
+                    "are preserved because upstreams come from "
+                    "system.access.table_lineage; Query entities are not emitted "
+                    "for redacted queries, and column-level usage statistics, "
+                    "operational statistics, and per-query usage counts are "
+                    "absent. On the REST API path (usage_data_source=API) or "
+                    "when include_column_usage_stats=true, redacted queries are "
+                    "dropped entirely. Add the ingestion principal to the "
+                    "account-level databricks_pii_access group while retaining "
+                    "its existing query history permissions. See the DataHub "
+                    "Databricks connector prerequisites for details."
+                ),
+                context=f"count={self.report.num_queries_with_redacted_text}",
+            )
 
         # Handled separately: it appends sample table names to the context.
         if self.report.num_lineage_tables_unresolvable > 0:

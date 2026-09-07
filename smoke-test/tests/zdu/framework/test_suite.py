@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.suite import Suite, suite_for_tc
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 class TestSuiteEnum:

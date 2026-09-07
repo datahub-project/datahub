@@ -1,7 +1,5 @@
 package com.linkedin.metadata.authorization;
 
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.Disjunctive.DENY_ACCESS;
 
 import com.google.common.collect.ImmutableList;
@@ -37,7 +35,7 @@ public class PoliciesConfig {
 
   // Platform Privileges //
 
-  static final Privilege MANAGE_POLICIES_PRIVILEGE =
+  public static final Privilege MANAGE_POLICIES_PRIVILEGE =
       Privilege.of(
           "MANAGE_POLICIES",
           "Manage Policies",
@@ -53,7 +51,7 @@ public class PoliciesConfig {
       Privilege.of(
           "MANAGE_SECRETS", "Manage Secrets", "Create & remove Secrets stored inside DataHub.");
 
-  static final Privilege MANAGE_USERS_AND_GROUPS_PRIVILEGE =
+  public static final Privilege MANAGE_USERS_AND_GROUPS_PRIVILEGE =
       Privilege.of(
           "MANAGE_USERS_AND_GROUPS",
           "Manage Users & Groups",
@@ -994,6 +992,24 @@ public class PoliciesConfig {
           "DataHub Views",
           ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EXISTS_ENTITY_PRIVILEGE));
 
+  // ML Model Privileges
+  public static final ResourcePrivileges ML_MODEL_PRIVILEGES =
+      ResourcePrivileges.of(
+          "mlModel", "ML Models", "ML Models indexed by DataHub", COMMON_ENTITY_PRIVILEGES);
+
+  // ML Feature Privileges
+  public static final ResourcePrivileges ML_FEATURE_PRIVILEGES =
+      ResourcePrivileges.of(
+          "mlFeature", "ML Features", "ML Features indexed by DataHub", COMMON_ENTITY_PRIVILEGES);
+
+  // ML Feature Table Privileges
+  public static final ResourcePrivileges ML_FEATURE_TABLE_PRIVILEGES =
+      ResourcePrivileges.of(
+          "mlFeatureTable",
+          "ML Feature Tables",
+          "ML Feature Tables indexed by DataHub",
+          COMMON_ENTITY_PRIVILEGES);
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -1019,7 +1035,10 @@ public class PoliciesConfig {
           VERSION_SET_PRIVILEGES,
           PLATFORM_INSTANCE_PRIVILEGES,
           APPLICATION_PRIVILEGES,
-          DATAHUB_VIEW_PRIVILEGES);
+          DATAHUB_VIEW_PRIVILEGES,
+          ML_MODEL_PRIVILEGES,
+          ML_FEATURE_PRIVILEGES,
+          ML_FEATURE_TABLE_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =
@@ -1429,8 +1448,7 @@ public class PoliciesConfig {
                 .setDescription("View self entity page.")
                 .setActors(new DataHubActorFilter().setUsers(new UrnArray(actorUrn)))
                 .setPrivileges(
-                    PoliciesConfig.API_PRIVILEGE_MAP.get(ENTITY).get(READ).stream()
-                        .flatMap(Collection::stream)
+                    Stream.of(VIEW_ENTITY_PAGE_PRIVILEGE, GET_ENTITY_PRIVILEGE)
                         .map(PoliciesConfig.Privilege::getType)
                         .collect(Collectors.toCollection(StringArray::new)))
                 .setType(PoliciesConfig.METADATA_POLICY_TYPE)

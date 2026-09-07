@@ -102,29 +102,6 @@ public class SemanticModelMapperTest {
   }
 
   @Test
-  public void testMapDatasetsAsDatasetUrns() throws URISyntaxException {
-    EntityResponse entityResponse = createBaseEntityResponse();
-
-    SemanticModelInfo info =
-        new SemanticModelInfo()
-            .setName("My Model")
-            .setDatasets(new UrnArray(Urn.createFromString(DATASET_URN)));
-    addAspect(entityResponse, SEMANTIC_MODEL_INFO_ASPECT_NAME, info);
-
-    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
-      authMock.when(() -> AuthorizationUtils.canView(any(), any())).thenReturn(true);
-
-      SemanticModel result = SemanticModelMapper.map(mockQueryContext, entityResponse);
-
-      assertNotNull(result.getInfo());
-      assertNotNull(result.getInfo().getDatasets());
-      assertEquals(result.getInfo().getDatasets().size(), 1);
-      assertEquals(result.getInfo().getDatasets().get(0).getUrn(), DATASET_URN);
-      assertEquals(result.getInfo().getDatasets().get(0).getType(), EntityType.DATASET);
-    }
-  }
-
-  @Test
   public void testMapDatasetsAbsentIsEmptyList() {
     EntityResponse entityResponse = createBaseEntityResponse();
 

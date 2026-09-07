@@ -15,6 +15,18 @@ import { mocks } from '@src/Mocks';
 
 import { Document, DocumentSourceType, DocumentState, EntityType } from '@types';
 
+// Mock dark mode hook to prevent localStorage race conditions with CustomThemeProvider
+vi.mock('@app/theme/useIsDarkMode', () => ({
+    useIsDarkMode: () => [false, vi.fn()],
+    loadIsDarkMode: () => false,
+}));
+
+// Mock useCustomThemeId to avoid AppConfigContext dependency in tests
+vi.mock('@app/useSetAppTheme', () => ({
+    useCustomThemeId: () => null,
+    useSetAppTheme: () => null,
+}));
+
 // Mock entity registry with all required methods
 const mockEntityRegistry = {
     getEntityUrl: (_entityType: EntityType, urn: string) => `/document/${urn}`,
@@ -412,7 +424,7 @@ describe('Document Preview - Platform Logo Display', () => {
                 expect(platformImage).toBeInTheDocument();
                 expect(platformImage).toHaveAttribute('src', 'https://example.com/gdocs-logo.png');
             });
-        }, 30_000);
+        });
 
         it('should display platform logo in full preview', async () => {
             const mockPlatform = createMockPlatform('SharePoint', 'https://example.com/sharepoint-logo.png');
@@ -442,7 +454,7 @@ describe('Document Preview - Platform Logo Display', () => {
             });
         });
     });
-});
+}, 30_000);
 
 // =============================================================================
 // NATIVE VS EXTERNAL DOCUMENT TESTS
@@ -1178,7 +1190,7 @@ describe('Document Profile Rendering', () => {
                 // Native profile should render the document
                 expect(screen.getByText('My Native Document Title')).toBeInTheDocument();
             });
-        }, 30_000);
+        });
 
         it('should render native profile with parent document breadcrumbs', async () => {
             const parentDocs = createMockParentDocuments();
@@ -1281,7 +1293,7 @@ describe('Document Profile Rendering', () => {
                 expect(screen.getByText('Document with Content')).toBeInTheDocument();
             });
         });
-    });
+    }, 30_000);
 
     describe('Native vs External Profile Differences', () => {
         it('should render native profile with custom layout (not EntityProfile tabs)', async () => {

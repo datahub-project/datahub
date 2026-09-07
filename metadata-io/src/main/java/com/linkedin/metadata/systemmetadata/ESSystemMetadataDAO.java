@@ -265,6 +265,47 @@ public class ESSystemMetadataDAO {
     return null;
   }
 
+  /**
+   * Count documents matching the query on the system-metadata index.
+   *
+   * <p>Uses size=0 and track_total_hits. Soft-deleted documents are excluded unless {@code
+   * includeSoftDeleted} is true (same semantics as {@link #scroll}).
+   *
+   * @return total hit count, or empty on search failure
+   */
+  @Nonnull
+  public Optional<Long> count(
+      @Nonnull OperationContext opContext,
+      @Nonnull BoolQueryBuilder queryBuilder,
+      boolean includeSoftDeleted) {
+    BoolQueryBuilder query = QueryBuilders.boolQuery().must(queryBuilder);
+    if (!includeSoftDeleted) {
+      query.mustNot(QueryBuilders.termQuery(FIELD_REMOVED, "true"));
+    }
+
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    searchSourceBuilder.query(query);
+    searchSourceBuilder.size(0);
+    searchSourceBuilder.trackTotalHits(true);
+
+    SearchRequest searchRequest = new SearchRequest();
+    searchRequest.source(searchSourceBuilder);
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
+
+    try {
+      SearchResponse response = client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+      if (response == null
+          || response.getHits() == null
+          || response.getHits().getTotalHits() == null) {
+        return Optional.empty();
+      }
+      return Optional.of(response.getHits().getTotalHits().value);
+    } catch (IOException e) {
+      log.error("Error while counting system-metadata documents.", e);
+      return Optional.empty();
+    }
+  }
+
   public SearchResponse findByRegistry(
       @Nonnull OperationContext opContext,
       String registryName,

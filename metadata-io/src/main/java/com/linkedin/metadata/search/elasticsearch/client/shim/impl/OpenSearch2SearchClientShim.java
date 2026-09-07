@@ -119,7 +119,7 @@ import org.opensearch.index.reindex.BulkByScrollResponse;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
 import org.opensearch.index.reindex.ReindexRequest;
 import org.opensearch.index.reindex.UpdateByQueryRequest;
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.signer.Aws4Signer;
 
 /**
@@ -305,10 +305,13 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
       throw new IllegalArgumentException(
           "Region must not be null when opensearchUseAwsIamAuth is enabled");
     }
+    AwsCredentialsProvider credentialsProvider = shimConfiguration.getAwsCredentialsProvider();
+    if (credentialsProvider == null) {
+      throw new IllegalStateException(
+          "AwsCredentialsProvider must be configured when opensearchUseAwsIamAuth is enabled");
+    }
     Aws4Signer signer = Aws4Signer.create();
-    // Uses default AWS credentials
-    return new AwsRequestSigningApacheInterceptor(
-        "es", signer, DefaultCredentialsProvider.create(), region);
+    return new AwsRequestSigningApacheInterceptor("es", signer, credentialsProvider, region);
   }
 
   // Core search operations

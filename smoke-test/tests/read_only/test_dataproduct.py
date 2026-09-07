@@ -2,9 +2,12 @@ import logging
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.utilities.metadata_operations import get_data_product, get_search_results
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 @pytest.mark.read_only

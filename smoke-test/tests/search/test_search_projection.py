@@ -2,10 +2,17 @@ import json
 import logging
 from typing import Any, Dict
 
+import pytest
+
 from datahub.cli.search_cli import _build_search_query
-from tests.utils import with_test_retry
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import DatasetPropertiesClass
+from tests.utilities.domains import Domain
+from tests.utils import unique_dataset_urn, wait_for_writes_to_sync, with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 # Shared variables for all search queries
 _BASE_VARIABLES = {
@@ -16,6 +23,25 @@ _BASE_VARIABLES = {
     "start": 0,
     "viewUrn": None,
 }
+
+
+def _urn_filter_variables(dataset_urn: str) -> Dict[str, Any]:
+    return {
+        **_BASE_VARIABLES,
+        "types": ["DATASET"],
+        "count": 1,
+        "orFilters": [
+            {
+                "and": [
+                    {
+                        "field": "urn",
+                        "values": [dataset_urn],
+                        "condition": "EQUAL",
+                    }
+                ]
+            }
+        ],
+    }
 
 
 @with_test_retry()
@@ -29,6 +55,24 @@ def _execute_search_with_results(graph_client, query: str, variables: Dict[str, 
     assert search_data["total"] > 0
     assert len(search_data["searchResults"]) > 0
     return result
+
+
+@with_test_retry()
+def _entity_json_for_urn(
+    graph_client, query: str, variables: Dict[str, Any], expected_urn: str
+) -> str:
+    result = graph_client.execute_graphql(
+        query=query,
+        variables=variables,
+        operation_name="search",
+    )
+    matching = [
+        sr["entity"]
+        for sr in result["searchAcrossEntities"]["searchResults"]
+        if sr.get("entity") and sr["entity"].get("urn") == expected_urn
+    ]
+    assert matching, f"Expected {expected_urn} in search results"
+    return json.dumps(matching[0])
 
 
 class TestSearchProjection:
@@ -140,41 +184,43 @@ class TestSearchProjection:
         assert len(search_data["facets"]) > 0
 
     def test_projection_reduces_payload(self, graph_client):
-        """Projection with fewer fields produces smaller entity JSON than the default."""
-        default_query = _build_search_query(semantic=False, projection=None)
-        minimal_query = _build_search_query(semantic=False, projection="urn type")
+        """Compare default vs minimal projection JSON for the same ingested entity.
 
-        variables = {**_BASE_VARIABLES, "count": 10}
-
-        default_result = graph_client.execute_graphql(
-            query=default_query,
-            variables=variables,
-            operation_name="search",
-        )
-
-        minimal_result = graph_client.execute_graphql(
-            query=minimal_query,
-            variables=variables,
-            operation_name="search",
-        )
-
-        default_entities = default_result["searchAcrossEntities"]["searchResults"]
-        minimal_entities = minimal_result["searchAcrossEntities"]["searchResults"]
-
-        if not default_entities:
-            logger.info(
-                "No search results returned; "
-                "skipping payload size comparison (queries succeeded)"
+        query:'*' with count:10 is not stable under concurrent ingest/delete:
+        the two searches can return different entities, so payload size is
+        not a same-document comparison.
+        """
+        dataset_urn = unique_dataset_urn("projection-payload")
+        graph_client.emit_mcp(
+            MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=DatasetPropertiesClass(name="projection-payload"),
             )
-            return
+        )
+        wait_for_writes_to_sync()
+        try:
+            variables = _urn_filter_variables(dataset_urn)
+            default_query = _build_search_query(semantic=False, projection=None)
+            minimal_query = _build_search_query(semantic=False, projection="urn type")
 
-        default_size = len(json.dumps(default_entities))
-        minimal_size = len(json.dumps(minimal_entities))
-        logger.info(
-            f"Entity payload comparison: default={default_size} bytes, "
-            f"minimal={minimal_size} bytes"
-        )
-        assert minimal_size < default_size, (
-            f"Minimal entity payload ({minimal_size}B) should be smaller "
-            f"than default entity payload ({default_size}B)"
-        )
+            default_json = _entity_json_for_urn(
+                graph_client, default_query, variables, dataset_urn
+            )
+            minimal_json = _entity_json_for_urn(
+                graph_client, minimal_query, variables, dataset_urn
+            )
+
+            default_size = len(default_json)
+            minimal_size = len(minimal_json)
+            logger.info(
+                "Entity payload comparison for %s: default=%s bytes, minimal=%s bytes",
+                dataset_urn,
+                default_size,
+                minimal_size,
+            )
+            assert minimal_size < default_size, (
+                f"Minimal entity payload ({minimal_size}B) should be smaller "
+                f"than default entity payload ({default_size}B)"
+            )
+        finally:
+            graph_client.hard_delete_entity(dataset_urn)

@@ -1,6 +1,11 @@
 import json
 
+import pytest
+
 from datahub.cli.cli_utils import get_aspects_for_entity
+from tests.utilities.domains import Domain
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def test_no_client_id(graph_client):

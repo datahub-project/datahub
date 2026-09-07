@@ -133,7 +133,7 @@ class InformaticaFolderKey(InformaticaProjectKey):
 
 @platform_name("Informatica")
 @config_class(InformaticaSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.CONTAINERS, "Projects and folders as containers")
 @capability(SourceCapability.LINEAGE_COARSE, "Table-level lineage via v3 Export API")

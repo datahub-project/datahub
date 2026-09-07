@@ -170,7 +170,7 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("SAP Analytics Cloud", id="sac")
 @config_class(SACSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(

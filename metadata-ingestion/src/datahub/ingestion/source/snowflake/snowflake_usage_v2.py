@@ -367,7 +367,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             return sorted(
                 [
                     DatasetFieldUsageCounts(
-                        fieldPath=self.identifiers.snowflake_identifier(
+                        fieldPath=self.identifiers.snowflake_column_identifier(
                             field_count["col"]
                         ),
                         count=field_count["total"],
