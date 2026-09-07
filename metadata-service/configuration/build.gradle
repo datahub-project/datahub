@@ -27,6 +27,7 @@ dependencies {
 
     implementation externalDependency.slf4jApi
 
+    api externalDependency.openFeatureSdk
     api project(':li-utils')
 
     // Newer Spring libraries require JDK17 classes, allow for JDK11

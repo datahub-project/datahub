@@ -8,16 +8,19 @@ import javax.annotation.Nonnull;
  * the statically bound value the caller passed — the value Spring already validated and bound at
  * startup.
  */
-public class ConfigResolution {
+public final class ConfigResolution {
+
+  private static volatile ConfigValueProvider provider = new DefaultConfigValueProvider();
 
   private ConfigResolution() {}
 
-  /**
-   * Called from configuration-class getters; {@code key} is a {@link ConfigKeyConstants} constant.
-   */
+  public static void setProvider(@Nonnull ConfigValueProvider configValueProvider) {
+    provider = configValueProvider;
+  }
+
   @Nonnull
   public static <T> T resolve(
       @Nonnull OperationFingerprint operation, @Nonnull String key, @Nonnull T staticValue) {
-    return staticValue;
+    return provider.resolve(operation, key, staticValue);
   }
 }
