@@ -124,6 +124,15 @@ jobs:
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
       playwright_matrix: ${{ steps.set-playwright-matrix.outputs.matrix }}
       playwright_change: ${{ steps.ci-optimize.outputs.playwright-change == 'true' }}
+      # Pull requests run only the p0 tier while the PYTEST_P0_SMOKE repository
+      # variable is 'true'; post-merge pushes -- and the default with the
+      # variable unset -- always run the full suite. smoke.sh reads it as
+      # SMOKE_TIER. A PR that needs the whole suite asks for it with the
+      # full-suite label rather than by any path-based escalation here.
+      smoke_tier: ${{ (github.event_name == 'pull_request' && vars.PYTEST_P0_SMOKE == 'true') && 'p0' || 'full' }}
+      # Test modules this PR touches; conftest runs these alongside the p0
+      # tier. Empty on a full run.
+      smoke_changed_tests: ${{ steps.smoke-tier.outputs.changed_tests }}
       smoke_build_task: ${{ steps.smoke-profile.outputs.smoke_build_task }}
       smoke_profile_name: ${{ steps.smoke-profile.outputs.smoke_profile_name }}
       # Gradle modules base_build has to bake; empty means every image in the
@@ -239,6 +248,23 @@ jobs:
           SMOKE_BUILD_TASK: ${{ steps.smoke-profile.outputs.smoke_build_task }}
           CHANGED_FILES: ${{ steps.ci-optimize.outputs.changed-files }}
         run: .github/scripts/resolve_image_builds.sh
+
+      - name: Resolve smoke-test tier inputs
+        id: smoke-tier
+        env:
+          CHANGED_FILES: ${{ steps.ci-optimize.outputs.changed-files }}
+        run: |
+          files=""
+          if [[ -n "${CHANGED_FILES:-}" ]] && jq -e 'type == "array"' <<<"$CHANGED_FILES" >/dev/null 2>&1; then
+            files=$(jq -r '.[]' <<<"$CHANGED_FILES")
+          fi
+
+          # Test modules this PR touches; conftest runs these alongside the p0
+          # tier (SMOKE_CHANGED_TESTS).
+          changed=$(printf '%s\n' "$files" \
+            | grep -E '^smoke-test/(.*/)?(test_.*|.*_test)\.py$' || true)
+          echo "changed_tests=$(printf '%s' "$changed" | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+          echo "Changed smoke test modules: $(printf '%s' "$changed" | tr '\n' ' ')"
 
       - name: Determine runner type
         id: set-runner
@@ -542,6 +568,12 @@ jobs:
         run: |
           if [[ "${{ env.IS_FORK }}" == "true" ]]; then
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ needs.setup.outputs.smoke_tier }}" == "p0" ]]; then
+            # The p0 tier is 357 of 1209 collected tests, so 4 batches carry a
+            # lighter per-batch load than the full suite's 7 while cutting the
+            # per-batch fixed cost (caches, image pull, quickstart) that dominates
+            # a short run. Revisit once p0 batch durations have been measured.
+            echo "python_batch_count=4" >> "$GITHUB_OUTPUT"
           else
             echo "python_batch_count=7" >> "$GITHUB_OUTPUT"
           fi
@@ -932,6 +964,11 @@ jobs:
           TEST_STRATEGY: pytests
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
+          # 'p0' or 'full' -- see the setup job's smoke_tier output.
+          SMOKE_TIER: ${{ needs.setup.outputs.smoke_tier }}
+          # Test modules this PR touches; they run alongside the p0 tier.
+          # Ignored on a full run.
+          SMOKE_CHANGED_TESTS: ${{ needs.setup.outputs.smoke_changed_tests }}
           PYTEST_XDIST_WORKERS: "3"
           # GMS here runs with a 1s bulk-flush and 1s index refresh interval
           # (see run-quickstart.sh), so the trailing post-wait sleep can match.
