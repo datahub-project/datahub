@@ -468,3 +468,32 @@ def test_histogram_cardinality_filtering(postgres_source):
     assert high_card_value_col.histogram is not None
     assert len(high_card_value_col.histogram.boundaries) > 0
     assert len(high_card_value_col.histogram.heights) > 0
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_batching_actually_happens_against_a_real_database(postgres_source):
+    """Profiling really does batch, and nothing degrades to serial.
+
+    mypy proves every adapter query declares a row shape, and a contradictory
+    tag raises. What only a real database can show is that the CTE cross-join
+    executes end to end -- including that PostgreSQL tolerates the statement
+    execution option the single-row tag rides on, which SQLite never exercises.
+
+    Deliberately not asserted here: uncombined_queries_in_greenlet == 0. That
+    counter legitimately rises on platforms without a native MEDIAN or when row
+    count estimation is on, so pinning it to zero would pass on PostgreSQL
+    (which has PERCENTILE_CONT) and fail on correct code elsewhere.
+    """
+    profile = get_profile_for_table(postgres_source, "public", "test_exact_numeric")
+    assert profile is not None
+
+    report = postgres_source.report.query_combiner
+    assert report is not None
+
+    # Queries were genuinely folded into shared round-trips.
+    assert report.combined_queries_issued > 0
+    assert report.queries_combined > report.combined_queries_issued
+
+    # Nothing raised, so no mis-tag and no batch fell back to serial execution.
+    assert report.query_exceptions == 0

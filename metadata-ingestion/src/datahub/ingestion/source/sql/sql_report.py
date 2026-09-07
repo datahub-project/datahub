@@ -2,12 +2,14 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    SQLAlchemyQueryCombinerReport,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 from datahub.utilities.stats_collections import (
     TopKDict,
     float_top_k_dict,
