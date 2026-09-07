@@ -20,6 +20,7 @@ from datahub.executor.execution.runner import (
     SubprocessRunner,
     VenvConfig,
     VenvReference,
+    referenced_env_values,
 )
 from datahub.executor.execution.sub_process_ingestion_task import (
     SubProcessIngestionTask,
@@ -1664,6 +1665,26 @@ class TestPublishChokePoints:
         report = mock_execution_context.get_report()
         published = report.set_structured_report.call_args.args[0]
         assert published == MASKING_ERROR_MESSAGE
+
+    def test_pip_referenced_env_secrets_are_masked_in_published_logs(
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        mock_execution_context: Mock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Pins the singleton wiring: what setup_venv registers is what the
+        publish choke points redact."""
+        monkeypatch.setenv("PIP_INDEX_TOKEN", "pip-token-value-1")
+        SecretRegistry.get_instance().register_secrets_batch(
+            referenced_env_values(["pkg @ https://u:${PIP_INDEX_TOKEN}@x/simple"])
+        )
+        shared_logs = LogHolder()
+        shared_logs.append("subprocess echoed pip-token-value-1\n")
+        self._run_completion(ingestion_task, mock_execution_context, shared_logs)
+        report = mock_execution_context.get_report()
+        published = report.set_logs.call_args.args[0]
+        assert "pip-token-value-1" not in published
+        assert "***REDACTED:PIP_INDEX_TOKEN***" in published
 
     def test_completion_does_not_unregister_other_runs_secrets(
         self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
