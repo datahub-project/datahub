@@ -357,6 +357,22 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # falls back to a self-reference instead, matching how the Data Model path
     # treats an unknown upstream column.
     chart_join_chain_dangling_suppressed: int = 0
+    # Join-chain refs resolved by looking the middle segment up among the
+    # siblings of the Data Model the FIRST segment resolved into, rather than
+    # among the chart's own upstreams. A chart declares only the join element;
+    # the table joined into it is that element's sibling and is invisible from
+    # the chart side, which is why the plain candidate search cannot see it.
+    # A subset of chart_join_chain_resolved, not an addition to it.
+    chart_join_chain_sibling_resolved: int = 0
+    # The first segment resolved, but to a chart or warehouse table rather than
+    # a Data Model element, so there were no siblings to search.
+    chart_join_chain_sibling_dm_unknown: int = 0
+    # Two or more sibling elements in the Data Model share the middle segment's
+    # name. Refused rather than guessed.
+    chart_join_chain_sibling_ambiguous: int = 0
+    # A uniquely-named sibling matched but does not have the referenced column.
+    # A large value means this reading of the ref shape is wrong.
+    chart_join_chain_sibling_column_absent: int = 0
     # Column whose formula refs are exclusively parameter refs (e.g. [P_*]).
     chart_input_fields_skipped_parameter: int = 0
     # Column whose formula refs are exclusively bare sibling refs (e.g. [col]).

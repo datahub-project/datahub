@@ -910,7 +910,13 @@ class TestChartJoinChainRef:
         source.reporter.chart_join_chain_resolved = 0
         source.reporter.chart_join_chain_unresolved = 0
         source.reporter.chart_join_chain_upstream_schema_unavailable = 0
+        source.reporter.chart_join_chain_sibling_resolved = 0
+        source.reporter.chart_join_chain_sibling_dm_unknown = 0
+        source.reporter.chart_join_chain_sibling_ambiguous = 0
+        source.reporter.chart_join_chain_sibling_column_absent = 0
         source.dm_element_urn_to_cols = {}
+        source.dm_element_urn_by_name = {}
+        source.dm_key_by_element_urn = {}
         return source
 
     def _resolve(self, source, formula, *, elements, upstream_ids, chart_urns):
@@ -1047,6 +1053,99 @@ class TestChartJoinChainRef:
             },
         )
         assert result == ("urn:li:chart:(sigma,owner)", "Col K")
+
+
+class TestJoinChainResolvesThroughDataModelSiblings:
+    """[JoinElement/JoinedTable/Column] where the joined table is internal.
+
+    The dominant real shape: on one tenant 806 of 832 multi-segment refs failed
+    with exactly this signature -- the middle segment reported "no upstream"
+    while the first segment resolved but lacked the column. The chart declares
+    only the join element as its upstream; the table joined into it is a
+    sibling element of the same Data Model and is invisible from the chart's
+    own indices.
+    """
+
+    _JOIN_URN = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm1.join,PROD)"
+    _SIBLING_URN = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm1.dim,PROD)"
+
+    def _source(self, *, sibling_cols=None, sibling_urns=None):
+        source = _make_source()
+        for counter in (
+            "chart_join_chain_resolved",
+            "chart_join_chain_unresolved",
+            "chart_join_chain_upstream_schema_unavailable",
+            "chart_join_chain_sibling_resolved",
+            "chart_join_chain_sibling_dm_unknown",
+            "chart_join_chain_sibling_ambiguous",
+            "chart_join_chain_sibling_column_absent",
+        ):
+            setattr(source.reporter, counter, 0)
+        # The join element resolves, but its own output does not carry the
+        # referenced column -- which is why the ref names the joined table.
+        source.dm_element_urn_to_cols = {
+            self._JOIN_URN: {"join key": "Join Key"},
+            self._SIBLING_URN: {c.lower(): c for c in (sibling_cols or ["Col A"])},
+        }
+        source.dm_key_by_element_urn = {self._JOIN_URN: "dm1"}
+        source.dm_element_urn_by_name = {
+            "dm1": {"dim_a": sibling_urns or [self._SIBLING_URN]}
+        }
+        return source
+
+    def _resolve(self, source, formula):
+        ref = extract_bracket_refs(formula)[0]
+        return source._resolve_chart_join_chain_ref(
+            ref,
+            chart_element_id="chart-1",
+            chart_upstream_element_ids=set(),
+            # The join element is a DM upstream, not a workbook page element.
+            dm_upstream_urn_by_element_name={"Joined": self._JOIN_URN},
+            wb_element_index={},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={},
+        )
+
+    def test_middle_segment_resolves_to_a_sibling_of_the_same_data_model(
+        self,
+    ) -> None:
+        source = self._source()
+        result = self._resolve(source, "[Joined/DIM_A/Col A]")
+        assert result == (self._SIBLING_URN, "Col A")
+        assert source.reporter.chart_join_chain_sibling_resolved == 1
+        # Counted in the headline counter too, so the two stay comparable.
+        assert source.reporter.chart_join_chain_resolved == 1
+        assert source.reporter.chart_join_chain_unresolved == 0
+
+    def test_sigma_join_count_label_is_stripped(self) -> None:
+        """Sigma writes the joined node as "DIM_A + 3", not as its name."""
+        source = self._source()
+        result = self._resolve(source, "[Joined/DIM_A + 3/Col A]")
+        assert result == (self._SIBLING_URN, "Col A")
+
+    def test_sibling_without_the_column_emits_nothing(self) -> None:
+        """Schema validation gates this path too -- never a dangling field."""
+        source = self._source(sibling_cols=["Unrelated"])
+        result = self._resolve(source, "[Joined/DIM_A/Col A]")
+        assert result is None
+        assert source.reporter.chart_join_chain_sibling_column_absent == 1
+        assert source.reporter.chart_join_chain_unresolved == 1
+
+    def test_duplicate_sibling_names_are_refused_not_guessed(self) -> None:
+        source = self._source(
+            sibling_urns=[self._SIBLING_URN, "urn:li:dataset:(other,x,PROD)"]
+        )
+        result = self._resolve(source, "[Joined/DIM_A/Col A]")
+        assert result is None
+        assert source.reporter.chart_join_chain_sibling_ambiguous == 1
+
+    def test_first_segment_outside_a_data_model_has_no_siblings(self) -> None:
+        """A chart or warehouse upstream has no Data Model to search."""
+        source = self._source()
+        source.dm_key_by_element_urn = {}
+        result = self._resolve(source, "[Joined/DIM_A/Col A]")
+        assert result is None
+        assert source.reporter.chart_join_chain_sibling_dm_unknown == 1
 
 
 class TestJoinChainProbeDoesNotInflateCounters:

@@ -273,6 +273,10 @@ _WAREHOUSE_LOWERCASE_PLATFORMS: frozenset[str] = frozenset({"snowflake"})
 # Expected root segment of the /files path for warehouse tables.
 _FILES_PATH_ROOT = "Connection Root"
 
+# A join-chain segment can carry Sigma's "and N more joins" label, e.g.
+# "DIM_A + 3", which is a display string rather than an element name.
+_JOIN_COUNT_SUFFIX = re.compile(r"^(.*?)\s*\+\s*\d+$")
+
 
 def _normalize_warehouse_identifier(name: str, platform: str, lowercase: bool) -> str:
     """Apply platform-appropriate casing to a warehouse identifier (table or column).
@@ -446,6 +450,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.dm_element_urn_to_cols: Dict[
             str, Dict[str, str]
         ] = {}  # {lowercase_col: canonical_col}
+        # Global: element Dataset URN → the bridge key of its Data Model.
+        # Lets a chart-side join-chain ref walk from a resolved DM element back
+        # to its siblings via ``dm_element_urn_by_name``. The URN itself
+        # encodes the DM, but only as an opaque name string, so parsing it
+        # would couple this lookup to the URN format.
+        self.dm_key_by_element_urn: Dict[str, str] = {}
         # Surface as a structured report warning so operators running
         # under ``--strict`` or CI dashboards that gate on report
         # warnings (rather than stdout logs) notice the misconfiguration.
@@ -4231,6 +4241,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.dm_element_urn_to_cols[element_dataset_urn] = {
                 c.lower(): c for c in el_by_name
             }
+            self.dm_key_by_element_urn[element_dataset_urn] = bridge_key
             # Blank-named elements are excluded from ``name_map`` so they
             # don't collapse into a single spuriously-ambiguous candidate.
             if element.name:
@@ -4833,6 +4844,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 trace,
             )
             return (upstream_urn, canonical)
+
+        # No split named an upstream the chart declares. The commonest reason,
+        # by far, is that the middle segment is a table joined in *inside* the
+        # Data Model: the chart's own upstream is the join element, and the
+        # joined table is that element's sibling, invisible from here.
+        sibling = self._resolve_join_chain_via_dm_sibling(
+            ref,
+            chart_element_id=chart_element_id,
+            chart_upstream_element_ids=chart_upstream_element_ids,
+            dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+            wb_element_index=wb_element_index,
+            element_warehouse_table_index=element_warehouse_table_index,
+            elementId_to_chart_urn=elementId_to_chart_urn,
+            trace=trace,
+        )
+        if sibling is not None:
+            return sibling
+
         self.reporter.chart_join_chain_unresolved += 1
         logger.debug(
             "chart element %s: no candidate split of join-chain ref %r "
@@ -4845,6 +4874,121 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             trace,
             ref.column,
         )
+        return None
+
+    @staticmethod
+    def _strip_join_count_suffix(name: str) -> str:
+        """``'ACCOUNTS + 3'`` -> ``'ACCOUNTS'``.
+
+        Sigma labels a join node in a ref with the number of further tables
+        joined onto it, so the segment is a display label rather than the
+        element's own name. Only a trailing ``" + <digits>"`` is removed; a
+        name that genuinely ends that way is indistinguishable, but the
+        stripped name is only ever *tried*, never preferred over an exact
+        match, so a false strip cannot displace a real element.
+        """
+        match = _JOIN_COUNT_SUFFIX.match(name)
+        return match.group(1) if match else name
+
+    def _resolve_join_chain_via_dm_sibling(
+        self,
+        ref: BracketRef,
+        *,
+        chart_element_id: str,
+        chart_upstream_element_ids: Set[str],
+        dm_upstream_urn_by_element_name: Dict[str, str],
+        wb_element_index: Dict[str, List[Element]],
+        element_warehouse_table_index: Dict[str, List[str]],
+        elementId_to_chart_urn: Dict[str, str],
+        trace: List[str],
+    ) -> Optional[Tuple[str, str]]:
+        """Resolve ``[JoinElement/JoinedTable/Column]`` through the DM's siblings.
+
+        The chart declares the *join element* as its upstream; the table joined
+        into it is a sibling element of the same Data Model and appears nowhere
+        in the chart's own indices. So the middle segment is looked up among
+        the siblings of whatever Data Model the first segment resolved into.
+
+        Measured on one tenant: 806 of 832 multi-segment refs failed with the
+        verdict pair "<middle>: no upstream" and "<first>: upstream found but
+        column absent" -- the exact signature of this shape. The Data Model
+        path already resolves the same refs this way (via
+        ``element_name_to_eids``) and succeeds ~1,470 times per run.
+
+        Like that path, this deliberately does NOT require the sibling to be a
+        declared upstream: Sigma's element-level lineage lists only the direct
+        join element, never what the join reaches through. The guarantee is
+        kept by the schema check instead -- the sibling must actually have the
+        column -- and an ambiguous name is refused rather than guessed.
+        """
+        segments = ref.parts
+        if len(segments) < 3:
+            return None
+        column = segments[-1]
+        join_probe = replace(
+            ref,
+            source=segments[0],
+            column=column,
+            segments=(segments[0], column),
+        )
+        join_result = self._resolve_chart_formula_upstream(
+            join_probe,
+            chart_element_id=chart_element_id,
+            chart_upstream_element_ids=chart_upstream_element_ids,
+            dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+            wb_element_index=wb_element_index,
+            element_warehouse_table_index=element_warehouse_table_index,
+            elementId_to_chart_urn=elementId_to_chart_urn,
+            count=False,
+        )
+        if join_result is None:
+            trace.append(f"{segments[0]!r}: join element itself has no upstream")
+            return None
+        dm_key = self.dm_key_by_element_urn.get(join_result[0])
+        if dm_key is None:
+            # The first segment resolved to a chart or a warehouse table, so
+            # there is no Data Model whose siblings could be searched.
+            self.reporter.chart_join_chain_sibling_dm_unknown += 1
+            trace.append(f"{segments[0]!r}: upstream is not a Data Model element")
+            return None
+        name_map = self.dm_element_urn_by_name.get(dm_key, {})
+
+        # Right to left: with nested joins the owning element is the segment
+        # nearest the column, matching the Data Model path's ordering.
+        for middle in reversed(segments[1:-1]):
+            for name in dict.fromkeys((middle, self._strip_join_count_suffix(middle))):
+                urns = name_map.get(name.lower(), [])
+                if not urns:
+                    trace.append(f"{name!r}: no sibling element in the same DM")
+                    continue
+                if len(urns) > 1:
+                    self.reporter.chart_join_chain_sibling_ambiguous += 1
+                    trace.append(
+                        f"{name!r}: {len(urns)} sibling elements share the name"
+                    )
+                    continue
+                cols = self.dm_element_urn_to_cols.get(urns[0]) or {}
+                canonical = cols.get(column.lower())
+                if canonical is None:
+                    self.reporter.chart_join_chain_sibling_column_absent += 1
+                    trace.append(
+                        f"{name!r}: sibling found but column {column!r} absent "
+                        f"from its {len(cols)} columns"
+                    )
+                    continue
+                self.reporter.chart_join_chain_sibling_resolved += 1
+                self.reporter.chart_join_chain_resolved += 1
+                logger.debug(
+                    "chart element %s: join-chain ref %r resolved via DM "
+                    "sibling %r column=%r (upstream=%s); earlier verdicts=%r",
+                    chart_element_id,
+                    ref.raw,
+                    name,
+                    canonical,
+                    urns[0],
+                    trace,
+                )
+                return (urns[0], canonical)
         return None
 
     def _chart_ref_candidates(
