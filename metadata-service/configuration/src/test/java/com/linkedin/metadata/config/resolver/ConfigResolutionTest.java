@@ -19,6 +19,16 @@ public class ConfigResolutionTest {
         "DEFAULT");
   }
 
+  @Test
+  public void setProviderInstallsTheProviderUsedByResolve() {
+    ConfigResolution.setProvider(new DefaultConfigValueProvider());
+
+    assertEquals(
+        ConfigResolution.resolve(
+            OperationFingerprint.EMPTY, ConfigKeyConstants.SearchBar.API_VARIANT, "DEFAULT"),
+        "DEFAULT");
+  }
+
   /** Validates the generated constants carry the exact authored yaml spelling. */
   @Test
   public void generatedConstantsCarryExactYamlKeySpelling() {
