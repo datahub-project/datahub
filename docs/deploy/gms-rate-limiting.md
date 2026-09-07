@@ -1,24 +1,26 @@
 ---
 title: GMS Rate Limiting
 slug: /deploy/gms-rate-limiting
-description: Enable and tune GMS HTTP service rate limiting (not MCP ingestion or Kafka backpressure).
+description: Enable and tune GMS HTTP service rate limiting, plus MCP/Kafka ingest throttling (MCL lag backpressure).
 ---
 
 # GMS Rate Limiting
 
 This guide explains how to enable, configure, observe, and troubleshoot **GMS HTTP service rate limiting** — limits on **incoming API traffic to GMS** (GraphQL, OpenAPI, Rest.li, native auth routes). It protects the Metadata Service from overload and caps abuse on sensitive endpoints such as `/auth/signUp`.
 
+It also documents **MCP / Kafka ingest throttling** — lag-based backpressure on metadata writes and the MCE consumer when the Metadata Change Log (MCL) pipeline falls behind. That mechanism is separate from HTTP rate limits; see [MCP / Kafka ingest throttling](#mcp--kafka-ingest-throttling).
+
 ## What this is — and is not
 
-DataHub has **three separate load-protection mechanisms**. They are easy to confuse because several can return **429**. This guide covers **only the first**:
+DataHub has **three separate load-protection mechanisms**. They are easy to confuse because several can return **429**. This guide covers **GMS HTTP rate limiting** in depth and **MCP / Kafka ingest throttling** in a dedicated section:
 
-| Mechanism                                                                                                                              | What it limits                                                                                 | When it applies                                         | Configuration                                                                                                                        |
-| -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| **GMS service rate limiting** (**this guide**)                                                                                         | **HTTP requests served by GMS** — UI GraphQL, OpenAPI, Rest.li, `/auth/*` on GMS               | Before/during request handling on the GMS pod           | `RATE_LIMITS_*` env vars; bundled defaults under `datahub.gms.rateLimits` in `application.yaml`                                      |
-| **MCP / Kafka ingest throttle** ([`APIThrottle`](../../metadata-io/src/main/java/com/linkedin/metadata/dao/throttle/APIThrottle.java)) | **Metadata write APIs** when **Kafka consumer lag** (MCL backlog) is too high                  | Backpressure after ingest pipeline falls behind         | `MCP_*` throttle env vars (see [Environment Variables — MCP Throttle](./environment-vars.md#metadata-change-proposal-configuration)) |
-| **MCP consumer throttling**                                                                                                            | **Internal MCE/MCL consumer processing** — slows how fast GMS/consumers accept or process MCPs | Pipeline-side backpressure, not a per-client HTTP quota | `MCP_MCE_CONSUMER_THROTTLE_*`, `MCP_VERSIONED_*`, `MCP_TIMESERIES_*`                                                                 |
+| Mechanism                                                                        | What it limits                                                                   | When it applies                                         | Configuration                                                                                                                        |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **GMS service rate limiting** (**this guide**)                                   | **HTTP requests served by GMS** — UI GraphQL, OpenAPI, Rest.li, `/auth/*` on GMS | Before/during request handling on the GMS pod           | `RATE_LIMITS_*` env vars; bundled defaults under `datahub.gms.rateLimits` in `application.yaml`                                      |
+| **MCP / Kafka ingest throttle** ([section below](#mcp--kafka-ingest-throttling)) | **Sync metadata write APIs** when **MCL consumer lag** is too high               | Backpressure after ingest pipeline falls behind         | `MCP_*` throttle env vars (see [Environment Variables — MCP Throttle](./environment-vars.md#metadata-change-proposal-configuration)) |
+| **MCP consumer throttling** ([section below](#mcp--kafka-ingest-throttling))     | **MCE consumer** — pauses MCP consumption while MCL lag is high                  | Pipeline-side backpressure, not a per-client HTTP quota | `MCP_MCE_CONSUMER_THROTTLE_ENABLED`, `MCP_VERSIONED_*`, `MCP_TIMESERIES_*`                                                           |
 
-**This feature does not:**
+**GMS HTTP rate limiting does not:**
 
 - Rate-limit **ingestion connectors** (Python CLI, `datahub ingest`) — those are separate clients with their own retry behavior
 - Replace **MCP throttle** or **Kafka lag backpressure** — enabling GMS rate limits does not change `metadataChangeProposal.throttle` or consumer lag behavior
@@ -38,10 +40,10 @@ Both **GMS service rate limiting** and **MCP ingest throttle** can return **429*
 |                       | **GMS service rate limiting**                                                                          | **MCP / Kafka ingest throttle**                                  |
 | --------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
 | **Question answered** | “Is this GMS pod accepting more HTTP work right now?”                                                  | “Is the metadata pipeline too far behind to accept more writes?” |
-| **Trigger**           | Configured rules + live request latency (Gradient2) or token buckets                                   | Kafka MCL topic backlog / lag                                    |
-| **Retry-After**       | Capacity: `minRetryAfterSeconds`. Endpoint: `max(minRetryAfterSeconds, Bucket4j refill wait)` + jitter | Dynamic from lag estimate                                        |
-| **Debug headers**     | `X-DataHub-RateLimit-*`                                                                                | Same `X-DataHub-RateLimit-*` (`Type`: `ingest` or `search`)      |
-| **Ops entry point**   | `/openapi/v1/rate-limits/*`, `gms.rate_limit.*` metrics                                                | `/openapi/operations/throttle/*`, MCP throttle env vars          |
+| **Trigger**           | Configured rules + live request latency (Gradient2) or token buckets                                   | Kafka (or pgQueue) MCL topic backlog / lag                       |
+| **Retry-After**       | Capacity: `minRetryAfterSeconds`. Endpoint: `max(minRetryAfterSeconds, Bucket4j refill wait)` + jitter | Dynamic from exponential backoff on lag                          |
+| **Debug headers**     | `X-DataHub-RateLimit-*`                                                                                | Same `X-DataHub-RateLimit-*` (`Type`: `ingest`)                  |
+| **Ops entry point**   | `/openapi/v1/rate-limits/*`, `gms.rate_limit.*` metrics                                                | MCP throttle env vars / sensor logs and lag gauges               |
 
 **Scope**
 
@@ -131,7 +133,7 @@ Enable one or both. Sub-pools (`capacity.default.enabled`, `capacity.graphql.ena
 
 Endpoint limits always use Bucket4j with shared Hazelcast buckets when `endpoint.enabled=true`. Limits are **cluster totals** — `capacity` and `refill*` apply across all GMS replicas, not per pod.
 
-Provision Hazelcast by setting **`endpoint.enabled=true`** (`RATE_LIMITS_ENDPOINT_ENABLED`). Startup fails if endpoint limits are enabled but Hazelcast cannot be reached. Bucket state is stored in `rateLimits.endpoint.hazelcastMapName` (default `gmsRateLimitEndpointBuckets`). Configure cluster connectivity via `searchService.hazelcast.*` / `SEARCH_SERVICE_HAZELCAST_*` in [Environment Variables — Search](./environment-vars.md#search-service-configuration).
+Provision Hazelcast by setting **`endpoint.enabled=true`** (`RATE_LIMITS_ENDPOINT_ENABLED`, or the same flag in `RATE_LIMITS_CONFIG_FILE` / `RATE_LIMITS_CONFIG_JSON`). Startup fails if endpoint limits are enabled but Hazelcast cannot be reached. Bucket state is stored in `rateLimits.endpoint.hazelcastMapName` (default `gmsRateLimitEndpointBuckets`). Configure cluster connectivity via `searchService.hazelcast.*` / `SEARCH_SERVICE_HAZELCAST_*` in [Environment Variables — Search](./environment-vars.md#search-service-configuration).
 
 **Planning limits:** Configure `capacity` / `refill*` as cluster-wide caps (e.g. 200 sign-ups/minute total across the fleet).
 
@@ -189,8 +191,8 @@ Bundled defaults live under **`datahub.gms.rateLimits`** in `application.yaml` (
 ### Production checklist
 
 1. Enable the limiter type(s) you need: `RATE_LIMITS_CAPACITY_ENABLED=true` and/or `RATE_LIMITS_ENDPOINT_ENABLED=true`
-2. For endpoint caps: `RATE_LIMITS_ENDPOINT_ENABLED=true` (provisions Hazelcast automatically)
-3. To override the bundled policy, mount a ConfigMap with your policy file and point `RATE_LIMITS_CONFIG_FILE` at it using a Spring resource prefix (e.g. `file:/etc/datahub/rate-limits.yaml`)
+2. For endpoint caps: enable `endpoint.enabled` via `RATE_LIMITS_ENDPOINT_ENABLED=true` or the policy file/JSON overlay (either provisions Hazelcast automatically)
+3. To override the bundled policy, mount a ConfigMap with your policy file and point `RATE_LIMITS_CONFIG_FILE` at it (`file:/etc/datahub/rate-limits.yaml` or `/etc/datahub/rate-limits.yaml`)
 4. Rollout-restart GMS pods (config changes require restart in v1)
 5. Verify (requires `Manage System Operations` privilege):
    - `GET /openapi/v1/rate-limits/config` — effective merged config
@@ -232,10 +234,13 @@ Per-actor bucket entries are stored under a composite Hazelcast key `{ruleId}:ac
 
 **Merge behavior when overriding via a mounted config file:**
 
-Bundled defaults live in `application.yaml`. A file mounted at `RATE_LIMITS_CONFIG_FILE` is loaded by Spring as a property source and layered on top (it must use a Spring resource prefix, e.g. `file:/etc/datahub/rate-limits.yaml`). Because this is Spring property binding:
+Spring-bound toggles live in `application.yaml` (Tier 1). `RATE_LIMITS_CONFIG_FILE` **replaces** bundled `rate-limit-config.yaml` (the two YAML documents are not merged). `RATE_LIMITS_CONFIG_JSON` then overlays that chosen file. Because this is Jackson merge onto the Spring-bound bean:
 
-- **Scalars and map entries** (e.g. the scoped bucket sizes, `scoped.heavyResolvers.*`) from the mounted file override or add to the bundled values key by key.
-- **Rule lists** (`capacity.rules`, `endpoint.rules`) are bound by index, not replaced wholesale — keep rule lists defined in a single source. `application.yaml` ships empty rule lists, so a mounted file that declares rules simply provides them.
+- **Scalars and nested objects** from the file overwrite Spring for keys the file sets; omitted keys keep env/yaml defaults.
+- **Rule lists** (`capacity.rules`, `endpoint.rules`) are replaced wholesale when present in the overlay.
+- **Maps** (`scoped.heavyResolvers`) merge by key.
+
+A missing `RATE_LIMITS_CONFIG_FILE` path or invalid JSON fails GMS startup. Documents may use `datahub.gms.rateLimits:`, a `rateLimits:` wrapper, or a bare fragment.
 
 ```yaml
 datahub:
@@ -278,7 +283,7 @@ datahub:
 
 ## Configuration reference
 
-Bundled defaults live entirely in `application.yaml` (every value env-overridable). No per-actor endpoint rule ships; `endpoint.rules` is empty:
+Bundled defaults live entirely in `application.yaml` (every value env-overridable). No per-actor endpoint rule ships; `endpoint.rules` is omitted (empty by default):
 
 ```yaml
 rateLimits:
@@ -300,13 +305,11 @@ rateLimits:
       initialLimit: 100 # RATE_LIMITS_CAPACITY_GRAPHQL_INITIAL_LIMIT
       minLimit: 20 # RATE_LIMITS_CAPACITY_GRAPHQL_MIN_LIMIT
       maxLimit: 2000 # RATE_LIMITS_CAPACITY_GRAPHQL_MAX_LIMIT
-    rules: []
   endpoint:
     enabled: false # RATE_LIMITS_ENDPOINT_ENABLED
     hazelcastMapName: gmsRateLimitEndpointBuckets # RATE_LIMITS_ENDPOINT_HAZELCAST_MAP
     bucketMaxIdleSeconds: 300 # RATE_LIMITS_ENDPOINT_BUCKET_MAX_IDLE_SECONDS
     bucketMaxSize: 100000 # RATE_LIMITS_ENDPOINT_BUCKET_MAX_SIZE
-    rules: []
   scoped:
     enabled: false # RATE_LIMITS_SCOPED_ENABLED
     refundDisabled: false # RATE_LIMITS_SCOPED_REFUND_DISABLED
@@ -348,7 +351,8 @@ Key environment variables (full list at [Environment Variables — GMS Rate Limi
 | `RATE_LIMITS_MIN_RETRY_AFTER`                          | `60`                          | Minimum `Retry-After` seconds on 429 responses                                                                                                                                                                                        |
 | `RATE_LIMITS_RETRY_AFTER_JITTER_PERCENT`               | `10`                          | Jitter percentage added to `Retry-After`                                                                                                                                                                                              |
 | `RATE_LIMITS_EXCLUDED_PATHS`                           | `/health,/health/live,...`    | Comma-separated Ant paths excluded from all rate limiting                                                                                                                                                                             |
-| `RATE_LIMITS_CONFIG_FILE`                              | _(unset)_                     | Spring resource URI of an override policy file, layered on the bundled defaults — must include a prefix (e.g. `file:/etc/datahub/rate-limits.yaml`)                                                                                   |
+| `RATE_LIMITS_CONFIG_FILE`                              | `rate-limit-config.yaml`      | Policy file that **replaces** the bundled classpath YAML (`file:/etc/datahub/rate-limits.yaml` or a bare path). Missing file fails startup.                                                                                           |
+| `RATE_LIMITS_CONFIG_JSON`                              | _(unset)_                     | JSON overlay merged after the chosen policy file (lists replace; maps merge). Invalid JSON fails startup.                                                                                                                             |
 | `RATE_LIMITS_METRICS_DETAILED`                         | `false`                       | Enable detailed per-rule metric tags                                                                                                                                                                                                  |
 | `RATE_LIMITS_CAPACITY_DEFAULT_ENABLED`                 | `true`                        | Enable `_default_capacity` pool                                                                                                                                                                                                       |
 | `RATE_LIMITS_CAPACITY_DEFAULT_INITIAL_LIMIT`           | `200`                         | Gradient2 starting limit for default pool                                                                                                                                                                                             |
@@ -374,17 +378,14 @@ Key environment variables (full list at [Environment Variables — GMS Rate Limi
 
 ### Tier 2 — override policy file
 
-Bundled defaults ship in `application.yaml` (Tier 1). To override them per deployment, mount your own file and point `RATE_LIMITS_CONFIG_FILE` at it **with a Spring resource prefix** (e.g. `file:/etc/datahub/rate-limits.yaml`); it is loaded as a property source and layered on top. When `RATE_LIMITS_CONFIG_FILE` is unset it resolves to the bundled `rate-limit-config.yaml`, which is empty and contributes nothing. Override files use the full **`datahub.gms.rateLimits:`** path (the same keys Spring binds), not a bare `rateLimits:` fragment.
+Bundled defaults ship in `application.yaml` (Tier 1). The default policy file is classpath `rate-limit-config.yaml` (empty). Point `RATE_LIMITS_CONFIG_FILE` at a mounted file to **replace** that document (`file:/etc/datahub/rate-limits.yaml` or `/etc/datahub/rate-limits.yaml`). The classpath file and the mounted file are not merged.
 
-**Merge behavior:** scalars and map entries override/add key by key; rule lists are index-bound, so define each rule list in a single source (`application.yaml` ships empty rule lists). Most per-tenant tuning is done with `RATE_LIMITS_SCOPED_*` env vars rather than a file — the override file is mainly for the `scoped.heavyResolvers` map and rule lists, which a scalar env var can't express (and which are empty in the bundled defaults, so a mounted file simply provides them).
+**Merge behavior:** the chosen YAML is Jackson-overlaid onto the Spring-bound bean. Scalars/objects overwrite keys the file sets; rule lists replace wholesale when present; `heavyResolvers` map entries merge. Most per-tenant tuning is done with `RATE_LIMITS_SCOPED_*` env vars — the file is mainly for `scoped.heavyResolvers` and rule lists.
 
-**How it loads (and what changed):** both the bundled defaults and the mounted override are loaded as ordinary Spring `@PropertySource`s and bound to `RateLimitProperties` via relaxed `@ConfigurationProperties` binding — the same path `application.yaml` already uses. There is no bespoke config loader. This is intentionally simpler than an earlier design that used a custom Jackson loader, and it means:
+**How it loads:** `RateLimitEffectiveConfig` binds `application.yaml` toggles from the Spring `Environment`, then `RateLimitConfigLoader` applies the chosen YAML file and `RATE_LIMITS_CONFIG_JSON`. The result is loaded once (Hazelcast `@Conditional` needs `endpoint.enabled` / `scoped.enabled` before the engine bean exists) and reused by the engine. Overlay lists are not imported as Spring property sources. A missing mounted file or invalid JSON fails **GMS** startup (the engine). MAE/MCE/upgrade scan Hazelcast `CacheConfig` but do not construct the engine: a missing overlay does not fail those processes (they fall back to `RATE_LIMITS_ENDPOINT_ENABLED` / `RATE_LIMITS_SCOPED_ENABLED`).
 
-- The mounted override is enabled just by pointing `RATE_LIMITS_CONFIG_FILE` at a file (presence = enabled). There is **no** separate `RATE_LIMITS_CONFIG_FILE_ENABLED` flag.
-- There is **no** inline-JSON overlay env var (`RATE_LIMITS_CONFIG_JSON`). Put overrides in the mounted YAML file instead.
-- `${ENV:default}` placeholders resolve uniformly, and OS environment variables outrank both files — so `RATE_LIMITS_*` env vars always win, which is the recommended way to tune scalars per deployment.
-
-`RATE_LIMITS_CONFIG_FILE_ENABLED` and `RATE_LIMITS_CONFIG_JSON` are no longer honored; GMS logs a startup WARN if either is set so the change isn't silent. Benefits of the `@PropertySource` approach: one well-understood binding/precedence model (identical to the rest of GMS config), no custom merge code to maintain, and env-var overrides that reliably take precedence.
+- Presence of `RATE_LIMITS_CONFIG_FILE` means "replace the classpath policy file". There is **no** separate `RATE_LIMITS_CONFIG_FILE_ENABLED` flag (`RATE_LIMITS_CONFIG_FILE_ENABLED` is ignored with a startup WARN).
+- Documents may use `datahub.gms.rateLimits:`, a `rateLimits:` wrapper, or a bare fragment.
 
 ```yaml
 datahub:
@@ -420,7 +421,7 @@ env:
     value: "true"
   - name: RATE_LIMITS_CAPACITY_ENABLED
     value: "true"
-  # Spring resource URI — note the file: prefix.
+  # file: URI or a bare path both work.
   - name: RATE_LIMITS_CONFIG_FILE
     value: file:/etc/datahub/rate-limits/rate-limits.yaml
 volumeMounts:
@@ -431,6 +432,27 @@ volumes:
   - name: rate-limits-config
     configMap:
       name: datahub-rate-limits
+```
+
+### Tier 3 — JSON overlay
+
+`RATE_LIMITS_CONFIG_JSON` is an optional JSON document merged after the chosen policy file (same shapes as the YAML: `datahub.gms.rateLimits`, `rateLimits`, or a bare fragment). Use it for a surgical emergency overlay without remounting a file. Invalid JSON fails startup.
+
+```json
+{
+  "endpoint": {
+    "rules": [
+      {
+        "id": "auth-signup",
+        "pathPattern": "/auth/signUp",
+        "methods": ["POST"],
+        "capacity": 50,
+        "refillTokens": 50,
+        "refillPeriodSeconds": 60
+      }
+    ]
+  }
+}
 ```
 
 ### Base path
@@ -476,3 +498,148 @@ Suggested alerts: sustained `outcome=deny`, adaptive limit pinned at `minLimit`,
 | `GET /openapi/v1/rate-limits/status` | Live state on the pod that served the request |
 
 Status response includes `capacityEnabled`, `endpointEnabled`, `scopedEnabled`, plus per-rule `adaptive` (limit/inflight) and `endpoint` (remaining/capacity) maps, and a `scoped` map with the fixed-key buckets (`global`, `browser`, `sdk` — each remaining/capacity). Per-actor scoped buckets are omitted since their keys are unbounded.
+
+## MCP / Kafka ingest throttling
+
+Lag-based backpressure for the metadata write pipeline. When the **Metadata Change Log (MCL)** consumer falls behind, DataHub can slow or reject new writes so the backlog can drain — instead of letting Kafka lag grow without bound.
+
+This is **not** GMS HTTP rate limiting (`RATE_LIMITS_*`). It is configured under `metadataChangeProposal.throttle` and uses `MCP_*` environment variables. Full env-var tables: [Environment Variables — Metadata Change Proposal](./environment-vars.md#metadata-change-proposal-configuration).
+
+### What it protects
+
+Metadata writes flow roughly:
+
+```text
+API / connector  →  MCP (sync write or async proposal)  →  primary store + MCL
+                                                              ↓
+                                                    MAE consumer (search, graphs, …)
+```
+
+If MAE (or equivalent) cannot keep up with MCL production, median consumer lag rises. The throttle sensor watches that lag and, when thresholds are exceeded, applies backpressure to configured **components**.
+
+| Component                                   | Env var                             | Default | Effect when lag is high                                                                                      |
+| ------------------------------------------- | ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
+| **API requests** (`components.apiRequests`) | `MCP_API_REQUESTS_THROTTLE_ENABLED` | `false` | Sync metadata write APIs throw `APIThrottleException` → **HTTP 429** with `X-DataHub-RateLimit-Type: ingest` |
+| **MCE consumer** (`components.mceConsumer`) | `MCP_MCE_CONSUMER_THROTTLE_ENABLED` | `false` | Pauses the MCP Kafka listener container so async proposals stop being consumed until lag clears              |
+
+You can enable either or both. Lag monitoring itself is controlled separately per MCL topic family (versioned vs timeseries).
+
+### How lag is measured
+
+A scheduled sensor (`KafkaThrottleSensor`, or `PgQueueThrottleSensor` when `datahub.messaging.transport=pgqueue`) runs every `MCP_THROTTLE_UPDATE_INTERVAL_MS` (default **60s**):
+
+1. Reads committed offsets for the MCL consumer group (default `generic-mae-consumer-job-client`, overridable via `METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID`)
+2. Compares them to topic end offsets for the **versioned** and **timeseries** MCL topics
+3. Computes **median lag** per topic family
+4. If median lag **exceeds** the configured threshold and that topic family is enabled, enters a throttled state with **exponential backoff**
+
+```mermaid
+flowchart TD
+  Sensor[Throttle sensor every updateIntervalMs] --> Lag[Median MCL lag]
+  Lag -->|lag > threshold| Backoff[Exponential backoff]
+  Backoff --> API[API requests component: 429 on sync writes]
+  Backoff --> MCE[MCE consumer component: pause listener]
+  Lag -->|lag ≤ threshold| Clear[Clear throttle / resume]
+```
+
+**Sensor requirements:**
+
+- `MCP_THROTTLE_UPDATE_INTERVAL_MS` must be **> 0** (default 60000). Set to `0` to disable the sensor entirely (`NoOpSensor`).
+- At least one of `MCP_VERSIONED_THROTTLE_ENABLED` / `MCP_TIMESERIES_THROTTLE_ENABLED` must be `true` for lag checks to run.
+- Kafka bootstrap must be resolvable (or pgQueue store available for the pgQueue transport).
+
+### Versioned vs timeseries lag
+
+Versioned and timeseries MCL topics are throttled **independently**:
+
+| Topic family | Enable flag                       | Threshold (default)                 | Applied to                                      |
+| ------------ | --------------------------------- | ----------------------------------- | ----------------------------------------------- |
+| Versioned    | `MCP_VERSIONED_THROTTLE_ENABLED`  | `MCP_VERSIONED_THRESHOLD` (`4000`)  | Non-timeseries sync writes; MCE pause callbacks |
+| Timeseries   | `MCP_TIMESERIES_THROTTLE_ENABLED` | `MCP_TIMESERIES_THRESHOLD` (`4000`) | Timeseries sync writes; MCE pause callbacks     |
+
+Backoff tuning (same shape for both families):
+
+| Setting          | Versioned env var                   | Timeseries env var                   | Default |
+| ---------------- | ----------------------------------- | ------------------------------------ | ------- |
+| Max attempts     | `MCP_VERSIONED_MAX_ATTEMPTS`        | `MCP_TIMESERIES_MAX_ATTEMPTS`        | `1000`  |
+| Initial interval | `MCP_VERSIONED_INITIAL_INTERVAL_MS` | `MCP_TIMESERIES_INITIAL_INTERVAL_MS` | `100`   |
+| Multiplier       | `MCP_VERSIONED_MULTIPLIER`          | `MCP_TIMESERIES_MULTIPLIER`          | `10`    |
+| Max interval     | `MCP_VERSIONED_MAX_INTERVAL_MS`     | `MCP_TIMESERIES_MAX_INTERVAL_MS`     | `30000` |
+
+While throttled, the sensor sleeps for the current backoff interval before notifying resume callbacks. Suggested wait is surfaced to API clients as `Retry-After` (seconds) on 429 responses.
+
+### API request throttling behavior
+
+When `MCP_API_REQUESTS_THROTTLE_ENABLED=true` and the sensor reports active lag:
+
+- **Sync** metadata writes (Rest.li / OpenAPI / GraphQL entity updates that commit to the primary store) are evaluated by [`APIThrottle`](../../metadata-io/src/main/java/com/linkedin/metadata/dao/throttle/APIThrottle.java).
+- **Async** non-timeseries writes (proposal written to the MCP topic only) are **not** rejected here — use **MCE consumer throttling** to slow that path.
+- **Browser** UI traffic (`AgentClass.BROWSER`) is **exempt** so interactive UI edits are not blocked by ingest backlog. SDK / CLI / connector traffic is not exempt.
+- Internal calls without a request context are exempt.
+
+**429 response** (OpenAPI / Rest.li handlers convert `APIThrottleException`):
+
+```json
+{ "error": "Too many requests" }
+```
+
+Headers (same family as GMS rate limits):
+
+| Header                       | Typical value                                     |
+| ---------------------------- | ------------------------------------------------- |
+| `X-DataHub-RateLimit-Type`   | `ingest`                                          |
+| `X-DataHub-RateLimit-Source` | `metadata-write`                                  |
+| `X-DataHub-RateLimit-Rule`   | Active types, e.g. `MCL_VERSIONED_LAG`            |
+| `Retry-After`                | Suggested wait in seconds (when backoff is known) |
+
+### MCE consumer throttling behavior
+
+When `MCP_MCE_CONSUMER_THROTTLE_ENABLED=true`, the MCE consumer registers a callback on the same lag sensor. On throttle it **pauses** the MCP listener container; after the backoff sleep it **resumes**. That slows async ingest without returning 429 to the original API caller (the caller already returned after writing the proposal).
+
+Apply the same `MCP_VERSIONED_*` / `MCP_TIMESERIES_*` flags and thresholds on **GMS and MCE Consumer** so both see consistent lag policy. See [Environment Variables — MCP](./environment-vars.md#metadata-change-proposal-configuration) for the component list.
+
+### Enabling (typical staging / production)
+
+**Default:** all MCP throttle flags are **off**.
+
+Minimum useful enablement for API backpressure on versioned lag:
+
+```bash
+export MCP_API_REQUESTS_THROTTLE_ENABLED=true
+export MCP_VERSIONED_THROTTLE_ENABLED=true
+# optional: also pause async MCP consumption
+# export MCP_MCE_CONSUMER_THROTTLE_ENABLED=true
+# restart GMS (and MCE consumer if mceConsumer throttle is enabled)
+```
+
+Tune threshold to your cluster’s normal MCL lag headroom. `4000` is a starting point, not a universal safe value — set it above expected steady-state median lag and below the lag that causes search/graph staleness incidents.
+
+Config lives under `metadataChangeProposal.throttle` in `application.yaml`:
+
+```yaml
+metadataChangeProposal:
+  throttle:
+    updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
+    components:
+      mceConsumer:
+        enabled: ${MCP_MCE_CONSUMER_THROTTLE_ENABLED:false}
+      apiRequests:
+        enabled: ${MCP_API_REQUESTS_THROTTLE_ENABLED:false}
+    versioned:
+      enabled: ${MCP_VERSIONED_THROTTLE_ENABLED:false}
+      threshold: ${MCP_VERSIONED_THRESHOLD:4000}
+      maxAttempts: ${MCP_VERSIONED_MAX_ATTEMPTS:1000}
+      initialIntervalMs: ${MCP_VERSIONED_INITIAL_INTERVAL_MS:100}
+      multiplier: ${MCP_VERSIONED_MULTIPLIER:10}
+      maxIntervalMs: ${MCP_VERSIONED_MAX_INTERVAL_MS:30000}
+    timeseries:
+      enabled: ${MCP_TIMESERIES_THROTTLE_ENABLED:false}
+      threshold: ${MCP_TIMESERIES_THRESHOLD:4000}
+      # … same backoff shape as versioned
+```
+
+### Observability
+
+- Sensor logs median MCL lag on each refresh and warns when entering throttle (`Throttled Topic: … Duration: … MedianLag: …`).
+- Gauges / counters on the sensor class: `{topic}_throttled` (0/1) and `{topic}_throttledCount`.
+- API denials share the `X-DataHub-RateLimit-*` headers with `Type=ingest` — distinguish from capacity/endpoint denials (`Type=capacity` / `endpoint`) described earlier in this guide.

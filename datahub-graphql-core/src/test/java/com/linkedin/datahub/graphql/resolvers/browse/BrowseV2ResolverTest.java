@@ -360,10 +360,12 @@ public class BrowseV2ResolverTest {
 
   @Test
   public void testGetEntityNamesDefaultsIncludeDocument() {
-    // With no explicit types, browseV2 falls back to BROWSE_ENTITY_TYPES. Documents
+    // With no explicit types, browseV2 falls back to configured browse entity types. Documents
     // must be in that default so the platform-browse sidebar can navigate
     // document-only platforms (e.g. Confluence); otherwise their browse tree is empty.
-    List<String> defaultEntityNames = BrowseV2Resolver.getEntityNames(new BrowseV2Input());
+    QueryContext mockContext = getMockAllowContext();
+    List<String> defaultEntityNames =
+        BrowseV2Resolver.getEntityNames(new BrowseV2Input(), mockContext.getOperationContext());
     Assert.assertTrue(
         defaultEntityNames.contains(EntityTypeMapper.getName(EntityType.DOCUMENT)),
         "Default browse entity types should include DOCUMENT");

@@ -17,13 +17,13 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 import requests
-from requests.structures import CaseInsensitiveDict
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     ContainerClass,
     ContainerPropertiesClass,
+    CorpUserInfoClass,
     DomainPropertiesClass,
     GlossaryNodeInfoClass,
     GlossaryTermInfoClass,
@@ -237,13 +237,9 @@ def execute_graphql_no_sync_wait(
     json_payload: Dict[str, Any] = {"query": query}
     if variables:
         json_payload["variables"] = variables
-    headers = CaseInsensitiveDict(
-        {"Authorization": f"Bearer {auth_session.gms_token()}"}
-    )
-    response = auth_session._upstream.post(
+    response = auth_session.raw_post(
         f"{auth_session.frontend_url()}/api/v2/graphql",
         json=json_payload,
-        headers=headers,
     )
     response.raise_for_status()
     res_data = response.json()
@@ -602,6 +598,24 @@ def create_native_group(auth_session, group_id: str) -> str:
     assert group_urn
     wait_for_writes_to_sync()
     return group_urn
+
+
+def create_test_corp_user(graph_client: DataHubGraph, username: str) -> str:
+    """Emit a fresh corpUser so a test owns an isolated user whose group
+    memberships no other suite mutates. Returns the user URN."""
+    urn = f"urn:li:corpuser:{username}"
+    graph_client.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=CorpUserInfoClass(
+                active=True,
+                displayName=username,
+                email=f"{username}@example.com",
+            ),
+        )
+    )
+    wait_for_writes_to_sync()
+    return urn
 
 
 def add_users_to_native_group(

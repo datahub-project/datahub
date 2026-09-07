@@ -210,6 +210,16 @@ export function getDisplayName(structuredProperty: StructuredPropertyEntity) {
     return structuredProperty.definition.displayName || structuredProperty.definition.qualifiedName;
 }
 
+export function getFilteredSortedStructuredProperties(
+    properties: StructuredPropertyEntity[],
+    searchQuery: string,
+): StructuredPropertyEntity[] {
+    const query = searchQuery.toLowerCase();
+    return properties
+        .filter((property) => getDisplayName(property).toLowerCase().includes(query))
+        .sort((propA, propB) => (propB.definition.created?.time || 0) - (propA.definition.created?.time || 0));
+}
+
 export const getValueType = (valueUrn: string, cardinality: PropertyCardinality) => {
     return valueTypes.find((valueType) => valueType.urn === valueUrn && valueType.cardinality === cardinality)?.value;
 };

@@ -5,7 +5,7 @@ source:
   config:
     username: root
     password: example
-    host_port: localhost:53307
+    host_port: "localhost:${MYSQL_HOST_PORT}"
     schema_pattern:
       allow:
         - "^metagalaxy"

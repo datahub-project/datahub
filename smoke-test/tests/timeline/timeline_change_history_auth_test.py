@@ -28,11 +28,16 @@ from tests.privileges.utils import (
     set_view_dataset_sensitive_info_policy_status,
     set_view_entity_profile_privileges_policy_status,
 )
+from tests.utilities.domains import Domain
 from tests.utils import get_frontend_session, get_frontend_url, login_as
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.global_policy_mutator]
+pytestmark = [
+    pytest.mark.no_cypress_suite1,
+    pytest.mark.global_policy_mutator,
+    pytest.mark.domain(Domain.CATALOG),
+]
 
 # ---------------------------------------------------------------------------
 # Constants — unique per test run so the test is idempotent
@@ -109,7 +114,7 @@ def _timeline_auth_test_setup_impl(graph_client, auth_session):
             ),
         )
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     # Need a fresh admin session (not the shared auth_session fixture) so
     # cookie state is isolated from policy mutations.
@@ -122,7 +127,7 @@ def _timeline_auth_test_setup_impl(graph_client, auth_session):
     set_base_platform_privileges_policy_status("INACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("INACTIVE", admin_session)
     set_view_entity_profile_privileges_policy_status("INACTIVE", admin_session)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     logger.info(f"auth_test_setup: creating restricted user {TEST_USER_EMAIL}")
     admin_session = create_user(admin_session, TEST_USER_EMAIL, TEST_USER_PASSWORD)
@@ -136,7 +141,7 @@ def _timeline_auth_test_setup_impl(graph_client, auth_session):
     set_base_platform_privileges_policy_status("ACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("ACTIVE", admin_session)
     set_view_entity_profile_privileges_policy_status("ACTIVE", admin_session)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     for urn in [TEST_DATASET_URN, TEST_DOMAIN_URN]:
         try:

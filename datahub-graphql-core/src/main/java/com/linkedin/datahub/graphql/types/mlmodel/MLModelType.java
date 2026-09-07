@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.mlmodel;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.ML_MODEL_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -24,6 +25,7 @@ import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLModelMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -42,6 +44,34 @@ import javax.annotation.Nullable;
 
 public class MLModelType
     implements SearchableEntityType<MLModel, String>, BrowsableEntityType<MLModel, String> {
+  static final Set<String> ASPECTS_TO_FETCH =
+      ImmutableSet.of(
+          ML_MODEL_KEY_ASPECT_NAME,
+          ML_MODEL_PROPERTIES_ASPECT_NAME,
+          ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME,
+          OWNERSHIP_ASPECT_NAME,
+          STATUS_ASPECT_NAME,
+          GLOBAL_TAGS_ASPECT_NAME,
+          GLOSSARY_TERMS_ASPECT_NAME,
+          DOMAINS_ASPECT_NAME,
+          DEPRECATION_ASPECT_NAME,
+          INSTITUTIONAL_MEMORY_ASPECT_NAME,
+          DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+          BROWSE_PATHS_V2_ASPECT_NAME,
+          STRUCTURED_PROPERTIES_ASPECT_NAME,
+          FORMS_ASPECT_NAME,
+          APPLICATION_MEMBERSHIP_ASPECT_NAME,
+          VERSION_PROPERTIES_ASPECT_NAME,
+          INTENDED_USE_ASPECT_NAME,
+          ML_MODEL_FACTOR_PROMPTS_ASPECT_NAME,
+          METRICS_ASPECT_NAME,
+          EVALUATION_DATA_ASPECT_NAME,
+          TRAINING_DATA_ASPECT_NAME,
+          QUANTITATIVE_ANALYSES_ASPECT_NAME,
+          ETHICAL_CONSIDERATIONS_ASPECT_NAME,
+          CAVEATS_AND_RECOMMENDATIONS_ASPECT_NAME,
+          SOURCE_CODE_ASPECT_NAME,
+          COST_ASPECT_NAME);
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
   private final EntityClient _entityClient;
@@ -71,12 +101,15 @@ public class MLModelType
     final List<Urn> mlModelUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, ML_MODEL_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> mlModelMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               ML_MODEL_ENTITY_NAME,
               new HashSet<>(mlModelUrns),
-              null);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults =
           mlModelUrns.stream()

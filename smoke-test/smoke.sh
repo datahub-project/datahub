@@ -28,10 +28,6 @@ else
   uv pip install -r requirements.txt
 fi
 
-(cd ..; ./gradlew :smoke-test:yarnInstall)
-
-source ./set-cypress-creds.sh
-
 # set environment variables for the test
 source ./set-test-env-vars.sh
 
@@ -97,23 +93,7 @@ run_pytest_policy_phases() {
   return 0
 }
 
-# TEST_STRATEGY:
-#   if set to pytests, runs all pytests, skips cypress tests(though cypress test launch is via  a pytest).
-#   if set tp cypress, runs all cypress tests
-#   if blank, runs all.
 # When invoked via the github action, BATCH_COUNT and BATCH_NUMBER env vars are set to run a slice of those tests per
-# worker for parallelism. docker-unified.yml generates a test matrix of pytests/cypress in batches. As number of tests
+# worker for parallelism. docker-unified.yml generates a test matrix of pytests in batches. As number of tests
 # increase, the batch_count config (in docker-unified.yml) may need adjustment.
-if [[ "${TEST_STRATEGY}" == "pytests" ]]; then
-  #pytests only - github test matrix runs pytests in one of the runners when applicable.
-  run_pytest_policy_phases junit.smoke-pytests -k 'not test_run_cypress'
-elif [[ "${TEST_STRATEGY}" == "cypress" ]]; then
-  # run only cypress tests. The test inspects BATCH_COUNT and BATCH_NUMBER and runs only a subset of tests in that batch.
-  # github workflow test matrix will invoke this in multiple runners for each batch.
-  # Skipping the junit at the pytest level since cypress itself generates junits on a per-test basis. The pytest is a single test for all cypress
-  # tests and isnt very helpful.
-  # Cypress is launched from a single pytest module; xdist is not useful here.
-  pytest -rP --durations=20 -vvs --continue-on-collection-errors tests/cypress/integration_test.py
-else
-  run_pytest_policy_phases junit.smoke-all
-fi
+run_pytest_policy_phases junit.smoke-pytests

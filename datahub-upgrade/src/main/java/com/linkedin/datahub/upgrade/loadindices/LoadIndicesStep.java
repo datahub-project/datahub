@@ -14,7 +14,8 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import com.linkedin.metadata.entity.ebean.PartitionedStream;
+import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
+import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.storage.PrimaryStorageResolver;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -183,7 +184,9 @@ public class LoadIndicesStep implements UpgradeStep {
               EbeanConfiguration.testDefault,
               null,
               java.util.Collections.emptyList(),
-              null);
+              null,
+              new PlainAspectTableResolver(),
+              new PassThroughScopedTransactionFactory(server));
       aspectDao.setConnectionValidated(true);
 
       // Process data using streaming approach (no cursor pagination needed!)
@@ -238,97 +241,107 @@ public class LoadIndicesStep implements UpgradeStep {
 
       // Use streaming approach ordered by URN/aspect for optimal ES document batching
       RestoreIndicesArgs restoreArgs = convertToRestoreIndicesArgs(args, limit);
-      try (PartitionedStream<EbeanAspectV2> stream =
-          aspectDao.streamAspectBatches(opContext, restoreArgs, TxIsolation.READ_UNCOMMITTED)) {
+      aspectDao.streamAspectBatches(
+          opContext,
+          restoreArgs,
+          TxIsolation.READ_UNCOMMITTED,
+          stream -> {
 
-        // Simple forEach approach since SQL handles the limiting
-        stream
-            .partition(batchSize)
-            .forEach(
-                batch -> {
-                  long batchStartTime = System.currentTimeMillis();
+            // Simple forEach approach since SQL handles the limiting
+            stream
+                .partition(batchSize)
+                .forEach(
+                    batch -> {
+                      long batchStartTime = System.currentTimeMillis();
 
-                  List<EbeanAspectV2> aspects = batch.collect(java.util.stream.Collectors.toList());
+                      List<EbeanAspectV2> aspects =
+                          batch.collect(java.util.stream.Collectors.toList());
 
-                  if (aspects.isEmpty()) {
-                    return;
-                  }
-
-                  result.timeSqlQueryMs += System.currentTimeMillis() - batchStartTime;
-
-                  // Pre-allocate list to avoid multiple resizing
-                  List<MetadataChangeLog> mclBatch = new ArrayList<>(aspects.size());
-                  int conversionErrors = 0;
-                  for (EbeanAspectV2 aspect : aspects) {
-                    try {
-                      MetadataChangeLog mcl = convertToMetadataChangeLog(opContext, aspect);
-                      mclBatch.add(mcl);
-                    } catch (Exception e) {
-                      log.debug("Error converting aspect: {}", aspect.getKey(), e);
-                      conversionErrors++;
-                      result.ignored++;
-                    }
-                  }
-
-                  if (!mclBatch.isEmpty()) {
-                    writeBatchWithRetry(opContext, mclBatch, result, reportFunction);
-                    int aspectsProcessed = aspects.size() - conversionErrors;
-                    totalProcessed[0] += aspectsProcessed;
-
-                    // Log the last URN of every batch for resume capability
-                    String lastUrn = aspects.get(aspects.size() - 1).getKey().getUrn();
-
-                    if (totalProcessed[0] % batchSize == 0 || conversionErrors > 0) {
-                      long currentTime = System.currentTimeMillis();
-                      long elapsedTime = currentTime - totalStartTime;
-                      double aspectsPerSecond = (double) totalProcessed[0] / (elapsedTime / 1000.0);
-
-                      String progressMessage;
-                      if (conversionErrors > 0) {
-                        progressMessage =
-                            String.format(
-                                "Processed %d aspects (total: %d, %d conversion errors) - %.1f aspects/sec",
-                                aspectsProcessed,
-                                totalProcessed[0],
-                                conversionErrors,
-                                aspectsPerSecond);
-                      } else {
-                        progressMessage =
-                            String.format(
-                                "Processed %d aspects - %.1f aspects/sec",
-                                totalProcessed[0], aspectsPerSecond);
+                      if (aspects.isEmpty()) {
+                        return;
                       }
 
-                      if (totalRecords > 0 && aspectsPerSecond > 0 && totalProcessed[0] > 50000) {
-                        long remainingAspects;
-                        if (limit != Integer.MAX_VALUE) {
-                          remainingAspects = Math.min(limit, totalRecords) - totalProcessed[0];
-                        } else {
-                          remainingAspects = totalRecords - totalProcessed[0];
-                        }
+                      result.timeSqlQueryMs += System.currentTimeMillis() - batchStartTime;
 
-                        if (remainingAspects > 0) {
-                          long estimatedRemainingMs =
-                              (long) (remainingAspects / aspectsPerSecond * 1000);
-                          long estimatedRemainingMinutes = estimatedRemainingMs / 60000;
-                          long estimatedRemainingSeconds = (estimatedRemainingMs % 60000) / 1000;
-
-                          int progressPercent = (int) ((totalProcessed[0] * 100L) / totalRecords);
-                          progressMessage +=
-                              String.format(
-                                  " - Progress: %d%% - ETA: %dm %ds",
-                                  progressPercent,
-                                  estimatedRemainingMinutes,
-                                  estimatedRemainingSeconds);
+                      // Pre-allocate list to avoid multiple resizing
+                      List<MetadataChangeLog> mclBatch = new ArrayList<>(aspects.size());
+                      int conversionErrors = 0;
+                      for (EbeanAspectV2 aspect : aspects) {
+                        try {
+                          MetadataChangeLog mcl = convertToMetadataChangeLog(opContext, aspect);
+                          mclBatch.add(mcl);
+                        } catch (Exception e) {
+                          log.debug("Error converting aspect: {}", aspect.getKey(), e);
+                          conversionErrors++;
+                          result.ignored++;
                         }
                       }
 
-                      reportFunction.apply(progressMessage);
-                      reportFunction.apply("Last URN processed: " + lastUrn);
-                    }
-                  }
-                });
-      }
+                      if (!mclBatch.isEmpty()) {
+                        writeBatchWithRetry(opContext, mclBatch, result, reportFunction);
+                        int aspectsProcessed = aspects.size() - conversionErrors;
+                        totalProcessed[0] += aspectsProcessed;
+
+                        // Log the last URN of every batch for resume capability
+                        String lastUrn = aspects.get(aspects.size() - 1).getKey().getUrn();
+
+                        if (totalProcessed[0] % batchSize == 0 || conversionErrors > 0) {
+                          long currentTime = System.currentTimeMillis();
+                          long elapsedTime = currentTime - totalStartTime;
+                          double aspectsPerSecond =
+                              (double) totalProcessed[0] / (elapsedTime / 1000.0);
+
+                          String progressMessage;
+                          if (conversionErrors > 0) {
+                            progressMessage =
+                                String.format(
+                                    "Processed %d aspects (total: %d, %d conversion errors) - %.1f aspects/sec",
+                                    aspectsProcessed,
+                                    totalProcessed[0],
+                                    conversionErrors,
+                                    aspectsPerSecond);
+                          } else {
+                            progressMessage =
+                                String.format(
+                                    "Processed %d aspects - %.1f aspects/sec",
+                                    totalProcessed[0], aspectsPerSecond);
+                          }
+
+                          if (totalRecords > 0
+                              && aspectsPerSecond > 0
+                              && totalProcessed[0] > 50000) {
+                            long remainingAspects;
+                            if (limit != Integer.MAX_VALUE) {
+                              remainingAspects = Math.min(limit, totalRecords) - totalProcessed[0];
+                            } else {
+                              remainingAspects = totalRecords - totalProcessed[0];
+                            }
+
+                            if (remainingAspects > 0) {
+                              long estimatedRemainingMs =
+                                  (long) (remainingAspects / aspectsPerSecond * 1000);
+                              long estimatedRemainingMinutes = estimatedRemainingMs / 60000;
+                              long estimatedRemainingSeconds =
+                                  (estimatedRemainingMs % 60000) / 1000;
+
+                              int progressPercent =
+                                  (int) ((totalProcessed[0] * 100L) / totalRecords);
+                              progressMessage +=
+                                  String.format(
+                                      " - Progress: %d%% - ETA: %dm %ds",
+                                      progressPercent,
+                                      estimatedRemainingMinutes,
+                                      estimatedRemainingSeconds);
+                            }
+                          }
+
+                          reportFunction.apply(progressMessage);
+                          reportFunction.apply("Last URN processed: " + lastUrn);
+                        }
+                      }
+                    });
+            return null;
+          });
 
       result.timeElasticsearchWriteMs =
           System.currentTimeMillis() - totalStartTime - result.timeSqlQueryMs;
@@ -544,8 +557,7 @@ public class LoadIndicesStep implements UpgradeStep {
     }
     restoreArgs.urnLike = args.urnLike;
     restoreArgs.gePitEpochMs = args.gePitEpochMs != null ? args.gePitEpochMs : 0L;
-    restoreArgs.lePitEpochMs =
-        args.lePitEpochMs != null ? args.lePitEpochMs : System.currentTimeMillis();
+    restoreArgs.lePitEpochMs = args.lePitEpochMs != null ? args.lePitEpochMs : 0L;
     restoreArgs.limit = limit;
 
     // Enable URN-based pagination if lastUrn is provided

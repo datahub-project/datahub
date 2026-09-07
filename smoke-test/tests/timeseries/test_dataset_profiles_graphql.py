@@ -14,6 +14,7 @@ from urllib.parse import quote
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.utils import (
     execute_graphql,
     get_timestampmillis_at_start_of_day,
@@ -21,6 +22,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.OBSERVE)
 
 _DATASET_URNS = [
     f"urn:li:dataset:(urn:li:dataPlatform:test,profilesGraphqlDataset{i},PROD)"

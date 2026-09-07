@@ -30,8 +30,10 @@ const MAX_RECENT = 5;
 
 const ContentCard = styled.div`
     flex: 1;
+    height: 100%;
+    min-height: 0;
     background-color: ${(props) => props.theme.colors.bg};
-    border-radius: 12px;
+    border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
     box-shadow: ${(props) => props.theme.colors.shadowSm};
     display: flex;
     flex-direction: column;
@@ -39,7 +41,6 @@ const ContentCard = styled.div`
     padding: 16px 20px;
     gap: 8px;
 `;
-
 const PageHeader = styled.div`
     display: flex;
     flex-direction: column;

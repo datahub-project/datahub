@@ -15,7 +15,9 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -27,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -70,6 +73,16 @@ public class AspectsBatchImpl implements AspectsBatch {
       Map<String, Map<String, SystemAspect>> latestAspects,
       Map<String, Map<String, Long>> nextVersions,
       BiFunction<ChangeMCP, SystemAspect, SystemAspect> databaseUpsert) {
+    return toUpsertBatchItems(operationContext, latestAspects, nextVersions, databaseUpsert, null);
+  }
+
+  @Override
+  public Pair<Map<String, Set<String>>, List<ChangeMCP>> toUpsertBatchItems(
+      @Nonnull OperationFingerprint operationContext,
+      Map<String, Map<String, SystemAspect>> latestAspects,
+      Map<String, Map<String, Long>> nextVersions,
+      BiFunction<ChangeMCP, SystemAspect, SystemAspect> databaseUpsert,
+      @Nullable BiConsumer<ChangeMCP, ChangeMCP> provenanceSink) {
 
     // Process proposals to change items
     Stream<? extends BatchItem> mutatedProposalsStream =
@@ -115,9 +128,30 @@ public class AspectsBatchImpl implements AspectsBatch {
     // Apply write hooks before side effects
     applyWriteMutationHooks(operationContext, upsertBatchItems);
 
-    LinkedList<ChangeMCP> newItems =
-        applyMCPSideEffects(operationContext, upsertBatchItems)
-            .collect(Collectors.toCollection(LinkedList::new));
+    final LinkedList<ChangeMCP> newItems = new LinkedList<>();
+    if (provenanceSink == null) {
+      // Whole-batch side-effect run (default, byte-identical to the legacy path).
+      applyMCPSideEffects(operationContext, upsertBatchItems).forEach(newItems::add);
+    } else {
+      // Branch-scoped retry needs parent->child provenance, so run side effects per input item and
+      // attribute each derived MCP to the item that produced it.
+      //
+      // CONTRACT: this is equivalent to the whole-batch run above ONLY IF every in-transaction
+      // MCPSideEffect is ITEM-LOCAL — i.e. the derived MCPs it emits for an input depend only on
+      // that input (plus DB/registry lookups), never on the other items in the batch. All current
+      // in-transaction side effects satisfy this (VersionProperties, VersionSet, Aliases,
+      // DataProductUnset, PropertyDefinitionDelete, CustomDataQualityRules each stream per-item;
+      // SchemaField is a no-op in-transaction). A future non-item-local in-transaction side effect
+      // would diverge here vs the whole-batch path and must not be added without revisiting this.
+      for (ChangeMCP parent : upsertBatchItems) {
+        applyMCPSideEffects(operationContext, List.of(parent))
+            .forEach(
+                child -> {
+                  provenanceSink.accept(parent, child);
+                  newItems.add(child);
+                });
+      }
+    }
     upsertBatchItems.addAll(newItems);
 
     Map<String, Set<String>> newUrnAspectNames =
@@ -249,6 +283,20 @@ public class AspectsBatchImpl implements AspectsBatch {
       if (this.items == null) {
         this.items = Collections.emptyList();
       }
+
+      // Defense in depth: non-system writers must not retain reserved appSource=systemUpdate.
+      // Auth validators no longer trust that stamp; stripping prevents other consumers from
+      // treating client-supplied provenance as a system-upgrade signal.
+      if (operationContext == null || !operationContext.isSystemAuth()) {
+        for (BatchItem item : this.items) {
+          SystemMetadata systemMetadata = item.getSystemMetadata();
+          if (SystemMetadataUtils.stripReservedAppSource(systemMetadata)
+              && item instanceof MCPItem) {
+            ((MCPItem) item).setSystemMetadata(systemMetadata);
+          }
+        }
+      }
+
       this.nonRepeatedItems = filterRepeats(this.items);
 
       // operationContext serves dual roles here: OperationFingerprint for routing (1st arg)
@@ -258,7 +306,7 @@ public class AspectsBatchImpl implements AspectsBatch {
           AspectsBatch.validateProposed(
               operationContext, this.nonRepeatedItems, this.retrieverContext, operationContext);
       if (!exceptions.isEmpty()) {
-        throw new ValidationException("Failed to validate MCP due to: " + exceptions);
+        throw new ValidationException(exceptions);
       }
 
       return new AspectsBatchImpl(this.items, this.nonRepeatedItems, this.retrieverContext);

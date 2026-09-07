@@ -9,7 +9,12 @@ import {
     FilterValueOption,
 } from '@app/searchV2/filters/types';
 import { filterOptionsWithSearch, getStructuredPropFilterDisplayName } from '@app/searchV2/filters/utils';
-import { FILTER_DELIMITER } from '@app/searchV2/utils/constants';
+import {
+    CONTAINER_FILTER_NAME,
+    DOMAINS_FILTER_NAME,
+    FILTER_DELIMITER,
+    PARENT_DOCUMENT_FILTER_NAME,
+} from '@app/searchV2/utils/constants';
 import { combineOrFilters } from '@app/searchV2/utils/filterUtils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -234,5 +239,12 @@ export const getEntityTypeFilterValueDisplayName = (value: string, entityRegistr
 };
 
 export const getDefaultFieldOperatorType = (field: FilterField) => {
+    if (
+        field.field === DOMAINS_FILTER_NAME ||
+        field.field === CONTAINER_FILTER_NAME ||
+        field.field === PARENT_DOCUMENT_FILTER_NAME
+    ) {
+        return FilterOperatorType.WITHIN;
+    }
     return field.type === FieldType.TEXT ? FilterOperatorType.CONTAINS : FilterOperatorType.EQUALS;
 };

@@ -21,6 +21,14 @@ public class StructuredPropertiesConfiguration {
   private boolean systemUpdateEnabled;
 
   /**
+   * When true (and {@link #systemUpdateEnabled} is also true), system-update reindexes entity
+   * search indices whose structured-property field Elasticsearch types differ from the
+   * definition-driven target (e.g. dynamic {@code float}/{@code long} vs intended {@code double}
+   * for NUMBER). Both flags must be enabled for type-mismatch reindex to run.
+   */
+  private boolean typeMismatchReindexEnabled;
+
+  /**
    * When true, structured property writes drop assignments whose definition entity does not exist,
    * logging a warning per dropped value. The write fails if no valid assignments remain.
    */

@@ -9,6 +9,7 @@ from requests.auth import HTTPBasicAuth
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.airbyte.client import (
     AirbyteApiError,
+    AirbyteAuthenticationError,
     AirbyteBaseClient,
     AirbyteCloudClient,
     AirbyteOSSClient,
@@ -20,8 +21,12 @@ from datahub.ingestion.source.airbyte.config import (
     OAuth2GrantType,
 )
 from datahub.ingestion.source.airbyte.models import (
+    AirbyteConfigStreamRef,
+    AirbyteStreamApiMetadata,
+    AirbyteSyncCatalog,
     PropertyFieldPath,
     StreamIdentifier,
+    SyncCatalogBuildResult,
 )
 
 
@@ -122,7 +127,7 @@ class TestAirbyteOSSClient:
         )
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._paginate_results")
-    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._apply_pattern")
+    @patch("datahub.ingestion.source.airbyte.client.apply_pattern")
     def test_list_workspaces_with_pattern(
         self, mock_apply_pattern, mock_paginate_results
     ):
@@ -180,6 +185,36 @@ class TestAirbyteOSSClient:
             result_key="data",
         )
 
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._paginate_results")
+    def test_list_connections_skips_inactive_by_default(self, mock_paginate_results):
+        mock_paginate_results.return_value = [
+            {
+                "connectionId": "active-id",
+                "name": "Active Connection",
+                "sourceId": "source-id-1",
+                "destinationId": "destination-id-1",
+                "status": "active",
+            },
+            {
+                "connectionId": "inactive-id",
+                "name": "Inactive Connection",
+                "sourceId": "source-id-2",
+                "destinationId": "destination-id-2",
+                "status": "inactive",
+            },
+        ]
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        connections = client.list_connections("workspace-id-1")
+        assert [c.connection_id for c in connections] == ["active-id"]
+
+        connections = client.list_connections("workspace-id-1", include_inactive=True)
+        assert [c.connection_id for c in connections] == ["active-id", "inactive-id"]
+
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_http_error_handling(self, mock_make_request):
         mock_make_request.side_effect = requests.exceptions.HTTPError(
@@ -221,7 +256,9 @@ class TestAirbyteClientBase:
             def list_destinations(self, workspace_id, pattern=None):
                 return []
 
-            def list_connections(self, workspace_id, pattern=None):
+            def list_connections(
+                self, workspace_id, pattern=None, include_inactive=False
+            ):
                 return []
 
         class IncompleteClient(AirbyteBaseClient):
@@ -750,22 +787,23 @@ class TestClientBuildSyncCatalog:
             }
         ]
 
-        stream_property_fields = {
-            StreamIdentifier(stream_name="users", namespace="public"): [
-                PropertyFieldPath(path=["id"]),
-                PropertyFieldPath(path=["name"]),
-                PropertyFieldPath(path=["email"]),
-            ]
-        }
+        stream_api_metadata = AirbyteStreamApiMetadata(
+            property_fields_by_stream={
+                StreamIdentifier(stream_name="users", namespace="public"): [
+                    PropertyFieldPath(path=["id"]),
+                    PropertyFieldPath(path=["name"]),
+                    PropertyFieldPath(path=["email"]),
+                ]
+            }
+        )
 
-        result = client._build_sync_catalog(config_streams, stream_property_fields)
+        build_result = client._build_sync_catalog(config_streams, stream_api_metadata)
 
-        assert "streams" in result
-        assert len(result["streams"]) == 1
-        stream = result["streams"][0]
-        assert stream["stream"]["name"] == "users"
-        assert stream["stream"]["namespace"] == "public"
-        assert "jsonSchema" in stream["stream"]
+        assert len(build_result.catalog.streams) == 1
+        stream = build_result.catalog.streams[0]
+        assert stream.stream.name == "users"
+        assert stream.stream.namespace == "public"
+        assert stream.stream.json_schema
 
     def test_build_sync_catalog_without_property_fields(self):
         config = AirbyteClientConfig(
@@ -782,10 +820,253 @@ class TestClientBuildSyncCatalog:
             }
         ]
 
-        result = client._build_sync_catalog(config_streams, {})
+        build_result = client._build_sync_catalog(
+            config_streams, AirbyteStreamApiMetadata()
+        )
 
-        assert "streams" in result
-        assert len(result["streams"]) == 1
+        assert len(build_result.catalog.streams) == 1
+
+    def test_build_sync_catalog_backfills_namespace_from_streams_api(self):
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        config_streams = [
+            {
+                "name": "events",
+                "syncMode": "full_refresh_overwrite",
+            }
+        ]
+        stream_api_metadata = AirbyteStreamApiMetadata(
+            property_fields_by_stream={
+                StreamIdentifier(stream_name="events", namespace="my_schema"): [
+                    PropertyFieldPath(path=["id"]),
+                ]
+            },
+            namespaces_by_name={"events": ["my_schema"]},
+        )
+
+        build_result = client._build_sync_catalog(config_streams, stream_api_metadata)
+
+        stream = build_result.catalog.streams[0]
+        assert stream.stream.name == "events"
+        assert stream.stream.namespace == "my_schema"
+        properties: Dict[str, Any] = stream.stream.json_schema.get("properties", {})
+        assert "id" in properties
+
+    def test_build_sync_catalog_refuses_to_pair_same_named_streams_by_order(self):
+        """Config order and /streams discovery order are unrelated, so two
+        same-named streams must stay unnamespaced rather than be guessed."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        config_streams = [
+            {"name": "users", "syncMode": "full_refresh_overwrite"},
+            {"name": "users", "syncMode": "full_refresh_overwrite"},
+        ]
+        stream_api_metadata = AirbyteStreamApiMetadata(
+            namespaces_by_name={"users": ["public", "analytics"]},
+        )
+
+        build_result = client._build_sync_catalog(config_streams, stream_api_metadata)
+
+        assert [s.stream.namespace for s in build_result.catalog.streams] == [
+            None,
+            None,
+        ]
+        assert build_result.ambiguous == {"users": ["public", "analytics"]}
+
+    def test_build_sync_catalog_deduces_namespace_claimed_by_no_sibling(self):
+        """An explicitly-namespaced sibling accounts for one candidate, leaving
+        exactly one for the unnamed stream — deducible, so not ambiguous."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        build_result = client._build_sync_catalog(
+            [{"name": "users", "namespace": "public"}, {"name": "users"}],
+            AirbyteStreamApiMetadata(
+                namespaces_by_name={"users": ["public", "analytics"]}
+            ),
+        )
+
+        assert [s.stream.namespace for s in build_result.catalog.streams] == [
+            "public",
+            "analytics",
+        ]
+        assert build_result.ambiguous == {}
+
+    def test_build_sync_catalog_leaves_unnamed_stream_when_siblings_claim_all(self):
+        """Reusing the only discovered namespace would collide with the sibling
+        that already declares it, so the unnamed stream keeps none."""
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        build_result = client._build_sync_catalog(
+            [{"name": "users", "namespace": "public"}, {"name": "users"}],
+            AirbyteStreamApiMetadata(namespaces_by_name={"users": ["public"]}),
+        )
+
+        assert [s.stream.namespace for s in build_result.catalog.streams] == [
+            "public",
+            None,
+        ]
+        assert build_result.ambiguous == {}
+
+    def test_build_sync_catalog_skips_partial_multi_schema_backfill(self):
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        config_streams = [{"name": "users", "syncMode": "full_refresh_overwrite"}]
+        stream_api_metadata = AirbyteStreamApiMetadata(
+            namespaces_by_name={"users": ["public", "analytics"]},
+        )
+
+        build_result = client._build_sync_catalog(config_streams, stream_api_metadata)
+
+        assert build_result.catalog.streams[0].stream.namespace is None
+        assert build_result.ambiguous == {"users": ["public", "analytics"]}
+
+    def test_build_sync_catalog_broadcasts_single_namespace_to_many_unnamed(self):
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        build_result = client._build_sync_catalog(
+            [{"name": "events"}, {"name": "events"}],
+            AirbyteStreamApiMetadata(namespaces_by_name={"events": ["my_schema"]}),
+        )
+
+        assert [s.stream.namespace for s in build_result.catalog.streams] == [
+            "my_schema",
+            "my_schema",
+        ]
+        assert build_result.ambiguous == {}
+
+    def test_build_sync_catalog_leaves_unknown_stream_name_unnamespaced(self):
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        build_result = client._build_sync_catalog(
+            [{"name": "events"}],
+            AirbyteStreamApiMetadata(namespaces_by_name={"orders": ["sales"]}),
+        )
+
+        assert build_result.catalog.streams[0].stream.namespace is None
+        assert build_result.ambiguous == {}
+
+    def test_build_sync_catalog_prefers_config_namespace_over_backfill(self):
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        config_streams = [{"name": "users", "namespace": "explicit_schema"}]
+        build_result = client._build_sync_catalog(
+            config_streams,
+            AirbyteStreamApiMetadata(
+                namespaces_by_name={"users": ["streams_api_schema"]}
+            ),
+        )
+
+        assert build_result.catalog.streams[0].stream.namespace == "explicit_schema"
+        assert build_result.ambiguous == {}
+
+    def test_build_sync_catalog_coerces_non_string_stream_name(self):
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        build_result = client._build_sync_catalog(
+            [{"name": 123, "namespace": None}], AirbyteStreamApiMetadata()
+        )
+
+        assert build_result.catalog.streams[0].stream.name == "123"
+        assert build_result.catalog.streams[0].stream.namespace is None
+
+    def test_build_sync_catalog_normalizes_off_spec_stream_shapes(self):
+        """Off-spec scalars/flat lists degrade to a best-effort stream.
+
+        Airbyte declares primaryKey as string[][] and cursorField as string[],
+        but payloads in the wild flatten them. Pydantic will not widen a scalar
+        into a list on its own, and rejecting the entry would cost the whole
+        connection.
+        """
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        build_result = client._build_sync_catalog(
+            [
+                {
+                    "name": "events",
+                    "primaryKey": ["id"],
+                    "cursorField": "updated_at",
+                    "jsonSchema": "not-a-schema",
+                    "selectedFields": {"fieldPath": ["id"]},
+                },
+                {
+                    "name": "orders",
+                    "primaryKey": [None, ["id"]],
+                    "cursorField": None,
+                },
+                {"name": "refunds", "primaryKey": 7, "cursorField": 7},
+            ],
+            AirbyteStreamApiMetadata(),
+        )
+
+        assert build_result.skipped_stream_payloads == []
+        events, orders, refunds = build_result.catalog.streams
+        assert events.stream.name == "events"
+        assert events.stream.json_schema == {}
+        assert events.config.primary_key == [["id"]]
+        assert events.config.cursor_field == ["updated_at"]
+        assert orders.config.primary_key == [["id"]]
+        assert orders.config.cursor_field == []
+        assert refunds.config.primary_key == [["7"]]
+        assert refunds.config.cursor_field == ["7"]
+
+    def test_build_sync_catalog_skips_unreadable_stream_without_losing_others(self):
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        build_result = client._build_sync_catalog(
+            [
+                {"name": "events"},
+                {"name": "orders", "fieldSelectionEnabled": "not-a-bool"},
+            ],
+            AirbyteStreamApiMetadata(),
+        )
+
+        assert [s.stream.name for s in build_result.catalog.streams] == ["events"]
+        assert len(build_result.skipped_stream_payloads) == 1
+        assert "orders" in build_result.skipped_stream_payloads[0]
 
     def test_build_stream_config(self):
         config = AirbyteClientConfig(
@@ -794,19 +1075,52 @@ class TestClientBuildSyncCatalog:
         )
         client = AirbyteOSSClient(config)
 
-        stream = {
-            "syncMode": "incremental_append",
-            "primaryKey": [["id"]],
-            "cursorField": ["updated_at"],
-        }
+        stream = AirbyteConfigStreamRef.model_validate(
+            {
+                "syncMode": "incremental_append",
+                "primaryKey": [["id"]],
+                "cursorField": ["updated_at"],
+            }
+        )
 
         result = client._build_stream_config(stream)
 
-        assert result["selected"] is True
-        assert result["syncMode"] == "incremental"
-        assert result["destinationSyncMode"] == "append"
-        assert result["primaryKey"] == [["id"]]
-        assert result["cursorField"] == ["updated_at"]
+        assert result.selected is True
+        assert result.sync_mode == "incremental"
+        assert result.destination_sync_mode == "append"
+        assert result.primary_key == [["id"]]
+        assert result.cursor_field == ["updated_at"]
+
+    @pytest.mark.parametrize(
+        "sync_mode,expected_source,expected_destination",
+        [
+            # The source mode is `full_refresh`, not `full`: splitting on the
+            # first "_" would mis-read every full_refresh_* value.
+            ("full_refresh_overwrite", "full_refresh", "overwrite"),
+            ("full_refresh_append", "full_refresh", "append"),
+            ("incremental_append", "incremental", "append"),
+            ("incremental_deduped_history", "incremental", "deduped_history"),
+            (None, "full_refresh", "overwrite"),
+            # Airbyte's marker for a disabled stream must survive intact so
+            # `is_enabled()` still sees it.
+            ("null", "null", "overwrite"),
+        ],
+    )
+    def test_build_stream_config_splits_sync_mode(
+        self, sync_mode, expected_source, expected_destination
+    ):
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        result = client._build_stream_config(
+            AirbyteConfigStreamRef.model_validate({"syncMode": sync_mode})
+        )
+
+        assert result.sync_mode == expected_source
+        assert result.destination_sync_mode == expected_destination
 
     def test_get_json_schema_for_stream_with_property_fields(self):
         config = AirbyteClientConfig(
@@ -815,7 +1129,7 @@ class TestClientBuildSyncCatalog:
         )
         client = AirbyteOSSClient(config)
 
-        stream = {"name": "users"}
+        stream = AirbyteConfigStreamRef.model_validate({"name": "users"})
         property_fields = [
             PropertyFieldPath(path=["id"]),
             PropertyFieldPath(path=["name"]),
@@ -838,20 +1152,20 @@ class TestClientBuildSyncCatalog:
         )
         client = AirbyteOSSClient(config)
 
-        stream = {
-            "name": "orders",
-            "jsonSchema": {
-                "type": "object",
-                "properties": {
-                    "order_id": {"type": "integer"},
-                    "amount": {"type": "number"},
-                },
+        json_schema = {
+            "type": "object",
+            "properties": {
+                "order_id": {"type": "integer"},
+                "amount": {"type": "number"},
             },
         }
+        stream = AirbyteConfigStreamRef.model_validate(
+            {"name": "orders", "jsonSchema": json_schema}
+        )
 
         result = client._get_json_schema_for_stream(stream, None)
 
-        assert result == stream["jsonSchema"]
+        assert result == json_schema
 
     def test_get_json_schema_for_stream_fallback_empty(self):
         config = AirbyteClientConfig(
@@ -860,7 +1174,7 @@ class TestClientBuildSyncCatalog:
         )
         client = AirbyteOSSClient(config)
 
-        stream = {"name": "products"}
+        stream = AirbyteConfigStreamRef.model_validate({"name": "products"})
 
         result = client._get_json_schema_for_stream(stream, None)
 
@@ -971,10 +1285,34 @@ class TestClientErrorHandling:
 
         assert "Request timed out" in str(exc_info.value)
 
+    @pytest.mark.parametrize("status_code", [401, 403])
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._do_get")
+    def test_make_request_raises_authentication_error_on_auth_status(
+        self, mock_do_get, status_code
+    ):
+        response = MagicMock()
+        response.status_code = status_code
+        response.text = "Unauthorized"
+        response.json.side_effect = ValueError("not json")
+        mock_do_get.side_effect = requests.HTTPError(
+            f"{status_code} Client Error", response=response
+        )
 
-class TestFetchStreamPropertyFields:
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        with pytest.raises(AirbyteAuthenticationError) as exc_info:
+            client._make_request("/streams")
+
+        assert exc_info.value.status_code == status_code
+
+
+class TestFetchStreamApiMetadata:
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
-    def test_fetch_stream_property_fields_success(self, mock_list_streams):
+    def test_fetch_stream_api_metadata_property_fields(self, mock_list_streams):
         mock_list_streams.return_value = [
             {
                 "streamName": "users",
@@ -994,7 +1332,9 @@ class TestFetchStreamPropertyFields:
         )
         client = AirbyteOSSClient(config)
 
-        result = client._fetch_stream_property_fields("source-id-123")
+        result = client._fetch_stream_api_metadata(
+            "source-id-123"
+        ).property_fields_by_stream
 
         users_stream = StreamIdentifier(stream_name="users", namespace="public")
         orders_stream = StreamIdentifier(stream_name="orders", namespace="sales")
@@ -1012,23 +1352,170 @@ class TestFetchStreamPropertyFields:
         ]
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
-    def test_fetch_stream_property_fields_no_source_id(self, mock_list_streams):
+    def test_fetch_stream_api_metadata_unique_namespaces(self, mock_list_streams):
+        # `streamName` + `streamnamespace` (all lowercase) is what the Public API
+        # StreamProperties schema actually emits.
+        mock_list_streams.return_value = [
+            {
+                "streamName": "events",
+                "streamnamespace": "my_schema",
+                "propertyFields": [["id"]],
+            },
+            {
+                "streamName": "orders",
+                "streamnamespace": "my_schema",
+            },
+        ]
+
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
         )
         client = AirbyteOSSClient(config)
 
-        result = client._fetch_stream_property_fields(None)
+        metadata = client._fetch_stream_api_metadata("source-1")
 
-        assert result == {}
+        assert metadata.namespaces_by_name == {
+            "events": ["my_schema"],
+            "orders": ["my_schema"],
+        }
+        assert (
+            StreamIdentifier(stream_name="events", namespace="my_schema")
+            in metadata.property_fields_by_stream
+        )
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_preserves_multi_schema_order(
+        self, mock_list_streams
+    ):
+        mock_list_streams.return_value = [
+            {
+                "streamName": "users",
+                "streamnamespace": "public",
+                "propertyFields": [["id"]],
+            },
+            {
+                "streamName": "users",
+                "streamnamespace": "analytics",
+                "propertyFields": [["id"]],
+            },
+        ]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-1")
+
+        assert metadata.namespaces_by_name == {"users": ["public", "analytics"]}
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_empty_alias_falls_through(
+        self, mock_list_streams
+    ):
+        # Some versions emit the preferred key as an empty string; the row must
+        # fall through to the alternate keys instead of being dropped.
+        mock_list_streams.return_value = [
+            {
+                "streamName": "",
+                "name": "users",
+                "namespace": "",
+                "streamNamespace": "public",
+                "propertyFields": [["id"]],
+            }
+        ]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-1")
+
+        assert metadata.namespaces_by_name == {"users": ["public"]}
+        assert (
+            StreamIdentifier(stream_name="users", namespace="public")
+            in metadata.property_fields_by_stream
+        )
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_no_source_id(self, mock_list_streams):
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata(None)
+
+        assert metadata.property_fields_by_stream == {}
+        assert metadata.namespaces_by_name == {}
         mock_list_streams.assert_not_called()
 
+    @pytest.mark.parametrize(
+        "error,expected_status",
+        [
+            (
+                AirbyteApiError(
+                    "Airbyte API request failed: 404 - /streams endpoint missing",
+                    status_code=404,
+                ),
+                404,
+            ),
+            (
+                # Message mentions 404 but status_code is unset (retry exhaustion /
+                # connection error). Must still mark unavailable; status stays None.
+                AirbyteApiError(
+                    "Airbyte API request failed: 500 - upstream returned code=404 in body"
+                ),
+                None,
+            ),
+            (
+                AirbyteApiError("500 Internal Server Error", status_code=500),
+                500,
+            ),
+            (
+                AirbyteApiError(
+                    "Error connecting to Airbyte API: Max retries exceeded with url: "
+                    "/api/public/v1/streams (Caused by ResponseError('too many 500 "
+                    "error responses'))"
+                ),
+                None,
+            ),
+        ],
+    )
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
-    def test_fetch_stream_property_fields_404_returns_empty(self, mock_list_streams):
-        """404 from /streams (older OSS versions) should fall back to empty dict."""
+    def test_fetch_stream_api_metadata_api_error_returns_unavailable(
+        self, mock_list_streams, error, expected_status
+    ):
+        mock_list_streams.side_effect = error
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-id-123")
+
+        assert metadata.unavailable is True
+        assert metadata.unavailable_status_code == expected_status
+        assert metadata.unavailable_message == str(error)
+        assert metadata.property_fields_by_stream == {}
+        assert metadata.namespaces_by_name == {}
+        assert metadata.namespaces_absent is False
+
+    @pytest.mark.parametrize("status_code", [400, 422])
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_client_error_reraises(
+        self, mock_list_streams, status_code
+    ):
         mock_list_streams.side_effect = AirbyteApiError(
-            "404 Not Found: /streams endpoint missing"
+            f"Airbyte API request failed: {status_code} - bad request",
+            status_code=status_code,
         )
 
         config = AirbyteClientConfig(
@@ -1037,14 +1524,19 @@ class TestFetchStreamPropertyFields:
         )
         client = AirbyteOSSClient(config)
 
-        result = client._fetch_stream_property_fields("source-id-123")
+        with pytest.raises(AirbyteApiError) as exc_info:
+            client._fetch_stream_api_metadata("source-id-123")
 
-        assert result == {}
+        assert exc_info.value.status_code == status_code
+        assert client._stream_api_metadata_cache.get("source-id-123") is None
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
-    def test_fetch_stream_property_fields_non_404_reraises(self, mock_list_streams):
-        """Non-404 API errors must propagate so the source layer can warn."""
-        mock_list_streams.side_effect = AirbyteApiError("500 Internal Server Error")
+    def test_fetch_stream_api_metadata_invalid_json_reraises(self, mock_list_streams):
+        # 2xx with a non-JSON body keeps the HTTP status, so it must not degrade
+        # to unavailable the way a connection error (status_code=None) does.
+        mock_list_streams.side_effect = AirbyteApiError(
+            "Airbyte API returned invalid JSON (HTTP 200)", status_code=200
+        )
 
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -1052,20 +1544,168 @@ class TestFetchStreamPropertyFields:
         )
         client = AirbyteOSSClient(config)
 
-        with pytest.raises(AirbyteApiError, match="500"):
-            client._fetch_stream_property_fields("source-id-123")
+        with pytest.raises(AirbyteApiError) as exc_info:
+            client._fetch_stream_api_metadata("source-id-123")
+
+        assert exc_info.value.status_code == 200
+        assert not AirbyteOSSClient._is_streams_api_unavailable_error(exc_info.value)
+
+    @patch("datahub.ingestion.source.airbyte.client.requests.Session.get")
+    def test_do_get_invalid_json_preserves_http_status(self, mock_get):
+        response = MagicMock()
+        response.status_code = 200
+        response.raise_for_status.return_value = None
+        response.json.side_effect = ValueError("Expecting value")
+        mock_get.return_value = response
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        with pytest.raises(AirbyteApiError) as exc_info:
+            client._do_get("http://localhost:8000/api/public/v1/streams")
+
+        assert exc_info.value.status_code == 200
+        assert "invalid JSON" in str(exc_info.value)
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_flags_namespaceless_response(
+        self, mock_list_streams
+    ):
+        # Airbyte below 1.7.0 describes the streams but has no namespace field,
+        # which the source can only warn about if the client flags it.
+        mock_list_streams.return_value = [
+            {"streamName": "users", "propertyFields": [["id"]]}
+        ]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-id-123")
+
+        assert metadata.namespaces_by_name == {}
+        assert metadata.namespaces_absent is True
+        assert metadata.unavailable is False
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_caches_per_source(self, mock_list_streams):
+        mock_list_streams.return_value = [
+            {"streamName": "users", "streamnamespace": "public"}
+        ]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        first = client._fetch_stream_api_metadata("source-1")
+        second = client._fetch_stream_api_metadata("source-1")
+        client._fetch_stream_api_metadata("source-2")
+
+        assert first == second
+        assert mock_list_streams.call_count == 2
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_normalizes_scalar_property_fields(
+        self, mock_list_streams
+    ):
+        mock_list_streams.return_value = [
+            {
+                "streamName": "users",
+                "streamnamespace": "public",
+                "propertyFields": "id",
+            },
+            {"streamName": "orders", "streamnamespace": "sales", "propertyFields": 42},
+        ]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-1")
+
+        assert metadata.skipped_rows == []
+        assert metadata.namespaces_by_name == {"users": ["public"], "orders": ["sales"]}
+        assert metadata.property_fields_by_stream[
+            StreamIdentifier(stream_name="users", namespace="public")
+        ] == [PropertyFieldPath(path=["id"])]
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_skips_unreadable_row(self, mock_list_streams):
+        mock_list_streams.return_value = [
+            "not-an-object",
+            {"streamName": "users", "streamnamespace": "public"},
+        ]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-1")
+
+        assert len(metadata.skipped_rows) == 1
+        assert metadata.skipped_rows[0].startswith("/streams[0]")
+        assert metadata.namespaces_by_name == {"users": ["public"]}
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_does_not_flag_unreadable_response(
+        self, mock_list_streams
+    ):
+        # No namespace survives, but the cause is the payloads rather than the
+        # Airbyte version, so the version warning must not claim this one.
+        mock_list_streams.return_value = ["not-an-object", 7]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        metadata = client._fetch_stream_api_metadata("source-1")
+
+        assert len(metadata.skipped_rows) == 2
+        assert metadata.namespaces_by_name == {}
+        assert metadata.namespaces_absent is False
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_api_metadata_reraises_authentication_error(
+        self, mock_list_streams
+    ):
+        mock_list_streams.side_effect = AirbyteAuthenticationError(
+            "Failed to get OAuth2 token: HTTP 401 - contains 404 in noise",
+            status_code=401,
+        )
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        with pytest.raises(AirbyteAuthenticationError, match="401"):
+            client._fetch_stream_api_metadata("source-id-123")
 
 
 class TestGetConnection:
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     @patch(
-        "datahub.ingestion.source.airbyte.client.AirbyteOSSClient._fetch_stream_property_fields"
+        "datahub.ingestion.source.airbyte.client.AirbyteOSSClient._fetch_stream_api_metadata"
     )
     @patch(
         "datahub.ingestion.source.airbyte.client.AirbyteOSSClient._build_sync_catalog"
     )
     def test_get_connection_builds_sync_catalog_from_configurations(
-        self, mock_build_sync, mock_fetch_fields, mock_make_request
+        self, mock_build_sync, mock_fetch_metadata, mock_make_request
     ):
         mock_make_request.return_value = {
             "connectionId": "conn-123",
@@ -1073,9 +1713,10 @@ class TestGetConnection:
             "destinationId": "dest-123",
             "configurations": {"streams": [{"name": "users", "namespace": "public"}]},
         }
-        mock_fetch_fields.return_value = {}
-        mock_build_sync_catalog: Dict[str, Any] = {"streams": []}
-        mock_build_sync.return_value = mock_build_sync_catalog
+        mock_fetch_metadata.return_value = AirbyteStreamApiMetadata()
+        mock_build_sync.return_value = SyncCatalogBuildResult(
+            catalog=AirbyteSyncCatalog(streams=[])
+        )
 
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -1086,8 +1727,76 @@ class TestGetConnection:
         result = client.get_connection("conn-123")
 
         assert result.sync_catalog is not None
-        mock_fetch_fields.assert_called_once_with("source-123")
+        assert result.ambiguous_stream_namespaces == {}
+        mock_fetch_metadata.assert_called_once_with("source-123")
         mock_build_sync.assert_called_once()
+        build_args = mock_build_sync.call_args[0]
+        assert build_args[0] == [{"name": "users", "namespace": "public"}]
+        assert isinstance(build_args[1], AirbyteStreamApiMetadata)
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_get_connection_backfills_namespace_into_sync_catalog(
+        self, mock_list_streams, mock_make_request
+    ):
+        mock_make_request.return_value = {
+            "connectionId": "conn-123",
+            "sourceId": "source-123",
+            "destinationId": "dest-123",
+            "configurations": {
+                "streams": [{"name": "events", "syncMode": "full_refresh_overwrite"}]
+            },
+        }
+        mock_list_streams.return_value = [
+            {
+                "streamName": "events",
+                "namespace": "my_schema",
+                "propertyFields": [["id"]],
+            }
+        ]
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        result = client.get_connection("conn-123")
+
+        assert result.sync_catalog is not None
+        assert result.sync_catalog.streams is not None
+        stream = result.sync_catalog.streams[0].stream
+        assert stream is not None
+        assert stream.name == "events"
+        assert stream.namespace == "my_schema"
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
+    def test_get_connection_survives_streams_500(
+        self, mock_make_request, mock_list_streams
+    ):
+        mock_make_request.return_value = {
+            "connectionId": "conn-123",
+            "sourceId": "source-123",
+            "destinationId": "dest-123",
+            "configurations": {"streams": [{"name": "users", "namespace": "public"}]},
+        }
+        mock_list_streams.side_effect = AirbyteApiError(
+            "500 Internal Server Error", status_code=500
+        )
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        result = client.get_connection("conn-123")
+
+        assert result.connection_id == "conn-123"
+        assert result.streams_api_unavailable is True
+        assert result.sync_catalog is not None
+        assert result.sync_catalog.streams[0].stream.name == "users"
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_get_connection_with_existing_sync_catalog(self, mock_make_request):

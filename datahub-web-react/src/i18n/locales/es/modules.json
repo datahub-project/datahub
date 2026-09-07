@@ -42,6 +42,7 @@
     "assetCollection.viewAllManualHint": "Las colecciones seleccionadas manualmente no admiten el enlace “Ver todo” por el momento.",
     "assetCollection.viewAllUnsupportedHint": "Esta colección no mostrará un enlace “Ver todo” — este tipo de filtro no se admite por el momento.",
     "assets.moduleName": "Activos",
+    "assets.relatedModuleName": "Activos relacionados",
     "assets.moduleDescription": "Activos relacionados etiquetados con la entidad principal",
     "assets.addTermError": "No se pudo añadir el término del glosario: \n {{error}}",
     "assets.addTermModalTitle": "Añadir término del glosario a los activos",

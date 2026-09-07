@@ -13,6 +13,7 @@ import {
     OptionContainer,
     OptionLabel,
     OptionList,
+    Required,
     SelectBase,
     SelectLabel,
     SelectLabelContainer,
@@ -29,7 +30,7 @@ import { SelectOption, SelectProps } from '@components/components/Select/types';
 import { getFooterButtonSize } from '@components/components/Select/utils';
 
 // Updated main component
-export const selectDefaults: SelectProps = {
+const selectDefaults: SelectProps = {
     options: [],
     label: '',
     size: 'md',
@@ -62,6 +63,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     showSelectAll = selectDefaults.showSelectAll,
     selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
+    updateLabel,
     icon,
     renderCustomOptionText,
     selectLabelProps,
@@ -197,7 +199,11 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
 
     return (
         <Container ref={selectRef} size={size || 'md'} width={props.width} $minWidth={props.minWidth}>
-            {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
+            {label && (
+                <SelectLabel onClick={handleSelectClick}>
+                    {label} {isRequired && <Required>*</Required>}
+                </SelectLabel>
+            )}
             {isVisible && (
                 <Dropdown
                     open={isOpen}
@@ -280,6 +286,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                 onCancel={handleCancelClick}
                                 onUpdate={handleUpdateClick}
                                 size={getFooterButtonSize(size)}
+                                updateLabel={updateLabel}
                             />
                         </DropdownContainer>
                     )}
@@ -322,5 +329,3 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         </Container>
     );
 };
-
-export default BasicSelect;

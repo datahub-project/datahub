@@ -44,5 +44,15 @@ class TextPartitioner:
         # Convert to dict format expected by chunking
         element_dicts = [elem.to_dict() for elem in elements]
 
+        # unstructured.partition_md yields zero elements for minimal inputs
+        # (e.g. a single character like "x"), which would otherwise make the
+        # document look empty and get silently dropped downstream. Fall back to
+        # one text element built from the raw content so any non-empty document
+        # stays embeddable.
+        if not element_dicts:
+            from unstructured.documents.elements import Text
+
+            element_dicts = [Text(text=text.strip()).to_dict()]
+
         logger.debug(f"Partitioned text into {len(element_dicts)} elements")
         return element_dicts

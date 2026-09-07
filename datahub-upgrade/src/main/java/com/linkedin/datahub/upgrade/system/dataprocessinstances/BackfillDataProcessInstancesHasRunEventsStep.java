@@ -91,7 +91,9 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
 
       String runEventsIndexName =
           indexConvention.getTimeseriesAspectIndexName(
-              DATA_PROCESS_INSTANCE_ENTITY_NAME, DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME);
+              opContext,
+              DATA_PROCESS_INSTANCE_ENTITY_NAME,
+              DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME);
 
       DataHubUpgradeState upgradeState = DataHubUpgradeState.SUCCEEDED;
 

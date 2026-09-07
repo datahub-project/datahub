@@ -26,10 +26,13 @@ from confluent_kafka import Consumer, KafkaError
 from dotenv import load_dotenv
 
 from tests.utilities import env_vars
+from tests.utilities.domains import Domain
 from tests.utilities.messaging_transport import is_pgqueue_transport
 from tests.utils import get_kafka_broker_url
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 # Load environment variables from .env file if it exists
 load_dotenv()

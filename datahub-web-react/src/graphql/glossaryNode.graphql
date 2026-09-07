@@ -38,6 +38,9 @@ fragment glossaryNodeFields on GlossaryNode {
     domain {
         ...entityDomain
     }
+    applications {
+        ...entityApplication
+    }
     parentNodes {
         ...parentNodesFields
     }
@@ -49,6 +52,9 @@ fragment glossaryNodeFields on GlossaryNode {
     }
     institutionalMemory {
         ...institutionalMemoryFields
+    }
+    tags {
+        ...globalTagsFields
     }
     structuredProperties {
         properties {

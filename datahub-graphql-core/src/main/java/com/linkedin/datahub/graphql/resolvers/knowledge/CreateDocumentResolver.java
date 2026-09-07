@@ -14,6 +14,8 @@ import com.linkedin.datahub.graphql.generated.CreateDocumentInput;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.SearchIndexMode;
+import com.linkedin.metadata.service.ServiceAuthorizationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -24,8 +26,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Resolver used for creating a new Document on DataHub. Requires the CREATE_ENTITY privilege for
- * Documents or MANAGE_DOCUMENTS privilege.
+ * Resolver used for creating a new Document on DataHub. Requires CREATE_ENTITY or EDIT_ENTITY for
+ * documents, or the MANAGE_DOCUMENTS platform privilege.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -99,6 +101,12 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
               }
             }
 
+            final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
+            final List<Owner> owners =
+                input.getOwners() != null
+                    ? mapOwnerInputsToOwners(input.getOwners())
+                    : java.util.Collections.emptyList();
+
             // Create document using service
             final Urn documentUrn =
                 _documentService.createDocument(
@@ -113,28 +121,13 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
                     relatedAssetUrns,
                     relatedDocumentUrns,
                     settings,
-                    UrnUtils.getUrn(context.getActorUrn()));
-
-            // Set ownership
-            final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
-            if (input.getOwners() != null && !input.getOwners().isEmpty()) {
-              // Use provided owners
-              final List<Owner> owners = mapOwnerInputsToOwners(input.getOwners());
-              _documentService.setDocumentOwnership(
-                  context.getOperationContext(), documentUrn, owners, actorUrn);
-            } else {
-              // Default to adding the creator as owner
-              final Owner creatorOwner = new Owner();
-              creatorOwner.setOwner(actorUrn);
-              creatorOwner.setType(OwnershipType.TECHNICAL_OWNER);
-              _documentService.setDocumentOwnership(
-                  context.getOperationContext(),
-                  documentUrn,
-                  java.util.Collections.singletonList(creatorOwner),
-                  actorUrn);
-            }
+                    owners,
+                    actorUrn,
+                    SearchIndexMode.SYNC);
 
             return documentUrn.toString();
+          } catch (ServiceAuthorizationException e) {
+            throw new AuthorizationException(e.getMessage(), e);
           } catch (Exception e) {
             log.error(
                 "Failed to create Document with id: {}, subType: {}: {}",

@@ -323,3 +323,10 @@ def test_remove_tsql_control_statements_multiple_go_collapse():
 def test_is_single_statement_none_platform():
     # None platform must not crash — falls back gracefully to the default dialect.
     assert native_sql_parser._is_single_statement("SELECT a FROM dbo.A", None)  # type: ignore[arg-type]
+
+
+def test_get_tables_blank_query_returns_empty():
+    """sqlparse yields no statements at all for blank input, which a native query
+    can become once the M-Query escape sequences are stripped."""
+    assert native_sql_parser.get_tables("") == []
+    assert native_sql_parser.get_tables("#(lf) #(tab)") == []

@@ -2,7 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -19,7 +20,6 @@ import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
-import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
@@ -41,7 +41,6 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionException;
-import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -275,15 +274,12 @@ public class AggregateAcrossEntitiesResolverTest {
   @Test
   public static void testApplyViewViewDoesNotExist() throws Exception {
     // When a view does not exist, the endpoint should WARN and not apply the view.
-    // Since DOCUMENT is in SEARCHABLE_ENTITY_TYPES, document default filters are applied.
+    // Since DOCUMENT is in the default search entity types, document default filters are applied.
 
     FormService mockFormService = Mockito.mock(FormService.class);
     ViewService mockService = initMockViewService(TEST_VIEW_URN, null);
 
-    List<String> searchEntityTypes =
-        SEARCHABLE_ENTITY_TYPES.stream()
-            .map(EntityTypeMapper::getName)
-            .collect(Collectors.toList());
+    List<String> searchEntityTypes = parseCsv(DEFAULT_SEARCH_ENTITY_TYPES);
 
     Filter expectedDocumentFilter = buildDocumentDefaultFilter();
 

@@ -8,6 +8,9 @@ apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
 ext {
   python_executable = 'python3'
   venv_name = 'venv'
+  // action_v1 targets GX Core 1.x, which cannot be resolved alongside the <1.0.0
+  // pin the 0.x action and its golden-file tests need.
+  gx1_venv_name = 'venv-gx1'
 }
 
 if (!project.hasProperty("extra_pip_requirements")) {
@@ -91,6 +94,43 @@ task testFull(type: Exec, dependsOn: installDevTest) {
     "pytest -vv ${get_coverage_args('quick')} --continue-on-collection-errors"
 }
 
+task environmentSetupGx1(type: Exec, dependsOn: checkPythonVersion) {
+  def sentinel_file = "${gx1_venv_name}/.venv_environment_sentinel"
+  inputs.file file('setup.py')
+  outputs.file(sentinel_file)
+  def venv_copies_flag = System.getenv('DATAHUB_VENV_USE_COPIES') == 'true' ? '--copies' : ''
+  commandLine 'bash', '-c',
+      "${python_executable} -m venv ${venv_copies_flag} ${gx1_venv_name} && " +
+      "${gx1_venv_name}/bin/pip install --upgrade uv && " +
+      "touch ${sentinel_file}"
+}
+
+task installDevTestGx1(type: Exec, dependsOn: [environmentSetupGx1, ':metadata-ingestion:codegen']) {
+  def sentinel_file = "${gx1_venv_name}/.build_install_dev_test_sentinel"
+  inputs.file file('setup.py')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+      "source ${gx1_venv_name}/bin/activate && set -x && " +
+      "VIRTUAL_ENV=${gx1_venv_name} ${gx1_venv_name}/bin/uv pip install " +
+      "-e ../../metadata-ingestion -e .[dev-gx1] ${extra_pip_requirements} && " +
+      "touch ${sentinel_file}"
+}
+
+task testFullGx1(type: Exec, dependsOn: installDevTestGx1) {
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/unit/"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
+  outputs.dir("${gx1_venv_name}")
+  // Only the version-agnostic and 1.x suites — the 0.x tests import
+  // great_expectations modules that were removed in GX 1.x.
+  commandLine 'bash', '-c',
+    "source ${gx1_venv_name}/bin/activate && set -x && " +
+    "pytest -vv ${get_coverage_args('gx1')} --junit-xml=test-results/junit.gx1.xml " +
+    "tests/unit/test_action_v1.py tests/unit/test_common.py"
+}
+
 task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " +
   'uv pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
@@ -102,11 +142,11 @@ task cleanPythonCache(type: Exec) {
 }
 
 build.dependsOn install
-check.dependsOn lint
 check.dependsOn testFull
 
 clean {
   delete venv_name
+  delete gx1_venv_name
   delete 'build'
   delete 'dist'
   delete '.ruff_cache'

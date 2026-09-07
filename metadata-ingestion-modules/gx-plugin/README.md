@@ -11,13 +11,22 @@
 - **Track pass/fail history** over time for every expectation suite
 - **Works with any DataHub deployment** — self-hosted or DataHub Cloud
 
+## Compatibility
+
+| GX version      | Module                                                |
+| --------------- | ----------------------------------------------------- |
+| 0.17.x / 0.18.x | `datahub_gx_plugin.action.DataHubValidationAction`    |
+| 1.x             | `datahub_gx_plugin.action_v1.DataHubValidationAction` |
+
+Both APIs are supported additively in the same package. Use the module that matches your installed GX major version.
+
 ## Installation
 
 ```bash
 pip install acryl-datahub-gx-plugin
 ```
 
-## Quickstart
+## Quickstart (GX 0.17 / 0.18)
 
 Add the DataHub action to your GX Checkpoint:
 
@@ -39,6 +48,33 @@ checkpoint = Checkpoint(
         }
     ],
 )
+```
+
+## Quickstart (GX Core 1.x)
+
+```python
+import great_expectations as gx
+from datahub_gx_plugin.action_v1 import DataHubValidationAction
+
+context = gx.get_context()
+# ... create validation_definitions ...
+
+checkpoint = context.checkpoints.add(
+    gx.Checkpoint(
+        name="my_checkpoint",
+        validation_definitions=validation_definitions,
+        actions=[
+            DataHubValidationAction(
+                name="datahub",
+                server_url="http://localhost:8080",
+                # Optional when batch_spec meta is incomplete:
+                # platform="postgres",
+                # dataset_name="public.my_table",
+            )
+        ],
+    )
+)
+checkpoint.run()
 ```
 
 Results from every Checkpoint run will appear in DataHub under the dataset's **Validation** tab.

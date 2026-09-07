@@ -77,7 +77,7 @@ public class MetadataChangeProposalConfig {
   @Builder(toBuilder = true)
   @Accessors(chain = true)
   public static class SideEffectsConfig {
-    SideEffectConfig schemaField;
+    SchemaFieldSideEffectsConfig schemaField;
   }
 
   @Data
@@ -87,6 +87,29 @@ public class MetadataChangeProposalConfig {
   @Accessors(chain = true)
   public static class SideEffectConfig {
     boolean enabled;
+  }
+
+  /**
+   * Schema field MCP side effects: master materialization (key/aliases/status) plus optional
+   * domain/ownership mirroring from the parent dataset.
+   */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  @Builder(toBuilder = true)
+  @Accessors(chain = true)
+  public static class SchemaFieldSideEffectsConfig {
+    boolean enabled;
+    SideEffectConfig domain;
+    SideEffectConfig ownership;
+
+    public boolean isDomainEnabled() {
+      return enabled && domain != null && domain.isEnabled();
+    }
+
+    public boolean isOwnershipEnabled() {
+      return enabled && ownership != null && ownership.isEnabled();
+    }
   }
 
   @Data

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.usage.flush;
 
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -11,7 +12,7 @@ public class RecordingUsageFlushSink implements UsageFlushSink {
   private final List<UsageFlushBatch> batches = Collections.synchronizedList(new ArrayList<>());
 
   @Override
-  public void publish(@Nonnull UsageFlushBatch batch) {
+  public void publish(@Nonnull OperationContext opContext, @Nonnull UsageFlushBatch batch) {
     batches.add(batch);
   }
 

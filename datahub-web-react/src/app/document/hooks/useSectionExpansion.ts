@@ -24,16 +24,15 @@ interface SectionExpansion {
  * Section-scoped expand-all / collapse-all for the document sidebar tree.
  *
  * Each tree "section" (the DataHub group and each per-platform group) exposes a
- * bulk toggle. This hook owns the async expand-all traversal, the collapse-all
- * reset, and a per-section "in flight" set that drives the toggle's disabled
- * state, keeping that orchestration out of the already-large `DocumentTree`.
+ * bulk toggle. Expand-all is a capped BFS (depth / folder / concurrency limits
+ * in `expandAllFolders`) so large libraries cannot freeze the sidebar.
  *
  * `loadChildren` is passed in (rather than pulled from `useLoadDocumentTree`
  * here) so we don't spin up a second root-loading instance — the tree owns the
  * single loader and hands us just the child-fetch it already has.
  */
 export function useSectionExpansion(loadChildren: (urn: string) => Promise<DocumentTreeNode[]>): SectionExpansion {
-    const { expandedUrns, setExpandedUrns } = useDocumentTree();
+    const { expandedUrns, setExpandedUrns, getNode } = useDocumentTree();
     const [expandingSectionIds, setExpandingSectionIds] = useState<Set<string>>(new Set());
 
     const isSectionExpanded = useCallback(
@@ -63,6 +62,7 @@ export function useSectionExpansion(loadChildren: (urn: string) => Promise<Docum
                 await expandAllFolders({
                     roots,
                     loadChildren,
+                    getLoadedChildren: (urn) => getNode(urn)?.children,
                     onExpandLevel: (urns) =>
                         setExpandedUrns((prev) => {
                             const next = new Set(prev);
@@ -78,7 +78,7 @@ export function useSectionExpansion(loadChildren: (urn: string) => Promise<Docum
                 });
             }
         },
-        [expandedUrns, setExpandedUrns, loadChildren],
+        [expandedUrns, setExpandedUrns, loadChildren, getNode],
     );
 
     return { isSectionExpanded, isSectionExpanding, toggleSectionExpandAll };

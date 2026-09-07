@@ -68,6 +68,9 @@ RUN uv python install ${PYTHON_VERSION}
 USER datahub
 WORKDIR $HOME
 RUN uv venv --python "$PYTHON_VERSION"
+# Pre-create as datahub so BuildKit cache mounts at $HOME/.cache/uv do not leave
+# the parent root-owned (siblings like puccinialin then hit PermissionError).
+RUN mkdir -p $HOME/.cache
 ENV VIRTUAL_ENV=$HOME/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
@@ -82,8 +85,8 @@ ARG DEFAULT_INDEX_URL=""
 ARG EXTRA_INDEX_URLS=""
 RUN --mount=type=bind,source=./docker/snippets/uv,target=/tmp/uv-config \
     mkdir -p $HOME/.config/uv && \
-    if [ "${UV_PROFILE}" = "custom" ]; then \
-        DEFAULT_INDEX_URL="${DEFAULT_INDEX_URL}" EXTRA_INDEX_URLS="${EXTRA_INDEX_URLS}" bash /tmp/uv-config/generate-config.sh > $HOME/.config/uv/uv.toml; \
+    if [ "${UV_PROFILE}" = "custom" ] || [ -n "${EXTRA_INDEX_URLS}" ]; then \
+        PROFILES_DIR=/tmp/uv-config/profiles BASE_PROFILE="${UV_PROFILE}" UV_PROFILE="${UV_PROFILE}" DEFAULT_INDEX_URL="${DEFAULT_INDEX_URL}" EXTRA_INDEX_URLS="${EXTRA_INDEX_URLS}" bash /tmp/uv-config/generate-config.sh > $HOME/.config/uv/uv.toml; \
     else \
         cp /tmp/uv-config/profiles/${UV_PROFILE}.toml $HOME/.config/uv/uv.toml; \
     fi
@@ -175,7 +178,7 @@ FROM add-code-slim AS final-slim
 ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
-    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
 RUN rm -rf $HOME/.config/uv
@@ -185,7 +188,7 @@ FROM add-code-full AS final-full
 ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
-    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install \
         -e "/metadata-ingestion/[all]" \
     && datahub --version
@@ -197,7 +200,7 @@ ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 # Locked variant: minimal install with s3-slim, network will be blocked
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
-    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
+    --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
     datahub --version
 RUN rm -rf $HOME/.config/uv

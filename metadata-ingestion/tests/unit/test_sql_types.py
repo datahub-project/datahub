@@ -44,6 +44,8 @@ from datahub.metadata.schema_classes import (
         ("row(x bigint, y double)", "row"),
         ("array(row(x bigint, y double))", "array"),
         ("map(varchar, varchar)", "map"),
+        ("DECIMAL(38, 2)", "decimal"),
+        ("VARCHAR(20)", "varchar"),
     ],
 )
 def test_resolve_trino_modified_type(data_type, expected_data_type):

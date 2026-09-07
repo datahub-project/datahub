@@ -8,8 +8,8 @@ import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/Linea
 import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
 import LineageSidebar from '@app/lineageV3/LineageSidebar';
 import LineageVisualization from '@app/lineageV3/LineageVisualization';
-import { ColumnRef, LineageDisplayContext, LineageNodesContext } from '@app/lineageV3/common';
-import useBulkDataProductMemberships from '@app/lineageV3/queries/useBulkDataProductMemberships';
+import { ColumnRef, LineageDisplayContext, LineageNodesContext, setDefault } from '@app/lineageV3/common';
+import useBulkBoundingBoxMemberships from '@app/lineageV3/queries/useBulkBoundingBoxMemberships';
 import useBulkEntityLineage from '@app/lineageV3/queries/useBulkEntityLineage';
 import useColumnHighlighting from '@app/lineageV3/useColumnHighlighting';
 import { getNodePriority } from '@app/lineageV3/useComputeGraph/NodeBuilder';
@@ -56,15 +56,24 @@ export default function LineageDisplay({
                 .map((node) => node.data.urn || node.id),
         [flowNodes],
     );
+    // Node ids are not always urns: data product members have data-product-qualified ids, and an
+    // entity in multiple data products is rendered once per product. Column edges are computed from
+    // urns, so they need this to find the nodes to attach to.
+    const nodeIdsByUrn = useMemo(() => {
+        const map = new Map<string, string[]>();
+        flowNodes.forEach((node) => setDefault(map, node.data.urn || node.id, []).push(node.id));
+        return map;
+    }, [flowNodes]);
     const refetchUrn = useBulkEntityLineage(shownUrns);
-    useBulkDataProductMemberships();
+    useBulkBoundingBoxMemberships();
 
     const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, displayedAdjacencyList);
-    const { cllHighlightedNodes, highlightedColumns } = useColumnHighlighting(
+    const { cllHighlightedNodes, highlightedColumns, shownRelatedColumns } = useColumnHighlighting(
         selectedColumn,
         hoveredColumn,
         fineGrainedLineage.indirect,
         shownUrns,
+        nodeIdsByUrn,
     );
 
     const finalNodes = useMemo(() => {
@@ -132,6 +141,7 @@ export default function LineageDisplay({
                 highlightedNodes,
                 cllHighlightedNodes,
                 highlightedColumns,
+                shownRelatedColumns,
                 highlightedEdges,
                 fineGrainedLineage: fineGrainedLineage.indirect,
                 fineGrainedOperations: fineGrainedLineage.fineGrainedOperations,

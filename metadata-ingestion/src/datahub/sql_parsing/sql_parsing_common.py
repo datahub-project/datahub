@@ -32,6 +32,11 @@ def get_dialect_str(platform: str) -> str:
     elif platform_lower == "fabric-onelake":
         # Fabric SQL Analytics Endpoint speaks T-SQL.
         return "tsql"
+    elif platform_lower == "fabricspark":
+        # dbt-fabricspark (Fabric Lakehouse via Spark/Livy) speaks Spark 3+ SQL.
+        # Use sqlglot's "spark" (Spark 3), not "spark2". Do not map to "fabric"
+        # — that dialect is T-SQL (warehouse), not Lakehouse Spark.
+        return "spark"
     elif platform_lower in {"athena", "glue"}:
         # Glue catalog views are Athena/Presto views, which speak Trino SQL.
         return "trino"
@@ -46,6 +51,14 @@ def get_dialect_str(platform: str) -> str:
         # table variables) — table-ref extraction restricts itself to
         # quoted schema-qualified identifiers in `hana_script_lineage.py`
         # to sidestep them.
+        return "postgres"
+    elif platform_lower == "informix":
+        # sqlglot has no Informix dialect. Informix view text (sysviews.viewtext)
+        # is typically ANSI-ish with double-quoted schema-qualified identifiers
+        # and aliased joins; postgres is the closest available dialect for
+        # Tableau / query lineage / SqlParsingAggregator. Known mis-parses:
+        # MATCHES / NOT MATCHES, FIRST / SKIP, native OUTER joins,
+        # DATETIME ... YEAR TO DAY.
         return "postgres"
     elif platform_lower == "salesforce":
         # TODO: define SalesForce SOQL dialect
@@ -92,14 +105,14 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # actually comes from the underlying Oracle sqlalchemy dialect.
     # https://github.com/sqlalchemy/sqlalchemy/blob/d9b4d8ff3aae504402d324f3ebf0b8faff78f5dc/lib/sqlalchemy/dialects/oracle/base.py#L2579
     "oracle",
-    # NOTE: SAP HANA also folds unquoted identifiers to uppercase and is
-    # therefore semantically case-insensitive, but we deliberately do *not*
-    # add "hana" here. ``is_dialect_instance`` resolves "hana" through
-    # ``get_dialect_str`` to the Postgres sqlglot dialect (HANA has no
-    # dedicated dialect upstream), so any membership check would also
+    # NOTE: SAP HANA and Informix also fold unquoted identifiers to uppercase
+    # and are therefore semantically case-insensitive, but we deliberately do
+    # *not* add "hana" or "informix" here. ``is_dialect_instance`` resolves
+    # both through ``get_dialect_str`` to the Postgres sqlglot dialect (neither
+    # has a dedicated dialect upstream), so any membership check would also
     # match every other Postgres-dialect parse — flipping Postgres lineage
-    # to lowercase column names and breaking unrelated golden files. HANA
-    # column-case normalisation is handled at the connector level instead.
+    # to lowercase column names and breaking unrelated golden files. Column-case
+    # normalisation for these platforms is handled at the connector level.
 }
 DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
     # In some dialects, column identifiers are effectively case insensitive

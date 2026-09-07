@@ -90,110 +90,116 @@ type Document implements Entity {
   """
   The primary key of the Document
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The timestamp of the last time this Document was ingested
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   Information about the Document
   """
-  info: DocumentInfo
+  info: DocumentInfo @aspectMapping(aspects: ["documentInfo", "semanticText"])
 
   """
   Settings specific to the Document
   """
-  settings: DocumentSettings
+  settings: DocumentSettings @aspectMapping(aspects: ["documentSettings"])
 
   """
   The sub-type of the Document (e.g., "FAQ", "Tutorial", "Reference", etc.)
   """
-  subType: String
+  subType: String @aspectMapping(aspects: ["subTypes"])
 
   """
   Data Platform Instance associated with the Document
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   The platform that this Document originates in. For example, "Notion" for representing docs ingested from Notion.
   For documents natively authored on DataHub, the platform will be "DataHub".
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Ownership metadata of the Document
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
-  browsePathV2: BrowsePathV2
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
 
   """
   Tags applied to the Document
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   Deprecated, use tags field instead.
   The structured tags associated with the Document.
   """
-  globalTags: GlobalTags @deprecated(reason: "Use tags field instead")
+  globalTags: GlobalTags
+    @deprecated(reason: "Use tags field instead")
+    @aspectMapping(aspects: ["globalTags"])
 
   """
   Glossary terms associated with the Document
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the Document
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @aspectMapping(aspects: ["status"])
 
   """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   References to internal resources related to the Document (links)
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 
   """
   Documentation aspect containing editable description for this Document
   """
-  documentation: Documentation
+  documentation: Documentation @aspectMapping(aspects: ["documentation"])
 
   """
   Change history for this document.
@@ -217,13 +223,13 @@ type Document implements Entity {
     Defaults to 50.
     """
     limit: Int = 50
-  ): [DocumentChange!]!
+  ): [DocumentChange!]! @noAspects
 
   """
   Recursively get the lineage of parent documents for this document.
   Returns parents with direct parent first followed by the parent's parent, etc.
   """
-  parentDocuments: ParentDocumentsResult
+  parentDocuments: ParentDocumentsResult @noAspects
 }
 
 """
@@ -291,6 +297,15 @@ type DocumentContent {
   The text contents of the Document
   """
   text: String!
+
+  """
+  Optional content that supersedes text as the source for semantic-search
+  embeddings. When present, the embedding pipeline embeds this instead of text;
+  when absent, embeddings fall back to text. Keyword-indexed alongside text.
+  Backed by the standalone semanticText aspect rather than documentInfo, so
+  other entity types can adopt it.
+  """
+  semanticText: String
 }
 
 """
@@ -644,6 +659,39 @@ input SearchDocumentsInput {
   scoped to the active View (mirrors searchAcrossEntities view scoping).
   """
   viewUrn: String
+
+  """
+  Optional list of tag URNs to filter by (ANDed with other filters)
+  """
+  tags: [String!]
+
+  """
+  Optional list of glossary term URNs to filter by (ANDed with other filters)
+  """
+  glossaryTerms: [String!]
+
+  """
+  Optional list of creator actor URNs to filter by (ANDed with other filters)
+  """
+  creators: [String!]
+
+  """
+  Optional list of data platform URNs to filter by (ANDed with other filters)
+  """
+  platforms: [String!]
+
+  """
+  Optional document states to include. Narrows the default visibility filter:
+  - omit / empty / both → published for everyone + unpublished for owners (or MANAGE_DOCUMENTS)
+  - [PUBLISHED] → published only
+  - [UNPUBLISHED] → unpublished only (still ownership / MANAGE_DOCUMENTS constrained)
+  """
+  states: [DocumentState!]
+
+  """
+  Optional sort. When omitted, defaults to createdAt descending.
+  """
+  sortInput: SearchSortInput
 }
 
 """

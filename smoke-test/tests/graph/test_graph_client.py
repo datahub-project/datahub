@@ -11,7 +11,10 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     SystemMetadataClass,
 )
+from tests.utilities.domains import Domain
 from tests.utils import delete_urns_from_file, ingest_file_via_rest, with_test_retry
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 graph = "test_resources/graph_data.json"
 graph_2 = "test_resources/graph_dataDiff.json"

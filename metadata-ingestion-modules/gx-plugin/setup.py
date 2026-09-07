@@ -22,21 +22,31 @@ _self_pin = (
     else ""
 )
 
-base_requirements = {
+# Everything except great-expectations, which is pinned differently per
+# environment below. Each requirement set must end up with exactly one
+# great-expectations entry: two in the same set resolve unpredictably and make
+# .github/scripts/dep-analyzer.py report a different bound run to run.
+common_requirements = {
     # Actual dependencies.
     # This is temporary lower bound that we're open to loosening/tightening as requirements show up
     "sqlalchemy>=1.4.39, <2",
-    # GE added handling for higher version of jinja2 in version 0.15.12
-    # https://github.com/great-expectations/great_expectations/pull/5382
-    # GX v0.17.15 is the earliest version that supports Pydantic v2.
-    # See https://github.com/great-expectations/great_expectations/pull/8604
-    "great-expectations>=0.17.15, <1.0.0",
     "pydantic>=2.1.0",
     # datahub does not depend on traitlets directly but great expectations does.
     # https://github.com/ipython/traitlets/issues/741
     "traitlets!=5.2.2",
     *rest_common,
     f"acryl-datahub[datahub-rest,sql-parser]{_self_pin}",
+}
+
+base_requirements = {
+    *common_requirements,
+    # GE added handling for higher version of jinja2 in version 0.15.12
+    # https://github.com/great-expectations/great_expectations/pull/5382
+    # GX v0.17.15 is the earliest version that supports Pydantic v2.
+    # See https://github.com/great-expectations/great_expectations/pull/8604
+    # GX Core 1.x is supported via datahub_gx_plugin.action_v1 (additive).
+    # Keep using datahub_gx_plugin.action for GX 0.17/0.18.
+    "great-expectations>=0.17.15",
 }
 
 mypy_stubs = {
@@ -57,9 +67,7 @@ mypy_stubs = {
     "types-pytz",
 }
 
-base_dev_requirements = {
-    *base_requirements,
-    *mypy_stubs,
+dev_tool_requirements = {
     "coverage>=5.1",
     "ruff==0.15.22",
     "mypy==1.17.1",
@@ -77,8 +85,28 @@ base_dev_requirements = {
     "packaging",
 }
 
+base_dev_requirements = {
+    *common_requirements,
+    *mypy_stubs,
+    *dev_tool_requirements,
+    # Keep the 0.x action/test suite on GX <1 in local/CI installs.
+    # Package install_requires still allows GX 1.x for action_v1 users.
+    "great-expectations>=0.17.15, <1.0.0",
+}
+
 dev_requirements = {
     *base_dev_requirements,
+}
+
+# GX Core 1.x test environment for action_v1. Installed into a separate venv
+# because the 0.x pin above and GX 1.x cannot coexist in one resolution.
+gx1_dev_requirements = {
+    *common_requirements,
+    *mypy_stubs,
+    *dev_tool_requirements,
+    "great-expectations>=1.0.0, <2.0.0",
+    # tests/conftest.py imports datahub.testing.docker_utils unconditionally.
+    "pytest-docker>=1.1.0",
 }
 
 integration_test_requirements = {
@@ -90,6 +118,8 @@ integration_test_requirements = {
 }
 
 entry_points = {
+    # GX 0.x discovery. For GX Core 1.x, instantiate
+    # datahub_gx_plugin.action_v1.DataHubValidationAction in Python (Fluent API).
     "gx.plugins": "acryl-datahub-gx-plugin = datahub_gx_plugin.action:DataHubValidationAction"
 }
 
@@ -136,6 +166,7 @@ setuptools.setup(
     extras_require={
         "ignore": [],  # This is a dummy extra to allow for trailing commas in the list.
         "dev": list(dev_requirements),
+        "dev-gx1": list(gx1_dev_requirements),
         "integration-tests": list(integration_test_requirements),
     },
 )

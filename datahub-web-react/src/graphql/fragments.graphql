@@ -1569,6 +1569,20 @@ fragment entityDisplayNameFields on Entity {
             name
         }
     }
+    ... on Document {
+        info {
+            title
+        }
+        parentDocuments {
+            documents {
+                urn
+                type
+                info {
+                    title
+                }
+            }
+        }
+    }
 }
 
 fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
@@ -1766,6 +1780,14 @@ fragment formAssociationFields on FormAssociation {
             }
             actors {
                 owners
+                ownershipTypes {
+                    urn
+                    type
+                    info {
+                        name
+                        description
+                    }
+                }
                 isAssignedToMe
             }
         }

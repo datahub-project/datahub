@@ -9,6 +9,8 @@ import com.linkedin.metadata.usage.identity.UsageActorClassResolver;
 import com.linkedin.metadata.usage.registry.metrics.UsageMetricRegistry;
 import com.linkedin.metadata.usage.registry.operations.UsageOperationsRegistry;
 import com.linkedin.metadata.usage.store.InMemoryUsageAggregationStore;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import javax.annotation.Nonnull;
 import org.testng.Assert;
@@ -34,7 +36,9 @@ public class AdaptiveFlushCoordinatorTest {
   public void testZeroIntervalDoesNotScheduleTicks() throws Exception {
     RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
     InMemoryUsageAggregationStore store = store(sink, 300);
-    try (AdaptiveFlushCoordinator coordinator = new AdaptiveFlushCoordinator(store, 0)) {
+    try (AdaptiveFlushCoordinator coordinator =
+        new AdaptiveFlushCoordinator(
+            TestOperationContexts.systemContextNoSearchAuthorization(), store, 0)) {
       Thread.sleep(200);
       Assert.assertTrue(sink.batches().isEmpty());
     }
@@ -46,7 +50,9 @@ public class AdaptiveFlushCoordinatorTest {
   public void testScheduledTickFlushesWhenWindowNotExpired() throws Exception {
     RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
     InMemoryUsageAggregationStore store = store(sink, 300);
-    try (AdaptiveFlushCoordinator coordinator = new AdaptiveFlushCoordinator(store, 1)) {
+    try (AdaptiveFlushCoordinator coordinator =
+        new AdaptiveFlushCoordinator(
+            TestOperationContexts.systemContextNoSearchAuthorization(), store, 1)) {
       Thread.sleep(1500);
       Assert.assertTrue(
           sink.batches().stream().anyMatch(batch -> batch.trigger() == FlushTrigger.SCHEDULED));
@@ -57,7 +63,9 @@ public class AdaptiveFlushCoordinatorTest {
   public void testScheduledTickFlushesMaxWindowWhenExpired() throws Exception {
     RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
     InMemoryUsageAggregationStore store = store(sink, 1);
-    try (AdaptiveFlushCoordinator coordinator = new AdaptiveFlushCoordinator(store, 1)) {
+    try (AdaptiveFlushCoordinator coordinator =
+        new AdaptiveFlushCoordinator(
+            TestOperationContexts.systemContextNoSearchAuthorization(), store, 1)) {
       Thread.sleep(1500);
       Assert.assertTrue(
           sink.batches().stream().anyMatch(batch -> batch.trigger() == FlushTrigger.MAX_WINDOW));
@@ -68,7 +76,9 @@ public class AdaptiveFlushCoordinatorTest {
   public void testCloseFlushesOnShutdown() {
     RecordingUsageFlushSink sink = new RecordingUsageFlushSink();
     InMemoryUsageAggregationStore store = store(sink, 300);
-    try (AdaptiveFlushCoordinator coordinator = new AdaptiveFlushCoordinator(store, 0)) {
+    try (AdaptiveFlushCoordinator coordinator =
+        new AdaptiveFlushCoordinator(
+            TestOperationContexts.systemContextNoSearchAuthorization(), store, 0)) {
       // close() triggers shutdown flush
     }
     Assert.assertEquals(sink.batches().size(), 1);
@@ -78,7 +88,9 @@ public class AdaptiveFlushCoordinatorTest {
   @Test
   public void testTickSurvivesFlushFailure() throws Exception {
     InMemoryUsageAggregationStore store = store(new ThrowingUsageFlushSink(), 300);
-    try (AdaptiveFlushCoordinator coordinator = new AdaptiveFlushCoordinator(store, 1)) {
+    try (AdaptiveFlushCoordinator coordinator =
+        new AdaptiveFlushCoordinator(
+            TestOperationContexts.systemContextNoSearchAuthorization(), store, 1)) {
       Thread.sleep(1500);
     }
   }
@@ -96,7 +108,7 @@ public class AdaptiveFlushCoordinatorTest {
 
   private static final class ThrowingUsageFlushSink implements UsageFlushSink {
     @Override
-    public void publish(@Nonnull UsageFlushBatch batch) {
+    public void publish(@Nonnull OperationContext opContext, @Nonnull UsageFlushBatch batch) {
       throw new RuntimeException("simulated sink failure");
     }
   }

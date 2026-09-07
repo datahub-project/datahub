@@ -301,7 +301,7 @@ def create_user(session, email, password):
     sign_up_response.raise_for_status()
     assert sign_up_response
     assert "error" not in sign_up_response
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     # /signUp rotates cookies to the new user; put the admin cookies back on the
     # same session object so callers (including TestSessionWrapper) stay admin.
     session.cookies.clear()
@@ -318,7 +318,7 @@ def remove_user(session, urn):
     }
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     return response.json()
 
 
@@ -335,7 +335,7 @@ def create_group(session, name):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["createGroup"]
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     return res_data["data"]["createGroup"]
 
 
@@ -352,7 +352,7 @@ def remove_group(session, urn):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["removeGroup"]
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     return res_data["data"]["removeGroup"]
 
 
@@ -369,7 +369,7 @@ def assign_user_to_group(session, group_urn, user_urns):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["addGroupMembers"]
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     return res_data["data"]["addGroupMembers"]
 
 
@@ -387,7 +387,7 @@ def assign_role(session, role_urn, actor_urns):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["batchAssignRole"]
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     return res_data["data"]["batchAssignRole"]
 
 
@@ -447,6 +447,66 @@ def create_metadata_policy(
     assert res_data.get("data") and res_data["data"].get("createPolicy"), (
         f"createPolicy failed: {res_data}"
     )
+    wait_for_writes_to_sync(mae_only=True)
+    return res_data["data"]["createPolicy"]
+
+
+def create_domain_scoped_metadata_policy(
+    session,
+    *,
+    name: str,
+    description: str,
+    privileges: list,
+    user_urn: str,
+    domain_urn: str,
+    resource_type: Optional[str] = None,
+):
+    """Create an ACTIVE METADATA policy scoped to a DOMAIN resource filter."""
+    criteria = [
+        {
+            "field": "DOMAIN",
+            "values": [domain_urn],
+            "condition": "EQUALS",
+        }
+    ]
+    if resource_type:
+        criteria.append(
+            {
+                "field": "TYPE",
+                "values": [resource_type],
+                "condition": "EQUALS",
+            }
+        )
+    policy = {
+        "query": """mutation createPolicy($input: PolicyUpdateInput!) {
+            createPolicy(input: $input) }""",
+        "variables": {
+            "input": {
+                "type": "METADATA",
+                "name": name,
+                "description": description,
+                "state": "ACTIVE",
+                "resources": {
+                    "allResources": False,
+                    "filter": {"criteria": criteria},
+                },
+                "privileges": privileges,
+                "actors": {
+                    "users": [user_urn],
+                    "resourceOwners": False,
+                    "allUsers": False,
+                    "allGroups": False,
+                },
+            }
+        },
+    }
+
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=policy)
+    response.raise_for_status()
+    res_data = response.json()
+    assert res_data.get("data") and res_data["data"].get("createPolicy"), (
+        f"createPolicy (domain-scoped) failed: {res_data}"
+    )
     wait_for_writes_to_sync()
     return res_data["data"]["createPolicy"]
 
@@ -489,7 +549,7 @@ def create_user_policy(
     assert res_data["data"]
     assert res_data["data"]["createPolicy"]
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     return res_data["data"]["createPolicy"]
 
 
@@ -511,7 +571,7 @@ def remove_policy(urn, session):
     assert res_data["data"]["deletePolicy"]
     assert res_data["data"]["deletePolicy"] == urn
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
 
 def list_policies(session):
@@ -652,7 +712,7 @@ def clear_polices(
     logger.info(f"Policy cleanup complete. Deleted {deleted_count} test policies")
 
     if deleted_count > 0:
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
 
 def remove_secret(session, urn):
@@ -664,4 +724,4 @@ def remove_secret(session, urn):
 
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=remove_secret)
     response.raise_for_status()
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)

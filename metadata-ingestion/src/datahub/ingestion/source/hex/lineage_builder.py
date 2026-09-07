@@ -11,6 +11,7 @@ from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_common import get_dialect_str
 from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+from datahub.utilities.lossy_collections import LossyList
 
 _MAX_SAMPLE_MISMATCHES = 5
 
@@ -82,7 +83,7 @@ class LineageBuilderReport:
     sql_cells_no_upstreams: int = 0
     sql_cells_skipped_unresolved_platform: int = 0
     upstream_datasets_found: int = 0
-    skipped_cells: List[SkippedCell] = field(default_factory=list)
+    skipped_cells: LossyList[SkippedCell] = field(default_factory=LossyList)
     projects_lineage_via_queried_tables: int = 0
     projects_lineage_via_sql_parsing: int = 0
     # ENTERPRISE cross-validation: SQL parsing vs queriedTables

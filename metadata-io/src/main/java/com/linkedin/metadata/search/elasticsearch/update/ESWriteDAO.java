@@ -326,7 +326,7 @@ public class ESWriteDAO {
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getEntityIndicesCleanupPatterns(config.getEntityIndex());
+            .getEntityIndicesCleanupPatterns(opContext, config.getEntityIndex());
     List<String> allIndices = new ArrayList<>();
     for (String pattern : patterns) {
       allIndices.addAll(Arrays.asList(getIndices(opContext, pattern)));
@@ -638,12 +638,15 @@ public class ESWriteDAO {
     return opContext
         .getSearchContext()
         .getIndexConvention()
-        .getIndexName(opContext.getEntityRegistry().getEntitySpec(entityName));
+        .getIndexName(opContext, opContext.getEntityRegistry().getEntitySpec(entityName));
   }
 
   private static String toIndexNameV3(
       @Nonnull OperationContext opContext, @Nonnull String searchGroup) {
-    return opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(searchGroup);
+    return opContext
+        .getSearchContext()
+        .getIndexConvention()
+        .getEntityIndexNameV3(opContext, searchGroup);
   }
 
   private DeleteByQueryRequest buildDeleteByQueryRequest(

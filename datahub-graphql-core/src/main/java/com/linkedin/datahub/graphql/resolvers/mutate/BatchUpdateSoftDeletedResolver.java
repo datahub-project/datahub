@@ -13,7 +13,9 @@ import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -57,18 +59,23 @@ public class BatchUpdateSoftDeletedResolver implements DataFetcher<CompletableFu
   }
 
   private void validateInputUrns(List<String> urnStrs, QueryContext context) {
+    final Set<Urn> existingUrns =
+        MutationUtils.existingUrns(
+            context.getOperationContext(),
+            urnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList()),
+            _entityService);
     for (String urnStr : urnStrs) {
-      validateInputUrn(urnStr, context);
+      validateInputUrn(urnStr, context, existingUrns);
     }
   }
 
-  private void validateInputUrn(String urnStr, QueryContext context) {
+  private void validateInputUrn(String urnStr, QueryContext context, Set<Urn> existingUrns) {
     final Urn urn = UrnUtils.getUrn(urnStr);
     if (!DeleteUtils.isAuthorizedToDeleteEntity(context, urn)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
-    if (!_entityService.exists(context.getOperationContext(), urn, true)) {
+    if (!existingUrns.contains(urn)) {
       throw new IllegalArgumentException(
           String.format("Failed to soft delete entity with urn %s. Entity does not exist.", urn));
     }

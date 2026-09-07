@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.aspect.utils.AssertionUtils.getEntityFromAssertionInfo;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -29,7 +30,9 @@ import com.linkedin.metadata.service.util.OwnerServiceUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -199,7 +202,7 @@ public class OwnerUtils {
     if (info == null) {
       return false;
     }
-    final Urn asserteeUrn = AssertionUtils.getAsserteeUrnFromInfo(info);
+    final Urn asserteeUrn = getEntityFromAssertionInfo(info);
     return isAuthorizedToUpdateOwners(context, asserteeUrn)
         || AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn);
   }
@@ -209,9 +212,8 @@ public class OwnerUtils {
       List<OwnerInput> owners,
       Urn resourceUrn,
       EntityService<?> entityService) {
-    for (OwnerInput owner : owners) {
-      validateAddOwnerInput(opContext, owner, resourceUrn, entityService);
-    }
+    validateResourceExists(opContext, resourceUrn, entityService);
+    validateOwners(opContext, owners, entityService);
   }
 
   public static void validateAddOwnerInput(
@@ -219,19 +221,38 @@ public class OwnerUtils {
       OwnerInput owner,
       Urn resourceUrn,
       EntityService<?> entityService) {
-
-    if (!entityService.exists(opContext, resourceUrn, true)) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Failed to change ownership for resource %s. Resource does not exist.", resourceUrn));
-    }
-
-    validateOwner(opContext, owner, entityService);
+    validateAddOwnerInput(opContext, List.of(owner), resourceUrn, entityService);
   }
 
   public static void validateOwner(
       @Nonnull OperationContext opContext, OwnerInput owner, EntityService<?> entityService) {
+    validateOwners(opContext, List.of(owner), entityService);
+  }
 
+  /**
+   * Batched form of {@link #validateOwner}: resolves every owner urn and custom ownership type urn
+   * in one call rather than one or two per owner. Owners are still inspected in input order, so the
+   * same owner is rejected first as when validating one at a time.
+   */
+  public static void validateOwners(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<OwnerInput> owners,
+      EntityService<?> entityService) {
+    final List<Urn> urnsToResolve = new ArrayList<>();
+    for (OwnerInput owner : owners) {
+      urnsToResolve.add(UrnUtils.getUrn(owner.getOwnerUrn()));
+      if (owner.getOwnershipTypeUrn() != null) {
+        urnsToResolve.add(UrnUtils.getUrn(owner.getOwnershipTypeUrn()));
+      }
+    }
+
+    final Set<Urn> resolvedUrns = existingUrns(opContext, urnsToResolve, entityService);
+    for (OwnerInput owner : owners) {
+      validateOwner(owner, resolvedUrns);
+    }
+  }
+
+  private static void validateOwner(OwnerInput owner, @Nonnull Set<Urn> resolvedUrns) {
     OwnerEntityType ownerEntityType = owner.getOwnerEntityType();
     Urn ownerUrn = UrnUtils.getUrn(owner.getOwnerUrn());
 
@@ -251,7 +272,7 @@ public class OwnerUtils {
               ownerUrn));
     }
 
-    if (!entityService.exists(opContext, ownerUrn, true)) {
+    if (!resolvedUrns.contains(ownerUrn)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change ownership for resource(s). Owner with urn %s does not exist.",
@@ -259,7 +280,7 @@ public class OwnerUtils {
     }
 
     if (owner.getOwnershipTypeUrn() != null
-        && !entityService.exists(opContext, UrnUtils.getUrn(owner.getOwnershipTypeUrn()), true)) {
+        && !resolvedUrns.contains(UrnUtils.getUrn(owner.getOwnershipTypeUrn()))) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change ownership for resource(s). Custom Ownership type with "
@@ -276,7 +297,12 @@ public class OwnerUtils {
 
   public static void validateRemoveInput(
       @Nonnull OperationContext opContext, Urn resourceUrn, EntityService<?> entityService) {
-    if (!entityService.exists(opContext, resourceUrn, true)) {
+    validateResourceExists(opContext, resourceUrn, entityService);
+  }
+
+  private static void validateResourceExists(
+      @Nonnull OperationContext opContext, Urn resourceUrn, EntityService<?> entityService) {
+    if (!existingUrns(opContext, List.of(resourceUrn), entityService).contains(resourceUrn)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change ownership for resource %s. Resource does not exist.", resourceUrn));

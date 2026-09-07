@@ -4,8 +4,11 @@ import re
 import pytest
 
 from tests.utilities import env_vars
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 # Kept separate so that it does not cause failures in PRs
 DATAHUB_VERSION = env_vars.get_test_datahub_version()

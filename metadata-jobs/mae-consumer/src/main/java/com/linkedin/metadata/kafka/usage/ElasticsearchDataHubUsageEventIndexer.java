@@ -13,13 +13,7 @@ import lombok.RequiredArgsConstructor;
 public class ElasticsearchDataHubUsageEventIndexer implements DataHubUsageEventIndexer {
 
   private final ElasticsearchConnector elasticSearchConnector;
-  private final String indexName;
-
-  public ElasticsearchDataHubUsageEventIndexer(
-      ElasticsearchConnector elasticSearchConnector, IndexConvention indexConvention) {
-    this.elasticSearchConnector = elasticSearchConnector;
-    this.indexName = indexConvention.getIndexName("datahub_usage_event");
-  }
+  private final IndexConvention indexConvention;
 
   /**
    * Forward each event in the batch to the {@link ElasticsearchConnector}, which already coalesces
@@ -28,6 +22,7 @@ public class ElasticsearchDataHubUsageEventIndexer implements DataHubUsageEventI
   @Override
   public void indexBatch(
       @Nonnull OperationContext opContext, @Nonnull List<IndexableUsageEvent> events) {
+    String indexName = indexConvention.getIndexName(opContext, "datahub_usage_event");
     for (IndexableUsageEvent event : events) {
       JsonElasticEvent elasticEvent = new JsonElasticEvent(event.document().getDocument());
       elasticEvent.setId(event.documentIdWithKafkaOffsetSuffix());

@@ -113,6 +113,25 @@ def test_authenticate_no_ssl():
         report.failure.assert_not_called()
 
 
+def test_close_shuts_down_session_and_cluster():
+    config_dict = _get_base_config_dict()
+    config = CassandraSourceConfig.model_validate(config_dict)
+    report = MagicMock(spec=SourceReport)
+    api = CassandraAPI(config, report)
+
+    with patch(
+        "datahub.ingestion.source.cassandra.cassandra_api.Cluster"
+    ) as mock_cluster:
+        mock_session = MagicMock()
+        mock_cluster.return_value.connect.return_value = mock_session
+        assert api.authenticate()
+
+        api.close()
+
+        mock_session.shutdown.assert_called_once()
+        mock_cluster.return_value.shutdown.assert_called_once()
+
+
 def test_authenticate_ssl_ca_certs():
     config_dict = _get_base_config_dict()
     config_dict["ssl_ca_certs"] = "ca.pem"

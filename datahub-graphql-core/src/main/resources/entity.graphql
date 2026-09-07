@@ -1,6 +1,17 @@
 # Extending the GQL type system to include Long type used for dates
 scalar Long
 
+# Used for performance reasons to map fields to aspects so we only fetch aspects that we need
+directive @aspectMapping(aspects: [String!]!) on FIELD_DEFINITION
+
+# Optional: directive to explicitly mark fields that don't need aspects
+directive @noAspects on FIELD_DEFINITION
+
+# Marks fields whose value depends on ALL of an entity's aspects, forcing a fetch-all when
+# selected. Used by lastIngested, which is computed from the system metadata of every fetched
+# aspect: any narrower fetch would silently change its value.
+directive @fetchAllAspects on FIELD_DEFINITION
+
 """
 Root GraphQL API Schema
 """
@@ -295,67 +306,71 @@ type ERModelRelationship implements EntityWithRelationships & Entity {
   """
   The primary key of the role
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Unique id for the erModelRelationship
   """
-  id: String!
+  id: String! @aspectMapping(aspects: ["erModelRelationshipKey"])
 
   """
   An additional set of read only properties
   """
   properties: ERModelRelationshipProperties
+    @aspectMapping(aspects: ["erModelRelationshipProperties"])
 
   """
   An additional set of of read write properties
   """
   editableProperties: ERModelRelationshipEditableProperties
+    @aspectMapping(aspects: ["editableERModelRelationshipProperties"])
 
   """
   References to internal resources related to the dataset
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Ownership metadata of the dataset
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   Status of the Dataset
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   Tags used for searching dataset
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   The structured glossary terms associated with the dataset
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   List of relationships between the source Entity and some destination entities with a given types
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 
   """
   No-op required for the model
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 }
 
 """
@@ -672,6 +687,11 @@ type Mutation {
   Moves a domain to be parented under another domain.
   """
   moveDomain(input: MoveDomainInput!): Boolean
+
+  """
+  Moves a data product to be parented under another data product.
+  """
+  moveDataProduct(input: MoveDataProductInput!): Boolean
 
   """
   Delete a Domain
@@ -1719,125 +1739,132 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The primary key of the Dataset
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   Standardized platform urn where the dataset is defined
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["datasetKey"])
 
   """
   The parent container in which the entity resides
   """
-  container: Container
+  container: Container @aspectMapping(aspects: ["container"])
 
   """
   Recursively get the lineage of containers for this entity
   """
-  parentContainers: ParentContainersResult
+  parentContainers: ParentContainersResult @noAspects
 
   """
   Unique guid for dataset
   No longer to be used as the Dataset display name. Use properties.name instead
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["datasetProperties", "datasetKey"])
 
   """
   An additional set of read only properties
   """
-  properties: DatasetProperties
+  properties: DatasetProperties @aspectMapping(aspects: ["datasetProperties"])
 
   """
   An additional set of of read write properties
   """
   editableProperties: DatasetEditableProperties
+    @aspectMapping(aspects: ["editableDatasetProperties"])
 
   """
   Ownership metadata of the dataset
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   The deprecation status of the dataset
   """
   deprecation: Deprecation
+    @aspectMapping(aspects: ["datasetDeprecation", "deprecation"])
 
   """
   References to internal resources related to the dataset
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Schema metadata of the dataset, available by version number
   """
-  schemaMetadata(version: Long): SchemaMetadata
+  schemaMetadata(version: Long): SchemaMetadata @noAspects
 
   """
   Editable schema metadata of the dataset
   """
   editableSchemaMetadata: EditableSchemaMetadata
+    @aspectMapping(aspects: ["editableSchemaMetadata"])
 
   """
   Status of the Dataset
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   Embed information about the Dataset
   """
-  embed: Embed
+  embed: Embed @aspectMapping(aspects: ["embed"])
 
   """
   Tags used for searching dataset
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   The structured glossary terms associated with the dataset
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   The Domain associated with the Dataset
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the dataset
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the dataset
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   The Roles and the properties to access the dataset
   """
-  access: Access
+  access: Access @aspectMapping(aspects: ["access"])
 
   """
   Statistics about how this Dataset is used
@@ -1849,12 +1876,12 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     range: TimeRange
     startTimeMillis: Long
     timeZone: String
-  ): UsageQueryResult
+  ): UsageQueryResult @noAspects
 
   """
   Experimental - Summary operational & usage statistics about a Dataset
   """
-  statsSummary: DatasetStatsSummary
+  statsSummary: DatasetStatsSummary @noAspects
 
   """
   Profile Stats resource that retrieves the events in a previous unit of time in descending order
@@ -1865,7 +1892,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     endTimeMillis: Long
     filter: FilterInput
     limit: Int
-  ): [DatasetProfile!]
+  ): [DatasetProfile!] @noAspects
 
   """
   Operational events for an entity.
@@ -1875,7 +1902,7 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     endTimeMillis: Long
     filter: FilterInput
     limit: Int
-  ): [Operation!]
+  ): [Operation!] @noAspects
 
   """
   Assertions associated with the Dataset
@@ -1884,96 +1911,100 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     start: Int
     count: Int
     includeSoftDeleted: Boolean
-  ): EntityAssertionsResult
+  ): EntityAssertionsResult @noAspects
 
   """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 
   """
   The browse paths corresponding to the dataset. If no Browse Paths have been generated before, this will be null.
   """
-  browsePaths: [BrowsePath!]
+  browsePaths: [BrowsePath!] @noAspects
 
   """
   The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
-  browsePathV2: BrowsePathV2
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
 
   """
   Experimental! The resolved health statuses of the Dataset
   """
-  health: [Health!]
+  health: [Health!] @noAspects
 
   """
   Schema metadata of the dataset
   """
-  schema: Schema @deprecated(reason: "Use `schemaMetadata`")
+  schema: Schema
+    @deprecated(reason: "Use `schemaMetadata`")
+    @aspectMapping(aspects: ["schemaMetadata"])
 
   """
   Deprecated, use properties field instead
   External URL associated with the Dataset
   """
-  externalUrl: String @deprecated
+  externalUrl: String @deprecated @aspectMapping(aspects: ["datasetProperties"])
 
   """
   Deprecated, see the properties field instead
   Environment in which the dataset belongs to or where it was generated
   Note that this field will soon be deprecated in favor of a more standardized concept of Environment
   """
-  origin: FabricType! @deprecated
+  origin: FabricType! @deprecated @aspectMapping(aspects: ["datasetKey"])
 
   """
   Deprecated, use the properties field instead
   Read only technical description for dataset
   """
-  description: String @deprecated
+  description: String @deprecated @aspectMapping(aspects: ["datasetProperties"])
 
   """
   Deprecated, do not use this field
   The logical type of the dataset ie table, stream, etc
   """
-  platformNativeType: PlatformNativeType @deprecated
+  platformNativeType: PlatformNativeType @deprecated @noAspects
 
   """
   Deprecated, use properties instead
   Native Dataset Uri
   Uri should not include any environment specific properties
   """
-  uri: String @deprecated
+  uri: String @deprecated @aspectMapping(aspects: ["datasetProperties"])
 
   """
   Deprecated, use tags field instead
   The structured tags associated with the dataset
   """
-  globalTags: GlobalTags @deprecated
+  globalTags: GlobalTags @deprecated @aspectMapping(aspects: ["globalTags"])
 
   """
   Sub Types that this entity implements
   """
-  subTypes: SubTypes
+  subTypes: SubTypes @aspectMapping(aspects: ["subTypes"])
 
   """
   View related properties. Only relevant if subtypes field contains view.
   """
-  viewProperties: ViewProperties
+  viewProperties: ViewProperties @aspectMapping(aspects: ["viewProperties"])
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   History of datajob runs that either produced or consumed this dataset
@@ -1982,17 +2013,17 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     start: Int
     count: Int
     direction: RelationshipDirection!
-  ): DataProcessInstanceResult
+  ): DataProcessInstanceResult @noAspects
 
   """
   Metadata about the datasets siblings
   """
-  siblings: SiblingProperties
+  siblings: SiblingProperties @aspectMapping(aspects: ["siblings"])
 
   """
   Executes a search on only the siblings of an entity
   """
-  siblingsSearch(input: ScrollAcrossEntitiesInput!): ScrollResults
+  siblingsSearch(input: ScrollAcrossEntitiesInput!): ScrollResults @noAspects
 
   """
   Lineage information for the column-level. Includes a list of objects
@@ -2000,26 +2031,28 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   The upstream and downstream columns are from datasets.
   """
   fineGrainedLineages: [FineGrainedLineage!]
+    @aspectMapping(aspects: ["upstreamLineage"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Structured properties about this Dataset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   Statistics about how this Dataset has been operated on
   """
-  operationsStats(input: OperationsStatsInput): OperationsQueryResult
+  operationsStats(input: OperationsStatsInput): OperationsQueryResult @noAspects
 }
 
 type RoleAssociation {
@@ -2042,34 +2075,35 @@ type Role implements Entity {
   """
   A primary key of the Metadata Entity
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   List of relationships between the source Entity and some destination entities with a given types
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Id of the Role
   """
-  id: String!
+  id: String! @aspectMapping(aspects: ["roleKey"])
 
   """
   Role properties to include Request Access Url
   """
-  properties: RoleProperties
+  properties: RoleProperties @aspectMapping(aspects: ["roleProperties"])
 
   """
   A standard Entity Type
   """
-  actors: Actor
+  actors: Actor @aspectMapping(aspects: ["actors"])
 
-  isAssignedToMe: Boolean!
+  isAssignedToMe: Boolean! @aspectMapping(aspects: ["actors"])
 }
 
 type Actor {
@@ -2226,127 +2260,134 @@ type VersionedDataset implements Entity {
   """
   The primary key of the Dataset
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Standardized platform urn where the dataset is defined
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["datasetKey"])
 
   """
   The parent container in which the entity resides
   """
-  container: Container
+  container: Container @aspectMapping(aspects: ["container"])
 
   """
   Recursively get the lineage of containers for this entity
   """
-  parentContainers: ParentContainersResult
+  parentContainers: ParentContainersResult @noAspects
 
   """
   Unique guid for dataset
   No longer to be used as the Dataset display name. Use properties.name instead
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["datasetProperties", "datasetKey"])
 
   """
   An additional set of read only properties
   """
-  properties: DatasetProperties
+  properties: DatasetProperties @aspectMapping(aspects: ["datasetProperties"])
 
   """
   An additional set of of read write properties
   """
   editableProperties: DatasetEditableProperties
+    @aspectMapping(aspects: ["editableDatasetProperties"])
 
   """
   Ownership metadata of the dataset
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   The deprecation status of the dataset
   """
   deprecation: Deprecation
+    @aspectMapping(aspects: ["datasetDeprecation", "deprecation"])
 
   """
   References to internal resources related to the dataset
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Editable schema metadata of the dataset
   """
   editableSchemaMetadata: EditableSchemaMetadata
+    @aspectMapping(aspects: ["editableSchemaMetadata"])
 
   """
   Status of the Dataset
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   Tags used for searching dataset
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   The structured glossary terms associated with the dataset
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the Dataset
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the entity
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   Experimental! The resolved health status of the asset
   """
-  health: [Health!]
+  health: [Health!] @noAspects
 
   """
   Schema metadata of the dataset
   """
-  schema: Schema
+  schema: Schema @aspectMapping(aspects: ["schemaMetadata"])
 
   """
   Sub Types that this entity implements
   """
-  subTypes: SubTypes
+  subTypes: SubTypes @aspectMapping(aspects: ["subTypes"])
 
   """
   View related properties. Only relevant if subtypes field contains view.
   """
-  viewProperties: ViewProperties
+  viewProperties: ViewProperties @aspectMapping(aspects: ["viewProperties"])
 
   """
   Deprecated, see the properties field instead
   Environment in which the dataset belongs to or where it was generated
   Note that this field will soon be deprecated in favor of a more standardized concept of Environment
   """
-  origin: FabricType! @deprecated
+  origin: FabricType! @deprecated @aspectMapping(aspects: ["datasetKey"])
 
   """
   No-op, has to be included due to model
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -2520,121 +2561,135 @@ type GlossaryTerm implements Entity {
   """
   The primary key of the glossary term
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   Ownership metadata of the glossary term
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   The Domain associated with the glossary term
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the glossary term
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the glossary term
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   References to internal resources related to the Glossary Term
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   A unique identifier for the Glossary Term. Deprecated - Use properties.name field instead.
   """
-  name: String! @deprecated
+  name: String! @deprecated @aspectMapping(aspects: ["glossaryTermKey"])
 
   """
   hierarchicalName of glossary term
   """
-  hierarchicalName: String!
+  hierarchicalName: String! @aspectMapping(aspects: ["glossaryTermKey"])
 
   """
   Additional properties associated with the Glossary Term
   """
   properties: GlossaryTermProperties
+    @aspectMapping(aspects: ["glossaryTermInfo"])
 
   """
   Deprecated, use properties field instead
   Details of the Glossary Term
   """
   glossaryTermInfo: GlossaryTermInfo
+    @aspectMapping(aspects: ["glossaryTermInfo"])
 
   """
   The lifecycle status of the Glossary Term (removed flag and lifecycle stage).
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   The deprecation status of the Glossary Term
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
+
+  """
+  Tags associated with the glossary term
+  """
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Schema metadata of the dataset
   """
-  schemaMetadata(version: Long): SchemaMetadata
+  schemaMetadata(version: Long): SchemaMetadata @noAspects
 
   """
   Recursively get the lineage of glossary nodes for this entity
   """
-  parentNodes: ParentNodesResult
+  parentNodes: ParentNodesResult @noAspects
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Display properties for the glossary term
   """
   displayProperties: DisplayProperties
+    @aspectMapping(aspects: ["displayProperties"])
 }
 
 """
@@ -2741,88 +2796,106 @@ type GlossaryNode implements Entity {
   """
   The primary key of the glossary term
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   Ownership metadata of the glossary term
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Additional properties associated with the Glossary Term
   """
   properties: GlossaryNodeProperties
+    @aspectMapping(aspects: ["glossaryNodeInfo"])
+
+  """
+  Tags associated with the glossary node
+  """
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Recursively get the lineage of glossary nodes for this entity
   """
-  parentNodes: ParentNodesResult
+  parentNodes: ParentNodesResult @noAspects
 
   """
   References to internal resources related to the Glossary Node
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Display properties for the glossary node
   """
   displayProperties: DisplayProperties
+    @aspectMapping(aspects: ["displayProperties"])
 
   """
   Carries information about where an entity originated from.
   """
-  childrenCount: GlossaryNodeChildrenCount
+  childrenCount: GlossaryNodeChildrenCount @noAspects
 
   """
   Executes a search on the children of this glossary node
   """
   glossaryChildrenSearch(input: ScrollAcrossEntitiesInput!): ScrollResults
+    @noAspects
 
   """
   The Domain associated with the glossary node
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
+
+  """
+  The applications associated with the glossary node
+  """
+  applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 }
 
 """
@@ -2886,44 +2959,48 @@ type DataPlatform implements Entity {
   """
   Urn of the data platform
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   Name of the data platform
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["dataPlatformKey"])
 
   """
   Additional read only properties associated with a data platform
   """
   properties: DataPlatformProperties
+    @aspectMapping(aspects: ["dataPlatformInfo"])
 
   """
   Deprecated, use properties displayName instead
   Display name of the data platform
   """
-  displayName: String @deprecated
+  displayName: String @deprecated @aspectMapping(aspects: ["dataPlatformInfo"])
 
   """
   Deprecated, use properties field instead
   Additional properties associated with a data platform
   """
-  info: DataPlatformInfo @deprecated
+  info: DataPlatformInfo
+    @deprecated
+    @aspectMapping(aspects: ["dataPlatformInfo"])
 
   """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -2933,57 +3010,60 @@ type DataPlatformInstance implements Entity {
   """
   Urn of the data platform
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Name of the data platform
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["dataPlatformInstanceKey"])
 
   """
   The platform instance id
   """
-  instanceId: String!
+  instanceId: String! @aspectMapping(aspects: ["dataPlatformInstanceKey"])
 
   """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Additional read only properties associated with a data platform instance
   """
   properties: DataPlatformInstanceProperties
+    @aspectMapping(aspects: ["dataPlatformInstanceProperties"])
 
   """
   Ownership metadata of the data platform instance
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   References to internal resources related to the data platform instance
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Tags used for searching the data platform instance
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   The deprecation status of the data platform instance
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   Status metadata of the container
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 }
 
 """
@@ -3191,150 +3271,159 @@ type Container implements Entity {
   """
   The primary key of the container
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   Standardized platform.
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Fetch an Entity Container by primary key (urn)
   """
-  container: Container
+  container: Container @aspectMapping(aspects: ["container"])
 
   """
   Recursively get the lineage of containers for this entity
   """
-  parentContainers: ParentContainersResult
+  parentContainers: ParentContainersResult @noAspects
 
   """
   Read-only properties that originate in the source data platform
   """
   properties: ContainerProperties
+    @aspectMapping(aspects: ["containerProperties"])
 
   """
   Read-write properties that originate in DataHub
   """
   editableProperties: ContainerEditableProperties
+    @aspectMapping(aspects: ["editableContainerProperties"])
 
   """
   Ownership metadata of the dataset
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   References to internal resources related to the dataset
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Tags used for searching dataset
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   The structured glossary terms associated with the dataset
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   Sub types of the container, e.g. "Database" etc
   """
-  subTypes: SubTypes
+  subTypes: SubTypes @aspectMapping(aspects: ["subTypes"])
 
   """
   The Domain associated with the Dataset
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the entity
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   The deprecation status of the container
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Children entities inside of the Container
   """
-  entities(input: ContainerEntitiesInput): SearchResults
+  entities(input: ContainerEntitiesInput): SearchResults @noAspects
 
   """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Status metadata of the container
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   The Roles and the properties to access the container
   """
-  access: Access
+  access: Access @aspectMapping(aspects: ["access"])
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 
   """
   The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
-  browsePathV2: BrowsePathV2
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
 }
 
 """
@@ -3719,77 +3808,81 @@ type SchemaFieldEntity implements EntityWithRelationships & Entity {
   """
   Primary key of the schema field
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Field path identifying the field in its dataset
   """
-  fieldPath: String!
+  fieldPath: String! @noAspects
 
   """
   The field's parent.
   """
-  parent: Entity!
+  parent: Entity! @noAspects
 
   """
   Structured properties on this schema field
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 
   """
   Business Attribute associated with the field
   """
   businessAttributes: BusinessAttributes
+    @aspectMapping(aspects: ["businessAttributes"])
 
   """
   Documentation aspect for this schema field
   """
-  documentation: Documentation
+  documentation: Documentation @aspectMapping(aspects: ["documentation"])
 
   """
   The status of the SchemaFieldEntity
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   deprecation status of the schema field
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   Tags associated with the field
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   Glossary terms associated with the field
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 }
 
 """
@@ -4420,97 +4513,100 @@ type CorpUser implements Entity {
   """
   The primary key of the user
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   A username associated with the user
   This uniquely identifies the user within DataHub
   """
-  username: String!
+  username: String! @aspectMapping(aspects: ["corpUserKey"])
 
   """
   Additional read only properties about the corp user
   """
-  properties: CorpUserProperties
+  properties: CorpUserProperties @aspectMapping(aspects: ["corpUserInfo"])
 
   """
   Read write properties about the corp user
   """
   editableProperties: CorpUserEditableProperties
+    @aspectMapping(aspects: ["corpUserEditableInfo"])
 
   """
   The status of the user
   """
-  status: CorpUserStatus
+  status: CorpUserStatus @aspectMapping(aspects: ["corpUserStatus"])
 
   """
   The tags associated with the user
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Whether or not this user is a native DataHub user
   """
-  isNativeUser: Boolean
+  isNativeUser: Boolean @aspectMapping(aspects: ["corpUserCredentials"])
 
   """
   Deprecated, use properties field instead
   Additional read only info about the corp user
   """
-  info: CorpUserInfo @deprecated
+  info: CorpUserInfo @deprecated @aspectMapping(aspects: ["corpUserInfo"])
 
   """
   Deprecated, use editableProperties field instead
   Read write info about the corp user
   """
-  editableInfo: CorpUserEditableInfo @deprecated
+  editableInfo: CorpUserEditableInfo @deprecated @noAspects
 
   """
   Deprecated, use the tags field instead
   The structured tags associated with the user
   """
-  globalTags: GlobalTags @deprecated
+  globalTags: GlobalTags @deprecated @aspectMapping(aspects: ["globalTags"])
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Settings that a user can customize through the datahub ui
   """
-  settings: CorpUserSettings
+  settings: CorpUserSettings @aspectMapping(aspects: ["corpUserSettings"])
 
   """
   Experimental API.
   For fetching extra aspects that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 }
 
 """
@@ -4883,74 +4979,77 @@ type CorpGroup implements Entity {
   """
   The primary key of the group
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Group name eg wherehows dev, ask_metadata
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["corpGroupKey"])
 
   """
   Ownership metadata of the Corp Group
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   Additional read only properties about the group
   """
-  properties: CorpGroupProperties
+  properties: CorpGroupProperties @aspectMapping(aspects: ["corpGroupInfo"])
 
   """
   Additional read write properties about the group
   """
   editableProperties: CorpGroupEditableProperties
+    @aspectMapping(aspects: ["corpGroupEditableInfo"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Origin info about this group.
   """
-  origin: Origin
+  origin: Origin @aspectMapping(aspects: ["origin"])
 
   """
   Deprecated, use properties field instead
   Additional read only info about the group
   """
-  info: CorpGroupInfo @deprecated
+  info: CorpGroupInfo @deprecated @aspectMapping(aspects: ["corpGroupInfo"])
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 }
 
 """
@@ -5144,54 +5243,55 @@ type Tag implements Entity {
   """
   The primary key of the TAG
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   A unique identifier for the Tag. Deprecated - Use properties.name field instead.
   """
-  name: String! @deprecated
+  name: String! @deprecated @aspectMapping(aspects: ["tagKey"])
 
   """
   Additional properties about the Tag
   """
-  properties: TagProperties
+  properties: TagProperties @aspectMapping(aspects: ["tagProperties"])
 
   """
   Additional read write properties about the Tag
   Deprecated! Use 'properties' field instead.
   """
-  editableProperties: EditableTagProperties @deprecated
+  editableProperties: EditableTagProperties @deprecated @noAspects
 
   """
   Ownership metadata of the dataset
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   The deprecation status of the Tag
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Deprecated, use properties.description field instead
   """
-  description: String @deprecated
+  description: String @deprecated @aspectMapping(aspects: ["tagProperties"])
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 }
 
 """
@@ -5833,120 +5933,126 @@ type Notebook implements Entity & BrowsableEntity {
   """
   The primary key of the Notebook
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The Notebook tool name
   """
-  tool: String!
+  tool: String! @aspectMapping(aspects: ["notebookKey"])
 
   """
   An id unique within the Notebook tool
   """
-  notebookId: String!
+  notebookId: String! @aspectMapping(aspects: ["notebookKey"])
 
   """
   Additional read only information about the Notebook
   """
-  info: NotebookInfo
+  info: NotebookInfo @aspectMapping(aspects: ["notebookInfo"])
 
   """
   Additional read write properties about the Notebook
   """
   editableProperties: NotebookEditableProperties
+    @aspectMapping(aspects: ["editableNotebookProperties"])
 
   """
   Ownership metadata of the Notebook
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   Status metadata of the Notebook
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   The content of this Notebook
   """
-  content: NotebookContent!
+  content: NotebookContent! @aspectMapping(aspects: ["notebookContent"])
 
   """
   The tags associated with the Notebook
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   References to internal resources related to the Notebook
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   The Domain associated with the Notebook
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the entity
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Sub Types that this entity implements
   """
-  subTypes: SubTypes
+  subTypes: SubTypes @aspectMapping(aspects: ["subTypes"])
 
   """
   The structured glossary terms associated with the notebook
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   Standardized platform.
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   The browse paths corresponding to the Notebook. If no Browse Paths have been generated before, this will be null.
   """
-  browsePaths: [BrowsePath!]
+  browsePaths: [BrowsePath!] @noAspects
 
   """
   The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
-  browsePathV2: BrowsePathV2
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 }
 
 """
@@ -6106,130 +6212,137 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The primary key of the Dashboard
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   The parent container in which the entity resides
   """
-  container: Container
+  container: Container @aspectMapping(aspects: ["container"])
 
   """
   Recursively get the lineage of containers for this entity
   """
-  parentContainers: ParentContainersResult
+  parentContainers: ParentContainersResult @noAspects
 
   """
   The dashboard tool name
   Note that this will soon be deprecated in favor of a standardized notion of Data Platform
   """
-  tool: String!
+  tool: String! @aspectMapping(aspects: ["dashboardKey"])
 
   """
   An id unique within the dashboard tool
   """
-  dashboardId: String!
+  dashboardId: String! @aspectMapping(aspects: ["dashboardKey"])
 
   """
   Additional read only properties about the dashboard
   """
-  properties: DashboardProperties
+  properties: DashboardProperties @aspectMapping(aspects: ["dashboardInfo"])
 
   """
   Additional read write properties about the dashboard
   """
   editableProperties: DashboardEditableProperties
+    @aspectMapping(aspects: ["editableDashboardProperties"])
 
   """
   Ownership metadata of the dashboard
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   Status metadata of the dashboard
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   Embed information about the Dashboard
   """
-  embed: Embed
+  embed: Embed @aspectMapping(aspects: ["embed"])
 
   """
   The deprecation status of the dashboard
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   The tags associated with the dashboard
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   References to internal resources related to the dashboard
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   The structured glossary terms associated with the dashboard
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the Dashboard
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the entity
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 
   """
   The browse paths corresponding to the dashboard. If no Browse Paths have been generated before, this will be null.
   """
-  browsePaths: [BrowsePath!]
+  browsePaths: [BrowsePath!] @noAspects
 
   """
   The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
-  browsePathV2: BrowsePathV2
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
 
   """
   Experimental (Subject to breaking change) -- Statistics about how this Dashboard is used
@@ -6238,81 +6351,82 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     startTimeMillis: Long
     endTimeMillis: Long
     limit: Int
-  ): DashboardUsageQueryResult
+  ): DashboardUsageQueryResult @noAspects
 
   """
   Experimental - Summary operational & usage statistics about a Dashboard
   """
-  statsSummary: DashboardStatsSummary
+  statsSummary: DashboardStatsSummary @noAspects
 
   """
   Deprecated, use properties field instead
   Additional read only information about the dashboard
   """
-  info: DashboardInfo @deprecated
+  info: DashboardInfo @deprecated @aspectMapping(aspects: ["dashboardInfo"])
 
   """
   Deprecated, use editableProperties instead
   Additional read write properties about the Dashboard
   """
-  editableInfo: DashboardEditableProperties @deprecated
+  editableInfo: DashboardEditableProperties @deprecated @noAspects
 
   """
   Deprecated, use tags field instead
   The structured tags associated with the dashboard
   """
-  globalTags: GlobalTags @deprecated
+  globalTags: GlobalTags @deprecated @aspectMapping(aspects: ["globalTags"])
 
   """
   Standardized platform urn where the dashboard is defined
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["dashboardKey"])
 
   """
   Input fields that power all the charts in the dashboard
   """
-  inputFields: InputFields
+  inputFields: InputFields @aspectMapping(aspects: ["inputFields"])
 
   """
   Sub Types of the dashboard
   """
-  subTypes: SubTypes
+  subTypes: SubTypes @aspectMapping(aspects: ["subTypes"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   Experimental! The resolved health statuses of the asset
   """
-  health: [Health!]
+  health: [Health!] @noAspects
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   The Roles and the properties to access the dashboard
   """
-  access: Access
+  access: Access @aspectMapping(aspects: ["access"])
 }
 
 """
@@ -6461,206 +6575,214 @@ type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The primary key of the Chart
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   The parent container in which the entity resides
   """
-  container: Container
+  container: Container @aspectMapping(aspects: ["container"])
 
   """
   Recursively get the lineage of containers for this entity
   """
-  parentContainers: ParentContainersResult
+  parentContainers: ParentContainersResult @noAspects
 
   """
   The chart tool name
   Note that this field will soon be deprecated in favor a unified notion of Data Platform
   """
-  tool: String!
+  tool: String! @aspectMapping(aspects: ["chartKey"])
 
   """
   An id unique within the charting tool
   """
-  chartId: String!
+  chartId: String! @aspectMapping(aspects: ["chartKey"])
 
   """
   Additional read only properties about the Chart
   """
-  properties: ChartProperties
+  properties: ChartProperties @aspectMapping(aspects: ["chartInfo"])
 
   """
   Additional read write properties about the Chart
   """
   editableProperties: ChartEditableProperties
+    @aspectMapping(aspects: ["editableChartProperties"])
 
   """
   Info about the query which is used to render the chart
   """
-  query: ChartQuery
+  query: ChartQuery @aspectMapping(aspects: ["chartQuery"])
 
   """
   Ownership metadata of the chart
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   Status metadata of the chart
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   The deprecation status of the chart
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   Embed information about the Chart
   """
-  embed: Embed
+  embed: Embed @aspectMapping(aspects: ["embed"])
 
   """
   The tags associated with the chart
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   References to internal resources related to the dashboard
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   The structured glossary terms associated with the dashboard
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the Chart
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the entity
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Not yet implemented.
 
   Experimental - Summary operational & usage statistics about a Chart
   """
-  statsSummary: ChartStatsSummary
+  statsSummary: ChartStatsSummary @noAspects
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 
   """
   The browse paths corresponding to the chart. If no Browse Paths have been generated before, this will be null.
   """
-  browsePaths: [BrowsePath!]
+  browsePaths: [BrowsePath!] @noAspects
 
   """
   The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
-  browsePathV2: BrowsePathV2
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
 
   """
   Deprecated, use properties field instead
   Additional read only information about the chart
   """
-  info: ChartInfo @deprecated
+  info: ChartInfo @deprecated @aspectMapping(aspects: ["chartInfo"])
 
   """
   Deprecated, use editableProperties field instead
   Additional read write information about the Chart
   """
-  editableInfo: ChartEditableProperties @deprecated
+  editableInfo: ChartEditableProperties @deprecated @noAspects
 
   """
   Deprecated, use tags instead
   The structured tags associated with the chart
   """
-  globalTags: GlobalTags @deprecated
+  globalTags: GlobalTags @deprecated @aspectMapping(aspects: ["globalTags"])
 
   """
   Standardized platform urn where the chart is defined
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["chartKey"])
 
   """
   Input fields to power the chart
   """
-  inputFields: InputFields
+  inputFields: InputFields @aspectMapping(aspects: ["inputFields"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Sub Types that this entity implements
   """
-  subTypes: SubTypes
+  subTypes: SubTypes @aspectMapping(aspects: ["subTypes"])
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   Experimental! The resolved health statuses of the asset
   """
-  health: [Health!]
+  health: [Health!] @noAspects
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 }
 
 """
@@ -6893,188 +7015,196 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The primary key of a Data Flow
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   Workflow orchestrator ei Azkaban, Airflow
   """
-  orchestrator: String!
+  orchestrator: String! @aspectMapping(aspects: ["dataFlowKey"])
 
   """
   Id of the flow
   """
-  flowId: String!
+  flowId: String! @aspectMapping(aspects: ["dataFlowKey"])
 
   """
   Cluster of the flow
   """
-  cluster: String!
+  cluster: String! @aspectMapping(aspects: ["dataFlowKey"])
 
   """
   Additional read only properties about a Data flow
   """
-  properties: DataFlowProperties
+  properties: DataFlowProperties @aspectMapping(aspects: ["dataFlowInfo"])
 
   """
   Additional read write properties about a Data Flow
   """
   editableProperties: DataFlowEditableProperties
+    @aspectMapping(aspects: ["editableDataFlowProperties"])
 
   """
   Ownership metadata of the flow
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   The tags associated with the dataflow
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   Status metadata of the dataflow
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   The deprecation status of the Data Flow
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   References to internal resources related to the dashboard
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   The structured glossary terms associated with the dashboard
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the DataFlow
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the entity
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   The parent container in which the entity resides
   """
-  container: Container
+  container: Container @aspectMapping(aspects: ["container"])
 
   """
   Recursively get the lineage of containers for this entity
   """
-  parentContainers: ParentContainersResult
+  parentContainers: ParentContainersResult @noAspects
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 
   """
   The browse paths corresponding to the data flow. If no Browse Paths have been generated before, this will be null.
   """
-  browsePaths: [BrowsePath!]
+  browsePaths: [BrowsePath!] @noAspects
 
   """
   The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
-  browsePathV2: BrowsePathV2
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
 
   """
   Deprecated, use properties field instead
   Additional read only information about a Data flow
   """
-  info: DataFlowInfo @deprecated
+  info: DataFlowInfo @deprecated @aspectMapping(aspects: ["dataFlowInfo"])
 
   """
   Deprecated, use tags field instead
   The structured tags associated with the dataflow
   """
-  globalTags: GlobalTags @deprecated
+  globalTags: GlobalTags @deprecated @aspectMapping(aspects: ["globalTags"])
 
   """
   Deprecated, use relationship IsPartOf instead
   Data Jobs
   """
-  dataJobs: DataFlowDataJobsRelationships @deprecated
+  dataJobs: DataFlowDataJobsRelationships @deprecated @noAspects
 
   """
   Standardized platform urn where the datflow is defined
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["dataFlowKey"])
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   Experimental! The resolved health statuses of the asset
   """
-  health: [Health!]
+  health: [Health!] @noAspects
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 
   """
   Sub Types that this entity implements
   """
-  subTypes: SubTypes
+  subTypes: SubTypes @aspectMapping(aspects: ["subTypes"])
 }
 
 """
@@ -7146,188 +7276,198 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The primary key of the Data Job
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Sub Types that this entity implements
   """
-  subTypes: SubTypes
+  subTypes: SubTypes @aspectMapping(aspects: ["subTypes"])
 
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   Deprecated, use relationship IsPartOf instead
   The associated data flow
   """
-  dataFlow: DataFlow
+  dataFlow: DataFlow @aspectMapping(aspects: ["dataJobKey"])
 
   """
   Id of the job
   """
-  jobId: String!
+  jobId: String! @aspectMapping(aspects: ["dataJobKey"])
 
   """
   Additional read only properties associated with the Data Job
   """
-  properties: DataJobProperties
+  properties: DataJobProperties @aspectMapping(aspects: ["dataJobInfo"])
 
   """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Standardized platform urn where the data job is defined
   """
-  platform: DataPlatform
+  platform: DataPlatform @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   The parent container in which the entity resides
   """
-  container: Container
+  container: Container @aspectMapping(aspects: ["container"])
 
   """
   Recursively get the lineage of containers for this entity
   """
-  parentContainers: ParentContainersResult
+  parentContainers: ParentContainersResult @noAspects
 
   """
   Additional read write properties associated with the Data Job
   """
   editableProperties: DataJobEditableProperties
+    @aspectMapping(aspects: ["editableDataJobProperties"])
 
   """
   The tags associated with the DataJob
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   Ownership metadata of the job
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   Status metadata of the DataJob
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   The deprecation status of the Data Flow
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   References to internal resources related to the dashboard
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   The structured glossary terms associated with the dashboard
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the Data Job
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the entity
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 
   """
   The browse paths corresponding to the data job. If no Browse Paths have been generated before, this will be null.
   """
-  browsePaths: [BrowsePath!]
+  browsePaths: [BrowsePath!] @noAspects
 
   """
   The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
-  browsePathV2: BrowsePathV2
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
 
   """
   Deprecated, use properties field instead
   Additional read only information about a Data processing job
   """
-  info: DataJobInfo @deprecated
+  info: DataJobInfo @deprecated @aspectMapping(aspects: ["dataJobInfo"])
 
   """
   Information about the inputs and outputs of a Data processing job including column-level lineage.
   """
   inputOutput: DataJobInputOutput
+    @aspectMapping(aspects: ["dataJobInputOutput"])
 
   """
   Deprecated, use the tags field instead
   The structured tags associated with the DataJob
   """
-  globalTags: GlobalTags @deprecated
+  globalTags: GlobalTags @deprecated @aspectMapping(aspects: ["globalTags"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   Experimental! The resolved health statuses of the asset
   """
-  health: [Health!]
+  health: [Health!] @noAspects
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Data Transform Logic associated with the Data Job
   """
   dataTransformLogic: DataTransformLogic
+    @aspectMapping(aspects: ["dataTransformLogic"])
 }
 
 """
@@ -7338,22 +7478,22 @@ type DataProcessInstance implements EntityWithRelationships & Entity {
   """
   The primary key of the DataProcessInstance
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Status metadata of the data process instance
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   The history of state changes for the run
@@ -7362,33 +7502,38 @@ type DataProcessInstance implements EntityWithRelationships & Entity {
     startTimeMillis: Long
     endTimeMillis: Long
     limit: Int
-  ): [DataProcessRunEvent]
+  ): [DataProcessRunEvent] @noAspects
 
   """
   When the run was kicked off
   """
-  created: AuditStamp @deprecated(reason: "Use `properties.created`")
+  created: AuditStamp
+    @deprecated(reason: "Use `properties.created`")
+    @aspectMapping(aspects: ["dataProcessInstanceProperties"])
 
   """
   The name of the data process
   """
-  name: String @deprecated(reason: "Use `properties.name`")
+  name: String
+    @deprecated(reason: "Use `properties.name`")
+    @aspectMapping(aspects: ["dataProcessInstanceProperties"])
 
   """
   Edges extending from this entity.
   In the UI, used for inputs, outputs and parentTemplate
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 
   """
   The link to view the task run in the source system
   """
-  externalUrl: String
+  externalUrl: String @aspectMapping(aspects: ["dataProcessInstanceProperties"])
 }
 
 """
@@ -8171,27 +8316,29 @@ type Assertion implements EntityWithRelationships & Entity {
   """
   The primary key of the Assertion
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Standardized platform urn where the assertion is evaluated
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Details about assertion
   """
   info: AssertionInfo
+    @aspectMapping(aspects: ["assertionInfo", "assertionNote"])
 
   """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Lifecycle events detailing individual runs of this assertion. If startTimeMillis & endTimeMillis are not provided, the most
@@ -8203,38 +8350,39 @@ type Assertion implements EntityWithRelationships & Entity {
     endTimeMillis: Long
     filter: FilterInput
     limit: Int
-  ): AssertionRunEventsResult
+  ): AssertionRunEventsResult @noAspects
 
   """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 
   """
   Status metadata of the assertion
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   The standard tags for the Assertion
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   Ownership metadata of the Assertion
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   Experimental API.
   For fetching extra aspects that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 }
 
 """
@@ -8255,6 +8403,11 @@ type AssertionInfo {
   An optional human-readable description of the assertion
   """
   description: String
+
+  """
+  An optional user-authored note with troubleshooting context for the assertion.
+  """
+  note: String
 
   """
   URL where assertion details are available
@@ -8816,7 +8969,7 @@ enum AssertionStdParameterType {
 }
 
 """
-The scope that a Dataset-level assertion applies to.
+The scope that an assertion applies to (column, rows, schema, storage, etc.).
 """
 enum DatasetAssertionScope {
   """
@@ -8828,6 +8981,11 @@ enum DatasetAssertionScope {
   Assertion applies to rows of a dataset.
   """
   DATASET_ROWS
+
+  """
+  Assertion applies to the storage size of a dataset.
+  """
+  DATASET_STORAGE_SIZE
 
   """
   Assertion applies to schema of a dataset.
@@ -9666,6 +9824,21 @@ input MoveDomainInput {
 }
 
 """
+Input for updating the parent data product of a data product.
+"""
+input MoveDataProductInput {
+  """
+  The new parent data product urn. If parentDataProduct is null, this will remove the parent from this entity
+  """
+  parentDataProduct: String
+
+  """
+  The primary key of the resource to update the parent data product for
+  """
+  resourceUrn: String!
+}
+
+"""
 Input for updating the name of an entity
 """
 input UpdateNameInput {
@@ -9960,57 +10133,58 @@ type DataHubPolicy implements Entity {
   """
   The primary key of the Policy
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Granular API for querying edges extending from the Role
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   The type of the Policy
   """
-  policyType: PolicyType!
+  policyType: PolicyType! @aspectMapping(aspects: ["dataHubPolicyInfo"])
 
   """
   The name of the Policy
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["dataHubPolicyInfo"])
 
   """
   The present state of the Policy
   """
-  state: PolicyState!
+  state: PolicyState! @aspectMapping(aspects: ["dataHubPolicyInfo"])
 
   """
   The description of the Policy
   """
-  description: String
+  description: String @aspectMapping(aspects: ["dataHubPolicyInfo"])
 
   """
   The resources that the Policy privileges apply to
   """
-  resources: ResourceFilter
+  resources: ResourceFilter @aspectMapping(aspects: ["dataHubPolicyInfo"])
 
   """
   The privileges that the Policy grants
   """
-  privileges: [String!]!
+  privileges: [String!]! @aspectMapping(aspects: ["dataHubPolicyInfo"])
 
   """
   The actors that the Policy grants privileges to
   """
-  actors: ActorFilter!
+  actors: ActorFilter! @aspectMapping(aspects: ["dataHubPolicyInfo"])
 
   """
   Whether the Policy is editable, ie system policies, or not
   """
-  editable: Boolean!
+  editable: Boolean! @aspectMapping(aspects: ["dataHubPolicyInfo"])
 }
 
 """
@@ -10514,206 +10688,218 @@ type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   The primary key of the ML model
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   ML model display name
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["mlModelKey"])
 
   """
   Standardized platform urn where the MLModel is defined
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["mlModelKey"])
 
   """
   Fabric type where mlmodel belongs to or where it was generated
   """
-  origin: FabricType!
+  origin: FabricType! @aspectMapping(aspects: ["mlModelKey"])
 
   """
   Human readable description for mlmodel
   """
-  description: String
+  description: String @aspectMapping(aspects: ["mlModelProperties"])
 
   """
   Deprecated, use tags field instead
   The standard tags for the ML Model
   """
-  globalTags: GlobalTags @deprecated
+  globalTags: GlobalTags @deprecated @aspectMapping(aspects: ["globalTags"])
 
   """
   The standard tags for the ML Model
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   Ownership metadata of the mlmodel
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   Additional read only information about the ML Model
   """
-  properties: MLModelProperties
+  properties: MLModelProperties @aspectMapping(aspects: ["mlModelProperties"])
 
   """
   Intended use of the mlmodel
   """
-  intendedUse: IntendedUse
+  intendedUse: IntendedUse @aspectMapping(aspects: ["intendedUse"])
 
   """
   Factors metadata of the mlmodel
   """
   factorPrompts: MLModelFactorPrompts
+    @aspectMapping(aspects: ["mlModelFactorPrompts"])
 
   """
   Metrics metadata of the mlmodel
   """
-  metrics: Metrics
+  metrics: Metrics @aspectMapping(aspects: ["mlModelMetrics"])
 
   """
   Evaluation Data of the mlmodel
   """
-  evaluationData: [BaseData!]
+  evaluationData: [BaseData!] @aspectMapping(aspects: ["mlModelEvaluationData"])
 
   """
   Training Data of the mlmodel
   """
-  trainingData: [BaseData!]
+  trainingData: [BaseData!] @aspectMapping(aspects: ["mlModelTrainingData"])
 
   """
   Quantitative Analyses of the mlmodel
   """
   quantitativeAnalyses: QuantitativeAnalyses
+    @aspectMapping(aspects: ["mlModelQuantitativeAnalyses"])
 
   """
   Ethical Considerations of the mlmodel
   """
   ethicalConsiderations: EthicalConsiderations
+    @aspectMapping(aspects: ["mlModelEthicalConsiderations"])
 
   """
   Caveats and Recommendations of the mlmodel
   """
   caveatsAndRecommendations: CaveatsAndRecommendations
+    @aspectMapping(aspects: ["mlModelCaveatsAndRecommendations"])
 
   """
   References to internal resources related to the mlmodel
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Source Code
   """
-  sourceCode: SourceCode
+  sourceCode: SourceCode @aspectMapping(aspects: ["sourceCode"])
 
   """
   Status metadata of the mlmodel
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   Cost Aspect of the mlmodel
   """
-  cost: Cost
+  cost: Cost @aspectMapping(aspects: ["cost"])
 
   """
   Deprecation
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 
   """
   The browse paths corresponding to the ML Model. If no Browse Paths have been generated before, this will be null.
   """
-  browsePaths: [BrowsePath!]
+  browsePaths: [BrowsePath!] @noAspects
 
   """
   The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
-  browsePathV2: BrowsePathV2
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
 
   """
   The structured glossary terms associated with the entity
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the entity
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the entity
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
   """
   editableProperties: MLModelEditableProperties
+    @aspectMapping(aspects: ["editableMlModelProperties"])
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 }
 
 """
@@ -10724,150 +10910,159 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
   """
   The primary key of the ML Model Group
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   The display name for the Entity
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["mlModelGroupKey"])
 
   """
   Standardized platform urn where the MLModelGroup is defined
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["mlModelGroupKey"])
 
   """
   Fabric type where MLModelGroup belongs to or where it was generated
   """
-  origin: FabricType!
+  origin: FabricType! @aspectMapping(aspects: ["mlModelGroupKey"])
 
   """
   Human readable description for MLModelGroup
   """
-  description: String
+  description: String @aspectMapping(aspects: ["mlModelGroupProperties"])
 
   """
   Additional read only properties about the ML Model Group
   """
   properties: MLModelGroupProperties
+    @aspectMapping(aspects: ["mlModelGroupProperties"])
 
   """
   References to internal resources related to the ml model group
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Ownership metadata of the MLModelGroup
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   Status metadata of the MLModelGroup
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   Deprecation
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 
   """
   The browse paths corresponding to the ML Model Group. If no Browse Paths have been generated before, this will be null.
   """
-  browsePaths: [BrowsePath!]
+  browsePaths: [BrowsePath!] @noAspects
 
   """
   The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
-  browsePathV2: BrowsePathV2
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
 
   """
   Tags applied to entity
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   The structured glossary terms associated with the entity
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the entity
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the entity
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
   """
   editableProperties: MLModelGroupEditableProperties
+    @aspectMapping(aspects: ["editableMlModelGroupProperties"])
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 }
 
 """
@@ -10923,150 +11118,161 @@ type MLFeature implements EntityWithRelationships & Entity {
   """
   The primary key of the ML Feature
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   The display name for the ML Feature
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["mlFeatureKey"])
 
   """
   MLFeature featureNamespace
   """
-  featureNamespace: String!
+  featureNamespace: String! @aspectMapping(aspects: ["mlFeatureKey"])
 
   """
   The description about the ML Feature
   """
-  description: String
+  description: String @aspectMapping(aspects: ["mlFeatureProperties"])
 
   """
   MLFeature data type
   """
-  dataType: MLFeatureDataType
+  dataType: MLFeatureDataType @aspectMapping(aspects: ["mlFeatureProperties"])
 
   """
   Ownership metadata of the MLFeature
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   ModelProperties metadata of the MLFeature
   """
-  featureProperties: MLFeatureProperties @deprecated
+  featureProperties: MLFeatureProperties
+    @deprecated
+    @aspectMapping(aspects: ["mlFeatureProperties"])
 
   """
   ModelProperties metadata of the MLFeature
   """
   properties: MLFeatureProperties
+    @aspectMapping(aspects: ["mlFeatureProperties"])
 
   """
   References to internal resources related to the MLFeature
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Status metadata of the MLFeature
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   Deprecation
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
-  browsePathV2: BrowsePathV2
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
 
   """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 
   """
   Tags applied to entity
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   The structured glossary terms associated with the entity
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the entity
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the entity
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
   """
   editableProperties: MLFeatureEditableProperties
+    @aspectMapping(aspects: ["editableMlFeatureProperties"])
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 }
 
 type MLHyperParam {
@@ -11198,146 +11404,158 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
   """
   The primary key of the ML Primary Key
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   The display name
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["mlPrimaryKeyKey"])
 
   """
   MLPrimaryKey featureNamespace
   """
-  featureNamespace: String!
+  featureNamespace: String! @aspectMapping(aspects: ["mlPrimaryKeyKey"])
 
   """
   MLPrimaryKey description
   """
-  description: String
+  description: String @aspectMapping(aspects: ["mlPrimaryKeyProperties"])
 
   """
   MLPrimaryKey data type
   """
   dataType: MLFeatureDataType
+    @aspectMapping(aspects: ["mlPrimaryKeyProperties"])
 
   """
   Additional read only properties of the ML Primary Key
   """
   properties: MLPrimaryKeyProperties
+    @aspectMapping(aspects: ["mlPrimaryKeyProperties"])
 
   """
   Deprecated, use properties field instead
   MLPrimaryKeyProperties
   """
-  primaryKeyProperties: MLPrimaryKeyProperties @deprecated
+  primaryKeyProperties: MLPrimaryKeyProperties
+    @deprecated
+    @aspectMapping(aspects: ["mlPrimaryKeyProperties"])
 
   """
   Ownership metadata of the MLPrimaryKey
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   References to internal resources related to the MLPrimaryKey
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Status metadata of the MLPrimaryKey
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   Deprecation
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 
   """
   Tags applied to entity
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   The structured glossary terms associated with the entity
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the entity
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the entity
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
   """
   editableProperties: MLPrimaryKeyEditableProperties
+    @aspectMapping(aspects: ["editableMlPrimaryKeyProperties"])
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 }
 
 type MLPrimaryKeyProperties {
@@ -11359,151 +11577,162 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   """
   The primary key of the ML Feature Table
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The timestamp for the last time this entity was ingested
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   The display name
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["mlFeatureTableKey"])
 
   """
   Standardized platform urn where the MLFeatureTable is defined
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["mlFeatureTableKey"])
 
   """
   MLFeatureTable description
   """
-  description: String
+  description: String @aspectMapping(aspects: ["mlFeatureTableProperties"])
 
   """
   Ownership metadata of the MLFeatureTable
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   Additional read only properties associated the the ML Feature Table
   """
   properties: MLFeatureTableProperties
+    @aspectMapping(aspects: ["mlFeatureTableProperties"])
 
   """
   Deprecated, use properties field instead
   ModelProperties metadata of the MLFeature
   """
-  featureTableProperties: MLFeatureTableProperties @deprecated
+  featureTableProperties: MLFeatureTableProperties
+    @deprecated
+    @aspectMapping(aspects: ["mlFeatureTableProperties"])
 
   """
   References to internal resources related to the MLFeature
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Status metadata of the MLFeatureTable
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   Deprecation
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 
   """
   The browse paths corresponding to the ML Feature Table. If no Browse Paths have been generated before, this will be null.
   """
-  browsePaths: [BrowsePath!]
+  browsePaths: [BrowsePath!] @noAspects
 
   """
   The browse path V2 corresponding to an entity. If no Browse Paths V2 have been generated before, this will be null.
   """
-  browsePathV2: BrowsePathV2
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
 
   """
   Tags applied to entity
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   The structured glossary terms associated with the entity
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the entity
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the entity
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the entity
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   An additional set of of read write properties
   """
   editableProperties: MLFeatureTableEditableProperties
+    @aspectMapping(aspects: ["editableMlFeatureTableProperties"])
 
   """
   Whether or not this entity exists on DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 }
 
 type MLFeatureTableEditableProperties {
@@ -11869,83 +12098,88 @@ type Domain implements Entity {
   """
   The primary key of the domain
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Id of the domain
   """
-  id: String!
+  id: String! @aspectMapping(aspects: ["domainKey"])
 
   """
   Properties about a domain
   """
-  properties: DomainProperties
+  properties: DomainProperties @aspectMapping(aspects: ["domainProperties"])
 
   """
   Ownership metadata of the dataset
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   References to internal resources related to the dataset
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Children entities inside of the Domain
   """
-  entities(input: DomainEntitiesInput): SearchResults
+  entities(input: DomainEntitiesInput): SearchResults @noAspects
 
   """
   Recursively get the lineage of parent domains for this entity
   """
-  parentDomains: ParentDomainsResult
+  parentDomains: ParentDomainsResult @noAspects
 
   """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Display properties for the domain
   """
   displayProperties: DisplayProperties
+    @aspectMapping(aspects: ["displayProperties"])
 
   """
   Deprecation status of the domain
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 }
 
 """
@@ -12517,33 +12751,34 @@ type DataHubRole implements Entity {
   """
   The primary key of the role
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Granular API for querying edges extending from the Role
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   The name of the Role.
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["dataHubRoleInfo"])
 
   """
   The description of the Role
   """
-  description: String!
+  description: String! @aspectMapping(aspects: ["dataHubRoleInfo"])
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 }
 
 """
@@ -12773,32 +13008,33 @@ type Post implements Entity {
   """
   The primary key of the Post
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Granular API for querying edges extending from the Post
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   The type of post
   """
-  postType: PostType!
+  postType: PostType! @aspectMapping(aspects: ["postInfo"])
 
   """
   The content of the post
   """
-  content: PostContent!
+  content: PostContent! @aspectMapping(aspects: ["postInfo"])
 
   """
   When the post was last modified
   """
-  lastModified: AuditStamp!
+  lastModified: AuditStamp! @aspectMapping(aspects: ["postInfo"])
 }
 
 """
@@ -12868,37 +13104,39 @@ type DataHubView implements Entity {
   """
   The primary key of the View
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The type of the View
   """
-  viewType: DataHubViewType!
+  viewType: DataHubViewType! @aspectMapping(aspects: ["dataHubViewInfo"])
 
   """
   The name of the View
   """
-  name: String!
+  name: String! @aspectMapping(aspects: ["dataHubViewInfo"])
 
   """
   The description of the View
   """
-  description: String
+  description: String @aspectMapping(aspects: ["dataHubViewInfo"])
 
   """
   The definition of the View
   """
   definition: DataHubViewDefinition!
+    @aspectMapping(aspects: ["dataHubViewInfo"])
 
   """
   Granular API for querying edges extending from the View
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -13271,32 +13509,33 @@ type QueryEntity implements Entity {
   """
   A primary key associated with the Query
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Properties about the Query
   """
-  properties: QueryProperties
+  properties: QueryProperties @aspectMapping(aspects: ["queryProperties"])
 
   """
   Subjects for the query
   """
-  subjects: [QuerySubject!]
+  subjects: [QuerySubject!] @aspectMapping(aspects: ["querySubjects"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Platform from which the Query was detected
   """
-  platform: DataPlatform
+  platform: DataPlatform @aspectMapping(aspects: ["dataPlatformInstance"])
 }
 
 """
@@ -13476,100 +13715,112 @@ type DataProduct implements Entity {
   """
   The primary key of the Data Product
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Properties about a Data Product
   """
   properties: DataProductProperties
+    @aspectMapping(aspects: ["dataProductProperties"])
 
   """
   Ownership metadata of the Data Product
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   References to internal resources related to the Data Product
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   Children entities inside of the DataProduct
   """
-  entities(input: SearchAcrossEntitiesInput): SearchResults
+  entities(input: SearchAcrossEntitiesInput): SearchResults @noAspects
 
   """
   The structured glossary terms associated with the Data Product
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the Data Product
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   The applications associated with the data product
   """
   applications: [ApplicationAssociation!]
+    @aspectMapping(aspects: ["applications"])
 
   """
   Deprecated, use applications instead
   The application associated with the data product
   """
   application: ApplicationAssociation
+    @aspectMapping(aspects: ["applications"])
     @deprecated(reason: "Use applications instead")
 
   """
   Tags used for searching Data Product
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The forms associated with the Dataset
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Deprecation status of the data product
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 
   """
   Whether the Data Product exists in DataHub
   """
-  exists: Boolean
+  exists: Boolean @noAspects
+
+  """
+  All ancestor data products from immediate parent up to the root, ordered nearest-first.
+  """
+  parentDataProducts: [DataProduct!]! @noAspects
 }
 
 """
@@ -13605,6 +13856,11 @@ type DataProductProperties {
   A Resolved Audit Stamp corresponding to the creation of this resource
   """
   createdOn: ResolvedAuditStamp
+
+  """
+  The direct parent Data Product in the taxonomy. Null for root Data Products.
+  """
+  parentDataProduct: DataProduct
 }
 
 """
@@ -13664,6 +13920,11 @@ input CreateDataProductPropertiesInput {
   An optional description for the DataProduct
   """
   description: String
+
+  """
+  Optional URN of the parent Data Product
+  """
+  parentDataProduct: String
 }
 
 """
@@ -13679,6 +13940,11 @@ input UpdateDataProductInput {
   An optional description for the DataProduct
   """
   description: String
+
+  """
+  Optional URN of the parent Data Product. If omitted, the existing parent is unchanged.
+  """
+  parentDataProduct: String
 }
 
 """
@@ -13722,73 +13988,88 @@ type Application implements Entity {
   """
   The primary key of the Application
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Properties about an Application
   """
   properties: ApplicationProperties
+    @aspectMapping(aspects: ["applicationProperties"])
 
   """
   Ownership metadata of the Application
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
+
+  """
+  Whether or not this entity exists on DataHub.
+  """
+  exists: Boolean @noAspects
+
+  """
+  Soft deletion status.
+  """
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   References to internal resources related to the Application
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Get context documents related to this entity
   """
   relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+    @noAspects
 
   """
   The structured glossary terms associated with the Application
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the Application
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   Tags used for searching Application
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   Experimental API.
   For fetching extra entities that do not have custom UI code yet
   """
-  aspects(input: AspectParams): [RawAspect!]
+  aspects(input: AspectParams): [RawAspect!] @noAspects
 
   """
   Structured properties about this asset
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   The forms associated with the Application
   """
-  forms: Forms
+  forms: Forms @aspectMapping(aspects: ["forms"])
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 }
 
 """
@@ -13964,27 +14245,28 @@ type OwnershipTypeEntity implements Entity {
   """
   A primary key associated with the custom ownership type.
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Information about the Custom Ownership Type
   """
-  info: OwnershipTypeInfo
+  info: OwnershipTypeInfo @aspectMapping(aspects: ["ownershipTypeInfo"])
 
   """
   Status of the Custom Ownership Type
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   Granular API for querying edges extending from the Custom Ownership Type
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -14118,22 +14400,23 @@ type EntityTypeEntity implements Entity {
   """
   A primary key associated with the Query
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Info about this type including its name
   """
-  info: EntityTypeInfo!
+  info: EntityTypeInfo! @aspectMapping(aspects: ["entityTypeInfo"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """
@@ -14169,22 +14452,23 @@ type Restricted implements Entity & EntityWithRelationships {
   """
   The primary key of the restricted entity
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   The standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 }
 
 """
@@ -14194,42 +14478,45 @@ type BusinessAttribute implements Entity {
   """
   The primary key of the Data Product
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   Properties about a Business Attribute
   """
   properties: BusinessAttributeInfo
+    @aspectMapping(aspects: ["businessAttributeInfo"])
 
   """
   Ownership metadata of the Business Attribute
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   References to internal resources related to Business Attribute
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Status of the Dataset
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   List of relationships between the source Entity and some destination entities with a given types
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Privileges given to a user relevant to this entity
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 }
 
 """
@@ -14500,41 +14787,45 @@ extend type DataProcessInstance {
   Additional read only properties associated with the Data Process Instance
   """
   properties: DataProcessInstanceProperties
+    @aspectMapping(aspects: ["dataProcessInstanceProperties"])
 
   """
   The specific instance of the data platform that this entity belongs to
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Sub Types that this entity implements
   """
-  subTypes: SubTypes
+  subTypes: SubTypes @aspectMapping(aspects: ["subTypes"])
 
   """
   The parent container in which the entity resides
   """
-  container: Container
+  container: Container @aspectMapping(aspects: ["container"])
 
   """
   Standardized platform urn where the data process instance is defined
   """
-  platform: DataPlatform
+  platform: DataPlatform @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Recursively get the lineage of containers for this entity
   """
-  parentContainers: ParentContainersResult
+  parentContainers: ParentContainersResult @noAspects
 
   """
   Additional properties when subtype is Training Run
   """
   mlTrainingRunProperties: MLTrainingRunProperties
+    @aspectMapping(aspects: ["mlTrainingRunProperties"])
 
   """
   The parent entity whose run instance it is
   """
   parentTemplate: Entity
+    @aspectMapping(aspects: ["dataProcessInstanceRelationships"])
 }
 
 """

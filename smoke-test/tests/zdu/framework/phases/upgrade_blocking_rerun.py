@@ -34,6 +34,17 @@ from ..mysql_client import MySQLClient
 
 log = logging.getLogger(__name__)
 
+# NEW-side revision marker. The incremental-reindex upgrade id is
+# "BuildIndicesIncremental_<gitVersion>-<revision>" (see BuildIndices.java and
+# SystemUpdateConfig's DATAHUB_REVISION binding, which defaults to "0"). This
+# harness builds OLD and NEW from near-identical commits, so they share a
+# gitVersion and would share that id — the NEW upgrade would then inherit the
+# OLD boot's COMPLETED state and skip the reindex, even though a real mapping
+# diff was detected. Production never collides, because OLD and NEW are
+# different releases. Bumping the revision on the NEW-side jobs reproduces that
+# separation without touching the rollout stage.
+ZDU_NEW_REVISION = "1"
+
 _DEFAULT_TIMEOUT_S = 600
 
 
@@ -215,6 +226,7 @@ class UpgradeBlockingReRunPhase(Phase):
         env_overrides = {
             **token_env,
             "ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED": "true",
+            "DATAHUB_REVISION": ZDU_NEW_REVISION,
             "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX": "true",
         }
         return self._docker.run_upgrade_job(

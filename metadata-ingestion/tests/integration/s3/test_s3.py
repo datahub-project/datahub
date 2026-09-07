@@ -1,31 +1,52 @@
+"""Integration test for the S3 (data lake) source against the Floci emulator.
+
+Replaces the previous moto-backed S3 ingest test. The same recipes under
+``sources/{shared,s3}`` run against a real S3-compatible emulator and are
+compared to the goldens in ``golden-files/s3`` (regenerate with
+``--update-golden-files``).
+
+Also covers the S3 source's local-filesystem read path (``test_data_lake_local_ingest``),
+which needs no backend. Related tests that don't exercise an S3 backend live
+elsewhere: config validation and the S3 API call-pattern test are unit tests in
+``tests/unit/s3``; the GCS connector test is in ``tests/integration/gcs``.
+
+Determinism note: the S3 source selects a table's schema-representative file and
+its min/max partition by object ``last_modified``. The emulator stamps
+``last_modified`` at second resolution and offers no API to set it, so uploading
+fast would tie many objects and make that selection vary run-to-run. Seeding one
+object per second gives each a distinct, strictly-increasing timestamp, which is
+what makes the selection deterministic. Any stable order would do; sorted-walk
+order is used because it also keeps the pre-existing goldens valid (a convenience,
+not a requirement). The timestamp *values* are non-reproducible and are masked
+via ``ignore_paths``.
+"""
+
 import json
-import logging
 import os
+import pathlib
+import time
 from datetime import datetime
-from unittest.mock import Mock, call, patch
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
-import moto.s3
+import boto3
 import pytest
-from boto3.session import Session
-from moto import mock_aws
-from pydantic import ValidationError
 
-from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
-from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-from datahub.ingestion.source.aws.s3_boto_utils import (
-    list_folders_path,
-    list_objects_recursive_path,
-)
-from datahub.ingestion.source.s3.source import S3Source
+from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 
-logging.getLogger("boto3").setLevel(logging.INFO)
-logging.getLogger("botocore").setLevel(logging.INFO)
-logging.getLogger("s3transfer").setLevel(logging.INFO)
+pytestmark = pytest.mark.integration
 
+test_resources_dir = pathlib.Path(__file__).parent
+ENDPOINT_URL = "http://localhost:14566"
+REGION = "us-east-1"
+PRIMARY_BUCKET = "my-test-bucket"
+SECONDARY_BUCKET = "my-test-bucket-2"
 FROZEN_TIME = "2020-04-14 07:00:00"
 
-FILE_LIST_FOR_VALIDATION = [
+# Canary: the exact set of objects the primary bucket must contain after seeding.
+# Catches drift in the test_data/local_system tree directly, rather than letting a
+# stray added/removed file surface only as a confusing golden diff.
+EXPECTED_PRIMARY_KEYS = [
     "folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv",
     "folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
     "folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv",
@@ -70,221 +91,251 @@ FILE_LIST_FOR_VALIDATION = [
     "folders_only_media/videos/2024/clip.mp4",
 ]
 
-
-@pytest.fixture(scope="module", autouse=True)
-def bucket_names():
-    return ["my-test-bucket", "my-test-bucket-2"]
-
-
-@pytest.fixture(scope="module", autouse=True)
-def s3():
-    with mock_aws():
-        conn = Session(
-            aws_access_key_id="test",
-            aws_secret_access_key="test",
-            region_name="us-east-1",
-        )
-        yield conn
-
-
-@pytest.fixture(scope="module", autouse=True)
-def s3_resource(s3):
-    with mock_aws():
-        conn = s3.resource("s3")
-        yield conn
-
-
-@pytest.fixture(scope="module", autouse=True)
-def s3_client(s3):
-    with mock_aws():
-        conn = s3.client("s3")
-        yield conn
-
-
-def get_descriptive_id(source_tuple):
-    source_dir, source_file = source_tuple
-    dir_name = os.path.basename(source_dir)
-    base_name = source_file.replace(".json", "")
-    return f"{dir_name}_{base_name}"
-
-
-@pytest.fixture(scope="module", autouse=True)
-def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
-    for bucket_name in bucket_names:
-        logging.info(f"Populating s3 bucket: {bucket_name}")
-        s3_resource.create_bucket(Bucket=bucket_name)
-        bkt = s3_resource.Bucket(bucket_name)
-        bkt.Tagging().put(Tagging={"TagSet": [{"Key": "foo", "Value": "bar"}]})
-        test_resources_dir = (
-            pytestconfig.rootpath / "tests/integration/s3/test_data/local_system/"
-        )
-
-        current_time_sec = datetime.strptime(
-            FROZEN_TIME, "%Y-%m-%d %H:%M:%S"
-        ).timestamp()
-        file_list = []
-        for root, _dirs, files in os.walk(test_resources_dir):
-            _dirs.sort()
-            for file in sorted(files):
-                full_path = os.path.join(root, file)
-                rel_path = os.path.relpath(full_path, test_resources_dir)
-                file_list.append(rel_path)
-                bkt.upload_file(
-                    full_path,
-                    rel_path,  # Set content type for `no_extension/small` file to text/csv
-                    ExtraArgs=(
-                        {"ContentType": "text/csv"} if "." not in rel_path else {}
-                    ),
-                )
-                s3_client.put_object_tagging(
-                    Bucket=bucket_name,
-                    Key=rel_path,
-                    Tagging={"TagSet": [{"Key": "baz", "Value": "bob"}]},
-                )
-                key = (
-                    moto.s3.models.s3_backends["123456789012"]["global"]
-                    .buckets[bucket_name]
-                    .keys[rel_path]
-                )
-                current_time_sec += 10
-                key.last_modified = datetime.fromtimestamp(current_time_sec)
-
-        # This is used to make sure the list of files are the same in the test as locally
-        assert file_list == FILE_LIST_FOR_VALIDATION
-    yield
-
-
-@pytest.fixture(scope="module", autouse=True)
-def touch_local_files(pytestconfig):
-    test_resources_dir = (
-        pytestconfig.rootpath / "tests/integration/s3/test_data/local_system/"
-    )
-    current_time_sec = datetime.strptime(FROZEN_TIME, "%Y-%m-%d %H:%M:%S").timestamp()
-
-    for root, _dirs, files in os.walk(test_resources_dir):
-        _dirs.sort()
-        for file in sorted(files):
-            current_time_sec += 10
-            full_path = os.path.join(root, file)
-            os.utime(full_path, times=(current_time_sec, current_time_sec))
-
-
-SHARED_SOURCE_FILES_PATH = "./tests/integration/s3/sources/shared"
-shared_source_files = [
-    (SHARED_SOURCE_FILES_PATH, p) for p in os.listdir(SHARED_SOURCE_FILES_PATH)
+# Only these recipes read from the secondary bucket, and only this subtree:
+#   multiple_specs_of_different_buckets -> chord_progressions_csv.csv
+#   bucket_wildcard_single_file         -> chord_progressions_avro.avro
+#   bucket_wildcard_{allow,as}_table    -> food_csv/*.csv
+#   bucket_wildcard_with_nested_table   -> {table}/*.* i.e. food_csv, food_parquet, no_extension
+# Seeding just this subtree (instead of the full 42-file tree) keeps the goldens
+# identical while cutting ~34s of per-object seeding sleep from the fixture.
+SECONDARY_BUCKET_KEYS = [
+    "folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
+    "folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv",
+    "folder_a/folder_aa/folder_aaa/food_csv/part1.csv",
+    "folder_a/folder_aa/folder_aaa/food_csv/part2.csv",
+    "folder_a/folder_aa/folder_aaa/food_csv/part3.csv",
+    "folder_a/folder_aa/folder_aaa/food_parquet/part1.parquet",
+    "folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet",
+    "folder_a/folder_aa/folder_aaa/no_extension/small",
 ]
 
-S3_SOURCE_FILES_PATH = "./tests/integration/s3/sources/s3"
-s3_source_files = [(S3_SOURCE_FILES_PATH, p) for p in os.listdir(S3_SOURCE_FILES_PATH)]
+# Object time fields that the emulator sets to real upload time (moto poked these
+# to deterministic values via its internal backend, which a real emulator can't
+# do); masked so only their presence/structure is asserted. Covers the operation
+# aspect timestamps and the datasetProperties PATCH that adds /lastModified with
+# the object's modification time (aspect.json[i].value.time).
+IGNORE_PATHS = [
+    r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
+    r"root\[\d+\]\['aspect'\]\['json'\]\['timestampMillis'\]",
+    r"root\[\d+\]\['aspect'\]\['json'\]\[\d+\]\['value'\]\['time'\]",
+    r"root\[\d+\]\['aspect'\]\['json'\]\['(min|max)Partition'\]\['(created|lastModified)Time'\]",
+]
 
 
-@pytest.mark.integration
-@pytest.mark.parametrize(
-    "source_file_tuple", shared_source_files + s3_source_files, ids=get_descriptive_id
-)
+def _client(service: Literal["s3"]) -> Any:
+    return boto3.client(
+        service,
+        endpoint_url=ENDPOINT_URL,
+        region_name=REGION,
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+    )
+
+
+def _walk_keys(data_dir: pathlib.Path) -> List[str]:
+    keys: List[str] = []
+    for root, dirs, files in os.walk(data_dir):
+        dirs.sort()
+        for file in sorted(files):
+            keys.append(os.path.relpath(os.path.join(root, file), data_dir))
+    return keys
+
+
+def _seed_bucket(
+    s3: Any,
+    bucket: str,
+    data_dir: pathlib.Path,
+    keys: Optional[List[str]] = None,
+) -> List[str]:
+    s3.create_bucket(Bucket=bucket)
+    s3.put_bucket_tagging(
+        Bucket=bucket, Tagging={"TagSet": [{"Key": "foo", "Value": "bar"}]}
+    )
+    # The source selects a table's schema-representative file and its min/max
+    # partition by object last_modified (source.py). The emulator stamps
+    # last_modified at SECOND resolution with no API to set it, so uploading fast
+    # would tie many objects and make that selection nondeterministic. Seeding one
+    # object per second gives each a distinct, strictly-increasing timestamp ->
+    # deterministic selection. Sorted order is an arbitrary-but-stable choice that
+    # also keeps the existing goldens valid (a convenience, not a goal). At ~1.1s
+    # per object, adding a file to a fully-seeded bucket costs ~1.1s of fixture
+    # setup — hence the secondary bucket only seeds the subtree its recipes read.
+    uploaded = _walk_keys(data_dir) if keys is None else keys
+    for rel_path in uploaded:
+        extra = {"ContentType": "text/csv"} if "." not in rel_path else {}
+        s3.upload_file(str(data_dir / rel_path), bucket, rel_path, ExtraArgs=extra)
+        s3.put_object_tagging(
+            Bucket=bucket,
+            Key=rel_path,
+            Tagging={"TagSet": [{"Key": "baz", "Value": "bob"}]},
+        )
+        time.sleep(1.1)  # strictly increasing, tie-free second-resolution times
+    return uploaded
+
+
+def _source_files() -> List[Tuple[str, str]]:
+    shared = test_resources_dir / "sources/shared"
+    s3 = test_resources_dir / "sources/s3"
+    return [(str(shared), p) for p in sorted(os.listdir(shared))] + [
+        (str(s3), p) for p in sorted(os.listdir(s3))
+    ]
+
+
+def _descriptive_id(source_tuple: Tuple[str, str]) -> str:
+    source_dir, source_file = source_tuple
+    return f"{os.path.basename(source_dir)}_{source_file.replace('.json', '')}"
+
+
+@pytest.fixture(scope="module")
+def s3_emulator(docker_compose_runner):
+    with docker_compose_runner(
+        test_resources_dir / "docker-compose.yml",
+        "s3",
+        setup_command=["up -d --wait"],
+    ):
+        data_dir = test_resources_dir / "test_data/local_system"
+        s3 = _client("s3")
+        uploaded = _seed_bucket(s3, PRIMARY_BUCKET, data_dir)
+        assert sorted(uploaded) == sorted(EXPECTED_PRIMARY_KEYS), (
+            "test_data/local_system tree drifted from EXPECTED_PRIMARY_KEYS"
+        )
+        # Secondary bucket: only the subtree its recipes read, seeded after the
+        # primary bucket so bucket_wildcard_* tables spanning both buckets keep the
+        # cross-bucket ordering the goldens were generated with.
+        _seed_bucket(s3, SECONDARY_BUCKET, data_dir, keys=SECONDARY_BUCKET_KEYS)
+        # High-cardinality numeric dataset for the profiler, under a prefix no
+        # other recipe matches so it doesn't affect their goldens.
+        s3.upload_file(
+            str(test_resources_dir / "test_data/profiling/measurements.csv"),
+            PRIMARY_BUCKET,
+            "profiling_input/measurements.csv",
+        )
+        yield
+
+
+@pytest.mark.parametrize("source_file_tuple", _source_files(), ids=_descriptive_id)
 def test_data_lake_s3_ingest(
-    pytestconfig, s3_populate, source_file_tuple, tmp_path, mock_time
+    s3_emulator, pytestconfig, source_file_tuple, tmp_path, mock_time
 ):
+    """Ingest each shared/s3 recipe against the emulator and compare to its golden.
+
+    Covers the S3 source feature matrix (schema inference, path specs, partition
+    detection/traversal, tags, content-type, folders) — one parametrized case per
+    recipe under ``sources/{shared,s3}``.
+    """
     source_dir, source_file = source_file_tuple
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
+    with open(os.path.join(source_dir, source_file)) as f:
+        source = json.load(f)
 
-    f = open(os.path.join(source_dir, source_file))
-    source = json.load(f)
+    # Point the recipe at the emulator (recipes carry dummy creds already).
+    source["config"].setdefault("aws_config", {})["aws_endpoint_url"] = ENDPOINT_URL
 
-    config_dict = {}
-    config_dict["source"] = source
-    config_dict["sink"] = {
-        "type": "file",
-        "config": {
-            "filename": f"{tmp_path}/{source_file}",
-        },
+    config_dict: Dict[str, Any] = {
+        "run_id": source_file,
+        "source": source,
+        "sink": {"type": "file", "config": {"filename": f"{tmp_path}/{source_file}"}},
     }
-
-    config_dict["run_id"] = source_file
 
     pipeline = Pipeline.create(config_dict)
     pipeline.run()
     pipeline.raise_from_status()
 
-    # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=f"{tmp_path}/{source_file}",
         golden_path=f"{test_resources_dir}/golden-files/s3/golden_mces_{source_file}",
-        ignore_paths=[
-            r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
-        ],
+        ignore_paths=IGNORE_PATHS,
     )
 
 
-@pytest.mark.integration
-@pytest.mark.parametrize(
-    "source_file_tuple", shared_source_files + s3_source_files, ids=get_descriptive_id
-)
-def test_data_lake_gcs_ingest(
-    pytestconfig, s3_populate, source_file_tuple, tmp_path, mock_time
-):
-    source_dir, source_file = source_file_tuple
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
+def test_data_lake_s3_profiling(s3_emulator, pytestconfig, tmp_path, mock_time):
+    """Profile a file read through the S3 client against the emulator.
 
-    f = open(os.path.join(source_dir, source_file))
-    source = json.load(f)
-
-    config_dict = {}
-
-    source["type"] = "gcs"
-    source["config"]["credential"] = {
-        "hmac_access_id": source["config"]["aws_config"]["aws_access_key_id"],
-        "hmac_access_secret": source["config"]["aws_config"]["aws_secret_access_key"],
-    }
-    for path_spec in source["config"]["path_specs"]:
-        path_spec["include"] = path_spec["include"].replace("s3://", "gs://")
-    source["config"].pop("aws_config")
-    source["config"].pop("profiling", None)
-    source["config"].pop("sort_schema_fields", None)
-    source["config"].pop("use_s3_bucket_tags", None)
-    source["config"].pop("use_s3_content_type", None)
-    source["config"].pop("use_s3_object_tags", None)
-
-    config_dict["source"] = source
-    config_dict["sink"] = {
-        "type": "file",
+    Exercises the pure-Python (pyarrow) data-lake profiler end-to-end: numeric
+    columns emit min/max/mean/median/stdev, the low-cardinality categorical column
+    emits distinct-value frequencies, all in a datasetProfile aspect.
+    """
+    source = {
+        "type": "s3",
         "config": {
-            "filename": f"{tmp_path}/{source_file}",
+            "path_specs": [
+                {"include": "s3://my-test-bucket/profiling_input/measurements.csv"}
+            ],
+            "aws_config": {
+                "aws_endpoint_url": ENDPOINT_URL,
+                "aws_region": REGION,
+                "aws_access_key_id": "test",
+                "aws_secret_access_key": "test",
+            },
+            "profiling": {
+                "enabled": True,
+                "include_field_null_count": True,
+                "include_field_min_value": True,
+                "include_field_max_value": True,
+                "include_field_mean_value": True,
+                "include_field_median_value": True,
+                "include_field_stddev_value": True,
+                "include_field_distinct_value_frequencies": True,
+                "include_field_sample_values": True,
+            },
         },
     }
-
-    config_dict["run_id"] = source_file
-
-    with patch("datahub.ingestion.source.gcs.gcs_source.GCS_ENDPOINT_URL", None):
-        pipeline = Pipeline.create(config_dict)
-        pipeline.run()
+    output = f"{tmp_path}/s3_profiling_mces.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "s3-profiling",
+            "source": source,
+            "sink": {"type": "file", "config": {"filename": output}},
+        }
+    )
+    pipeline.run()
     pipeline.raise_from_status()
 
-    # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=f"{tmp_path}/{source_file}",
-        golden_path=f"{test_resources_dir}/golden-files/gcs/golden_mces_{source_file}",
-        ignore_paths=[
-            r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
-        ],
+        output_path=output,
+        golden_path=f"{test_resources_dir}/golden-files/s3/golden_mces_s3_profiling.json",
+        ignore_paths=IGNORE_PATHS,
     )
+
+
+def _shared_source_files() -> List[Tuple[str, str]]:
+    shared = test_resources_dir / "sources/shared"
+    return [(str(shared), p) for p in sorted(os.listdir(shared))]
+
+
+@pytest.fixture(scope="module")
+def touch_local_files():
+    # The local-FS ingest reads mtimes for partition ordering; set them
+    # deterministically (matching the golden) without needing any backend.
+    data_dir = test_resources_dir / "test_data/local_system"
+    current_time_sec = datetime.strptime(FROZEN_TIME, "%Y-%m-%d %H:%M:%S").timestamp()
+    for root, dirs, files in os.walk(data_dir):
+        dirs.sort()
+        for file in sorted(files):
+            current_time_sec += 10
+            os.utime(
+                os.path.join(root, file), times=(current_time_sec, current_time_sec)
+            )
 
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    "source_file_tuple", shared_source_files, ids=get_descriptive_id
+    "source_file_tuple", _shared_source_files(), ids=_descriptive_id
 )
 def test_data_lake_local_ingest(
-    pytestconfig, touch_local_files, source_file_tuple, tmp_path, mock_time
+    touch_local_files, pytestconfig, source_file_tuple, tmp_path, mock_time
 ):
-    source_dir, source_file = source_file_tuple
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
-    f = open(os.path.join(source_dir, source_file))
-    source = json.load(f)
+    """Ingest each shared recipe from the local filesystem (profiling enabled).
 
-    config_dict = {}
+    The S3 source's local-file path needs no backend: the ``s3://`` path specs are
+    rewritten to the local ``test_data`` tree and the emitted metadata — including
+    datasetProfile aspects — is compared to ``golden-files/local``.
+    """
+    source_dir, source_file = source_file_tuple
+    with open(os.path.join(source_dir, source_file)) as f:
+        source = json.load(f)
+
     for path_spec in source["config"]["path_specs"]:
         path_spec["include"] = (
             path_spec["include"]
@@ -295,26 +346,21 @@ def test_data_lake_local_ingest(
                 "s3://my-test-bucket-2/", "tests/integration/s3/test_data/local_system/"
             )
         )
-
     source["config"]["profiling"]["enabled"] = True
     source["config"].pop("aws_config")
     source["config"].pop("use_s3_bucket_tags", None)
     source["config"].pop("use_s3_object_tags", None)
-    config_dict["source"] = source
-    config_dict["sink"] = {
-        "type": "file",
-        "config": {
-            "filename": f"{tmp_path}/{source_file}",
-        },
-    }
 
-    config_dict["run_id"] = source_file
+    config_dict = {
+        "run_id": source_file,
+        "source": source,
+        "sink": {"type": "file", "config": {"filename": f"{tmp_path}/{source_file}"}},
+    }
 
     pipeline = Pipeline.create(config_dict)
     pipeline.run()
     pipeline.raise_from_status()
 
-    # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=f"{tmp_path}/{source_file}",
@@ -323,210 +369,8 @@ def test_data_lake_local_ingest(
             r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\[\d+\]\['value'\]\['time'\]",
             r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['created'\]\['time'\]",
-            # root[41]['aspect']['json']['fieldProfiles'][0]['sampleValues'][0]
             r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",
-            #        "root[0]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][2]['com.linkedin.pegasus2avro.schema.SchemaMetadata']['fields'][4]"
             r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.schema.SchemaMetadata'\]\['fields'\]",
-            #    "root[0]['proposedSnapshot']['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot']['aspects'][1]['com.linkedin.pegasus2avro.dataset.DatasetProperties']['customProperties']['size_in_bytes']"
             r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['size_in_bytes'\]",
         ],
     )
-
-
-def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
-    ctx = PipelineContext(run_id="test-s3")
-
-    # Baseline: valid config
-    source: dict = {
-        "path_spec": {"include": "a/b/c/d/{table}.*", "table_name": "{table}"}
-    }
-    s3 = S3Source.create(source, ctx)
-    assert s3.source_config.platform == "file"
-
-    # Case 1 : named variable in table name is not present in include
-    source = {"path_spec": {"include": "a/b/c/d/{table}.*", "table_name": "{table1}"}}
-    with pytest.raises(ValidationError, match="table_name"):
-        S3Source.create(source, ctx)
-
-    # Case 2 : named variable in exclude is not allowed
-    source = {
-        "path_spec": {
-            "include": "a/b/c/d/{table}/*.*",
-            "exclude": ["a/b/c/d/a-{exclude}/**"],
-        },
-    }
-    with pytest.raises(ValidationError, match=r"exclude.*named variable"):
-        S3Source.create(source, ctx)
-
-    # Case 3 : unsupported file type not allowed
-    source = {
-        "path_spec": {
-            "include": "a/b/c/d/{table}/*.hd5",
-        }
-    }
-    with pytest.raises(ValidationError, match="file type"):
-        S3Source.create(source, ctx)
-
-    # Case 4 : ** in include not allowed
-    source = {
-        "path_spec": {
-            "include": "a/b/c/d/**/*.*",
-        },
-    }
-    with pytest.raises(ValidationError, match=r"\*\*"):
-        S3Source.create(source, ctx)
-
-
-@pytest.mark.parametrize(
-    "calls_test_tuple",
-    [
-        (
-            "partitions_and_filename_with_prefix",
-            {
-                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/year={year}/month={month}/part*.json",
-                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
-            },
-            [
-                call.list_folders_path(
-                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
-                ),
-                call.list_folders_path(
-                    s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/",
-                    startswith="year=",
-                ),
-                call.list_folders_path(
-                    s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/",
-                    startswith="month=",
-                ),
-                call.list_objects_recursive_path(
-                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
-                    startswith="part",
-                ),
-            ],
-        ),
-        (
-            "filter_specific_partition",
-            {
-                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/year=2022/month={month}/*.json",
-                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
-            },
-            [
-                call.list_folders_path(
-                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
-                ),
-                call.list_folders_path(
-                    s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022",
-                    startswith="month=",
-                ),
-                call.list_objects_recursive_path(
-                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
-                    startswith="",
-                ),
-            ],
-        ),
-        (
-            "partition_autodetection",
-            {
-                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/",
-                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
-            },
-            [
-                call.list_folders_path(
-                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
-                ),
-                call.list_folders_path(
-                    s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/",
-                    startswith="",
-                ),
-                call.list_folders_path(
-                    s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/",
-                    startswith="",
-                ),
-                call.list_folders_path(
-                    s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
-                    startswith="",
-                ),
-                call.list_objects_recursive_path(
-                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
-                    startswith="",
-                ),
-            ],
-        ),
-        (
-            "partitions_traversal_all",
-            {
-                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/year={year}/month={month}/*.json",
-                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
-                "traversal_method": "ALL",
-            },
-            [
-                call.list_folders_path(
-                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
-                ),
-                call.list_objects_recursive_path(
-                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/",
-                    startswith="year=",
-                ),
-            ],
-        ),
-        (
-            "filter_specific_partition_traversal_all",
-            {
-                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/year=2022/month={month}/part*.json",
-                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
-                "traversal_method": "ALL",
-            },
-            [
-                call.list_folders_path(
-                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
-                ),
-                call.list_objects_recursive_path(
-                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022",
-                    startswith="month=",
-                ),
-            ],
-        ),
-    ],
-    ids=lambda calls_test_tuple: calls_test_tuple[0],
-)
-def test_data_lake_s3_calls(s3_populate, calls_test_tuple):
-    _, path_spec, expected_calls = calls_test_tuple
-
-    ctx = PipelineContext(run_id="test-s3")
-    config = {
-        "path_specs": [path_spec],
-        "aws_config": {
-            "aws_region": "us-east-1",
-            "aws_access_key_id": "testing",
-            "aws_secret_access_key": "testing",
-        },
-    }
-    source = S3Source.create(config, ctx)
-
-    m = Mock()
-    m.list_folders_path.side_effect = list_folders_path
-    m.list_objects_recursive_path.side_effect = list_objects_recursive_path
-
-    with (
-        patch(
-            "datahub.ingestion.source.s3.source.list_folders_path", m.list_folders_path
-        ),
-        patch(
-            "datahub.ingestion.source.s3.source.list_objects_recursive_path",
-            m.list_objects_recursive_path,
-        ),
-    ):
-        for _ in source.get_workunits_internal():
-            pass
-
-    # Verify S3 calls. We're checking that we make the minimum necessary calls with
-    # prefixes when possible to reduce the amount of queries to the S3 API.
-    calls = []
-    for c in m.mock_calls:
-        if isinstance(c.kwargs, dict):  # type assertion
-            c.kwargs.pop("aws_config", None)
-        if len(c.args) == 3 and isinstance(c.args[2], AwsConnectionConfig):
-            c = getattr(call, c[0])(*(c.args[:2]), **c.kwargs)
-        calls.append(c)
-
-    assert calls == expected_calls

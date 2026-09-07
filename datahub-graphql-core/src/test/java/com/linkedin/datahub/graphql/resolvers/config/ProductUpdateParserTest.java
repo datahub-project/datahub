@@ -710,6 +710,99 @@ public class ProductUpdateParserTest {
   }
 
   @Test
+  public void testParseProductUpdateNullPrimaryCtaFallsBackToLegacy() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v2.1\","
+            + "\"title\": \"Cloud Update\","
+            + "\"primaryCtaText\": null,"
+            + "\"primaryCtaLink\": null,"
+            + "\"secondaryCtaText\": null,"
+            + "\"secondaryCtaLink\": null,"
+            + "\"ctaText\": \"Explore DataHub Cloud 2.1\","
+            + "\"ctaLink\": \"https://datahub.com/blog/datahub-cloud-2-1\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode));
+
+    assertNotNull(result);
+    assertNull(result.getPrimaryCtaText());
+    assertNull(result.getPrimaryCtaLink());
+    assertNull(result.getSecondaryCtaText());
+    assertNull(result.getSecondaryCtaLink());
+    assertEquals(result.getCtaText(), "Explore DataHub Cloud 2.1");
+    assertEquals(result.getCtaLink(), "https://datahub.com/blog/datahub-cloud-2-1");
+  }
+
+  @Test
+  public void testParseProductUpdateNullLegacyCtaFallsBackToDefaults() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"primaryCtaText\": null,"
+            + "\"primaryCtaLink\": null,"
+            + "\"ctaText\": null,"
+            + "\"ctaLink\": null"
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), "abc-123");
+
+    assertNotNull(result);
+    assertEquals(result.getCtaText(), "Learn more");
+    // An absent link stays empty rather than being decorated with the client id.
+    assertEquals(result.getCtaLink(), "");
+  }
+
+  @Test
+  public void testParseProductUpdatePartialPrimaryCtaFallsBackToLegacy() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"primaryCtaText\": \"Get Started\","
+            + "\"ctaText\": \"Learn more\","
+            + "\"ctaLink\": \"https://example.com\""
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode));
+
+    assertNotNull(result);
+    assertNull(result.getPrimaryCtaText());
+    assertNull(result.getPrimaryCtaLink());
+    assertEquals(result.getCtaText(), "Learn more");
+    assertEquals(result.getCtaLink(), "https://example.com");
+  }
+
+  @Test
+  public void testParseProductUpdatePartialSecondaryCtaIsIgnored() throws Exception {
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"primaryCtaText\": \"Get Started\","
+            + "\"primaryCtaLink\": \"https://example.com\","
+            + "\"secondaryCtaText\": \"Watch Video\","
+            + "\"secondaryCtaLink\": null"
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+    ProductUpdate result = ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode));
+
+    assertNotNull(result);
+    assertEquals(result.getPrimaryCtaLink(), "https://example.com");
+    assertNull(result.getSecondaryCtaText());
+    assertNull(result.getSecondaryCtaLink());
+  }
+
+  @Test
   public void testParseProductUpdatePrimaryCtaTakesPrecedenceOverLegacy() throws Exception {
     String jsonString =
         "{"

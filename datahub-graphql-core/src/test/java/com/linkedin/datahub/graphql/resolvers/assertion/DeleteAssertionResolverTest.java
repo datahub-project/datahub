@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionType;
+import com.linkedin.assertion.CustomAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.urn.Urn;
@@ -71,6 +72,36 @@ public class DeleteAssertionResolverTest {
 
     Mockito.verify(mockService, Mockito.times(1))
         .exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true));
+  }
+
+  @Test
+  public void testGetCustomAssertionSuccess() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityService<?> mockService = getMockEntityService();
+    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)), eq(true)))
+        .thenReturn(true);
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                eq(Urn.createFromString(TEST_ASSERTION_URN)),
+                eq(Constants.ASSERTION_INFO_ASPECT_NAME),
+                eq(0L)))
+        .thenReturn(
+            new AssertionInfo()
+                .setType(AssertionType.CUSTOM)
+                .setCustomAssertion(
+                    new CustomAssertionInfo()
+                        .setType("Headless Check")
+                        .setEntity(Urn.createFromString(TEST_DATASET_URN))));
+
+    DeleteAssertionResolver resolver = new DeleteAssertionResolver(mockClient, mockService);
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(eq("urn"))).thenReturn(TEST_ASSERTION_URN);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+    Mockito.verify(mockClient).deleteEntity(any(), eq(Urn.createFromString(TEST_ASSERTION_URN)));
   }
 
   @Test

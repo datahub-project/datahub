@@ -73,7 +73,7 @@ describe('documentTreeExpansion', () => {
             const loadChildren = vi.fn(async (urn: string) => childrenByUrn[urn] ?? []);
             const levels: string[][] = [];
 
-            await expandAllFolders({
+            const result = await expandAllFolders({
                 roots: [makeNode({ urn: 'root-folder', hasChildren: true })],
                 loadChildren,
                 onExpandLevel: (urns) => levels.push(urns),
@@ -83,6 +83,8 @@ describe('documentTreeExpansion', () => {
             expect(loadChildren).toHaveBeenCalledWith('root-folder');
             expect(loadChildren).toHaveBeenCalledWith('child-folder');
             expect(loadChildren).toHaveBeenCalledTimes(2);
+            expect(result.truncated).toBe(false);
+            expect(result.foldersExpanded).toBe(2);
         });
 
         it('does not revisit a folder reachable by more than one path', async () => {
@@ -109,10 +111,105 @@ describe('documentTreeExpansion', () => {
             const loadChildren = vi.fn(async () => []);
             const onExpandLevel = vi.fn();
 
-            await expandAllFolders({ roots: [makeNode({ urn: 'leaf' })], loadChildren, onExpandLevel });
+            const result = await expandAllFolders({ roots: [makeNode({ urn: 'leaf' })], loadChildren, onExpandLevel });
 
             expect(onExpandLevel).not.toHaveBeenCalled();
             expect(loadChildren).not.toHaveBeenCalled();
+            expect(result.foldersExpanded).toBe(0);
+            expect(result.truncated).toBe(false);
+        });
+
+        it('stops at maxDepth and reports truncated', async () => {
+            const childrenByUrn: Record<string, DocumentTreeNode[]> = {
+                root: [makeNode({ urn: 'l1', hasChildren: true })],
+                l1: [makeNode({ urn: 'l2', hasChildren: true })],
+                l2: [makeNode({ urn: 'l3', hasChildren: true })],
+                l3: [],
+            };
+            const loadChildren = vi.fn(async (urn: string) => childrenByUrn[urn] ?? []);
+            const levels: string[][] = [];
+
+            const result = await expandAllFolders({
+                roots: [makeNode({ urn: 'root', hasChildren: true })],
+                loadChildren,
+                onExpandLevel: (urns) => levels.push(urns),
+                maxDepth: 2,
+            });
+
+            expect(levels).toEqual([['root'], ['l1']]);
+            expect(loadChildren).toHaveBeenCalledTimes(2);
+            expect(result.truncated).toBe(true);
+            expect(result.foldersExpanded).toBe(2);
+        });
+
+        it('stops at maxFolders and reports truncated', async () => {
+            const loadChildren = vi.fn(async (urn: string) => {
+                if (urn === 'root') {
+                    return [
+                        makeNode({ urn: 'a', hasChildren: true }),
+                        makeNode({ urn: 'b', hasChildren: true }),
+                        makeNode({ urn: 'c', hasChildren: true }),
+                    ];
+                }
+                return [];
+            });
+            const expanded: string[] = [];
+
+            const result = await expandAllFolders({
+                roots: [makeNode({ urn: 'root', hasChildren: true })],
+                loadChildren,
+                onExpandLevel: (urns) => expanded.push(...urns),
+                maxFolders: 2,
+            });
+
+            expect(expanded).toEqual(['root', 'a']);
+            expect(loadChildren).toHaveBeenCalledTimes(2);
+            expect(result.truncated).toBe(true);
+            expect(result.foldersExpanded).toBe(2);
+        });
+
+        it('limits concurrent loadChildren calls', async () => {
+            let inFlight = 0;
+            let maxInFlight = 0;
+            const loadChildren = vi.fn(async () => {
+                inFlight += 1;
+                maxInFlight = Math.max(maxInFlight, inFlight);
+                await Promise.resolve();
+                inFlight -= 1;
+                return [] as DocumentTreeNode[];
+            });
+
+            await expandAllFolders({
+                roots: [
+                    makeNode({ urn: 'a', hasChildren: true }),
+                    makeNode({ urn: 'b', hasChildren: true }),
+                    makeNode({ urn: 'c', hasChildren: true }),
+                    makeNode({ urn: 'd', hasChildren: true }),
+                ],
+                loadChildren,
+                onExpandLevel: () => {},
+                concurrency: 2,
+            });
+
+            expect(maxInFlight).toBeLessThanOrEqual(2);
+            expect(loadChildren).toHaveBeenCalledTimes(4);
+        });
+
+        it('reuses getLoadedChildren instead of refetching', async () => {
+            const loadChildren = vi.fn(async () => []);
+            const getLoadedChildren = vi.fn((urn: string) =>
+                urn === 'root' ? [makeNode({ urn: 'child', hasChildren: true })] : [],
+            );
+
+            await expandAllFolders({
+                roots: [makeNode({ urn: 'root', hasChildren: true })],
+                loadChildren,
+                getLoadedChildren,
+                onExpandLevel: () => {},
+            });
+
+            expect(loadChildren).not.toHaveBeenCalled();
+            expect(getLoadedChildren).toHaveBeenCalled();
         });
     });
 });

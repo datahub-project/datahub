@@ -63,12 +63,23 @@ class DataplexEntriesReport(Report):
 
     entries_processed: int = 0
     entries_processed_samples: LossyList[str] = field(default_factory=LossyList)
+    # Aspect types dropped from custom properties by aspect_type_pattern (default
+    # deny "datahub-.*"). Surfaces both the intended sync-back filtering and any
+    # native aspect that happened to match the pattern.
+    aspects_filtered: int = 0
+    aspects_filtered_samples: LossyList[str] = field(default_factory=LossyList)
     catalog_api: dict[str, tuple[int, float]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         # Lock protecting all mutable fields when report methods are called from
         # parallel worker threads (Phase 1b of process_entries).
         self._lock: threading.Lock = threading.Lock()
+
+    def report_filtered_aspect(self, aspect_type: str) -> None:
+        """Record one aspect type dropped by ``aspect_type_pattern``."""
+        with self._lock:
+            self.aspects_filtered += 1
+            self.aspects_filtered_samples.append(aspect_type)
 
     def report_catalog_api_call(self, api_name: str, elapsed_seconds: float) -> None:
         """Accumulate per-API call count and total latency in seconds."""
@@ -298,6 +309,7 @@ class DataplexEntriesProcessor:
                 config=self.config,
                 location=location,
                 report=self.source_report,
+                entries_report=self.report,
             ),
         )
         if result is None:

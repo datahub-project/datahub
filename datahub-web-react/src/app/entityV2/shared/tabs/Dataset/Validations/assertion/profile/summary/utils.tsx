@@ -16,6 +16,10 @@ import { FreshnessAssertionDescription } from '@app/entityV2/shared/tabs/Dataset
 import { SchemaAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SchemaAssertionDescription';
 import { SqlAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/SqlAssertionDescription';
 import { VolumeAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/VolumeAssertionDescription';
+import {
+    getCustomAssertionFields,
+    hasStructuredAssertionDescriptionFields,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/shared/structuredAssertionUtils';
 import { getFormattedParameterValue } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import {
     getFieldDescription,
@@ -25,34 +29,51 @@ import {
     getIsRowCountChange,
     getParameterDescription,
     getParameterInterpolation,
+    getVolumeOperatorKeyPart,
     getVolumeTypeInfo,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import {
     AssertionInfo,
+    AssertionStdAggregation,
     AssertionStdOperator,
+    AssertionStdParameters,
     AssertionType,
     AssertionValueChangeType,
     CronSchedule,
-    DatasetAssertionInfo,
+    DatasetAssertionScope,
     EntityType,
     FieldAssertionInfo,
     FreshnessAssertionInfo,
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
+    Maybe as GeneratedMaybe,
     IncrementingSegmentRowCountChange,
     RowCountChange,
     SchemaAssertionCompatibility,
     SchemaAssertionInfo,
+    SchemaFieldRef,
+    StringMapEntry,
     VolumeAssertionInfo,
 } from '@src/types.generated';
 import { cronToString, removeTimePrefix } from '@utils/cronstrue';
 
 import { useGetUserQuery } from '@graphql/user.generated';
 
-const getDatasetAssertionPlainTextDescription = (datasetAssertion: DatasetAssertionInfo): string => {
-    const { scope, aggregation, fields, operator, parameters, nativeType } = datasetAssertion;
-    const agg = getAggregationDescriptor(scope, aggregation, fields);
+type StructuredDescriptionFields = {
+    scope?: GeneratedMaybe<DatasetAssertionScope>;
+    aggregation?: GeneratedMaybe<AssertionStdAggregation>;
+    operator?: GeneratedMaybe<AssertionStdOperator>;
+    fields?: GeneratedMaybe<Array<SchemaFieldRef>>;
+    parameters?: GeneratedMaybe<AssertionStdParameters>;
+    nativeType?: GeneratedMaybe<string>;
+    nativeParameters?: GeneratedMaybe<Array<StringMapEntry>>;
+    logic?: GeneratedMaybe<string>;
+};
+
+const getStructuredAssertionPlainTextDescription = (fields: StructuredDescriptionFields): string => {
+    const { scope, aggregation, operator, parameters, nativeType } = fields;
+    const agg = getAggregationDescriptor(scope, aggregation, fields.fields);
     const operatorKey = getOperatorKey(operator || undefined);
     return i18next
         .t(`entity.profile.validations:datasetDescription.${agg.key}.${operatorKey}`, {
@@ -74,20 +95,10 @@ const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionIn
     const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : undefined;
     const interpolation = getParameterInterpolation(parameterDescription);
 
-    const getOperatorKeyPart = (op: AssertionStdOperator): 'AtLeast' | 'AtMost' | 'Between' => {
-        switch (op) {
-            case AssertionStdOperator.GreaterThanOrEqualTo:
-                return 'AtLeast';
-            case AssertionStdOperator.LessThanOrEqualTo:
-                return 'AtMost';
-            case AssertionStdOperator.Between:
-                return 'Between';
-            default:
-                throw new Error(`Unknown operator ${op}`);
-        }
-    };
-
-    const operatorKeyPart = volumeTypeInfo ? getOperatorKeyPart(volumeTypeInfo.operator) : 'AtLeast';
+    const operatorKeyPart = volumeTypeInfo ? getVolumeOperatorKeyPart(volumeTypeInfo.operator) : null;
+    if (!operatorKeyPart) {
+        return i18next.t('entity.profile.validations:volumeDescription.unknown');
+    }
 
     let key: string;
     if (isChange) {
@@ -196,7 +207,14 @@ export const useBuildAssertionPrimaryLabel = (
             case AssertionType.Dataset:
                 primaryLabel = (
                     <DatasetAssertionDescription
-                        assertionInfo={assertionInfo.datasetAssertion as DatasetAssertionInfo}
+                        scope={assertionInfo.datasetAssertion?.scope}
+                        aggregation={assertionInfo.datasetAssertion?.aggregation}
+                        operator={assertionInfo.datasetAssertion?.operator}
+                        fields={assertionInfo.datasetAssertion?.fields}
+                        parameters={assertionInfo.datasetAssertion?.parameters}
+                        nativeType={assertionInfo.datasetAssertion?.nativeType}
+                        nativeParameters={assertionInfo.datasetAssertion?.nativeParameters}
+                        logic={assertionInfo.datasetAssertion?.logic}
                     />
                 );
                 break;
@@ -229,6 +247,34 @@ export const useBuildAssertionPrimaryLabel = (
                     <SchemaAssertionDescription assertionInfo={assertionInfo.schemaAssertion as SchemaAssertionInfo} />
                 );
                 break;
+            case AssertionType.Custom: {
+                const custom = assertionInfo.customAssertion;
+                if (
+                    custom &&
+                    hasStructuredAssertionDescriptionFields({
+                        scope: custom.scope,
+                        operator: custom.operator,
+                        aggregation: custom.aggregation,
+                        nativeType: custom.nativeType,
+                    })
+                ) {
+                    primaryLabel = (
+                        <DatasetAssertionDescription
+                            scope={custom.scope}
+                            aggregation={custom.aggregation}
+                            operator={custom.operator}
+                            fields={getCustomAssertionFields(custom)}
+                            parameters={custom.parameters}
+                            nativeType={custom.nativeType}
+                            nativeParameters={custom.nativeParameters}
+                            logic={custom.logic}
+                        />
+                    );
+                } else if (custom?.type) {
+                    primaryLabel = <Typography.Text>{custom.type}</Typography.Text>;
+                }
+                break;
+            }
             default:
                 break;
         }
@@ -356,9 +402,14 @@ export const getPlainTextDescriptionFromAssertion = (assertionInfo?: AssertionIn
     let primaryLabel = '';
     switch (assertionInfo?.type) {
         case AssertionType.Dataset:
-            primaryLabel = getDatasetAssertionPlainTextDescription(
-                assertionInfo.datasetAssertion as DatasetAssertionInfo,
-            );
+            primaryLabel = getStructuredAssertionPlainTextDescription({
+                scope: assertionInfo.datasetAssertion?.scope,
+                aggregation: assertionInfo.datasetAssertion?.aggregation,
+                operator: assertionInfo.datasetAssertion?.operator,
+                fields: assertionInfo.datasetAssertion?.fields,
+                parameters: assertionInfo.datasetAssertion?.parameters,
+                nativeType: assertionInfo.datasetAssertion?.nativeType,
+            });
             break;
         case AssertionType.Freshness:
             primaryLabel = getFreshnessAssertionPlainTextDescription(
@@ -377,6 +428,30 @@ export const getPlainTextDescriptionFromAssertion = (assertionInfo?: AssertionIn
         case AssertionType.DataSchema:
             primaryLabel = getSchemaAssertionPlainTextDescription(assertionInfo.schemaAssertion as SchemaAssertionInfo);
             break;
+        case AssertionType.Custom: {
+            const custom = assertionInfo.customAssertion;
+            if (
+                custom &&
+                hasStructuredAssertionDescriptionFields({
+                    scope: custom.scope,
+                    operator: custom.operator,
+                    aggregation: custom.aggregation,
+                    nativeType: custom.nativeType,
+                })
+            ) {
+                primaryLabel = getStructuredAssertionPlainTextDescription({
+                    scope: custom.scope,
+                    aggregation: custom.aggregation,
+                    operator: custom.operator,
+                    fields: getCustomAssertionFields(custom),
+                    parameters: custom.parameters,
+                    nativeType: custom.nativeType,
+                });
+            } else {
+                primaryLabel = custom?.type || '';
+            }
+            break;
+        }
         default:
             break;
     }

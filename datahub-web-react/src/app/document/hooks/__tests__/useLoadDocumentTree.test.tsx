@@ -103,7 +103,9 @@ describe('useLoadDocumentTree', () => {
         expect(initializeCall[1].urn).toBe('urn:li:document:root2');
     });
 
-    it('should not initialize tree if already populated', async () => {
+    it('should re-initialize tree on first page even if already populated', async () => {
+        // Sort remounts share DocumentTreeContext; page 0 must replace roots so the
+        // new order wins over whatever the previous sort left in context.
         mockGetRootNodes.mockReturnValue([
             { urn: 'urn:li:document:existing', title: 'Existing', parentUrn: null, hasChildren: false },
         ]);
@@ -120,10 +122,10 @@ describe('useLoadDocumentTree', () => {
         renderHook(() => useLoadDocumentTree(), { wrapper });
 
         await waitFor(() => {
-            expect(mockSearchDocumentsLazyQuery).toHaveBeenCalled();
+            expect(mockInitializeTree).toHaveBeenCalled();
         });
 
-        expect(mockInitializeTree).not.toHaveBeenCalled();
+        expect(mockInitializeTree.mock.calls[0][0][0].urn).toBe('urn:li:document:root1');
     });
 
     it('should report hasMoreRoots when total exceeds loaded count', async () => {
@@ -233,8 +235,8 @@ describe('useLoadDocumentTree', () => {
         const childrenMap = await result.current.checkForChildren(urns);
 
         expect(childrenMap).toEqual({
-            'urn:li:document:1': true,
-            'urn:li:document:2': false,
+            'urn:li:document:1': 1,
+            'urn:li:document:2': 0,
         });
     });
 

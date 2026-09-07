@@ -486,10 +486,16 @@ class AwsConnectionConfig(ConfigModel):
         return resource
 
     def get_glue_client(self) -> "GlueClient":
+        # TODO: apply aws_endpoint_url consistently across all service clients (and
+        # a separate S3 endpoint) in a dedicated PR — doing it here would redirect
+        # Glue for recipes that set the field to steer only their S3 reads.
         return self.get_session().client("glue", config=self._aws_config())
 
     def get_dynamodb_client(self) -> "DynamoDBClient":
-        return self.get_session().client("dynamodb", config=self._aws_config())
+        # Safe to honor here: DynamoDB has no sibling S3 client (see get_glue_client).
+        return self.get_session().client(
+            "dynamodb", endpoint_url=self.aws_endpoint_url, config=self._aws_config()
+        )
 
     def get_sagemaker_client(self) -> "SageMakerClient":
         return self.get_session().client("sagemaker", config=self._aws_config())

@@ -2,11 +2,13 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.entityTypeMatches;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.getEntityTypeId;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.*;
 import static com.linkedin.metadata.search.utils.ESUtils.ALIAS_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.PATH;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
@@ -104,7 +106,10 @@ public class V2MappingsBuilder implements MappingsBuilder {
                   getIndexMappings(opContext.getEntityRegistry(), entitySpec, structuredProperties);
               return IndexMapping.builder()
                   .indexName(
-                      opContext.getSearchContext().getIndexConvention().getIndexName(entitySpec))
+                      opContext
+                          .getSearchContext()
+                          .getIndexConvention()
+                          .getIndexName(opContext, entitySpec))
                   .mappings(mappings)
                   .build();
             })
@@ -116,23 +121,52 @@ public class V2MappingsBuilder implements MappingsBuilder {
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull StructuredPropertyDefinition property) {
-    List<IndexMapping> result = new ArrayList<>(1);
+    List<IndexMapping> result = new ArrayList<>();
 
-    if (entityIndexConfiguration.getV2().isEnabled()) {
-      EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
-      if (entitySpec != null) {
-        Map<String, Object> mappings =
-            getIndexMappings(
-                opContext.getEntityRegistry(), entitySpec, List.of(Pair.of(urn, property)));
-        result.add(
-            IndexMapping.builder()
-                .indexName(
-                    opContext.getSearchContext().getIndexConvention().getIndexName(entitySpec))
-                .mappings(mappings)
-                .build());
-      } else {
-        log.warn("Missing entitySpec for {}", urn.getEntityType());
+    if (!entityIndexConfiguration.getV2().isEnabled()) {
+      return result;
+    }
+
+    // The mapping update must target the indexes of the entity types the property applies to
+    // (e.g. dataset), not the structuredProperty entity's own index that `urn` resolves to.
+    if (property.getEntityTypes() == null || property.getEntityTypes().isEmpty()) {
+      log.warn("Property {} has no entity types defined", urn);
+      return result;
+    }
+
+    for (Urn entityTypeUrn : property.getEntityTypes()) {
+      String entityTypeName = getEntityTypeId(entityTypeUrn);
+      if (entityTypeName == null) {
+        log.warn("Could not extract entity type from URN: {}", entityTypeUrn);
+        continue;
       }
+
+      EntitySpec entitySpec;
+      try {
+        entitySpec = opContext.getEntityRegistry().getEntitySpec(entityTypeName);
+      } catch (IllegalArgumentException e) {
+        log.warn("Unknown entity type: {}", entityTypeName);
+        continue;
+      }
+      // EntityRegistry#getEntitySpec is @Nullable; some implementations return null instead of
+      // throwing. Skip so one unknown type doesn't abort the remaining declared entity types.
+      if (entitySpec == null) {
+        log.warn("Unknown entity type: {}", entityTypeName);
+        continue;
+      }
+
+      Map<String, Object> mappings =
+          getIndexMappings(
+              opContext.getEntityRegistry(), entitySpec, List.of(Pair.of(urn, property)));
+      result.add(
+          IndexMapping.builder()
+              .indexName(
+                  opContext
+                      .getSearchContext()
+                      .getIndexConvention()
+                      .getIndexName(opContext, entitySpec))
+              .mappings(mappings)
+              .build());
     }
 
     return result;
@@ -168,21 +202,27 @@ public class V2MappingsBuilder implements MappingsBuilder {
                   .collect(Collectors.toSet()));
     }
 
+    // Always emit the structuredProperties container as dynamic:false so a value written for a
+    // not-yet-mapped property stays unindexed in _source instead of being dynamic-mapped as text
+    // (which permanently poisons the field type and breaks terms aggregations across multi-index
+    // searches). Emitted even when the entity currently has no applicable structured property, so a
+    // fresh or recreated index refuses the first such write rather than dynamic-mapping it.
+    HashMap<String, Map<String, Object>> props =
+        (HashMap<String, Map<String, Object>>)
+            ((Map<String, Object>) mappings.get(PROPERTIES))
+                .computeIfAbsent(
+                    STRUCTURED_PROPERTY_MAPPING_FIELD,
+                    (key) ->
+                        new HashMap<>(
+                            Map.of(
+                                TYPE,
+                                ESUtils.OBJECT_FIELD_TYPE,
+                                "dynamic",
+                                false,
+                                PROPERTIES,
+                                new HashMap<>())));
+
     if (!structuredPropertiesForEntity.isEmpty()) {
-      HashMap<String, Map<String, Object>> props =
-          (HashMap<String, Map<String, Object>>)
-              ((Map<String, Object>) mappings.get(PROPERTIES))
-                  .computeIfAbsent(
-                      STRUCTURED_PROPERTY_MAPPING_FIELD,
-                      (key) ->
-                          new HashMap<>(
-                              Map.of(
-                                  TYPE,
-                                  ESUtils.OBJECT_FIELD_TYPE,
-                                  "dynamic",
-                                  true,
-                                  PROPERTIES,
-                                  new HashMap<>())));
 
       props.merge(
           PROPERTIES,
@@ -396,7 +436,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
   private static Map<String, Object> getMappingsForKeywordWithIgnoreAbove(int keywordMaxLength) {
     Map<String, Object> mappingForField = getMappingsForKeyword();
     // ignore_above is character-based; convert configured byte limit to a byte-safe char threshold
-    mappingForField.put("ignore_above", ESUtils.keywordIgnoreAboveForMaxBytes(keywordMaxLength));
+    mappingForField.put(IGNORE_ABOVE, ESUtils.keywordIgnoreAboveForMaxBytes(keywordMaxLength));
     return mappingForField;
   }
 
@@ -414,12 +454,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
     Map<String, Object> mappingForField = new HashMap<>();
     mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
-    // Byte-safe ignore_above: an oversized value (e.g. a large document body) is skipped from the
-    // keyword parent instead of failing the whole document write, while the tokenized `.delimited`
-    // sub-field below — which has no per-term limit and is what full-text queries actually target —
-    // still indexes the value in full. See ESUtils.KEYWORD_IGNORE_ABOVE for the char-vs-byte
-    // reason.
-    mappingForField.put("ignore_above", ESUtils.KEYWORD_IGNORE_ABOVE);
+    mappingForField.put(IGNORE_ABOVE, ESUtils.KEYWORD_MAXLENGTH);
     Map<String, Object> subFields = new HashMap<>();
     if (fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
       subFields.put(
@@ -445,8 +480,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
             ANALYZER, TEXT_ANALYZER,
             SEARCH_ANALYZER, TEXT_SEARCH_ANALYZER,
             SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER));
-    subFields.put(
-        KEYWORD, ImmutableMap.of(TYPE, KEYWORD, "ignore_above", ESUtils.KEYWORD_IGNORE_ABOVE));
+    subFields.put(KEYWORD, ImmutableMap.of(TYPE, KEYWORD, IGNORE_ABOVE, ESUtils.KEYWORD_MAXLENGTH));
     mappingForField.put(FIELDS, subFields);
     return mappingForField;
   }

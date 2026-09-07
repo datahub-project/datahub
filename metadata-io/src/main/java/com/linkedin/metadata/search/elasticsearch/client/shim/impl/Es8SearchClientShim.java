@@ -4,7 +4,6 @@ import static com.linkedin.metadata.search.elasticsearch.client.shim.SearchClien
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
-import co.elastic.clients.elasticsearch._helpers.bulk.BulkListener;
 import co.elastic.clients.elasticsearch._types.Conflicts;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.FieldValue;
@@ -1747,10 +1746,11 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       long retryInterval,
       int numRetries,
       int threadCount) {
+    // numRetries / retryInterval: item + whole-request requeue uses BulkItemRequeueSupport
+    // (configured via itemRequeueMaxAttempts, typically aligned with numRetries).
+    final Es8BulkListener[] listenerHolder = new Es8BulkListener[1];
     Supplier<BulkIngester<?>> processorSupplier =
         () -> {
-          BulkListener<Object> esBulkListener = new Es8BulkListener(metricUtils);
-
           final Refresh refresh;
           switch (writeRequestRefreshPolicy) {
             case NONE:
@@ -1771,13 +1771,19 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                   .client(client)
                   .flushInterval(bulkFlushPeriod, TimeUnit.SECONDS)
                   .maxOperations(bulkRequestsLimit)
-                  .listener(esBulkListener);
+                  .maxConcurrentRequests(1)
+                  .listener(listenerHolder[0]);
 
           builder.globalSettings(new BulkRequest.Builder().refresh(refresh));
           return builder.build();
         };
 
-    initBulkProcessors(threadCount, processorSupplier);
+    initBulkProcessors(
+        threadCount,
+        processorSupplier,
+        () ->
+            listenerHolder[0] =
+                new Es8BulkListener(metricUtils, bulkWriteResultTracker, bulkItemRequeueSupport));
 
     log.info("Initialized {} async bulk processors for parallel execution", threadCount);
   }
@@ -1877,7 +1883,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                     .build());
       }
     }
-    processor.add(operation);
+    // Pass DocWriteRequest as context so failed items can be requeued.
+    @SuppressWarnings("unchecked")
+    BulkIngester<Object> typedProcessor = (BulkIngester<Object>) processor;
+    typedProcessor.add(operation, writeRequest);
   }
 
   @Override

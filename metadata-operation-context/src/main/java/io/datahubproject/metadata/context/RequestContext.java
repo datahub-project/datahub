@@ -4,6 +4,8 @@ import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.REQUEST_
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.REQUEST_ID_ATTR;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.USER_ID_ATTR;
 
+import com.datahub.context.Enrichment;
+import com.datahub.context.EnrichmentBundle;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,6 +47,36 @@ public class RequestContext implements ContextInterface {
   public static final String MDC_AUTH_CHANNEL = "authChannel";
   public static final String MDC_USAGE_QUANTITY = "usageQuantity";
 
+  /**
+   * Request-scoped attribute key under which upstream filters may stash an {@link EnrichmentBundle}
+   * instance. {@link RequestContextBuilder#buildOpenapi} and {@link
+   * RequestContextBuilder#buildGraphql} read this attribute and propagate the enrichments into the
+   * built {@link RequestContext} (and thence into the session {@code OperationContext} via {@code
+   * asSession}). Producers should populate this once per request, before the request reaches any
+   * {@code asSession(...)} call site.
+   */
+  public static final String REQUEST_ENRICHMENTS_ATTR =
+      "io.datahubproject.metadata.context.RequestEnrichments";
+
+  /**
+   * Stamp {@code enrichment} onto the request's {@link #REQUEST_ENRICHMENTS_ATTR}, merging with any
+   * {@link EnrichmentBundle} a preceding filter may have set. Use from any servlet filter that
+   * wants to contribute an enrichment without worrying about ordering vs other filters — the
+   * read-modify-write dance is encapsulated here so no caller can accidentally overwrite another
+   * filter's contribution.
+   *
+   * <p>If an enrichment of the same concrete class is already present, {@code enrichment} replaces
+   * it (last-writer-wins). This is intentional — a filter is authoritative for its own enrichment
+   * type.
+   */
+  public static void addEnrichment(
+      @Nonnull final HttpServletRequest request, @Nonnull final Enrichment enrichment) {
+    final Object existing = request.getAttribute(REQUEST_ENRICHMENTS_ATTR);
+    final EnrichmentBundle current =
+        existing instanceof EnrichmentBundle ? (EnrichmentBundle) existing : EnrichmentBundle.EMPTY;
+    request.setAttribute(REQUEST_ENRICHMENTS_ATTR, current.plus(enrichment));
+  }
+
   public static final UserAgentAnalyzer UAA =
       UserAgentAnalyzer.newBuilder()
           .hideMatcherLoadStats()
@@ -77,6 +109,14 @@ public class RequestContext implements ContextInterface {
   @Nonnull private final String agentName;
   @Nullable private final MetricUtils metricUtils;
   @Nullable private final String traceId;
+
+  /**
+   * Typed, class-keyed enrichments stamped by upstream filters (see {@link
+   * #REQUEST_ENRICHMENTS_ATTR}). Downstream code retrieves via {@code
+   * OperationContext.getEnrichment(SomeEnrichment.class)}. Null when no enrichments were provided
+   * on this request.
+   */
+  @Nullable private final EnrichmentBundle enrichmentBundle;
 
   /** Surface-neutral usage operation registry key (e.g. dimensions.usage_operation). */
   @Nullable private final String usageOperation;
@@ -124,7 +164,8 @@ public class RequestContext implements ContextInterface {
         null,
         false,
         false,
-        1);
+        1,
+        null);
   }
 
   public RequestContext(
@@ -157,7 +198,8 @@ public class RequestContext implements ContextInterface {
         outputBytes,
         requestBodyMaterialized,
         responseBodyMaterialized,
-        1);
+        1,
+        null);
   }
 
   public RequestContext(
@@ -175,7 +217,8 @@ public class RequestContext implements ContextInterface {
       @Nullable Long outputBytes,
       boolean requestBodyMaterialized,
       boolean responseBodyMaterialized,
-      long usageQuantity) {
+      long usageQuantity,
+      @Nullable EnrichmentBundle enrichmentBundle) {
     this.actorUrn = actorUrn;
     this.sourceIP = sourceIP;
     this.requestAPI = requestAPI;
@@ -225,6 +268,7 @@ public class RequestContext implements ContextInterface {
     this.requestBodyMaterialized = requestBodyMaterialized;
     this.responseBodyMaterialized = responseBodyMaterialized;
     this.usageQuantity = Math.max(1L, usageQuantity);
+    this.enrichmentBundle = enrichmentBundle;
 
     putUsageFieldsInMdc();
 
@@ -380,7 +424,8 @@ public class RequestContext implements ContextInterface {
           this.outputBytes,
           this.requestBodyMaterialized,
           this.responseBodyMaterialized,
-          this.usageQuantity);
+          this.usageQuantity,
+          this.enrichmentBundle);
     }
 
     public RequestContextBuilder buildGraphql(
@@ -396,6 +441,7 @@ public class RequestContext implements ContextInterface {
       if (peekInputBytes() == null) {
         withWireInput(request);
       }
+      readEnrichmentBundle(request);
       return this;
     }
 
@@ -438,6 +484,7 @@ public class RequestContext implements ContextInterface {
       if (resourceContext != null && peekInputBytes() == null) {
         withWireInput(resourceContext);
       }
+      readEnrichmentBundle(resourceContext);
       return this;
     }
 
@@ -463,7 +510,48 @@ public class RequestContext implements ContextInterface {
       if (request != null && peekInputBytes() == null) {
         withWireInput(request);
       }
+      readEnrichmentBundle(request);
       return this;
+    }
+
+    /**
+     * Read {@link RequestContext#REQUEST_ENRICHMENTS_ATTR} off {@code request} (if present) and
+     * stash on this builder via the Lombok-generated {@code enrichmentBundle(...)} setter. Silently
+     * ignores a null request or a wrong-typed attribute value — either indicates that no upstream
+     * filter contributed enrichments for this call.
+     */
+    private void readEnrichmentBundle(@Nullable final HttpServletRequest request) {
+      if (request == null) {
+        return;
+      }
+      final Object attr = request.getAttribute(REQUEST_ENRICHMENTS_ATTR);
+      if (attr instanceof EnrichmentBundle) {
+        final EnrichmentBundle fromRequest = (EnrichmentBundle) attr;
+        if (!fromRequest.isEmpty()) {
+          enrichmentBundle(fromRequest);
+        }
+      }
+    }
+
+    /**
+     * Rest.li equivalent: read {@link RequestContext#REQUEST_ENRICHMENTS_ATTR} off the R2 local
+     * attrs on {@code resourceContext.getRawRequestContext()}. Requires the R2 servlet layer (see
+     * {@code JakartaServletHelper#readRequestContext}) to have propagated the attribute from the
+     * servlet request; upstream servlet filters set it on the {@code HttpServletRequest} and
+     * JakartaServletHelper copies it into R2 local attrs so Rest.li endpoints see it here.
+     */
+    private void readEnrichmentBundle(@Nullable final ResourceContext resourceContext) {
+      if (resourceContext == null || resourceContext.getRawRequestContext() == null) {
+        return;
+      }
+      final Object attr =
+          resourceContext.getRawRequestContext().getLocalAttr(REQUEST_ENRICHMENTS_ATTR);
+      if (attr instanceof EnrichmentBundle) {
+        final EnrichmentBundle fromRequest = (EnrichmentBundle) attr;
+        if (!fromRequest.isEmpty()) {
+          enrichmentBundle(fromRequest);
+        }
+      }
     }
 
     private static String buildRequestId(

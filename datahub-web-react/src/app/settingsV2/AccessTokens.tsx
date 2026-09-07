@@ -153,6 +153,7 @@ export const AccessTokens = () => {
 
     const canManageToken = authenticatedUser?.platformPrivileges?.manageTokens;
     const canManageServiceAccounts = authenticatedUser?.platformPrivileges?.manageServiceAccounts;
+    const canManageIngestion = authenticatedUser?.platformPrivileges?.manageIngestion;
 
     // Access Tokens list paging.
     const [page, setPage] = useState(1);
@@ -433,13 +434,17 @@ export const AccessTokens = () => {
                             icon: Key,
                             onClick: () => setCreateTokenFor('personal'),
                         },
-                        {
-                            type: 'item',
-                            key: 'remote-executor',
-                            title: t('remoteExecutor'),
-                            icon: CloudArrowUp,
-                            onClick: () => setCreateTokenFor('remote-executor'),
-                        },
+                        ...(canManageIngestion
+                            ? ([
+                                  {
+                                      type: 'item',
+                                      key: 'remote-executor',
+                                      title: t('remoteExecutor'),
+                                      icon: CloudArrowUp,
+                                      onClick: () => setCreateTokenFor('remote-executor'),
+                                  },
+                              ] as ItemType[])
+                            : []),
                         ...(canManageServiceAccounts
                             ? ([
                                   {

@@ -61,7 +61,7 @@ public class ReportedUsageTest {
     Assert.assertTrue(recorded);
 
     store.recordRequest(httpSession(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_ingest"));
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     var batch = recordingSink.batches().get(0);
     long mcpQuery =
@@ -162,7 +162,7 @@ public class ReportedUsageTest {
                 "mcp"));
     Assert.assertTrue(recorded);
 
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
     long mcpQuery =
         recordingSink.batches().get(0).additiveRows().stream()
             .filter(row -> row.metricName().equals("mcp_query"))
@@ -185,7 +185,7 @@ public class ReportedUsageTest {
             Map.of(
                 UsageDimensions.USAGE_OPERATION, "mcp_query", UsageDimensions.REQUEST_API, "mcp")));
 
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
     AdditiveUsageRow mcpRow =
         recordingSink.batches().get(0).additiveRows().stream()
             .filter(row -> row.metricName().equals("mcp_query"))

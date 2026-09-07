@@ -81,8 +81,15 @@ function jsonFilesIn(dir) {
     return readdirSync(dir).filter((f) => f.endsWith('.json') && statSync(path.join(dir, f)).isFile());
 }
 
-function countByType(findings, type) {
-    return findings.filter((f) => f.type === type).length;
+// Total keys affected by findings of one type (findings are per-namespace-file, each covering N keys).
+function sumByType(findings, type) {
+    return findings.filter((f) => f.type === type).reduce((n, f) => n + f.count, 0);
+}
+
+// Distinct namespace files with drift. Not findings.length — one file can emit a missing, a stale
+// and a placeholder finding, which would count it three times.
+function filesAffected(findings) {
+    return new Set(findings.map((f) => f.file)).size;
 }
 
 // Newlines in a workflow-command message must be encoded so the whole annotation stays on one line.
@@ -102,23 +109,37 @@ function emitGithubAnnotations(perLocale) {
     }
 }
 
-// Build the markdown report shared by the job summary and the sticky PR comment.
-function buildSummaryMarkdown(perLocale, total) {
+// Build the markdown report. `detail` controls whether the per-locale key dumps are included: the
+// job summary gets them, the sticky PR comment does not (the full dump runs to ~140KB and drowns
+// the PR conversation — reproduce it locally with the command in the footer instead).
+function buildSummaryMarkdown(perLocale, total, { detail = true } = {}) {
     const lines = ['## i18n locale parity', ''];
     const status = total === 0 ? '✅ in sync' : enforce ? '❌ failed' : '⚠️ drift detected (warn-only)';
     lines.push(`**Status:** ${status} — ${total} issue(s) across ${perLocale.length} locale(s)`, '');
-    lines.push('| Locale | Missing | Stale | Placeholder |', '| --- | --- | --- | --- |');
+    lines.push('| Locale | Missing keys | Stale keys | Placeholder | Files |', '| --- | --- | --- | --- | --- |');
     for (const { lang, findings } of perLocale) {
         lines.push(
-            `| ${lang} | ${countByType(findings, 'missing')} | ${countByType(findings, 'stale')} | ${countByType(findings, 'placeholder')} |`,
+            `| ${lang} | ${sumByType(findings, 'missing')} | ${sumByType(findings, 'stale')} | ${sumByType(findings, 'placeholder')} | ${filesAffected(findings)} |`,
         );
     }
     lines.push('');
 
-    for (const { lang, findings } of perLocale) {
-        if (findings.length === 0) continue;
-        const detail = findings.map((f) => `${ICON} ${f.message}`).join('\n');
-        lines.push(`<details><summary>${lang}</summary>`, '', '```', detail, '```', '', '</details>', '');
+    if (detail) {
+        for (const { lang, findings } of perLocale) {
+            if (findings.length === 0) continue;
+            const body = findings.map((f) => `${ICON} ${f.message}`).join('\n');
+            lines.push(`<details><summary>${lang}</summary>`, '', '```', body, '```', '', '</details>', '');
+        }
+    } else if (total > 0) {
+        lines.push(
+            'Per-key detail is in the **job summary** of the `datahub-web-react-lint` run, or reproduce locally:',
+            '',
+            '```bash',
+            './gradlew :datahub-web-react:yarnI18nParityCheck        # all locales',
+            'cd datahub-web-react && yarn check-i18n-parity --lang de  # one locale',
+            '```',
+            '',
+        );
     }
     return lines.join('\n');
 }
@@ -126,14 +147,16 @@ function buildSummaryMarkdown(perLocale, total) {
 // Render the report to the job summary page (visible on the run page without opening logs) and,
 // when there are findings, to a file the workflow turns into a sticky PR comment.
 function writeReports(perLocale, total) {
-    const markdown = buildSummaryMarkdown(perLocale, total);
     if (process.env.GITHUB_STEP_SUMMARY) {
-        appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n`);
+        appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${buildSummaryMarkdown(perLocale, total)}\n`);
     }
     // Only emit the comment file when there's something to report — absence signals "in sync" to
     // the workflow so it doesn't open a noisy comment on every PR.
     if (process.env.I18N_PARITY_SUMMARY_FILE && total > 0) {
-        appendFileSync(process.env.I18N_PARITY_SUMMARY_FILE, `${markdown}\n`);
+        appendFileSync(
+            process.env.I18N_PARITY_SUMMARY_FILE,
+            `${buildSummaryMarkdown(perLocale, total, { detail: false })}\n`,
+        );
     }
 }
 
@@ -160,6 +183,8 @@ for (const lang of languages) {
     for (const f of extraFiles) {
         findings.push({
             type: 'stale',
+            file: f,
+            count: Object.keys(loadFlat(path.join(langDir, f))).length,
             message: `${f} — file does not exist in "${BASE_LANG}" (stale, should be deleted)`,
         });
     }
@@ -172,6 +197,8 @@ for (const lang of languages) {
         if (!existsSync(otherPath)) {
             findings.push({
                 type: 'missing',
+                file: nsFile,
+                count: enKeys.length,
                 message: `${nsFile} — file missing entirely (${enKeys.length} untranslated key(s))`,
             });
             continue;
@@ -189,6 +216,8 @@ for (const lang of languages) {
         if (missingGroups.length > 0) {
             findings.push({
                 type: 'missing',
+                file: nsFile,
+                count: missingGroups.length,
                 message: `${nsFile} — ${missingGroups.length} missing key(s):\n${missingGroups.map((k) => `      - ${k}`).join('\n')}`,
             });
         }
@@ -196,6 +225,8 @@ for (const lang of languages) {
         if (extraGroups.length > 0) {
             findings.push({
                 type: 'stale',
+                file: nsFile,
+                count: extraGroups.length,
                 message: `${nsFile} — ${extraGroups.length} extra/stale key(s):\n${extraGroups.map((k) => `      - ${k}`).join('\n')}`,
             });
         }
@@ -218,6 +249,8 @@ for (const lang of languages) {
         if (mismatches.length > 0) {
             findings.push({
                 type: 'placeholder',
+                file: nsFile,
+                count: mismatches.length,
                 message: `${nsFile} — ${mismatches.length} placeholder mismatch(es):\n${mismatches.join('\n')}`,
             });
         }

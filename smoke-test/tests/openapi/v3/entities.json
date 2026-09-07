@@ -425,6 +425,11 @@
             "origin": "PROD"
           }
         },
+        "aliases": {
+          "value": {
+            "lowercasedUrn": "urn:li:dataset:(urn:li:dataPlatform:test,dataset/entityv3,PROD)"
+          }
+        },
         "dataPlatformInstance": {
           "value": {
             "platform": "urn:li:dataPlatform:test"
@@ -489,6 +494,11 @@
               "name": "datasetPatchEntityV3",
               "platform": "urn:li:dataPlatform:test",
               "origin": "PROD"
+            }
+          },
+          "aliases": {
+            "value": {
+              "lowercasedUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetpatchentityv3,PROD)"
             }
           },
           "dataPlatformInstance": {

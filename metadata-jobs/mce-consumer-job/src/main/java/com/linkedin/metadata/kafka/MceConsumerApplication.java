@@ -26,6 +26,7 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.gms.factory.common",
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.entity",
+      "com.linkedin.gms.factory.buffer",
       "com.linkedin.gms.factory.entityregistry",
       "com.linkedin.gms.factory.entityclient",
       "com.linkedin.gms.factory.event",

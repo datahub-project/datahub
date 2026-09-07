@@ -31,6 +31,9 @@ public final class UsageDimensions {
   public static final String ACTOR_CLASS = "actor_class";
   public static final String ENTITY_TYPE = "entity_type";
 
+  /** Inventory breakdown dimension for data-platform affiliation. */
+  public static final String PLATFORM = "platform";
+
   /**
    * Preferred key order when serializing dimension maps (access-channel keys first, then {@link
    * #ACTOR_CLASS}, then inventory dimensions).
@@ -44,7 +47,8 @@ public final class UsageDimensions {
           AUTH_CHANNEL,
           INGESTION_RUNNER,
           ACTOR_CLASS,
-          ENTITY_TYPE);
+          ENTITY_TYPE,
+          PLATFORM);
 
   private UsageDimensions() {}
 

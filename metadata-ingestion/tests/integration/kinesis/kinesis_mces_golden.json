@@ -328,6 +328,23 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.telemetry-ondemand,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:kinesis",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis,000000000000)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784904085844,
+        "runId": "kinesis-2026_07_24-14_41_24-k8fj5z",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.events-to-s3,PROD)",
     "changeType": "UPSERT",
@@ -343,6 +360,92 @@
     "systemMetadata": {
         "lastObserved": 1782737532951,
         "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.telemetry-ondemand,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:2ed2e5c7933027253c1ed2a43299ad54"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784904085845,
+        "runId": "kinesis-2026_07_24-14_41_24-k8fj5z",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.telemetry-ondemand,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Stream"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784904085845,
+        "runId": "kinesis-2026_07_24-14_41_24-k8fj5z",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.telemetry-ondemand,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis,000000000000)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:kinesis,000000000000)"
+                },
+                {
+                    "id": "urn:li:container:2ed2e5c7933027253c1ed2a43299ad54",
+                    "urn": "urn:li:container:2ed2e5c7933027253c1ed2a43299ad54"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784904085845,
+        "runId": "kinesis-2026_07_24-14_41_24-k8fj5z",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.telemetry-ondemand,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "stream_arn": "arn:aws:kinesis:us-east-1:000000000000:stream/telemetry-ondemand",
+                "stream_status": "ACTIVE",
+                "stream_mode": "ON_DEMAND",
+                "shard_count": "1",
+                "retention_hours": "24",
+                "encryption_type": "NONE"
+            },
+            "externalUrl": "https://console.aws.amazon.com/kinesis/home?region=us-east-1#/streams/details/telemetry-ondemand",
+            "name": "telemetry-ondemand",
+            "description": "Kinesis Data Stream telemetry-ondemand",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784904085844,
+        "runId": "kinesis-2026_07_24-14_41_24-k8fj5z",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -413,7 +516,7 @@
         "json": {
             "customProperties": {
                 "delivery_stream_arn": "arn:aws:firehose:us-east-1:000000000000:deliverystream/events-to-s3",
-                "delivery_stream_status": "CREATING",
+                "delivery_stream_status": "ACTIVE",
                 "delivery_stream_type": "KinesisStreamAsSource",
                 "version_id": "1"
             },
@@ -426,8 +529,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1782739815162,
-        "runId": "kinesis-2026_06_29-15_30_13-o6v2pg",
+        "lastObserved": 1784904085852,
+        "runId": "kinesis-2026_07_24-14_41_24-k8fj5z",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -473,17 +576,15 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.events,PROD)"
-            ],
+            "inputDatasets": [],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:s3,analytics-lake/events/,PROD)"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1782737532962,
-        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastObserved": 1784904085853,
+        "runId": "kinesis-2026_07_24-14_41_24-k8fj5z",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -704,7 +805,7 @@
         "json": {
             "customProperties": {
                 "delivery_stream_arn": "arn:aws:firehose:us-east-1:000000000000:deliverystream/clicks-to-s3",
-                "delivery_stream_status": "CREATING",
+                "delivery_stream_status": "ACTIVE",
                 "delivery_stream_type": "KinesisStreamAsSource",
                 "version_id": "1"
             },
@@ -717,8 +818,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1782739815170,
-        "runId": "kinesis-2026_06_29-15_30_13-o6v2pg",
+        "lastObserved": 1784904085857,
+        "runId": "kinesis-2026_07_24-14_41_24-k8fj5z",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -793,6 +894,22 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.telemetry-ondemand,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784904085860,
+        "runId": "kinesis-2026_07_24-14_41_24-k8fj5z",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,000000000000.us-east-1.clicks-to-s3,PROD),delivery)",
     "changeType": "UPSERT",
@@ -817,17 +934,15 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kinesis,000000000000.us-east-1.clicks,PROD)"
-            ],
+            "inputDatasets": [],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:s3,analytics-lake/clicks/,PROD)"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1782737532969,
-        "runId": "kinesis-2026_06_29-14_52_11-h8xfaq",
+        "lastObserved": 1784904085858,
+        "runId": "kinesis-2026_07_24-14_41_24-k8fj5z",
         "lastRunId": "no-run-id-provided"
     }
 },

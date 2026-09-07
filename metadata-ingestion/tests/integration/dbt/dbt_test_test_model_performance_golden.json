@@ -5278,9 +5278,10 @@
                     "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                     "catalog_version": "1.7.3"
                 },
-                "type": "DATASET",
-                "datasetAssertion": {
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)",
+                "type": "CUSTOM",
+                "customAssertion": {
+                    "type": "dbt",
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)",
                     "scope": "DATASET_ROWS",
                     "aggregation": "_NATIVE_",
                     "operator": "_NATIVE_",
@@ -5363,13 +5364,15 @@
                     "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                     "catalog_version": "1.7.3"
                 },
-                "type": "DATASET",
-                "datasetAssertion": {
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
-                    "scope": "DATASET_COLUMN",
+                "type": "CUSTOM",
+                "customAssertion": {
+                    "type": "dbt",
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
+                    "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD),email)",
                     "fields": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD),email)"
                     ],
+                    "scope": "DATASET_COLUMN",
                     "aggregation": "_NATIVE_",
                     "operator": "_NATIVE_",
                     "nativeType": "is_email_monthly_billing_with_cust_email",
@@ -5454,13 +5457,15 @@
                     "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                     "catalog_version": "1.7.3"
                 },
-                "type": "DATASET",
-                "datasetAssertion": {
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
-                    "scope": "DATASET_COLUMN",
+                "type": "CUSTOM",
+                "customAssertion": {
+                    "type": "dbt",
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
+                    "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD),billing_month)",
                     "fields": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD),billing_month)"
                     ],
+                    "scope": "DATASET_COLUMN",
                     "aggregation": "IDENTITY",
                     "operator": "NOT_NULL",
                     "nativeType": "not_null_monthly_billing_with_cust_billing_month",
@@ -5544,13 +5549,15 @@
                     "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                     "catalog_version": "1.7.3"
                 },
-                "type": "DATASET",
-                "datasetAssertion": {
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
-                    "scope": "DATASET_COLUMN",
+                "type": "CUSTOM",
+                "customAssertion": {
+                    "type": "dbt",
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
+                    "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD),email)",
                     "fields": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD),email)"
                     ],
+                    "scope": "DATASET_COLUMN",
                     "aggregation": "IDENTITY",
                     "operator": "NOT_NULL",
                     "nativeType": "not_null_monthly_billing_with_cust_email",
@@ -5634,13 +5641,15 @@
                     "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                     "catalog_version": "1.7.3"
                 },
-                "type": "DATASET",
-                "datasetAssertion": {
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD)",
-                    "scope": "DATASET_COLUMN",
+                "type": "CUSTOM",
+                "customAssertion": {
+                    "type": "dbt",
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD)",
+                    "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD),customer_id)",
                     "fields": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customer_details,PROD),customer_id)"
                     ],
+                    "scope": "DATASET_COLUMN",
                     "aggregation": "IDENTITY",
                     "operator": "_NATIVE_",
                     "parameters": {
@@ -5733,13 +5742,15 @@
                     "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                     "catalog_version": "1.7.3"
                 },
-                "type": "DATASET",
-                "datasetAssertion": {
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
-                    "scope": "DATASET_COLUMN",
+                "type": "CUSTOM",
+                "customAssertion": {
+                    "type": "dbt",
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD)",
+                    "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD),customer_id)",
                     "fields": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.an-aliased-view-for-monthly-billing,PROD),customer_id)"
                     ],
+                    "scope": "DATASET_COLUMN",
                     "aggregation": "IDENTITY",
                     "operator": "_NATIVE_",
                     "parameters": {
@@ -5832,13 +5843,15 @@
                     "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                     "catalog_version": "1.7.3"
                 },
-                "type": "DATASET",
-                "datasetAssertion": {
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)",
-                    "scope": "DATASET_COLUMN",
+                "type": "CUSTOM",
+                "customAssertion": {
+                    "type": "dbt",
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)",
+                    "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD),actor_id)",
                     "fields": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD),actor_id)"
                     ],
+                    "scope": "DATASET_COLUMN",
                     "aggregation": "IDENTITY",
                     "operator": "NOT_NULL",
                     "nativeType": "source_not_null_pagila_actor_actor_id",
@@ -5922,13 +5935,15 @@
                     "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                     "catalog_version": "1.7.3"
                 },
-                "type": "DATASET",
-                "datasetAssertion": {
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)",
-                    "scope": "DATASET_COLUMN",
+                "type": "CUSTOM",
+                "customAssertion": {
+                    "type": "dbt",
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)",
+                    "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD),actor_id)",
                     "fields": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD),actor_id)"
                     ],
+                    "scope": "DATASET_COLUMN",
                     "aggregation": "UNIQUE_PROPOTION",
                     "operator": "EQUAL_TO",
                     "parameters": {

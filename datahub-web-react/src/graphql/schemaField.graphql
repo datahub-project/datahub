@@ -25,6 +25,12 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
     documentation {
         ...documentationFields
     }
+    aiContext {
+        synonyms
+        instructions
+        examples
+        customInstructions
+    }
     tags {
         ...globalTagsFields
     }

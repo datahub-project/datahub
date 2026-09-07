@@ -330,6 +330,7 @@ describe('useSearchDocuments', () => {
                             rootOnly: undefined,
                             types: undefined,
                             sourceType: 'NATIVE',
+                            states: [DocumentState.Published],
                             viewUrn: undefined,
                         },
                         includeParentDocuments: false,

@@ -5,8 +5,11 @@ import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.knowledge.document_helpers import execute_graphql, unique_id
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.AI)
 
 
 class TestDocumentSearchAndHistory:
@@ -37,7 +40,11 @@ class TestDocumentSearchAndHistory:
                 "contents": {"text": "Original content"},
             }
         }
-        doc_res = execute_graphql(auth_session, create_mutation, doc_vars)
+        # no_sync_wait: nothing reads state between create and the title
+        # update below; the explicit wait after the update covers both.
+        doc_res = execute_graphql(
+            auth_session, create_mutation, doc_vars, no_sync_wait=True
+        )
         doc_urn = doc_res["data"]["createDocument"]
 
         # Update title
@@ -52,9 +59,11 @@ class TestDocumentSearchAndHistory:
                 "title": f"Updated Title {document_id}",
             }
         }
-        execute_graphql(auth_session, update_contents_mutation, update_vars)
+        execute_graphql(
+            auth_session, update_contents_mutation, update_vars, no_sync_wait=True
+        )
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Update content
         update_content_vars = {
@@ -65,7 +74,7 @@ class TestDocumentSearchAndHistory:
         }
         execute_graphql(auth_session, update_contents_mutation, update_content_vars)
 
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
         # Create parent and move document
         parent_vars = {
@@ -76,7 +85,11 @@ class TestDocumentSearchAndHistory:
                 "contents": {"text": "Parent content"},
             }
         }
-        parent_res = execute_graphql(auth_session, create_mutation, parent_vars)
+        # no_sync_wait: nothing reads state between this create and the move
+        # below; the move keeps the real wait ahead of the history read.
+        parent_res = execute_graphql(
+            auth_session, create_mutation, parent_vars, no_sync_wait=True
+        )
         parent_urn = parent_res["data"]["createDocument"]
 
         move_mutation = """
@@ -124,8 +137,13 @@ class TestDocumentSearchAndHistory:
         delete_mutation = """
             mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
         """
-        execute_graphql(auth_session, delete_mutation, {"urn": doc_urn})
-        execute_graphql(auth_session, delete_mutation, {"urn": parent_urn})
+        # no_sync_wait: teardown deletes with nothing read afterward.
+        execute_graphql(
+            auth_session, delete_mutation, {"urn": doc_urn}, no_sync_wait=True
+        )
+        execute_graphql(
+            auth_session, delete_mutation, {"urn": parent_urn}, no_sync_wait=True
+        )
 
     def test_search_documents_with_filters(self, auth_session):
         """
@@ -156,7 +174,11 @@ class TestDocumentSearchAndHistory:
                 "contents": {"text": "Parent content"},
             }
         }
-        parent_res = execute_graphql(auth_session, create_mutation, parent_vars)
+        # no_sync_wait: nothing reads state across these three creates and the
+        # move below; the move keeps the real wait ahead of the search below.
+        parent_res = execute_graphql(
+            auth_session, create_mutation, parent_vars, no_sync_wait=True
+        )
         parent_urn = parent_res["data"]["createDocument"]
 
         # Child document
@@ -168,7 +190,9 @@ class TestDocumentSearchAndHistory:
                 "contents": {"text": "Child content"},
             }
         }
-        child_res = execute_graphql(auth_session, create_mutation, child_vars)
+        child_res = execute_graphql(
+            auth_session, create_mutation, child_vars, no_sync_wait=True
+        )
         child_urn = child_res["data"]["createDocument"]
 
         # Root document
@@ -180,7 +204,9 @@ class TestDocumentSearchAndHistory:
                 "contents": {"text": "Root content"},
             }
         }
-        root_res = execute_graphql(auth_session, create_mutation, root_vars)
+        root_res = execute_graphql(
+            auth_session, create_mutation, root_vars, no_sync_wait=True
+        )
         root_urn = root_res["data"]["createDocument"]
 
         # Move child to parent
@@ -225,8 +251,11 @@ class TestDocumentSearchAndHistory:
             delete_mutation = """
                 mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
             """
+            # no_sync_wait: teardown deletes with nothing read afterward.
             for u in [child_urn, root_urn, parent_urn]:
-                execute_graphql(auth_session, delete_mutation, {"urn": u})
+                execute_graphql(
+                    auth_session, delete_mutation, {"urn": u}, no_sync_wait=True
+                )
             pytest.skip("Search index not available")
             return
 
@@ -279,6 +308,13 @@ class TestDocumentSearchAndHistory:
         delete_mutation = """
             mutation DeleteKA($urn: String!) { deleteDocument(urn: $urn) }
         """
-        execute_graphql(auth_session, delete_mutation, {"urn": child_urn})
-        execute_graphql(auth_session, delete_mutation, {"urn": parent_urn})
-        execute_graphql(auth_session, delete_mutation, {"urn": root_urn})
+        # no_sync_wait: teardown deletes with nothing read afterward.
+        execute_graphql(
+            auth_session, delete_mutation, {"urn": child_urn}, no_sync_wait=True
+        )
+        execute_graphql(
+            auth_session, delete_mutation, {"urn": parent_urn}, no_sync_wait=True
+        )
+        execute_graphql(
+            auth_session, delete_mutation, {"urn": root_urn}, no_sync_wait=True
+        )

@@ -1,11 +1,31 @@
 [tools]
 actionlint = "1.7.11"
-betterleaks = "1.6.1"
-java = "21"
+# betterleaks has no mise registry entry, so it needs its backend named
+# explicitly. A bare `betterleaks = "..."` fails to resolve, mise installs
+# nothing, and the pre-commit secret scan then fails with "Executable
+# `betterleaks` not found" — which reads as a broken hook rather than a
+# missing tool.
+"ubi:betterleaks/betterleaks" = "1.6.1"
+java = "25"
 node = "22"
 python = "3.11"
 shellcheck = "0.11.0"
 yarn = "1.22.22"
+
+# Point local `uv` invocations (outside Gradle) at the same netrc that Docker builds
+# and Gradle-driven installs use. .netrc is gitignored — copy
+# docker/snippets/uv/.netrc.example to populate it when using private indexes.
+#
+# UV_INSTALL_PROFILE / UV_DOCKER_PROFILE mirror the
+# datahub.dependencies.python.uvInstallProfile / .uvDockerProfile gradle
+# properties. Precedence (highest first): explicit `-P` on the Gradle command
+# line; then these env vars; then the gradle.properties default (`default`/PyPI).
+# Leave them unset here so OSS contributors stay on PyPI; opt in via
+# .mise.local.toml when needed.
+[env]
+NETRC = "{{ config_root }}/docker/snippets/uv/.netrc"
+# UV_INSTALL_PROFILE = "default"
+# UV_DOCKER_PROFILE = "default"
 
 [tasks.regenerate-pre-commit]
 description = "Regenerate the pre-commit configuration to add new/removed projects"

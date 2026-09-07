@@ -10,6 +10,7 @@ from databricks.sdk.service.sql import QueryStatementType
 
 import datahub.ingestion.source.unity.usage as usage_mod
 from datahub.configuration.time_window_config import BucketDuration
+from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
@@ -1521,6 +1522,185 @@ def test_preparsed_query_used_when_system_table_lineage_present(
     assert ex.report.num_queries_observed_sqlglot == 0
     assert ex.report.num_queries_without_system_table_lineage == 0
     assert agg.preparsed[0].upstreams, "preparsed query must carry upstream urns"
+
+
+def test_redacted_query_text_is_skipped_with_actionable_warning() -> None:
+    config = MagicMock()
+    proxy = MagicMock()
+    ex = _extractor(config, proxy)
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(
+        aggregator,
+        _query("<REDACTED>"),
+        default_db=None,
+    )
+    ex._report_usage_lineage_warnings()
+
+    aggregator.add_observed_query.assert_not_called()
+    aggregator.add_preparsed_query.assert_not_called()
+    assert ex.report.num_queries_with_redacted_text == 1
+    # Dropped redacted queries must NOT bump the sqlglot-fallback counters —
+    # those warnings claim "queries were parsed with sqlglot" and would mislead
+    # operators about routing behavior.
+    assert ex.report.num_queries_preparsed_fallback_to_sqlglot == 0
+    assert ex.report.num_queries_without_system_table_lineage == 0
+    redaction_warnings = [
+        warning
+        for warning in ex.report.warnings
+        if warning.title == "Databricks query text is redacted"
+    ]
+    assert len(redaction_warnings) == 1
+    assert "databricks_pii_access" in redaction_warnings[0].message
+
+
+def test_redacted_preparsed_without_resolvable_urns_not_counted_as_sqlglot() -> None:
+    """When preparsed lineage is present in system.access.table_lineage but its
+    references can't be resolved to dataset URNs (e.g. tables not ingested), a
+    non-redacted query correctly falls back to sqlglot. A redacted query on the
+    same branch cannot fall back — it must be dropped silently rather than
+    misreported as a sqlglot-fallback query.
+    """
+    config = MagicMock()
+    config.usage_uses_system_tables.return_value = True
+    config.include_column_usage_stats = False
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    ex = _extractor(config, proxy)
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(
+        aggregator,
+        _query_with_lineage("<REDACTED>", "s1", sources=["unregistered.s.t"]),
+        default_db=None,
+    )
+
+    aggregator.add_observed_query.assert_not_called()
+    aggregator.add_preparsed_query.assert_not_called()
+    assert ex.report.num_queries_with_redacted_text == 1
+    assert ex.report.num_queries_preparsed_fallback_to_sqlglot == 0
+
+
+def test_redacted_query_with_lineage_emits_usage_and_counts_redacted() -> None:
+    """Redacted queries with system-table lineage still route through the
+    preparsed path (upstreams come from system.access.table_lineage, not SQL
+    text). The emitted PreparsedQuery must:
+      1. keep the "<REDACTED>" placeholder in query_text so UsageAggregator's
+         QUERY-dim increments — otherwise totalSqlQueries silently drops to
+         zero for buckets whose queries are fully masked;
+      2. set redacted_query_text=True so the shared aggregator suppresses Query-
+         entity creation and per-Query URN usage counters (they'd point at a
+         Query that was never emitted).
+    Redacted counter must fire so the warning surfaces."""
+    config = MagicMock()
+    config.usage_uses_system_tables.return_value = True
+    config.include_column_usage_stats = False
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    ex = _extractor(config, proxy)
+    _register_tables(ex, ["c.s.t"])
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(
+        aggregator,
+        _query_with_lineage("<REDACTED>", "s1", sources=["c.s.t"]),
+        default_db=None,
+    )
+
+    aggregator.add_preparsed_query.assert_called_once()
+    aggregator.add_observed_query.assert_not_called()
+    assert ex.report.num_queries_with_redacted_text == 1
+    emitted = aggregator.add_preparsed_query.call_args.args[0]
+    assert emitted.query_text == "<REDACTED>"
+    assert emitted.redacted_query_text is True
+    assert emitted.upstreams, "preparsed query must carry upstream urns"
+
+
+def test_redacted_query_skipped_without_lineage_still_counted() -> None:
+    """When skip_sqlglot_when_system_table_lineage_missing=True, a redacted
+    query without lineage returns early via the skip branch. It must still
+    be counted as redacted so the warning fires."""
+    config = MagicMock()
+    config.usage_uses_system_tables.return_value = True
+    config.include_column_usage_stats = False
+    config.skip_sqlglot_when_system_table_lineage_missing = True
+    proxy = MagicMock()
+    proxy.warehouse_id = "wh1"
+    ex = _extractor(config, proxy)
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(aggregator, _query("<REDACTED>"), default_db=None)
+
+    aggregator.add_observed_query.assert_not_called()
+    aggregator.add_preparsed_query.assert_not_called()
+    assert ex.report.num_queries_with_redacted_text == 1
+    assert ex.report.num_queries_skipped_without_system_table_lineage == 1
+
+
+def test_redacted_query_text_detection_is_case_insensitive() -> None:
+    config = MagicMock()
+    proxy = MagicMock()
+    ex = _extractor(config, proxy)
+    aggregator = MagicMock()
+
+    ex._add_query_to_aggregator(aggregator, _query("<Redacted>"), default_db=None)
+
+    aggregator.add_observed_query.assert_not_called()
+    assert ex.report.num_queries_with_redacted_text == 1
+
+
+def _connection_test(
+    *,
+    uses_system_tables: bool,
+    include_column_usage_stats: bool,
+) -> UnityCatalogConnectionTest:
+    config = MagicMock()
+    config.include_usage_statistics = True
+    config.warehouse_id = "wh1" if uses_system_tables else None
+    config.usage_uses_system_tables.return_value = uses_system_tables
+    config.include_column_usage_stats = include_column_usage_stats
+    test = UnityCatalogConnectionTest.__new__(UnityCatalogConnectionTest)
+    test.config = config
+    test.proxy = MagicMock()
+    test.proxy.query_history.return_value = iter([_query("<REDACTED>")])
+    return test
+
+
+def test_usage_connectivity_capable_on_system_tables_preparsed_path() -> None:
+    """System-tables path with include_column_usage_stats=false still emits
+    table-level usage for redacted queries via system.access.table_lineage.
+    Surface the redaction as a mitigation, not a hard failure."""
+    report = _connection_test(
+        uses_system_tables=True, include_column_usage_stats=False
+    ).usage_connectivity()
+    assert report is not None
+    assert report.capable is True
+    assert report.mitigation_message is not None
+    assert "databricks_pii_access" in report.mitigation_message
+
+
+def test_usage_connectivity_fails_on_rest_api_path_when_redacted() -> None:
+    """REST-API path (no system.access.table_lineage) can't emit any usage
+    for redacted queries — every redacted query is dropped."""
+    report = _connection_test(
+        uses_system_tables=False, include_column_usage_stats=False
+    ).usage_connectivity()
+    assert report is not None
+    assert report.capable is False
+    assert report.failure_reason is not None
+    assert "databricks_pii_access" in report.failure_reason
+
+
+def test_usage_connectivity_fails_when_column_usage_stats_and_redacted() -> None:
+    """include_column_usage_stats=true forces full sqlglot parsing which needs
+    SQL text — redacted queries are dropped even on the system-tables path."""
+    report = _connection_test(
+        uses_system_tables=True, include_column_usage_stats=True
+    ).usage_connectivity()
+    assert report is not None
+    assert report.capable is False
+    assert report.failure_reason is not None
+    assert "databricks_pii_access" in report.failure_reason
 
 
 def test_fallback_to_observed_when_lineage_unresolvable(

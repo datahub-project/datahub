@@ -4,8 +4,13 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.google.common.collect.ImmutableList;
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.MetadataAttribution;
+import com.linkedin.common.TagAssociation;
+import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -31,6 +36,7 @@ public class GlossaryNodeMapperTest {
   private static final String TEST_GLOSSARY_NODE_URN = "urn:li:glossaryNode:engineering";
   private static final String TEST_DOMAIN_URN = "urn:li:domain:engineering";
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:testuser";
+  private static final String TEST_TAG_NAME = "sensitive";
   private static final Long TEST_TIMESTAMP = 1640995200000L;
 
   private Urn glossaryNodeUrn;
@@ -136,6 +142,50 @@ public class GlossaryNodeMapperTest {
     assertNotNull(result);
     assertNotNull(result.getDomain());
     assertEquals(result.getDomain().getDomain().getUrn(), TEST_DOMAIN_URN);
+  }
+
+  @Test
+  public void testMapGlossaryNodeWithTags() throws Exception {
+    EntityResponse entityResponse = createEntityResponse();
+
+    GlobalTags globalTags = new GlobalTags();
+    globalTags.setTags(
+        new TagAssociationArray(
+            ImmutableList.of(new TagAssociation().setTag(new TagUrn(TEST_TAG_NAME)))));
+    addAspect(entityResponse, GLOBAL_TAGS_ASPECT_NAME, globalTags);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      // GlobalTagsMapper also checks canView on each tag URN.
+      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), any())).thenReturn(true);
+
+      GlossaryNode result = GlossaryNodeMapper.map(mockQueryContext, entityResponse);
+
+      assertNotNull(result);
+      assertEquals(result.getUrn(), TEST_GLOSSARY_NODE_URN);
+      assertEquals(result.getType(), EntityType.GLOSSARY_NODE);
+      assertNotNull(result.getTags());
+      assertNotNull(result.getTags().getTags());
+      assertEquals(result.getTags().getTags().size(), 1);
+      assertEquals(
+          result.getTags().getTags().get(0).getTag().getUrn(), "urn:li:tag:" + TEST_TAG_NAME);
+    }
+  }
+
+  @Test
+  public void testMapGlossaryNodeWithoutTags() {
+    EntityResponse entityResponse = createEntityResponse();
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canView(any(), eq(glossaryNodeUrn)))
+          .thenReturn(true);
+
+      GlossaryNode result = GlossaryNodeMapper.map(mockQueryContext, entityResponse);
+
+      assertNotNull(result);
+      assertEquals(result.getUrn(), TEST_GLOSSARY_NODE_URN);
+      assertNull(result.getTags());
+    }
   }
 
   private EntityResponse createEntityResponse() {

@@ -47,6 +47,20 @@ describe('useNodeChildrenLoading', () => {
         expect(result.current.loading.loadingUrns.has('f')).toBe(false);
     });
 
+    it('does not refetch when children are already loaded', async () => {
+        const { result } = render();
+        act(() => {
+            result.current.tree.addNode(makeNode({ urn: 'f', hasChildren: true, children: [] }));
+        });
+
+        await act(async () => {
+            await result.current.loading.handleToggleExpand('f');
+        });
+
+        expect(result.current.tree.expandedUrns.has('f')).toBe(true);
+        expect(loadChildren).not.toHaveBeenCalled();
+    });
+
     it('collapses an already-expanded folder without refetching', async () => {
         const { result } = render();
         act(() => {

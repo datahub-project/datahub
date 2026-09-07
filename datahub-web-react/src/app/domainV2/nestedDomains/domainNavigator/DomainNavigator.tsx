@@ -1,9 +1,7 @@
 import { Alert, EmptyState } from '@components';
-import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { House } from '@phosphor-icons/react/dist/csr/House';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchPath, useHistory, useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
@@ -15,179 +13,53 @@ import useDomainOwnerAggregations from '@app/domainV2/nestedDomains/domainSideba
 import { DomainNavigatorVariant } from '@app/domainV2/nestedDomains/types';
 import useScrollDomains from '@app/domainV2/useScrollDomains';
 import Loading from '@app/shared/Loading';
+import { TreeContainer } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
+import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
+import {
+    TreeExpansionRegistryProvider,
+    useTreeExpansionRegistry,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeExpansionRegistry';
+import { TreeSectionHeader } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeSectionHeader';
+import { TREE_ROW_ENTITY_ICON_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { PageRoutes } from '@conf/Global';
 
 import { Domain } from '@types';
 
-// Sidebar variant gets an 8px gutter on all sides — matches the documents
-// sidebar's TreeContainer exactly so the row chrome (selected highlight,
-// hover shadow) sits inset from the sidebar edge AND from the divider above.
-// The divider that separates this region from the filters lives in the
-// parent (ManageDomainsSidebar) so it spans the full sidebar width, mirroring
-// the documents sidebar layout. Select variant stays flush since its rows
-// have full-width bottom borders.
-const NavigatorWrapper = styled.div<{ $isSidebar: boolean }>`
+// Select/picker variant stays flush (rows have full-width bottom borders).
+const NavigatorWrapper = styled.div`
     font-size: 14px;
     max-height: calc(100% - 65px);
     overflow: auto;
-    ${(props) => props.$isSidebar && 'padding: 8px;'}
+    padding: 0;
 `;
 
 const LoadingWrapper = styled.div`
     padding: 16px;
 `;
 
-// --- Home / overview row ----------------------------------------------------
-// Top-of-tree "All Domains" navigation entry. Styled to mirror the sibling
-// rows from DocumentTreeItem (38px row, 6px radius, 8px left padding, brand-
-// gradient selected text) so it reads as a peer of the domain tree rows. Acts
-// as the sidebar's home link to the /domains index page.
-
-// `$isCollapsed` swaps the row from the expanded "icon + label" layout to a
-// single centered icon — same treatment as `SidebarRowContainer` in
-// `DomainNode`, so the home row aligns vertically with every domain row in
-// the collapsed sidebar's 63px column.
-const OverviewRow = styled.div<{ $isSelected: boolean; $isCollapsed: boolean }>`
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: ${(props) => (props.$isCollapsed ? 'center' : 'flex-start')};
-    padding: ${(props) => (props.$isCollapsed ? '4px 0' : '4px 8px')};
-    min-height: 38px;
-    height: 38px;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: background-color 0.15s ease;
-    /* Row sits flush against the NavigatorWrapper's 8px top padding, exactly
-       like DocumentTreeItem sits against TreeContainer. Small horizontal
-       margin matches sibling DomainNode rows so the selected/hover shadow
-       isn't clipped against the wrapper's padding edge. */
-    margin: 0 2px 2px 2px;
-
-    ${(props) =>
-        props.$isSelected &&
-        `
-        background: ${props.theme.colors.bgSelectedSubtle};
-        box-shadow: ${props.theme.colors.shadowFocusBrand};
-    `}
-
-    ${(props) =>
-        !props.$isSelected &&
-        `
-        &:hover {
-            background: ${props.theme.colors.bgHover};
-            box-shadow: ${props.theme.colors.shadowFocus};
-        }
-    `}
-`;
-
-// Drop the trailing 8px gutter in collapsed mode — with no label next to it,
-// the gutter would push the icon visibly right of center.
-const OverviewIconSlot = styled.div<{ $isCollapsed: boolean }>`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 20px;
-    margin-right: ${(props) => (props.$isCollapsed ? '0' : '8px')};
-    flex-shrink: 0;
-`;
-
-const OverviewLabel = styled.span<{ $isSelected: boolean }>`
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 14px;
-    line-height: 20px;
-    color: ${(props) => props.theme.colors.textSecondary};
-
-    ${(props) =>
-        props.$isSelected &&
-        `
-        background: ${props.theme.colors.brandGradientSelected};
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 600;
-    `}
-`;
-
-// --- Section header ---------------------------------------------------------
-// "All Domains" group label at the top of the tree. Styling intentionally
-// matches the documents sidebar's per-platform `SectionHeader` (DataHub /
-// GitHub / Google Docs / …) so the two trees read as siblings — same
-// Mulish-700 / textTertiary treatment, same right-side caret, same 32px
-// minimum row height, same indent formula (8 + level*16). Acts as a pure
-// collapsible group header (no navigation), again matching documents.
-const SectionHeader = styled.button<{ $level: number }>`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    width: 100%;
-    padding: 6px 8px 6px ${(props) => 8 + props.$level * 16}px;
-    min-height: 32px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    text-align: left;
-    color: ${(props) => props.theme.colors.textTertiary};
-    font-family: Mulish;
-    font-size: 14px;
-    font-weight: 700;
-`;
-
-const SectionHeaderLabel = styled.span`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-`;
-
-/**
- * Collapsible section header — pure presentation, no expansion state of its
- * own. Mirrors `TreeSectionHeader` from the documents sidebar's `DocumentTree`
- * so a level-0 "All Domains" header lines up with a level-0 "DataHub" /
- * "GitHub" header pixel-for-pixel.
- */
-function DomainSectionHeader({
-    level,
-    label,
-    isExpanded,
-    onToggle,
-    testId,
-}: {
-    level: number;
-    label: string;
-    isExpanded: boolean;
-    onToggle: () => void;
-    testId?: string;
-}) {
-    const Chevron = isExpanded ? CaretDown : CaretRight;
-    return (
-        <SectionHeader type="button" $level={level} onClick={onToggle} aria-expanded={isExpanded} data-testid={testId}>
-            <SectionHeaderLabel>{label}</SectionHeaderLabel>
-            <Chevron size={14} weight="regular" />
-        </SectionHeader>
-    );
-}
-
 interface Props {
     domainUrnToHide?: string;
     selectDomainOverride?: (domain: Domain) => void;
     isCollapsed?: boolean;
     variant?: DomainNavigatorVariant;
+    /**
+     * When true (default for collapsed / picker), render the overview home row
+     * inside the tree. Expanded sidebar sets this false — shell `homeNav` owns it.
+     */
+    includeHome?: boolean;
 }
 
-export default function DomainNavigator({
+function DomainNavigatorInner({
     domainUrnToHide,
     isCollapsed,
     selectDomainOverride,
     variant = 'select',
+    includeHome = true,
 }: Props) {
     const { t } = useTranslation('governance.domain');
-    const { selectedOwnerUrns, setAvailableOwners } = useDomainSidebarFilters();
+    const { t: tm } = useTranslation('misc');
+    const { selectedOwnerUrns, setAvailableOwners, sortSelection } = useDomainSidebarFilters();
+    const expansion = useTreeExpansionRegistry();
     const isSidebar = variant === 'sidebar';
 
     // When the sidebar's owner filter is active, we swap the recursive tree
@@ -204,6 +76,7 @@ export default function DomainNavigator({
     const { domains, hasInitialized, loading, error, scrollRef } = useScrollDomains({
         selectedOwnerUrns: isSidebar ? selectedOwnerUrns : undefined,
         ignoreParentScope: isFiltering,
+        sort: isSidebar ? sortSelection : undefined,
     });
 
     // Dropdown options come from a dedicated aggregation query that covers
@@ -231,6 +104,9 @@ export default function DomainNavigator({
     // the "All Domains" header hides the tree (matches the docs sidebar's
     // "DataHub" / "GitHub" headers, which collapse their groups in place).
     const [isAllDomainsExpanded, setIsAllDomainsExpanded] = useState(true);
+    // When expand-all runs while the section is collapsed, nodes aren't mounted
+    // yet — defer expandAll until after they register (child effects run first).
+    const pendingExpandAllRef = useRef(false);
 
     // Mirror the aggregation result into the shared context so the
     // SimpleSelect in `ManageDomainsSidebar` picks it up. The aggregation
@@ -250,34 +126,59 @@ export default function DomainNavigator({
     // — a header above it would be redundant and slightly misleading).
     const showSectionHeader = isSidebar && !isCollapsed && !isFiltering;
 
-    return (
-        <NavigatorWrapper $isSidebar={isSidebar}>
-            {isSidebar && (
-                <OverviewRow
-                    $isSelected={isOnOverview}
-                    $isCollapsed={!!isCollapsed}
-                    onClick={handleOverviewClick}
-                    data-testid="domain-sidebar-overview"
-                >
-                    <OverviewIconSlot $isCollapsed={!!isCollapsed}>
+    useEffect(() => {
+        if (!pendingExpandAllRef.current || !isAllDomainsExpanded || !expansion) return;
+        pendingExpandAllRef.current = false;
+        expansion.expandAll();
+    }, [isAllDomainsExpanded, expansion, domains]);
+
+    const handleToggleExpandAll = () => {
+        if (!expansion) return;
+        if (expansion.hasAnyExpanded) {
+            pendingExpandAllRef.current = false;
+            expansion.collapseAll();
+            return;
+        }
+        if (!isAllDomainsExpanded) {
+            pendingExpandAllRef.current = true;
+            setIsAllDomainsExpanded(true);
+            return;
+        }
+        expansion.expandAll();
+    };
+
+    const showHomeRow = isSidebar && includeHome;
+
+    const treeBody = (
+        <>
+            {showHomeRow && (
+                <HierarchicalBrowseTreeRow
+                    level={0}
+                    isSelected={isOnOverview}
+                    isCollapsed={!!isCollapsed}
+                    icon={
                         <House
-                            size={18}
+                            size={TREE_ROW_ENTITY_ICON_SIZE}
                             weight={isOnOverview ? 'fill' : 'regular'}
                             color={isOnOverview ? theme.colors.iconBrand : theme.colors.icon}
                         />
-                    </OverviewIconSlot>
-                    {!isCollapsed && (
-                        <OverviewLabel $isSelected={isOnOverview}>{t('navigator.overview')}</OverviewLabel>
-                    )}
-                </OverviewRow>
+                    }
+                    label={t('navigator.overview')}
+                    onSelect={handleOverviewClick}
+                    data-testid="domain-sidebar-overview"
+                />
             )}
             {showSectionHeader && (
-                <DomainSectionHeader
+                <TreeSectionHeader
                     level={0}
                     label={t('navigator.section.allDomains')}
                     isExpanded={isAllDomainsExpanded}
                     onToggle={() => setIsAllDomainsExpanded((v) => !v)}
                     testId="domain-sidebar-section-all-domains"
+                    onToggleExpandAll={handleToggleExpandAll}
+                    isAllExpanded={expansion?.hasAnyExpanded}
+                    expandAllLabel={tm('context.tree.expandAll')}
+                    collapseAllLabel={tm('context.tree.collapseAll')}
                 />
             )}
             {error && <Alert variant="error" title={t('navigator.loadError')} />}
@@ -311,6 +212,28 @@ export default function DomainNavigator({
                 </LoadingWrapper>
             )}
             {showTreeContents && (domains?.length ?? 0) > 0 && <div ref={scrollRef} />}
-        </NavigatorWrapper>
+        </>
     );
+
+    // Expanded sidebar: shell HierarchicalBrowseSidebar owns scroll via TreeContainer.
+    // Collapsed: local TreeContainer so the icon column can scroll.
+    if (isSidebar) {
+        if (isCollapsed) {
+            return <TreeContainer>{treeBody}</TreeContainer>;
+        }
+        return <>{treeBody}</>;
+    }
+
+    return <NavigatorWrapper>{treeBody}</NavigatorWrapper>;
+}
+
+export default function DomainNavigator(props: Props) {
+    if (props.variant === 'sidebar') {
+        return (
+            <TreeExpansionRegistryProvider>
+                <DomainNavigatorInner {...props} />
+            </TreeExpansionRegistryProvider>
+        );
+    }
+    return <DomainNavigatorInner {...props} />;
 }

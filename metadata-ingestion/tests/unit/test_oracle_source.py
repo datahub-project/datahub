@@ -34,7 +34,7 @@ from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
     SqlAlchemyTableDataReader,
 )
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
@@ -469,6 +469,7 @@ class TestOracleSource:
 
         # Mock inspector and connection
         mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
 
         # Set up context manager support
@@ -557,6 +558,7 @@ class TestOracleSource:
         source = OracleSource(self.config, self.ctx)
 
         mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
         mock_context_manager = Mock()
         mock_context_manager.__enter__ = Mock(return_value=mock_connection)
@@ -702,6 +704,7 @@ class TestOracleSource:
         source = OracleSource(self.config, self.ctx)
 
         mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
         mock_context_manager = Mock()
         mock_context_manager.__enter__ = Mock(return_value=mock_connection)
@@ -798,6 +801,7 @@ class TestOracleSource:
         source = OracleSource(self.config, self.ctx)
 
         mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
         mock_context_manager = Mock()
         mock_context_manager.__enter__ = Mock(return_value=mock_connection)
@@ -968,6 +972,7 @@ class TestOracleSource:
         source = OracleSource(self.config, self.ctx)
 
         mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
         mock_context_manager = Mock()
         mock_context_manager.__enter__ = Mock(return_value=mock_connection)
@@ -1029,6 +1034,7 @@ class TestOracleSource:
         source = OracleSource(self.config, self.ctx)
 
         mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
         mock_context_manager = Mock()
         mock_context_manager.__enter__ = Mock(return_value=mock_connection)

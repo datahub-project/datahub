@@ -1,10 +1,8 @@
 package com.datahub.gms.servlet;
 
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD_ANALYZER;
 
 import com.datahub.gms.util.CSVWriter;
-import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
@@ -12,6 +10,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.utils.EntityTypeUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -74,15 +73,21 @@ public class ConfigSearchExport extends HttpServlet {
     };
     writer.println(header);
 
-    SEARCHABLE_ENTITY_TYPES.stream()
+    List<String> searchableEntityNames =
+        Optional.ofNullable(systemOpContext.getSearchContext().getDefaultSearchEntityNames())
+            .orElseGet(
+                () ->
+                    EntityTypeUtils.resolve(
+                        searchConfiguration.getSearch().getDefaultEntityTypes(), entityRegistry));
+
+    searchableEntityNames.stream()
         .map(
-            entityType -> {
+            entityName -> {
               try {
-                EntitySpec entitySpec =
-                    entityRegistry.getEntitySpec(EntityTypeMapper.getName(entityType));
+                EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
                 return Optional.of(entitySpec);
               } catch (IllegalArgumentException e) {
-                log.warn("Failed to resolve entity `{}`", entityType.name());
+                log.warn("Failed to resolve entity `{}`", entityName);
                 return Optional.<EntitySpec>empty();
               }
             })

@@ -2,11 +2,16 @@ package com.linkedin.metadata.kafka;
 
 import com.linkedin.metadata.queue.QueueReceivedMessage;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Value;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.Headers;
 
 /**
  * Transport-neutral view of an inbound metadata message. Kafka fills this today; a future pgQueue
@@ -53,6 +58,13 @@ public class InboundMetadataEnvelope<R> {
 
   @Nullable Long consumerOffsetEpoch;
 
+  /**
+   * Opaque transport headers as UTF-8 strings. Kafka {@link #fromKafka} copies all record headers
+   * (last-wins on duplicate keys). pgQueue {@link #fromPgQueue} leaves this empty until a header
+   * field exists on the queue message.
+   */
+  @Builder.Default @Nonnull Map<String, String> headers = Map.of();
+
   public static <R> InboundMetadataEnvelope<R> fromKafka(
       @Nonnull ConsumerRecord<String, R> record, @Nullable String consumerGroupId) {
     return InboundMetadataEnvelope.<R>builder()
@@ -65,6 +77,7 @@ public class InboundMetadataEnvelope<R> {
         .kafkaPartition(record.partition())
         .kafkaOffset(record.offset())
         .serializedValueSize(record.serializedValueSize())
+        .headers(copyKafkaHeaders(record.headers()))
         .build();
   }
 
@@ -94,6 +107,26 @@ public class InboundMetadataEnvelope<R> {
         .priority(message.priority())
         .messageRowId(h.id())
         .messageEnqueuedAtMillis(h.enqueuedAt().toEpochMilli())
+        .headers(Map.of())
         .build();
+  }
+
+  /**
+   * Copies Kafka headers into an immutable map. Duplicate keys last-win; null values are skipped. A
+   * null {@link Headers} (some consumer/test records carry none) yields an empty map.
+   */
+  @Nonnull
+  static Map<String, String> copyKafkaHeaders(@Nullable Headers headers) {
+    if (headers == null) {
+      return Map.of();
+    }
+    Map<String, String> copied = new LinkedHashMap<>();
+    for (Header header : headers) {
+      if (header.value() == null) {
+        continue;
+      }
+      copied.put(header.key(), new String(header.value(), StandardCharsets.UTF_8));
+    }
+    return Map.copyOf(copied);
   }
 }

@@ -7,7 +7,6 @@ import static com.linkedin.metadata.search.utils.BrowsePathUtils.buildDataPlatfo
 import static com.linkedin.metadata.search.utils.BrowsePathUtils.getDefaultBrowsePath;
 import static com.linkedin.metadata.search.utils.BrowsePathV2Utils.getDefaultBrowsePathV2;
 
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.urn.Urn;
@@ -16,7 +15,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataplatform.DataPlatformInfo;
-import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
@@ -232,12 +231,11 @@ public class DefaultAspectsUtil {
                   case BROWSE_PATHS_ASPECT_NAME:
                     return Pair.of(
                         BROWSE_PATHS_ASPECT_NAME,
-                        (RecordTemplate) buildDefaultBrowsePath(opContext, urn, entityService));
+                        (RecordTemplate) buildDefaultBrowsePath(opContext, urn));
                   case BROWSE_PATHS_V2_ASPECT_NAME:
                     return Pair.of(
                         BROWSE_PATHS_V2_ASPECT_NAME,
-                        (RecordTemplate)
-                            buildDefaultBrowsePathV2(opContext, urn, false, entityService));
+                        (RecordTemplate) buildDefaultBrowsePathV2(opContext, urn, false));
                   case DATA_PLATFORM_INSTANCE_ASPECT_NAME:
                     return DataPlatformInstanceUtils.buildDataPlatformInstance(
                             urn.getEntityType(), entityKeyAspect)
@@ -265,8 +263,8 @@ public class DefaultAspectsUtil {
    */
   @Nonnull
   public static BrowsePaths buildDefaultBrowsePath(
-      @Nonnull OperationContext opContext, final @Nonnull Urn urn, EntityService<?> entityService) {
-    Character dataPlatformDelimiter = getDataPlatformDelimiter(opContext, urn, entityService);
+      @Nonnull OperationContext opContext, final @Nonnull Urn urn) {
+    Character dataPlatformDelimiter = getDataPlatformDelimiter(opContext, urn);
     String defaultBrowsePath =
         getDefaultBrowsePath(urn, opContext.getEntityRegistry(), dataPlatformDelimiter);
     StringArray browsePaths = new StringArray();
@@ -284,29 +282,19 @@ public class DefaultAspectsUtil {
    */
   @Nonnull
   public static BrowsePathsV2 buildDefaultBrowsePathV2(
-      @Nonnull OperationContext opContext,
-      final @Nonnull Urn urn,
-      boolean useContainerPaths,
-      EntityService<?> entityService) {
-    Character dataPlatformDelimiter = getDataPlatformDelimiter(opContext, urn, entityService);
+      @Nonnull OperationContext opContext, final @Nonnull Urn urn, boolean useContainerPaths) {
+    Character dataPlatformDelimiter = getDataPlatformDelimiter(opContext, urn);
     return getDefaultBrowsePathV2(
-        opContext,
-        urn,
-        opContext.getEntityRegistry(),
-        dataPlatformDelimiter,
-        entityService,
-        useContainerPaths);
+        opContext, urn, opContext.getEntityRegistry(), dataPlatformDelimiter, useContainerPaths);
   }
 
   /** Returns a delimiter on which the name of an asset may be split. */
-  private static Character getDataPlatformDelimiter(
-      @Nonnull OperationContext opContext, Urn urn, EntityService<?> entityService) {
+  private static Character getDataPlatformDelimiter(@Nonnull OperationContext opContext, Urn urn) {
     // Attempt to construct the appropriate Data Platform URN
     Urn dataPlatformUrn = buildDataPlatformUrn(urn, opContext.getEntityRegistry());
     if (dataPlatformUrn != null) {
       // Attempt to resolve the delimiter from Data Platform Info
-      DataPlatformInfo dataPlatformInfo =
-          getDataPlatformInfo(opContext, dataPlatformUrn, entityService);
+      DataPlatformInfo dataPlatformInfo = getDataPlatformInfo(opContext, dataPlatformUrn);
       if (dataPlatformInfo != null && dataPlatformInfo.hasDatasetNameDelimiter()) {
         return dataPlatformInfo.getDatasetNameDelimiter().charAt(0);
       }
@@ -317,23 +305,15 @@ public class DefaultAspectsUtil {
 
   @Nullable
   private static DataPlatformInfo getDataPlatformInfo(
-      @Nonnull OperationContext opContext, Urn urn, EntityService<?> entityService) {
+      @Nonnull OperationContext opContext, Urn urn) {
     try {
-      final EntityResponse entityResponse =
-          entityService.getEntityV2(
-              opContext,
-              Constants.DATA_PLATFORM_ENTITY_NAME,
-              urn,
-              ImmutableSet.of(Constants.DATA_PLATFORM_INFO_ASPECT_NAME));
-      if (entityResponse != null
-          && entityResponse.hasAspects()
-          && entityResponse.getAspects().containsKey(Constants.DATA_PLATFORM_INFO_ASPECT_NAME)) {
-        return new DataPlatformInfo(
-            entityResponse
-                .getAspects()
-                .get(Constants.DATA_PLATFORM_INFO_ASPECT_NAME)
-                .getValue()
-                .data());
+      final Aspect aspect =
+          opContext
+              .getRetrieverContext()
+              .getCachingAspectRetriever()
+              .getLatestAspectObject(opContext, urn, Constants.DATA_PLATFORM_INFO_ASPECT_NAME);
+      if (aspect != null) {
+        return new DataPlatformInfo(aspect.data());
       }
     } catch (Exception e) {
       log.warn(String.format("Failed to find Data Platform Info for urn %s", urn));

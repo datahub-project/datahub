@@ -183,7 +183,8 @@ public class UsageQueueIngestRecorderTest {
               public void recordResponse(@Nonnull OperationContext opContext, Long outputBytes) {}
 
               @Override
-              public void flush(@Nonnull FlushTrigger trigger) {}
+              public void flush(
+                  @Nonnull OperationContext opContext, @Nonnull FlushTrigger trigger) {}
             });
     MetadataChangeProposal mcp = new MetadataChangeProposal();
     OperationContext context =
@@ -218,7 +219,7 @@ public class UsageQueueIngestRecorderTest {
       public void recordResponse(@Nonnull OperationContext opContext, Long outputBytes) {}
 
       @Override
-      public void flush(@Nonnull FlushTrigger trigger) {}
+      public void flush(@Nonnull OperationContext opContext, @Nonnull FlushTrigger trigger) {}
     };
   }
 
@@ -234,7 +235,7 @@ public class UsageQueueIngestRecorderTest {
       public void recordResponse(@Nonnull OperationContext opContext, Long outputBytes) {}
 
       @Override
-      public void flush(@Nonnull FlushTrigger trigger) {}
+      public void flush(@Nonnull OperationContext opContext, @Nonnull FlushTrigger trigger) {}
     };
   }
 
@@ -255,7 +256,7 @@ public class UsageQueueIngestRecorderTest {
       public void recordResponse(@Nonnull OperationContext opContext, Long outputBytes) {}
 
       @Override
-      public void flush(@Nonnull FlushTrigger trigger) {}
+      public void flush(@Nonnull OperationContext opContext, @Nonnull FlushTrigger trigger) {}
     };
   }
 }

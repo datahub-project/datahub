@@ -40,7 +40,7 @@ public class MaeConsumerApplicationTestConfiguration {
   @Bean
   @Primary
   public EntityRegistry entityRegistry() {
-    return TestOperationContexts.defaultEntityRegistry();
+    return TestOperationContexts.constructNewEntityRegistry();
   }
 
   @MockitoBean private RestrictedService restrictedService;

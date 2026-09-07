@@ -15,12 +15,14 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.config.S3Configuration;
-import com.linkedin.metadata.utils.aws.S3Util;
+import com.linkedin.metadata.config.ObjectStorageConfiguration;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageReference;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -29,28 +31,33 @@ import org.springframework.stereotype.Component;
 public class GetPresignedUploadUrlResolver
     implements DataFetcher<CompletableFuture<GetPresignedUploadUrlResponse>> {
 
-  private final S3Util s3Util;
-  private final S3Configuration s3Configuration;
+  private final ObjectStorageClient objectStorageClient;
+  private final ObjectStorageConfiguration objectStorageConfiguration;
   private final EntityClient _entityClient;
 
   public GetPresignedUploadUrlResolver(
-      S3Util s3Util, S3Configuration s3Configuration, EntityClient entityClient) {
-    this.s3Util = s3Util;
-    this.s3Configuration = s3Configuration;
+      @Nullable ObjectStorageClient objectStorageClient,
+      ObjectStorageConfiguration objectStorageConfiguration,
+      EntityClient entityClient) {
+    this.objectStorageClient = objectStorageClient;
+    this.objectStorageConfiguration = objectStorageConfiguration;
     this._entityClient = entityClient;
   }
 
   @Override
   public CompletableFuture<GetPresignedUploadUrlResponse> get(DataFetchingEnvironment environment)
       throws Exception {
-    if (s3Util == null) {
-      throw new IllegalArgumentException("S3Util isn't provided");
+    if (objectStorageClient == null || !objectStorageClient.isConfigured()) {
+      throw new IllegalArgumentException("Object storage is not configured");
+    }
+    if (!objectStorageClient.supportsPresignedUrls()) {
+      throw new IllegalArgumentException(
+          "Presigned upload URLs are not supported for provider " + objectStorageClient.provider());
     }
 
-    String bucketName = s3Configuration.getBucketName();
-
+    String bucketName = objectStorageClient.storageBucket();
     if (bucketName == null || bucketName.isEmpty()) {
-      throw new IllegalArgumentException("Bucket name isn't provided");
+      throw new IllegalArgumentException("Object storage bucket is not configured");
     }
 
     final GetPresignedUploadUrlInput input =
@@ -61,16 +68,16 @@ public class GetPresignedUploadUrlResolver
     validateInput(context, input);
 
     String newFileId = generateNewFileId(input);
-    String s3Key = getS3Key(input, newFileId, bucketName);
+    String objectKey = getObjectKey(input, newFileId);
     String contentType = input.getContentType();
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
+          ObjectStorageReference ref = new ObjectStorageReference(bucketName, objectKey);
           String presignedUploadUrl =
-              s3Util.generatePresignedUploadUrl(
-                  bucketName,
-                  s3Key,
-                  s3Configuration.getPresignedUploadUrlExpirationSeconds(),
+              objectStorageClient.presignedUploadUrl(
+                  ref,
+                  objectStorageConfiguration.getPresignedUploadUrlExpirationSeconds(),
                   contentType);
 
           GetPresignedUploadUrlResponse result = new GetPresignedUploadUrlResponse();
@@ -103,7 +110,6 @@ public class GetPresignedUploadUrlResolver
       throw new IllegalArgumentException("assetUrn is required for ASSET_DOCUMENTATION scenario");
     }
 
-    // FYI: for schema field we have to apply another rules to check permissions
     if (schemaFieldUrn != null) {
       if (!DescriptionUtils.isAuthorizedToUpdateFieldDescription(
           context, UrnUtils.getUrn(assetUrn))) {
@@ -139,16 +145,12 @@ public class GetPresignedUploadUrlResolver
         UUID.randomUUID().toString(), Constants.S3_FILE_ID_NAME_SEPARATOR, input.getFileName());
   }
 
-  private String getS3Key(
-      final GetPresignedUploadUrlInput input, final String fileId, final String bucketName) {
+  private String getObjectKey(final GetPresignedUploadUrlInput input, final String fileId) {
     UploadDownloadScenario scenario = input.getScenario();
 
-    if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION) {
-      return String.format("%s/%s", s3Configuration.getAssetPathPrefix(), fileId);
-    }
-
-    if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS) {
-      return String.format("%s/%s", s3Configuration.getAssetPathPrefix(), fileId);
+    if (scenario == UploadDownloadScenario.ASSET_DOCUMENTATION
+        || scenario == UploadDownloadScenario.ASSET_DOCUMENTATION_LINKS) {
+      return String.format("%s/%s", objectStorageConfiguration.getAssetPathPrefix(), fileId);
     }
 
     throw new IllegalArgumentException("Unsupported upload scenario: " + scenario);

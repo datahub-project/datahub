@@ -9,8 +9,11 @@ import static org.testng.Assert.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.MoveDocumentInput;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.SearchIndexMode;
+import com.linkedin.metadata.service.ServiceAuthorizationException;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
@@ -56,7 +59,8 @@ public class MoveDocumentResolverTest {
             any(OperationContext.class),
             eq(UrnUtils.getUrn(TEST_ARTICLE_URN)),
             eq(UrnUtils.getUrn(TEST_PARENT_URN)),
-            any(Urn.class));
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -77,7 +81,8 @@ public class MoveDocumentResolverTest {
             any(OperationContext.class),
             eq(UrnUtils.getUrn(TEST_ARTICLE_URN)),
             eq(null),
-            any(Urn.class));
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -89,7 +94,8 @@ public class MoveDocumentResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
     // Verify service was NOT called
-    verify(mockService, times(0)).moveDocument(any(OperationContext.class), any(), any(), any());
+    verify(mockService, times(0))
+        .moveDocument(any(OperationContext.class), any(), any(), any(), any(SearchIndexMode.class));
   }
 
   @Test
@@ -100,8 +106,23 @@ public class MoveDocumentResolverTest {
 
     doThrow(new RuntimeException("Service error"))
         .when(mockService)
-        .moveDocument(any(OperationContext.class), any(), any(), any());
+        .moveDocument(any(OperationContext.class), any(), any(), any(), eq(SearchIndexMode.SYNC));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testMoveDocumentServiceAuthorizationFailureIsPreserved() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    doThrow(new ServiceAuthorizationException("denied"))
+        .when(mockService)
+        .moveDocument(any(OperationContext.class), any(), any(), any(), eq(SearchIndexMode.SYNC));
+
+    CompletionException exception =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    assertTrue(exception.getCause() instanceof AuthorizationException);
   }
 }

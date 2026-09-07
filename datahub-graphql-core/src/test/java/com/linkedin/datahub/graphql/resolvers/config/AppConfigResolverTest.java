@@ -43,7 +43,6 @@ public class AppConfigResolverTest {
   @Mock private TelemetryConfiguration mockTelemetryConfiguration;
   @Mock private TestsConfiguration mockTestsConfiguration;
   @Mock private DataHubConfiguration mockDatahubConfiguration;
-  @Mock private S3Configuration mockS3Configuration;
   @Mock private ViewsConfiguration mockViewsConfiguration;
   @Mock private SearchBarConfiguration mockSearchBarConfiguration;
   @Mock private SearchCardConfiguration mockSearchCardConfiguration;
@@ -81,10 +80,6 @@ public class AppConfigResolverTest {
     when(mockHomePageConfiguration.getFirstInPersonalSidebar()).thenReturn("YOUR_ASSETS");
     when(mockChromeExtensionConfiguration.isEnabled()).thenReturn(false);
     when(mockChromeExtensionConfiguration.isLineageEnabled()).thenReturn(false);
-
-    // Setup S3 configuration
-    when(mockDatahubConfiguration.getS3()).thenReturn(mockS3Configuration);
-    when(mockS3Configuration.getBucketName()).thenReturn("test-bucket");
 
     // Setup feature flags
     setupFeatureFlags();
@@ -165,6 +160,9 @@ public class AppConfigResolverTest {
     assertTrue(result.getAnalyticsConfig().getEnabled());
     assertNotNull(result.getAuthConfig());
     assertTrue(result.getAuthConfig().getTokenAuthEnabled());
+    assertFalse(result.getAuthConfig().getAllowNoExpiry());
+    assertNotNull(result.getAuthConfig().getAllowedAccessTokenDurations());
+    assertFalse(result.getAuthConfig().getAllowedAccessTokenDurations().isEmpty());
     assertNotNull(result.getPoliciesConfig());
     assertTrue(result.getPoliciesConfig().getEnabled());
     assertNotNull(result.getIdentityManagementConfig());
@@ -439,8 +437,6 @@ public class AppConfigResolverTest {
   @Test
   public void testDocumentationFileUploadV1EnabledWhenFeatureFlagAndS3Enabled() throws Exception {
     when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(true);
-    when(mockS3Configuration.getBucketName()).thenReturn("my-bucket");
-
     resolver =
         new AppConfigResolver(
             mockGitVersion,

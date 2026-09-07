@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.glossary;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.GLOSSARY_TERM_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -24,6 +25,7 @@ import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.browse.BrowseResult;
@@ -47,7 +49,7 @@ public class GlossaryTermType
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("");
 
-  private static final Set<String> ASPECTS_TO_RESOLVE =
+  static final Set<String> ASPECTS_TO_RESOLVE =
       ImmutableSet.of(
           GLOSSARY_TERM_KEY_ASPECT_NAME,
           GLOSSARY_TERM_INFO_ASPECT_NAME,
@@ -62,7 +64,8 @@ public class GlossaryTermType
           FORMS_ASPECT_NAME,
           APPLICATION_MEMBERSHIP_ASPECT_NAME,
           DISPLAY_PROPERTIES_ASPECT_NAME,
-          ASSET_SETTINGS_ASPECT_NAME);
+          ASSET_SETTINGS_ASPECT_NAME,
+          GLOBAL_TAGS_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
@@ -92,12 +95,16 @@ public class GlossaryTermType
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_RESOLVE, GLOSSARY_TERM_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> glossaryTermMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               GLOSSARY_TERM_ENTITY_NAME,
               new HashSet<>(glossaryTermUrns),
-              ASPECTS_TO_RESOLVE);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : glossaryTermUrns) {

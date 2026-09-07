@@ -161,7 +161,7 @@ platform first, or set `verify_physical_urns_exist: false` to link optimisticall
 Logical Models are in private beta and require the `LOGICAL_MODELS_ENABLED` feature flag
 (off by default). Enable it to view logical datasets, their assertions, and their
 `logicalParent` links. The metadata is still ingested while the flag is off — it just
-isn't displayed. The flag is set on the GMS service (for self-hosted OSS, the
+isn't displayed. The flag is set on the GMS service (for DataHub Core, the
 `LOGICAL_MODELS_ENABLED` environment variable on the `datahub-gms` container; on DataHub
 Cloud, ask your administrator to enable it).
 

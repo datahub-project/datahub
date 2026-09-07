@@ -24,17 +24,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.SemanticModelKey;
-import com.linkedin.metric.DialectExpression;
-import com.linkedin.metric.DialectExpressionArray;
-import com.linkedin.metric.MetricExpression;
-import com.linkedin.schema.SchemaField;
-import com.linkedin.schema.SchemaFieldDataType;
-import com.linkedin.schema.StringType;
-import com.linkedin.semanticmodel.Dimension;
-import com.linkedin.semanticmodel.ModelDataset;
-import com.linkedin.semanticmodel.ModelDatasetArray;
-import com.linkedin.semanticmodel.SemanticField;
-import com.linkedin.semanticmodel.SemanticFieldArray;
 import com.linkedin.semanticmodel.SemanticModelInfo;
 import com.linkedin.semanticmodel.SemanticModelRelationship;
 import com.linkedin.semanticmodel.SemanticModelRelationshipArray;
@@ -51,8 +40,7 @@ public class SemanticModelMapperTest {
   private static final String SEMANTIC_MODEL_URN =
       "urn:li:semanticModel:(urn:li:dataPlatform:dbt,analytics.orders_model,my_model)";
   private static final String DATASET_URN =
-      "urn:li:dataset:(urn:li:dataPlatform:dbt,my_db.my_schema.my_table,PROD)";
-  private static final String QUERY_URN = "urn:li:query:abc123";
+      "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics.orders_model.orders_ds,PROD)";
   private static final String ACTOR_URN = "urn:li:corpuser:testuser";
   private static final Long TEST_TIMESTAMP = 1640995200000L;
 
@@ -114,15 +102,10 @@ public class SemanticModelMapperTest {
   }
 
   @Test
-  public void testMapDatasetsSourceDataset() throws URISyntaxException {
+  public void testMapDatasetsAbsentIsEmptyList() {
     EntityResponse entityResponse = createBaseEntityResponse();
 
-    ModelDataset modelDataset =
-        new ModelDataset().setName("orders_ds").setSource(Urn.createFromString(DATASET_URN));
-    SemanticModelInfo info =
-        new SemanticModelInfo()
-            .setName("My Model")
-            .setDatasets(new ModelDatasetArray(modelDataset));
+    SemanticModelInfo info = new SemanticModelInfo().setName("My Model");
     addAspect(entityResponse, SEMANTIC_MODEL_INFO_ASPECT_NAME, info);
 
     try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
@@ -130,174 +113,8 @@ public class SemanticModelMapperTest {
 
       SemanticModel result = SemanticModelMapper.map(mockQueryContext, entityResponse);
 
-      assertNotNull(result.getInfo());
       assertNotNull(result.getInfo().getDatasets());
-      assertEquals(result.getInfo().getDatasets().size(), 1);
-      assertEquals(result.getInfo().getDatasets().get(0).getName(), "orders_ds");
-      assertNotNull(result.getInfo().getDatasets().get(0).getSource());
-      assertEquals(result.getInfo().getDatasets().get(0).getSource().getUrn(), DATASET_URN);
-      assertEquals(result.getInfo().getDatasets().get(0).getSource().getType(), EntityType.DATASET);
-    }
-  }
-
-  @Test
-  public void testMapDatasetsSourceQuery() throws URISyntaxException {
-    EntityResponse entityResponse = createBaseEntityResponse();
-
-    ModelDataset modelDataset =
-        new ModelDataset().setName("inline_query_ds").setSource(Urn.createFromString(QUERY_URN));
-    SemanticModelInfo info =
-        new SemanticModelInfo()
-            .setName("My Model")
-            .setDatasets(new ModelDatasetArray(modelDataset));
-    addAspect(entityResponse, SEMANTIC_MODEL_INFO_ASPECT_NAME, info);
-
-    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
-      authMock.when(() -> AuthorizationUtils.canView(any(), any())).thenReturn(true);
-
-      SemanticModel result = SemanticModelMapper.map(mockQueryContext, entityResponse);
-
-      assertNotNull(result.getInfo().getDatasets().get(0).getSource());
-      assertEquals(result.getInfo().getDatasets().get(0).getSource().getUrn(), QUERY_URN);
-      assertEquals(result.getInfo().getDatasets().get(0).getSource().getType(), EntityType.QUERY);
-    }
-  }
-
-  @Test
-  public void testMapSemanticFieldSchemaFieldAndUrn() throws URISyntaxException {
-    EntityResponse entityResponse = createBaseEntityResponse();
-
-    SchemaField schemaField =
-        new SchemaField()
-            .setFieldPath("revenue")
-            .setNativeDataType("NUMERIC")
-            .setType(
-                new SchemaFieldDataType()
-                    .setType(SchemaFieldDataType.Type.create(new StringType())))
-            .setDescription("Revenue dimension");
-
-    MetricExpression expression =
-        new MetricExpression()
-            .setDialects(
-                new DialectExpressionArray(
-                    new DialectExpression()
-                        .setDialect(com.linkedin.metric.Dialect.ANSI_SQL)
-                        .setExpression("SUM(revenue)")));
-
-    SemanticField semanticField =
-        new SemanticField()
-            .setSchemaField(schemaField)
-            .setType(com.linkedin.semanticmodel.SemanticFieldType.MEASURE)
-            .setExpression(expression);
-
-    ModelDataset modelDataset =
-        new ModelDataset()
-            .setName("orders_ds")
-            .setSource(Urn.createFromString(DATASET_URN))
-            .setFields(new SemanticFieldArray(semanticField));
-    SemanticModelInfo info =
-        new SemanticModelInfo()
-            .setName("My Model")
-            .setDatasets(new ModelDatasetArray(modelDataset));
-    addAspect(entityResponse, SEMANTIC_MODEL_INFO_ASPECT_NAME, info);
-
-    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
-      authMock.when(() -> AuthorizationUtils.canView(any(), any())).thenReturn(true);
-
-      SemanticModel result = SemanticModelMapper.map(mockQueryContext, entityResponse);
-
-      assertNotNull(result.getInfo().getDatasets().get(0).getFields());
-      assertEquals(result.getInfo().getDatasets().get(0).getFields().size(), 1);
-
-      com.linkedin.datahub.graphql.generated.SemanticField field =
-          result.getInfo().getDatasets().get(0).getFields().get(0);
-      assertNotNull(field.getSchemaField());
-      assertEquals(field.getSchemaField().getFieldPath(), "revenue");
-      assertEquals(field.getSchemaField().getDescription(), "Revenue dimension");
-      assertEquals(
-          field.getSchemaField().getType(),
-          com.linkedin.datahub.graphql.generated.SchemaFieldDataType.STRING);
-      assertNotNull(field.getSchemaField().getSchemaFieldEntity());
-      String expectedSchemaFieldUrn = "urn:li:schemaField:(" + SEMANTIC_MODEL_URN + ",revenue)";
-      assertEquals(field.getSchemaField().getSchemaFieldEntity().getUrn(), expectedSchemaFieldUrn);
-      assertEquals(
-          field.getType(), com.linkedin.datahub.graphql.generated.SemanticFieldType.MEASURE);
-    }
-  }
-
-  @Test
-  public void testMapSemanticFieldTypeDiscriminatorAllValues() throws URISyntaxException {
-    EntityResponse entityResponse = createBaseEntityResponse();
-
-    MetricExpression expr =
-        new MetricExpression()
-            .setDialects(
-                new DialectExpressionArray(
-                    new DialectExpression()
-                        .setDialect(com.linkedin.metric.Dialect.ANSI_SQL)
-                        .setExpression("1")));
-
-    SemanticField dimensionField =
-        new SemanticField()
-            .setSchemaField(buildSchemaField("dim_field"))
-            .setType(com.linkedin.semanticmodel.SemanticFieldType.DIMENSION)
-            .setExpression(expr)
-            .setDimension(new Dimension().setIsTime(true));
-
-    SemanticField measureField =
-        new SemanticField()
-            .setSchemaField(buildSchemaField("measure_field"))
-            .setType(com.linkedin.semanticmodel.SemanticFieldType.MEASURE)
-            .setExpression(expr);
-
-    SemanticField filterField =
-        new SemanticField()
-            .setSchemaField(buildSchemaField("filter_field"))
-            .setType(com.linkedin.semanticmodel.SemanticFieldType.FILTER)
-            .setExpression(expr);
-
-    SemanticField otherField =
-        new SemanticField()
-            .setSchemaField(buildSchemaField("other_field"))
-            .setType(com.linkedin.semanticmodel.SemanticFieldType.OTHER)
-            .setExpression(expr);
-
-    ModelDataset modelDataset =
-        new ModelDataset()
-            .setName("ds")
-            .setSource(Urn.createFromString(DATASET_URN))
-            .setFields(
-                new SemanticFieldArray(dimensionField, measureField, filterField, otherField));
-    addAspect(
-        entityResponse,
-        SEMANTIC_MODEL_INFO_ASPECT_NAME,
-        new SemanticModelInfo().setName("M").setDatasets(new ModelDatasetArray(modelDataset)));
-
-    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
-      authMock.when(() -> AuthorizationUtils.canView(any(), any())).thenReturn(true);
-
-      SemanticModel result = SemanticModelMapper.map(mockQueryContext, entityResponse);
-      java.util.List<com.linkedin.datahub.graphql.generated.SemanticField> fields =
-          result.getInfo().getDatasets().get(0).getFields();
-
-      assertEquals(
-          fields.get(0).getType(),
-          com.linkedin.datahub.graphql.generated.SemanticFieldType.DIMENSION);
-      assertNotNull(fields.get(0).getDimension());
-      assertTrue(fields.get(0).getDimension().getIsTime());
-
-      assertEquals(
-          fields.get(1).getType(),
-          com.linkedin.datahub.graphql.generated.SemanticFieldType.MEASURE);
-      assertNull(fields.get(1).getDimension());
-
-      assertEquals(
-          fields.get(2).getType(), com.linkedin.datahub.graphql.generated.SemanticFieldType.FILTER);
-      assertNull(fields.get(2).getDimension());
-
-      assertEquals(
-          fields.get(3).getType(), com.linkedin.datahub.graphql.generated.SemanticFieldType.OTHER);
-      assertNull(fields.get(3).getDimension());
+      assertTrue(result.getInfo().getDatasets().isEmpty());
     }
   }
 
@@ -392,6 +209,29 @@ public class SemanticModelMapperTest {
     }
   }
 
+  @Test
+  public void testMapTopLevelAiContextAspect() {
+    EntityResponse entityResponse = createBaseEntityResponse();
+
+    com.linkedin.common.AiContext aiContext =
+        new com.linkedin.common.AiContext()
+            .setInstructions("Prefer this model for order analytics.")
+            .setExamples(new com.linkedin.data.template.StringArray("orders by region"));
+    addAspect(entityResponse, AI_CONTEXT_ASPECT_NAME, aiContext);
+
+    try (MockedStatic<AuthorizationUtils> authMock = mockStatic(AuthorizationUtils.class)) {
+      authMock.when(() -> AuthorizationUtils.canView(any(), eq(semanticModelUrn))).thenReturn(true);
+
+      SemanticModel result = SemanticModelMapper.map(mockQueryContext, entityResponse);
+
+      assertNotNull(result.getAiContext());
+      assertEquals(
+          result.getAiContext().getInstructions(), "Prefer this model for order analytics.");
+      assertEquals(result.getAiContext().getExamples().size(), 1);
+      assertEquals(result.getAiContext().getExamples().get(0), "orders by region");
+    }
+  }
+
   private EntityResponse createBaseEntityResponse() {
     EntityResponse entityResponse = new EntityResponse();
     entityResponse.setUrn(semanticModelUrn);
@@ -419,13 +259,5 @@ public class SemanticModelMapperTest {
     EnvelopedAspect aspect = new EnvelopedAspect();
     aspect.setValue(new Aspect(aspectData.data()));
     entityResponse.getAspects().put(aspectName, aspect);
-  }
-
-  private SchemaField buildSchemaField(String fieldPath) {
-    return new SchemaField()
-        .setFieldPath(fieldPath)
-        .setNativeDataType("string")
-        .setType(
-            new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
   }
 }

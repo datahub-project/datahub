@@ -8,6 +8,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.dao.producer.KafkaUsageEventPublisher;
+import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolver;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -201,7 +202,10 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     public UsageEventPublisher dataHubUsageEventProducer(
         @Qualifier("dataHubUsageProducer") Producer<String, String> producer) {
       return new KafkaUsageEventPublisher(
-          producer, mock(KafkaHealthChecker.class), mock(MetricUtils.class));
+          producer,
+          mock(KafkaHealthChecker.class),
+          mock(MetricUtils.class),
+          mock(OutboundContextResolver.class));
     }
   }
 
@@ -279,7 +283,10 @@ public class TrackingServiceFactoryTest extends AbstractTestNGSpringContextTests
     public UsageEventPublisher dataHubUsageEventProducer(
         @Qualifier("dataHubUsageProducer") Producer<String, String> producer) {
       return new KafkaUsageEventPublisher(
-          producer, mock(KafkaHealthChecker.class), mock(MetricUtils.class));
+          producer,
+          mock(KafkaHealthChecker.class),
+          mock(MetricUtils.class),
+          mock(OutboundContextResolver.class));
     }
   }
 }

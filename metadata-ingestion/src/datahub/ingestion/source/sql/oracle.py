@@ -77,8 +77,10 @@ from datahub.ingestion.source.sql.sql_utils import (
     get_domain_wu,
 )
 from datahub.ingestion.source.sql.stored_procedures.base import (
-    BaseProcedure,
     generate_procedure_workunits,
+)
+from datahub.ingestion.source.sql.stored_procedures.models import (
+    BaseProcedure,
     get_procedure_flow_name,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
@@ -1429,7 +1431,7 @@ class OracleSourceReport(SQLSourceReport):
 
 @platform_name("Oracle")
 @config_class(OracleConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_COARSE,

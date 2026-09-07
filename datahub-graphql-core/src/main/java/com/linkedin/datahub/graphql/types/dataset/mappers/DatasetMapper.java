@@ -51,12 +51,14 @@ import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.rolemetadata.mappers.AccessMapper;
+import com.linkedin.datahub.graphql.types.semanticmodel.mappers.SemanticModelPropertiesMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.datahub.graphql.types.versioning.VersionPropertiesMapper;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
+import com.linkedin.dataset.SemanticModelProperties;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.dataset.ViewProperties;
 import com.linkedin.domain.Domains;
@@ -120,6 +122,11 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
     mappingHelper.mapToResult(
         EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, this::mapEditableDatasetProperties);
     mappingHelper.mapToResult(VIEW_PROPERTIES_ASPECT_NAME, this::mapViewProperties);
+    mappingHelper.mapToResult(
+        SEMANTIC_MODEL_PROPERTIES_ASPECT_NAME,
+        (dataset, dataMap) ->
+            dataset.setSemanticModelProperties(
+                SemanticModelPropertiesMapper.map(new SemanticModelProperties(dataMap))));
     mappingHelper.mapToResult(
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (dataset, dataMap) ->
@@ -293,7 +300,9 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
     graphqlProperties.setMaterialized(properties.isMaterialized());
     graphqlProperties.setLanguage(properties.getViewLanguage());
     graphqlProperties.setLogic(properties.getViewLogic());
-    graphqlProperties.setFormattedLogic(properties.getFormattedViewLogic());
+    if (properties.hasFormattedViewLogic()) {
+      graphqlProperties.setFormattedLogic(properties.getFormattedViewLogic());
+    }
     dataset.setViewProperties(graphqlProperties);
   }
 

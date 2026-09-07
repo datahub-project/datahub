@@ -1,14 +1,14 @@
-import json
 import logging
 import sys
-import time
-from dataclasses import dataclass
 from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
-from datetime import timezone
-from decimal import Decimal
+
+# Load-bearing for its import side effect, not just for has_name_positional_arg:
+# it raises the "use action_v1" ImportError under GX 1.x before the
+# great_expectations imports below reach the data_asset package that 1.x removed.
+# Keep this import even if has_name_positional_arg ever becomes unused.
+from datahub_gx_plugin._compat_gx_0x import has_name_positional_arg
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-import packaging.version
 from great_expectations.checkpoint.actions import ValidationAction
 from great_expectations.core.batch import Batch
 from great_expectations.core.batch_spec import (
@@ -34,56 +34,34 @@ from great_expectations.execution_engine.sqlalchemy_execution_engine import (
 )
 from great_expectations.validator.validator import Validator
 from sqlalchemy.engine.base import Connection, Engine
-from sqlalchemy.engine.url import make_url
 
 import datahub.emitter.mce_builder as builder
 from datahub.cli.env_utils import get_boolean_env_variable
-from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter, EmitMode
 from datahub.emitter.serialization_helper import pre_json_transform
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
-    AssertionInfo,
-    AssertionResult,
-    AssertionResultType,
-    AssertionRunEvent,
-    AssertionRunStatus,
-    AssertionStdAggregation,
-    AssertionStdOperator,
-    AssertionStdParameter,
-    AssertionStdParameters,
-    AssertionStdParameterType,
-    AssertionType,
-    BatchSpec,
-    DatasetAssertionInfo,
-    DatasetAssertionScope,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    GenericAspectClass,
-    MetadataChangeProposalClass,
-    PartitionSpecClass,
-    PartitionTypeClass,
-)
+from datahub.metadata.com.linkedin.pegasus2avro.assertion import BatchSpec
+from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.urn import guess_entity_type
 
-# TODO: move this and version check used in tests to some common module
-try:
-    from great_expectations import __version__ as GX_VERSION  # type: ignore
-
-    has_name_positional_arg = packaging.version.parse(
-        GX_VERSION
-    ) >= packaging.version.Version("0.18.14")
-except Exception:
-    has_name_positional_arg = False
+# Re-export helpers historically imported from this module in tests/callers.
+from datahub_gx_plugin.common import (  # noqa: F401
+    DataHubStdAssertion,
+    DecimalEncoder,
+    build_assertion_info,
+    build_assertions_with_results,
+    coerce_emit_mode,
+    convert_to_string,
+    docs_link_from_legacy_payload,
+    emit_assertion_results,
+    make_dataset_urn_from_sqlalchemy_uri,
+    parse_int_or_default,
+    warn,
+)
 
 if TYPE_CHECKING:
     from great_expectations.data_context.types.resource_identifiers import (
@@ -96,8 +74,6 @@ if get_boolean_env_variable("DATAHUB_DEBUG", False):
     handler = logging.StreamHandler(stream=sys.stdout)
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
-
-GE_PLATFORM_NAME = "great-expectations"
 
 
 class DataHubValidationAction(ValidationAction):
@@ -143,16 +119,7 @@ class DataHubValidationAction(ValidationAction):
         self.convert_urns_to_lowercase = convert_urns_to_lowercase
         # Coerce here because GX passes action kwargs from checkpoint YAML as
         # plain strings; the emitter needs a real EmitMode enum downstream.
-        if isinstance(emit_mode, str):
-            try:
-                self.emit_mode = EmitMode(emit_mode.upper())
-            except ValueError:
-                valid = ", ".join(m.name for m in EmitMode)
-                raise ValueError(
-                    f"Invalid emit_mode '{emit_mode}'. Valid values are: {valid}"
-                ) from None
-        else:
-            self.emit_mode = emit_mode
+        self.emit_mode = coerce_emit_mode(emit_mode)
 
     def _run(
         self,
@@ -215,34 +182,7 @@ class DataHubValidationAction(ValidationAction):
             logger.info("Sending metadata to datahub ...")
             logger.info("Dataset URN - {urn}".format(urn=datasets[0]["dataset_urn"]))
 
-            graph = emitter.to_graph()
-
-            for assertion in assertions:
-                logger.info(
-                    "Assertion URN - {urn}".format(urn=assertion["assertionUrn"])
-                )
-
-                # Construct a MetadataChangeProposalWrapper object.
-                assertion_info_mcp = self._build_assertion_info_mcp(
-                    graph, assertion["assertionUrn"], assertion["assertionInfo"]
-                )
-                emitter.emit_mcp(assertion_info_mcp)
-
-                # Construct a MetadataChangeProposalWrapper object.
-                assertion_platform_mcp = MetadataChangeProposalWrapper(
-                    entityUrn=assertion["assertionUrn"],
-                    aspect=assertion["assertionPlatform"],
-                )
-                emitter.emit_mcp(assertion_platform_mcp)
-
-                for assertionResult in assertion["assertionResults"]:
-                    dataset_assertionResult_mcp = MetadataChangeProposalWrapper(
-                        entityUrn=assertionResult.assertionUrn,
-                        aspect=assertionResult,
-                    )
-
-                    # Emit Result! (timeseries aspect)
-                    emitter.emit_mcp(dataset_assertionResult_mcp)
+            emit_assertion_results(emitter, assertions)
             logger.info("Metadata sent to datahub.")
             result = "DataHub notification succeeded"
         except Exception as e:
@@ -255,75 +195,6 @@ class DataHubValidationAction(ValidationAction):
 
         return {"datahub_notification_result": result}
 
-    def _build_assertion_info_mcp(
-        self,
-        graph: DataHubGraph,
-        assertion_urn: str,
-        assertion_info: AssertionInfo,
-    ) -> Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]:
-        try:
-            existing_info = graph.get_aspect(assertion_urn, AssertionInfo)
-        except Exception:
-            logger.warning(
-                "Failed to check existing assertionInfo. Falling back to upsert.",
-                exc_info=True,
-            )
-            existing_info = None
-
-        if existing_info is None:
-            return MetadataChangeProposalWrapper(
-                entityUrn=assertion_urn,
-                aspect=assertion_info,
-            )
-
-        return self._build_assertion_info_patch(assertion_urn, assertion_info)
-
-    def _build_assertion_info_patch(
-        self,
-        assertion_urn: str,
-        assertion_info: AssertionInfo,
-    ) -> MetadataChangeProposalClass:
-        assertion_info_obj = assertion_info.to_obj()
-        patch_ops = []
-
-        if "type" in assertion_info_obj:
-            patch_ops.append(
-                {"op": "add", "path": "/type", "value": assertion_info_obj["type"]}
-            )
-        if "datasetAssertion" in assertion_info_obj:
-            patch_ops.append(
-                {
-                    "op": "add",
-                    "path": "/datasetAssertion",
-                    "value": assertion_info_obj["datasetAssertion"],
-                }
-            )
-        custom_properties = assertion_info_obj.get("customProperties") or {}
-        expectation_suite_name = custom_properties.get("expectation_suite_name")
-        if expectation_suite_name is not None:
-            patch_ops.append(
-                {
-                    "op": "add",
-                    "path": "/customProperties/expectation_suite_name",
-                    "value": expectation_suite_name,
-                }
-            )
-
-        aspect_payload = {
-            "patch": pre_json_transform(patch_ops),
-            "forceGenericPatch": True,
-        }
-        return MetadataChangeProposalClass(
-            entityUrn=assertion_urn,
-            entityType=guess_entity_type(assertion_urn),
-            changeType=ChangeTypeClass.PATCH,
-            aspectName="assertionInfo",
-            aspect=GenericAspectClass(
-                value=json.dumps(pre_json_transform(aspect_payload)).encode(),
-                contentType=JSON_PATCH_CONTENT_TYPE,
-            ),
-        )
-
     def get_assertions_with_results(
         self,
         validation_result_suite,
@@ -332,353 +203,19 @@ class DataHubValidationAction(ValidationAction):
         payload,
         datasets,
     ):
-        dataPlatformInstance = DataPlatformInstance(
-            platform=builder.make_data_platform_urn(GE_PLATFORM_NAME)
+        return build_assertions_with_results(
+            validation_result_suite,
+            expectation_suite_name,
+            run_id,
+            datasets,
+            docs_link=docs_link_from_legacy_payload(payload),
         )
-        docs_link = None
-        if payload:
-            # process the payload
-            for action_names in payload.keys():
-                if payload[action_names]["class"] == "UpdateDataDocsAction":
-                    data_docs_pages = payload[action_names]
-                    for docs_link_key, docs_link_val in data_docs_pages.items():
-                        if "file://" not in docs_link_val and docs_link_key != "class":
-                            docs_link = docs_link_val
-
-        assertions_with_results = []
-        for result in validation_result_suite.results:
-            expectation_config = result["expectation_config"]
-            expectation_type = expectation_config["expectation_type"]
-            success = bool(result["success"])
-            kwargs = {
-                k: v for k, v in expectation_config["kwargs"].items() if k != "batch_id"
-            }
-
-            result = result["result"]
-            assertion_datasets = [d["dataset_urn"] for d in datasets]
-            if len(datasets) == 1 and "column" in kwargs:
-                assertion_fields = [
-                    builder.make_schema_field_urn(
-                        datasets[0]["dataset_urn"], kwargs["column"]
-                    )
-                ]
-            else:
-                assertion_fields = None  # type:ignore
-
-            # Be careful what fields to consider for creating assertion urn.
-            # Any change in fields below would lead to a new assertion
-            # FIXME - Currently, when using evaluation parameters, new assertion is
-            # created when runtime resolved kwargs are different,
-            # possibly for each validation run
-            assertionUrn = builder.make_assertion_urn(
-                builder.datahub_guid(
-                    pre_json_transform(
-                        {
-                            "platform": GE_PLATFORM_NAME,
-                            "nativeType": expectation_type,
-                            "nativeParameters": kwargs,
-                            "dataset": assertion_datasets[0],
-                            "fields": assertion_fields,
-                        }
-                    )
-                )
-            )
-            logger.debug(
-                "GE expectation_suite_name - {name}, expectation_type - {type}, Assertion URN - {urn}".format(
-                    name=expectation_suite_name, type=expectation_type, urn=assertionUrn
-                )
-            )
-            assertionInfo: AssertionInfo = self.get_assertion_info(
-                expectation_type,
-                kwargs,
-                assertion_datasets[0],
-                assertion_fields,
-                expectation_suite_name,
-            )
-
-            # TODO: Understand why their run time is incorrect.
-            run_time = run_id.run_time.astimezone(timezone.utc)
-            evaluation_parameters = (
-                {
-                    k: convert_to_string(v)
-                    for k, v in validation_result_suite.evaluation_parameters.items()
-                    if k and v
-                }
-                if validation_result_suite.evaluation_parameters
-                else None
-            )
-
-            nativeResults = {
-                k: convert_to_string(v)
-                for k, v in result.items()
-                if (
-                    k
-                    in [
-                        "observed_value",
-                        "partial_unexpected_list",
-                        "partial_unexpected_counts",
-                        "details",
-                    ]
-                    and v
-                )
-            }
-
-            actualAggValue = (
-                result.get("observed_value")
-                if isinstance(result.get("observed_value"), (int, float))
-                else None
-            )
-
-            ds = datasets[0]
-            # https://docs.greatexpectations.io/docs/reference/expectations/result_format/
-            assertionResult = AssertionRunEvent(
-                timestampMillis=int(round(time.time() * 1000)),
-                assertionUrn=assertionUrn,
-                asserteeUrn=ds["dataset_urn"],
-                runId=run_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                result=AssertionResult(
-                    type=(
-                        AssertionResultType.SUCCESS
-                        if success
-                        else AssertionResultType.FAILURE
-                    ),
-                    rowCount=parse_int_or_default(result.get("element_count")),
-                    missingCount=parse_int_or_default(result.get("missing_count")),
-                    unexpectedCount=parse_int_or_default(
-                        result.get("unexpected_count")
-                    ),
-                    actualAggValue=actualAggValue,
-                    externalUrl=docs_link,
-                    nativeResults=nativeResults,
-                ),
-                batchSpec=ds["batchSpec"],
-                status=AssertionRunStatus.COMPLETE,
-                runtimeContext=evaluation_parameters,
-            )
-            if ds.get("partitionSpec") is not None:
-                assertionResult.partitionSpec = ds.get("partitionSpec")
-            assertionResults = [assertionResult]
-            assertions_with_results.append(
-                {
-                    "assertionUrn": assertionUrn,
-                    "assertionInfo": assertionInfo,
-                    "assertionPlatform": dataPlatformInstance,
-                    "assertionResults": assertionResults,
-                }
-            )
-        return assertions_with_results
 
     def get_assertion_info(
         self, expectation_type, kwargs, dataset, fields, expectation_suite_name
     ):
-        # TODO - can we find exact type of min and max value
-        def get_min_max(kwargs, type=AssertionStdParameterType.UNKNOWN):
-            return AssertionStdParameters(
-                minValue=AssertionStdParameter(
-                    value=convert_to_string(kwargs.get("min_value")),
-                    type=type,
-                ),
-                maxValue=AssertionStdParameter(
-                    value=convert_to_string(kwargs.get("max_value")),
-                    type=type,
-                ),
-            )
-
-        known_expectations: Dict[str, DataHubStdAssertion] = {
-            # column aggregate expectations
-            "expect_column_min_to_be_between": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_COLUMN,
-                operator=AssertionStdOperator.BETWEEN,
-                aggregation=AssertionStdAggregation.MIN,
-                parameters=get_min_max(kwargs),
-            ),
-            "expect_column_max_to_be_between": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_COLUMN,
-                operator=AssertionStdOperator.BETWEEN,
-                aggregation=AssertionStdAggregation.MAX,
-                parameters=get_min_max(kwargs),
-            ),
-            "expect_column_median_to_be_between": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_COLUMN,
-                operator=AssertionStdOperator.BETWEEN,
-                aggregation=AssertionStdAggregation.MEDIAN,
-                parameters=get_min_max(kwargs),
-            ),
-            "expect_column_stdev_to_be_between": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_COLUMN,
-                operator=AssertionStdOperator.BETWEEN,
-                aggregation=AssertionStdAggregation.STDDEV,
-                parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
-            ),
-            "expect_column_mean_to_be_between": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_COLUMN,
-                operator=AssertionStdOperator.BETWEEN,
-                aggregation=AssertionStdAggregation.MEAN,
-                parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
-            ),
-            "expect_column_unique_value_count_to_be_between": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_COLUMN,
-                operator=AssertionStdOperator.BETWEEN,
-                aggregation=AssertionStdAggregation.UNIQUE_COUNT,
-                parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
-            ),
-            "expect_column_proportion_of_unique_values_to_be_between": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_COLUMN,
-                operator=AssertionStdOperator.BETWEEN,
-                aggregation=AssertionStdAggregation.UNIQUE_PROPOTION,
-                parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
-            ),
-            "expect_column_sum_to_be_between": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_COLUMN,
-                operator=AssertionStdOperator.BETWEEN,
-                aggregation=AssertionStdAggregation.SUM,
-                parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
-            ),
-            "expect_column_quantile_values_to_be_between": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_COLUMN,
-                operator=AssertionStdOperator.BETWEEN,
-                aggregation=AssertionStdAggregation._NATIVE_,
-            ),
-            # column map expectations
-            "expect_column_values_to_not_be_null": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_COLUMN,
-                operator=AssertionStdOperator.NOT_NULL,
-                aggregation=AssertionStdAggregation.IDENTITY,
-            ),
-            "expect_column_values_to_be_in_set": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_COLUMN,
-                operator=AssertionStdOperator.IN,
-                aggregation=AssertionStdAggregation.IDENTITY,
-                parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(
-                        value=convert_to_string(kwargs.get("value_set")),
-                        type=AssertionStdParameterType.SET,
-                    )
-                ),
-            ),
-            "expect_column_values_to_be_between": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_COLUMN,
-                operator=AssertionStdOperator.BETWEEN,
-                aggregation=AssertionStdAggregation.IDENTITY,
-                parameters=get_min_max(kwargs),
-            ),
-            "expect_column_values_to_match_regex": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_COLUMN,
-                operator=AssertionStdOperator.REGEX_MATCH,
-                aggregation=AssertionStdAggregation.IDENTITY,
-                parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(
-                        value=kwargs.get("regex"),
-                        type=AssertionStdParameterType.STRING,
-                    )
-                ),
-            ),
-            "expect_column_values_to_match_regex_list": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_COLUMN,
-                operator=AssertionStdOperator.REGEX_MATCH,
-                aggregation=AssertionStdAggregation.IDENTITY,
-                parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(
-                        value=convert_to_string(kwargs.get("regex_list")),
-                        type=AssertionStdParameterType.LIST,
-                    )
-                ),
-            ),
-            "expect_table_columns_to_match_ordered_list": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_SCHEMA,
-                operator=AssertionStdOperator.EQUAL_TO,
-                aggregation=AssertionStdAggregation.COLUMNS,
-                parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(
-                        value=convert_to_string(kwargs.get("column_list")),
-                        type=AssertionStdParameterType.LIST,
-                    )
-                ),
-            ),
-            "expect_table_columns_to_match_set": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_SCHEMA,
-                operator=AssertionStdOperator.EQUAL_TO,
-                aggregation=AssertionStdAggregation.COLUMNS,
-                parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(
-                        value=convert_to_string(kwargs.get("column_set")),
-                        type=AssertionStdParameterType.SET,
-                    )
-                ),
-            ),
-            "expect_table_column_count_to_be_between": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_SCHEMA,
-                operator=AssertionStdOperator.BETWEEN,
-                aggregation=AssertionStdAggregation.COLUMN_COUNT,
-                parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
-            ),
-            "expect_table_column_count_to_equal": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_SCHEMA,
-                operator=AssertionStdOperator.EQUAL_TO,
-                aggregation=AssertionStdAggregation.COLUMN_COUNT,
-                parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(
-                        value=convert_to_string(kwargs.get("value")),
-                        type=AssertionStdParameterType.NUMBER,
-                    )
-                ),
-            ),
-            "expect_column_to_exist": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_SCHEMA,
-                operator=AssertionStdOperator._NATIVE_,
-                aggregation=AssertionStdAggregation._NATIVE_,
-            ),
-            "expect_table_row_count_to_equal": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_ROWS,
-                operator=AssertionStdOperator.EQUAL_TO,
-                aggregation=AssertionStdAggregation.ROW_COUNT,
-                parameters=AssertionStdParameters(
-                    value=AssertionStdParameter(
-                        value=convert_to_string(kwargs.get("value")),
-                        type=AssertionStdParameterType.NUMBER,
-                    )
-                ),
-            ),
-            "expect_table_row_count_to_be_between": DataHubStdAssertion(
-                scope=DatasetAssertionScope.DATASET_ROWS,
-                operator=AssertionStdOperator.BETWEEN,
-                aggregation=AssertionStdAggregation.ROW_COUNT,
-                parameters=get_min_max(kwargs, AssertionStdParameterType.NUMBER),
-            ),
-        }
-
-        datasetAssertionInfo = DatasetAssertionInfo(
-            dataset=dataset,
-            fields=fields,
-            operator=AssertionStdOperator._NATIVE_,
-            aggregation=AssertionStdAggregation._NATIVE_,
-            nativeType=expectation_type,
-            nativeParameters={k: convert_to_string(v) for k, v in kwargs.items()},
-            scope=DatasetAssertionScope.DATASET_ROWS,
-        )
-
-        if expectation_type in known_expectations.keys():
-            assertion = known_expectations[expectation_type]
-            datasetAssertionInfo.scope = assertion.scope
-            datasetAssertionInfo.aggregation = assertion.aggregation
-            datasetAssertionInfo.operator = assertion.operator
-            datasetAssertionInfo.parameters = assertion.parameters
-
-        # Heuristically mapping other expectations
-        else:
-            if "column" in kwargs and expectation_type.startswith(
-                "expect_column_value"
-            ):
-                datasetAssertionInfo.scope = DatasetAssertionScope.DATASET_COLUMN
-                datasetAssertionInfo.aggregation = AssertionStdAggregation.IDENTITY
-            elif "column" in kwargs:
-                datasetAssertionInfo.scope = DatasetAssertionScope.DATASET_COLUMN
-                datasetAssertionInfo.aggregation = AssertionStdAggregation._NATIVE_
-
-        return AssertionInfo(
-            type=AssertionType.DATASET,
-            datasetAssertion=datasetAssertionInfo,
-            customProperties={"expectation_suite_name": expectation_suite_name},
+        return build_assertion_info(
+            expectation_type, kwargs, dataset, fields, expectation_suite_name
         )
 
     def get_dataset_partitions(self, batch_identifier, data_asset):
@@ -931,132 +468,3 @@ class DataHubValidationAction(ValidationAction):
                         Data platform will be {datasource_name} by default "
             )
             return datasource_name
-
-
-def parse_int_or_default(value, default_value=None):
-    if value is None:
-        return default_value
-    else:
-        return int(value)
-
-
-def make_dataset_urn_from_sqlalchemy_uri(
-    sqlalchemy_uri,
-    schema_name,
-    table_name,
-    env,
-    platform_instance=None,
-    exclude_dbname=None,
-    platform_alias=None,
-    convert_urns_to_lowercase=False,
-):
-    data_platform = get_platform_from_sqlalchemy_uri(str(sqlalchemy_uri))
-    url_instance = make_url(sqlalchemy_uri)
-
-    if schema_name is None and "." in table_name:
-        schema_name, table_name = table_name.split(".")[-2:]
-
-    if data_platform in ["redshift", "postgres"]:
-        schema_name = schema_name or "public"
-        if url_instance.database is None:
-            warn(
-                f"DataHubValidationAction failed to locate database name for {data_platform}."
-            )
-            return None
-        schema_name = (
-            schema_name if exclude_dbname else f"{url_instance.database}.{schema_name}"
-        )
-    elif data_platform == "mssql":
-        schema_name = schema_name or "dbo"
-        if url_instance.database is None:
-            warn(
-                f"DataHubValidationAction failed to locate database name for {data_platform}."
-            )
-            return None
-        schema_name = (
-            schema_name if exclude_dbname else f"{url_instance.database}.{schema_name}"
-        )
-    elif data_platform in ["trino", "snowflake"]:
-        if schema_name is None or url_instance.database is None:
-            warn(
-                "DataHubValidationAction failed to locate schema name and/or database name for {data_platform}.".format(
-                    data_platform=data_platform
-                )
-            )
-            return None
-        # If data platform is snowflake, we artificially lowercase the Database name.
-        # This is because DataHub also does this during ingestion.
-        # Ref: https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/snowflake/snowflake_utils.py#L155
-        database_name = (
-            url_instance.database.lower()
-            if data_platform == "snowflake"
-            else url_instance.database
-        )
-        if database_name.endswith(f"/{schema_name}"):
-            database_name = database_name[: -len(f"/{schema_name}")]
-        schema_name = (
-            schema_name if exclude_dbname else f"{database_name}.{schema_name}"
-        )
-
-    elif data_platform == "bigquery":
-        if url_instance.host is None or url_instance.database is None:
-            warn(
-                "DataHubValidationAction failed to locate host and/or database name for {data_platform}. ".format(
-                    data_platform=data_platform
-                )
-            )
-            return None
-        schema_name = f"{url_instance.host}.{url_instance.database}"
-
-    schema_name = schema_name or url_instance.database
-    if schema_name is None:
-        warn(
-            f"DataHubValidationAction failed to locate schema name for {data_platform}."
-        )
-        return None
-
-    dataset_name = f"{schema_name}.{table_name}"
-
-    if convert_urns_to_lowercase:
-        dataset_name = dataset_name.lower()
-
-    dataset_urn = builder.make_dataset_urn_with_platform_instance(
-        platform=data_platform if platform_alias is None else platform_alias,
-        name=dataset_name,
-        platform_instance=platform_instance,
-        env=env,
-    )
-
-    return dataset_urn
-
-
-@dataclass
-class DataHubStdAssertion:
-    scope: Union[str, DatasetAssertionScope]
-    operator: Union[str, AssertionStdOperator]
-    aggregation: Union[str, AssertionStdAggregation]
-    parameters: Optional[AssertionStdParameters] = None
-
-
-class DecimalEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, Decimal):
-            return str(o)
-        return super().default(o)
-
-
-def convert_to_string(var: Any) -> str:
-    try:
-        tmp = (
-            str(var)
-            if isinstance(var, (str, int, float))
-            else json.dumps(var, cls=DecimalEncoder)
-        )
-    except TypeError as e:
-        logger.debug(e)
-        tmp = str(var)
-    return tmp
-
-
-def warn(msg):
-    logger.warning(msg)

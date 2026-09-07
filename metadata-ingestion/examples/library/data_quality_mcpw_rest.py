@@ -10,13 +10,15 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
     AssertionResultType,
     AssertionRunEvent,
     AssertionRunStatus,
+    AssertionSource,
+    AssertionSourceType,
     AssertionStdAggregation,
     AssertionStdOperator,
     AssertionStdParameter,
     AssertionStdParameters,
     AssertionStdParameterType,
     AssertionType,
-    DatasetAssertionInfo,
+    CustomAssertionInfo,
     DatasetAssertionScope,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
@@ -61,16 +63,19 @@ dataset_mcp = MetadataChangeProposalWrapper(
 # Emit Dataset entity properties aspect! (Skip if dataset is already present)
 emitter.emit_mcp(dataset_mcp)
 
-# Construct an assertion object.
+field = fldUrn("bazTable", "col1")
+# Construct a CUSTOM assertion with structured display fields (external self-reporting).
 assertion_maxVal = AssertionInfo(
-    type=AssertionType.DATASET,
-    datasetAssertion=DatasetAssertionInfo(
+    type=AssertionType.CUSTOM,
+    customAssertion=CustomAssertionInfo(
+        type="greatExpectations",
+        entity=datasetUrn("bazTable"),
         scope=DatasetAssertionScope.DATASET_COLUMN,
         operator=AssertionStdOperator.BETWEEN,
         nativeType="expect_column_max_to_be_between",
         aggregation=AssertionStdAggregation.MAX,
-        fields=[fldUrn("bazTable", "col1")],
-        dataset=datasetUrn("bazTable"),
+        field=field,
+        fields=[field],
         nativeParameters={"max_value": "99", "min_value": "89"},
         parameters=AssertionStdParameters(
             minValue=AssertionStdParameter(
@@ -81,6 +86,7 @@ assertion_maxVal = AssertionInfo(
             ),
         ),
     ),
+    source=AssertionSource(type=AssertionSourceType.EXTERNAL),
     customProperties={"suite_name": "demo_suite"},
 )
 
@@ -98,67 +104,28 @@ assertion_dataPlatformInstance = DataPlatformInstance(
     platform=builder.make_data_platform_urn("great-expectations")
 )
 
-# Construct a MetadataChangeProposalWrapper object for assertion platform
-assertion_dataPlatformInstance_mcp = MetadataChangeProposalWrapper(
+# Construct a MetadataChangeProposalWrapper object for assertion dataPlatformInstance
+assertionDataPlatform_mcp = MetadataChangeProposalWrapper(
     entityUrn=assertionUrn(assertion_maxVal),
     aspect=assertion_dataPlatformInstance,
 )
-# Emit Assertion entity platform aspect!
-emitter.emit(assertion_dataPlatformInstance_mcp)
 
+# Emit Assertion entity dataPlatformInstance aspect!
+emitter.emit_mcp(assertionDataPlatform_mcp)
 
-# Construct batch assertion result object for partition 1 batch
-assertionResult_maxVal_batch_partition1 = AssertionRunEvent(
+# Construct an assertionResult object.
+assertionResult_maxVal = AssertionRunEvent(
     timestampMillis=int(time.time() * 1000),
     assertionUrn=assertionUrn(assertion_maxVal),
     asserteeUrn=datasetUrn("bazTable"),
-    partitionSpec=PartitionSpec(partition=json.dumps([{"country": "IN"}])),
-    runId="uuid1",
+    runId=str(int(time.time() * 1000)),
     status=AssertionRunStatus.COMPLETE,
+    partitionSpec=PartitionSpec(partition="FULL_TABLE_SNAPSHOT"),
     result=AssertionResult(
         type=AssertionResultType.SUCCESS,
-        externalUrl="http://example.com/uuid1",
         actualAggValue=90,
+        nativeResults={"result": json.dumps({"element_count": 90})},
     ),
 )
 
-emitAssertionResult(
-    assertionResult_maxVal_batch_partition1,
-)
-
-# Construct batch assertion result object for partition 2 batch
-assertionResult_maxVal_batch_partition2 = AssertionRunEvent(
-    timestampMillis=int(time.time() * 1000),
-    assertionUrn=assertionUrn(assertion_maxVal),
-    asserteeUrn=datasetUrn("bazTable"),
-    partitionSpec=PartitionSpec(partition=json.dumps([{"country": "US"}])),
-    runId="uuid1",
-    status=AssertionRunStatus.COMPLETE,
-    result=AssertionResult(
-        type=AssertionResultType.FAILURE,
-        externalUrl="http://example.com/uuid1",
-        actualAggValue=101,
-    ),
-)
-
-emitAssertionResult(
-    assertionResult_maxVal_batch_partition2,
-)
-
-# Construct batch assertion result object for full table batch.
-assertionResult_maxVal_batch_fulltable = AssertionRunEvent(
-    timestampMillis=int(time.time() * 1000),
-    assertionUrn=assertionUrn(assertion_maxVal),
-    asserteeUrn=datasetUrn("bazTable"),
-    runId="uuid1",
-    status=AssertionRunStatus.COMPLETE,
-    result=AssertionResult(
-        type=AssertionResultType.SUCCESS,
-        externalUrl="http://example.com/uuid1",
-        actualAggValue=93,
-    ),
-)
-
-emitAssertionResult(
-    assertionResult_maxVal_batch_fulltable,
-)
+emitAssertionResult(assertionResult_maxVal)

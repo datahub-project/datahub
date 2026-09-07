@@ -17,8 +17,16 @@ from datahub.metadata.urns import (
     DomainUrn,
     GlossaryNodeUrn,
     GlossaryTermUrn,
+    MetricUrn,
     SchemaFieldUrn,
+    SemanticModelUrn,
     TagUrn,
+)
+from datahub.sdk._semantic_shared import (
+    AiContextInput,
+    DialectExpressionInput,
+    MetricExpressionInputType,
+    require_metrics_support,
 )
 from datahub.sdk.chart import Chart
 from datahub.sdk.container import Container
@@ -30,9 +38,16 @@ from datahub.sdk.document import Document
 from datahub.sdk.glossary_node import GlossaryNode
 from datahub.sdk.glossary_term import GlossaryTerm
 from datahub.sdk.main_client import DataHubClient
+from datahub.sdk.metric import Metric
 from datahub.sdk.mlmodel import MLModel
 from datahub.sdk.mlmodelgroup import MLModelGroup
 from datahub.sdk.search_filters import Filter, FilterDsl
+from datahub.sdk.semantic_model import (
+    SemanticFieldInput,
+    SemanticModel,
+    SemanticModelDataset,
+    SemanticModelRelationshipInput,
+)
 from datahub.sdk.tag import Tag
 
 # We want to print out the warning if people do `from datahub.sdk import X`.

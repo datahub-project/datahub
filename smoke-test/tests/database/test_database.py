@@ -4,9 +4,12 @@ import pytest
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from tests.utilities.concurrent_openapi import run_tests
+from tests.utilities.domains import Domain
 from tests.utils import delete_urns, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 generated_urns = [make_dataset_urn("test", f"database_test_{i}") for i in range(0, 100)]

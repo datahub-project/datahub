@@ -50,154 +50,165 @@ type Metric implements EntityWithRelationships & Entity {
   """
   The primary key of the Metric.
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type.
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The timestamp of the last time this Metric was ingested.
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   The platform that this Metric originates in.
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["metricKey"])
 
   """
   The path component of the three-part key (platform, path, id).
   """
-  path: String!
+  path: String! @aspectMapping(aspects: ["metricKey"])
 
   """
   The id component of the three-part key (platform, path, id).
   """
-  id: String!
+  id: String! @aspectMapping(aspects: ["metricKey"])
 
   """
   Core information about the Metric.
   """
-  info: MetricInfo
+  info: MetricInfo @aspectMapping(aspects: ["metricInfo"])
 
   """
   Relationships to other Metrics.
   """
   metricRelationships: MetricRelationships
+    @aspectMapping(aspects: ["metricRelationships"])
 
   """
   Upstream datasets and schema fields consumed by this Metric.
   """
-  metricUpstreams: MetricUpstreams
+  metricUpstreams: MetricUpstreams @aspectMapping(aspects: ["metricUpstreams"])
 
   """
-  The SemanticModel that defines this Metric.
+  The SemanticModel that owns this Metric, from `metricInfo.semanticModel`.
+  Null when the metric is not a member of any SemanticModel.
   """
-  semanticModel: SemanticModel
+  semanticModel: SemanticModel @aspectMapping(aspects: ["metricInfo"])
 
   """
   The direct parent metric in the sidebar hierarchy. Null for root metrics.
   For deeper ancestor chains, use nested selection: parentMetric { parentMetric { ... } }.
   """
-  parentMetric: Metric
+  parentMetric: Metric @aspectMapping(aspects: ["metricRelationships"])
 
   """
   All ancestor metrics from immediate parent up to the root, ordered nearest-first.
   Used by the sidebar to auto-expand the tree to the currently-viewed metric.
   """
-  parentMetrics: [Metric!]
+  parentMetrics: [Metric!] @noAspects
 
   """
   Child metrics in the metric hierarchy.
   """
-  childMetrics(input: ScrollAcrossEntitiesInput!): ScrollResults
+  childMetrics(input: ScrollAcrossEntitiesInput!): ScrollResults @noAspects
 
   """
   Ownership metadata of the Metric.
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   The browse path V2 corresponding to this entity.
   """
-  browsePathV2: BrowsePathV2
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
 
   """
   Tags applied to the Metric.
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   Glossary terms associated with the Metric.
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the Metric.
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   References to internal resources related to the Metric.
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Structured properties about this asset.
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   Status of this Metric (soft-deleted, etc.).
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   Deprecation metadata for this Metric.
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   Data Platform Instance associated with the Metric.
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Sub-types associated with this entity.
   """
-  subTypes: SubTypes
+  subTypes: SubTypes @aspectMapping(aspects: ["subTypes"])
 
   """
   Documentation aspect containing editable description for this Metric.
   """
-  documentation: Documentation
+  documentation: Documentation @aspectMapping(aspects: ["documentation"])
+
+  """
+  AI-specific context for improved disambiguation, retrieval, and generation.
+  """
+  aiContext: AiContext @aspectMapping(aspects: ["aiContext"])
 
   """
   Applications associated with this Metric.
   """
-  applications: EntityRelationshipsResult
+  applications: EntityRelationshipsResult @noAspects
 
   """
   Privileges given to a user relevant to this entity.
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 
   """
   Whether or not this entity exists on DataHub.
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Edges extending from this entity.
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph.
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 }
 
 """
@@ -207,133 +218,151 @@ type SemanticModel implements EntityWithRelationships & Entity {
   """
   The primary key of the SemanticModel.
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type.
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The timestamp of the last time this SemanticModel was ingested.
   """
-  lastIngested: Long
+  lastIngested: Long @fetchAllAspects
 
   """
   The platform that this SemanticModel originates in.
   """
-  platform: DataPlatform!
+  platform: DataPlatform! @aspectMapping(aspects: ["semanticModelKey"])
 
   """
   The path component of the three-part key (platform, path, id).
   """
-  path: String!
+  path: String! @aspectMapping(aspects: ["semanticModelKey"])
 
   """
   The id component of the three-part key (platform, path, id).
   """
-  id: String!
+  id: String! @aspectMapping(aspects: ["semanticModelKey"])
 
   """
   Core information about the SemanticModel.
   """
-  info: SemanticModelInfo
+  info: SemanticModelInfo @aspectMapping(aspects: ["semanticModelInfo"])
 
   """
   Column-level lineage from the upstreamLineage aspect.
   Table-level lineage is surfaced via the standard relationships field.
   """
   fineGrainedLineages: [FineGrainedLineage!]
+    @aspectMapping(aspects: ["upstreamLineage"])
 
   """
-  Metrics defined within this SemanticModel (field-resolver in CAT-2566).
+  Metrics defined within this SemanticModel (search-backed, paginated).
+  Filters to root metrics (no parent) belonging to this model.
   """
-  metrics(input: ScrollAcrossEntitiesInput!): ScrollResults
+  metrics(input: ScrollAcrossEntitiesInput!): ScrollResults @noAspects
+
+  """
+  Contained entities (logical datasets and metrics) of this SemanticModel.
+  Search-backed filter on member-side `semanticModel` / `hasSemanticModel`.
+  Used by the lineage explorer.
+  """
+  entities(input: SearchAcrossEntitiesInput): SearchResults @noAspects
 
   """
   Ownership metadata of the SemanticModel.
   """
-  ownership: Ownership
+  ownership: Ownership @aspectMapping(aspects: ["ownership"])
 
   """
   The browse path V2 corresponding to this entity.
   """
-  browsePathV2: BrowsePathV2
+  browsePathV2: BrowsePathV2 @aspectMapping(aspects: ["browsePathsV2"])
 
   """
   Tags applied to the SemanticModel.
   """
-  tags: GlobalTags
+  tags: GlobalTags @aspectMapping(aspects: ["globalTags"])
 
   """
   Glossary terms associated with the SemanticModel.
   """
-  glossaryTerms: GlossaryTerms
+  glossaryTerms: GlossaryTerms @aspectMapping(aspects: ["glossaryTerms"])
 
   """
   The Domain associated with the SemanticModel.
   """
-  domain: DomainAssociation
+  domain: DomainAssociation @aspectMapping(aspects: ["domains"])
 
   """
   References to internal resources related to the SemanticModel.
   """
   institutionalMemory: InstitutionalMemory
+    @aspectMapping(aspects: ["institutionalMemory"])
 
   """
   Structured properties about this asset.
   """
   structuredProperties: StructuredProperties
+    @aspectMapping(aspects: ["structuredProperties"])
 
   """
   Status of this SemanticModel (soft-deleted, etc.).
   """
-  status: Status
+  status: Status @aspectMapping(aspects: ["status"])
 
   """
   Deprecation metadata for this SemanticModel.
   """
-  deprecation: Deprecation
+  deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
   Data Platform Instance associated with the SemanticModel.
   """
   dataPlatformInstance: DataPlatformInstance
+    @aspectMapping(aspects: ["dataPlatformInstance"])
 
   """
   Sub-types associated with this entity.
   """
-  subTypes: SubTypes
+  subTypes: SubTypes @aspectMapping(aspects: ["subTypes"])
 
   """
   Documentation aspect containing editable description for this SemanticModel.
   """
-  documentation: Documentation
+  documentation: Documentation @aspectMapping(aspects: ["documentation"])
+
+  """
+  AI-specific context for improved disambiguation, retrieval, and generation.
+  """
+  aiContext: AiContext @aspectMapping(aspects: ["aiContext"])
 
   """
   Applications associated with this SemanticModel.
   """
-  applications: EntityRelationshipsResult
+  applications: EntityRelationshipsResult @noAspects
 
   """
   Privileges given to a user relevant to this entity.
   """
-  privileges: EntityPrivileges
+  privileges: EntityPrivileges @noAspects
 
   """
   Whether or not this entity exists on DataHub.
   """
-  exists: Boolean
+  exists: Boolean @noAspects
 
   """
   Edges extending from this entity.
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 
   """
   Edges extending from this entity grouped by direction in the lineage graph.
   """
-  lineage(input: LineageInput!): EntityLineageResult
+  lineage(input: LineageInput!): EntityLineageResult @noAspects
 }
 
 """
@@ -345,7 +374,6 @@ type MetricInfo {
   created: ResolvedAuditStamp
   lastModified: ResolvedAuditStamp
   expression: MetricExpression
-  aiContext: AiContext
   """
   URL of the metric in its native platform (e.g., link to the metric in dbt Cloud or Cube).
   """
@@ -394,8 +422,17 @@ type SemanticModelInfo {
   The native definition of the semantic model (e.g., YAML config, SQL DDL).
   """
   nativeDefinition: String
-  aiContext: AiContext
-  datasets: [ModelDataset!]!
+  """
+  The logical datasets that this semantic model exposes. Each is a Dataset entity in its own
+  right (carrying the `Semantic Model Dataset` subtype and a `semanticModelProperties` aspect), rather
+  than an embedded record — resolve `... on Dataset` for schema/lineage/governance.
+
+  Deprecated: returns empty. Membership lives on member-side `semanticModelProperties.semanticModel`.
+  """
+  datasets: [Dataset!]!
+    @deprecated(
+      reason: "Field returns empty; membership lives on member-side semanticModelProperties.semanticModel / metricInfo.semanticModel."
+    )
   relationships: [SemanticModelRelationship!]
   """
   URL of the semantic model in its native platform (e.g., link to the Snowflake semantic view).
@@ -404,35 +441,36 @@ type SemanticModelInfo {
 }
 
 """
-A logical dataset referenced by a SemanticModel. `source` may be a Dataset
-(the common case) or a Query (inline SQL with no backing table).
+Properties specific to a Dataset that represents a logical dataset exposed by a
+SemanticModel, i.e. a Dataset carrying the `Semantic Model Dataset` subtype.
 """
-type ModelDataset {
-  name: String!
+type SemanticModelProperties {
   """
-  The backing entity — a Dataset or a Query. Resolved via EntityTypeResolver, which
-  hydrates the underlying entity type's DataLoader on demand.
+  Logical alias used to reference this dataset within its owning semantic model.
   """
-  source: Entity!
-  fields: [SemanticField!]
+  alias: String!
+
+  """
+  The SemanticModel that this Dataset is a logical dataset of (member-side membership).
+  """
+  semanticModel: SemanticModel
 }
 
 """
-A field (dimension, measure, filter, or other) exposed by a semantic model dataset.
+Semantic metadata for a SchemaFieldEntity that is exposed by a SemanticModel dataset.
 The `type` discriminator is required and determines whether `dimension` is populated.
 Identity and governance surface (fieldPath, description, tags, glossaryTerms, etc.)
-live on the inline `schemaField`.
+live on the SchemaFieldEntity itself.
 """
-type SemanticField {
-  schemaField: SchemaField!
+type SemanticFieldAnnotation {
   type: SemanticFieldType!
   expression: MetricExpression!
+  aggregationFunction: String
   dimension: Dimension
-  aiContext: AiContext
 }
 
 """
-Discriminator for a SemanticField indicating its role in the semantic model.
+Discriminator for a SemanticFieldAnnotation indicating its role in the semantic model.
 """
 enum SemanticFieldType {
   DIMENSION
@@ -442,7 +480,7 @@ enum SemanticFieldType {
 }
 
 """
-Additional metadata for a dimension-type SemanticField.
+Additional metadata for a dimension-type SemanticFieldAnnotation.
 """
 type Dimension {
   isTime: Boolean!
@@ -465,7 +503,7 @@ type SemanticModelRelationship {
 }
 
 """
-A SQL or dialect-specific expression backing a Metric or SemanticField.
+A SQL or dialect-specific expression backing a Metric or SemanticFieldAnnotation.
 """
 type MetricExpression {
   dialects: [DialectExpression!]!
@@ -493,12 +531,35 @@ enum Dialect {
 }
 
 """
-AI/LLM context attached to a Metric, SemanticField, or SemanticModelRelationship
-to improve natural-language understanding and query generation.
+AI/LLM context attached to a Metric, SemanticModel, SchemaFieldEntity, or
+SemanticModelRelationship to improve natural-language understanding and query generation.
 """
 type AiContext {
   synonyms: [String!]
   instructions: String
   examples: [String!]
   customInstructions: String
+}
+
+extend type Dataset {
+  """
+  Present when this Dataset carries the `Semantic Model Dataset` subtype: identifies the owning
+  SemanticModel and the alias by which it is referenced within that model.
+  """
+  semanticModelProperties: SemanticModelProperties
+    @aspectMapping(aspects: ["semanticModelProperties"])
+}
+
+extend type SchemaFieldEntity {
+  """
+  Present when this field belongs to a Dataset exposed by a SemanticModel: classifies the
+  field's role (dimension/measure/filter) and carries its computing expression.
+  """
+  semanticFieldAnnotation: SemanticFieldAnnotation
+    @aspectMapping(aspects: ["semanticFieldAnnotation"])
+
+  """
+  AI-specific context for improved disambiguation, retrieval, and generation.
+  """
+  aiContext: AiContext @aspectMapping(aspects: ["aiContext"])
 }

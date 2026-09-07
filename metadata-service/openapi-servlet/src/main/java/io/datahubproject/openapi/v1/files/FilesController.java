@@ -4,7 +4,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -13,8 +12,10 @@ import com.linkedin.file.DataHubFileInfo;
 import com.linkedin.file.FileUploadScenario;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.aws.S3Util;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageReference;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
@@ -43,8 +44,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class FilesController {
 
   @Autowired(required = false)
-  @Qualifier("s3Util")
-  private S3Util s3Util;
+  @Qualifier("objectStorageClient")
+  private ObjectStorageClient objectStorageClient;
 
   @Autowired
   @Qualifier("configurationProvider")
@@ -88,7 +89,7 @@ public class FilesController {
 
     // Validate and set expiration time
     final int defaultExpirationSeconds =
-        configProvider.getDatahub().getS3().getPresignedDownloadUrlExpirationSeconds();
+        configProvider.getDatahub().getObjectStorage().getPresignedDownloadUrlExpirationSeconds();
     int expiration = expirationSeconds != null ? expirationSeconds : defaultExpirationSeconds;
     if (expiration <= 0 || expiration > MAX_EXPIRATION_SECONDS) {
       log.warn(
@@ -99,21 +100,22 @@ public class FilesController {
     }
 
     try {
-      if (s3Util == null) {
-        log.error("S3Util bean is not available; S3 is not configured");
+      if (objectStorageClient == null
+          || !objectStorageClient.isConfigured()
+          || !objectStorageClient.supportsPresignedUrls()) {
+        log.error("Object storage client is not available for presigned downloads");
         return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
       }
-      String bucket = configProvider.getDatahub().getS3().getBucketName();
-      if (bucket == null) {
-        log.error("S3 bucket name not configured");
+      String bucket = objectStorageClient.storageBucket();
+      if (bucket == null || bucket.isEmpty()) {
+        log.error("Object storage bucket not configured");
         return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
       }
 
-      // Prefix file ID with bucket name
       String key = String.format("%s/%s", folder, fileId);
 
-      // Generate presigned URL using the existing S3Util
-      String presignedUrl = s3Util.generatePresignedDownloadUrl(bucket, key, expiration);
+      ObjectStorageReference ref = new ObjectStorageReference(bucket, key);
+      String presignedUrl = objectStorageClient.presignedDownloadUrl(ref, expiration);
       log.info(
           "Generated presigned URL for folder: {}, file ID: {}, expires in: {}s",
           folder,
@@ -201,7 +203,7 @@ public class FilesController {
       case ASSET_DOCUMENTATION_LINKS:
         validateAssetReadPermissions(fileInfo, opContext, authentication);
         break;
-        // Add additional scenarios here as needed
+      // Add additional scenarios here as needed
       default:
         log.warn("Unknown file upload scenario: {}", scenario);
         throw new UnauthorizedException(
@@ -221,7 +223,8 @@ public class FilesController {
   private void validateAssetReadPermissions(
       DataHubFileInfo fileInfo, OperationContext opContext, Authentication authentication) {
     Urn relatedUrn = fileInfo.getReferencedByAsset();
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, Collections.singleton(relatedUrn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
+        opContext, READ, Collections.singleton(relatedUrn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr()
               + " is unauthorized to "

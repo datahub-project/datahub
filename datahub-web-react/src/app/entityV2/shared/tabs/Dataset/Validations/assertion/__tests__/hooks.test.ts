@@ -4,10 +4,14 @@ import { useHistory, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+    copyTextToClipboard,
     useAssertionURNCopyLink,
+    useDeleteAssertionMutationWithCache,
     useOpenAssertionDetailModal,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+
+import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
 
 vi.mock('antd', () => ({
     message: {
@@ -25,6 +29,87 @@ vi.mock('@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils', () => ({
     getQueryParams: vi.fn(),
 }));
 
+vi.mock('@graphql/assertion.generated', () => ({
+    useDeleteAssertionMutation: vi.fn(),
+}));
+
+describe('useDeleteAssertionMutationWithCache', () => {
+    it('evicts a successfully deleted assertion from Apollo cache', () => {
+        const mutation = vi.fn();
+        let update;
+        (useDeleteAssertionMutation as unknown as ReturnType<typeof vi.fn>).mockImplementation((options) => {
+            update = options.update;
+            return [mutation, { loading: false }];
+        });
+        const baseUpdate = vi.fn();
+        const cache = {
+            identify: vi.fn().mockReturnValue('Assertion:urn:li:assertion:test'),
+            evict: vi.fn(),
+            gc: vi.fn(),
+        };
+
+        const { result } = renderHook(() =>
+            useDeleteAssertionMutationWithCache({ update: baseUpdate } as Parameters<
+                typeof useDeleteAssertionMutationWithCache
+            >[0]),
+        );
+        update(cache, { data: { deleteAssertion: true } }, { variables: { urn: 'urn:li:assertion:test' } });
+
+        expect(result.current[0]).toBe(mutation);
+        expect(baseUpdate).toHaveBeenCalled();
+        expect(cache.identify).toHaveBeenCalledWith({
+            __typename: 'Assertion',
+            urn: 'urn:li:assertion:test',
+        });
+        expect(cache.evict).toHaveBeenCalledWith({ id: 'Assertion:urn:li:assertion:test' });
+        expect(cache.gc).toHaveBeenCalled();
+    });
+
+    it('does not evict when deletion is not acknowledged', () => {
+        let update;
+        (useDeleteAssertionMutation as unknown as ReturnType<typeof vi.fn>).mockImplementation((options) => {
+            update = options.update;
+            return [vi.fn(), { loading: false }];
+        });
+        const cache = {
+            identify: vi.fn(),
+            evict: vi.fn(),
+            gc: vi.fn(),
+        };
+
+        renderHook(() => useDeleteAssertionMutationWithCache());
+        update(cache, { data: { deleteAssertion: false } }, { variables: { urn: 'urn:li:assertion:test' } });
+
+        expect(cache.evict).not.toHaveBeenCalled();
+        expect(cache.gc).not.toHaveBeenCalled();
+    });
+});
+
+describe('copyTextToClipboard', () => {
+    const originalClipboard = navigator.clipboard;
+    const originalExecCommand = document.execCommand;
+
+    afterEach(() => {
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: originalClipboard, writable: true });
+        Object.defineProperty(document, 'execCommand', {
+            configurable: true,
+            value: originalExecCommand,
+            writable: true,
+        });
+    });
+
+    it('falls back to execCommand when the Clipboard API is unavailable', async () => {
+        const execCommand = vi.fn().mockReturnValue(true);
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+        Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand });
+
+        await copyTextToClipboard('urn:li:assertion:test');
+
+        expect(execCommand).toHaveBeenCalledWith('copy');
+        expect(document.querySelector('textarea')).toBeNull();
+    });
+});
+
 // ---------------------------------------------------------------------------
 // useAssertionURNCopyLink
 // ---------------------------------------------------------------------------
@@ -34,7 +119,11 @@ describe('useAssertionURNCopyLink', () => {
     const mockWriteText = vi.fn();
 
     beforeEach(() => {
-        Object.assign(navigator, { clipboard: { writeText: mockWriteText } });
+        Object.defineProperty(navigator, 'clipboard', {
+            configurable: true,
+            value: { writeText: mockWriteText },
+            writable: true,
+        });
     });
 
     afterEach(() => {
@@ -51,7 +140,7 @@ describe('useAssertionURNCopyLink', () => {
         const { result } = renderHook(() => useAssertionURNCopyLink(TEST_URN));
 
         await act(async () => {
-            result.current();
+            await result.current();
         });
 
         const expectedUrl = new URL(window.location.href);
@@ -64,7 +153,7 @@ describe('useAssertionURNCopyLink', () => {
         const { result } = renderHook(() => useAssertionURNCopyLink(TEST_URN));
 
         await act(async () => {
-            result.current();
+            await result.current();
         });
 
         expect(message.success).toHaveBeenCalledWith('Link copied to clipboard!');
@@ -76,7 +165,7 @@ describe('useAssertionURNCopyLink', () => {
         const { result } = renderHook(() => useAssertionURNCopyLink(TEST_URN));
 
         await act(async () => {
-            result.current();
+            await result.current();
         });
 
         expect(message.error).toHaveBeenCalledWith('Failed to copy link to clipboard.');
@@ -123,6 +212,18 @@ describe('useOpenAssertionDetailModal', () => {
         renderHook(() => useOpenAssertionDetailModal(mockSetFocusUrn));
 
         expect(mockSetFocusUrn).toHaveBeenCalledWith('urn:li:assertion:test');
+    });
+
+    it('rejects malformed assertion URNs', () => {
+        const encoded = encodeURIComponent('https://example.com/assertion');
+        (getQueryParams as unknown as ReturnType<typeof vi.fn>).mockReturnValue(encoded);
+        mockLocation(`?assertion_urn=${encoded}`);
+
+        renderHook(() => useOpenAssertionDetailModal(mockSetFocusUrn));
+
+        expect(mockSetFocusUrn).not.toHaveBeenCalled();
+        expect(message.error).toHaveBeenCalled();
+        expect(mockReplace).not.toHaveBeenCalled();
     });
 
     it('removes assertion_urn from the URL and calls history.replace', () => {

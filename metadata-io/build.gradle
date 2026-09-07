@@ -135,6 +135,10 @@ dependencies {
   runtimeOnly externalDependency.logbackClassic
   compileOnly externalDependency.lombok
   compileOnly externalDependency.hazelcast
+  // Caffeine is used directly at runtime (CacheEvictionService, KafkaTraceReader, ...), so declare
+  // it as a runtime dependency instead of relying on a transitive chain that could break and cause
+  // NoClassDefFoundError at startup.
+  implementation externalDependency.caffeine
   api externalDependency.datastaxOssNativeProtocol
   api(externalDependency.datastaxOssCore) {
     exclude group: 'com.fasterxml.jackson.core'
@@ -182,6 +186,7 @@ dependencies {
   testImplementation externalDependency.mysqlConnector
   testImplementation externalDependency.mockito
   testImplementation externalDependency.hazelcast
+  testImplementation externalDependency.caffeine
   testImplementation externalDependency.iStackCommons
   testImplementation externalDependency.resilience4j
   testImplementation externalDependency.testContainers
@@ -191,6 +196,7 @@ dependencies {
   testImplementation externalDependency.testContainersCassandra
   testImplementation externalDependency.testContainersNeo4j
   testImplementation externalDependency.testContainersPostgresql
+  testImplementation externalDependency.testContainersMysql
   testImplementation externalDependency.postgresql
   testImplementation externalDependency.lombok
   testFixturesApi externalDependency.springBootTest
@@ -313,6 +319,25 @@ task testPostgresql(type: Test) {
   description = 'Runs PostgreSQL Testcontainers suite (testng-postgresql.xml)'
 }
 
+task testMysql(type: Test) {
+  doFirst {
+    maxParallelForks = 1
+  }
+  useTestNG() {
+    suites 'src/test/resources/testng-mysql.xml'
+  }
+  testLogging {
+    events "failed", "skipped", "passed"
+    exceptionFormat "full"
+    showStandardStreams = true
+  }
+
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
+
+  group = 'verification'
+  description = 'Runs MySQL Testcontainers suite (testng-mysql.xml)'
+}
+
 task testOther(type: Test) {
   doFirst {
     maxParallelForks = 1
@@ -375,7 +400,7 @@ task testSqlOpt(type: Test) {
 // partials — no separate merge job. classDirectories excludes generated code, matching the base
 // jacocoTestReport in gradle/coverage/java-coverage.gradle.
 def jacocoCoverageExcludes = ['**/generated/**']
-['testOpenSearch', 'testEs8', 'testEs7CassandraNeo4j', 'testOther', 'testSqlOpt', 'testPostgresql'].each { suiteTask ->
+['testOpenSearch', 'testEs8', 'testEs7CassandraNeo4j', 'testOther', 'testSqlOpt', 'testPostgresql', 'testMysql'].each { suiteTask ->
   def reportTask = tasks.register("jacoco${suiteTask.capitalize()}Report", JacocoReport) {
     dependsOn suiteTask
     executionData.setFrom(fileTree(layout.buildDirectory.dir('jacoco')).include("${suiteTask}.exec"))
@@ -426,6 +451,6 @@ tasks.withType(Test) {
 }
 
 clean {
-  //TODO: Is this really needed? dont see generated folder in projectDir. It is in build, but that doest need explicit clean
+  //TODO: Is this really needed? dont see generated folder in projectDir. It is in build, but that doest need explicit clean?
   delete "$projectDir/generated"
 }

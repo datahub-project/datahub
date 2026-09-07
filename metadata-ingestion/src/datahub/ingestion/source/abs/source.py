@@ -122,7 +122,7 @@ class TableData:
 
 @platform_name("ABS Data Lake", id="abs")
 @config_class(DataLakeSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(
     SourceCapability.OPERATION_CAPTURE,
@@ -230,7 +230,9 @@ class ABSSource(StatefulIngestionSourceBase):
                     max_rows=self.source_config.max_rows
                 ).infer_schema(file)
             elif extension == ".json":
-                fields = json.JsonInferrer().infer_schema(file)
+                fields = json.JsonInferrer(
+                    max_rows=self.source_config.max_rows
+                ).infer_schema(file)
             elif extension == ".jsonl":
                 fields = json.JsonInferrer(
                     max_rows=self.source_config.max_rows, format="jsonl"

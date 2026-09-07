@@ -33,6 +33,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.urn import guess_entity_type
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import (
     delete_urn,
     delete_urns_from_file,
@@ -41,6 +42,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.OBSERVE)
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -391,7 +394,7 @@ def test_assertion_info_patch_preserves_note(graph_client):
                 aspect=initial_info,
             )
         )
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         patch_ops = [
             {
@@ -430,7 +433,7 @@ def test_assertion_info_patch_preserves_note(graph_client):
         )
 
         graph_client.emit_mcp(patch_mcp)
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)
 
         patched_info = graph_client.get_aspect(assertion_urn, AssertionInfoClass)
         assert patched_info is not None

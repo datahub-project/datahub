@@ -1,0 +1,142 @@
+{
+  "definitions": {
+    "SAP.TIME.VIEW_DIMENSION_QUARTER": {
+      "kind": "entity",
+      "elements": {
+        "CALQUARTER": {
+          "key": true,
+          "type": "cds.String",
+          "@Analytics.dimension": true,
+          "@Semantics.calendar.yearQuarter": true,
+          "@EndUserText.label": "Calendar Quarter",
+          "length": 5,
+          "@ObjectModel.text.association": {
+            "=": "_QUARTER"
+          }
+        },
+        "QUARTER": {
+          "type": "cds.String",
+          "@Analytics.dimension": true,
+          "@EndUserText.label": "Quarter",
+          "length": 2
+        },
+        "YEAR": {
+          "type": "cds.String",
+          "@Analytics.dimension": true,
+          "@Semantics.calendar.year": true,
+          "@EndUserText.label": "Year",
+          "length": 4
+        },
+        "_QUARTER": {
+          "on": [
+            {
+              "ref": [
+                "QUARTER"
+              ]
+            },
+            "=",
+            {
+              "ref": [
+                "_QUARTER",
+                "ID"
+              ]
+            }
+          ],
+          "target": "SAP.TIME.M_TIME_DIMENSION_TQUARTER",
+          "type": "cds.Association"
+        }
+      },
+      "query": {
+        "SELECT": {
+          "from": {
+            "ref": [
+              "SAP.TIME.M_TIME_DIMENSION"
+            ],
+            "as": "M_TIME_DIMENSION"
+          },
+          "distinct": true,
+          "columns": [
+            {
+              "ref": [
+                "CALQUARTER"
+              ]
+            },
+            {
+              "ref": [
+                "QUARTER"
+              ]
+            },
+            {
+              "ref": [
+                "YEAR"
+              ]
+            },
+            {
+              "ref": [
+                "_QUARTER"
+              ]
+            }
+          ],
+          "mixin": {
+            "_QUARTER": {
+              "on": [
+                {
+                  "ref": [
+                    "$projection",
+                    "QUARTER"
+                  ]
+                },
+                "=",
+                {
+                  "ref": [
+                    "_QUARTER",
+                    "ID"
+                  ]
+                }
+              ],
+              "target": "SAP.TIME.M_TIME_DIMENSION_TQUARTER",
+              "type": "cds.Association"
+            }
+          }
+        }
+      },
+      "@EndUserText.label": "Time Dimension - Quarter",
+      "@Hierarchy.leveled": [
+        {
+          "name": "YQ",
+          "label": "Year, Quarter",
+          "levels": [
+            {
+              "element": {
+                "=": "YEAR"
+              }
+            },
+            {
+              "element": {
+                "=": "CALQUARTER"
+              }
+            }
+          ]
+        }
+      ],
+      "@ObjectModel.modelingPattern": {
+        "#": "ANALYTICAL_DIMENSION"
+      },
+      "@ObjectModel.supportedCapabilities": [
+        {
+          "#": "ANALYTICAL_PROVIDER"
+        },
+        {
+          "#": "ANALYTICAL_DIMENSION"
+        }
+      ],
+      "@Analytics.dimensionType": "#TIME",
+      "@Internal.Entity.Hidden": true,
+      "_meta": {
+        "dependencies": {
+          "folderAssignment": null
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+namespace com.linkedin.semanticmodel
+
+import com.linkedin.metric.MetricExpression
+
+/**
+ * Semantic metadata for a `schemaField` entity that is exposed by a SemanticModel dataset
+ * (a `dataset` with subtype `Semantic Model Dataset`). Layers dimension/measure/filter classification,
+ * the computing expression, and an optional aggregation function on top of the field's
+ * standard structural identity (fieldPath, type, description) and governance surface
+ * (tags, glossary terms), which live on the `schemaField` entity itself.
+ */
+@Aspect = {
+  "name": "semanticFieldAnnotation",
+  "schemaVersion": 2
+}
+record SemanticFieldAnnotation {
+
+  /**
+   * The kind of this field. Must be set for every annotated field; determines how downstream
+   * tools interpret the field and whether kind-specific sub-records (e.g. `dimension`) are
+   * relevant.
+   */
+  type: SemanticFieldType
+
+  /**
+   * The SQL expression that computes this field, in one or more dialects.
+   */
+  expression: MetricExpression
+
+  /**
+   * The aggregation function applied to this field when used as a measure
+   * (e.g. "SUM", "COUNT_DISTINCT", "AVG"). Populated when `type == MEASURE`; ignored otherwise.
+   */
+  aggregationFunction: optional string
+
+  /**
+   * Dimension-specific metadata. Populated when `type == DIMENSION`; ignored otherwise.
+   */
+  dimension: optional Dimension
+
+}

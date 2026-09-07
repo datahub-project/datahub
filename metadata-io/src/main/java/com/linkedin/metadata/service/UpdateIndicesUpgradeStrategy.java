@@ -286,7 +286,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
                       IncrementalReindexState.Status.DUAL_WRITE_DISABLED
                           .name()
                           .equals(e.getValue().get(IncrementalReindexState.STATUS)))
-              .map(e -> indexConvention.getEntityName(e.getKey()))
+              .map(e -> indexConvention.getEntityName(opContext, e.getKey()))
               .filter(Optional::isPresent)
               .map(Optional::get)
               .collect(Collectors.toSet());

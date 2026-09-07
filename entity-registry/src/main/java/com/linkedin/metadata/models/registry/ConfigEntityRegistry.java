@@ -223,14 +223,21 @@ public class ConfigEntityRegistry implements EntityRegistry {
           entity.getSearchGroup() != null
               ? entity.getSearchGroup()
               : EntityAnnotation.DEFAULT_SEARCH_GROUP;
+      // YAML is the authoring source of truth; null means leave PDL default (false) / config false
+      Boolean viewUnrestricted = entity.getViewUnrestricted();
 
       if (!entitySchema.isPresent()) {
         entitySpec =
             entitySpecBuilder.buildConfigEntitySpec(
-                entity.getName(), entity.getKeyAspect(), aspectSpecs, searchGroup);
+                entity.getName(),
+                entity.getKeyAspect(),
+                aspectSpecs,
+                searchGroup,
+                Boolean.TRUE.equals(viewUnrestricted));
       } else {
         entitySpec =
-            entitySpecBuilder.buildEntitySpec(entitySchema.get(), aspectSpecs, searchGroup);
+            entitySpecBuilder.buildEntitySpec(
+                entitySchema.get(), aspectSpecs, searchGroup, viewUnrestricted);
       }
       entityNameToSpec.put(entity.getName().toLowerCase(), entitySpec);
     }

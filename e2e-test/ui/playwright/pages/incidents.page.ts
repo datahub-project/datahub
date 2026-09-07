@@ -122,6 +122,7 @@ export class IncidentsPage extends BasePage {
       const row = this.getIncidentRow(incidentTitle);
       const isRowVisible = await row.isVisible().catch(() => false);
       if (!isRowVisible) {
+        // eslint-disable-next-line playwright/no-wait-for-timeout
         if (attempt < maxRetries) await this.page.waitForTimeout(retryDelayMs);
         continue;
       }
@@ -137,6 +138,7 @@ export class IncidentsPage extends BasePage {
 
       if (attempt < maxRetries) {
         // The incident is indexed but relationships are not yet — wait and retry.
+        // eslint-disable-next-line playwright/no-wait-for-timeout
         await this.page.waitForTimeout(retryDelayMs);
       }
     }
@@ -296,6 +298,7 @@ export class IncidentsPage extends BasePage {
         .isVisible()
         .catch(() => false);
       if (confirmed) return;
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await this.page.waitForTimeout(300);
     }
   }

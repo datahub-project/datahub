@@ -30,11 +30,13 @@ import {
     ENTITY_TYPE_FIELDS,
     FIELD_GLOSSARY_TERMS_FILTER_NAME,
     FIELD_TAGS_FILTER_NAME,
+    FIELD_TO_LABEL,
     FILTER_DELIMITER,
     GLOSSARY_TERMS_FILTER_NAME,
     LAST_MODIFIED_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
     OWNERS_FILTER_NAME,
+    PARENT_DOCUMENT_FILTER_NAME,
     PLATFORM_FILTER_NAME,
     PROPOSED_GLOSSARY_TERMS_FILTER_NAME,
     PROPOSED_SCHEMA_GLOSSARY_TERMS_FILTER_NAME,
@@ -50,7 +52,13 @@ import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
-import { DATE_TYPE_URN, URN_TYPE_URN } from '@src/app/shared/constants';
+import {
+    DATE_TYPE_URN,
+    NUMBER_TYPE_URN,
+    RICH_TEXT_TYPE_URN,
+    STRING_TYPE_URN,
+    URN_TYPE_URN,
+} from '@src/app/shared/constants';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 import dayjs from '@utils/dayjs';
@@ -73,10 +81,41 @@ import {
 } from '@types';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
+function getDefaultFilterCondition(filterField: string): FilterOperator | undefined {
+    if (filterField === LAST_MODIFIED_FILTER_NAME) {
+        return FilterOperator.GreaterThan;
+    }
+    if (
+        filterField === DOMAINS_FILTER_NAME ||
+        filterField === CONTAINER_FILTER_NAME ||
+        filterField === PARENT_DOCUMENT_FILTER_NAME
+    ) {
+        return FilterOperator.DescendantsIncl;
+    }
+    return undefined;
+}
+
+/**
+ * Picks the backend condition to use when a brand-new filter is created for a field. Mirrors the
+ * field type's natural default: date fields use GreaterThan, free-form TEXT fields use CONTAINS, and
+ * everything else falls back to the backend default (EQUAL). Without this, the "More" menu created
+ * every filter with no condition, so a free-form text property (e.g. a UUID) applied as an exact
+ * EQUAL match and partial values never matched.
+ */
+function getNewFilterCondition(filterField: string, availableFilters: FacetMetadata[]): FilterOperator | undefined {
+    const defaultCondition = getDefaultFilterCondition(filterField);
+    if (defaultCondition !== undefined) {
+        return defaultCondition;
+    }
+    const field = getKnownFilterField(filterField) || getDynamicFilterField(filterField, availableFilters);
+    return field.type === FieldType.TEXT ? FilterOperator.Contain : undefined;
+}
+
 export function getNewFilters(
     filterField: string,
     activeFilters: FacetFilterInput[],
     selectedFilterValues: string[],
+    availableFilters: FacetMetadata[] = [],
 ): FacetFilterInput[] {
     if (activeFilters.find((activeFilter) => activeFilter.field === filterField)) {
         return activeFilters
@@ -90,7 +129,7 @@ export function getNewFilters(
             field: filterField,
             values: selectedFilterValues,
             // TODO: Define on filter field instead
-            condition: filterField === LAST_MODIFIED_FILTER_NAME ? FilterOperator.GreaterThan : undefined,
+            condition: getNewFilterCondition(filterField, availableFilters),
         },
     ].filter((f) => !(f.values?.length === 0));
 }
@@ -472,9 +511,12 @@ function getKnownFilterField(field: string): FilterField | undefined {
     return ALL_FILTER_FIELDS.find((filterField) => filterField.field === field);
 }
 
-function getDynamicFilterField(field: string, availableFilters: FacetMetadata[]): FilterField {
+export function getDynamicFilterField(field: string, availableFilters: FacetMetadata[]): FilterField {
     const associatedAvailableFilter = availableFilters?.find((availableFilter) => availableFilter.field === field);
-    const filterDisplayName = associatedAvailableFilter?.displayName;
+    // FIELD_TO_LABEL before the facet's displayName: the backend ships an English displayName
+    // (sometimes a PDL filterNameOverride) for fields we have a localized label for, and this
+    // displayName is what SearchFilter passes down as the primary filter chip's label.
+    const filterDisplayName = FIELD_TO_LABEL[field] ?? associatedAvailableFilter?.displayName;
     const filterAggregations = availableFilters?.find(
         (availableFilter) => availableFilter.field === field,
     )?.aggregations;
@@ -488,6 +530,7 @@ function getDynamicFilterField(field: string, availableFilters: FacetMetadata[])
     if (field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME) && entity) {
         const structuredPropEntity = entity as StructuredPropertyEntity;
         const valueTypeUrn = structuredPropEntity.definition?.valueType?.urn;
+        const hasAllowedValues = !!structuredPropEntity.definition?.allowedValues?.length;
         if (valueTypeUrn === URN_TYPE_URN) {
             type = FieldType.ENTITY;
             // Prefer the explicit typeQualifier allowedTypes; fall back to inference from aggregations.
@@ -495,6 +538,14 @@ function getDynamicFilterField(field: string, availableFilters: FacetMetadata[])
             if (qualifierTypes?.length) {
                 entityTypes = qualifierTypes.map((t) => t.type).filter(Boolean) as EntityType[];
             }
+        } else if ((valueTypeUrn === STRING_TYPE_URN || valueTypeUrn === RICH_TEXT_TYPE_URN) && !hasAllowedValues) {
+            // Free-form text properties (no constrained allowedValues) are not enumerable — e.g. one
+            // holding arbitrary UUIDs. Render them as a type-a-value TEXT filter (which applies a
+            // CONTAINS query), like the description / field-path text filters, instead of an
+            // aggregation bucket picker that can only surface the top-N distinct values and breaks on
+            // high-cardinality values. Properties WITH allowedValues stay ENUM so users can pick from
+            // the constrained set.
+            type = FieldType.TEXT;
         }
     }
 
@@ -558,8 +609,11 @@ export function getStructuredPropFilterDisplayName(field: string, value: string,
         return dayjs(parseInt(value, 10)).tz('GMT').format('MM/DD/YYYY').toString();
     }
 
-    // check for structured prop number values
-    if (!Number.isNaN(parseFloat(value))) {
+    // check for structured prop number values. Detect by the property's declared value type rather
+    // than sniffing the string with parseFloat — parseFloat parses a leading numeric chunk and
+    // ignores the rest, so values like "550e8400-..." (a UUID) became "Infinity" and "02d22a5f-..."
+    // became "2". When the value type is unknown, fall through to render the raw value verbatim.
+    if (entity && (entity as StructuredPropertyEntity).definition?.valueType?.urn === NUMBER_TYPE_URN) {
         return parseFloat(value).toString();
     }
 
@@ -576,13 +630,17 @@ export function getStructuredPropFilterDisplayName(field: string, value: string,
 function convertToFilterPredicate(filter: FacetFilterInput, availableFilters: FacetMetadata[]): FilterPredicate {
     // First, check whether this is a well-supported filter field.
     const field = getKnownFilterField(filter.field) || getDynamicFilterField(filter.field, availableFilters);
+    // When no explicit condition is set (e.g. an available-but-unapplied filter in the "More" menu),
+    // fall back to the field type's natural default: free-form TEXT fields filter by CONTAINS,
+    // everything else by EQUALS. Mirrors getDefaultFieldOperatorType, inlined to avoid a circular
+    // import between this module and value/utils.
     const operator =
         (filter.condition &&
             convertBackendToFrontendOperatorType({
                 operator: filter.condition,
                 negated: filter.negated || false,
             })) ||
-        FilterOperatorType.EQUALS;
+        (field.type === FieldType.TEXT ? FilterOperatorType.CONTAINS : FilterOperatorType.EQUALS);
 
     const values = getFilterValues(filter, availableFilters);
     const defaultOptions = getDefaultFilterOptions(filter, availableFilters);
@@ -708,7 +766,10 @@ export function useFilterDisplayName(filter: FacetMetadata | FilterField, predic
         return entityRegistry.getDisplayName(filter.entity.type, filter.entity);
     }
 
-    return predicateDisplayName || filter.displayName || filter.field;
+    // FIELD_TO_LABEL before filter.displayName: raw FacetMetadata carries the backend's
+    // English displayName (or a PDL filterNameOverride), so surfaces that hand us a facet
+    // directly (the "More" filter menu) would otherwise never localize.
+    return predicateDisplayName || FIELD_TO_LABEL[filter.field] || filter.displayName || filter.field;
 }
 
 export function getIsDateRangeFilter(field: FilterField | FacetMetadata) {
@@ -724,6 +785,8 @@ export function getFilterDisplayName(option: FilterValueOption, field: FilterFie
     }
 
     return field.field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)
-        ? getStructuredPropFilterDisplayName(field.field, option.value)
+        ? // pass the field's structured-property entity so the formatter can detect the value type
+          // (NUMBER/DATE) — without it, numeric buckets render as the raw double (e.g. "42000.0").
+          getStructuredPropFilterDisplayName(field.field, option.value, field.entity)
         : undefined;
 }

@@ -1,6 +1,5 @@
 import {
     BuildOutlined,
-    CloseCircleOutlined,
     DatabaseOutlined,
     DeleteOutlined,
     EnvironmentOutlined,
@@ -36,11 +35,11 @@ import {
     FIELD_TO_LABEL,
     GLOSSARY_TERMS_FILTER_NAME,
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    HAS_FAILING_ASSERTIONS_FILTER_NAME,
     HAS_SIBLINGS_FILTER_NAME,
     LAST_MODIFIED_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     OWNERS_FILTER_NAME,
+    PARENT_DOCUMENT_FILTER_NAME,
     PLATFORM_FILTER_NAME,
     REMOVED_FILTER_NAME,
     STRUCTURED_PROPERTIES_FILTER_NAME,
@@ -138,6 +137,16 @@ const CONTAINER_FILTER: FilterField = {
     icon: <FolderOutlined />,
 };
 
+export const PARENT_DOCUMENT_FILTER: FilterField = {
+    field: PARENT_DOCUMENT_FILTER_NAME,
+    get displayName() {
+        return FIELD_TO_LABEL[PARENT_DOCUMENT_FILTER_NAME];
+    },
+    type: FieldType.ENTITY,
+    entityTypes: [EntityType.Document],
+    icon: <FileTextOutlined />,
+};
+
 const FIELD_PATHS_FILTER: FilterField = {
     field: FIELD_PATHS_FILTER_NAME,
     get displayName() {
@@ -201,15 +210,6 @@ const HAS_ACTIVE_INCIDENTS_FILTER: FilterField = {
     },
     type: FieldType.BOOLEAN,
     icon: <WarningOutlined />,
-};
-
-const HAS_FAILING_ASSERTIONS_FILTER: FilterField = {
-    field: HAS_FAILING_ASSERTIONS_FILTER_NAME,
-    get displayName() {
-        return FIELD_TO_LABEL[HAS_FAILING_ASSERTIONS_FILTER_NAME];
-    },
-    type: FieldType.BOOLEAN,
-    icon: <CloseCircleOutlined />,
 };
 
 const ORIGIN_FILTER: FilterField = {
@@ -325,6 +325,7 @@ export const DEFAULT_FILTER_FIELDS: FilterField[] = [
     TAGS_FILTER,
     GLOSSARY_TERMS_FILTER,
     CONTAINER_FILTER,
+    PARENT_DOCUMENT_FILTER,
     FIELD_PATHS_FILTER,
     FIELD_TAGS_FILTER,
     FIELD_GLOSSARY_TERMS_FILTER,
@@ -332,7 +333,6 @@ export const DEFAULT_FILTER_FIELDS: FilterField[] = [
     FIELD_DESCRIPTIONS_FILTER,
     REMOVED_FILTER,
     HAS_ACTIVE_INCIDENTS_FILTER,
-    HAS_FAILING_ASSERTIONS_FILTER,
     ORIGIN_FILTER,
     DATA_PLATFORM_INSTANCE_FILTER,
     HAS_SIBLINGS_FILTER,

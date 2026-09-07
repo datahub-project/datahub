@@ -38,6 +38,7 @@ entities:
     aspects: []
   - name: testEntity
     keyAspect: testEntityKey
+    viewUnrestricted: true
     aspects: []
 events:
   - name: testEvent

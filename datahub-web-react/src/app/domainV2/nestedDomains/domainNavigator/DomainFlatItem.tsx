@@ -7,6 +7,10 @@ import styled from 'styled-components';
 import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import {
+    TREE_ROW_ENTITY_ICON_GLYPH_SIZE,
+    TREE_ROW_ENTITY_ICON_SIZE,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ListDomainFragment } from '@graphql/domain.generated';
@@ -163,11 +167,15 @@ export default function DomainFlatItem({ domain }: Props) {
     return (
         <RowContainer $isSelected={isOnEntityPage} onClick={handleClick} data-testid={`domain-flat-item-${domain.urn}`}>
             <IconSlot>
-                <DomainColoredIcon domain={domain as Domain} size={20} fontSize={12} />
+                <DomainColoredIcon
+                    domain={domain as Domain}
+                    size={TREE_ROW_ENTITY_ICON_SIZE}
+                    fontSize={TREE_ROW_ENTITY_ICON_GLYPH_SIZE}
+                />
             </IconSlot>
             <TextStack>
                 <TitleRow>
-                    <Tooltip placement="right" title={displayName} mouseEnterDelay={0.7} mouseLeaveDelay={0}>
+                    <Tooltip placement="right" title={displayName} mouseEnterDelay={0.1} mouseLeaveDelay={0}>
                         <Title $isSelected={isOnEntityPage}>{displayName}</Title>
                     </Tooltip>
                     {deprecation?.deprecated && (
@@ -185,7 +193,7 @@ export default function DomainFlatItem({ domain }: Props) {
                     <Tooltip
                         placement="bottom"
                         title={ancestorNames.join(' / ')}
-                        mouseEnterDelay={0.7}
+                        mouseEnterDelay={0.1}
                         mouseLeaveDelay={0}
                     >
                         <Breadcrumb>

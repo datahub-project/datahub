@@ -28,6 +28,17 @@ from ..mysql_client import MySQLClient
 
 log = logging.getLogger(__name__)
 
+# NEW-side revision marker. The incremental-reindex upgrade id is
+# "BuildIndicesIncremental_<gitVersion>-<revision>" (see BuildIndices.java and
+# SystemUpdateConfig's DATAHUB_REVISION binding, which defaults to "0"). This
+# harness builds OLD and NEW from near-identical commits, so they share a
+# gitVersion and would share that id — the NEW upgrade would then inherit the
+# OLD boot's COMPLETED state and skip the reindex, even though a real mapping
+# diff was detected. Production never collides, because OLD and NEW are
+# different releases. Bumping the revision on the NEW-side jobs reproduces that
+# separation without touching the rollout stage.
+ZDU_NEW_REVISION = "1"
+
 _DEFAULT_TIMEOUT_S = 600
 
 
@@ -329,6 +340,7 @@ class UpgradeBlockingPhase(Phase):
         env_overrides = {
             **token_env,
             "ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED": "true",
+            "DATAHUB_REVISION": ZDU_NEW_REVISION,
             "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX": "true",
         }
         return self._docker.run_upgrade_job(
@@ -348,11 +360,19 @@ class UpgradeBlockingPhase(Phase):
         ``<alias>.<key>`` keys under the top-level ``result`` block, not as a
         nested ``indicesState`` dict — so the legacy
         ``find_upgrade_result_with_field("indicesState")`` lookup always
-        returns None. The new ``find_upgrade_result_by_urn_prefix`` matches
-        on URN, then ``_parse_flat_indices_state`` unflattens.
+        returns None. We match on URN, then ``_parse_flat_indices_state``
+        unflattens.
+
+        Matched by the revision this phase ran its upgrade job under, not by
+        prefix alone. When ZDU is enabled on the base stack the boot-time run
+        also writes a ``BuildIndicesIncremental_*`` row — one covering every
+        index with ``sourceDocCount=0`` and ``requiresDataBackfill=false``,
+        since nothing needed reindexing at first boot. A prefix scan returns
+        whichever row the query happens to order first, and picking up that
+        boot-time row makes the Suite B scenarios see no reindex at all.
         """
-        upgrade_id, parsed = self._mysql.find_upgrade_result_by_urn_prefix(
-            "BuildIndicesIncremental_"
+        upgrade_id, parsed = self._mysql.find_upgrade_result_by_urn_prefix_suffix(
+            "BuildIndicesIncremental_", f"-{ZDU_NEW_REVISION}"
         )
         raw_per_alias: dict[str, dict] = {}
         indices: list[IndexState] = []

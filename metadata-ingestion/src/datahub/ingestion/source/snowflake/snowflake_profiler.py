@@ -1,10 +1,9 @@
 import logging
-from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional
 
 from snowflake.sqlalchemy import snowdialect
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
     )
@@ -12,9 +11,6 @@ from sqlalchemy import create_engine, inspect
 from sqlalchemy.sql import sqltypes
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.profiling.common import (
-    create_datahub_ge_profiler,
-)
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -98,55 +94,19 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
     ) -> dict:
-        custom_sql = None
-        if (
-            self.config.profiling.method == "ge"
-            and not self.config.profiling.limit
-            and self.config.profiling.use_sampling
-            and table.rows_count
-            and table.rows_count > self.config.profiling.sample_size
-        ):
-            # The sample becomes a custom_sql query, and GX internally creates a
-            # temporary table from it — so all profiling queries run against that
-            # materialized temp table. The SQLAlchemy profiler path does NOT use
-            # custom_sql; its Snowflake adapter materializes the sample directly.
-            #
-            # We are using fraction-based sampling here, instead of fixed-size sampling because
-            # fixed-size sampling can be slower than equivalent fraction-based sampling
-            # as per https://docs.snowflake.com/en/sql-reference/constructs/sample#performance-considerations
-            estimated_block_row_count = 500_000
-            block_profiling_min_rows = 100 * estimated_block_row_count
-
-            tablename = f'"{db_name}"."{schema_name}"."{table.name}"'
-            sample_pc = self.config.profiling.sample_size / table.rows_count
-
-            overgeneration_factor = 1000
-            if (
-                table.rows_count > block_profiling_min_rows
-                and table.rows_count
-                > self.config.profiling.sample_size * overgeneration_factor
-            ):
-                # If the table is significantly larger than the sample size, do a first pass
-                # using block sampling to improve performance. We generate a table 1000 times
-                # larger than the target sample size, and then use normal sampling for the
-                # final size reduction.
-                tablename = f"(SELECT * FROM {tablename} TABLESAMPLE BLOCK ({100 * overgeneration_factor * sample_pc:.8f}))"
-                sample_pc = 1 / overgeneration_factor
-
-            custom_sql = f"select * from {tablename} TABLESAMPLE BERNOULLI ({100 * sample_pc:.8f})"
         return {
             **super().get_batch_kwargs(table, schema_name, db_name),
             # Lowercase/Mixedcase table names in Snowflake do not work by default.
             # We need to pass `use_quoted_name=True` for such tables as mentioned here -
             # https://github.com/great-expectations/great_expectations/pull/2023
             "use_quoted_name": (table.name != table.name.upper()),
-            "custom_sql": custom_sql,
+            "custom_sql": None,
             "row_count": table.rows_count,
         }
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
-    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+    ) -> "SQLAlchemyProfiler":
         from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
             SQLAlchemyProfiler,
         )
@@ -165,27 +125,22 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         conn = engine.connect()
         inspector = inspect(conn)
 
-        if self.config.profiling.method == "sqlalchemy":
-            logger.info(
-                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
-            )
-            return SQLAlchemyProfiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
-        else:
-            logger.info(
-                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
-            )
-            return create_datahub_ge_profiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-            )
+        logger.info(
+            f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+        )
+        return SQLAlchemyProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+            # Snowflake's schema comes from INFORMATION_SCHEMA, not from
+            # reflection, so its field paths follow source config rather than the
+            # dialect's normalize_name. Columns fold separately from datasets --
+            # preserve_column_case keeps a quoted "col"/"COL" pair distinct -- so
+            # this is the column rule, not snowflake_identifier.
+            field_path_transform=self.identifiers.snowflake_column_identifier,
+        )
 
     def callable_for_db_connection(self, db_name: str) -> Callable:
         schema_name = self.database_default_schema.get(db_name)

@@ -8,7 +8,10 @@ from datahub.sdk.dataset import Dataset
 from datahub.sdk.lineage_client import LineageResult
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_filters import FilterDsl as F
+from tests.utilities.domains import Domain
 from tests.utils import wait_for_writes_to_sync
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 @pytest.fixture(scope="module")
@@ -65,7 +68,7 @@ def test_datasets(
         column_lineage=True,
     )
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     yield datasets
 

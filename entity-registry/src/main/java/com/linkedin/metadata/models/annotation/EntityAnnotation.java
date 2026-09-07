@@ -15,19 +15,27 @@ public class EntityAnnotation {
   private static final String NAME_FIELD = "name";
   private static final String KEY_ASPECT_FIELD = "keyAspect";
   private static final String SEARCH_GROUP_FIELD = "searchGroup";
+  private static final String VIEW_UNRESTRICTED_FIELD = "viewUnrestricted";
 
   String name;
   String keyAspect;
   String searchGroup;
+  boolean viewUnrestricted;
 
   public EntityAnnotation(String name, String keyAspect) {
-    this(name, keyAspect, DEFAULT_SEARCH_GROUP);
+    this(name, keyAspect, DEFAULT_SEARCH_GROUP, false);
   }
 
   public EntityAnnotation(String name, String keyAspect, String searchGroup) {
+    this(name, keyAspect, searchGroup, false);
+  }
+
+  public EntityAnnotation(
+      String name, String keyAspect, String searchGroup, boolean viewUnrestricted) {
     this.name = name;
     this.keyAspect = keyAspect;
     this.searchGroup = searchGroup;
+    this.viewUnrestricted = viewUnrestricted;
   }
 
   @Nonnull
@@ -67,7 +75,10 @@ public class EntityAnnotation {
     // Validate searchGroup
     validateElasticsearchIndexName(searchGroup, context);
 
-    return new EntityAnnotation(name.get(), keyAspect.get(), searchGroup);
+    final boolean viewUnrestricted =
+        AnnotationUtils.getField(map, VIEW_UNRESTRICTED_FIELD, Boolean.class).orElse(false);
+
+    return new EntityAnnotation(name.get(), keyAspect.get(), searchGroup, viewUnrestricted);
   }
 
   /** Validates that searchGroup follows Elasticsearch index naming conventions */

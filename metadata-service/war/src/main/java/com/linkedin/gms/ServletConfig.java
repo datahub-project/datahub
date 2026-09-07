@@ -74,7 +74,11 @@ public class ServletConfig implements WebMvcConfigurer {
     FilterRegistrationBean<AuthenticationExtractionFilter> registration =
         new FilterRegistrationBean<>();
     registration.setFilter(filter);
-    registration.setOrder(Ordered.HIGHEST_PRECEDENCE); // Run FIRST to extract authentication info
+    // Slot 1 (HIGHEST_PRECEDENCE + 1). Slot 0 (HIGHEST_PRECEDENCE) is reserved for context-
+    // establishing filters that must run before auth extraction — e.g. the cloud fork's
+    // TenantExtractionFilter, which stamps a per-request tenant identifier consumed by
+    // downstream services. See metadata-cloud/.../TenantFilterConfiguration.
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
     registration.setAsyncSupported(true);
 
     // Register for all paths - this filter ALWAYS runs to extract auth info
@@ -90,7 +94,7 @@ public class ServletConfig implements WebMvcConfigurer {
         new FilterRegistrationBean<>();
     registration.setFilter(filter);
     registration.setOrder(
-        Ordered.HIGHEST_PRECEDENCE + 1); // Run SECOND after AuthenticationExtractionFilter
+        Ordered.HIGHEST_PRECEDENCE + 2); // Run after AuthenticationExtractionFilter
     registration.setAsyncSupported(true);
 
     // Register filter for all paths - exclusions are handled by shouldNotFilter()
@@ -104,7 +108,7 @@ public class ServletConfig implements WebMvcConfigurer {
       RateLimitFilter filter) {
     FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>();
     registration.setFilter(filter);
-    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 3);
     registration.setAsyncSupported(true);
     registration.addUrlPatterns("/*");
     return registration;

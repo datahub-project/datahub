@@ -13,9 +13,11 @@ import {
     AssertionRunEvent,
     AssertionStdAggregation,
     AssertionStdOperator,
-    DatasetAssertionInfo,
+    AssertionStdParameters,
     DatasetAssertionScope,
+    Maybe,
     SchemaFieldRef,
+    StringMapEntry,
 } from '@types';
 
 const ViewLogicButton = styled(Button)`
@@ -44,10 +46,21 @@ const StyledLastRunText = styled(Typography.Text)`
     align-items: center;
 `;
 
-type Props = {
+/**
+ * Type-agnostic props for scope/operator/aggregation-based assertion copy.
+ * Callers pass fields from DatasetAssertionInfo or CustomAssertionInfo directly.
+ */
+export type StructuredAssertionDescriptionProps = {
     description?: string;
-    assertionInfo?: DatasetAssertionInfo;
     lastEvaluation?: AssertionRunEvent;
+    scope?: Maybe<DatasetAssertionScope>;
+    aggregation?: Maybe<AssertionStdAggregation>;
+    operator?: Maybe<AssertionStdOperator>;
+    fields?: Maybe<Array<SchemaFieldRef>>;
+    parameters?: Maybe<AssertionStdParameters>;
+    nativeType?: Maybe<string>;
+    nativeParameters?: Maybe<Array<StringMapEntry>>;
+    logic?: Maybe<string>;
 };
 
 // Literal-union key parts. Keeping these as unions (not `string`) lets the composed
@@ -128,13 +141,12 @@ export const getAggregationDescriptor = (
                     return { key: 'rows' };
             }
         case DatasetAssertionScope.DatasetColumn: {
-            const field = fields?.length === 1 ? fields[0] : undefined;
-            let column = decodeSchemaField(field?.path || '');
-            if (field === undefined) {
+            let column: string;
+            if (!fields?.length) {
                 column = 'undefined';
-                console.error(
-                    `Invalid field provided for Dataset Assertion with scope Column ${JSON.stringify(field)}`,
-                );
+                console.error('Invalid field provided for Dataset Assertion with scope Column: no fields');
+            } else {
+                column = fields.map((field) => decodeSchemaField(field.path || '')).join(', ');
             }
             switch (aggregation) {
                 case AssertionStdAggregation.UniqueCount:
@@ -201,15 +213,24 @@ export const getOperatorKey = (op: AssertionStdOperator | undefined): OperatorKe
 const TOOLTIP_MAX_WIDTH = 440;
 
 /**
- * A human-readable description of an Assertion.
+ * A human-readable description of a structured assertion (legacy DATASET or structured CUSTOM).
  *
  * For example, Column 'X' values are in [1, 2, 3]
  */
-export const DatasetAssertionDescription = ({ description, assertionInfo, lastEvaluation }: Props) => {
+export const DatasetAssertionDescription = ({
+    description,
+    lastEvaluation,
+    scope,
+    aggregation,
+    fields,
+    operator,
+    parameters,
+    nativeType,
+    nativeParameters,
+    logic,
+}: StructuredAssertionDescriptionProps) => {
     const { t } = useTranslation('entity.profile.validations');
     const { t: tc } = useTranslation('common.labels');
-    const { scope, aggregation, fields, operator, parameters, nativeType, nativeParameters, logic } =
-        assertionInfo ?? {};
     const [isLogicVisible, setIsLogicVisible] = useState(false);
 
     // Build the full-sentence description key from the aggregation + operator dimensions.

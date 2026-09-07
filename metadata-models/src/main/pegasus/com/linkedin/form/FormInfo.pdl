@@ -6,7 +6,8 @@ import com.linkedin.common.Urn
  * Information about a form to help with filling out metadata on entities.
  */
 @Aspect = {
-  "name": "formInfo"
+  "name": "formInfo",
+  "schemaVersion": 2
 }
 record FormInfo {
   /**

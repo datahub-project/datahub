@@ -1,6 +1,7 @@
 package com.linkedin.metadata.filter;
 
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
+import com.linkedin.metadata.dao.throttle.DatabaseTransactionConflictRestLiServiceException;
 import com.linkedin.metadata.dao.throttle.ThrottledRestLiServiceException;
 import com.linkedin.metadata.throttle.ThrottleResponseHeaderWriter;
 import com.linkedin.restli.server.filter.Filter;
@@ -10,7 +11,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nullable;
 
-/** Adds standard throttle debug headers to Rest.li 429 responses. */
+/** Adds standard throttle and transaction-conflict response headers on Rest.li errors. */
 public class RestliThrottleResponseFilter implements Filter {
 
   @Override
@@ -27,8 +28,32 @@ public class RestliThrottleResponseFilter implements Filter {
           throttleException.getMechanismType(),
           throttleException.getSource(),
           throttleException.getDurationMs());
+      return CompletableFuture.completedFuture(null);
+    }
+
+    DatabaseTransactionConflictRestLiServiceException conflictException =
+        extractDatabaseTransactionConflict(th);
+    if (conflictException != null) {
+      responseContext.getResponseData().getHeaders().putAll(conflictException.getResponseHeaders());
     }
     return CompletableFuture.completedFuture(null);
+  }
+
+  @Nullable
+  private static DatabaseTransactionConflictRestLiServiceException
+      extractDatabaseTransactionConflict(Throwable th) {
+    Throwable cur = th;
+    while (cur != null) {
+      if (cur instanceof DatabaseTransactionConflictRestLiServiceException conflict) {
+        return conflict;
+      }
+      Throwable cause = cur.getCause();
+      if (cause == null || cause == cur) {
+        break;
+      }
+      cur = cause;
+    }
+    return null;
   }
 
   @Nullable

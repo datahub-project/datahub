@@ -378,4 +378,28 @@ public class DataProductServiceTest {
     assertFalse(result);
     verify(mockClient, times(1)).exists(any(OperationContext.class), eq(TEST_RESOURCE_URN_1));
   }
+
+  @Test
+  public void testFilterExistingUrns() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final GraphClient mockGraphClient = mock(GraphClient.class);
+    final DataProductService service = new DataProductService(mockClient, mockGraphClient);
+
+    when(mockClient.filterExistingUrns(
+            eq(opContext), eq(ImmutableList.of(TEST_RESOURCE_URN_1, TEST_RESOURCE_URN_2))))
+        .thenReturn(ImmutableSet.of(TEST_RESOURCE_URN_1));
+
+    assertEquals(
+        service.filterExistingUrns(
+            opContext, ImmutableList.of(TEST_RESOURCE_URN_1, TEST_RESOURCE_URN_2)),
+        ImmutableSet.of(TEST_RESOURCE_URN_1));
+
+    assertEquals(service.filterExistingUrns(opContext, List.of()), ImmutableSet.of());
+
+    when(mockClient.filterExistingUrns(eq(opContext), eq(ImmutableList.of(TEST_DATA_PRODUCT_URN))))
+        .thenThrow(new RuntimeException("Client error"));
+    assertThrows(
+        RuntimeException.class,
+        () -> service.filterExistingUrns(opContext, ImmutableList.of(TEST_DATA_PRODUCT_URN)));
+  }
 }

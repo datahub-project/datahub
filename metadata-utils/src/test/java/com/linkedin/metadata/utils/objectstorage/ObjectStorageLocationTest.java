@@ -142,4 +142,107 @@ public class ObjectStorageLocationTest {
         IllegalArgumentException.class,
         () -> ObjectStorageLocation.resolve(null, null, "relative/path", "local"));
   }
+
+  // ---------------------------------------------------------------------------
+  // parseDocument — a URI that names one object, split into root + key
+  // ---------------------------------------------------------------------------
+
+  @Test
+  public void testParseDocumentCloudSplitsTrailingSegmentOffThePrefix() {
+    ObjectStorageLocation.Document document =
+        ObjectStorageLocation.parseDocument("s3://my-bucket/exports/matrix.json");
+    assertEquals(document.root().provider(), ObjectStorageProvider.S3);
+    assertEquals(document.root().bucket(), "my-bucket");
+    assertEquals(document.root().keyPrefix(), "exports");
+    assertEquals(document.objectKey(), "matrix.json");
+  }
+
+  @Test
+  public void testParseDocumentCloudAtBucketRootHasNoPrefix() {
+    ObjectStorageLocation.Document document =
+        ObjectStorageLocation.parseDocument("gs://my-bucket/matrix.json");
+    assertEquals(document.root().provider(), ObjectStorageProvider.GCS);
+    assertEquals(document.root().bucket(), "my-bucket");
+    assertEquals(document.root().keyPrefix(), "");
+    assertEquals(document.objectKey(), "matrix.json");
+  }
+
+  @Test
+  public void testParseDocumentLocalRootsAtTheParentDirectory() {
+    // The client is rooted at a directory, so the file name has to become the key.
+    ObjectStorageLocation.Document document =
+        ObjectStorageLocation.parseDocument("file:///var/lib/datahub/matrix.json");
+    assertEquals(document.root().provider(), ObjectStorageProvider.LOCAL);
+    assertEquals(document.root().localRoot(), "/var/lib/datahub");
+    assertEquals(document.objectKey(), "matrix.json");
+  }
+
+  @Test
+  public void testParseDocumentRejectsUriThatNamesNoObject() {
+    // A bucket root or a filesystem root is not a readable document.
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ObjectStorageLocation.parseDocument("s3://my-bucket"));
+    assertThrows(
+        IllegalArgumentException.class, () -> ObjectStorageLocation.parseDocument("file:///"));
+  }
+
+  @Test
+  public void testParseDocumentRejectsUnsupportedScheme() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ObjectStorageLocation.parseDocument("ftp://host/matrix.json"));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Scheme case — case-insensitive per RFC 3986 §3.1
+  // ---------------------------------------------------------------------------
+
+  @Test
+  public void testParseAcceptsAnySchemeCase() {
+    for (String uri : new String[] {"S3://my-bucket/exports", "s3://my-bucket/exports"}) {
+      ObjectStorageLocation location = ObjectStorageLocation.parse(uri);
+      assertEquals(location.provider(), ObjectStorageProvider.S3, uri);
+      assertEquals(location.bucket(), "my-bucket", uri);
+      assertEquals(location.keyPrefix(), "exports", uri);
+    }
+    assertEquals(
+        ObjectStorageLocation.parse("GS://my-bucket/exports").provider(),
+        ObjectStorageProvider.GCS);
+    assertEquals(
+        ObjectStorageLocation.parse("FILE:///var/lib/datahub").provider(),
+        ObjectStorageProvider.LOCAL);
+    assertEquals(
+        ObjectStorageLocation.parse("FiLe:///var/lib/datahub").localRoot(), "/var/lib/datahub");
+  }
+
+  @Test
+  public void testParseFoldsOnlyTheSchemeNotTheKey() {
+    // Bucket names, S3 keys and GCS object names are case-sensitive, so nothing past the scheme may
+    // be lowercased along with it.
+    ObjectStorageLocation location =
+        ObjectStorageLocation.parse("S3://My-Bucket/Exports/CamelCase");
+    assertEquals(location.bucket(), "My-Bucket");
+    assertEquals(location.keyPrefix(), "Exports/CamelCase");
+  }
+
+  @Test
+  public void testParseDocumentAcceptsAnySchemeCase() {
+    ObjectStorageLocation.Document document =
+        ObjectStorageLocation.parseDocument("S3://My-Bucket/Dir/Matrix.json");
+    assertEquals(document.root().provider(), ObjectStorageProvider.S3);
+    assertEquals(document.root().bucket(), "My-Bucket");
+    assertEquals(document.root().keyPrefix(), "Dir");
+    assertEquals(document.objectKey(), "Matrix.json");
+  }
+
+  @Test
+  public void testResolveAcceptsAnySchemeCaseInLegacyBucket() {
+    // The legacy bucket value may itself carry a scheme; it is matched the same way.
+    ObjectStorageLocation location =
+        ObjectStorageLocation.resolve(null, "S3://my-bucket", "exports", null).orElseThrow();
+    assertEquals(location.provider(), ObjectStorageProvider.S3);
+    assertEquals(location.bucket(), "my-bucket");
+    assertEquals(location.keyPrefix(), "exports");
+  }
 }

@@ -53,6 +53,7 @@ public class RegistryDtoMappingTest {
     assertEquals(dto.getName(), "dataset");
     assertEquals(dto.getKeyAspect(), "datasetKey");
     assertEquals(dto.getSearchGroup(), "primary");
+    assertEquals(dto.isViewUnrestricted(), false);
   }
 
   @Test
@@ -62,6 +63,15 @@ public class RegistryDtoMappingTest {
     EntityAnnotationDto dto = EntityAnnotationDto.fromEntityAnnotation(annotation);
 
     assertEquals(dto.getSearchGroup(), "default");
+  }
+
+  @Test
+  public void testEntityAnnotationDtoMapsViewUnrestricted() {
+    EntityAnnotation annotation = new EntityAnnotation("corpuser", "corpUserKey", "primary", true);
+
+    EntityAnnotationDto dto = EntityAnnotationDto.fromEntityAnnotation(annotation);
+
+    assertEquals(dto.isViewUnrestricted(), true);
   }
 
   @Test

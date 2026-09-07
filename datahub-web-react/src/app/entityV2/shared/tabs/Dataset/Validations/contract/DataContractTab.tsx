@@ -10,6 +10,7 @@ import { DataQualityContractSummary } from '@app/entityV2/shared/tabs/Dataset/Va
 import { FreshnessContractSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/FreshnessContractSummary';
 import { SchemaContractSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/SchemaContractSummary';
 import { DataContractBuilderModal } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractBuilderModal';
+import { createBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/utils';
 
 import { useGetDatasetContractQuery } from '@graphql/contract.generated';
 import { DataContract, DataContractState } from '@types';
@@ -116,6 +117,7 @@ export const DataContractTab = () => {
             )}
             {showContractBuilder && (
                 <DataContractBuilderModal
+                    initialState={createBuilderState(contract as DataContract | undefined)}
                     entityUrn={urn}
                     onCancel={() => setShowContractBuilder(false)}
                     onSubmit={onContractUpdate}

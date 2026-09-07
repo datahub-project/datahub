@@ -50,7 +50,7 @@ public abstract class WriteDAOTestBase extends AbstractTestNGSpringContextTests 
         getOperationContext()
             .getSearchContext()
             .getIndexConvention()
-            .getIndexName(ElasticSearchGraphService.INDEX_NAME);
+            .getIndexName(getOperationContext(), ElasticSearchGraphService.INDEX_NAME);
 
     // Create fewer edges for async test
     int totalEdges = 8;

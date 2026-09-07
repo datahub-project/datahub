@@ -2,17 +2,17 @@ package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getSearchEntityNames;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
+import static com.linkedin.restli.common.RestConstants.DEFAULT_COUNT;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ScrollAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.ScrollResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
-import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnScrollResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.SearchFlags;
@@ -24,7 +24,6 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,9 +34,6 @@ import org.apache.commons.lang3.StringUtils;
 @RequiredArgsConstructor
 public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFuture<ScrollResults>> {
 
-  private static final int DEFAULT_START = 0;
-  private static final int DEFAULT_COUNT = 10;
-
   private final EntityClient _entityClient;
   private final ViewService _viewService;
 
@@ -47,12 +43,8 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
     final ScrollAcrossEntitiesInput input =
         bindArgument(environment.getArgument("input"), ScrollAcrossEntitiesInput.class);
 
-    final List<EntityType> entityTypes =
-        (input.getTypes() == null || input.getTypes().isEmpty())
-            ? SEARCHABLE_ENTITY_TYPES
-            : input.getTypes();
     final List<String> entityNames =
-        entityTypes.stream().map(EntityTypeMapper::getName).collect(Collectors.toList());
+        getSearchEntityNames(context.getOperationContext(), input.getTypes());
 
     // escape forward slash since it is a reserved character in Elasticsearch, default to * if
     // blank/empty
@@ -100,6 +92,13 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                     ? SearchUtils.intersectEntityTypes(
                         entityNames, maybeResolvedView.getDefinition().getEntityTypes())
                     : entityNames;
+
+            if (finalEntities.isEmpty()) {
+              log.debug(
+                  "scrollAcrossEntities: empty entity-type list; returning no results "
+                      + "(not searching all indices)");
+              return SearchUtils.createEmptyScrollResults(count);
+            }
 
             // Build the final filter, combining view filter and entity-specific defaults
             Filter combinedFilter =

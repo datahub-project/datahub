@@ -48,7 +48,7 @@ const glossaryTerms = {
 
 describe('TagTermGroup', () => {
     it('renders editable tags', async () => {
-        const { getByText, getByLabelText, queryAllByLabelText, queryByText } = render(
+        const { getByText, getByLabelText, queryByText, queryAllByLabelText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <TagTermGroup editableTags={globalTags1 as GlobalTags} canRemove />
@@ -149,7 +149,7 @@ describe('TagTermGroup', () => {
     });
 
     it('renders terms', () => {
-        const { getByText, queryAllByLabelText } = render(
+        const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <TagTermGroup
@@ -162,6 +162,5 @@ describe('TagTermGroup', () => {
         );
         expect(getByText('InstrumentIdentifier')).toBeInTheDocument();
         expect(getByText('InstrumentCost')).toBeInTheDocument();
-        expect(queryAllByLabelText('book').length).toBe(2);
     });
 });

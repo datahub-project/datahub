@@ -1,10 +1,7 @@
 import { Pill, Tooltip } from '@components';
-import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import React, { useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { useEffect, useMemo } from 'react';
 import { useHistory } from 'react-router';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import { useDomainSidebarFilters } from '@app/domainV2/nestedDomains/domainSidebarFilters/DomainSidebarFiltersContext';
@@ -15,6 +12,12 @@ import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon'
 import Loading from '@app/shared/Loading';
 import { BodyContainer, BodyGridExpander } from '@app/shared/components';
 import useToggle from '@app/shared/useToggle';
+import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
+import { useTreeExpansionRegistry } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeExpansionRegistry';
+import {
+    TREE_ROW_ENTITY_ICON_GLYPH_SIZE,
+    TREE_ROW_ENTITY_ICON_SIZE,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import { RotatingTriangle } from '@app/sharedV2/sidebar/components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -117,134 +120,6 @@ const LoadingWrapper = styled.div`
     padding: 16px;
 `;
 
-// --- Sidebar-variant styled components --------------------------------------
-// Layout mirrors `DocumentTreeItem` so the domain sidebar and document sidebar
-// share the same row anatomy: 38px row, 6px radius, level-based left indent
-// (8 + level*16), brand-gradient selected text, and the leading icon swapped
-// for a caret on hover/expansion. Keeping these as a separate set of styled
-// components (rather than reusing DocumentTreeItem) avoids dragging document-
-// specific concerns — actions menu, dashed/external glyphs — into the domain
-// tree row.
-
-// `$isCollapsed` switches the row from the expanded "icon + title + count"
-// layout to a single centered icon. Expanded mode keeps level-aware left
-// padding (8 + level*16) so nested rows stair-step; collapsed mode drops the
-// indent entirely and centers the icon in the 63px-wide collapsed sidebar so
-// every row aligns vertically regardless of depth.
-const SidebarRowContainer = styled.div<{ $level: number; $isSelected: boolean; $isCollapsed: boolean }>`
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: ${(props) => (props.$isCollapsed ? 'center' : 'space-between')};
-    padding: ${(props) => (props.$isCollapsed ? '4px 0' : `4px 8px 4px ${8 + props.$level * 16}px`)};
-    min-height: 38px;
-    height: 38px;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: background-color 0.15s ease;
-    margin-bottom: 2px;
-    margin-left: 2px;
-    margin-right: 2px;
-
-    ${(props) =>
-        props.$isSelected &&
-        `
-        background: ${props.theme.colors.bgSelectedSubtle};
-        box-shadow: ${props.theme.colors.shadowFocusBrand};
-    `}
-
-    ${(props) =>
-        !props.$isSelected &&
-        `
-        &:hover {
-            background: ${props.theme.colors.bgHover};
-            box-shadow: ${props.theme.colors.shadowFocus};
-        }
-    `}
-`;
-
-// Expanded mode: flex:1 so the title pushes the right-side count to the edge.
-// Collapsed mode: no flex (the icon centers itself via the parent's
-// justify-content: center) and no overflow clipping needed.
-const SidebarLeftContent = styled.div<{ $isCollapsed: boolean }>`
-    display: flex;
-    align-items: center;
-    ${(props) =>
-        props.$isCollapsed
-            ? `
-        flex: 0 0 auto;
-    `
-            : `
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
-    `}
-`;
-
-// Drop the trailing 8px gutter in collapsed mode — with no title text next to
-// it, the gutter would push the icon visibly right of center.
-const SidebarIconSlot = styled.div<{ $isCollapsed: boolean }>`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 20px;
-    margin-right: ${(props) => (props.$isCollapsed ? '0' : '8px')};
-    flex-shrink: 0;
-`;
-
-const SidebarExpandButton = styled.button`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    padding: 0;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    color: inherit;
-
-    &:hover {
-        opacity: 0.7;
-    }
-`;
-
-const SidebarTitle = styled.span<{ $isSelected: boolean }>`
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 14px;
-    line-height: 20px;
-    color: ${(props) => props.theme.colors.textSecondary};
-
-    ${(props) =>
-        props.$isSelected &&
-        `
-        background: ${props.theme.colors.brandGradientSelected};
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 600;
-    `}
-`;
-
-const SidebarTitleContent = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-    flex: 1;
-    overflow: hidden;
-`;
-
-const SidebarRightContent = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-left: 8px;
-    flex-shrink: 0;
-`;
-
 // Expander used by the sidebar variant. Unlike the select-variant expander,
 // children are responsible for their own indent via the `level` prop, so this
 // is just an animated open/close wrapper.
@@ -284,7 +159,6 @@ export default function DomainNode({
     variant = 'select',
 }: Props) {
     const shouldHideDomain = domainUrnToHide === domain.urn;
-    const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContextV2();
@@ -292,21 +166,21 @@ export default function DomainNode({
         initialValue: false,
         closeDelay: 250,
     });
+    const expansion = useTreeExpansionRegistry();
     const isInSelectMode = !!selectDomainOverride;
     const isSidebarVariant = variant === 'sidebar';
-    // Propagate the sidebar's owner selection down into every level of the
-    // tree so child-domain scrolls are filtered server-side too (mirrors how
+    // Propagate the sidebar's owner / sort selection down into every level of the
+    // tree so child-domain scrolls stay consistent with the root (mirrors how
     // the root scroll is filtered in `DomainNavigator`). Picker variants
     // intentionally don't inherit the sidebar filter — they have their own
     // scope. Returns noop defaults outside the sidebar provider tree.
-    const { selectedOwnerUrns } = useDomainSidebarFilters();
+    const { selectedOwnerUrns, sortSelection } = useDomainSidebarFilters();
     const { domains, loading, scrollRef } = useScrollDomains({
         parentDomain: domain.urn,
         skip: !isOpen || shouldHideDomain,
         selectedOwnerUrns: isSidebarVariant ? selectedOwnerUrns : undefined,
+        sort: isSidebarVariant ? sortSelection : undefined,
     });
-    const theme = useTheme();
-    const [isHovered, setIsHovered] = useState(false);
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
     const isDomainNodeSelected = !!isOnEntityPage && !isInSelectMode;
@@ -334,6 +208,24 @@ export default function DomainNode({
         }
     }, [isCollapsed, toggleClose]);
 
+    const hasDomainChildren = !!numDomainChildren;
+    const isExpanded = isOpen && !isClosing;
+
+    useEffect(() => {
+        if (!expansion || !hasDomainChildren || shouldHideDomain || !isSidebarVariant) return undefined;
+        const api = {
+            expand: () => toggleOpen(),
+            collapse: () => toggleClose(),
+        };
+        expansion.register(domain.urn, api);
+        return () => expansion.unregister(domain.urn, api);
+    }, [expansion, hasDomainChildren, domain.urn, shouldHideDomain, isSidebarVariant, toggleOpen, toggleClose]);
+
+    useEffect(() => {
+        if (!expansion || !hasDomainChildren || shouldHideDomain || !isSidebarVariant) return;
+        expansion.reportExpanded(domain.urn, isExpanded);
+    }, [expansion, hasDomainChildren, isExpanded, domain.urn, shouldHideDomain, isSidebarVariant]);
+
     function handleSelectDomain() {
         // Picker variant (CreateDomainModal / DomainParentSelect) takes
         // priority: clicking a row inside the picker should select the
@@ -352,80 +244,31 @@ export default function DomainNode({
 
     if (shouldHideDomain) return null;
 
-    const hasDomainChildren = !!numDomainChildren;
-    const isExpanded = isOpen && !isClosing;
-
     // ------------------------------------------------------------------ sidebar
     if (variant === 'sidebar') {
-        // In collapsed mode the row click expands the whole sidebar (not toggle
-        // the node), so swapping the icon for a caret on hover would lie about
-        // the click action. Lock to the colored icon while collapsed.
-        const showCaret = !isCollapsed && hasDomainChildren && (isExpanded || isHovered);
-
-        const handleCaretClick = (e: React.MouseEvent) => {
-            e.stopPropagation();
-            toggle();
-        };
-
-        const renderLeadingGlyph = () => {
-            if (showCaret) {
-                const Caret = isExpanded ? CaretDown : CaretRight;
-                return (
-                    <SidebarExpandButton
-                        type="button"
-                        onClick={handleCaretClick}
-                        aria-expanded={isExpanded}
-                        aria-label={isExpanded ? tc('collapse') : tc('expand')}
-                        data-testid={`domain-tree-expand-button-${domain.urn}`}
-                    >
-                        <Caret color={theme.colors.icon} size={16} weight="bold" />
-                    </SidebarExpandButton>
-                );
-            }
-            // Domain glyph is intentionally smaller (20px) than the previous
-            // 30px badge so it sits flush inside the 24x20 IconSlot used by
-            // the documents sidebar — the two trees should look like siblings.
-            return <DomainColoredIcon domain={domain} size={20} fontSize={12} />;
-        };
-
         return (
             <>
-                <SidebarRowContainer
+                <HierarchicalBrowseTreeRow
                     data-testid="domain-options-list"
-                    $level={level}
-                    $isSelected={isDomainNodeSelected && !isCollapsed}
-                    $isCollapsed={!!isCollapsed}
-                    onClick={handleSelectDomain}
-                    onMouseEnter={() => setIsHovered(true)}
-                    onMouseLeave={() => setIsHovered(false)}
-                >
-                    <SidebarLeftContent $isCollapsed={!!isCollapsed}>
-                        <SidebarIconSlot $isCollapsed={!!isCollapsed}>{renderLeadingGlyph()}</SidebarIconSlot>
-                        {!isCollapsed && (
-                            <SidebarTitleContent>
-                                <Tooltip
-                                    placement="right"
-                                    title={displayName}
-                                    mouseEnterDelay={0.7}
-                                    mouseLeaveDelay={0}
-                                >
-                                    <SidebarTitle
-                                        $isSelected={isDomainNodeSelected && !isCollapsed}
-                                        data-testid={`domain-option-${displayName}`}
-                                    >
-                                        {displayName}
-                                    </SidebarTitle>
-                                </Tooltip>
-                                {deprecationBadge}
-                            </SidebarTitleContent>
-                        )}
-                    </SidebarLeftContent>
-                    {hasDomainChildren && !isExpanded && !isCollapsed && (
-                        <SidebarRightContent>
-                            <Pill label={`${numDomainChildren}`} size="sm" />
-                        </SidebarRightContent>
-                    )}
-                </SidebarRowContainer>
+                    level={level}
+                    isSelected={isDomainNodeSelected}
+                    isCollapsed={!!isCollapsed}
+                    hasChildren={hasDomainChildren}
+                    isExpanded={isExpanded}
+                    count={numDomainChildren}
+                    icon={
+                        <DomainColoredIcon
+                            domain={domain}
+                            size={TREE_ROW_ENTITY_ICON_SIZE}
+                            fontSize={TREE_ROW_ENTITY_ICON_GLYPH_SIZE}
+                        />
+                    }
+                    label={displayName}
+                    labelTitle={displayName}
+                    afterLabel={deprecationBadge || undefined}
+                    onSelect={handleSelectDomain}
+                    onToggleExpand={isCollapsed || !hasDomainChildren ? undefined : toggle}
+                />
                 <SidebarExpander isOpen={isExpanded}>
                     <BodyContainer>
                         {isExpanded && (
@@ -475,7 +318,7 @@ export default function DomainNode({
                         />
                     </ButtonWrapper>
                 )}
-                <Tooltip placement="right" title={displayName} mouseEnterDelay={0.7} mouseLeaveDelay={0}>
+                <Tooltip placement="right" title={displayName} mouseEnterDelay={0.1} mouseLeaveDelay={0}>
                     <NameWrapper
                         onClick={handleSelectDomain}
                         $isSelected={isDomainNodeSelected}
@@ -485,7 +328,7 @@ export default function DomainNode({
                             <Tooltip
                                 placement="right"
                                 title={isCollapsed && displayName}
-                                mouseEnterDelay={0.7}
+                                mouseEnterDelay={0.1}
                                 mouseLeaveDelay={0}
                             >
                                 <DomainColoredIcon domain={domain} size={30} fontSize={14} />

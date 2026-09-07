@@ -1,7 +1,8 @@
 namespace com.linkedin.semanticmodel
 
 /**
- * Discriminator enum that identifies the kind of a SemanticField inside a SemanticModel dataset.
+ * Discriminator enum that identifies the kind of a SchemaField's SemanticFieldAnnotation
+ * inside a SemanticModel dataset.
  */
 enum SemanticFieldType {
   /** A grouping or filtering attribute — maps to a "dimension" in the semantic layer. */

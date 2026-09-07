@@ -1,0 +1,18 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,playwright_quality_assertion_list,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "playwright_quality_assertion_list",
+              "description": "Dataset for Quality assertion list tests",
+              "customProperties": {}
+            }
+          }
+        ]
+      }
+    }
+  }
+]

@@ -68,10 +68,9 @@ class UnityCatalogProfilerConfig(ConfigModel):
     method: str = Field(
         description=(
             "Profiling method to use."
-            " Options supported are `ge`, `analyze`, and `sqlalchemy`."
-            " `ge` uses Great Expectations and runs SELECT SQL queries on profiled tables."
+            " Options supported are `analyze` and `sqlalchemy`."
             " `analyze` calls ANALYZE TABLE on profiled tables. Only works for delta tables."
-            " `sqlalchemy` uses the custom SQLAlchemy-based profiler (no GE dependency)."
+            " `sqlalchemy` uses the custom SQLAlchemy-based profiler."
         ),
     )
 
@@ -138,15 +137,6 @@ class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
 
 
 # TODO: should this max_wait_secs had been implemented as a global profiler feature instead of keeping it specific to Unity Catalog?
-class UnityCatalogGEProfilerConfig(UnityCatalogProfilerConfig, GEProfilingConfig):
-    method: Literal["ge"] = "ge"
-
-    max_wait_secs: Optional[int] = Field(
-        default=None,
-        description="Maximum time to wait for a table to be profiled.",
-    )
-
-
 class UnityCatalogSQLAlchemyProfilerConfig(
     UnityCatalogProfilerConfig, GEProfilingConfig
 ):
@@ -156,6 +146,16 @@ class UnityCatalogSQLAlchemyProfilerConfig(
         default=None,
         description="Maximum time to wait for a table to be profiled.",
     )
+
+    # Unity Catalog still uses `method` as a real discriminator (analyze vs
+    # sqlalchemy), so cancel the `_method_removed` validator inherited from
+    # GEProfilingConfig (see ge_profiling_config.py) — otherwise it would warn
+    # and strip `method` on every Unity profiling config. The attribute name must
+    # match the inherited validator's for the override to take effect.
+    @model_validator(mode="before")
+    @classmethod
+    def _method_removed(cls, values: object) -> object:
+        return values
 
 
 class FederationConnectionDetail(ConfigModel):
@@ -511,7 +511,6 @@ class UnityCatalogSourceConfig(
 
     # TODO: Remove `type:ignore` by refactoring config
     profiling: Union[
-        UnityCatalogGEProfilerConfig,
         UnityCatalogAnalyzeProfilerConfig,
         UnityCatalogSQLAlchemyProfilerConfig,
     ] = Field(  # type: ignore
@@ -617,14 +616,11 @@ class UnityCatalogSourceConfig(
             self.profiling.operation_config
         )
 
-    def is_ge_profiling(self) -> bool:
-        return self.profiling.method == "ge"
-
     def is_sqlalchemy_profiling(self) -> bool:
         return self.profiling.method == "sqlalchemy"
 
     def uses_table_level_profiler(self) -> bool:
-        return self.is_ge_profiling() or self.is_sqlalchemy_profiling()
+        return self.is_sqlalchemy_profiling()
 
     def probe_filter_target(
         self, schema: str, entity: str, warn: Callable[[str], None]

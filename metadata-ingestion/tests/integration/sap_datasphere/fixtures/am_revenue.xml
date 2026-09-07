@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
+           xmlns="http://docs.oasis-open.org/odata/ns/edm" Version="4.0">
+  <edmx:DataServices>
+    <Schema Namespace="LINEAGE_TEST">
+      <EntityType Name="AM_REVENUE">
+        <Property Name="REGION" Type="Edm.String" Nullable="true"/>
+        <Property Name="REVENUE" Type="Edm.Decimal" Precision="18" Scale="2" Nullable="true"/>
+      </EntityType>
+      <Annotations Target="LINEAGE_TEST.AM_REVENUE">
+        <Annotation Term="Common.Label" String="Revenue Analytic Model"/>
+      </Annotations>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>
