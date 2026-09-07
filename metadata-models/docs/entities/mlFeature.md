@@ -224,7 +224,7 @@ Features are typically organized into feature tables. While the feature entity i
 
 ### Querying ML Features
 
-You can retrieve ML Feature metadata using the Python SDK:
+You can retrieve ML Feature metadata using both the Python SDK and the REST API:
 
 <details>
 <summary>Python SDK: Read an ML Feature</summary>

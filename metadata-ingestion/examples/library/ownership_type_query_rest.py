@@ -4,7 +4,8 @@ from datahub.metadata.urns import OwnershipTypeUrn
 
 graph = get_default_graph()
 
-ownership_type_urn = OwnershipTypeUrn("data_quality_lead")
+# A built-in ownership type, so this example runs standalone with no prerequisites.
+ownership_type_urn = OwnershipTypeUrn("__system__technical_owner")
 
 info = graph.get_aspect(
     entity_urn=str(ownership_type_urn), aspect_type=OwnershipTypeInfoClass
@@ -32,7 +33,6 @@ print("Querying multiple ownership types:")
 print("=" * 80)
 
 ownership_type_urns = [
-    OwnershipTypeUrn("__system__technical_owner"),
     OwnershipTypeUrn("__system__business_owner"),
     OwnershipTypeUrn("__system__data_steward"),
 ]

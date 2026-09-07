@@ -1655,7 +1655,7 @@ First, let's get all our imports in:
 import json
 from typing import List, Optional
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, TransformerSemantics
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.base_transformer import (
     BaseTransformer,
