@@ -19,9 +19,12 @@ from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DatasetPropertiesClass,
 )
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, with_test_retry
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 # Unique per run so the containers are freshly seeded and their counts are deterministic
 # regardless of what else is in the instance.

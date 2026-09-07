@@ -9,6 +9,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn, VersionSetUrn
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 VERSION_SET_URN = VersionSetUrn("12345678910", DatasetUrn.ENTITY_TYPE).urn()
 ENTITY_URN_OBJS = [DatasetUrn("snowflake", f"versioning_{i}") for i in range(3)]

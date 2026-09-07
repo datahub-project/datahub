@@ -45,7 +45,12 @@ def get_tables(native_query: str) -> List[str]:
     native_query = remove_special_characters(native_query)
     logger.debug(f"Processing native query = {native_query}")
     tables: List[str] = []
-    parsed = sqlparse.parse(native_query)[0]
+    statements = sqlparse.parse(native_query)
+    if not statements:
+        # sqlparse yields nothing for blank input, which a native query can be
+        # once the M-Query escape sequences are stripped.
+        return tables
+    parsed = statements[0]
     tokens: List[sqlparse.sql.Token] = list(parsed.tokens)
     length: int = len(tokens)
     from_index: int = -1

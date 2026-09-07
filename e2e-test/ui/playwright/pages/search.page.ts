@@ -44,7 +44,6 @@ export class SearchPage extends BasePage {
       localStorage.setItem('skipOnboardingTour', 'true');
     });
     await this.navigate('/');
-    await this.page.waitForLoadState('networkidle');
     await this.searchInput.waitFor({ state: 'visible', timeout: 10000 });
     // Dismiss any remaining dialog (e.g. "Narrow your search" welcome modal).
     await this.dismissOnboardingOverlays();
@@ -101,12 +100,34 @@ export class SearchPage extends BasePage {
   }
 
   async expectNoResults(): Promise<void> {
-    await expect(this.page.getByText('of 0 results')).toBeVisible();
+    await retryOnFail(
+      async () => {
+        await expect(this.page.getByText('of 0 results')).toBeVisible();
+      },
+      {
+        onRetry: async () => {
+          await this.page.reload();
+          await this.page.waitForLoadState('networkidle');
+          await this.dismissOnboardingOverlays();
+        },
+      },
+    );
   }
 
   async expectHasResults(): Promise<void> {
-    await expect(this.page.getByText('of 0 results')).toBeHidden();
-    await expect(this.page.getByText(/of [0-9]+ result/)).toBeVisible();
+    await retryOnFail(
+      async () => {
+        await expect(this.page.getByText('of 0 results')).toBeHidden();
+        await expect(this.page.getByText(/of [0-9]+ result/)).toBeVisible();
+      },
+      {
+        onRetry: async () => {
+          await this.page.reload();
+          await this.page.waitForLoadState('networkidle');
+          await this.dismissOnboardingOverlays();
+        },
+      },
+    );
   }
 
   async getResultCount(): Promise<number> {

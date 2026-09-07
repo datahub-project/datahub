@@ -1,10 +1,5 @@
-import {
-    AppstoreOutlined,
-    FileOutlined,
-    PartitionOutlined,
-    ReadOutlined,
-    UnorderedListOutlined,
-} from '@ant-design/icons';
+import { AppstoreOutlined, PartitionOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { Export } from '@phosphor-icons/react/dist/csr/Export';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
 import i18next from 'i18next';
@@ -12,7 +7,7 @@ import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { DataProductEntitiesTab } from '@app/entityV2/dataProduct/DataProductEntitiesTab';
-import { DataProductSummaryTab } from '@app/entityV2/dataProduct/DataProductSummaryTab';
+import { OutputPortsTab } from '@app/entityV2/dataProduct/OutputPortsTab';
 import { Preview } from '@app/entityV2/dataProduct/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
@@ -31,20 +26,21 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { DAGTab } from '@app/entityV2/shared/tabs/Lineage/DAGTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
 import SummaryTab from '@app/entityV2/summary/SummaryTab';
-import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetDataProductQuery } from '@graphql/dataProduct.generated';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { DataProduct, EntityType, SearchResult } from '@types';
 
+const OutputPortsTabIcon = () => <Export size={14} />;
+
 const headerDropdownItems = new Set([
     EntityMenuItems.CHANGE_HISTORY,
+    EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.DELETE,
@@ -154,24 +150,18 @@ export class DataProductEntity implements Entity<DataProduct> {
     ];
 
     getProfileTabs = (): EntityTab[] => {
-        const showSummaryTab = useShowAssetSummaryPage();
-
         return [
             {
                 id: EntityProfileTab.SUMMARY_TAB,
                 name: i18next.t('entity.types:tab.summary'),
-                component: showSummaryTab ? SummaryTab : DataProductSummaryTab,
+                component: SummaryTab,
                 icon: ReadOutlined,
             },
-            ...(!showSummaryTab
-                ? [
-                      {
-                          name: i18next.t('entity.types:tab.documentation'),
-                          component: DocumentationTab,
-                          icon: FileOutlined,
-                      },
-                  ]
-                : []),
+            {
+                name: i18next.t('entity.types:tab.outputPorts'),
+                component: OutputPortsTab,
+                icon: OutputPortsTabIcon,
+            },
             {
                 name: i18next.t('entity.types:tab.assets'),
                 getCount: (entityData, _) => {

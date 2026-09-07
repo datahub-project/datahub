@@ -33,6 +33,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.urns.urn import guess_entity_type
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import (
     delete_urn,
     delete_urns_from_file,
@@ -41,6 +42,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.OBSERVE)
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",

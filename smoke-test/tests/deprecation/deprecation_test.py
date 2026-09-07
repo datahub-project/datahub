@@ -3,7 +3,10 @@ from typing import Any, Dict
 import pytest
 
 from conftest import _ingest_cleanup_unique_dataset_impl
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, get_root_urn
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 @pytest.fixture(scope="module", autouse=True)

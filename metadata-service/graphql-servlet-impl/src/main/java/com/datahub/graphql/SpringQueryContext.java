@@ -2,6 +2,8 @@ package com.datahub.graphql;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.datahub.graphql.AspectLoadContext;
+import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.context.RelationshipTraversalContext;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
@@ -15,7 +17,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 
 @Getter
@@ -29,6 +33,10 @@ public class SpringQueryContext implements QueryContext {
   @Nonnull private final DataHubAppConfiguration dataHubAppConfig;
   @Nonnull private final RelationshipTraversalContext relationshipTraversalContext;
   private final int maxParentDepth;
+
+  @Nullable private AspectMappingRegistry aspectMappingRegistry;
+  private final ConcurrentHashMap<String, AspectLoadContext> aspectLoadContexts =
+      new ConcurrentHashMap<>();
 
   public SpringQueryContext(
       final boolean isAuthenticated,
@@ -83,5 +91,28 @@ public class SpringQueryContext implements QueryContext {
   @Override
   public Optional<RelationshipTraversalContext> getRelationshipTraversalContext() {
     return Optional.of(relationshipTraversalContext);
+  }
+
+  @Override
+  @Nullable
+  public AspectMappingRegistry getAspectMappingRegistry() {
+    return aspectMappingRegistry;
+  }
+
+  @Override
+  public void setAspectMappingRegistry(@Nullable AspectMappingRegistry aspectMappingRegistry) {
+    this.aspectMappingRegistry = aspectMappingRegistry;
+  }
+
+  @Override
+  public void mergeAspectLoadContext(
+      @Nonnull String entityTypeName, @Nonnull AspectLoadContext loadContext) {
+    aspectLoadContexts.merge(entityTypeName, loadContext, AspectLoadContext::union);
+  }
+
+  @Override
+  @Nullable
+  public AspectLoadContext getAspectLoadContext(@Nonnull String entityTypeName) {
+    return aspectLoadContexts.get(entityTypeName);
   }
 }

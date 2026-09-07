@@ -1,7 +1,6 @@
 package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.context.OperationFingerprint;
@@ -213,10 +212,10 @@ public class DomainWriteAuthorizationValidator extends AbstractAspectAuthorizati
       return false;
     }
     OperationContext opContext = (OperationContext) session;
+    // Async MCE re-processing has no request context; auth already ran on the API thread.
     if (opContext.getRequestContext() == null) {
       return true;
     }
-    Urn actor = opContext.getSessionActorContext().getActorUrn();
-    return actor != null && SYSTEM_ACTOR.equals(actor.toString());
+    return opContext.isSystemAuth();
   }
 }

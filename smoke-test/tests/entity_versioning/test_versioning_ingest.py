@@ -10,6 +10,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn, VersionSetUrn
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 OLD_LATEST_URN = DatasetUrn("v", "versioning_old_latest")
 ENTITY_URN = DatasetUrn("v", "versioning_entity")

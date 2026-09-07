@@ -505,7 +505,7 @@ datahub init --username alice --password secret --token-duration ONE_WEEK
 
 #### DataHub Cloud Example
 
-For DataHub Cloud (Acryl-hosted) instances, you can use an existing token:
+For DataHub Cloud instances, you can use an existing token:
 
 ```shell
 # Interactive

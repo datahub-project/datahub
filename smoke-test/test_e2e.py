@@ -9,6 +9,7 @@ import pytest
 import requests
 
 from datahub.ingestion.run.pipeline import Pipeline
+from tests.utilities.domains import Domain
 from tests.utilities.messaging_transport import (
     build_pgqueue_sink_config,
     is_pgqueue_transport,
@@ -32,7 +33,10 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [
+    pytest.mark.no_cypress_suite1,
+    pytest.mark.domain(Domain.PLATFORM, Domain.CATALOG),
+]
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 usage_sample_data = "./test_resources/bigquery_usages_golden.json"
@@ -752,6 +756,11 @@ def test_list_users(auth_session):
 
 
 @pytest.mark.dependency()
+# The bootstrapped groups come from bootstrap_mce.json and are only visible here
+# once Elasticsearch has indexed them. wait_for_writes_to_sync() inside
+# execute_graphql() only covers the write pipeline, not the search refresh, so
+# an unretried run can legitimately see fewer than the 2 expected groups.
+@with_test_retry()
 def test_list_groups(auth_session):
     query = """query listGroups($input: ListGroupsInput!) {
         listGroups(input: $input) {

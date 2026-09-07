@@ -272,7 +272,7 @@ class TrinoConfig(BasicSQLAlchemyConfig):
 
 @platform_name("Trino", doc_order=1)
 @config_class(TrinoConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(

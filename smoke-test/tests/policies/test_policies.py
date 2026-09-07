@@ -3,11 +3,12 @@ from typing import Any, Dict
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, get_root_urn, with_test_retry
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.global_policy_mutator
+pytestmark = [pytest.mark.global_policy_mutator, pytest.mark.domain(Domain.PLATFORM)]
 
 TEST_POLICY_NAME = "Updated Platform Policy"
 

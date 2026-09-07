@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.context import (
     DataIntegritySnapshot,
     IOObservation,
@@ -15,6 +16,8 @@ from tests.zdu.framework.context import (
 from tests.zdu.framework.live_traffic_executor import LiveTrafficExecutor
 from tests.zdu.framework.scenario_loader import ZDUTestScenario
 from tests.zdu.framework.suite import Suite
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _scenario(

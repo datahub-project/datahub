@@ -90,7 +90,7 @@ OPERATION_STATEMENT_TYPES = {
 
 @platform_name("Delta Lake", id="delta-lake")
 @config_class(DeltaLakeSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
 @capability(
     SourceCapability.OPERATION_CAPTURE,

@@ -52,8 +52,11 @@ from tests.entity_graph_cache.helpers import (
     wait_for_hierarchy_writes,
     wait_for_session_group_membership_labels,
 )
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 METRIC_SEARCH_SCROLL = "entity.graph.build.search_scroll"
 METRIC_GRAPH_SCROLL = "entity.graph.build.graph_scroll"

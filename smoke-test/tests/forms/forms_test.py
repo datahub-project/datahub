@@ -17,9 +17,12 @@ from typing import Any, Dict, List
 import pytest
 
 from conftest import _ingest_cleanup_data_impl
+from tests.utilities.domains import Domain
 from tests.utils import delete_entity, execute_graphql, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 DATASET_URNS = [
     f"urn:li:dataset:(urn:li:dataPlatform:kafka,test-forms-sample-kafka-{i},PROD)"

@@ -1,0 +1,19 @@
+# Fixture used as a stand-in classpath policy in RateLimitConfigLoaderTest.
+datahub:
+  gms:
+    rateLimits:
+      minRetryAfterSeconds: 90
+      endpoint:
+        rules:
+          - id: classpath-rule
+            pathPattern: /health
+            methods: [GET]
+            capacity: 10
+            refillTokens: 10
+            refillPeriodSeconds: 60
+      scoped:
+        heavyResolvers:
+          searchAcrossEntities:
+            capacity: 100
+            refillTokens: 100
+            refillPeriodSeconds: 60

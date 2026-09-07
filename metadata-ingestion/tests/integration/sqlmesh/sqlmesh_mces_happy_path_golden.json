@@ -1,0 +1,1391 @@
+[
+{
+    "entityType": "dataPlatform",
+    "entityUrn": "urn:li:dataPlatform:sqlmesh",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInfo",
+    "aspect": {
+        "json": {
+            "name": "sqlmesh",
+            "displayName": "SQLMesh",
+            "type": "OTHERS",
+            "datasetNameDelimiter": ".",
+            "logoUrl": "assets/platforms/sqlmeshlogo.png"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000625,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:159b2eb1400c7e2ebfdaaef9ebd8bae8",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "sqlmesh",
+                "env": "PROD",
+                "database": "",
+                "schema": "myschema"
+            },
+            "name": "myschema",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000626,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:159b2eb1400c7e2ebfdaaef9ebd8bae8",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000626,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:159b2eb1400c7e2ebfdaaef9ebd8bae8",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqlmesh"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000626,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:159b2eb1400c7e2ebfdaaef9ebd8bae8",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000626,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:159b2eb1400c7e2ebfdaaef9ebd8bae8",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000626,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000627,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqlmesh"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000627,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:sqlmesh",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "BIGINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "customer_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "BIGINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "status",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "amount",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "DOUBLE",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "created_at",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "TIMESTAMP",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000627,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sqlmesh.model_name": "myschema.raw_orders",
+                "sqlmesh.environment": "prod",
+                "sqlmesh.warehouse": "snowflake",
+                "sqlmesh.gateway": "my_warehouse",
+                "sqlmesh.model_kind": "FULL"
+            },
+            "description": "Raw orders loaded from source system.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000627,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000628,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:159b2eb1400c7e2ebfdaaef9ebd8bae8"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000628,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD)"
+            ],
+            "primary": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000628,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:159b2eb1400c7e2ebfdaaef9ebd8bae8",
+                    "urn": "urn:li:container:159b2eb1400c7e2ebfdaaef9ebd8bae8"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000628,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.raw_orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000628,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719792000628,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:__sqlmesh_ingest__",
+            "operationType": "CUSTOM",
+            "customOperationType": "SQLMESH_FINGERPRINT_REBUILD",
+            "lastUpdatedTimestamp": 1719792000000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000629,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719792000629,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 100
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000630,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000631,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqlmesh"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000631,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:sqlmesh",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "order_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "BIGINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "customer_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "BIGINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "status",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "VARCHAR",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "amount",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "DOUBLE",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "order_date",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "DATE",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000631,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000632,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sqlmesh.model_name": "myschema.orders",
+                "sqlmesh.environment": "prod",
+                "sqlmesh.warehouse": "snowflake",
+                "sqlmesh.gateway": "my_warehouse",
+                "sqlmesh.model_kind": "FULL",
+                "sqlmesh.audits": "not_null,assert_amount_positive"
+            },
+            "description": "Cleaned and enriched orders.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000632,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000632,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:159b2eb1400c7e2ebfdaaef9ebd8bae8"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000632,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD)"
+            ],
+            "primary": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000632,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:159b2eb1400c7e2ebfdaaef9ebd8bae8",
+                    "urn": "urn:li:container:159b2eb1400c7e2ebfdaaef9ebd8bae8"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000632,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000633,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ec3fc7bdca9b17cea8dce0b4b8e2b11e",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000633,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ec3fc7bdca9b17cea8dce0b4b8e2b11e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sqlmesh.audit": "not_null"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "SQLMesh",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),order_id)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),order_id)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "NOT_NULL",
+                "nativeType": "not_null",
+                "nativeParameters": {
+                    "columns": "ARRAY(order_id, customer_id)"
+                }
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1719792000632,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "SQLMesh audit 'not_null'. Executed by SQLMesh; results are ingested from audit_results_path."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000633,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fd46e46ff06a7bd6290197aa09365611",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000633,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fd46e46ff06a7bd6290197aa09365611",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sqlmesh.audit": "not_null"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "SQLMesh",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),customer_id)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD),customer_id)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "NOT_NULL",
+                "nativeType": "not_null",
+                "nativeParameters": {
+                    "columns": "ARRAY(order_id, customer_id)"
+                }
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1719792000633,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "SQLMesh audit 'not_null'. Executed by SQLMesh; results are ingested from audit_results_path."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000633,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:a4930acbbae0808cc7e718978bc27e23",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000634,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:a4930acbbae0808cc7e718978bc27e23",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sqlmesh.audit": "assert_amount_positive"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "SQLMesh",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "assert_amount_positive",
+                "nativeParameters": {
+                    "criteria": "amount >= 0"
+                },
+                "logic": "amount >= 0"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1719792000633,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "SQLMesh audit 'assert_amount_positive'. Executed by SQLMesh; results are ingested from audit_results_path."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000634,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719792000634,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:__sqlmesh_ingest__",
+            "operationType": "CUSTOM",
+            "customOperationType": "SQLMESH_FINGERPRINT_REBUILD",
+            "lastUpdatedTimestamp": 1719792000000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000635,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719792000634,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 100
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000635,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000636,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqlmesh"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000636,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:sqlmesh",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "order_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "BIGINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "item_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "BIGINT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "quantity",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "INT",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "unit_price",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "DOUBLE",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ds",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "DATE",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000636,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000637,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sqlmesh.model_name": "myschema.order_items",
+                "sqlmesh.environment": "prod",
+                "sqlmesh.warehouse": "snowflake",
+                "sqlmesh.gateway": "my_warehouse",
+                "sqlmesh.model_kind": "INCREMENTAL_BY_TIME_RANGE"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000637,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000637,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:159b2eb1400c7e2ebfdaaef9ebd8bae8"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000637,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": {
+            "siblings": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD)"
+            ],
+            "primary": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000637,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:159b2eb1400c7e2ebfdaaef9ebd8bae8",
+                    "urn": "urn:li:container:159b2eb1400c7e2ebfdaaef9ebd8bae8"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000637,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,myschema.order_items,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "siblings",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/siblings/urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)"
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000637,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719792000637,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:__sqlmesh_ingest__",
+            "operationType": "CUSTOM",
+            "customOperationType": "SQLMESH_FINGERPRINT_REBUILD",
+            "lastUpdatedTimestamp": 1719792000000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000638,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719792000638,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 100
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000638,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ec3fc7bdca9b17cea8dce0b4b8e2b11e",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719792000000,
+            "runId": "sqlmesh-audit-1719792000000",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "failing_rows": "0"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:ec3fc7bdca9b17cea8dce0b4b8e2b11e",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000639,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fd46e46ff06a7bd6290197aa09365611",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719792000000,
+            "runId": "sqlmesh-audit-1719792000000",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResults": {
+                    "failing_rows": "5"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:fd46e46ff06a7bd6290197aa09365611",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000639,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:ed0097cf8bcd5ba01e8ed3d98c60e74d",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+        "json": {
+            "type": "CUSTOM",
+            "customType": "SQLMESH_AUDIT/not_null",
+            "title": "SQLMesh audit 'not_null' failed (5 failing rows)",
+            "description": "The `not_null` audit on this dataset failed with 5 failing rows in run sqlmesh-audit-1719792000000. See the associated assertion for details.",
+            "entities": [
+                "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)"
+            ],
+            "status": {
+                "state": "ACTIVE",
+                "lastUpdated": {
+                    "time": 1719792000000,
+                    "actor": "urn:li:corpuser:__sqlmesh_ingest__"
+                }
+            },
+            "source": {
+                "type": "ASSERTION_FAILURE",
+                "sourceUrn": "urn:li:assertion:fd46e46ff06a7bd6290197aa09365611"
+            },
+            "startedAt": 1719792000000,
+            "created": {
+                "time": 1719792000000,
+                "actor": "urn:li:corpuser:__sqlmesh_ingest__"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000639,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:a4930acbbae0808cc7e718978bc27e23",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1719792000000,
+            "runId": "sqlmesh-audit-1719792000000",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "failing_rows": "0"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:a4930acbbae0808cc7e718978bc27e23",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000639,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.raw_orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1719792000000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000640,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1719792000000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000640,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,myschema.order_items,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1719792000000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1719792000640,
+        "runId": "sqlmesh-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

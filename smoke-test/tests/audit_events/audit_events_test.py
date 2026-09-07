@@ -12,6 +12,7 @@ from tests.tokens.token_utils import (
     token_name_filter,
     wait_for_no_tokens_matching,
 )
+from tests.utilities.domains import Domain
 from tests.utils import (
     TestSessionWrapper,
     get_admin_credentials,
@@ -22,7 +23,7 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -56,9 +57,15 @@ def _provision_audit_user(
     from tests.privileges.utils import create_user
 
     admin_user, admin_pass = get_admin_credentials()
-    return TestSessionWrapper(
+    admin_session = TestSessionWrapper(
         create_user(login_as(admin_user, admin_pass), email, password)
     )
+    # Prove native credentials are usable before the test hits /logIn under xdist.
+    # A brief post-signUp window can still return 400 Invalid Credentials even after
+    # MAE sync; absorb that here so test_login_events is not the first caller.
+    probe_session = login_as(email, password)
+    probe_session.cookies.clear()
+    return admin_session
 
 
 def _teardown_audit_user(admin_session: TestSessionWrapper, user_urn: str) -> None:

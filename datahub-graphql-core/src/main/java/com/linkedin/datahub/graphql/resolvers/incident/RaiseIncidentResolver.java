@@ -1,21 +1,16 @@
 package com.linkedin.datahub.graphql.resolvers.incident;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.incident.IncidentUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
@@ -28,7 +23,6 @@ import com.linkedin.incident.IncidentSource;
 import com.linkedin.incident.IncidentSourceType;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.key.IncidentKey;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -75,7 +69,7 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           for (Urn urn : resourceUrns) {
-            if (!isAuthorizedToCreateIncidentForResource(urn, context)) {
+            if (!IncidentUtils.isAuthorizedToEditIncidentForResource(urn, context)) {
               throw new AuthorizationException(
                   "Unauthorized to perform this action. Please contact your DataHub administrator.");
             }
@@ -193,18 +187,5 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
         SetMode.IGNORE_NULL);
     result.setStatus(IncidentUtils.mapIncidentStatus(input.getStatus(), actorStamp));
     return result;
-  }
-
-  private boolean isAuthorizedToCreateIncidentForResource(
-      final Urn resourceUrn, final QueryContext context) {
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                ALL_PRIVILEGES_GROUP,
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_INCIDENTS_PRIVILEGE.getType()))));
-
-    return AuthorizationUtils.isAuthorized(
-        context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
   }
 }

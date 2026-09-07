@@ -19,7 +19,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.ClearScrollRequest;
@@ -73,6 +75,8 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
 
     // Create slice-based search requests
     List<CompletableFuture<List<LineageRelationship>>> sliceFutures = new ArrayList<>();
+    // One budget shared across all slices of this hop (see GraphQueryBaseDAO); null == unlimited.
+    final AtomicInteger sharedRemaining = newSharedRelationshipBudget(maxRelations);
     try {
       for (int sliceId = 0; sliceId < slices; sliceId++) {
         final int currentSliceId = sliceId;
@@ -89,6 +93,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
                       remainingHops,
                       existingPaths,
                       maxRelations,
+                      sharedRemaining,
                       defaultPageSize,
                       currentSliceId,
                       slices,
@@ -99,8 +104,13 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
         sliceFutures.add(sliceFuture);
       }
 
-      // Reuse the existing slice coordination logic
-      return processSliceFutures(sliceFutures, remainingTime, allowPartialResults);
+      // Reuse the existing slice coordination logic. If the shared budget ended exhausted, the hop
+      // was truncated at maxRelations — report partial explicitly, since the outer unique-entity
+      // limit check can miss it when cross-slice duplicates merge away.
+      return markPartialIfSharedBudgetExhausted(
+          processSliceFutures(sliceFutures, remainingTime, allowPartialResults),
+          sharedRemaining,
+          allowPartialResults);
     } finally {
       // Match PIT DAO: cancel(true) only interrupts; bounded wait so slices can clear scroll.
       cancelAndDrainSliceFutures(sliceFutures);
@@ -125,6 +135,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       int remainingHops,
       ThreadSafePathStore existingPaths,
       int maxRelations,
+      @Nullable AtomicInteger sharedRemaining, // budget shared across this hop's slices; null=∞
       int defaultPageSize,
       int sliceId,
       int totalSlices,
@@ -143,11 +154,21 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
         return sliceRelationships;
       }
 
+      // Other slices may have exhausted the shared budget before this slice starts.
+      if (stopSliceIfSharedBudgetExhausted(
+          sharedRemaining, maxRelations, sliceId, allowPartialResults)) {
+        return sliceRelationships;
+      }
+
       // Build initial search request with scroll and slice
       SearchRequest searchRequest = new SearchRequest();
       SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
       searchSourceBuilder.query(query);
-      searchSourceBuilder.size(defaultPageSize);
+      // Scroll cannot change page size after the initial request, so fix it up front (capped to
+      // maxRelations so a small limit does not over-fetch). Retention is bounded per batch below.
+      int scrollBatchSize =
+          maxRelations > 0 ? Math.min(defaultPageSize, maxRelations) : defaultPageSize;
+      searchSourceBuilder.size(scrollBatchSize);
 
       // Add sorting for consistent results
       ESUtils.buildSortOrder(searchSourceBuilder, Edge.EDGE_SORT_CRITERION, List.of(), false);
@@ -174,6 +195,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       }
 
       // Process initial results
+      int beforeInitial = sliceRelationships.size();
       processSearchResponse(
           response,
           sliceRelationships,
@@ -184,12 +206,30 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
           numHops,
           remainingHops,
           existingPaths);
+      // Bound retained relationships to this slice's atomic share of the hop's shared budget.
+      if (reserveOrTruncateToSharedBudget(
+          sliceRelationships,
+          beforeInitial,
+          sharedRemaining,
+          maxRelations,
+          sliceId,
+          allowPartialResults)) {
+        return sliceRelationships; // shared budget exhausted; partial results
+      }
 
-      // Continue scrolling until we reach the limit or no more results
-      // If maxRelations is -1 or 0, treat as unlimited (only bound by time)
-      while (maxRelations <= 0 || sliceRelationships.size() < maxRelations) {
+      // Continue scrolling until the shared budget is exhausted (checked per batch below) or no
+      // more results. If maxRelations is -1 or 0 the budget is unlimited (only bound by time).
+      while (true) {
         if (System.currentTimeMillis() >= deadline) {
           log.warn("Slice {} timed out, stopping scroll search", sliceId);
+          break;
+        }
+
+        // Stop before the next scroll once the shared per-hop budget is exhausted (consumed by this
+        // or another slice): strict mode rejects, partial mode stops and searchWithSlices marks the
+        // hop partial. Retention is already bounded by the reservation below.
+        if (stopSliceIfSharedBudgetExhausted(
+            sharedRemaining, maxRelations, sliceId, allowPartialResults)) {
           break;
         }
 
@@ -222,6 +262,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
         }
 
         // Process scroll results
+        int beforeScroll = sliceRelationships.size();
         processSearchResponse(
             response,
             sliceRelationships,
@@ -233,23 +274,15 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
             remainingHops,
             existingPaths);
 
-        // Safety check to prevent exceeding the limit (skip if unlimited, i.e., -1 or 0)
-        if (maxRelations > 0 && sliceRelationships.size() >= maxRelations) {
-          if (allowPartialResults) {
-            log.warn(
-                "Slice {} reached maxRelations limit, stopping scroll search. Results will be marked as partial.",
-                sliceId);
-            break;
-          } else {
-            log.error(
-                "Slice {} exceeded maxRelations limit of {}. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
-                sliceId,
-                maxRelations);
-            throw new IllegalStateException(
-                String.format(
-                    "Slice %d exceeded maxRelations limit of %d. Consider reducing maxHops or increasing the maxRelations limit, or set partialResults to true to return partial results.",
-                    sliceId, maxRelations));
-          }
+        // Bound retained relationships to this slice's atomic share of the hop's shared budget.
+        if (reserveOrTruncateToSharedBudget(
+            sliceRelationships,
+            beforeScroll,
+            sharedRemaining,
+            maxRelations,
+            sliceId,
+            allowPartialResults)) {
+          break; // shared budget exhausted; partial results
         }
       }
 

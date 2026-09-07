@@ -331,6 +331,10 @@ The GraphQL API provides rich querying capabilities for ML Models through resolv
 - Navigating relationships to features, groups, and deployments
 - Searching and filtering models by tags, terms, platform, etc.
 
+### Incidents
+
+ML Models participate in the shared incidents subsystem. Incidents can be raised on a model via the `raiseIncident` GraphQL mutation (or the Python SDK), listed back through the `incidents` field on the `MLModel` GraphQL type, and the model carries a rolled-up `incidentsSummary` aspect that is maintained automatically as incidents are raised and resolved. Since an incident can reference multiple entities, a single incident can link an upstream dataset and the affected model under one lifecycle.
+
 ### Ingestion Sources
 
 Several ingestion sources automatically extract ML Model metadata:

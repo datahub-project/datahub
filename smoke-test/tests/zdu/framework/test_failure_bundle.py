@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.context import (
     IOObservation,
     IOWriteResult,
@@ -19,6 +20,8 @@ from tests.zdu.framework.context import (
 from tests.zdu.framework.failure_bundle import FailureBundleWriter
 from tests.zdu.framework.phases.base import PhaseResult
 from tests.zdu.framework.runner import ZDUReport
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def _failed_report() -> ZDUReport:

@@ -169,6 +169,26 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertTrue(exception.getMessage().contains("No authentication details found"));
   }
 
+  /** Null fingerprint (AspectsBatchImpl.build(null)) must fail closed, not NPE. */
+  @Test
+  public void testValidateGlobalTagsWithNullFingerprintFailsClosed() {
+    GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
+    BatchItem item =
+        TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
+            .findFirst()
+            .get();
+
+    AspectValidationException exception =
+        validator
+            .validateProposedAspectsWithAuth(
+                null, Collections.singletonList(item), retrieverContext, null)
+            .findFirst()
+            .orElse(null);
+
+    Assert.assertNotNull(exception);
+    Assert.assertTrue(exception.getMessage().contains("No authentication details found"));
+  }
+
   @Test
   public void testValidateGlobalTagsAuthorized() {
     GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
@@ -949,9 +969,9 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertTrue(result.findAny().isPresent());
   }
 
-  /** Test that system update source items are skipped during validation. */
+  /** System auth fingerprint skips tag privilege checks (upgrade / system-mediated writes). */
   @Test
-  public void testValidateGlobalTagsWithSystemUpdateSourceSkipped() {
+  public void testValidateGlobalTagsWithSystemAuthSkipped() {
     GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
     TestMCP item =
         TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
@@ -959,17 +979,9 @@ public class PrivilegeConstraintsValidatorTest {
             .findFirst()
             .get();
 
-    // Set system update source in system metadata
-    SystemMetadata systemMetadata = new SystemMetadata();
-    StringMap properties = new StringMap();
-    properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
-    systemMetadata.setProperties(properties);
-    item.setSystemMetadata(systemMetadata);
-
-    // System update source items should be skipped, no authorization check needed
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
-            OperationFingerprint.EMPTY,
+            systemAuthFingerprint(),
             Collections.singletonList(item),
             retrieverContext,
             mockAuthSession);
@@ -977,9 +989,13 @@ public class PrivilegeConstraintsValidatorTest {
     Assert.assertTrue(result.findAny().isEmpty());
   }
 
-  /** Test that system update source items are skipped even with null session. */
+  /**
+   * #15960 escape hatch: upgrades historically had a null AuthorizationSession. Trust must come
+   * from {@link OperationFingerprint#isSystemAuth()}, not from client-writable appSource — so a
+   * system fingerprint alone (null session) still skips aspect auth.
+   */
   @Test
-  public void testValidateGlobalTagsWithSystemUpdateSourceAndNullSession() {
+  public void testValidateGlobalTagsWithSystemAuthAndNullSessionSkipped() {
     GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
     TestMCP item =
         TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
@@ -987,20 +1003,109 @@ public class PrivilegeConstraintsValidatorTest {
             .findFirst()
             .get();
 
-    // Set system update source in system metadata
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            systemAuthFingerprint(), Collections.singletonList(item), retrieverContext, null);
+
+    Assert.assertTrue(result.findAny().isEmpty());
+  }
+
+  /**
+   * Client-supplied appSource=systemUpdate alone must not skip auth (even with null session).
+   * Upgrade paths must pass a system OperationContext as fingerprint/session.
+   */
+  @Test
+  public void testValidateGlobalTagsWithSystemUpdateSourceAndNullSessionFailsClosed() {
+    GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
+    TestMCP item =
+        TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
+            .map(i -> (TestMCP) i)
+            .findFirst()
+            .get();
+
     SystemMetadata systemMetadata = new SystemMetadata();
     StringMap properties = new StringMap();
     properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
     systemMetadata.setProperties(properties);
     item.setSystemMetadata(systemMetadata);
 
-    // System update source items should be skipped even with null session
-    // This ensures upgrade steps can process tags without failing on auth
     Stream<AspectValidationException> result =
         validator.validateProposedAspectsWithAuth(
             OperationFingerprint.EMPTY, Collections.singletonList(item), retrieverContext, null);
 
-    Assert.assertTrue(result.findAny().isEmpty());
+    Assert.assertTrue(result.findAny().isPresent());
+  }
+
+  /** Spoof regression: appSource=systemUpdate with a non-system session still validates. */
+  @Test
+  public void testValidateGlobalTagsWithSpoofedSystemUpdateSourceStillValidated() {
+    GlobalTags globalTags = createGlobalTags(TEST_TAG_URN);
+    TestMCP item =
+        TestMCP.ofOneUpsertItem(TEST_DATASET_URN, globalTags, TEST_REGISTRY).stream()
+            .map(i -> (TestMCP) i)
+            .findFirst()
+            .get();
+
+    SystemMetadata systemMetadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
+    systemMetadata.setProperties(properties);
+    item.setSystemMetadata(systemMetadata);
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedForTagModification(
+                    any(AuthorizationSession.class), any(Urn.class), any(), any()))
+        .thenReturn(false);
+
+    Stream<AspectValidationException> result =
+        validator.validateProposedAspectsWithAuth(
+            OperationFingerprint.EMPTY,
+            Collections.singletonList(item),
+            retrieverContext,
+            mockAuthSession);
+
+    Assert.assertTrue(result.findAny().isPresent());
+  }
+
+  private static OperationFingerprint systemAuthFingerprint() {
+    return new OperationFingerprint() {
+      @Override
+      public Urn getActor() {
+        return OperationFingerprint.EMPTY.getActor();
+      }
+
+      @Override
+      public String getRequestID() {
+        return "system";
+      }
+
+      @Override
+      public AuditStamp getAuditStamp() {
+        return OperationFingerprint.EMPTY.getAuditStamp();
+      }
+
+      @Override
+      public String getGlobalContextId() {
+        return "system";
+      }
+
+      @Override
+      public String getSearchContextId() {
+        return "system";
+      }
+
+      @Override
+      public String getEntityContextId() {
+        return "system";
+      }
+
+      @Override
+      public boolean isSystemAuth() {
+        return true;
+      }
+    };
   }
 
   /** Test that items without system metadata properties still get validated. */

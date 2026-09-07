@@ -371,7 +371,7 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("Mode")
 @config_class(ModeConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")

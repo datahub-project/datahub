@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+
+from tests.utilities.domains import Domain
 from tests.zdu.framework.context import SeededEntity, TestContext
 from tests.zdu.framework.scenario_loader import (
     KNOWN_FAILURES,
@@ -17,6 +20,8 @@ from tests.zdu.framework.scenario_loader import (
 )
 from tests.zdu.framework.scenarios import SUITE_N_SCENARIOS, load_scenarios
 from tests.zdu.framework.suite import Suite
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 class TestLoadScenarios:

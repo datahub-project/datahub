@@ -33,6 +33,7 @@ from tests.privileges.utils import (
     set_view_entity_profile_privileges_policy_status,
     wait_until_graphql_auth_denied,
 )
+from tests.utilities.domains import Domain
 from tests.utils import (
     get_frontend_session,
     get_frontend_url,
@@ -42,7 +43,11 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.global_policy_mutator]
+pytestmark = [
+    pytest.mark.no_cypress_suite1,
+    pytest.mark.global_policy_mutator,
+    pytest.mark.domain(Domain.PLATFORM),
+]
 
 _UNIQUE = uuid.uuid4().hex[:8]
 TEST_USER_EMAIL = f"aspect.auth.test.{_UNIQUE}@smoke.datahub.test"

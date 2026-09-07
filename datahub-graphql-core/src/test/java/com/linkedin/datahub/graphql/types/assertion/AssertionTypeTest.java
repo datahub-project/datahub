@@ -76,6 +76,10 @@ public class AssertionTypeTest {
 
   @Test
   public void testBatchLoad() throws Exception {
+    assertTrue(
+        com.linkedin.datahub.graphql.types.assertion.AssertionType.ASPECTS_TO_FETCH.contains(
+            Constants.STATUS_ASPECT_NAME),
+        "Assertion fallback must include status because AssertionMapper reads it");
 
     EntityClient client = Mockito.mock(EntityClient.class);
 

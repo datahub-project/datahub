@@ -5,6 +5,7 @@ import pytest
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utilities.messaging_transport import (
     build_pgqueue_sink_config,
     is_pgqueue_transport,
@@ -17,6 +18,8 @@ from tests.utils import (
     get_kafka_schema_registry,
     unique_dataset_urn,
 )
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 # Template for this module's sample ingestion data. The dataset URN inside is a
 # placeholder — `sample_dataset` rewrites it to a run-unique URN so this module

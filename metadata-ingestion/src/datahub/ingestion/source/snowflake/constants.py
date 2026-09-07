@@ -66,6 +66,16 @@ class SnowflakeObjectDomain(StrEnum):
     PIPE = "pipe"
 
 
+# The plural keyword naming an object class in a SHOW statement, e.g. `SHOW DYNAMIC TABLES`.
+# Deliberately separate from SnowflakeObjectDomain, which carries the singular lowercase
+# objectDomain values ACCESS_HISTORY reports ("dynamic table") - the two vocabularies differ
+# in both number and case, so neither can stand in for the other.
+class SnowflakeShowKind(StrEnum):
+    VIEWS = "VIEWS"
+    STREAMS = "STREAMS"
+    DYNAMIC_TABLES = "DYNAMIC TABLES"
+
+
 GENERIC_PERMISSION_ERROR_KEY = "permission-error"
 LINEAGE_PERMISSION_ERROR = "lineage-permission-error"
 
