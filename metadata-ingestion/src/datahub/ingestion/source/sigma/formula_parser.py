@@ -134,24 +134,28 @@ class BracketRef:
     source: str
     column: Optional[str]
     is_parameter: bool
+    # A TUPLE, not a list: this dataclass is frozen, so a list field would make
+    # ``__hash__`` raise TypeError and quietly turn a value type into something
+    # that cannot go in a set or be a dict key.
+    #
     # Defaults to the first-slash split so hand-built refs (tests, callers that
     # construct a ref directly) keep working. Deliberately does NOT split
     # ``column`` on "/" -- that would reintroduce the ambiguity the scanner
     # exists to resolve.
-    segments: Optional[List[str]] = None
+    segments: Optional[Tuple[str, ...]] = None
 
     def __post_init__(self) -> None:
         if self.segments is None:
             default = (
-                [self.source] if self.column is None else [self.source, self.column]
+                (self.source,) if self.column is None else (self.source, self.column)
             )
             # Frozen dataclass: bypass the immutability guard once, at construction.
             object.__setattr__(self, "segments", default)
 
     @property
     def parts(self) -> List[str]:
-        """``segments`` narrowed to a plain list for type-checked call sites."""
-        return self.segments if self.segments else [self.source]
+        """``segments`` as a list, for call sites that index and slice it."""
+        return list(self.segments) if self.segments else [self.source]
 
 
 def candidate_source_column_splits(ref: BracketRef) -> List[Tuple[str, str]]:
@@ -166,9 +170,13 @@ def candidate_source_column_splits(ref: BracketRef) -> List[Tuple[str, str]]:
     itself contains a slash" reading, working right to left, and finally the
     join element paired with the last segment. Callers validate each candidate
     against a real element name *and* that element's schema, and take the first
-    that holds. The legacy first-slash split is always among them, and a
-    single-slash ref still yields exactly that one candidate, so nothing that
-    resolves today stops resolving.
+    that holds. A single-slash ref still yields exactly one candidate, which is
+    the legacy first-slash split, so nothing that resolves today stops resolving.
+
+    For multi-segment refs the legacy split is present too, though not
+    necessarily byte-identical to ``ref.column``: segments are individually
+    whitespace-stripped, so ``[A / B / C]`` has ``ref.column == 'B / C'`` while
+    the rejoined candidate column is ``'B/C'``.
 
     Returns an empty list for refs with no column part (bare/parameter refs).
     """
@@ -246,7 +254,7 @@ def extract_bracket_refs(formula: Optional[str]) -> List[BracketRef]:
                 # finish_bracket: emit_or_skip per decision matrix
                 source = "".join(source_buf).strip()
                 column = "".join(column_buf).strip() if seen_slash else None
-                segments = ["".join(seg).strip() for seg in segment_bufs]
+                segments = tuple("".join(seg).strip() for seg in segment_bufs)
                 if source and (column is None or column):
                     out.append(
                         BracketRef(

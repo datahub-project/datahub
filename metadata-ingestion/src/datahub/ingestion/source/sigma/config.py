@@ -216,9 +216,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # real data, so a large count here is a candidate explanation for the size
     # of chart_input_fields_self_ref_unresolved_refs.
     workbook_elements_skipped_by_type: Dict[str, int] = field(default_factory=dict)
-    # Chart formula ref sources that missed the workbook element index but DO
-    # match an indexed element after case/whitespace normalization -- i.e. the
-    # element is present and the lookup is simply too strict.
+    # Sub-count of chart_ref_source_normalized_ambiguous: the ref's source
+    # normalizes onto real element names, but onto MORE than one distinct name,
+    # so resolving would be a guess. Only reachable after the normalized retry
+    # has already run, so it no longer means "the lookup is too strict".
     chart_ref_source_near_miss: int = 0
     # Of those, the ones actually resolved by the normalized lookup.
     chart_ref_source_normalized_match: int = 0
@@ -238,11 +239,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # elements carrying upstreamLineage; previously that gap had no counter and
     # no log line.
     data_model_element_no_upstreams: int = 0
-    # Warehouse tables recovered from the global /v2/files index because the
-    # owning Data Model's /lineage did not describe them. Sigma reports fewer
-    # type=table rows than its own elements reference; without this those
+    # Warehouse tables recovered by asking /v2/files/{urlId} directly, because
+    # the owning Data Model's /lineage did not describe them. Sigma reports
+    # fewer type=table rows than its own elements reference; without this those
     # elements resolve to no warehouse table at all.
-    dm_element_warehouse_recovered_from_global_index: int = 0
+    dm_element_warehouse_recovered_by_url_id_lookup: int = 0
     # Sub-count of the above measured at the COLUMN level: a column's
     # inode-shaped columnId named a table the Data Model's /lineage omits, and
     # the direct /v2/files/{urlId} lookup supplied it. Before this the recovery
@@ -257,7 +258,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # outside what the ingestion credential can see -- the API does not
     # distinguish them -- so nothing is inferred beyond "not resolvable by this
     # token". Columns naming it get no warehouse column lineage.
-    dm_element_warehouse_stale_reference: int = 0
+    dm_element_warehouse_url_id_unresolvable: int = 0
     # Paginated calls that aborted partway (HTTP error or a repeated cursor),
     # losing every entry after the failure point. The per-abort warnings group
     # under one title, so before this counter existed the report showed a single
@@ -344,6 +345,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # value means join-chain refs on the chart path point mostly at warehouse
     # tables and need a different validation source.
     chart_join_chain_upstream_schema_unavailable: int = 0
+    # A join-chain ref where no candidate split validated. The legacy
+    # first-slash reading WOULD have resolved, but only by naming the un-split
+    # remainder ("SourceElement/Column") as the column -- a field the upstream
+    # provably lacks. Emitting it produced a dangling InputField; the column now
+    # falls back to a self-reference instead, matching how the Data Model path
+    # treats an unknown upstream column.
+    chart_join_chain_dangling_suppressed: int = 0
     # Column whose formula refs are exclusively parameter refs (e.g. [P_*]).
     chart_input_fields_skipped_parameter: int = 0
     # Column whose formula refs are exclusively bare sibling refs (e.g. [col]).
@@ -771,6 +779,26 @@ class SigmaSourceConfig(
         "only issued when ``extract_lineage`` is also ``True`` (so users who opt out "
         "of lineage at the workbook surface don't get a lineage endpoint hit under a "
         "different flag).",
+    )
+    extract_join_key_lineage: bool = pydantic.Field(
+        default=True,
+        description="Whether to read ``/dataModels/{id}/spec`` to recover column "
+        "lineage across a join's ON clause. A join's output column carries a "
+        "formula naming only one side, so without this the other side's key "
+        "column gets no edge. Costs one extra API call per Data Model, and the "
+        "edges it adds carry a reduced ``confidenceScore`` (0.7) because a join "
+        "predicate asserts equality rather than a value copy. Requires "
+        "``ingest_data_models`` and ``extract_lineage``.",
+    )
+    ingest_pivot_and_input_tables: bool = pydantic.Field(
+        default=True,
+        description="Whether to ingest ``pivot-table`` and ``input-table`` workbook "
+        "elements as Charts alongside ``table`` and ``visualization``. They hold "
+        "real columns that other elements' formulas reference, so excluding them "
+        "leaves those references permanently unresolvable. Enabling this emits "
+        "chart entities that earlier versions did not, and costs two extra API "
+        "calls per newly-admitted element; set it to ``False`` to keep the "
+        "previous entity set.",
     )
     data_model_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

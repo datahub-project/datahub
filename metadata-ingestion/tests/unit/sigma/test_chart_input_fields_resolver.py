@@ -92,6 +92,9 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source._workbook_customsql_registered_urns = set()
     source._workbook_customsql_formula_fields = {}
     source._bridge_unresolved_warned = set()
+    # Memos for maps derived from the per-workbook indexes.
+    source._normalized_index_cache = {}
+    source._chart_cols_cache = {}
     return source
 
 
@@ -1044,3 +1047,37 @@ class TestChartJoinChainRef:
             },
         )
         assert result == ("urn:li:chart:(sigma,owner)", "Col K")
+
+
+class TestJoinChainProbeDoesNotInflateCounters:
+    """Speculative candidate splits must not be counted as if they were refs.
+
+    _resolve_chart_join_chain_ref tries up to 2N-3 splits through
+    _resolve_chart_formula_upstream. Letting each attempt bump the name-matching
+    counters would make them measure attempts rather than refs -- one 4-segment
+    ref could bump the same counter five times.
+    """
+
+    def test_probing_does_not_bump_name_matching_counters(self) -> None:
+        source = _make_source()
+        source.reporter.chart_ref_source_normalized_match = 0
+        source.reporter.chart_ref_source_near_miss = 0
+        source.reporter.chart_join_chain_resolved = 0
+        source.reporter.chart_join_chain_unresolved = 0
+        source.reporter.chart_join_chain_upstream_schema_unavailable = 0
+        source.dm_element_urn_to_cols = {}
+        # Element name differs from every candidate only by case/whitespace, so
+        # each probe would take the normalized path and count.
+        elem = _make_element("e-join", "Joined ", ["Col K"])
+        ref = extract_bracket_refs("[joined/Element B/Col K]")[0]
+        source._resolve_chart_join_chain_ref(
+            ref,
+            chart_element_id="chart-1",
+            chart_upstream_element_ids={"e-join"},
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={"Joined ": [elem]},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={"e-join": "urn:li:chart:(sigma,join)"},
+        )
+        assert source.reporter.chart_ref_source_normalized_match == 0
+        assert source.reporter.chart_ref_source_near_miss == 0

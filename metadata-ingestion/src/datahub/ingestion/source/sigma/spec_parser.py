@@ -14,6 +14,8 @@ _ID = "id"
 _LEFT = "left"
 _RIGHT = "right"
 _ELEMENT_ID = "elementId"
+# A side with no elementId is a warehouse table only if it says so.
+_WAREHOUSE_SIDE_KEYS = ("connectionId", "path")
 _JOIN_KIND = "join"
 
 
@@ -100,15 +102,26 @@ def _side_ref(descriptor: Any, column: Any) -> Optional[SpecColumnRef]:
       * ``{dataModelId, elementId, groupingId, kind}`` -- an element elsewhere
       * ``{connectionId, kind, path[...]}`` -- a warehouse table, which has no
         element id and whose columns are not described anywhere in the spec
+
+    Returns None for anything else. A descriptor must POSITIVELY identify
+    itself as one of those two, because "no elementId" is not evidence of a
+    warehouse table: if Sigma renames or moves the side descriptors while
+    keeping ``columns[].left``/``.right``, treating the absence as a warehouse
+    side would file the mismatch under an expected outcome and leave
+    ``unreadable_join_element_ids`` at zero -- silencing the one signal that
+    exists to catch exactly that change.
     """
     if not isinstance(column, str) or not column:
         return None
-    element_id = None
-    if isinstance(descriptor, dict):
-        raw = descriptor.get(_ELEMENT_ID)
-        if isinstance(raw, str) and raw:
-            element_id = raw
-    return SpecColumnRef(element_id=element_id, column=column)
+    if not isinstance(descriptor, dict):
+        return None
+    raw = descriptor.get(_ELEMENT_ID)
+    if isinstance(raw, str) and raw:
+        return SpecColumnRef(element_id=raw, column=column)
+    # No element id: accept as a warehouse table only on a positive signal.
+    if any(key in descriptor for key in _WAREHOUSE_SIDE_KEYS):
+        return SpecColumnRef(element_id=None, column=column)
+    return None
 
 
 def _predicates_for_join(

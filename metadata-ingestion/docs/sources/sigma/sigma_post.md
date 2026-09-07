@@ -245,9 +245,22 @@ models, and join keys are simply absent — everything else still ingests. If
 the shape the parser reads; run with `--debug` and look for `DM SPEC JOIN` lines, which log
 the descriptor's structure (key names and types only, never values).
 
+#### Pivot tables and input tables
+
+`pivot-table` and `input-table` workbook elements are ingested as Charts alongside `table`
+and `visualization`. They hold real columns that other elements' formulas reference, so
+excluding them left those references permanently unresolvable.
+
+> **This emits chart entities that earlier versions did not.** On one tenant it added
+> roughly 1,200 charts. It also costs two extra API calls per newly-admitted element. Set
+> `ingest_pivot_and_input_tables: false` to keep the previous entity set.
+
+Similarly, `extract_join_key_lineage` (default `true`) controls the one extra
+`/dataModels/{id}/spec` call per Data Model that join-key lineage requires.
+
 A Data Model can reference a warehouse table that `/v2/files/{urlId}` cannot resolve for
 the ingestion credential. Those columns receive no warehouse column lineage and are counted
-under `dm_element_warehouse_stale_reference`; the API does not say whether the file was
+under `dm_element_warehouse_url_id_unresolvable`; the API does not say whether the file was
 deleted or is simply outside what the token can see, so check the credential's access
 before assuming the reference is stale.
 

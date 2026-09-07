@@ -378,42 +378,48 @@ class TestSegments:
 
     def test_join_chain_segments(self) -> None:
         (ref,) = extract_bracket_refs("[E1/E2/col]")
-        assert ref.segments == ["E1", "E2", "col"]
+        assert ref.parts == ["E1", "E2", "col"]
         # Legacy split must not move.
         assert ref.source == "E1"
         assert ref.column == "E2/col"
 
     def test_nested_join_chain_segments(self) -> None:
         (ref,) = extract_bracket_refs("[E1/E2/E3/col]")
-        assert ref.segments == ["E1", "E2", "E3", "col"]
+        assert ref.parts == ["E1", "E2", "E3", "col"]
 
     def test_single_slash_segments(self) -> None:
         (ref,) = extract_bracket_refs("[Element/col]")
-        assert ref.segments == ["Element", "col"]
+        assert ref.parts == ["Element", "col"]
 
     def test_bare_ref_has_one_segment(self) -> None:
         (ref,) = extract_bracket_refs("[col]")
-        assert ref.segments == ["col"]
+        assert ref.parts == ["col"]
 
     def test_escaped_slash_stays_inside_one_segment(self) -> None:
         (ref,) = extract_bracket_refs(r"[A\/B/col]")
-        assert ref.segments == ["A/B", "col"]
+        assert ref.parts == ["A/B", "col"]
 
     def test_escaped_brackets_stay_inside_one_segment(self) -> None:
         (ref,) = extract_bracket_refs(r"[\[Rel\] Originators/DIM_B/Name]")
-        assert ref.segments == ["[Rel] Originators", "DIM_B", "Name"]
+        assert ref.parts == ["[Rel] Originators", "DIM_B", "Name"]
 
     def test_segments_are_whitespace_stripped(self) -> None:
         (ref,) = extract_bracket_refs("[ E1 / E2 / col ]")
-        assert ref.segments == ["E1", "E2", "col"]
+        assert ref.parts == ["E1", "E2", "col"]
 
     def test_hand_built_ref_does_not_split_column(self) -> None:
         """Back-compat default must not re-split a column containing "/"."""
         ref = BracketRef(raw="[a/b/c]", source="a", column="b/c", is_parameter=False)
-        assert ref.segments == ["a", "b/c"]
+        assert ref.parts == ["a", "b/c"]
         assert BracketRef(
             raw="[a]", source="a", column=None, is_parameter=False
-        ).segments == ["a"]
+        ).segments == ("a",)
+
+    def test_ref_is_hashable(self) -> None:
+        """Frozen dataclass: a list field would make __hash__ raise TypeError."""
+        (ref,) = extract_bracket_refs("[a/b/c]")
+        assert ref in {ref}
+        assert len({ref, ref}) == 1
 
 
 class TestCandidateSplits:

@@ -184,3 +184,33 @@ def test_missing_or_malformed_spec_is_inert() -> None:
         index = parse_data_model_spec(spec, data_model_id="dm-1")
         assert index.pairs == []
         assert index.element_id_by_column_id == {}
+
+
+def test_renamed_side_descriptors_are_unreadable_not_warehouse_side() -> None:
+    """The signal must not classify a shape change as an expected outcome.
+
+    If Sigma renames ``joins[].left``/``.right`` while keeping
+    ``columns[].left``/``.right``, both sides lose their element id. Treating
+    "no element id" as proof of a warehouse table would file the mismatch under
+    the commonest real shape and leave unreadable_join_element_ids at zero --
+    silencing the one counter that exists to catch exactly that change.
+    """
+    index = parse_data_model_spec(
+        _spec(
+            {
+                "kind": "join",
+                "joins": [
+                    {
+                        "lhs": _ELEMENT_SIDE_L,
+                        "rhs": _ELEMENT_SIDE_R,
+                        "columns": [{"left": _LEFT_COL, "right": _RIGHT_COL}],
+                    }
+                ],
+            }
+        ),
+        data_model_id="dm-1",
+    )
+    assert index.pairs == []
+    assert index.unreadable_join_element_ids == ["el-join"]
+    # Must NOT be mistaken for the genuine warehouse-side case.
+    assert index.warehouse_side_predicates == 0

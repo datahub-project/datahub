@@ -59,9 +59,8 @@ logger = logging.getLogger(__name__)
 # reference, and both are things a user sees on the page, so representing them
 # as Charts is consistent with how 'table' is treated. They cost the same two
 # per-element calls (/lineage and /query) as any other admitted element.
-INGESTED_ELEMENT_TYPES = frozenset(
-    {"table", "visualization", "pivot-table", "input-table"}
-)
+BASE_ELEMENT_TYPES = frozenset({"table", "visualization"})
+INGESTED_ELEMENT_TYPES = BASE_ELEMENT_TYPES | frozenset({"pivot-table", "input-table"})
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -76,14 +75,15 @@ class SigmaAPI:
         # report summary readable on large tenants with repeated unknown
         # node types.
         self._unknown_lineage_node_types_warned: Set[str] = set()
-        # Monotonic count of pagination aborts. Callers snapshot it around a
-        # paginated call to learn whether THAT call lost data. Report warnings
-        # cannot answer this: they are grouped by title, so total_elements stops
-        # rising after the first abort of a given kind.
-        self._pagination_aborts: int = 0
         # /spec fails identically for every model when the token lacks the
         # scope; warn once and let the counter carry the magnitude.
         self._spec_unavailable_warned: bool = False
+        self._element_fetch_failed_warned: bool = False
+        self._ingested_element_types = (
+            INGESTED_ELEMENT_TYPES
+            if config.ingest_pivot_and_input_tables
+            else BASE_ELEMENT_TYPES
+        )
         self.session = requests.Session()
 
         # Configure retry strategy for 429/503 with exponential backoff.
@@ -708,7 +708,7 @@ class SigmaAPI:
         the partial-data workbook is distinguishable from one with few formulas.
         """
         error_ctx = f"Unable to fetch column formulas for workbook {workbook_id}."
-        aborts_before = self._pagination_aborts
+        aborts_before = self.report.pagination_aborted
         result: Dict[str, Dict[str, Optional[str]]] = {}
         col_ids: Dict[str, Dict[str, str]] = {}
         for col in self._paginated_raw_entries(
@@ -724,7 +724,7 @@ class SigmaAPI:
                 result.setdefault(elem_id, {})[name] = formula
                 if column_id:
                     col_ids.setdefault(elem_id, {})[name] = column_id
-        if self._pagination_aborts > aborts_before:
+        if self.report.pagination_aborted > aborts_before:
             self.report.column_formulas_fetch_partial += 1
             logger.debug(
                 "COLUMNS PARTIAL workbook %s: pagination aborted; %d element(s) "
@@ -753,7 +753,7 @@ class SigmaAPI:
             )
             response.raise_for_status()
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
-                if element_dict.get("type") not in INGESTED_ELEMENT_TYPES:
+                if element_dict.get("type") not in self._ingested_element_types:
                     # Skipped elements never enter the workbook element index, so
                     # any chart formula referencing one can never resolve and
                     # falls back to a self-reference. Log the elementId (always
@@ -801,28 +801,30 @@ class SigmaAPI:
                     # which returns [] -- silently dropping EVERY element on the
                     # page, including the ones that fetched cleanly. Losing one
                     # element's lineage is the correct blast radius.
-                    try:
-                        element.upstream_sources = self._get_element_upstream_sources(
-                            element, workbook
-                        )
-                        element.query = self._get_element_sql_query(element, workbook)
-                    except Exception as e:
-                        self.report.workbook_element_lineage_fetch_failed += 1
-                        self.report.warning(
-                            title="Sigma element lineage fetch failed",
-                            message=(
-                                "Lineage and SQL query could not be fetched for one "
-                                "workbook element. The element is still emitted, "
-                                "without its upstream edges; other elements on the "
-                                "page are unaffected."
-                            ),
-                            context=(
-                                f"element={element.elementId}, "
-                                f"type={element_dict.get('type')!r}, "
-                                f"workbook={workbook.name}"
-                            ),
-                            exc=e,
-                        )
+                    # Two separate blocks: a lineage failure must not also
+                    # cost the SQL query, which is an independent call that may
+                    # well have succeeded.
+                    for fetch in ("lineage", "query"):
+                        try:
+                            if fetch == "lineage":
+                                element.upstream_sources = (
+                                    self._get_element_upstream_sources(
+                                        element, workbook
+                                    )
+                                )
+                            else:
+                                element.query = self._get_element_sql_query(
+                                    element, workbook
+                                )
+                        except Exception as e:
+                            self.report.workbook_element_lineage_fetch_failed += 1
+                            self._warn_element_fetch_failed(
+                                element_id=element.elementId,
+                                element_type=str(element_dict.get("type")),
+                                workbook_name=workbook.name,
+                                fetch=fetch,
+                                exc=e,
+                            )
                 elements.append(element)
             return elements
         except Exception as e:
@@ -929,7 +931,6 @@ class SigmaAPI:
                 else:
                     break
                 if cursor_key in seen_cursors:
-                    self._pagination_aborts += 1
                     self.report.pagination_aborted += 1
                     self.report.warning(
                         message="Pagination cursor repeated; aborting",
@@ -954,7 +955,6 @@ class SigmaAPI:
                 if isinstance(e, requests.HTTPError) and e.response is not None
                 else None
             )
-            self._pagination_aborts += 1
             self.report.pagination_aborted += 1
             self.report.warning(
                 title="Sigma paginated endpoint aborted",
@@ -1031,7 +1031,7 @@ class SigmaAPI:
 
     def _get_data_model_columns(self, data_model_id: str) -> List[SigmaDataModelColumn]:
         logger.debug(f"Fetching columns for data model '{data_model_id}'.")
-        aborts_before = self._pagination_aborts
+        aborts_before = self.report.pagination_aborted
         columns = self._paginated_entries(
             f"{self.config.api_url}/dataModels/{data_model_id}/columns",
             SigmaDataModelColumn,
@@ -1043,7 +1043,7 @@ class SigmaAPI:
             # columns from consumer elements' schemaMetadata.
             dedup_key=lambda column: (column.elementId, column.columnId),
         )
-        if self._pagination_aborts > aborts_before:
+        if self.report.pagination_aborted > aborts_before:
             self.report.data_model_columns_fetch_partial += 1
             logger.debug(
                 "COLUMNS PARTIAL DM %s: pagination aborted with %d column(s) "
@@ -1469,6 +1469,48 @@ class SigmaAPI:
                 data_model_id=data_model_id, detail=f"error={type(e).__name__}"
             )
             return None
+
+    def _warn_element_fetch_failed(
+        self,
+        *,
+        element_id: str,
+        element_type: str,
+        workbook_name: str,
+        fetch: str,
+        exc: Exception,
+    ) -> None:
+        """Report a per-element fetch failure once per run.
+
+        A cause that affects one element rarely affects only one -- an expired
+        token fails every remaining element on the tenant -- so an
+        un-deduplicated warning would bury the report under thousands of copies
+        while the counter already carries the true magnitude.
+        """
+        if self._element_fetch_failed_warned:
+            logger.debug(
+                "Element %s (%s) %s fetch failed: %s. Warning already reported "
+                "once this run; see workbook_element_lineage_fetch_failed.",
+                element_id,
+                element_type,
+                fetch,
+                exc,
+            )
+            return
+        self._element_fetch_failed_warned = True
+        self.report.warning(
+            title="Sigma element lineage fetch failed",
+            message=(
+                "Lineage or SQL query could not be fetched for a workbook "
+                "element. Affected elements are still emitted, without their "
+                "upstream edges; other elements on the page are unaffected. "
+                "See workbook_element_lineage_fetch_failed for how many."
+            ),
+            context=(
+                f"first_failure: element={element_id}, type={element_type!r}, "
+                f"fetch={fetch}, workbook={workbook_name}"
+            ),
+            exc=exc,
+        )
 
     def _warn_spec_unavailable(self, *, data_model_id: str, detail: str) -> None:
         """Report a /spec failure once per run, not once per Data Model.

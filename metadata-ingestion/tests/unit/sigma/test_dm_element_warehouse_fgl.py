@@ -815,9 +815,9 @@ class TestDirectWarehouseUrlIdLookup:
             url_id_suffix="missingUrlId", warehouse_map=_SF_WAREHOUSE_MAP
         )
         assert urn == _SF_DATASET_URN
-        assert source.reporter.dm_element_warehouse_recovered_from_global_index == 1
+        assert source.reporter.dm_element_warehouse_recovered_by_url_id_lookup == 1
 
-    def test_unknown_url_id_is_reported_as_a_stale_reference(self):
+    def test_unknown_url_id_is_reported_as_unresolvable(self):
         source = self._source_with_file(None)
         assert (
             source._resolve_dm_element_warehouse_upstream(
@@ -825,8 +825,8 @@ class TestDirectWarehouseUrlIdLookup:
             )
             is None
         )
-        assert source.reporter.dm_element_warehouse_stale_reference == 1
-        assert source.reporter.dm_element_warehouse_recovered_from_global_index == 0
+        assert source.reporter.dm_element_warehouse_url_id_unresolvable == 1
+        assert source.reporter.dm_element_warehouse_recovered_by_url_id_lookup == 0
 
     def test_repeated_url_id_costs_one_call(self):
         source = self._source_with_file(None)

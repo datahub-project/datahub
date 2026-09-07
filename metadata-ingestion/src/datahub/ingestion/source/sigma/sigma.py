@@ -485,6 +485,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Global url_id -> warehouse table, built lazily from /v2/files the
         # first time a Data Model's own /lineage turns out to omit a table its
         # elements reference. None until built; {} means built-and-empty.
+        # Single-entry memos for maps derived from per-workbook indexes.
+        self._normalized_index_cache: Dict[int, Dict[str, List[Element]]] = {}
+        self._chart_cols_cache: Dict[Tuple[int, int], Dict[str, Dict[str, str]]] = {}
         # urlId -> /files entry, or None when Sigma 404s (a stale reference to a
         # deleted table). One call per distinct url_id.
         self._warehouse_file_by_url_id: Dict[str, Optional[Dict[str, Any]]] = {}
@@ -1055,15 +1058,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         entry = self._warehouse_file_by_url_id[url_id]
         if entry is None:
-            self.reporter.dm_element_warehouse_stale_reference += 1
+            self.reporter.dm_element_warehouse_url_id_unresolvable += 1
             if url_id not in self._stale_warehouse_refs_seen:
                 self._stale_warehouse_refs_seen.add(url_id)
                 logger.debug(
-                    "WAREHOUSE STALE REF: url_id %r is not resolvable in Sigma "
-                    "(/v2/files/{urlId} returned 404). The Data Model still "
-                    "points at this table but it no longer exists, so columns "
-                    "naming it can never receive warehouse column lineage. This "
-                    "is tenant data hygiene, not a connector gap.",
+                    "WAREHOUSE UNRESOLVED REF: url_id %r is not resolvable by "
+                    "this token (/v2/files/{urlId} returned 404), so columns "
+                    "naming it get no warehouse column lineage. The file may be "
+                    "deleted or merely outside the credential's visibility -- "
+                    "the API does not distinguish them, so check the token's "
+                    "access before concluding the reference is stale.",
                     url_id,
                 )
             return None
@@ -1071,7 +1075,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if ref is None:
             self.reporter.dm_element_warehouse_path_unparseable += 1
             return None
-        self.reporter.dm_element_warehouse_recovered_from_global_index += 1
+        self.reporter.dm_element_warehouse_recovered_by_url_id_lookup += 1
         logger.debug(
             "WAREHOUSE DIRECT LOOKUP hit: url_id %r -> db=%r schema=%r table=%r "
             "via connection %r (inferred, since a /files entry carries none); "
@@ -3471,6 +3475,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         perfectly well may still be missing its other side.
         """
         dm_id = data_model.dataModelId
+        if not self.config.extract_join_key_lineage:
+            return DataModelSpecIndex()
         cached = self._dm_spec_index_cache.get(dm_id)
         if cached is None:
             cached = parse_data_model_spec(
@@ -3873,10 +3879,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 resolution_attempted,
                 emitted_now,
             )
-        # fgl_emitted is the umbrella count for intra-DM AND warehouse-passthrough
-        # FGL (both appended to `fgls`). Cross-DM is tracked separately via
-        # fgl_cross_dm_resolved. Warehouse-passthrough is also sub-counted in
-        # fgl_warehouse_resolved (overlap intentional for independent triage).
+        # fgl_emitted is the umbrella count for everything appended to `fgls`:
+        # intra-DM, warehouse-passthrough, warehouse-table-name and join-key
+        # edges. Cross-DM is tracked separately via fgl_cross_dm_resolved.
+        # Sub-counts overlap it deliberately (fgl_warehouse_resolved,
+        # fgl_join_key_resolved) so each mechanism can be triaged on its own.
         self._add_join_key_fgls(
             element=element,
             data_model=data_model,
@@ -4416,6 +4423,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 index.setdefault(element.name, []).append(element)
         return index
 
+    def _normalized_element_index(
+        self, wb_element_index: Dict[str, List[Element]]
+    ) -> Dict[str, List[Element]]:
+        """Memoized :meth:`_build_normalized_element_index`.
+
+        The exact-match miss path is one of the hottest in the connector -- one
+        tenant reached it ~51k times -- and rebuilding this map each time walked
+        every element in the workbook. Keyed on the identity of the index it
+        derives from, which is rebuilt per workbook, so a new workbook naturally
+        gets a new entry and the cache never serves a stale one.
+        """
+        key = id(wb_element_index)
+        cached = self._normalized_index_cache.get(key)
+        if cached is None:
+            cached = self._build_normalized_element_index(wb_element_index)
+            self._normalized_index_cache = {key: cached}
+        return cached
+
     @staticmethod
     def _build_normalized_element_index(
         wb_element_index: Dict[str, List[Element]],
@@ -4692,14 +4717,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         candidates = candidate_source_column_splits(ref)
         if len(candidates) < 2:
             return None
-        chart_cols = self._chart_urn_column_index(
-            wb_element_index, elementId_to_chart_urn
-        )
+        key = (id(wb_element_index), id(elementId_to_chart_urn))
+        chart_cols = self._chart_cols_cache.get(key)
+        if chart_cols is None:
+            chart_cols = self._chart_urn_column_index(
+                wb_element_index, elementId_to_chart_urn
+            )
+            # Single-entry cache: both maps are rebuilt per workbook, so holding
+            # more would just retain dead workbooks' columns.
+            self._chart_cols_cache = {key: chart_cols}
         trace: List[str] = []
         for source, column in candidates:
             probe = replace(
-                ref, source=source, column=column, segments=[source, column]
+                ref, source=source, column=column, segments=(source, column)
             )
+            # count=False: this is speculative. Up to 2N-3 splits are tried per
+            # ref, and letting each bump the name-matching counters would make
+            # them measure attempts instead of refs.
             result = self._resolve_chart_formula_upstream(
                 probe,
                 chart_element_id=chart_element_id,
@@ -4708,6 +4742,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 wb_element_index=wb_element_index,
                 element_warehouse_table_index=element_warehouse_table_index,
                 elementId_to_chart_urn=elementId_to_chart_urn,
+                count=False,
             )
             if result is None:
                 trace.append(f"{source!r}: no upstream")
@@ -4755,6 +4790,114 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
         return None
 
+    def _chart_ref_candidates(
+        self,
+        ref: BracketRef,
+        *,
+        chart_element_id: str,
+        wb_element_index: Dict[str, List[Element]],
+        count: bool,
+    ) -> Optional[List[Element]]:
+        """Workbook elements a formula ref's source name could denote.
+
+        Exact match first, then a whitespace/case-normalized retry, which is
+        accepted only when it does not collapse two genuinely distinct names.
+        Split out of _resolve_chart_formula_upstream to keep that method under
+        the complexity limit; it is the whole 'which element is this' story.
+
+        Returns an empty list when no element matched but resolution may still
+        continue to the warehouse-table fallback, and ``None`` when the ref must
+        be REFUSED outright -- a case-only mismatch against a real element name,
+        where falling through to a warehouse table would resolve to the wrong
+        thing entirely. Collapsing those two into one value is what the caller's
+        control flow used to encode directly."""
+        candidates = wb_element_index.get(ref.source, [])
+        if not candidates:
+            # Exact match failed. Retry on a normalized key -- Sigma element
+            # names routinely differ from the ref only by a trailing
+            # non-breaking space, a leading space, or case. Only accept it when
+            # the normalized key is unambiguous: if it collapses two genuinely
+            # distinct element names, resolving would be a guess.
+            normalized_index = self._normalized_element_index(wb_element_index)
+            normalized_hits = normalized_index.get(
+                _normalize_element_name(ref.source), []
+            )
+            distinct_names = {e.name for e in normalized_hits}
+            if normalized_hits and len(distinct_names) == 1:
+                if count:
+                    self.reporter.chart_ref_source_normalized_match += 1
+                logger.debug(
+                    "chart element %s: formula ref source %r matched element "
+                    "%r after whitespace/case normalization",
+                    chart_element_id,
+                    ref.source,
+                    next(iter(distinct_names)),
+                )
+                candidates = normalized_hits
+            elif len(distinct_names) > 1:
+                if count:
+                    self.reporter.chart_ref_source_normalized_ambiguous += 1
+                logger.debug(
+                    "chart element %s: formula ref source %r normalizes to %d "
+                    "distinct element names %r; refusing to guess",
+                    chart_element_id,
+                    ref.source,
+                    len(distinct_names),
+                    sorted(distinct_names),
+                )
+        if not candidates:
+            case_mismatched_names = [
+                name for name in wb_element_index if name.lower() == ref.source.lower()
+            ]
+            if case_mismatched_names:
+                if count:
+                    self.reporter.chart_input_fields_case_mismatch += 1
+                logger.debug(
+                    "No exact-case workbook element match for formula ref source %r; "
+                    "case-insensitive workbook element candidates were %s. "
+                    "Treating as unresolved rather than falling back to warehouse "
+                    "resolution.",
+                    ref.source,
+                    case_mismatched_names,
+                )
+                return None
+            else:
+                # Say WHY the name missed, not just that it did. This is the
+                # single largest unexplained bucket in the report
+                # (chart_input_fields_self_ref_unresolved_refs, ~51k), and the
+                # ref source alone cannot distinguish "the element exists but
+                # the lookup is too strict" from "the element was never indexed
+                # at all" (e.g. dropped for being a pivot-table or input-table).
+                # Reuse the one normalization definition; a second inline copy
+                # would drift from it silently.
+                normalized = _normalize_element_name(ref.source)
+                near = [
+                    name
+                    for name in wb_element_index
+                    if _normalize_element_name(name) == normalized
+                ]
+                if near:
+                    # Reachable only when the normalized lookup above already
+                    # ran and found MORE than one distinct name -- i.e. the
+                    # ambiguous case, which chart_ref_source_normalized_ambiguous
+                    # counts. Kept as a sub-count of that: it says the ambiguity
+                    # cost a resolvable name, rather than "the lookup is too
+                    # strict", which the normalized retry has since fixed.
+                    if count:
+                        self.reporter.chart_ref_source_near_miss += 1
+                logger.debug(
+                    "No exact-case workbook element match for formula ref source "
+                    "%r (normalized=%r); near_matches=%r; index_size=%d "
+                    "index_sample=%r; falling back to warehouse-table resolution.",
+                    ref.source,
+                    normalized,
+                    near,
+                    len(wb_element_index),
+                    sorted(wb_element_index)[:15],
+                )
+
+        return candidates
+
     def _resolve_chart_formula_upstream(
         self,
         ref: BracketRef,
@@ -4765,14 +4908,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         wb_element_index: Dict[str, List[Element]],
         element_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
+        count: bool = True,
     ) -> Optional[Tuple[str, str]]:
         """Resolve a single bracket ref to (entity_urn, field_path), or None.
 
-        This method is a pure predicate: it never increments any reporter counter.
-        All column-level counting (resolved / self_ref_fallback / skipped_parameter
+        Column-level counting (resolved / self_ref_fallback / skipped_parameter
         / skipped_sibling) happens in the caller (_build_element_input_fields) so
         every chart column lands in exactly one counter bucket regardless of how
         many refs its formula contains.
+
+        This method does bump a few *diagnostic* name-matching counters, which is
+        why ``count`` exists. A join-chain ref is resolved by trying up to 2N-3
+        candidate splits through here, and each speculative attempt would
+        otherwise inflate those counters several times over for one ref. Pass
+        ``count=False`` when probing; the winning candidate is not re-counted
+        either, so these counters measure refs, not attempts.
 
         Returns None for parameter and bare-sibling refs (caller handles those
         at the column level).  Returns (upstream_urn, ref.column) on success.
@@ -4803,79 +4953,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # Bare refs are same-element sibling references.
             return None
 
-        candidates = wb_element_index.get(ref.source, [])
-        if not candidates:
-            # Exact match failed. Retry on a normalized key -- Sigma element
-            # names routinely differ from the ref only by a trailing
-            # non-breaking space, a leading space, or case. Only accept it when
-            # the normalized key is unambiguous: if it collapses two genuinely
-            # distinct element names, resolving would be a guess.
-            normalized_index = self._build_normalized_element_index(wb_element_index)
-            normalized_hits = normalized_index.get(
-                _normalize_element_name(ref.source), []
-            )
-            distinct_names = {e.name for e in normalized_hits}
-            if normalized_hits and len(distinct_names) == 1:
-                self.reporter.chart_ref_source_normalized_match += 1
-                logger.debug(
-                    "chart element %s: formula ref source %r matched element "
-                    "%r after whitespace/case normalization",
-                    chart_element_id,
-                    ref.source,
-                    next(iter(distinct_names)),
-                )
-                candidates = normalized_hits
-            elif len(distinct_names) > 1:
-                self.reporter.chart_ref_source_normalized_ambiguous += 1
-                logger.debug(
-                    "chart element %s: formula ref source %r normalizes to %d "
-                    "distinct element names %r; refusing to guess",
-                    chart_element_id,
-                    ref.source,
-                    len(distinct_names),
-                    sorted(distinct_names),
-                )
-        if not candidates:
-            case_mismatched_names = [
-                name for name in wb_element_index if name.lower() == ref.source.lower()
-            ]
-            if case_mismatched_names:
-                self.reporter.chart_input_fields_case_mismatch += 1
-                logger.debug(
-                    "No exact-case workbook element match for formula ref source %r; "
-                    "case-insensitive workbook element candidates were %s. "
-                    "Treating as unresolved rather than falling back to warehouse "
-                    "resolution.",
-                    ref.source,
-                    case_mismatched_names,
-                )
-                return None
-            else:
-                # Say WHY the name missed, not just that it did. This is the
-                # single largest unexplained bucket in the report
-                # (chart_input_fields_self_ref_unresolved_refs, ~51k), and the
-                # ref source alone cannot distinguish "the element exists but
-                # the lookup is too strict" from "the element was never indexed
-                # at all" (e.g. dropped for being a pivot-table or input-table).
-                normalized = ref.source.strip().replace("\xa0", " ").casefold()
-                near = [
-                    name
-                    for name in wb_element_index
-                    if name.strip().replace("\xa0", " ").casefold() == normalized
-                ]
-                if near:
-                    self.reporter.chart_ref_source_near_miss += 1
-                logger.debug(
-                    "No exact-case workbook element match for formula ref source "
-                    "%r (normalized=%r); near_matches=%r; index_size=%d "
-                    "index_sample=%r; falling back to warehouse-table resolution.",
-                    ref.source,
-                    normalized,
-                    near,
-                    len(wb_element_index),
-                    sorted(wb_element_index)[:15],
-                )
-
+        maybe_candidates = self._chart_ref_candidates(
+            ref,
+            chart_element_id=chart_element_id,
+            wb_element_index=wb_element_index,
+            count=count,
+        )
+        if maybe_candidates is None:
+            return None
+        candidates = maybe_candidates
         if candidates:
             # Step 3a: SheetUpstream match (intra-workbook chart→chart lineage).
             sheet_matches = [
@@ -5204,6 +5290,55 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         return sigma_display_name
 
+    def _resolve_chart_ref(
+        self,
+        ref: BracketRef,
+        *,
+        chart_element_id: str,
+        chart_upstream_element_ids: Set[str],
+        dm_upstream_urn_by_element_name: Dict[str, str],
+        wb_element_index: Dict[str, List[Element]],
+        element_warehouse_table_index: Dict[str, List[str]],
+        elementId_to_chart_urn: Dict[str, str],
+    ) -> Optional[Tuple[str, str]]:
+        """Resolve one formula ref, choosing the strategy by segment count.
+
+        Split out of _build_element_input_fields, which otherwise carries this
+        three-way choice inside an already deep loop.
+        """
+        result = self._resolve_chart_join_chain_ref(
+            ref,
+            chart_element_id=chart_element_id,
+            chart_upstream_element_ids=chart_upstream_element_ids,
+            dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+            wb_element_index=wb_element_index,
+            element_warehouse_table_index=element_warehouse_table_index,
+            elementId_to_chart_urn=elementId_to_chart_urn,
+        )
+        if result is None and len(ref.parts) <= 2:
+            # Single-slash refs never had a candidate search, so
+            # the ordinary resolver is their only path.
+            result = self._resolve_chart_formula_upstream(
+                ref,
+                chart_element_id=chart_element_id,
+                chart_upstream_element_ids=chart_upstream_element_ids,
+                dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+                wb_element_index=wb_element_index,
+                element_warehouse_table_index=element_warehouse_table_index,
+                elementId_to_chart_urn=elementId_to_chart_urn,
+            )
+        elif result is None:
+            # Every split failed schema validation. The legacy
+            # first-slash reading would resolve here, but it
+            # names the un-split remainder as the column -- a
+            # field the upstream provably does not have. The
+            # Data Model path drops such refs rather than emit a
+            # dangling schemaField URN; this now matches it, and
+            # the column falls back to a self-reference so it
+            # still appears in the V2 column list.
+            self.reporter.chart_join_chain_dangling_suppressed += 1
+        return result
+
     def _build_element_input_fields(
         self,
         *,
@@ -5255,18 +5390,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             sibling_count += 1
                             continue
                         # A join-chain ref gets every split tried and validated
-                        # against the candidate upstream's schema first; only
-                        # when none holds does the legacy first-slash reading
-                        # apply, so no ref that resolves today stops resolving.
-                        result = self._resolve_chart_join_chain_ref(
-                            ref,
-                            chart_element_id=element.elementId,
-                            chart_upstream_element_ids=chart_upstream_eids,
-                            dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
-                            wb_element_index=wb_element_index,
-                            element_warehouse_table_index=element_warehouse_table_index,
-                            elementId_to_chart_urn=elementId_to_chart_urn,
-                        ) or self._resolve_chart_formula_upstream(
+                        # against the candidate upstream's schema.
+                        result = self._resolve_chart_ref(
                             ref,
                             chart_element_id=element.elementId,
                             chart_upstream_element_ids=chart_upstream_eids,

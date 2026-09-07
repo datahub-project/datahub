@@ -3,7 +3,10 @@ from typing import Dict, List, Set
 from unittest.mock import MagicMock
 
 from datahub.emitter import mce_builder as builder
-from datahub.ingestion.source.sigma.config import SigmaSourceReport
+from datahub.ingestion.source.sigma.config import (
+    SigmaSourceConfig,
+    SigmaSourceReport,
+)
 from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataModel,
     SigmaDataModelColumn,
@@ -20,6 +23,9 @@ def _source() -> SigmaSource:
     source._upstream_schema_unavailable_warned = set()
     # No /spec: these tests cover formula-derived lineage, and a Data Model with
     # no readable join predicates must leave that lineage exactly as it was.
+    source.config = SigmaSourceConfig.model_validate(
+        {"client_id": "t", "client_secret": "t"}
+    )
     source._dm_spec_index_cache = {}
     source.sigma_api = MagicMock()
     source.sigma_api.get_data_model_spec.return_value = None
