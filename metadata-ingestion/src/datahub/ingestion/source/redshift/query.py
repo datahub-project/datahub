@@ -586,14 +586,16 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                     query_txt AS (
                         SELECT
                             query,
-                            userid,
                             RTRIM(LISTAGG(RTRIM(text) || CASE WHEN LEN(RTRIM(text)) < {_PROVISIONED_SEGMENT_SIZE} THEN ' ' ELSE '' END, '')
                                 WITHIN GROUP (ORDER BY sequence)) AS querytxt
                         FROM STL_QUERYTEXT
                         WHERE sequence < {_QUERY_SEQUENCE_LIMIT}
                         -- Scope by query id: the query-text tables carry no timestamp.
                         AND query IN (SELECT query FROM target_tables)
-                        GROUP BY query, userid
+                        -- One row per query. Grouping by userid as well would emit a
+                        -- second row, and so duplicate every source row for that query,
+                        -- if STL_QUERYTEXT ever held two userids for one query id.
+                        GROUP BY query
                     )
                         select
                             distinct cluster,
@@ -630,10 +632,17 @@ class RedshiftProvisionedQuery(RedshiftCommonQuery):
                                 sti.table_id = ss.tbl
                             left join query_txt sq on
                                 ss.query = sq.query
+                            -- LEFT (enrichment only): svl_user_info supplies the
+                            -- username but must not gate the row. rdsdb is excluded by
+                            -- its system userid because a name comparison drops every
+                            -- user the view cannot resolve, via NULL propagation.
+                            -- ss.userid rather than sq.userid: query_txt is LEFT joined
+                            -- and so nullable, and a nullable column cannot carry this
+                            -- predicate without gating on it in turn.
                             left join svl_user_info sui on
-                                sq.userid = sui.usesysid
+                                ss.userid = sui.usesysid
                             where
-                                sui.usename <> 'rdsdb')
+                                ss.userid <> 1)
                         ) as source_tables
                                 using (query)
                         where
@@ -738,6 +747,9 @@ select
     ANY_VALUE(sq.pid) as session_id
 from
     target_queries si
+-- LEFT (enrichment only): svl_user_info supplies the username but must not gate the
+-- row. rdsdb is excluded by its system userid because a name comparison drops every
+-- user the view cannot resolve, via NULL propagation.
 left join svl_user_info sui on
     si.userid = sui.usesysid
 left join query_txt sq on
@@ -745,7 +757,7 @@ left join query_txt sq on
 left join stl_load_commits slc on
     slc.query = si.query
 where
-        sui.usename <> 'rdsdb'
+        si.userid <> 1
         and slc.query IS NULL
 group by
     target_table_id,
