@@ -163,10 +163,12 @@ def candidate_source_column_splits(ref: BracketRef) -> List[Tuple[str, str]]:
     column -- not the first segment, which is what ``ref.source`` holds.
 
     Candidates are ordered join-chain reading first, then the "element name
-    itself contains a slash" reading, working right to left. Callers validate
-    each candidate against a real element name *and* that element's schema, and
-    take the first that holds; the final candidate is always the legacy
-    first-slash split, so a single-slash ref resolves exactly as before.
+    itself contains a slash" reading, working right to left, and finally the
+    join element paired with the last segment. Callers validate each candidate
+    against a real element name *and* that element's schema, and take the first
+    that holds. The legacy first-slash split is always among them, and a
+    single-slash ref still yields exactly that one candidate, so nothing that
+    resolves today stops resolving.
 
     Returns an empty list for refs with no column part (bare/parameter refs).
     """
@@ -190,6 +192,13 @@ def candidate_source_column_splits(ref: BracketRef) -> List[Tuple[str, str]]:
         add(segments[i - 1], column)
         # 2. element name containing an unescaped "/".
         add("/".join(segments[:i]), column)
+    # 3. The join element itself, carrying the joined column in its own output.
+    #    A join's output includes the columns of both sides, so when the owning
+    #    element is not resolvable on its own -- which is the norm on the chart
+    #    path, where a Data Model's internal elements are not workbook elements
+    #    -- the join element still has the column and is a legitimate upstream.
+    #    Last, because it names a less precise origin than the owning element.
+    add(segments[0], segments[-1])
     return out
 
 

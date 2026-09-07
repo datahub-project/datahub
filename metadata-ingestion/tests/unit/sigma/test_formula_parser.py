@@ -421,8 +421,17 @@ class TestCandidateSplits:
         (ref,) = extract_bracket_refs("[GRP_A/GRP_A DIM_B/Col Id]")
         candidates = candidate_source_column_splits(ref)
         assert candidates[0] == ("GRP_A DIM_B", "Col Id")
-        # The legacy first-slash split stays available, last.
-        assert candidates[-1] == ("GRP_A", "GRP_A DIM_B/Col Id")
+        # The legacy first-slash split stays available so nothing that resolves
+        # today stops resolving.
+        assert ("GRP_A", "GRP_A DIM_B/Col Id") in candidates
+        # Last resort: the join element carries the joined column in its own
+        # output, which is the only reading that resolves when the owning
+        # element is not addressable -- the norm on the chart path.
+        assert candidates[-1] == ("GRP_A", "Col Id")
+
+    def test_single_slash_ref_yields_exactly_the_legacy_split(self) -> None:
+        (ref,) = extract_bracket_refs("[Element B/Col K]")
+        assert candidate_source_column_splits(ref) == [("Element B", "Col K")]
 
     def test_nested_chain_tries_deepest_element_first(self) -> None:
         (ref,) = extract_bracket_refs("[E1/E2/E3/col]")

@@ -976,6 +976,59 @@ class TestChartJoinChainRef:
         assert source.reporter.chart_join_chain_resolved == 0
         assert source.reporter.chart_join_chain_unresolved == 0
 
+    def test_join_element_supplies_the_column_when_the_owner_is_unreachable(
+        self,
+    ) -> None:
+        """The shape that made this resolve 0 of 832 on a live tenant.
+
+        The owning element is internal to a Data Model, so it is not a workbook
+        element and resolves to nothing. The join element IS reachable and
+        carries the joined column in its own output, so the edge lands there
+        rather than being lost.
+        """
+        source = self._source()
+        join = _make_element("e-join", "Joined", ["Col K", "Other"])
+        result = self._resolve(
+            source,
+            "[Joined/Element B/Col K]",
+            elements=[join],  # 'Element B' deliberately absent
+            upstream_ids=["e-join"],
+            chart_urns={"e-join": "urn:li:chart:(sigma,join)"},
+        )
+        assert result == ("urn:li:chart:(sigma,join)", "Col K")
+        assert source.reporter.chart_join_chain_resolved == 1
+
+    def test_owning_element_still_wins_when_it_is_reachable(self) -> None:
+        """The join element is a fallback, never a preference."""
+        source = self._source()
+        join = _make_element("e-join", "Joined", ["Col K"])
+        owner = _make_element("e-owner", "Element B", ["Col K"])
+        result = self._resolve(
+            source,
+            "[Joined/Element B/Col K]",
+            elements=[join, owner],
+            upstream_ids=["e-join", "e-owner"],
+            chart_urns={
+                "e-join": "urn:li:chart:(sigma,join)",
+                "e-owner": "urn:li:chart:(sigma,owner)",
+            },
+        )
+        assert result == ("urn:li:chart:(sigma,owner)", "Col K")
+
+    def test_join_element_without_the_column_resolves_nothing(self) -> None:
+        """Schema validation still gates the fallback -- no dangling field."""
+        source = self._source()
+        join = _make_element("e-join", "Joined", ["Unrelated"])
+        result = self._resolve(
+            source,
+            "[Joined/Element B/Col K]",
+            elements=[join],
+            upstream_ids=["e-join"],
+            chart_urns={"e-join": "urn:li:chart:(sigma,join)"},
+        )
+        assert result is None
+        assert source.reporter.chart_join_chain_unresolved == 1
+
     def test_column_casing_is_normalised_to_the_upstream_spelling(self) -> None:
         source = self._source()
         join = _make_element("e-join", "Joined", [])
