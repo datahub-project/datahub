@@ -390,7 +390,6 @@
     displayName: OpenAPI
     type: OTHERS
     logoUrl: "assets/platforms/openapilogo.png"
-    logoUrl: "assets/platforms/openapilogo.png"
 - entityUrn: urn:li:dataPlatform:oracle
   entityType: dataPlatform
   aspectName: dataPlatformInfo
