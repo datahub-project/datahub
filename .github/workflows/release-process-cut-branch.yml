@@ -122,32 +122,33 @@ jobs:
       - name: Check out release scripts
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          sparse-checkout: .github/scripts
+          sparse-checkout: |
+            .github/scripts
+            .github/actions/notify-release-channel
           sparse-checkout-cone-mode: true
           fetch-depth: 1
 
-      - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install requests
-
-      - name: Notify release channel of branch cut
-        continue-on-error: true
+      - name: Build Slack message
+        id: slack_message
         env:
-          SLACK_BOT_TOKEN: ${{ secrets.CI_NOTIFIER_SLACK_BOT_TOKEN }}
           TARGET: ${{ needs.cut_branch.outputs.target }}
           COMMIT_SHA: ${{ needs.cut_branch.outputs.commit_sha }}
           BRANCH_TYPE: ${{ inputs.branch_type }}
           VERSION: ${{ inputs.version }}
-          PYTHONPATH: ${{ github.workspace }}/.github/scripts:${{ github.workspace }}/.github/scripts/release
         run: |
           SHORT_SHA="${COMMIT_SHA:0:7}"
           BRANCH_URL="${{ github.server_url }}/${{ github.repository }}/tree/${TARGET}"
-          MESSAGE="*${BRANCH_TYPE} branch cut* for \`v${VERSION}\` — <${BRANCH_URL}|${TARGET}> (commit \`${SHORT_SHA}\`)"
-          python3 .github/scripts/release/notify_release_channel.py \
-            --version "${VERSION}" \
-            --emoji ":scissors:" \
-            --message "${MESSAGE}"
+          {
+            echo "message<<EOF"
+            echo "*${BRANCH_TYPE} branch cut* for \`v${VERSION}\` — <${BRANCH_URL}|${TARGET}> (commit \`${SHORT_SHA}\`)"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Notify release channel of branch cut
+        continue-on-error: true
+        uses: ./.github/actions/notify-release-channel
+        with:
+          version: ${{ inputs.version }}
+          emoji: ":scissors:"
+          message: ${{ steps.slack_message.outputs.message }}
+          slack-bot-token: ${{ secrets.CI_NOTIFIER_SLACK_BOT_TOKEN }}
