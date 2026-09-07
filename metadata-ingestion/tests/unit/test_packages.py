@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from datahub.testing.check_imports import (
@@ -8,13 +10,19 @@ from datahub.testing.check_str_enum import ensure_no_enum_mixin
 
 
 def test_package_list_match_inits():
-    # find_packages is a build-tool operation; py3.12 venvs no longer seed
-    # setuptools and it is intentionally not a dependency.
-    setuptools = pytest.importorskip("setuptools")
-    where = "./src"
-    package_list = set(setuptools.find_packages(where))
-    namespace_packages = set(setuptools.find_namespace_packages(where))
-    assert package_list == namespace_packages, "are you missing a package init file?"
+    # Every directory under src/ that holds Python modules must be an importable
+    # regular package (have an __init__.py). Implemented without setuptools:
+    # py3.12 venvs no longer seed it and it is intentionally not a dependency, so
+    # pytest.importorskip would silently disable this guard in exactly those envs.
+    src = Path(__file__).parent.parent.parent / "src"
+    missing = set()
+    for py_file in src.rglob("*.py"):
+        directory = py_file.parent
+        while directory != src:
+            if not (directory / "__init__.py").exists():
+                missing.add(str(directory.relative_to(src)))
+            directory = directory.parent
+    assert not missing, f"directories missing __init__.py: {sorted(missing)}"
 
 
 def test_check_import_paths(pytestconfig: pytest.Config) -> None:

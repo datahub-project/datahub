@@ -53,6 +53,18 @@ def test_get_distribution_unmet_specifier_raises():
         get_distribution(f"{_PKG}!={installed}")
 
 
+def test_get_distribution_inapplicable_marker_raises():
+    # A requirement whose environment marker excludes this interpreter is not
+    # applicable, so it must not resolve as if the marker were absent.
+    with pytest.raises(DistributionNotFound):
+        get_distribution(f"{_PKG}; python_version < '3.0'")
+
+
+def test_get_distribution_applicable_marker_resolves():
+    installed = importlib.metadata.version(_PKG)
+    assert get_distribution(f"{_PKG}; python_version >= '3.0'").version == installed
+
+
 def test_resource_filename_returns_existing_path():
     path = resource_filename("datahub.cli.gql", "fragments.gql")
     assert os.path.exists(path)

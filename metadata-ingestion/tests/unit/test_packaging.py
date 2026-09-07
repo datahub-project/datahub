@@ -37,9 +37,15 @@ def test_setuptools_not_capped_below_83():
         "pyproject [tool.uv] constraint-dependencies must floor setuptools>=83"
     )
     for req in setuptools_reqs:
-        assert req.specifier.contains("83.0.0") and not req.specifier.contains(
-            "82.0.0"
-        ), f"[tool.uv] setuptools constraint '{req}' does not floor at >=83"
+        spec = req.specifier
+        assert spec.contains("83.0.0"), f"'{req}' does not allow setuptools 83"
+        # Every sub-83 version must be rejected, spanning the range so relaxed
+        # floors are all caught: setuptools>82 (allows 82.5), !=82.* (allows
+        # 81.x), >=78.1.1, etc. — not just ==82.0.0.
+        for below in ("0.0.1", "78.1.1", "81.0.0", "82.0.0", "82.5.0", "82.99.0"):
+            assert not spec.contains(below), (
+                f"[tool.uv] setuptools constraint '{req}' allows sub-83 {below}"
+            )
 
     # Resolved lock: constraints.txt must land on >=83.
     constraints = (_METADATA_INGESTION / "constraints.txt").read_text()

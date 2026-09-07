@@ -43,12 +43,19 @@ def get_distribution(name: str) -> "_Distribution":
     # pkg_resources parses both. We only read the installed version.
     project = name
     specifier = None
+    marker = None
     try:
         req = Requirement(name)
         project = req.name
         specifier = req.specifier
+        marker = req.marker
     except InvalidRequirement:
         pass  # not a requirement expression; treat the input as a plain name
+
+    # A requirement whose environment marker excludes this interpreter is not
+    # applicable, so there is no distribution to resolve.
+    if marker is not None and not marker.evaluate():
+        raise DistributionNotFound(f"{name} does not apply to this environment")
 
     try:
         version = _im.version(project)

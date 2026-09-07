@@ -33,6 +33,10 @@ CIRCULAR_EXTRAS = {"airflow", "great-expectations", "sqlmesh"}
 
 @contextlib.contextmanager
 def _stub_setuptools() -> Iterator[None]:
+    # Track whether the key existed so an intentional None import-block sentinel
+    # is restored rather than dropped (dropping it would let setuptools import
+    # again later); "absent" and "present as None" must be told apart.
+    had_setuptools = "setuptools" in sys.modules
     saved = sys.modules.get("setuptools")
     stub = types.ModuleType("setuptools")
     stub.__dict__.update(
@@ -44,10 +48,11 @@ def _stub_setuptools() -> Iterator[None]:
     try:
         yield
     finally:
-        if saved is None:
-            sys.modules.pop("setuptools", None)
+        if had_setuptools:
+            # `saved` may be the real module or the None import-block sentinel.
+            sys.modules["setuptools"] = saved  # type: ignore[assignment]
         else:
-            sys.modules["setuptools"] = saved
+            sys.modules.pop("setuptools", None)
 
 
 def load_setup_py_variables() -> Dict:
