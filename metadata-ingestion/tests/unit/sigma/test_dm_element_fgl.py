@@ -1640,3 +1640,48 @@ def test_column_with_no_edge_gets_no_join_key_edge() -> None:
 
     assert lineages == []
     assert source.reporter.data_model_element_fgl_join_key_resolved == 0
+
+
+def test_predicates_that_match_no_existing_edge_are_reported() -> None:
+    """The last silent way join-key lineage can produce nothing.
+
+    Predicates resolve into partner columns, but no edge this element already
+    has lands on a column any predicate names. Without this counter the report
+    shows "0 join-key edges" for a reason indistinguishable from "no predicates
+    were read at all" -- the same silence that cost two full runs.
+    """
+    source = _source()
+    _join_spec_source(source)
+    a_urn, c_urn, b_urn = _urn("a"), _urn("c"), _urn("b")
+    # The element's only edge is on a column no predicate mentions.
+    element = _element("b", "B", [_column("b-other", "other", "[A/other]")])
+
+    lineages = source._build_dm_element_fine_grained_lineages(
+        element=element,
+        element_dataset_urn=b_urn,
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": a_urn, "c": c_urn},
+        entity_level_upstream_urns={a_urn},
+        data_model=_data_model(
+            [
+                element,
+                _element(
+                    "a",
+                    "A",
+                    [
+                        _column(_LEFT_COL_ID, "col_k", None),
+                        _column("a-other", "other", None),
+                    ],
+                ),
+                _element("c", "C", [_column(_RIGHT_COL_ID, "col_k", None)]),
+            ]
+        ),
+        warehouse_url_id_map={},
+        discovered_upstreams=set(),
+    )
+
+    assert [(lineage.upstreams or [])[0] for lineage in lineages] == [
+        builder.make_schema_field_urn(a_urn, "other")
+    ]
+    assert source.reporter.data_model_element_fgl_join_key_resolved == 0
+    assert source.reporter.data_model_join_key_no_matching_edge == 1

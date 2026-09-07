@@ -316,6 +316,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # A join predicate named a column whose element or column is not part of
     # this run (filtered out by a pattern, or absent from /elements).
     data_model_join_key_partner_unresolved: int = 0
+    # Elements where join predicates DID resolve into partner columns, but none
+    # of the element's existing edges lands on a column a predicate names. The
+    # last way join-key lineage can produce nothing, and the one a counter could
+    # not otherwise distinguish from "no predicates were read at all".
+    data_model_join_key_no_matching_edge: int = 0
     # Predicate sides naming a warehouse table rather than an element in this
     # Data Model. /spec identifies those by connection and path and describes
     # none of their columns, so they cannot become element-to-element column

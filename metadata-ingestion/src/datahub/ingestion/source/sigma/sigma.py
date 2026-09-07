@@ -3609,6 +3609,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element_id_by_urn = {urn: eid for eid, urn in elementId_to_dataset_urn.items()}
 
         added = 0
+        # (element id, field) pairs this element's edges actually reached.
+        looked_up: Set[Tuple[str, str]] = set()
         for fgl in list(fgls) + list(cross_dm_fgls):
             if not fgl.upstreams or not fgl.downstreams:
                 continue
@@ -3622,6 +3624,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # A warehouse table or another Data Model's element: the spec
                 # describes only this model's own elements.
                 continue
+            looked_up.add((element_id_by_urn[parent], upstream.field_path))
             for partner_urn, partner_col in sorted(
                 partners.get((parent, upstream.field_path), set())
             ):
@@ -3664,6 +3667,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 data_model.dataModelId,
                 element.elementId,
                 added,
+            )
+        elif looked_up:
+            # The remaining way this can produce nothing, and the only one with
+            # no counter of its own: predicates resolved into partners, but no
+            # edge this element already has lands on a column any predicate
+            # names. Without both sets side by side the report would say
+            # "0 join-key edges" for a reason no counter distinguishes.
+            self.reporter.data_model_join_key_no_matching_edge += 1
+            logger.debug(
+                "JOIN KEY DM %s element %s: %d partner column(s) available but "
+                "none matched this element's %d upstream field(s). "
+                "looked_up=%r available=%r",
+                data_model.dataModelId,
+                element.elementId,
+                len(partners),
+                len(looked_up),
+                sorted(looked_up)[:10],
+                sorted(partners)[:10],
             )
 
     def _build_dm_element_fine_grained_lineages(
@@ -4815,8 +4836,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter.chart_join_chain_unresolved += 1
         logger.debug(
             "chart element %s: no candidate split of join-chain ref %r "
-            "validated; candidates tried=%r verdicts=%r; falling back to the "
-            "first-slash split, which will name column %r",
+            "validated; candidates tried=%r verdicts=%r. The first-slash "
+            "reading would name column %r, which no upstream has, so no "
+            "InputField upstream is emitted and the column self-references.",
             chart_element_id,
             ref.raw,
             candidates,
