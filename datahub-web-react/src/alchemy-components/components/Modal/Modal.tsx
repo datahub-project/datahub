@@ -87,7 +87,7 @@ export interface ModalProps {
     subtitle?: string;
     titlePill?: React.ReactNode;
     children?: React.ReactNode;
-    onCancel: () => void;
+    onCancel?: () => void;
     dataTestId?: string;
     titleIcon?: React.ReactNode;
     closable?: boolean;
