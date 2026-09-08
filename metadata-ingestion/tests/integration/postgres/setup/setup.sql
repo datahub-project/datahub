@@ -101,7 +101,13 @@ CREATE TABLE special_types (
     tree_path LTREE,
     ci CITEXT,
     ip_range CIDR,
-    int_range INT4RANGE
+    int_range INT4RANGE,
+    int_multirange INT4MULTIRANGE,
+    bigint_multirange INT8MULTIRANGE,
+    num_multirange NUMMULTIRANGE,
+    date_multirange DATEMULTIRANGE,
+    ts_multirange TSMULTIRANGE,
+    tstz_multirange TSTZMULTIRANGE
 );
 
 -- Populate reltuples so row-count estimates are real values instead of -1.

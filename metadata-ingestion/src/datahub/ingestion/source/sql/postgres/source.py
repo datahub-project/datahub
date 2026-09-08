@@ -137,6 +137,15 @@ CIRCLE = _make_postgres_type("CIRCLE")
 XML = _make_postgres_type("XML")
 LTREE = _make_postgres_type("LTREE")
 CITEXT = _make_postgres_type("CITEXT")
+# PG14+ multirange counterparts of the range types; SQLAlchemy only ships
+# these natively from 2.0, so under the current 1.4 pin they need placeholders
+# too (the setdefault below yields to the native types after an upgrade).
+INT4MULTIRANGE = _make_postgres_type("INT4MULTIRANGE")
+INT8MULTIRANGE = _make_postgres_type("INT8MULTIRANGE")
+NUMMULTIRANGE = _make_postgres_type("NUMMULTIRANGE")
+DATEMULTIRANGE = _make_postgres_type("DATEMULTIRANGE")
+TSMULTIRANGE = _make_postgres_type("TSMULTIRANGE")
+TSTZMULTIRANGE = _make_postgres_type("TSTZMULTIRANGE")
 
 # PostGIS types are reflected via the geoalchemy2 import above; map them so
 # their columns stop falling back to NullType. BytesTypeClass (not
@@ -164,6 +173,15 @@ for _range_type in (
     custom_types.TSTZRANGE,
 ):
     register_custom_type(_range_type, StringTypeClass)
+for _multirange_type in (
+    INT4MULTIRANGE,
+    INT8MULTIRANGE,
+    NUMMULTIRANGE,
+    DATEMULTIRANGE,
+    TSMULTIRANGE,
+    TSTZMULTIRANGE,
+):
+    register_custom_type(_multirange_type, StringTypeClass)
 
 # If the pgvector SQLAlchemy integration is installed, importing it registers
 # a full-featured `vector` type in ischema_names (it parses dimensions
@@ -200,6 +218,12 @@ for _type_name, _placeholder_type in {
     "xml": XML,
     "ltree": LTREE,
     "citext": CITEXT,
+    "int4multirange": INT4MULTIRANGE,
+    "int8multirange": INT8MULTIRANGE,
+    "nummultirange": NUMMULTIRANGE,
+    "datemultirange": DATEMULTIRANGE,
+    "tsmultirange": TSMULTIRANGE,
+    "tstzmultirange": TSTZMULTIRANGE,
 }.items():
     custom_types.base.ischema_names.setdefault(_type_name, _placeholder_type)
 

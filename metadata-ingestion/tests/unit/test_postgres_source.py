@@ -390,6 +390,12 @@ def test_postgres_special_types_map_to_datahub_types():
         (DATERANGE(), StringTypeClass),
         (TSRANGE(), StringTypeClass),
         (TSTZRANGE(), StringTypeClass),
+        (pg_base.ischema_names["int4multirange"](), StringTypeClass),
+        (pg_base.ischema_names["int8multirange"](), StringTypeClass),
+        (pg_base.ischema_names["nummultirange"](), StringTypeClass),
+        (pg_base.ischema_names["datemultirange"](), StringTypeClass),
+        (pg_base.ischema_names["tsmultirange"](), StringTypeClass),
+        (pg_base.ischema_names["tstzmultirange"](), StringTypeClass),
     ]
 
     report = SQLSourceReport()
@@ -427,6 +433,12 @@ def test_postgres_special_types_preserve_native_names():
         "xml": "XML",
         "ltree": "LTREE",
         "citext": "CITEXT",
+        "int4multirange": "INT4MULTIRANGE",
+        "int8multirange": "INT8MULTIRANGE",
+        "nummultirange": "NUMMULTIRANGE",
+        "datemultirange": "DATEMULTIRANGE",
+        "tsmultirange": "TSMULTIRANGE",
+        "tstzmultirange": "TSTZMULTIRANGE",
     }
     for ischema_key, native in expected_native.items():
         column_type = pg_base.ischema_names[ischema_key]()
