@@ -120,7 +120,7 @@ jobs:
       # GitHub-hosted master copies are written by documentation.yml /
       # check-datahub-jars.yml; metadata-ingestion.yml also saves this key on master,
       # but usually to the Depot cache backend (it runs on Depot runners there).
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/uv
@@ -225,7 +225,7 @@ jobs:
         uses: ./.github/actions/ensure-codegen-updated
       - name: Upload backend coverage to Codecov
         if: ${{ github.event_name != 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.BACKEND_FILES }}
@@ -237,7 +237,7 @@ jobs:
           verbose: true
       - name: Upload backend coverage to Codecov on release
         if: ${{ github.event_name == 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.BACKEND_FILES }}
@@ -250,13 +250,13 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() && github.event_name != 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
       - name: Upload test results to Codecov on release
         if: ${{ !cancelled() && github.event_name == 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -280,7 +280,7 @@ jobs:
       # GitHub-hosted master copies are written by documentation.yml /
       # check-datahub-jars.yml; metadata-ingestion.yml also saves this key on master,
       # but usually to the Depot cache backend (it runs on Depot runners there).
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/uv
@@ -290,7 +290,7 @@ jobs:
       # yarn's global download cache (safe to cache; node_modules itself is not — see
       # datahub-web-react/build.gradle). frontend-build is the writer; frontend-test restores
       # read-only. Turns yarnInstall from a cold ~100s download into a link-only step.
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/yarn
@@ -358,7 +358,7 @@ jobs:
       # links from cache instead of a cold ~100s download. Same key across legs (content-hashed on
       # yarn.lock), so the redundant post-save from parallel legs is a no-op — matches the matrix
       # build-cache restore in backend-test-shard.
-      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/yarn
@@ -438,7 +438,7 @@ jobs:
           rm -rf "$TEMP_DIR"
       - name: Upload frontend coverage to Codecov
         if: ${{ github.event_name != 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.FRONTEND_FILES }}
@@ -450,7 +450,7 @@ jobs:
           verbose: true
       - name: Upload frontend coverage to Codecov on Release
         if: ${{ github.event_name == 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.FRONTEND_FILES }}
@@ -463,13 +463,13 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() && github.event_name != 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
       - name: Upload test results to Codecov on release
         if: ${{ !cancelled() && github.event_name == 'release' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -541,7 +541,7 @@ jobs:
       # and every run restored the same frozen blob. Cross-run reuse belongs to
       # the remote build cache; this entry is intra-run handoff only.
       - name: Cache Gradle build cache (seed writes; run-scoped key)
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-backend-build-cache-${{ github.run_id }}
@@ -623,7 +623,7 @@ jobs:
         # must never write. With the full action they also saved at post-step,
         # and the prefix restore-key let them pull a previous run's cache and
         # re-save the union -- the same ratchet the seed job had.
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-backend-build-cache-${{ github.run_id }}
@@ -712,7 +712,7 @@ jobs:
             **/build/jacoco/*.exec
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -753,7 +753,7 @@ jobs:
         # must never write. With the full action they also saved at post-step,
         # and the prefix restore-key let them pull a previous run's cache and
         # re-save the union -- the same ratchet the seed job had.
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-backend-build-cache-${{ github.run_id }}
@@ -782,7 +782,7 @@ jobs:
       # PRs. (The merge above still runs best-effort so the report exists for debugging.)
       - name: Upload backend coverage to Codecov
         if: ${{ needs.backend-test-shard.result == 'success' }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.BACKEND_FILES }}

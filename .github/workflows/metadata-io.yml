@@ -92,7 +92,7 @@ jobs:
       # compile, while hitting on only 23 of 183 tasks. The cache had become
       # slower than not having one.
       - name: Cache Gradle build cache (seed writes; run-scoped key)
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-metadata-io-build-cache-${{ github.run_id }}
@@ -141,7 +141,7 @@ jobs:
         # must never write. With the full action they also saved at post-step,
         # and the prefix restore-key let them pull a previous run's cache and
         # re-save the union -- the same ratchet the seed job had.
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-metadata-io-build-cache-${{ github.run_id }}
@@ -191,7 +191,7 @@ jobs:
           rm -rf "$TEMP_DIR"
       - name: Upload coverage to Codecov
         if: ${{ always()}}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           # Each leg emits jacoco-<task>.xml here; all legs share the metadata-io flag, which
@@ -204,7 +204,7 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -237,7 +237,7 @@ jobs:
         # must never write. With the full action they also saved at post-step,
         # and the prefix restore-key let them pull a previous run's cache and
         # re-save the union -- the same ratchet the seed job had.
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.gradle/caches/build-cache-1
           key: gradle-metadata-io-build-cache-${{ github.run_id }}

@@ -1,7 +1,6 @@
 import json
 import logging
 import time
-from random import randint
 
 import pytest
 
@@ -52,7 +51,7 @@ from datahub.metadata.schema_classes import (
 )
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utilities.domains import Domain
-from tests.utils import delete_urns, get_sleep_info, run_datahub_cmd
+from tests.utils import delete_urns, get_sleep_info, run_datahub_cmd, unique_suffix
 
 logger = logging.getLogger(__name__)
 
@@ -60,14 +59,17 @@ pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 PLATFORM = "snowflake"
 ENV = "PROD"
-_suffix = randint(10, 100000)
+_suffix = unique_suffix()
 
 # --- platform2instance scenario ---
+# Unique platform so catalog-wide dataplatform2instance cannot rewrite other
+# xdist workers' snowflake datasets (e.g. lineage smoke tests).
+P2I_PLATFORM = f"migp2i_{_suffix}"
 P2I_INSTANCE = f"mig_p2i_{_suffix}"
-P2I_TABLE = "my_db.my_schema.p2i_tbl"
-p2i_src = make_dataset_urn_with_platform_instance(PLATFORM, P2I_TABLE, None, ENV)
+P2I_TABLE = f"my_db.my_schema.p2i_tbl_{_suffix}"
+p2i_src = make_dataset_urn_with_platform_instance(P2I_PLATFORM, P2I_TABLE, None, ENV)
 p2i_dst = make_dataset_urn_with_platform_instance(
-    PLATFORM, P2I_TABLE, P2I_INSTANCE, ENV
+    P2I_PLATFORM, P2I_TABLE, P2I_INSTANCE, ENV
 )
 
 # --- preserve scenario ---
@@ -127,10 +129,10 @@ _ct_dst_key.instance = CT_NEW
 ct_dst = f"urn:li:container:{_ct_dst_key.guid()}"
 
 
-def _schema(field_name: str) -> SchemaMetadataClass:
+def _schema(field_name: str, platform: str = PLATFORM) -> SchemaMetadataClass:
     return SchemaMetadataClass(
         schemaName="s",
-        platform=make_data_platform_urn(PLATFORM),
+        platform=make_data_platform_urn(platform),
         version=0,
         hash="",
         platformSchema=OtherSchemaClass(rawSchema=""),
@@ -158,7 +160,9 @@ def test_dataplatform2instance_assigns_instance_and_carries_aspects(
     delete_urns(graph_client, all_urns)
     wait_for_writes_to_sync()
     for mcp in [
-        MetadataChangeProposalWrapper(entityUrn=p2i_src, aspect=_schema("id")),
+        MetadataChangeProposalWrapper(
+            entityUrn=p2i_src, aspect=_schema("id", P2I_PLATFORM)
+        ),
         MetadataChangeProposalWrapper(
             entityUrn=p2i_src,
             aspect=DatasetPropertiesClass(description="p2i source"),
@@ -177,7 +181,7 @@ def test_dataplatform2instance_assigns_instance_and_carries_aspects(
                 "migrate",
                 "dataplatform2instance",
                 "--platform",
-                PLATFORM,
+                P2I_PLATFORM,
                 "--instance",
                 P2I_INSTANCE,
                 "--env",
@@ -196,7 +200,7 @@ def test_dataplatform2instance_assigns_instance_and_carries_aspects(
         assert graph_client.get_aspect(p2i_dst, GlobalTagsClass) is not None
         instance = graph_client.get_aspect(p2i_dst, DataPlatformInstanceClass)
         assert instance is not None and instance.instance == (
-            make_dataplatform_instance_urn(PLATFORM, P2I_INSTANCE)
+            make_dataplatform_instance_urn(P2I_PLATFORM, P2I_INSTANCE)
         )
     finally:
         delete_urns(graph_client, all_urns)

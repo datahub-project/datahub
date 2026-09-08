@@ -1,9 +1,9 @@
-import { Button, Text, notification } from '@components';
 import { useRemirrorContext } from '@remirror/react';
 import React, { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Button } from '@components/components/Button';
 import {
     FileDragDropExtension,
     SUPPORTED_FILE_TYPES,
@@ -11,6 +11,8 @@ import {
     validateFile,
 } from '@components/components/Editor/extensions/fileDragDrop';
 import { FileUploadFailureType } from '@components/components/Editor/types';
+import { notification } from '@components/components/Notification';
+import { Text } from '@components/components/Text';
 
 const ContentWrapper = styled.div`
     gap: 8px;

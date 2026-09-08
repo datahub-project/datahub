@@ -37,7 +37,7 @@ jobs:
       # uv cache contents — the old '**/requirements.txt' matched 13 unrelated files and
       # none of them. With max-parallel: 1, the first matrix leg saves and later legs
       # exact-hit, so the cache-hit guard on the save prevents duplicate writes.
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: uv-cache
         with:
           path: |
@@ -65,7 +65,7 @@ jobs:
       # until the manifests next change; the next master push retries instead.
       - name: Save uv cache (master only)
         if: github.ref == 'refs/heads/master' && steps.uv-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/uv

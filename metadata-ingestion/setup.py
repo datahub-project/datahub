@@ -195,8 +195,9 @@ sqlalchemy_lib = {
     # Required for all SQL sources.
     # Multiple packages require <2: sqlalchemy-redshift, databricks-sql-connector, great-expectations
     "sqlalchemy>=1.4.39,<2",
-    # greenlet is imported directly by datahub.utilities.sqlalchemy_query_combiner, which
-    # is used by both the SQLAlchemy and GE profilers (via sql_report.py).
+    # greenlet is imported directly by
+    # datahub.ingestion.source.sqlalchemy_profiler.query_combiner, which is used
+    # by the SQLAlchemy profiler (and surfaced in sql_report.py).
     "greenlet<4.0.0",
 }
 sql_common = (
@@ -231,7 +232,7 @@ looker_common = {
     # See https://github.com/joshtemple/lkml/issues/73.
     "lkml>=1.3.4,<2.0.0",
     *sqlglot_lib,
-    "GitPython>2,<4.0.0",
+    "GitPython>=3.1.58,<4.0.0",
     "python-liquid>=2.0.0,<3.0.0",
     "deepmerge>=1.1.1,<3.0.0",
 }
@@ -261,6 +262,17 @@ datacatalog_lineage_common = {
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
     # Enforce non-vulnerable protobuf baseline (CVE-2026-0994).
     "protobuf>=5.0.0,<7.0.0",
+}
+
+bigquery_sharing_common = {
+    # Only reached when `extract_subscriptions_from_analytics_hub` is enabled. It is
+    # not part of bigquery_common because bigquery-slim, bigquery-queries and fivetran
+    # all pull that set and none of them use this code path.
+    # The floor is set by the newest symbol the handler touches, not the oldest:
+    # list_subscriptions/Subscription.listing/state land in 0.4.3, SharedResourceType
+    # in 0.4.18, and Subscription.destination_dataset in 0.4.19. Below that last one
+    # subscription matching silently finds nothing.
+    "google-cloud-bigquery-analyticshub>=0.4.19,<1.0.0",
 }
 
 dataplex_common = {
@@ -309,9 +321,9 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
-    # >=49.0.0 for CVE-2026-69249 (path-building DoS); <51 aligns with pyOpenSSL/msal.
-    # Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf / CVE-2026-26007.
-    "cryptography>=49.0.0,<51.0.0",
+    # >=50.0.0 for CVE-2026-69247; >=49.0.0 covered CVE-2026-69249 (path-building DoS).
+    # <51 aligns with pyOpenSSL/msal. Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf.
+    "cryptography>=50.0.0,<51.0.0",
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
@@ -366,7 +378,10 @@ iceberg_common = {
 mssql_common = {
     # Note: sqlalchemy-pytds>=1.0 requires SQLAlchemy>=2, so constrained to 0.x automatically
     "sqlalchemy-pytds>=0.3,<2.0.0",
-    "pyOpenSSL>=26.0.0,<27.0.0",
+    # >=26.4.0: pyOpenSSL 26.0-26.3 crash on import against cryptography>=49
+    # (AttributeError: module 'lib' has no attribute 'GEN_EMAIL'), which the
+    # cryptography>=49.0.0,<51.0.0 range above can resolve to.
+    "pyOpenSSL>=26.4.0,<27.0.0",
 }
 
 postgres_common = {
@@ -603,7 +618,11 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | usage_common,
     "bigid": {"requests>=2.28.0,<3.0"},
-    "bigquery": sql_common | bigquery_common | sqlglot_lib | datacatalog_lineage_common,
+    "bigquery": sql_common
+    | bigquery_common
+    | sqlglot_lib
+    | datacatalog_lineage_common
+    | bigquery_sharing_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
@@ -734,7 +753,7 @@ plugins: Dict[str, Set[str]] = {
     "mariadb": mysql_common,
     "tidb": mysql_common,
     "doris": mysql_common,
-    "odcs": aws_common | {"GitPython>2,<4.0.0"},
+    "odcs": aws_common | {"GitPython>=3.1.58,<4.0.0"},
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0", "flatdict!=4.0.1"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
@@ -789,7 +808,7 @@ plugins: Dict[str, Set[str]] = {
     # in a dedicated environment. Re-vet and restore to the lock when sqlmesh bumps.
     "sqlmesh": {"sqlmesh>=0.235.2,<0.237", *cachetools_lib}
     | aws_common
-    | {"GitPython>2,<4.0.0"},
+    | {"GitPython>=3.1.58,<4.0.0"},
     "sqlalchemy": sql_common,
     "sql-queries": usage_common
     | sqlglot_lib
@@ -847,6 +866,8 @@ plugins: Dict[str, Set[str]] = {
     # usage_common: sigma emits no usage itself, but SqlParsingAggregator imports
     # usage_common, which pulls sqlparse in via sql_formatter.
     "sigma": sqlglot_lib | usage_common | {"requests<3.0.0"},
+    # pycarlo is Monte Carlo's official sgqlc-based GraphQL client over the MCD API.
+    "montecarlo": {"pycarlo>=0.15.262,<1.0.0", "tenacity>=8.0.1,!=8.4.0,<9.0.0"},
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
@@ -1108,6 +1129,7 @@ full_test_dev_requirements = {
             "starrocks",
             "vertica",
             "vertexai",
+            "montecarlo",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -1204,7 +1226,7 @@ entry_points = {
         "preset = datahub.ingestion.source.preset:PresetSource",
         "tableau = datahub.ingestion.source.tableau.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
-        "metabase = datahub.ingestion.source.metabase:MetabaseSource",
+        "metabase = datahub.ingestion.source.metabase.source:MetabaseSource",
         "microstrategy = datahub.ingestion.source.microstrategy.source:MicroStrategySource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
         "starrocks = datahub.ingestion.source.sql.starrocks:StarRocksSource",
@@ -1235,6 +1257,7 @@ entry_points = {
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "quicksight = datahub.ingestion.source.quicksight.quicksight:QuickSightSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
+        "montecarlo = datahub.ingestion.source.montecarlo.source:MonteCarloSource",
         "sac = datahub.ingestion.source.sac.sac:SACSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",

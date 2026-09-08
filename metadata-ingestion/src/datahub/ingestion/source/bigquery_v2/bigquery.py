@@ -31,6 +31,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQuerySchemaGenerator,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
+    BigQuerySharingHandler,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_test_connection import (
     BigQueryTestConnection,
 )
@@ -39,7 +42,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
-from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.queries_extractor import (
     BigQueryQueriesExtractor,
     BigQueryQueriesExtractorConfig,
@@ -78,6 +81,8 @@ logger: logging.Logger = logging.getLogger(__name__)
     subtype_modifier=[
         SourceCapabilityModifier.BIGQUERY_PROJECT,
         SourceCapabilityModifier.BIGQUERY_DATASET,
+        # Emitted in place of BIGQUERY_DATASET when include_linked_dataset_lineage is on.
+        SourceCapabilityModifier.BIGQUERY_LINKED_DATASET,
     ],
 )
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
@@ -187,6 +192,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             config, self.report, self.profiling_state_handler
         )
 
+        self.sharing_handler: Optional[BigQuerySharingHandler] = None
+        if self.config.include_linked_dataset_lineage:
+            self.sharing_handler = BigQuerySharingHandler(
+                config=self.config,
+                report=self.report,
+                identifiers=self.identifiers,
+                client=config.get_bigquery_client(),
+                projects_client=config.get_projects_client(),
+            )
+
         self.bq_schema_extractor = BigQuerySchemaGenerator(
             self.config,
             self.report,
@@ -198,6 +213,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.filters,
             self.shard_matcher,
             self.ctx.graph,
+            self.sharing_handler,
         )
 
         self.add_config_to_report()
@@ -300,6 +316,37 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     log=False,
                 )
 
+        # Config validators already log these pairings; dual-site to the report because
+        # UI-driven ingestion only surfaces report warnings.
+        if (
+            self.config.extract_subscriptions_from_analytics_hub
+            and not self.config.include_linked_dataset_lineage
+        ):
+            self.report.warning(
+                message="`extract_subscriptions_from_analytics_hub` has no effect while "
+                "`include_linked_dataset_lineage` is False; linked datasets are not "
+                "detected, so there is nothing to attach subscription properties to.",
+                title="Analytics Hub subscriptions will not be extracted",
+                log=False,
+            )
+        if self.config.include_linked_dataset_lineage:
+            if not self.config.include_table_lineage:
+                self.report.warning(
+                    message="`include_linked_dataset_lineage` is set but "
+                    "`include_table_lineage` is False; the linked-dataset COPY lineage "
+                    "(the feature's main output) will not be emitted.",
+                    title="Linked-dataset COPY lineage will not be emitted",
+                    log=False,
+                )
+            if not self.config.include_schema_metadata:
+                self.report.warning(
+                    message="`include_linked_dataset_lineage` is set but "
+                    "`include_schema_metadata` is False; linked datasets are detected "
+                    "during the schema pass, so with it disabled the feature is inert.",
+                    title="Linked datasets will not be detected",
+                    log=False,
+                )
+
     def _build_queries_extractor_config(self) -> BigQueryQueriesExtractorConfig:
         return BigQueryQueriesExtractorConfig(
             window=self.config,
@@ -331,6 +378,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         for project in projects:
             yield from self.bq_schema_extractor.get_project_workunits(project)
+
+        # Must run before the View and Snapshot Lineage stage below: that stage flushes the
+        # aggregator, so the COPY mappings have to be registered first to be emitted.
+        if self.sharing_handler is not None and self.config.include_table_lineage:
+            self.sharing_handler.register_known_lineage(
+                self.lineage_extractor.aggregator,
+                self.bq_schema_extractor.table_refs,
+            )
 
         with self.report.new_stage("*: View and Snapshot Lineage"):
             yield from self.lineage_extractor.get_lineage_workunits_for_views_and_snapshots(

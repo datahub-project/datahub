@@ -397,6 +397,10 @@ module.exports = {
             from: '/docs/managed-datahub/observe/smart-assertions',
             to: '/docs/managed-datahub/observe/anomaly-detection',
           },
+          {
+            from: '/docs/features/feature-guides/observe',
+            to: '/docs/managed-datahub/observe/overview',
+          },
         ],
       },
     ],
