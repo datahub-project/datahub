@@ -64,6 +64,7 @@
     "prop.platformInstanceDesc": "Конкретный экземпляр платформы, на котором находится актив.",
     "prop.softDeleted": "Мягко удалён",
     "prop.softDeletedDesc": "Был ли актив мягко удалён.",
+    "prop.structuredPropertyGroup": "Структурированное свойство",
     "prop.subType": "Подтип",
     "prop.subTypeDesc": "Подтип актива (например, таблица, представление, топик).",
     "publicTab": "Публичные представления",
