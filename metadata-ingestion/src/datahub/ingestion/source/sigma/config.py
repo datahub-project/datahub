@@ -377,6 +377,20 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # counter is inode-shaped columnIds whose warehouse resolution failed, which
     # is a different problem with a different fix.
     data_model_element_fgl_self_named_no_passthrough: int = 0
+    # A join predicate side naming an element in ANOTHER Data Model. Sigma
+    # allows a model to join in an element it does not own, and one tenant had
+    # a single shared mapping element on 9 of 10 otherwise-unresolvable
+    # predicates, joined into nine models. Element ids repeat across models, so
+    # the model is pinned by the side's dataModelId when Sigma sends one, else
+    # by the models this one sources from.
+    data_model_join_key_foreign_resolved: int = 0
+    # No Data Model could be pinned for the foreign element.
+    data_model_join_key_foreign_dm_unknown: int = 0
+    # Several candidate models define that element id; refused, not guessed.
+    data_model_join_key_foreign_ambiguous: int = 0
+    # Model pinned, but it has no column by that name. A large value means the
+    # wrong model is being pinned.
+    data_model_join_key_foreign_column_absent: int = 0
     data_model_join_key_out_of_join_path: int = 0
     chart_join_chain_sibling_resolved: int = 0
     # The first segment resolved, but to a chart or warehouse table rather than

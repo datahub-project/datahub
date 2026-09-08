@@ -503,6 +503,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # encodes the DM, but only as an opaque name string, so parsing it
         # would couple this lookup to the URN format.
         self.dm_key_by_element_urn: Dict[str, str] = {}
+        # (Data Model key, elementId) -> element Dataset URN, registered under
+        # BOTH the bridge key (urlId slug) and the dataModelId, because a
+        # /spec join side names the model by dataModelId while ``source_ids``
+        # name it by slug. Element ids are NOT unique across models -- one
+        # tenant has the same id in two -- so an elementId alone cannot resolve.
+        self.dm_element_urn_by_key_and_eid: Dict[Tuple[str, str], str] = {}
+        # elementId -> every Data Model key that defines it. Lets an
+        # unqualified side be resolved when exactly one model owns the id, and
+        # refused when several do.
+        self.dm_keys_by_element_id: Dict[str, Set[str]] = {}
         # Surface as a structured report warning so operators running
         # under ``--strict`` or CI dashboards that gate on report
         # warnings (rather than stdout logs) notice the misconfiguration.
@@ -3625,15 +3635,119 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 keys[col.name.strip().lower()] = col.name
             col_name_by_key[dm_el.elementId] = keys
 
+        # Data Model keys this model's elements read from, by slug. A /spec
+        # join side can name an element in ANOTHER model, and these are the
+        # only models it can plausibly be in.
+        source_dm_keys = {
+            sid.partition("/")[0]
+            for el in data_model.elements
+            for sid in el.source_ids
+            if "/" in sid and not sid.startswith("inode-")
+        }
+
+        def resolve_foreign(side: SpecColumnRef) -> Optional[Tuple[str, str]]:
+            """A side naming an element in a different Data Model.
+
+            Element ids repeat across models, so the model has to be pinned:
+            by the side's own ``dataModelId`` when Sigma sends one, else by the
+            models this one actually sources from. More than one candidate is
+            refused rather than guessed -- picking wrong would attach a real
+            column to the wrong dataset, which is worse than no edge.
+            """
+            assert side.element_id is not None
+            eid = side.element_id
+            owning = self.dm_keys_by_element_id.get(eid, set())
+            if side.data_model_id:
+                candidates = owning & {side.data_model_id}
+                basis = "side.dataModelId"
+            else:
+                candidates = owning & source_dm_keys
+                basis = "source_ids of this model"
+                if not candidates and len(owning) == 1:
+                    candidates = set(owning)
+                    basis = "sole owning model"
+            if not candidates:
+                self.reporter.data_model_join_key_foreign_dm_unknown += 1
+                logger.debug(
+                    "JOIN KEY FOREIGN %s: element %r column %r -- no Data Model "
+                    "pinned (side.dataModelId=%r, models defining this id=%r, "
+                    "models this one sources from=%r)",
+                    data_model.dataModelId,
+                    eid,
+                    side.column,
+                    side.data_model_id,
+                    sorted(owning)[:10],
+                    sorted(source_dm_keys)[:10],
+                )
+                return None
+            if len(candidates) > 1:
+                self.reporter.data_model_join_key_foreign_ambiguous += 1
+                logger.debug(
+                    "JOIN KEY FOREIGN %s: element %r column %r is defined in "
+                    "%d candidate Data Models %r (basis=%s) -- refusing to guess",
+                    data_model.dataModelId,
+                    eid,
+                    side.column,
+                    len(candidates),
+                    sorted(candidates)[:10],
+                    basis,
+                )
+                return None
+            key = next(iter(candidates))
+            urn = self.dm_element_urn_by_key_and_eid.get((key, eid))
+            cols = self.dm_element_urn_to_cols.get(urn or "") or {}
+            name = cols.get(side.column.strip().lower())
+            if urn is None or name is None:
+                self.reporter.data_model_join_key_foreign_column_absent += 1
+                logger.debug(
+                    "JOIN KEY FOREIGN %s: element %r resolved to model %r "
+                    "(basis=%s, urn=%s) but column %r is not among its %d "
+                    "columns",
+                    data_model.dataModelId,
+                    eid,
+                    key,
+                    basis,
+                    urn,
+                    side.column,
+                    len(cols),
+                )
+                return None
+            self.reporter.data_model_join_key_foreign_resolved += 1
+            logger.debug(
+                "JOIN KEY FOREIGN %s: element %r column %r -> %s/%s "
+                "(model %r, basis=%s)",
+                data_model.dataModelId,
+                eid,
+                side.column,
+                urn,
+                name,
+                key,
+                basis,
+            )
+            return (urn, name)
+
         def resolve(side: SpecColumnRef) -> Optional[Tuple[str, str]]:
             if side.element_id is None:
                 return None
             keys = col_name_by_key.get(side.element_id)
             urn = elementId_to_dataset_urn.get(side.element_id)
-            if not keys or urn is None:
-                return None
+            if keys is None or urn is None:
+                # Not an element of THIS model. On one tenant a single shared
+                # mapping element accounted for 9 of 10 unresolved predicates,
+                # joined into nine different models.
+                return resolve_foreign(side)
             name = keys.get(side.column) or keys.get(side.column.strip().lower())
-            return (urn, name) if name else None
+            if name is None:
+                logger.debug(
+                    "JOIN KEY DM %s: local element %r has no column matching "
+                    "%r among its %d columns",
+                    data_model.dataModelId,
+                    side.element_id,
+                    side.column,
+                    len(keys),
+                )
+                return None
+            return (urn, name)
 
         partners: Dict[Tuple[str, str], Set[Tuple[str, str, str, bool]]] = {}
         for predicate in spec.pairs:
@@ -4471,6 +4585,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 c.lower(): c for c in el_by_name
             }
             self.dm_key_by_element_urn[element_dataset_urn] = bridge_key
+            for key in {bridge_key, data_model.dataModelId}:
+                self.dm_element_urn_by_key_and_eid[(key, element.elementId)] = (
+                    element_dataset_urn
+                )
+                self.dm_keys_by_element_id.setdefault(element.elementId, set()).add(key)
             # Blank-named elements are excluded from ``name_map`` so they
             # don't collapse into a single spuriously-ambiguous candidate.
             if element.name:

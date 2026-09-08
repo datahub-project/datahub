@@ -13,6 +13,9 @@ from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataModelElement,
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    FineGrainedLineageClass,
+)
 
 
 def _source() -> SigmaSource:
@@ -29,6 +32,8 @@ def _source() -> SigmaSource:
     source._dm_spec_index_cache = {}
     source._join_partner_cache = {}
     source._dm_ancestors_cache = {}
+    source.dm_keys_by_element_id = {}
+    source.dm_element_urn_by_key_and_eid = {}
     source.sigma_api = MagicMock()
     source.sigma_api.get_data_model_spec.return_value = None
     return source
@@ -1624,6 +1629,128 @@ def test_inner_join_key_edge_scores_above_an_outer_one() -> None:
         (lineage.upstreams or [])[0]: lineage.confidenceScore for lineage in lineages
     }
     assert by_upstream[builder.make_schema_field_urn(c_urn, "col_k")] == 0.7
+
+
+def _foreign_spec_source(source: SigmaSource) -> None:
+    """/spec where the RIGHT side belongs to a different Data Model.
+
+    Sigma lets a model join in an element it does not own. The side still
+    carries an elementId, so the parser accepts it, but the element is absent
+    from this model's own element list.
+    """
+    spec_mock = MagicMock()
+    source.sigma_api = spec_mock
+    spec_mock.get_data_model_spec.return_value = {
+        "kind": "data-model",
+        "pages": [
+            {
+                "elements": [
+                    {
+                        "id": "a",
+                        "columns": [{"id": _LEFT_COL_ID, "formula": ""}],
+                        "source": {"kind": "warehouse-table"},
+                    },
+                    {
+                        "id": "j",
+                        "columns": [],
+                        "source": {
+                            "kind": "join",
+                            "primarySource": {"kind": "warehouse-table"},
+                            "joins": [
+                                {
+                                    "joinType": "inner",
+                                    "left": {"elementId": "a", "kind": "element"},
+                                    "right": {
+                                        "dataModelId": "other-dm",
+                                        "elementId": "shared",
+                                        "kind": "element",
+                                    },
+                                    "columns": [
+                                        {"left": "[col_k]", "right": "[col_k]"}
+                                    ],
+                                }
+                            ],
+                        },
+                    },
+                ]
+            }
+        ],
+    }
+
+
+_FOREIGN_URN = _urn("other-dm.shared")
+
+
+def _register_foreign_element(source: SigmaSource, *, keys: List[str]) -> None:
+    for key in keys:
+        source.dm_element_urn_by_key_and_eid[(key, "shared")] = _FOREIGN_URN
+        source.dm_keys_by_element_id.setdefault("shared", set()).add(key)
+    source.dm_element_urn_to_cols[_FOREIGN_URN] = {"col_k": "Col K"}
+
+
+def _build_with_foreign(
+    source: SigmaSource, element: SigmaDataModelElement
+) -> List[FineGrainedLineageClass]:
+    a_urn = _urn("a")
+    return source._build_dm_element_fine_grained_lineages(
+        element=element,
+        element_dataset_urn=_urn("b"),
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": a_urn},
+        entity_level_upstream_urns={a_urn},
+        data_model=_data_model(
+            [
+                element,
+                _element("a", "A", [_column(_LEFT_COL_ID, "col_k", None)]),
+                _element("j", "J", [], source_ids=["a"]),
+            ]
+        ),
+        warehouse_url_id_map={},
+        discovered_upstreams=set(),
+    )
+
+
+def test_join_side_owned_by_another_data_model_resolves() -> None:
+    """The shape behind 9 of 10 unresolved predicates on one tenant.
+
+    A shared mapping element is joined into many models. The side names it by
+    elementId plus dataModelId, and it is absent from the joining model's own
+    element list, so a lookup restricted to that model finds nothing.
+    """
+    source = _source()
+    _foreign_spec_source(source)
+    _register_foreign_element(source, keys=["other-dm"])
+    element = _element(
+        "b", "B", [_column("b-key", "col_k", "[A/col_k]")], source_ids=["j"]
+    )
+
+    lineages = _build_with_foreign(source, element)
+
+    upstreams = [(lineage.upstreams or [])[0] for lineage in lineages]
+    assert builder.make_schema_field_urn(_FOREIGN_URN, "Col K") in upstreams
+    assert source.reporter.data_model_join_key_foreign_resolved == 1
+    assert source.reporter.data_model_element_fgl_join_key_resolved == 1
+
+
+def test_ambiguous_foreign_element_id_is_refused() -> None:
+    """Element ids repeat across models, so an unpinned id must not be guessed."""
+    source = _source()
+    _foreign_spec_source(source)
+    # Two models define 'shared', and the side's dataModelId names neither.
+    source.dm_element_urn_by_key_and_eid[("dm-x", "shared")] = _urn("dm-x.shared")
+    source.dm_element_urn_by_key_and_eid[("dm-y", "shared")] = _urn("dm-y.shared")
+    source.dm_keys_by_element_id["shared"] = {"dm-x", "dm-y"}
+    element = _element(
+        "b", "B", [_column("b-key", "col_k", "[A/col_k]")], source_ids=["j"]
+    )
+
+    lineages = _build_with_foreign(source, element)
+
+    assert [(lineage.upstreams or [])[0] for lineage in lineages] == [
+        builder.make_schema_field_urn(_urn("a"), "col_k")
+    ]
+    assert source.reporter.data_model_join_key_foreign_resolved == 0
+    assert source.reporter.data_model_join_key_foreign_dm_unknown == 1
 
 
 def test_element_off_the_join_path_gets_no_join_key_edge() -> None:

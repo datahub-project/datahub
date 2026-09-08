@@ -16,6 +16,7 @@ _ID = "id"
 _LEFT = "left"
 _RIGHT = "right"
 _ELEMENT_ID = "elementId"
+_DATA_MODEL_ID = "dataModelId"
 # A side with no elementId is a warehouse table only if it says so.
 _WAREHOUSE_SIDE_KEYS = ("connectionId", "path")
 _JOIN_KIND = "join"
@@ -41,6 +42,12 @@ class SpecColumnRef:
     element_id: Optional[str]
     column: str
     expression: str = ""
+    # Set when the side names an element in ANOTHER Data Model. Sigma sends
+    # ``{dataModelId, elementId, groupingId, kind}`` for those; the id is kept
+    # because element ids are NOT unique across models -- one tenant has the
+    # same element id in two -- so the consumer cannot resolve the side without
+    # knowing which model to look in.
+    data_model_id: Optional[str] = None
 
 
 @dataclass
@@ -165,7 +172,13 @@ def _side_ref(descriptor: Any, column: Any) -> Optional[SpecColumnRef]:
         return None
     raw = descriptor.get(_ELEMENT_ID)
     if isinstance(raw, str) and raw:
-        return SpecColumnRef(element_id=raw, column=resolved, expression=column)
+        foreign = descriptor.get(_DATA_MODEL_ID)
+        return SpecColumnRef(
+            element_id=raw,
+            column=resolved,
+            expression=column,
+            data_model_id=foreign if isinstance(foreign, str) and foreign else None,
+        )
     # No element id: accept as a warehouse table only on a positive signal.
     if any(key in descriptor for key in _WAREHOUSE_SIDE_KEYS):
         return SpecColumnRef(element_id=None, column=resolved, expression=column)
@@ -173,7 +186,11 @@ def _side_ref(descriptor: Any, column: Any) -> Optional[SpecColumnRef]:
 
 
 def _predicates_for_join(
-    join: Dict[str, Any], *, join_element_id: str, index: DataModelSpecIndex
+    join: Dict[str, Any],
+    *,
+    join_element_id: str,
+    index: DataModelSpecIndex,
+    data_model_id: str,
 ) -> Tuple[List[JoinPredicate], int]:
     """Returns (element-to-element predicates, well-formed entries examined).
 
@@ -184,6 +201,21 @@ def _predicates_for_join(
     out: List[JoinPredicate] = []
     understood = 0
     join_type = str(join.get(_JOIN_TYPE) or "").strip().lower()
+    # The descriptor's KEY NAMES, per join, before anything is interpreted.
+    # This is the line that says whether a cross-model side carries
+    # ``dataModelId`` -- the consumer cannot resolve such a side without it,
+    # because element ids repeat across Data Models. Key names only: a spec is
+    # customer content.
+    logger.debug(
+        "DM SPEC JOIN SIDES %s/%s: joinType=%r left_keys=%r right_keys=%r "
+        "predicate_entries=%d",
+        data_model_id,
+        join_element_id,
+        join_type,
+        sorted(join[_LEFT].keys()) if isinstance(join.get(_LEFT), dict) else None,
+        sorted(join[_RIGHT].keys()) if isinstance(join.get(_RIGHT), dict) else None,
+        len(join.get(_COLUMNS) or []),
+    )
     for entry in join.get(_COLUMNS) or []:
         if not isinstance(entry, dict):
             continue
@@ -192,6 +224,19 @@ def _predicates_for_join(
         if left is None or right is None:
             continue
         understood += 1
+        logger.debug(
+            "DM SPEC PREDICATE %s/%s: left(element=%r dm=%r column=%r) "
+            "right(element=%r dm=%r column=%r) joinType=%r",
+            data_model_id,
+            join_element_id,
+            left.element_id,
+            left.data_model_id,
+            left.column,
+            right.element_id,
+            right.data_model_id,
+            right.column,
+            join_type,
+        )
         if left.element_id is None or right.element_id is None:
             # One side is a warehouse table. Real and expected, but it cannot
             # produce an element-to-element column edge from this document.
@@ -261,7 +306,10 @@ def parse_data_model_spec(
             for join in joins:
                 if isinstance(join, dict):
                     predicates, seen = _predicates_for_join(
-                        join, join_element_id=element_id, index=index
+                        join,
+                        join_element_id=element_id,
+                        index=index,
+                        data_model_id=data_model_id,
                     )
                     found.extend(predicates)
                     understood += seen
