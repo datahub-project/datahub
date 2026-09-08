@@ -8,7 +8,6 @@ from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.redshift.config import RedshiftConfig
-from datahub.ingestion.source.sql.db2 import Db2Config
 from datahub.ingestion.source.sql.druid import DruidConfig
 from datahub.ingestion.source.sql.mysql import MySQLConfig
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
@@ -16,9 +15,28 @@ from datahub.ingestion.source.sql.sql_probe import (
     _identifier_target,
     _shim_inspector,
 )
-from datahub.ingestion.source.sql.starrocks import StarRocksConfig
 from datahub.ingestion.source.sql.trino import TrinoConfig
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+
+# db2 and starrocks are imported inside the two tests that need them, and not
+# up here with the rest. They are the only connectors used in this file that
+# `[dev]` does not install, so their drivers are absent when these tests run.
+# That works today only because neither module imports its driver at import
+# time -- and nothing enforces that. A top-level `import ibm_db_sa` added to
+# db2.py would turn this file's collection into an error and take all of its
+# tests down with it, instead of failing the one test that needs db2.
+#
+# db2 cannot be added to `[dev]` to make the guarantee real: its requirement is
+# platform-conditional ("ibm_db_sa==0.4.3; platform_machine == 'x86_64' or
+# platform_system == 'Darwin'"), so there is no environment where it always
+# installs. Keeping the import local is what bounds the damage to one test.
+#
+# The other connectors here are safe at module scope, checked rather than
+# assumed: athena, bigquery, druid, kafka, mode, postgres, redshift, snowflake,
+# trino and unity-catalog are all in `[dev]`. Two are not, and neither needs to
+# be -- hex's extra is only requests and sqlglot, both core; and mysql.py does
+# hard-import pymysql, but `mysql`, `mariadb` and `tidb` share one requirement
+# set and the latter two are in `[dev]`, so the driver arrives either way.
 
 
 def _ignore_warn(message: str) -> None:
@@ -203,6 +221,8 @@ def test_db2_shim_still_applies_the_uppercase_db_name_override():
     (uninitialized) Db2Source instance, not a generic stand-in carrying only
     the base get_db_name, or this override's super() call would either raise
     or silently skip the uppercasing."""
+    # Local: db2's driver is outside `[dev]` -- see the note beside the imports.
+    from datahub.ingestion.source.sql.db2 import Db2Config
 
     config = Db2Config(host_port="localhost:50000", database="mydb")
     ctx = _ctx(config, "public", "orders")
@@ -224,6 +244,9 @@ def test_starrocks_shim_primes_current_catalog_to_its_init_state():
     fix (every table reported excluded_by: table_pattern while ingestion
     ingested them all). No warning: this is a real (if partial -- external
     catalogs still can't be resolved) answer, not a degrade."""
+    # Local: starrocks' dialect is outside `[dev]` -- see the note beside the
+    # imports.
+    from datahub.ingestion.source.sql.starrocks import StarRocksConfig
 
     config = StarRocksConfig()
     warn = _WarningCollector()
