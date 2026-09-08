@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
@@ -217,6 +218,11 @@ public class PropertiesCollector {
       URI uri = new URI(working);
       String query = uri.getRawQuery();
       String sanitizedQuery = scrubCredentialQueryParams(query);
+      // Rebuilding with a null host collapses file:///tmp/x to file:/tmp/x. Leave URLs
+      // unchanged when there is nothing to strip.
+      if (uri.getUserInfo() == null && Objects.equals(query, sanitizedQuery)) {
+        return jdbcPrefix + working;
+      }
       URI rebuilt =
           new URI(
               uri.getScheme(),

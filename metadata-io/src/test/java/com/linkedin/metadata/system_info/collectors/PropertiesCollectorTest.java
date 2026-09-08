@@ -132,6 +132,13 @@ public class PropertiesCollectorTest {
         "jdbc:postgresql:datahub?sslmode=require");
     assertEquals(PropertiesCollector.scrubUrlCredentials("not-a-url"), "not-a-url");
     assertEquals(PropertiesCollector.scrubUrlCredentials(42), 42);
+    // Opaque-host file URIs must keep the empty authority (file:///), not file:/tmp/...
+    assertEquals(
+        PropertiesCollector.scrubUrlCredentials("file:///tmp/datahub-object-storage"),
+        "file:///tmp/datahub-object-storage");
+    assertEquals(
+        PropertiesCollector.scrubUrlCredentials("http://localhost:9002/"),
+        "http://localhost:9002/");
   }
 
   @Test
