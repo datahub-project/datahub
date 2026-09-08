@@ -8,6 +8,7 @@ from requests.adapters import HTTPAdapter
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
     LookerAPIConfig,
+    TransportOptionsConfig,
     _DataHubLookerApiSettings,
 )
 
@@ -114,3 +115,16 @@ def test_http_adapter_pool_size_matches_max_threads():
         pool_maxsize=30,
     )
     assert mock_session.mount.call_count == 2
+
+
+def test_transport_options_headers_defaults_to_empty():
+    """Regression guard: headers was required-without-default, so a recipe
+    setting `transport_options: { timeout: 300 }` failed validation with
+    "transport_options.headers Field required" and aborted the ingestion run.
+    """
+    opts = TransportOptionsConfig(timeout=300)
+    assert opts.headers == {}
+    # TransportOptions is a TypedDict (dict subclass), so key access.
+    transport = opts.get_transport_options()
+    assert transport["timeout"] == 300
+    assert transport["headers"] == {}
