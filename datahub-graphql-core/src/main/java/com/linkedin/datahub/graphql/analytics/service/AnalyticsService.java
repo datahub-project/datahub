@@ -21,6 +21,9 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -74,6 +77,7 @@ public class AnalyticsService {
   private static final String INDEX_FIELD = "_index";
   private static final String REMOVED = "removed";
   private static final String TRUE = "true";
+  private static final Duration BOOLEAN_FIELD_CACHE_TTL = Duration.ofMinutes(5);
 
   public static final String NA = "N/A";
 
@@ -613,11 +617,16 @@ public class AnalyticsService {
   }
 
   /**
-   * Plugin patches mutate the live {@link EntityRegistry} in place (new {@link EntitySpec}
-   * instances), so this snapshot is keyed by spec identity rather than built once.
+   * Plugin patches mutate the live {@link EntityRegistry} in place. Readers keep an immutable field
+   * set and replace the whole snapshot after a TTL so the hot path never iterates the registry map.
    */
-  private record BooleanFieldSnapshot(long generation, Set<String> fields) {}
+  private record BooleanFieldSnapshot(Instant expiresAt, Set<String> fields) {
+    boolean isFresh(Instant now) {
+      return now.isBefore(expiresAt);
+    }
+  }
 
+  private final Clock clock = Clock.systemUTC();
   private volatile BooleanFieldSnapshot booleanFieldSnapshot;
 
   private boolean isBooleanSearchField(String field) {
@@ -625,40 +634,39 @@ public class AnalyticsService {
   }
 
   private Set<String> booleanSearchFields() {
-    Map<String, EntitySpec> specs = _entityRegistry.getEntitySpecs();
-    long generation = registryGeneration(specs);
+    Instant now = clock.instant();
     BooleanFieldSnapshot snapshot = booleanFieldSnapshot;
-    if (snapshot != null && snapshot.generation() == generation) {
+    if (snapshot != null && snapshot.isFresh(now)) {
       return snapshot.fields();
     }
     synchronized (this) {
-      specs = _entityRegistry.getEntitySpecs();
-      generation = registryGeneration(specs);
+      now = clock.instant();
       snapshot = booleanFieldSnapshot;
-      if (snapshot != null && snapshot.generation() == generation) {
+      if (snapshot != null && snapshot.isFresh(now)) {
         return snapshot.fields();
       }
-      Set<String> fields = new HashSet<>();
-      for (EntitySpec entitySpec : specs.values()) {
-        for (Map.Entry<String, Set<SearchableAnnotation.FieldType>> entry :
-            entitySpec.getSearchableFieldTypes().entrySet()) {
-          if (entry.getValue().contains(SearchableAnnotation.FieldType.BOOLEAN)) {
-            fields.add(entry.getKey());
-          }
-        }
-      }
-      Set<String> frozen = Set.copyOf(fields);
-      booleanFieldSnapshot = new BooleanFieldSnapshot(generation, frozen);
+      Set<String> frozen = collectBooleanSearchFields();
+      booleanFieldSnapshot = new BooleanFieldSnapshot(now.plus(BOOLEAN_FIELD_CACHE_TTL), frozen);
       return frozen;
     }
   }
 
-  private static long registryGeneration(Map<String, EntitySpec> specs) {
-    long generation = specs.size();
-    for (EntitySpec spec : specs.values()) {
-      generation = 31 * generation + System.identityHashCode(spec);
+  private Set<String> collectBooleanSearchFields() {
+    Set<String> fields = new HashSet<>();
+    for (EntitySpec entitySpec : _entityRegistry.getEntitySpecs().values()) {
+      for (Map.Entry<String, Set<SearchableAnnotation.FieldType>> entry :
+          entitySpec.getSearchableFieldTypes().entrySet()) {
+        if (entry.getValue().contains(SearchableAnnotation.FieldType.BOOLEAN)) {
+          fields.add(entry.getKey());
+        }
+      }
     }
-    return generation;
+    return Set.copyOf(fields);
+  }
+
+  @VisibleForTesting
+  void expireBooleanFieldCache() {
+    booleanFieldSnapshot = null;
   }
 
   private static boolean parseBooleanTerm(String value) {

@@ -220,6 +220,12 @@ public class AnalyticsServiceTest {
     assertEquals(patchedService.coerceTermValues("hasCustomFlag", List.of("true"))[0], "true");
 
     specs.put("dataset", patchedSpec);
+    assertEquals(
+        patchedService.coerceTermValues("hasCustomFlag", List.of("true"))[0],
+        "true",
+        "TTL-fresh snapshot must not observe a plugin patch immediately");
+
+    patchedService.expireBooleanFieldCache();
     assertEquals(patchedService.coerceTermValues("hasCustomFlag", List.of("true"))[0], true);
   }
 
