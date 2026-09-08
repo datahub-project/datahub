@@ -881,6 +881,41 @@ def test_build_from_queried_tables_bigquery_normalizes_date_shard():
     assert urns == [expected]
 
 
+def test_build_from_queried_tables_bigquery_hyphenated_project_preserved():
+    """BigQuery project IDs are hyphenated (`my-gcp-project`) — sqlglot's BQ
+    dialect accepts them unquoted, so the row is not dropped as unparseable and
+    the URN preserves the hyphens."""
+    b = _builder(
+        connections={BIGQUERY_CONN: HexConnection(name="BQ", platform="bigquery")},
+    )
+    urns = b.build_from_queried_tables(
+        [
+            {
+                "dataConnectionId": BIGQUERY_CONN,
+                "tableName": "my-gcp-project.analytics.orders",
+            },
+            {
+                "dataConnectionId": BIGQUERY_CONN,
+                "tableName": "my-corp-prod.warehouse.events_20240101",
+            },
+        ]
+    )
+    assert urns == [
+        make_dataset_urn_with_platform_instance(
+            platform="bigquery",
+            name="my-gcp-project.analytics.orders",
+            platform_instance=None,
+            env="PROD",
+        ),
+        make_dataset_urn_with_platform_instance(
+            platform="bigquery",
+            name="my-corp-prod.warehouse.events_yyyymmdd",
+            platform_instance=None,
+            env="PROD",
+        ),
+    ]
+
+
 def test_build_from_queried_tables_mssql_lowercases_by_default():
     """MSSQL is case-insensitive — the resolver lowercases the qualified name,
     matching a warehouse ingested with convert_urns_to_lowercase=true."""
