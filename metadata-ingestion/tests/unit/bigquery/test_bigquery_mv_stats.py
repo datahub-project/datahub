@@ -99,7 +99,9 @@ def _profiles(aspects: List) -> List[DatasetProfileClass]:
 
 def _enrich_and_emit(schema_gen, view, table_returned):
     with patch.object(
-        schema_gen.schema_api, "get_table_metadata", return_value=table_returned
+        schema_gen.schema_api,
+        "get_materialized_views_metadata",
+        return_value=table_returned,
     ) as gt_mock:
         schema_gen._enrich_materialized_view_stats(view, PROJECT_ID, DATASET_NAME)
         aspects = _aspects(
@@ -113,7 +115,9 @@ def test_mv_profile_emitted_with_profiling_disabled(schema_gen):
     assert schema_gen.config.is_profiling_enabled() is False
     view = _make_mv()
     with patch.object(
-        schema_gen.schema_api, "get_table_metadata", return_value=_make_bq_table()
+        schema_gen.schema_api,
+        "get_materialized_views_metadata",
+        return_value=_make_bq_table(),
     ):
         schema_gen._enrich_materialized_view_stats(view, PROJECT_ID, DATASET_NAME)
         aspects = _aspects(
@@ -154,7 +158,9 @@ def test_mv_zero_rows_still_emits_profile(schema_gen):
 
 def test_plain_view_no_fetch_no_profile(schema_gen):
     view = _make_plain_view()
-    with patch.object(schema_gen.schema_api, "get_table_metadata") as gt_mock:
+    with patch.object(
+        schema_gen.schema_api, "get_materialized_views_metadata"
+    ) as gt_mock:
         # Plain views are never enriched (the call site gates on materialized);
         # confirm gen_view_dataset_workunits emits no profile for them either.
         aspects = _aspects(
@@ -168,7 +174,9 @@ def test_plain_view_no_fetch_no_profile(schema_gen):
 def test_legacy_stats_skips_fetch_but_emits_profile(schema_gen):
     # use_legacy_table_stats path already populated rows_count; no tables.get needed.
     view = _make_mv(rows_count=7, size_in_bytes=128)
-    with patch.object(schema_gen.schema_api, "get_table_metadata") as gt_mock:
+    with patch.object(
+        schema_gen.schema_api, "get_materialized_views_metadata"
+    ) as gt_mock:
         schema_gen._enrich_materialized_view_stats(view, PROJECT_ID, DATASET_NAME)
         aspects = _aspects(
             schema_gen.gen_view_dataset_workunits(view, [], PROJECT_ID, DATASET_NAME)
@@ -184,7 +192,9 @@ def test_legacy_stats_skips_fetch_but_emits_profile(schema_gen):
 def test_flag_disabled_no_fetch_no_profile(schema_gen):
     schema_gen.config.include_materialized_view_stats = False
     view = _make_mv()
-    with patch.object(schema_gen.schema_api, "get_table_metadata") as gt_mock:
+    with patch.object(
+        schema_gen.schema_api, "get_materialized_views_metadata"
+    ) as gt_mock:
         schema_gen._enrich_materialized_view_stats(view, PROJECT_ID, DATASET_NAME)
         aspects = _aspects(
             schema_gen.gen_view_dataset_workunits(view, [], PROJECT_ID, DATASET_NAME)
@@ -207,7 +217,7 @@ def test_mv_stats_flag_defaults_to_off():
 
 def test_tables_get_failure_warns_and_view_still_emitted(schema_gen):
     view = _make_mv()
-    # Let the real get_table_metadata run so its try/except handles the error,
+    # Let the real get_materialized_views_metadata run so its try/except handles the error,
     # records the warning, increments num_mv_stats_failed, and returns None.
     with patch.object(
         schema_gen.schema_api.bq_client, "get_table", side_effect=Exception("boom")
@@ -240,7 +250,7 @@ def test_cap_bounds_fetches_and_warns_once_per_dataset(schema_gen):
     ):
         with patch.object(
             schema_gen.schema_api,
-            "get_table_metadata",
+            "get_materialized_views_metadata",
             return_value=_make_bq_table(),
         ) as gt_mock:
             for i in range(5):
@@ -265,7 +275,9 @@ def test_profile_pattern_excluded_mv_skips_the_fetch(schema_gen):
     # excluded view still costs a tables.get whose result is thrown away.
     schema_gen.config.profile_pattern = AllowDenyPattern(deny=[".*"])
     view = _make_mv()
-    with patch.object(schema_gen.schema_api, "get_table_metadata") as gt_mock:
+    with patch.object(
+        schema_gen.schema_api, "get_materialized_views_metadata"
+    ) as gt_mock:
         schema_gen._enrich_materialized_view_stats(view, PROJECT_ID, DATASET_NAME)
     gt_mock.assert_not_called()
     assert schema_gen.report.num_mv_stats_fetched == 0
@@ -278,7 +290,9 @@ def test_view_pattern_excluded_mv_skips_the_fetch(schema_gen):
     # tables.get and counts toward the per-dataset cap before being dropped.
     schema_gen.config.view_pattern = AllowDenyPattern(deny=[".*"])
     view = _make_mv()
-    with patch.object(schema_gen.schema_api, "get_table_metadata") as gt_mock:
+    with patch.object(
+        schema_gen.schema_api, "get_materialized_views_metadata"
+    ) as gt_mock:
         schema_gen._enrich_materialized_view_stats(view, PROJECT_ID, DATASET_NAME)
     gt_mock.assert_not_called()
     assert schema_gen.report.num_mv_stats_fetched == 0
@@ -320,11 +334,13 @@ def test_tables_get_failure_still_records_api_timing(schema_gen):
     with patch.object(api, "bq_client") as client:
         client.get_table.side_effect = Exception("permission denied")
         assert (
-            api.get_table_metadata(PROJECT_ID, DATASET_NAME, "mv1", schema_gen.report)
+            api.get_materialized_views_metadata(
+                PROJECT_ID, DATASET_NAME, "mv1", schema_gen.report
+            )
             is None
         )
     assert schema_gen.report.num_mv_stats_failed == 1
-    assert api.report.num_get_table_metadata_api_requests == 1
+    assert api.report.num_get_materialized_views_metadata_api_requests == 1
 
 
 def test_process_views_enriches_only_materialized_views(schema_gen):
@@ -358,25 +374,28 @@ def test_process_views_skips_enrichment_when_flag_disabled(schema_gen):
     enrich.assert_not_called()
 
 
-def test_no_rate_limiter_unless_configured(schema_gen):
-    # A hardcoded limiter here throttled the default path to a fraction of its
-    # own target, because RateLimiter sleeps holding a lock shared by every
-    # dataset worker thread. Throttling is opt-in, like every other path here.
-    assert schema_gen._mv_stats_rate_limiter is None
+def test_no_global_rate_limiter_on_instance(schema_gen):
+    # Throttling is opt-in and per-dataset (built in `_process_schema`, shared
+    # with `get_columns_for_dataset`); a second __init__-scoped limiter would
+    # make `requests_per_min` mean per-dataset on one path and global on the other.
+    assert not hasattr(schema_gen, "_mv_stats_rate_limiter")
+    with patch.object(
+        schema_gen.schema_api, "get_materialized_views_metadata"
+    ) as gt_mock:
+        schema_gen._enrich_materialized_view_stats(_make_mv(), PROJECT_ID, DATASET_NAME)
+    assert gt_mock.call_args.kwargs["rate_limiter"] is None
 
 
-def test_rate_limiter_honours_requests_per_min():
-    with (
-        patch.object(BigQueryV2Config, "get_bigquery_client"),
-        patch.object(BigQueryV2Config, "get_projects_client"),
-    ):
-        config = BigQueryV2Config.model_validate(
-            {"project_id": PROJECT_ID, "rate_limit": True, "requests_per_min": 60}
+def test_rate_limiter_threaded_per_dataset(schema_gen):
+    # Whatever `_process_views_for_dataset` receives is what reaches the fetch.
+    limiter = RateLimiter(max_calls=60, period=60)
+    with patch.object(
+        schema_gen.schema_api, "get_materialized_views_metadata"
+    ) as gt_mock:
+        schema_gen._enrich_materialized_view_stats(
+            _make_mv(), PROJECT_ID, DATASET_NAME, rate_limiter=limiter
         )
-        source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    limiter = source.bq_schema_extractor._mv_stats_rate_limiter
-    assert limiter is not None
-    assert (limiter.max_calls, limiter.period) == (60, 60)
+    assert gt_mock.call_args.kwargs["rate_limiter"] is limiter
 
 
 def test_throttle_wait_is_not_reported_as_api_time(schema_gen):
@@ -391,7 +410,7 @@ def test_throttle_wait_is_not_reported_as_api_time(schema_gen):
         )
         start = time.monotonic()
         for i in range(3):
-            api.get_table_metadata(
+            api.get_materialized_views_metadata(
                 PROJECT_ID,
                 DATASET_NAME,
                 f"mv{i}",
@@ -400,7 +419,7 @@ def test_throttle_wait_is_not_reported_as_api_time(schema_gen):
             )
         wall = time.monotonic() - start
     assert wall > 0.2, "limiter should actually have throttled"
-    assert api.report.get_table_metadata_sec < wall / 2
+    assert api.report.get_materialized_views_metadata_sec < wall / 2
 
 
 def test_fetch_returning_no_stats_is_counted_separately(schema_gen):
@@ -408,7 +427,9 @@ def test_fetch_returning_no_stats_is_counted_separately(schema_gen):
     # so a dataset could report 1000 fetched / 0 emitted with num_mv_stats_failed
     # at 0 and nothing explaining the gap.
     empty = SimpleNamespace(num_rows=None, num_bytes=None, modified=None)
-    with patch.object(schema_gen.schema_api, "get_table_metadata", return_value=empty):
+    with patch.object(
+        schema_gen.schema_api, "get_materialized_views_metadata", return_value=empty
+    ):
         schema_gen._enrich_materialized_view_stats(_make_mv(), PROJECT_ID, DATASET_NAME)
     assert schema_gen.report.num_mv_stats_fetched == 0
     assert schema_gen.report.num_mv_stats_no_data == 1
@@ -423,7 +444,7 @@ def test_cap_warning_points_at_failures_when_they_caused_it(schema_gen):
         2,
     ):
         with patch.object(
-            schema_gen.schema_api, "get_table_metadata", return_value=None
+            schema_gen.schema_api, "get_materialized_views_metadata", return_value=None
         ):
             for i in range(2):
                 schema_gen._enrich_materialized_view_stats(
@@ -437,3 +458,71 @@ def test_cap_warning_points_at_failures_when_they_caused_it(schema_gen):
     entries = list(schema_gen.report.warnings)
     assert len(entries) == 1
     assert "failed" in entries[0].message
+
+
+def test_tables_get_uses_no_retry(schema_gen):
+    # DEFAULT_RETRY would retry rateLimitExceeded for ~600s; a failed stats
+    # fetch should skip the view, not block schema extraction, so retry=None.
+    with patch.object(schema_gen.schema_api.bq_client, "get_table") as gt_mock:
+        gt_mock.return_value = _make_bq_table()
+        schema_gen._enrich_materialized_view_stats(_make_mv(), PROJECT_ID, DATASET_NAME)
+    assert gt_mock.call_args.kwargs["retry"] is None
+
+
+def test_consecutive_failures_short_circuit(schema_gen):
+    # A systematic error fails every call; after K in a row, the rest of that
+    # dataset's MVs are skipped so the schema path isn't dominated by timeouts.
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_schema_gen._MV_STATS_MAX_CONSECUTIVE_FAILURES",
+        2,
+    ):
+        with patch.object(
+            schema_gen.schema_api,
+            "get_materialized_views_metadata",
+            return_value=None,
+        ):
+            for i in range(2):
+                schema_gen._enrich_materialized_view_stats(
+                    _make_mv(name=f"mv{i}"), PROJECT_ID, DATASET_NAME
+                )
+            # 3rd call in the same dataset is short-circuited: no fetch attempted.
+            with patch.object(
+                schema_gen.schema_api, "get_materialized_views_metadata"
+            ) as gt_mock:
+                schema_gen._enrich_materialized_view_stats(
+                    _make_mv(name="mv2"), PROJECT_ID, DATASET_NAME
+                )
+            gt_mock.assert_not_called()
+    assert schema_gen.report.num_mv_stats_skipped_consecutive == 1
+    entries = list(schema_gen.report.warnings)
+    assert len(entries) == 1
+    assert "consecutive" in entries[0].message
+
+
+def test_success_resets_consecutive_failures(schema_gen):
+    # A success resets the streak, so failures on either side of it don't
+    # accumulate; without the reset, two failures would short-circuit the third.
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_schema_gen._MV_STATS_MAX_CONSECUTIVE_FAILURES",
+        2,
+    ):
+        with patch.object(
+            schema_gen.schema_api, "get_materialized_views_metadata"
+        ) as gt_mock:
+            # Failure (streak -> 1), then success (streak -> 0), then two more
+            # failures (streak 1, then 2) — all four still fetch.
+            gt_mock.return_value = None
+            schema_gen._enrich_materialized_view_stats(
+                _make_mv(name="mv0"), PROJECT_ID, DATASET_NAME
+            )
+            gt_mock.return_value = _make_bq_table()
+            schema_gen._enrich_materialized_view_stats(
+                _make_mv(name="mv1"), PROJECT_ID, DATASET_NAME
+            )
+            gt_mock.return_value = None
+            for name in ("mv2", "mv3"):
+                schema_gen._enrich_materialized_view_stats(
+                    _make_mv(name=name), PROJECT_ID, DATASET_NAME
+                )
+    assert gt_mock.call_count == 4, "the success reset the streak, so all four fetch"
+    assert schema_gen.report.num_mv_stats_skipped_consecutive == 0

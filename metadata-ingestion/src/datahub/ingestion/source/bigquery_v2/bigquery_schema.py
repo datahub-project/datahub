@@ -52,9 +52,9 @@ from datahub.utilities.ratelimiter import RateLimiter
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# Per-call timeout for materialized view stats fetched via tables.get.
-# Throttling is opt-in via the source's rate_limit / requests_per_min config,
-# same as every other rate-limited call path here.
+# Per-call timeout for materialized view stats fetched via tables.get. The fetch
+# runs with retry=None (see get_materialized_views_metadata), so this bounds
+# the whole call rather than one HTTP attempt of DEFAULT_RETRY's ~600s storm.
 _MV_STATS_TIMEOUT_SEC = 30
 
 
@@ -658,7 +658,7 @@ class BigQuerySchemaApi:
             self.report.num_get_views_for_dataset_api_requests += 1
             self.report.get_views_for_dataset_sec += current_timer.elapsed_seconds()
 
-    def get_table_metadata(
+    def get_materialized_views_metadata(
         self,
         project_id: str,
         dataset_name: str,
@@ -666,7 +666,7 @@ class BigQuerySchemaApi:
         report: BigQueryV2Report,
         rate_limiter: Optional[RateLimiter] = None,
     ) -> Optional[bigquery.Table]:
-        """Fetch a single table's metadata via the BigQuery `tables.get` API.
+        """Fetch a single materialized view's metadata via the BigQuery `tables.get` API.
 
         This is a metadata-only call (no data scan, no `getData`), used to source
         row count / size / last-modified time for materialized views, which are not
@@ -689,8 +689,10 @@ class BigQuerySchemaApi:
             try:
                 with PerfTimer() as current_timer:
                     try:
+                        # retry=None: a failed/throttled fetch skips this view
+                        # instead of retrying rateLimitExceeded for ~600s.
                         return self.bq_client.get_table(
-                            table_ref, timeout=_MV_STATS_TIMEOUT_SEC
+                            table_ref, retry=None, timeout=_MV_STATS_TIMEOUT_SEC
                         )
                     except Exception as e:
                         report.warning(
@@ -702,8 +704,10 @@ class BigQuerySchemaApi:
                         report.num_mv_stats_failed += 1
                         return None
             finally:
-                self.report.num_get_table_metadata_api_requests += 1
-                self.report.get_table_metadata_sec += current_timer.elapsed_seconds()
+                self.report.num_get_materialized_views_metadata_api_requests += 1
+                self.report.get_materialized_views_metadata_sec += (
+                    current_timer.elapsed_seconds()
+                )
 
     @staticmethod
     def _make_bigquery_view(view: bigquery.Row) -> BigqueryView:
