@@ -1,5 +1,7 @@
 from typing import Dict
 
+import pytest
+
 from datahub.ingestion.agent.redact import (
     _SENSITIVE_KEY_HINTS,
     collect_nested_secret_values,
@@ -80,6 +82,47 @@ def test_overlapping_secrets_are_masked_longest_first():
         assert "SECRETTAIL" not in out, (
             f"leaked tail for {{{short!r}, {long!r}}}: {out!r}"
         )
+
+
+def test_a_url_encoded_password_in_a_driver_error_is_masked():
+    """The case this exists for, and the one exact-substring matching missed.
+
+    A driver echoing a connection string URL-encodes a password's special
+    characters, so the raw value never appears in the error text -- for the
+    secret "p@ssword" the DSN reads "u:p%40ssword@host" and passed straight
+    through. Driver error text is where credentials leak in practice, which is
+    what makes this the important direction rather than an edge case.
+    """
+    out = redact(
+        {"error": "could not connect to postgresql://u:p%40ssword@db:5432/x"},
+        {"p@ssword"},
+    )
+    rendered = str(out)
+    assert "p%40ssword" not in rendered
+    assert "p@ssword" not in rendered
+    assert "***" in rendered
+
+
+@pytest.mark.parametrize(
+    "secret,text,masked",
+    [
+        # The boundary itself, which nothing pinned: flipping < to <= silently
+        # unmasks 4-character secrets in driver-error text.
+        ("abc", "pw is abc here", False),
+        ("abcd", "pw is abcd here", True),
+    ],
+)
+def test_the_substring_length_boundary_is_where_it_says_it_is(secret, text, masked):
+    out = redact({"error": text}, {secret})
+    assert (secret not in str(out)) is masked
+
+
+def test_a_short_secrets_encoded_forms_are_not_substring_masked_either():
+    """A short value stays whole-match-only in every form. Substring-masking
+    its encodings would corrupt identifiers for the same reason the raw value
+    would."""
+    assert redact({"note": "a@b appears here"}, {"a@b"}) == {"note": "a@b appears here"}
+    assert redact({"note": "a@b"}, {"a@b"}) == {"note": "***"}
 
 
 def test_a_nested_private_key_is_collected():

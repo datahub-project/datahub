@@ -1,4 +1,4 @@
-from typing import Dict, Set, Tuple
+from typing import Dict, List, Set, Tuple
 
 _MASK = "***"
 
@@ -54,30 +54,65 @@ def collect_nested_secret_values(obj: object, hints: Tuple[str, ...]) -> Set[str
     return found
 
 
+def _maskable_forms(secret_values: Set[str]) -> List[str]:
+    """Every form of every secret worth matching, longest first.
+
+    Delegates to datahub.masking rather than restating what a secret can look
+    like on the way out. Exact-substring matching on the raw value alone missed
+    the case the probe most needs to cover: a driver echoing a connection
+    string URL-encodes a password's special characters, so the raw value never
+    appears in the error text at all. For the secret "p@ssword",
+    "postgresql://u:p%40ssword@host" passed through unmasked -- and driver error
+    text is precisely where credentials leak in practice.
+
+    maskable_renderings also covers escaped forms and each substantial line of a
+    multi-line value, which matters for a PEM private key echoed back one line
+    at a time.
+    """
+    from datahub.masking.secret_registry import maskable_renderings
+
+    forms: Set[str] = set()
+    for secret in secret_values:
+        if not secret or len(secret) < _MIN_SUBSTRING_SECRET_LEN:
+            continue
+        forms.update(
+            form
+            for form in maskable_renderings(secret)
+            if len(form) >= _MIN_SUBSTRING_SECRET_LEN
+        )
+    return sorted(forms, key=len, reverse=True)
+
+
 def redact(payload: object, secret_values: Set[str]) -> object:
     if not secret_values:
         return payload
     if isinstance(payload, str):
         # Best-effort defense-in-depth: this still over-masks when a secret
         # happens to equal a real identifier (a database named the same as the
-        # password reports as "***"), and it cannot catch a secret that was
-        # transformed or encoded on the way out. Over-masking is the safe
-        # failure, so it stays.
+        # password reports as "***"). Over-masking is the safe failure, so it
+        # stays. The encoded and escaped forms ARE covered, via
+        # _maskable_forms -- an earlier version of this comment claimed they
+        # could not be, and the URL-encoded password it was describing was
+        # leaking.
         redacted = payload
-        # Longest first. Two registered secrets can overlap -- a password and a
-        # connection string containing it, say -- and replacing the shorter one
-        # first destroys the match for the longer, leaving its tail in the output
-        # ("***SECRETTAIL"). Set iteration order is arbitrary, so without this the
-        # leak is real but intermittent.
-        for secret in sorted(secret_values, key=len, reverse=True):
-            if not secret:
-                continue
-            if len(secret) < _MIN_SUBSTRING_SECRET_LEN:
+        # A short secret is compared whole and never as a substring: masking a
+        # one-to-three character value inside longer text corrupts every
+        # identifier containing it ("name" -> "n***me") while masking nothing
+        # plausibly a credential. Its encoded forms are not considered either,
+        # for the same reason.
+        for secret in secret_values:
+            if secret and len(secret) < _MIN_SUBSTRING_SECRET_LEN:
                 if redacted == secret:
-                    redacted = _MASK
-                continue
-            if secret in redacted:
-                redacted = redacted.replace(secret, _MASK)
+                    return _MASK
+        # Longest first, across every form of every secret. Two registered
+        # secrets can overlap -- a password and a connection string containing
+        # it -- and replacing the shorter first destroys the match for the
+        # longer, leaving its tail in the output ("***SECRETTAIL"). Set
+        # iteration order is arbitrary, so without the ordering the leak is real
+        # but intermittent.
+        for form in _maskable_forms(secret_values):
+            if form in redacted:
+                redacted = redacted.replace(form, _MASK)
         return redacted
     if isinstance(payload, dict):
         return {
