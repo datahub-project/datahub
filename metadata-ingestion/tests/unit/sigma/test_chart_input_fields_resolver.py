@@ -1225,7 +1225,7 @@ class TestChartRefMissIsAttributedToACause:
         assert self._resolve(_make_ref("NeverSeen", "col")) is None
         reasons = self.src.reporter.chart_ref_miss_reasons
         assert reasons["source_name_unknown_to_this_workbook"] == 1
-        assert reasons["unknown_source_absent_from_entire_run"] == 1
+        assert reasons["unknown_source_absent_from_this_workbooks_data_models"] == 1
 
         # The element exists but does NOT have the referenced column, so the
         # last-resort global-name step refuses it and the miss still lands in
@@ -1233,10 +1233,16 @@ class TestChartRefMissIsAttributedToACause:
         self.src.dm_element_urn_by_name = {"dm-a": {"KnownElsewhere": ["urn:x"]}}
         self.src.dm_element_urn_to_cols = {"urn:x": {"other": "Other"}}
         self.src._known_dm_element_index = None
-        assert self._resolve(_make_ref("KnownElsewhere", "col")) is None
+        assert (
+            self._resolve(
+                _make_ref("KnownElsewhere", "col"),
+                workbook_dm_url_ids=frozenset({"dm-a"}),
+            )
+            is None
+        )
         assert (
             self.src.reporter.chart_ref_miss_reasons[
-                "unknown_source_but_name_exists_in_another_data_model"
+                "unknown_source_but_name_exists_in_a_data_model_this_workbook_loads"
             ]
             == 1
         )
@@ -1295,27 +1301,35 @@ class TestFetchFailureIsNotReportedAsMissingFormula:
         assert self.src.reporter.chart_input_fields_self_ref_fallback == 1
 
 
-class TestGlobalElementNameFallback:
+class TestScopedElementNameFallback:
     """A ref naming an element the chart's own upstream list does not offer.
 
-    On one tenant (2026-09) this was the largest recoverable share of the
-    unresolved bucket: 53% of unresolved refs named an element that exists in
-    the run, is uniquely named, and owns the referenced column.
+    On one tenant (2026-09) an unscoped version of this reached 53% of the
+    unresolved refs. It is opt-in and confined to the Data Models the WORKBOOK
+    loads, because it infers from a name rather than from lineage Sigma stated
+    and an InputField has no confidenceScore to mark that with.
     """
 
     _URN = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm1.dim,PROD)"
     _OTHER = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm2.dim,PROD)"
 
-    def _source(self, *, urns=None, cols=("Col A",)):
-        src = _make_source()
+    def _source(self, *, urns=None, cols=("Col A",), enabled=True):
+        src = _make_source(
+            {"resolve_chart_refs_by_element_name": enabled} if enabled else None
+        )
         src.reporter = SigmaSourceReport()
-        src.dm_element_urn_by_name = {"dm1": {"DIM_A": list(urns or [self._URN])}}
+        src.dm_element_urn_by_name = {
+            "dm1": {"DIM_A": list(urns or [self._URN])},
+            # A model the workbook does NOT load, holding the same name.
+            "dm-elsewhere": {"DIM_A": [self._OTHER]},
+        }
         src.dm_element_urn_to_cols = {
-            u: {c.lower(): c for c in cols} for u in (urns or [self._URN])
+            u: {c.lower(): c for c in cols}
+            for u in (list(urns or [self._URN]) + [self._OTHER])
         }
         return src
 
-    def _resolve(self, src, **kw):
+    def _resolve(self, src, *, dm_url_ids=frozenset({"dm1"}), **kw):
         return src._resolve_chart_formula_upstream(
             _make_ref("DIM_A", "Col A"),
             chart_element_id="e1",
@@ -1324,27 +1338,44 @@ class TestGlobalElementNameFallback:
             wb_element_index={},
             element_warehouse_table_index={},
             elementId_to_chart_urn={},
+            workbook_dm_url_ids=dm_url_ids,
             **kw,
         )
+
+    def test_it_is_off_unless_asked_for(self) -> None:
+        """Name inference is opt-in; the default must resolve nothing."""
+        src = self._source(enabled=False)
+        assert self._resolve(src) is None
+        assert src.reporter.chart_ref_scoped_name_resolved == 0
+
+    def test_a_model_the_workbook_does_not_load_is_not_searched(self) -> None:
+        """The scope is what keeps an unrelated same-named model out.
+
+        Searching every model in the run made the answer depend on how many
+        unrelated models a tenant happens to own.
+        """
+        src = self._source()
+        assert self._resolve(src, dm_url_ids=frozenset({"dm-not-loaded"})) is None
+        assert src.reporter.chart_ref_scoped_name_resolved == 0
 
     def test_a_uniquely_named_element_that_owns_the_column_resolves(self) -> None:
         src = self._source()
         assert self._resolve(src) == (self._URN, "Col A")
-        assert src.reporter.chart_ref_global_name_resolved == 1
+        assert src.reporter.chart_ref_scoped_name_resolved == 1
 
     def test_a_repeated_name_is_refused_rather_than_picked(self) -> None:
         """InputFields carry no confidenceScore, so a wrong edge cannot be
         marked as uncertain -- guessing would be unattributable."""
         src = self._source(urns=[self._URN, self._OTHER])
         assert self._resolve(src) is None
-        assert src.reporter.chart_ref_global_name_ambiguous == 1
-        assert src.reporter.chart_ref_global_name_resolved == 0
+        assert src.reporter.chart_ref_scoped_name_ambiguous == 1
+        assert src.reporter.chart_ref_scoped_name_resolved == 0
 
     def test_a_name_match_without_the_column_is_a_coincidence(self) -> None:
         """The column check is what makes widening the scope safe."""
         src = self._source(cols=("Unrelated",))
         assert self._resolve(src) is None
-        assert src.reporter.chart_ref_global_name_column_absent == 1
+        assert src.reporter.chart_ref_scoped_name_column_absent == 1
 
     def test_speculative_join_chain_splits_never_reach_this_step(self) -> None:
         """The most permissive step must not judge a candidate split.
@@ -1355,4 +1386,4 @@ class TestGlobalElementNameFallback:
         """
         src = self._source()
         assert self._resolve(src, count=False) is None
-        assert src.reporter.chart_ref_global_name_resolved == 0
+        assert src.reporter.chart_ref_scoped_name_resolved == 0

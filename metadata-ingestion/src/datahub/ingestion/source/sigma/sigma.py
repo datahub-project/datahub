@@ -581,7 +581,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         ] = None
         # Built lazily on the first chart-ref miss, by which point every Data
         # Model has been walked. Used only to classify misses, never to resolve.
-        self._known_dm_element_index: Optional[Dict[str, List[str]]] = None
+        self._known_dm_element_index: Optional[
+            Tuple[FrozenSet[str], Dict[str, List[str]]]
+        ] = None
         self._chart_cols_memo: Optional[
             Tuple[
                 Dict[str, List[Element]],
@@ -5299,6 +5301,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def _chart_urn_column_index(
         wb_element_index: Dict[str, List[Element]],
         elementId_to_chart_urn: Dict[str, str],
+        workbook_dm_url_ids: AbstractSet[str] = frozenset(),
     ) -> Dict[str, Dict[str, str]]:
         """chart URN -> {lowercased column name: column name} for this workbook.
 
@@ -5326,6 +5329,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         wb_element_index: Dict[str, List[Element]],
         element_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
+        workbook_dm_url_ids: AbstractSet[str] = frozenset(),
     ) -> Optional[Tuple[str, str]]:
         """Resolve ``[JoinElement/SourceElement/Column]`` on the chart path.
 
@@ -5383,6 +5387,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 wb_element_index=wb_element_index,
                 element_warehouse_table_index=element_warehouse_table_index,
                 elementId_to_chart_urn=elementId_to_chart_urn,
+                workbook_dm_url_ids=workbook_dm_url_ids,
                 count=False,
             )
             if result is None:
@@ -5431,6 +5436,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             wb_element_index=wb_element_index,
             element_warehouse_table_index=element_warehouse_table_index,
             elementId_to_chart_urn=elementId_to_chart_urn,
+            workbook_dm_url_ids=workbook_dm_url_ids,
             trace=trace,
         )
         if sibling is not None:
@@ -5474,6 +5480,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         wb_element_index: Dict[str, List[Element]],
         element_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
+        workbook_dm_url_ids: AbstractSet[str] = frozenset(),
         trace: List[str],
     ) -> Optional[Tuple[str, str]]:
         """Resolve ``[JoinElement/JoinedTable/Column]`` through the DM's siblings.
@@ -5513,6 +5520,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             wb_element_index=wb_element_index,
             element_warehouse_table_index=element_warehouse_table_index,
             elementId_to_chart_urn=elementId_to_chart_urn,
+            workbook_dm_url_ids=workbook_dm_url_ids,
             count=False,
         )
         if join_result is None:
@@ -5678,26 +5686,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         return candidates
 
-    def _global_dm_element_index(self) -> Dict[str, List[str]]:
-        """Lowercased Data Model element name -> every URN carrying that name.
+    def _dm_element_index_for(
+        self, dm_url_ids: AbstractSet[str]
+    ) -> Dict[str, List[str]]:
+        """Lowercased element name -> every URN carrying it, within these models.
 
-        Flattened across all Data Models, so a name is resolvable only when the
-        list has exactly one entry. A chart formula ref that names an element
-        the chart's own upstream list does not offer is otherwise unresolvable,
-        and on one tenant (2026-09) that was the single largest gap in the run.
+        Scoped to the Data Models a workbook actually loads, not to every model
+        in the run. Searching the whole run made the lookup depend on how many
+        unrelated models a tenant happens to own -- a formula referring to a
+        model its workbook never loads is a name coincidence, not a reference.
+
+        Memoized on the model set, which is stable while one workbook's
+        elements are walked.
         """
-        if self._known_dm_element_index is None:
-            index: Dict[str, List[str]] = {}
-            for by_name in self.dm_element_urn_by_name.values():
-                if not isinstance(by_name, dict):
-                    continue
-                for name, urns in by_name.items():
-                    key = str(name).strip().lower()
-                    for urn in urns if isinstance(urns, list) else [urns]:
-                        if urn not in index.setdefault(key, []):
-                            index[key].append(urn)
-            self._known_dm_element_index = index
-        return self._known_dm_element_index
+        key = frozenset(dm_url_ids)
+        cached = self._known_dm_element_index
+        if cached is not None and cached[0] == key:
+            return cached[1]
+        index: Dict[str, List[str]] = {}
+        for dm_url_id in key:
+            by_name = self.dm_element_urn_by_name.get(dm_url_id)
+            if not isinstance(by_name, dict):
+                continue
+            for name, urns in by_name.items():
+                slug = str(name).strip().lower()
+                for urn in urns if isinstance(urns, list) else [urns]:
+                    if urn not in index.setdefault(slug, []):
+                        index[slug].append(urn)
+        self._known_dm_element_index = (key, index)
+        return index
 
     def _resolve_ref_by_workbook_element_name(
         self,
@@ -5706,6 +5723,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         candidates: List[Element],
         chart_element_id: str,
         elementId_to_chart_urn: Dict[str, str],
+        workbook_dm_url_ids: AbstractSet[str] = frozenset(),
         count: bool,
     ) -> Optional[Tuple[str, str]]:
         """The ref names an element of THIS workbook that /lineage did not list.
@@ -5715,12 +5733,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         still fail Step 3a. On one tenant (2026-09) 8,814 refs across 62 names
         ended here.
 
-        The same two guards as the global-name step, for the same reason
+        The same two guards as the Data-Model-scoped step, for the same reason
         (InputFields carry no confidenceScore): the name must identify exactly
         one element in this workbook, and that element must actually have the
         column. A name collision or a missing column means no edge.
+
+        Shares ``resolve_chart_refs_by_element_name`` with that step -- both
+        infer from a name rather than from lineage Sigma stated, so they are
+        one decision for an operator to make, not two.
         """
-        if ref.column is None:
+        if ref.column is None or not self.config.resolve_chart_refs_by_element_name:
             return None
         emitted = [
             elem
@@ -5754,40 +5776,54 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         return (elementId_to_chart_urn[target.elementId], canonical)
 
-    def _resolve_ref_by_global_element_name(
-        self, ref: BracketRef, *, chart_element_id: str, count: bool
+    def _resolve_ref_by_scoped_element_name(
+        self,
+        ref: BracketRef,
+        *,
+        chart_element_id: str,
+        workbook_dm_url_ids: AbstractSet[str],
+        count: bool,
     ) -> Optional[Tuple[str, str]]:
-        """Last resort: the ref names exactly one element in the whole run.
+        """Last resort: the ref names one element of a model this workbook loads.
 
         InputFields carry no confidenceScore, so a wrong edge here would be
-        indistinguishable from a right one. Two conditions therefore both have
-        to hold, and either failing means no edge rather than a guess:
+        indistinguishable from a right one. Three conditions all have to hold,
+        and any failing means no edge rather than a guess:
 
-        * the name identifies exactly ONE Data Model element across every model
-          in the run -- Sigma element names repeat, and a collision resolved by
-          picking one would attach a real column to the wrong dataset;
-        * that element actually OWNS the referenced column. This is what makes
-          the widened scope safe: a same-named element that does not have the
-          column is a coincidence, not the upstream.
+        * the model is one THIS WORKBOOK loads. Searching every model in the
+          run made the answer depend on how many unrelated models a tenant
+          happens to own, and a formula naming a model its workbook never loads
+          is a coincidence, not a reference;
+        * the name identifies exactly ONE element among those models -- Sigma
+          element names repeat, and a collision resolved by picking one would
+          attach a real column to the wrong dataset;
+        * that element actually OWNS the referenced column. A same-named
+          element without it is a coincidence, not the upstream.
+
+        Opt-in via ``resolve_chart_refs_by_element_name``. Unlike every other
+        step this infers from a NAME rather than from lineage Sigma stated, so
+        a tenant whose elements carry generic names can decline it.
         """
-        if ref.column is None:
+        if ref.column is None or not self.config.resolve_chart_refs_by_element_name:
             return None
-        candidates = self._global_dm_element_index().get(ref.source.strip().lower())
+        candidates = self._dm_element_index_for(workbook_dm_url_ids).get(
+            ref.source.strip().lower()
+        )
         if not candidates:
             return None
         if len(candidates) > 1:
             if count:
-                self.reporter.chart_ref_global_name_ambiguous += 1
+                self.reporter.chart_ref_scoped_name_ambiguous += 1
             return None
         urn = candidates[0]
         cols = self.dm_element_urn_to_cols.get(urn) or {}
         canonical = cols.get(ref.column.strip().lower())
         if canonical is None:
             if count:
-                self.reporter.chart_ref_global_name_column_absent += 1
+                self.reporter.chart_ref_scoped_name_column_absent += 1
             return None
         if count:
-            self.reporter.chart_ref_global_name_resolved += 1
+            self.reporter.chart_ref_scoped_name_resolved += 1
             logger.debug(
                 "CHART REF GLOBAL NAME element %s ref=%r: %r names exactly one "
                 "Data Model element in this run and it owns column %r -> %s",
@@ -5800,7 +5836,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         return (urn, canonical)
 
     def _note_chart_ref_miss(
-        self, reason: str, *, ref: BracketRef, chart_element_id: str, count: bool
+        self,
+        reason: str,
+        *,
+        ref: BracketRef,
+        chart_element_id: str,
+        workbook_dm_url_ids: AbstractSet[str],
+        count: bool,
     ) -> None:
         """Record WHY one formula ref did not resolve.
 
@@ -5817,11 +5859,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.chart_ref_miss_reasons.get(reason, 0) + 1
         )
         if reason == _CHART_REF_MISS_UNKNOWN_SOURCE:
-            known = ref.source.strip().lower() in self._global_dm_element_index()
+            known = ref.source.strip().lower() in self._dm_element_index_for(
+                workbook_dm_url_ids
+            )
             key = (
-                "unknown_source_but_name_exists_in_another_data_model"
+                "unknown_source_but_name_exists_in_a_data_model_this_workbook_loads"
                 if known
-                else "unknown_source_absent_from_entire_run"
+                else "unknown_source_absent_from_this_workbooks_data_models"
             )
             self.reporter.chart_ref_miss_reasons[key] = (
                 self.reporter.chart_ref_miss_reasons.get(key, 0) + 1
@@ -5847,6 +5891,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         wb_element_index: Dict[str, List[Element]],
         element_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
+        workbook_dm_url_ids: AbstractSet[str] = frozenset(),
         count: bool = True,
     ) -> Optional[Tuple[str, str]]:
         """Resolve a single bracket ref to (entity_urn, field_path), or None.
@@ -5903,6 +5948,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 _CHART_REF_MISS_SELF_OR_AMBIGUOUS_CANDIDATES,
                 ref=ref,
                 chart_element_id=chart_element_id,
+                workbook_dm_url_ids=workbook_dm_url_ids,
                 count=count,
             )
             return None
@@ -5927,6 +5973,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     _CHART_REF_MISS_AMBIGUOUS_SIBLING,
                     ref=ref,
                     chart_element_id=chart_element_id,
+                    workbook_dm_url_ids=workbook_dm_url_ids,
                     count=count,
                 )
                 return None
@@ -5946,6 +5993,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     _CHART_REF_MISS_UPSTREAM_FILTERED,
                     ref=ref,
                     chart_element_id=chart_element_id,
+                    workbook_dm_url_ids=workbook_dm_url_ids,
                     count=count,
                 )
                 return None
@@ -5988,6 +6036,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 _CHART_REF_MISS_AMBIGUOUS_WAREHOUSE,
                 ref=ref,
                 chart_element_id=chart_element_id,
+                workbook_dm_url_ids=workbook_dm_url_ids,
                 count=count,
             )
             return None
@@ -6007,15 +6056,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 candidates=candidates,
                 chart_element_id=chart_element_id,
                 elementId_to_chart_urn=elementId_to_chart_urn,
+                workbook_dm_url_ids=workbook_dm_url_ids,
                 count=count,
             )
             if workbook_match is not None:
                 return workbook_match
-            global_match = self._resolve_ref_by_global_element_name(
-                ref, chart_element_id=chart_element_id, count=count
+            scoped_match = self._resolve_ref_by_scoped_element_name(
+                ref,
+                chart_element_id=chart_element_id,
+                workbook_dm_url_ids=workbook_dm_url_ids,
+                count=count,
             )
-            if global_match is not None:
-                return global_match
+            if scoped_match is not None:
+                return scoped_match
 
         # Nothing matched at any step. ``candidates`` distinguishes the two
         # shapes of this: a workbook element WAS named ref.source but is neither
@@ -6027,6 +6080,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             else _CHART_REF_MISS_UNKNOWN_SOURCE,
             ref=ref,
             chart_element_id=chart_element_id,
+            workbook_dm_url_ids=workbook_dm_url_ids,
             count=count,
         )
         return None
@@ -6320,6 +6374,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         wb_element_index: Dict[str, List[Element]],
         element_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
+        workbook_dm_url_ids: AbstractSet[str] = frozenset(),
     ) -> Optional[Tuple[str, str]]:
         """Resolve one formula ref, choosing the strategy by segment count.
 
@@ -6334,6 +6389,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             wb_element_index=wb_element_index,
             element_warehouse_table_index=element_warehouse_table_index,
             elementId_to_chart_urn=elementId_to_chart_urn,
+            workbook_dm_url_ids=workbook_dm_url_ids,
         )
         if result is None and len(ref.parts) <= 2:
             # Single-slash refs never had a candidate search, so
@@ -6346,6 +6402,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 wb_element_index=wb_element_index,
                 element_warehouse_table_index=element_warehouse_table_index,
                 elementId_to_chart_urn=elementId_to_chart_urn,
+                workbook_dm_url_ids=workbook_dm_url_ids,
             )
         elif result is None:
             # Every split failed schema validation. The legacy
@@ -6414,6 +6471,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         wb_element_index: Dict[str, List[Element]],
         element_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
+        workbook_dm_url_ids: AbstractSet[str] = frozenset(),
         wb_only_warehouse_keys: FrozenSet[str] = frozenset(),
         formulas_incomplete: bool = False,
     ) -> List[InputFieldClass]:
@@ -6474,6 +6532,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             wb_element_index=wb_element_index,
                             element_warehouse_table_index=element_warehouse_table_index,
                             elementId_to_chart_urn=elementId_to_chart_urn,
+                            workbook_dm_url_ids=workbook_dm_url_ids,
                         )
                         if result is not None:
                             upstream_urn, upstream_field = result
@@ -6573,6 +6632,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         Map Sigma page element to Datahub Chart
         """
+        # Data Models any element of this workbook loads. The last-resort
+        # name lookup is confined to these rather than searching every model in
+        # the run: a formula in this workbook referring to a model the workbook
+        # never loads is a name coincidence, not a reference, and there is no
+        # confidenceScore on an InputField to hedge such a guess with.
+        workbook_dm_url_ids: FrozenSet[str] = frozenset(
+            upstream.data_model_url_id
+            for element in elements
+            for upstream in element.upstream_sources.values()
+            if isinstance(upstream, DataModelElementUpstream)
+            and upstream.data_model_url_id
+        )
         for element in elements:
             chart_urn = builder.make_chart_urn(
                 platform=self.platform,
@@ -6738,6 +6809,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 wb_element_index=wb_element_index,
                 element_warehouse_table_index=merged_warehouse_table_index,
                 elementId_to_chart_urn=elementId_to_chart_urn,
+                workbook_dm_url_ids=workbook_dm_url_ids,
                 wb_only_warehouse_keys=wb_only_warehouse_keys,
                 formulas_incomplete=(
                     workbook.workbookId

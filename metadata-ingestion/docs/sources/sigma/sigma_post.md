@@ -317,15 +317,19 @@ these are not interchangeable:
 | `chart_input_fields_formulas_not_fetched`     | **our** `/columns` call for that workbook aborted, so no formula was ever retrieved |
 | `chart_input_fields_self_ref_no_formula`      | Sigma genuinely reported no formula for the column                                  |
 
-Sigma's per-element `/lineage` does not declare every element a formula reaches, so two
-last-resort steps run when nothing else matches: first the source name is matched against
-the **other elements of the same workbook**, then against **every Data Model element in the
-run**. Both apply the same two conditions, because `InputFields` carry no `confidenceScore`
-and a wrong edge cannot be marked uncertain — the name must identify exactly one element
-(names repeat, and picking one would attach a real column to the wrong dataset), and that
-element must have the referenced column, which is what makes the widened scope safe. Each
-step counts its resolutions and both kinds of refusal separately
-(`chart_ref_workbook_name_*`, `chart_ref_global_name_*`).
+Sigma's per-element `/lineage` does not declare every element a formula reaches, so
+`resolve_chart_refs_by_element_name` (default **`false`**) enables two last-resort steps when
+nothing else matches: the source name is matched against the **other elements of the same
+workbook**, then against the elements of the **Data Models that workbook loads**.
+
+This is the only resolution step that infers from a _name_ rather than from lineage Sigma
+stated, which is why it is opt-in. `InputFields` carry no `confidenceScore`, so an inferred
+edge cannot be marked as such and is indistinguishable from a declared one — a tenant whose
+elements carry generic names should leave it off. Where it does run, three conditions all
+have to hold: the search never leaves the workbook's own Data Models, a name matching more
+than one element is refused rather than picked, and the element must have the referenced
+column. `chart_ref_workbook_name_*` and `chart_ref_scoped_name_*` report resolutions and each
+kind of refusal, so you can judge on your own data whether the inference earns its place.
 
 `chart_ref_miss_reasons` breaks the unresolved bucket down by the resolution step that gave
 up. Two of its keys matter most when judging whether a gap is fixable:

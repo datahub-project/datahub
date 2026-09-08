@@ -33,12 +33,14 @@ from datahub.metadata.schema_classes import InputFieldsClass
 def _make_source(
     dm_element_urn_by_name: Optional[Dict] = None,
     dm_container_urn_by_url_id: Optional[Dict] = None,
+    **config_overrides: object,
 ) -> SigmaSource:
     """Build a SigmaSource instance with the API mocked out."""
     config = SigmaSourceConfig(
         client_id="test",
         client_secret="test",
         api_url="https://aws-api.sigmacomputing.com/v2",
+        **config_overrides,  # type: ignore[arg-type]
     )
     ctx = PipelineContext(run_id="test")
 
@@ -268,13 +270,14 @@ DM_ELEMENT_DATASET_URN = (
 
 
 class TestDmElementUpstreamResolvesToDatasetUrn:
-    def _build_source_with_dm(self) -> SigmaSource:
+    def _build_source_with_dm(self, **config_overrides: object) -> SigmaSource:
         """Source whose DM lookup maps DM_URL_ID -> {"my dm element": [DM_ELEMENT_DATASET_URN]}."""
         return _make_source(
             dm_element_urn_by_name={
                 DM_URL_ID: {"my dm element": [DM_ELEMENT_DATASET_URN]},
             },
             dm_container_urn_by_url_id={DM_URL_ID: "urn:li:container:dm-abc-123"},
+            **config_overrides,
         )
 
     def test_dm_element_formula_ref_resolves_to_dataset_urn(self) -> None:
@@ -353,7 +356,7 @@ class TestDmElementUpstreamResolvesToDatasetUrn:
         Sigma stating the chart reads that column, and the element is uniquely
         named in this workbook and has the column, so the edge is emitted.
         """
-        source = self._build_source_with_dm()
+        source = self._build_source_with_dm(resolve_chart_refs_by_element_name=True)
 
         dm_page_elem = _make_element("elem01", "My DM Element", ["col"], {}, {})
         chart_elem = _make_element(
@@ -374,13 +377,39 @@ class TestDmElementUpstreamResolvesToDatasetUrn:
         assert source.reporter.chart_ref_workbook_name_resolved == 1
         assert source.reporter.chart_input_fields_resolved == 1
 
+    def test_name_inference_is_off_by_default(self) -> None:
+        """The default must not emit an edge Sigma never stated.
+
+        Same shape as the test above, but without the opt-in: the column falls
+        back to a self-reference, which is the pre-existing behaviour.
+        """
+        source = self._build_source_with_dm()
+        assert source.config.resolve_chart_refs_by_element_name is False
+
+        dm_page_elem = _make_element("elem01", "My DM Element", ["col"], {}, {})
+        chart_elem = _make_element(
+            element_id="chartElem01",
+            name="My Chart",
+            columns=["chart_col"],
+            column_formulas={"chart_col": "[My DM Element/col]"},
+            upstream_sources={},
+        )
+        workbook = _make_workbook([dm_page_elem, chart_elem])
+        result = _collect_input_fields(source, [dm_page_elem, chart_elem], workbook)
+
+        chart_urn = _chart_urn("chartElem01")
+        assert result[chart_urn].fields[0].schemaFieldUrn == _schema_field_urn(
+            chart_urn, "chart_col"
+        )
+        assert source.reporter.chart_ref_workbook_name_resolved == 0
+
     def test_an_undeclared_element_without_the_column_stays_a_self_ref(self) -> None:
         """The column check is what keeps the widened scope honest.
 
         Same shape as above, but the named element does not have the column, so
         the name match is a coincidence and no edge is emitted.
         """
-        source = self._build_source_with_dm()
+        source = self._build_source_with_dm(resolve_chart_refs_by_element_name=True)
 
         dm_page_elem = _make_element("elem01", "My DM Element", ["other"], {}, {})
         chart_elem = _make_element(
