@@ -6,7 +6,13 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from .constants import REPO_ROOT
+from .constants import (
+    DEFAULT_PROFILE,
+    MAE_SERVICE,
+    MCE_SERVICE,
+    PROFILE_SERVICES,
+    REPO_ROOT,
+)
 
 # Absolute path to docker/profiles/ regardless of pytest invocation directory.
 _DEFAULT_PROJECT_DIR = str(REPO_ROOT / "docker" / "profiles")
@@ -101,11 +107,22 @@ class ZDUTestConfig:
             "docker-compose.zdu-test-override.yml",
         ]
     )
-    compose_profiles: list[str] = field(default_factory=lambda: ["debug"])
+    # Topology under test. ``debug`` runs MAE/MCE embedded in GMS; and
+    # ``debug-consumers`` splits them into their own containers, which is the
+    # shape production runs and the only one where the MCL write path — and so
+    # rollback dual-write — executes outside GMS. Override with
+    # ``ZDU_COMPOSE_PROFILES``; the four service names below follow along
+    # automatically via ``constants.PROFILE_SERVICES``.
+    compose_profiles: list[str] = field(default_factory=lambda: [DEFAULT_PROFILE])
     rebuild_command: str = "scripts/dev/datahub-dev.sh rebuild --wait"
     rebuild_cwd: str = field(default_factory=lambda: str(REPO_ROOT))
-    gms_service: str = "datahub-gms-debug"
-    upgrade_service: str = "system-update-debug"
+    gms_service: str = PROFILE_SERVICES[DEFAULT_PROFILE].gms
+    upgrade_service: str = PROFILE_SERVICES[DEFAULT_PROFILE].upgrade
+    # Consumer containers. Absent under ``debug`` — the phases that consume
+    # these filter against the services the running stack actually reports, so
+    # a name that no profile brings up is skipped rather than failing.
+    mae_service: str = MAE_SERVICE
+    mce_service: str = MCE_SERVICE
 
     # ── Two-image-tag testing (F-3) ──────────────────────────────────────────
     # Image tags consumed by the parameterized Compose YAMLs in docker/profiles/.
@@ -236,6 +253,19 @@ class ZDUTestConfig:
     # ``{build_dir}/zdu-failure-{timestamp}/`` on any phase or scenario FAIL.
     build_dir: str = field(default_factory=lambda: str(REPO_ROOT / "smoke-test/build"))
 
+    @property
+    def services_in_restart_order(self) -> tuple[str, ...]:
+        """Services the rolling-restart / prepare-old-stack phases drive.
+
+        GMS first: the consumers declare ``depends_on`` GMS, so restarting it
+        first lets them pick up the new image on the cascade. Names that the
+        active profile does not bring up are dropped by those phases against
+        the live stack, so an embedded-consumer profile needs no special case.
+        """
+        return tuple(
+            s for s in (self.gms_service, self.mae_service, self.mce_service) if s
+        )
+
     @classmethod
     def from_env(cls) -> ZDUTestConfig:
         kwargs: dict[str, Any] = {}
@@ -244,12 +274,31 @@ class ZDUTestConfig:
         # in this loop are pure env-var lookups.
         if v := _resolve_gms_token():
             kwargs["gms_token"] = v
+        # Topology first: selecting a profile renames all four services, and the
+        # per-service ZDU_*_SERVICE vars below are applied afterwards so an
+        # explicit override still wins over the profile's derived name.
+        if v := os.environ.get("ZDU_COMPOSE_PROFILES"):
+            profiles = [p.strip() for p in v.split(",") if p.strip()]
+            kwargs["compose_profiles"] = profiles
+            # Only a single known profile yields service names; a multi-profile
+            # or unrecognised value keeps the dataclass defaults, on the
+            # assumption the caller pins the names explicitly. Silently guessing
+            # here would point log tailing at a container that never exists and
+            # report "no dual-write events" instead of a wiring failure.
+            if len(profiles) == 1 and profiles[0] in PROFILE_SERVICES:
+                services = PROFILE_SERVICES[profiles[0]]
+                kwargs["gms_service"] = services.gms
+                kwargs["upgrade_service"] = services.upgrade
+                kwargs["mae_service"] = services.mae or ""
+                kwargs["mce_service"] = services.mce or ""
         # String fields (direct assignment)
         for env_var, field_name in [
             ("DATAHUB_GMS_URL", "gms_url"),
             ("ZDU_PROJECT_DIR", "project_dir"),
             ("ZDU_GMS_SERVICE", "gms_service"),
             ("ZDU_UPGRADE_SERVICE", "upgrade_service"),
+            ("ZDU_MAE_SERVICE", "mae_service"),
+            ("ZDU_MCE_SERVICE", "mce_service"),
             ("ZDU_REBUILD_CWD", "rebuild_cwd"),
             ("ES_URL", "es_url"),
             ("MYSQL_HOST", "mysql_host"),

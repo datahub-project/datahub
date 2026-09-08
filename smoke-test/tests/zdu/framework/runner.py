@@ -7,7 +7,6 @@ from pathlib import Path
 
 from .catchup_executor import CatchUpScenarioExecutor
 from .config import ZDUTestConfig
-from .constants import MAE_SERVICE, ZDU_SERVICES_IN_ORDER
 from .context import TestContext, ValidationResult
 from .datahub_client import DataHubClient
 from .docker_compose import DockerComposeClient
@@ -237,7 +236,7 @@ class ZDUTestRunner:
             log.info("▶ Phase: prepare_old_stack")
             prepare_phase = PrepareOldStackPhase(
                 docker=self._docker,
-                services_to_restart=ZDU_SERVICES_IN_ORDER,
+                services_to_restart=self._config.services_in_restart_order,
                 gms_service=self._config.gms_service,
                 health_url=self._config.gms_url,
                 timeout_s=180,
@@ -322,8 +321,9 @@ class ZDUTestRunner:
                 "rolling_restart",
                 RollingRestartPhase(
                     docker=self._docker,
-                    mae_service=MAE_SERVICE,
+                    mae_service=self._config.mae_service,
                     gms_service=self._config.gms_service,
+                    services_in_order=self._config.services_in_restart_order,
                     new_image_tag=self._config.new_image_tag,
                     build_images_root=self._config.build_images_root,
                 ),

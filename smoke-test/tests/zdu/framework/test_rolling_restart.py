@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from tests.utilities.domains import Domain
+from tests.zdu.framework.constants import MAE_SERVICE, MCE_SERVICE
 from tests.zdu.framework.context import TestContext
 from tests.zdu.framework.phases.rolling_restart import (
     RollingRestartPhase,
@@ -23,13 +24,17 @@ class TestComposeEnvForService:
         assert env["DATAHUB_GMS_VERSION"] == "v1.6.0"
         assert env["DATAHUB_VERSION"] == "v1.6.0"
 
+    # The consumer cases read their names from constants rather than spelling
+    # them out: hardcoded literals here passed while naming services no Compose
+    # profile brings up, so the per-service version pin was silently never
+    # exercised against a real service name.
     def test_mae_service_sets_mae_and_global_vars(self) -> None:
-        env = _compose_env_for_service("datahub-mae-consumer-debug", "v1.6.0")
+        env = _compose_env_for_service(MAE_SERVICE, "v1.6.0")
         assert env["DATAHUB_MAE_VERSION"] == "v1.6.0"
         assert env["DATAHUB_VERSION"] == "v1.6.0"
 
     def test_mce_service_sets_mce_and_global_vars(self) -> None:
-        env = _compose_env_for_service("datahub-mce-consumer-debug", "v1.6.0")
+        env = _compose_env_for_service(MCE_SERVICE, "v1.6.0")
         assert env["DATAHUB_MCE_VERSION"] == "v1.6.0"
         assert env["DATAHUB_VERSION"] == "v1.6.0"
 
