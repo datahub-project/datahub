@@ -65,7 +65,7 @@ import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
-import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -2025,7 +2025,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testToMCPBatchAlternateValidationUnknownAspectIsProposedItem() throws Exception {
+  public void testToMCPBatchAlternateValidationRejectsUnknownAspect() {
     OperationContext opContextSpy = spy(opContext);
     ValidationContext mockValidationContext = mock(ValidationContext.class);
     when(mockValidationContext.isAlternateValidation()).thenReturn(true);
@@ -2037,17 +2037,13 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             + "{\"urn\":\"urn:li:tag:invalid-tag\",\"structuredProperties\":{\"value\":{\"properties\":[]}}}"
             + "]";
 
-    AspectsBatch batch =
-        entityController.toMCPBatch(
-            opContextSpy, body, opContext.getSessionActorContext().getAuthentication().getActor());
-
-    assertEquals(2, batch.getMCPItems().size());
-    MCPItem valid = batch.getMCPItems().get(0);
-    MCPItem unknown = batch.getMCPItems().get(1);
-    assertEquals(TAG_PROPERTIES_ASPECT_NAME, valid.getAspectName());
-    assertEquals(STRUCTURED_PROPERTIES_ASPECT_NAME, unknown.getAspectName());
-    assertTrue(unknown instanceof ProposedItem);
-    assertNull(((ProposedItem) unknown).getAspectSpec());
+    assertThrows(
+        ValidationException.class,
+        () ->
+            entityController.toMCPBatch(
+                opContextSpy,
+                body,
+                opContext.getSessionActorContext().getAuthentication().getActor()));
   }
 
   private static String statusRemovedFalsePatchBody(Urn urn) {

@@ -999,6 +999,8 @@ public class EntityController
                   && opContext.getValidationContext().isAlternateValidation();
           final AspectSpec aspectSpec;
           if (alternateValidation) {
+            // ProposedItem.build validates the aspect against the registry and rejects unknown
+            // names, so the spec is only needed for the typed items built below.
             aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).orElse(null);
           } else {
             aspectSpec =
@@ -1045,13 +1047,7 @@ public class EntityController
                   .setAspect(genericAspect);
 
           if (alternateValidation) {
-            if (aspectSpec == null) {
-              items.add(
-                  ProposedItem.builder()
-                      .buildAllowingUnknownAspect(mcp, auditStamp, entityRegistry));
-            } else {
-              items.add(ProposedItem.builder().build(mcp, auditStamp, entityRegistry));
-            }
+            items.add(ProposedItem.builder().build(mcp, auditStamp, entityRegistry));
           } else {
             if (ChangeType.PATCH == changeType) {
               items.add(

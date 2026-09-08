@@ -128,7 +128,7 @@
   {
     "request": {
       "url": "/openapi/v3/entity/dataset",
-      "description": "Test Invalid Aspect - SYNC (ALTERNATE_MCP_VALIDATION drops unknown aspects)",
+      "description": "Test Invalid Aspect - SYNC",
       "params": {
         "createIfNotExists": "false",
         "async": "false"
@@ -146,15 +146,20 @@
     },
     "response": {
       "status_codes": [
-        200
+        400
       ],
-      "json": []
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
     }
   },
   {
     "request": {
       "url": "/openapi/v3/entity/dataset",
-      "description": "Test Invalid Aspect - ASYNC (ALTERNATE_MCP_VALIDATION drops unknown aspects)",
+      "description": "Test Invalid Aspect - ASYNC",
       "params": {
         "createIfNotExists": "false",
         "async": "true"
@@ -172,8 +177,14 @@
     },
     "response": {
       "status_codes": [
-        202
-      ]
+        400
+      ],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
     }
   },
   {
