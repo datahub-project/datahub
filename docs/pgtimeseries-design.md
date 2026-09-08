@@ -257,7 +257,7 @@ source:
     truncate_index_older_than_days: 30
     truncate_aspect_retentions:
       - entity_type: dataset
-        aspect: datasetusagestatistics
+        aspect: datasetUsageStatistics
         older_than_days: 30
       - entity_type: dataset
         aspect: operation
