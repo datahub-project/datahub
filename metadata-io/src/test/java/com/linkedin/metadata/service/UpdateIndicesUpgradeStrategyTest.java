@@ -272,6 +272,66 @@ public class UpdateIndicesUpgradeStrategyTest {
   }
 
   @Test
+  public void testProcessBatchV3BackingIndexUsesHashedDocumentId() throws Exception {
+    String oldIndex = "datasetindex_v3_1683649932260";
+    Map<String, String> targets = Map.of("dataset", oldIndex);
+    UpdateIndicesUpgradeStrategy strategy =
+        new UpdateIndicesUpgradeStrategy(
+            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
+
+    ObjectNode searchDoc = JsonNodeFactory.instance.objectNode();
+    searchDoc.put("urn", testUrn.toString());
+
+    when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
+        .thenReturn(Optional.of(searchDoc));
+
+    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
+    events.put(testUrn, List.of(mockEvent));
+
+    strategy.processBatch(operationContext, events, false);
+
+    org.mockito.ArgumentCaptor<String> docIdCaptor =
+        org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq(oldIndex), eq(searchDoc.toString()), docIdCaptor.capture());
+    assertEquals(
+        docIdCaptor.getValue(),
+        org.apache.commons.codec.digest.DigestUtils.sha256Hex(testUrn.toString()));
+    assertFalse(docIdCaptor.getValue().contains("urn:li:"));
+  }
+
+  @Test
+  public void testProcessBatchV2BackingIndexKeepsUrlEncodedDocumentId() throws Exception {
+    String nextIndex = "datasetindex_v2_next_123";
+    Map<String, String> targets = Map.of("dataset", nextIndex);
+    UpdateIndicesUpgradeStrategy strategy =
+        new UpdateIndicesUpgradeStrategy(
+            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
+
+    ObjectNode searchDoc = JsonNodeFactory.instance.objectNode();
+    searchDoc.put("urn", testUrn.toString());
+
+    when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
+        .thenReturn(Optional.of(searchDoc));
+
+    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
+    events.put(testUrn, List.of(mockEvent));
+
+    strategy.processBatch(operationContext, events, false);
+
+    org.mockito.ArgumentCaptor<String> docIdCaptor =
+        org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq(nextIndex), eq(searchDoc.toString()), docIdCaptor.capture());
+    assertEquals(
+        docIdCaptor.getValue(),
+        operationContext.getSearchContext().getIndexConvention().getEntityDocumentId(testUrn));
+    assertTrue(docIdCaptor.getValue().contains("urn"));
+  }
+
+  @Test
   public void testDualWriteStartTimeCallbackCalledOnce() throws Exception {
     String nextIndex = "datasetindex_v2_next_123";
     Map<String, String> targets = Map.of("dataset", nextIndex);

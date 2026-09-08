@@ -13,6 +13,8 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -58,6 +60,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   private final ElasticSearchService elasticSearchService;
   private final SearchDocumentTransformer searchDocumentTransformer;
+  private final EntityDocumentIdHasher entityDocumentIdHasher;
 
   /**
    * Map of entity name → old backing index physical name. Populated on startup from Phase 1 upgrade
@@ -90,8 +93,31 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
       @Nullable DataHubUpgradeResultStore upgradeResultStore,
       @Nullable Urn upgradeIdUrn,
       long pollIntervalSeconds) {
+    this(
+        elasticSearchService,
+        searchDocumentTransformer,
+        oldIndexTargets,
+        dualWriteStartTimeCallback,
+        opContext,
+        upgradeResultStore,
+        upgradeIdUrn,
+        pollIntervalSeconds,
+        new Sha256UrnEntityDocumentIdHasher());
+  }
+
+  public UpdateIndicesUpgradeStrategy(
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull Map<String, String> oldIndexTargets,
+      @Nullable DualWriteStartTimeCallback dualWriteStartTimeCallback,
+      @Nullable OperationContext opContext,
+      @Nullable DataHubUpgradeResultStore upgradeResultStore,
+      @Nullable Urn upgradeIdUrn,
+      long pollIntervalSeconds,
+      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher) {
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
+    this.entityDocumentIdHasher = entityDocumentIdHasher;
     // Keys are normalised because the two sides disagree on case: the map is built from
     // IndexConvention.getEntityName(), which derives names from the lowercased index
     // ("aiagentindex_v2" -> "aiagent"), while lookups use EntitySpec.getName(), which is the
@@ -181,8 +207,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
         return;
       }
 
-      String docId =
-          opContext.getSearchContext().getIndexConvention().getEntityDocumentId(event.getUrn());
+      String docId = documentId(opContext, oldIndex, event.getUrn());
       String document = searchDocument.get().toString();
 
       elasticSearchService.upsertDocumentByIndexName(opContext, oldIndex, document, docId);
@@ -220,8 +245,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
     }
 
     try {
-      String docId =
-          opContext.getSearchContext().getIndexConvention().getEntityDocumentId(event.getUrn());
+      String docId = documentId(opContext, oldIndex, event.getUrn());
       elasticSearchService.deleteDocumentByIndexName(opContext, oldIndex, docId);
 
       log.debug(
@@ -323,6 +347,18 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
       log.debug("Could not fetch upgrade result for {}: {}", upgradeIdUrn, e.getMessage());
     }
     return Optional.empty();
+  }
+
+  /**
+   * V3 backing indexes — including reindex names that append a timestamp after {@code index_v3} —
+   * always use the V3 hasher. V2 keeps URL-encoded URN ids.
+   */
+  private String documentId(
+      @Nonnull OperationContext opContext, @Nonnull String indexName, @Nonnull Urn urn) {
+    if (indexName.contains("index_v3")) {
+      return entityDocumentIdHasher.documentId(opContext, urn);
+    }
+    return opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
   }
 
   private void shutdownPoller() {

@@ -207,8 +207,7 @@ public class ESWriteDAO {
             .doc(document, XContentType.JSON)
             .retryOnConflict(config.getBulkProcessor().getNumRetries());
 
-    // URN-aware routing — docId is the URL-encoded entity URN, stable per entity, so
-    // using it as the routing key serializes concurrent aspect writes for the same URN
+    // using it as the routing key serializes concurrent aspect writes for the same entity
     // on one bulk processor thread (preventing version_conflict_engine_exception).
     bulkProcessor.add(opContext, docId, updateRequest);
   }
@@ -227,7 +226,7 @@ public class ESWriteDAO {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    // URN-aware routing — see upsertDocumentBySearchGroup above.
+    // Stable-id routing — see upsertDocumentBySearchGroup above.
     bulkProcessor.add(
         opContext, docId, new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
   }
@@ -280,7 +279,7 @@ public class ESWriteDAO {
             .retryOnConflict(config.getBulkProcessor().getNumRetries())
             .script(script)
             .upsert(upsert);
-    // URN-aware routing via docId — see upsertDocumentBySearchGroup above.
+    // Stable-id routing via docId — see upsertDocumentBySearchGroup above.
     bulkProcessor.add(opContext, docId, updateRequest);
   }
 

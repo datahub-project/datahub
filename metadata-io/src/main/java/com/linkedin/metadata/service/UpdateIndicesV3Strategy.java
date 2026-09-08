@@ -15,8 +15,11 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.SystemMetadata;
@@ -46,26 +49,43 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final ElasticSearchService elasticSearchService;
   private final SearchDocumentTransformer searchDocumentTransformer;
   private final TimeseriesAspectService timeseriesAspectService;
-  private final String idHashAlgo;
   private final MultiEntityMappingsBuilder mappingsBuilder;
-  private final boolean v2Enabled;
   @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
+  private final EntityDocumentIdHasher entityDocumentIdHasher;
+  private final List<V3SearchDocumentContributor> documentContributors;
 
   public UpdateIndicesV3Strategy(
       @Nonnull EntityIndexVersionConfiguration v3Config,
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
-      @Nonnull String idHashAlgo,
-      boolean v2Enabled,
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache) {
+    this(
+        v3Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        timeseriesThrottleCache,
+        new Sha256UrnEntityDocumentIdHasher(),
+        List.of());
+  }
+
+  public UpdateIndicesV3Strategy(
+      @Nonnull EntityIndexVersionConfiguration v3Config,
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
+      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
+      @Nonnull List<V3SearchDocumentContributor> documentContributors) {
     this.v3Config = v3Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
     this.timeseriesAspectService = timeseriesAspectService;
-    this.idHashAlgo = idHashAlgo;
-    this.v2Enabled = v2Enabled;
     this.timeseriesThrottleCache = timeseriesThrottleCache;
+    this.entityDocumentIdHasher = entityDocumentIdHasher;
+    this.documentContributors =
+        documentContributors == null ? List.of() : List.copyOf(documentContributors);
     try {
       this.mappingsBuilder =
           new MultiEntityMappingsBuilder(
@@ -227,6 +247,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
                   }
                 });
 
+    String docId = entityDocumentIdHasher.documentId(opContext, urn);
     if (hasKeyAspectDeletion) {
       // Delete the entire document for key aspect deletion
 
@@ -236,7 +257,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         return;
       }
 
-      String docId = opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
       elasticSearchService.deleteDocumentBySearchGroup(opContext, searchGroup, docId);
       log.debug(
           "V3 deleted entire document for URN: {} from search group: {} due to key aspect deletion",
@@ -265,7 +285,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       return;
     }
 
-    String docId = opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
     String finalDocument = combinedDocument.toString();
 
     if (structuredPropertiesHookEnabled) {
@@ -321,6 +340,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     // Add _entityType field
     String entityType = events.get(0).getEntitySpec().getName();
     combinedDocument.put("_entityType", entityType);
+
+    for (V3SearchDocumentContributor contributor : documentContributors) {
+      contributor.contribute(opContext, urn, combinedDocument);
+    }
 
     // Create _aspects object to hold all aspects
     ObjectNode aspectsNode = JsonNodeFactory.instance.objectNode();

@@ -65,6 +65,23 @@ public interface EntitySearchService {
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId);
 
   /**
+   * Updates or inserts a document in the V3 search-group index. Default is a no-op for
+   * implementations that do not write V3.
+   */
+  default void upsertDocumentBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull String document,
+      @Nonnull String docId) {}
+
+  /**
+   * Deletes a document from the V3 search-group index. Default is a no-op for implementations that
+   * do not write V3.
+   */
+  default void deleteDocumentBySearchGroup(
+      @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {}
+
+  /**
    * Appends a run id to the list for a certain document
    *
    * @param urn the urn of the user
