@@ -311,11 +311,41 @@ def _provider_class(source_type: str) -> Optional[Type[ProbeProvider]]:
 
 
 def _iter_specs(provider_cls: type) -> List[Tuple[str, ProbeMethodSpec]]:
+    """Every command this provider declares, as (command, spec), sorted.
+
+    Two attributes declaring the same command name is refused, and that is a
+    gate bypass rather than a cosmetic clash. This function used to keep
+    whichever spec dir() yielded last, while _bound_method separately returned
+    the first matching attribute -- so _enforce_gates could check one method's
+    declaration and run_probe_method invoke a different method. Demonstrated
+    with a `sql` command declared twice, once with scoped_sql_param and once
+    without: the ungated spec won the check, the gated method ran the query, and
+    the query executed with no scope check at all.
+
+    Refusing duplicates makes the two resolutions provably agree -- there is now
+    exactly one attribute per command, so first-match and last-match are the
+    same attribute. Overriding an inherited command is still normal Python:
+    redefine the *same attribute name*, which dir() yields once.
+    """
     found: Dict[str, ProbeMethodSpec] = {}
+    owner: Dict[str, str] = {}
     for attr in dir(provider_cls):
         spec = getattr(getattr(provider_cls, attr, None), "__probe_command__", None)
-        if isinstance(spec, ProbeMethodSpec):
-            found[spec.command] = spec
+        if not isinstance(spec, ProbeMethodSpec):
+            continue
+        clash = owner.get(spec.command)
+        if clash is not None and clash != attr:
+            raise ValueError(
+                f"{provider_cls.__name__} declares command '{spec.command}' on "
+                f"two different methods ('{clash}' and '{attr}'). The framework "
+                f"checks one declaration and invokes one method, and with two "
+                f"of each it cannot guarantee they are the same one -- so a "
+                f"gated command could be checked against an ungated "
+                f"declaration. To override an inherited command, redefine the "
+                f"same method name instead of adding a second one."
+            )
+        found[spec.command] = spec
+        owner[spec.command] = attr
     return sorted(found.items())
 
 

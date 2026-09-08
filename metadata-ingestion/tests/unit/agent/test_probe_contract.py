@@ -16,6 +16,8 @@ lint whose failure path is never exercised is a lint nobody can trust.
 
 from typing import Dict, List, Set, Tuple
 
+import pytest
+
 from datahub.ingestion.agent.probe_methods import (
     ProbeMethodSpec,
     ProbeProvider,
@@ -278,3 +280,50 @@ def test_a_declared_parameter_is_not_flagged():
             return {}
 
     assert _violations(_spec_of(Careful.sql)) == []
+
+
+def test_two_methods_cannot_declare_the_same_command():
+    """A duplicate command name was a gate bypass, not a cosmetic clash.
+
+    _iter_specs kept whichever spec dir() yielded last while _bound_method
+    returned the first matching attribute, so _enforce_gates could check one
+    declaration and run_probe_method invoke a different method. With `sql`
+    declared twice -- once with scoped_sql_param, once without -- the ungated
+    spec won the check and the gated method ran the query, so the query
+    executed with no scope check at all.
+    """
+
+    class _Clashing:
+        @probe_method(name="sql", scoped_sql_param="query")
+        def a_sql(self, query: str) -> object:
+            """Gated: the framework scope-checks query."""
+            return query
+
+        @probe_method(name="sql")
+        def z_sql(self, query: str) -> object:
+            """Ungated: declares no scoped_sql_param."""
+            return query
+
+    with pytest.raises(ValueError, match="two different methods"):
+        _iter_specs(_Clashing)
+
+
+def test_overriding_an_inherited_command_is_still_allowed():
+    """The refusal above must not break the normal way to specialise a command:
+    redefine the same attribute name, which dir() yields once."""
+
+    class _Base:
+        @probe_method(name="thing")
+        def thing(self) -> object:
+            """Base implementation."""
+            return "base"
+
+    class _Sub(_Base):
+        @probe_method(name="thing", row_limit_param="limit")
+        def thing(self, limit: int = 10) -> object:
+            """Overridden, same attribute name."""
+            return "sub"
+
+    specs = dict(_iter_specs(_Sub))
+    assert sorted(specs) == ["thing"]
+    assert specs["thing"].row_limit_param == "limit"
