@@ -612,16 +612,34 @@ public class AnalyticsService {
     return values.toArray(new String[0]);
   }
 
-  private Set<String> booleanSearchFields;
+  /**
+   * Plugin patches mutate the live {@link EntityRegistry} in place (new {@link EntitySpec}
+   * instances), so this snapshot is keyed by spec identity rather than built once.
+   */
+  private record BooleanFieldSnapshot(long generation, Set<String> fields) {}
+
+  private volatile BooleanFieldSnapshot booleanFieldSnapshot;
 
   private boolean isBooleanSearchField(String field) {
     return booleanSearchFields().contains(field.split("\\.")[0]);
   }
 
   private Set<String> booleanSearchFields() {
-    if (booleanSearchFields == null) {
+    Map<String, EntitySpec> specs = _entityRegistry.getEntitySpecs();
+    long generation = registryGeneration(specs);
+    BooleanFieldSnapshot snapshot = booleanFieldSnapshot;
+    if (snapshot != null && snapshot.generation() == generation) {
+      return snapshot.fields();
+    }
+    synchronized (this) {
+      specs = _entityRegistry.getEntitySpecs();
+      generation = registryGeneration(specs);
+      snapshot = booleanFieldSnapshot;
+      if (snapshot != null && snapshot.generation() == generation) {
+        return snapshot.fields();
+      }
       Set<String> fields = new HashSet<>();
-      for (EntitySpec entitySpec : _entityRegistry.getEntitySpecs().values()) {
+      for (EntitySpec entitySpec : specs.values()) {
         for (Map.Entry<String, Set<SearchableAnnotation.FieldType>> entry :
             entitySpec.getSearchableFieldTypes().entrySet()) {
           if (entry.getValue().contains(SearchableAnnotation.FieldType.BOOLEAN)) {
@@ -629,9 +647,18 @@ public class AnalyticsService {
           }
         }
       }
-      booleanSearchFields = Set.copyOf(fields);
+      Set<String> frozen = Set.copyOf(fields);
+      booleanFieldSnapshot = new BooleanFieldSnapshot(generation, frozen);
+      return frozen;
     }
-    return booleanSearchFields;
+  }
+
+  private static long registryGeneration(Map<String, EntitySpec> specs) {
+    long generation = specs.size();
+    for (EntitySpec spec : specs.values()) {
+      generation = 31 * generation + System.identityHashCode(spec);
+    }
+    return generation;
   }
 
   private static boolean parseBooleanTerm(String value) {

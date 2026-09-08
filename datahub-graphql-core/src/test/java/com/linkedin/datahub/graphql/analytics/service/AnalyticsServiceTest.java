@@ -17,11 +17,15 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +51,7 @@ public class AnalyticsServiceTest {
   private static final List<String> FACETS = List.of("hasOwners", "hasTags");
 
   private SearchClientShim<?> mockClient;
+  private IndexConvention mockIndexConvention;
   private OperationContext opContext;
   private AnalyticsService service;
 
@@ -57,7 +62,7 @@ public class AnalyticsServiceTest {
     // opContext.withSpan, which a bare mock would swallow without invoking.
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
-    IndexConvention mockIndexConvention = mock(IndexConvention.class);
+    mockIndexConvention = mock(IndexConvention.class);
     when(mockIndexConvention.getEntityIndexName(any(OperationFingerprint.class), any()))
         .thenAnswer(invocation -> invocation.getArgument(1).toString().toLowerCase() + "index_v2");
     when(mockIndexConvention.getIndexName(
@@ -181,6 +186,41 @@ public class AnalyticsServiceTest {
     assertEquals(removed[0], true);
     Object[] hasOwners = service.coerceTermValues("hasOwners", List.of("true"));
     assertEquals(hasOwners[0], true);
+  }
+
+  @Test
+  public void testCoerceTermValuesRejectsInvalidBooleanTerms() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> service.coerceTermValues("hasOwners", List.of("yes")));
+  }
+
+  @Test
+  public void testBooleanFieldCacheRefreshesWhenRegistrySpecsChange() {
+    EntitySpec initialSpec = mock(EntitySpec.class);
+    when(initialSpec.getSearchableFieldTypes())
+        .thenReturn(Map.of("hasOwners", Set.of(SearchableAnnotation.FieldType.BOOLEAN)));
+    EntitySpec patchedSpec = mock(EntitySpec.class);
+    when(patchedSpec.getSearchableFieldTypes())
+        .thenReturn(
+            Map.of(
+                "hasOwners",
+                Set.of(SearchableAnnotation.FieldType.BOOLEAN),
+                "hasCustomFlag",
+                Set.of(SearchableAnnotation.FieldType.BOOLEAN)));
+
+    Map<String, EntitySpec> specs = new HashMap<>();
+    specs.put("dataset", initialSpec);
+    EntityRegistry registry = mock(EntityRegistry.class);
+    when(registry.getEntitySpecs()).thenReturn(specs);
+
+    AnalyticsService patchedService =
+        new AnalyticsService(mockClient, mockIndexConvention, registry);
+
+    assertEquals(patchedService.coerceTermValues("hasCustomFlag", List.of("true"))[0], "true");
+
+    specs.put("dataset", patchedSpec);
+    assertEquals(patchedService.coerceTermValues("hasCustomFlag", List.of("true"))[0], true);
   }
 
   private static String compactJson(String json) {
