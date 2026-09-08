@@ -296,6 +296,26 @@ models, and join keys are simply absent — everything else still ingests. If
 the shape the parser reads; run with `--debug` and look for `DM SPEC JOIN` lines, which log
 the descriptor's structure (key names and types only, never values).
 
+#### Reading the chart InputFields counters
+
+Every chart column lands in exactly one bucket, and the fallback bucket is split by cause —
+these are not interchangeable:
+
+| Counter                                       | Meaning                                                                             |
+| --------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `chart_input_fields_resolved`                 | a formula ref resolved to an upstream column                                        |
+| `chart_input_fields_self_ref_unresolved_refs` | a formula existed and none of its refs resolved — see `chart_ref_miss_reasons`      |
+| `chart_input_fields_formulas_not_fetched`     | **our** `/columns` call for that workbook aborted, so no formula was ever retrieved |
+| `chart_input_fields_self_ref_no_formula`      | Sigma genuinely reported no formula for the column                                  |
+
+`chart_ref_miss_reasons` breaks the unresolved bucket down by the resolution step that gave
+up. Two of its keys matter most when judging whether a gap is fixable:
+`unknown_source_but_name_exists_in_another_data_model` means the name exists in the run but
+was not among the upstreams offered for that chart — a scope problem, addressable here;
+`unknown_source_absent_from_entire_run` means the run never saw that element at all, because
+it was filtered, its `/lineage` returned an error, or it lives outside the ingested
+workspaces.
+
 #### Pivot tables and input tables
 
 `pivot-table` and `input-table` workbook elements are ingested as Charts alongside `table`

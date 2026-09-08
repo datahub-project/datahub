@@ -180,6 +180,16 @@ _FGL_CONFIDENCE_JOIN_KEY_OUTER: float = 0.6
 # this is as exact as a formula-derived edge.
 _FGL_CONFIDENCE_UNION_BRANCH: float = 1.0
 
+# Why one chart formula ref did not resolve to an upstream. Each names the step
+# that gave up, so the aggregate bucket can be split by cause rather than
+# re-derived by reading thousands of debug lines.
+_CHART_REF_MISS_SELF_OR_AMBIGUOUS_CANDIDATES = "self_ref_or_ambiguous_candidates"
+_CHART_REF_MISS_AMBIGUOUS_SIBLING = "ambiguous_sibling_element_name"
+_CHART_REF_MISS_UPSTREAM_FILTERED = "named_element_filtered_from_emission"
+_CHART_REF_MISS_NAMED_BUT_NOT_AN_UPSTREAM = "element_named_but_not_a_lineage_upstream"
+_CHART_REF_MISS_AMBIGUOUS_WAREHOUSE = "ambiguous_warehouse_table_name"
+_CHART_REF_MISS_UNKNOWN_SOURCE = "source_name_unknown_to_this_workbook"
+
 
 def _warehouse_column_from_display_name(display_name: str) -> str:
     """Invert Sigma's display-name convention for a warehouse column.
@@ -569,6 +579,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._normalized_index_memo: Optional[
             Tuple[Dict[str, List[Element]], Dict[str, List[Element]]]
         ] = None
+        # Built lazily on the first chart-ref miss, by which point every Data
+        # Model has been walked. Used only to classify misses, never to resolve.
+        self._known_dm_element_names: Optional[FrozenSet[str]] = None
         self._chart_cols_memo: Optional[
             Tuple[
                 Dict[str, List[Element]],
@@ -5646,6 +5659,62 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         return candidates
 
+    def _all_known_dm_element_names(self) -> FrozenSet[str]:
+        """Every Data Model element name seen this run, lowercased.
+
+        Used only to classify a MISS. A ref naming something this set contains
+        failed because the resolver's scope was too narrow (the name exists, but
+        not among the upstreams offered for this chart); a ref naming something
+        absent from it failed because the run never saw that element at all --
+        filtered, 409-ing, or in a workspace outside the ingest. Those are
+        different bugs and were previously one number.
+        """
+        if self._known_dm_element_names is None:
+            names: Set[str] = set()
+            for by_name in self.dm_element_urn_by_name.values():
+                if isinstance(by_name, dict):
+                    names.update(str(n).strip().lower() for n in by_name)
+            self._known_dm_element_names = frozenset(names)
+        return self._known_dm_element_names
+
+    def _note_chart_ref_miss(
+        self, reason: str, *, ref: BracketRef, chart_element_id: str, count: bool
+    ) -> None:
+        """Record WHY one formula ref did not resolve.
+
+        ``chart_input_fields_self_ref_unresolved_refs`` counted 17,944 misses on
+        one tenant (2026-09) with no breakdown, and they turned out to
+        concentrate in 87 distinct source names -- so the bucket is a handful of
+        causes, not seventeen thousand. ``count`` is False for the speculative
+        candidate splits a join-chain ref tries, which would otherwise report
+        several misses per ref.
+        """
+        if not count:
+            return
+        self.reporter.chart_ref_miss_reasons[reason] = (
+            self.reporter.chart_ref_miss_reasons.get(reason, 0) + 1
+        )
+        if reason == _CHART_REF_MISS_UNKNOWN_SOURCE:
+            known = ref.source.strip().lower() in self._all_known_dm_element_names()
+            key = (
+                "unknown_source_but_name_exists_in_another_data_model"
+                if known
+                else "unknown_source_absent_from_entire_run"
+            )
+            self.reporter.chart_ref_miss_reasons[key] = (
+                self.reporter.chart_ref_miss_reasons.get(key, 0) + 1
+            )
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        logger.debug(
+            "CHART REF MISS element %s ref=%r reason=%s: source %r column %r",
+            chart_element_id,
+            ref.raw,
+            reason,
+            ref.source,
+            ref.column,
+        )
+
     def _resolve_chart_formula_upstream(
         self,
         ref: BracketRef,
@@ -5708,6 +5777,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             count=count,
         )
         if maybe_candidates is None:
+            self._note_chart_ref_miss(
+                _CHART_REF_MISS_SELF_OR_AMBIGUOUS_CANDIDATES,
+                ref=ref,
+                chart_element_id=chart_element_id,
+                count=count,
+            )
             return None
         candidates = maybe_candidates
         if candidates:
@@ -5726,6 +5801,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # (e.g. pivot-table or control). Fall through to DM check.
             elif len(sheet_matches) > 1:
                 # Ambiguous name collision not resolved by lineage filter.
+                self._note_chart_ref_miss(
+                    _CHART_REF_MISS_AMBIGUOUS_SIBLING,
+                    ref=ref,
+                    chart_element_id=chart_element_id,
+                    count=count,
+                )
                 return None
 
             # Step 3b: DataModelElementUpstream match — ref.source is the DM
@@ -5739,6 +5820,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # fall through to warehouse because the formula ref explicitly targets
             # a known (filtered) element, not a warehouse table.
             if sheet_matches:
+                self._note_chart_ref_miss(
+                    _CHART_REF_MISS_UPSTREAM_FILTERED,
+                    ref=ref,
+                    chart_element_id=chart_element_id,
+                    count=count,
+                )
                 return None
 
             # sheet_matches is empty: the workbook element is not a registered
@@ -5775,8 +5862,26 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 ref.column,
                 wh_candidates,
             )
+            self._note_chart_ref_miss(
+                _CHART_REF_MISS_AMBIGUOUS_WAREHOUSE,
+                ref=ref,
+                chart_element_id=chart_element_id,
+                count=count,
+            )
             return None
 
+        # Nothing matched at any step. ``candidates`` distinguishes the two
+        # shapes of this: a workbook element WAS named ref.source but is neither
+        # a lineage upstream nor a warehouse table, versus nothing in this
+        # workbook is called that at all.
+        self._note_chart_ref_miss(
+            _CHART_REF_MISS_NAMED_BUT_NOT_AN_UPSTREAM
+            if candidates
+            else _CHART_REF_MISS_UNKNOWN_SOURCE,
+            ref=ref,
+            chart_element_id=chart_element_id,
+            count=count,
+        )
         return None
 
     def _handle_warehouse_table_upstream(
@@ -6107,6 +6212,51 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.chart_join_chain_dangling_suppressed += 1
         return result
 
+    def _count_unresolved_chart_column(
+        self,
+        *,
+        element: Element,
+        column: str,
+        refs: List[BracketRef],
+        all_param: bool,
+        all_sibling: bool,
+        formulas_incomplete: bool,
+    ) -> None:
+        """File one self-referential column under the reason it got there.
+
+        The fallback bucket is the largest in the report (~81k on one tenant,
+        2026-09) and a single number for it says nothing: a column with no
+        formula is expected, a column whose refs failed to resolve may be
+        hiding a parse defect, and a column from a workbook whose /columns call
+        aborted is neither -- it is our fetch that failed. Only the middle case
+        is logged, so the probe cannot flood the log.
+        """
+        if all_param:
+            self.reporter.chart_input_fields_skipped_parameter += 1
+            return
+        if all_sibling:
+            self.reporter.chart_input_fields_skipped_sibling += 1
+            return
+        self.reporter.chart_input_fields_self_ref_fallback += 1
+        if refs:
+            self.reporter.chart_input_fields_self_ref_unresolved_refs += 1
+            logger.debug(
+                "chart element %s column %r: self-ref fallback with "
+                "unresolved refs=%r segment_counts=%r",
+                element.elementId,
+                column,
+                [r.raw for r in refs],
+                [len(r.parts) for r in refs],
+            )
+        elif formulas_incomplete:
+            # This workbook's /columns fetch aborted, so the absence of a
+            # formula says nothing about the column. Counting it as "Sigma
+            # reported no formula" made a fetch failure read as an upstream
+            # limitation.
+            self.reporter.chart_input_fields_formulas_not_fetched += 1
+        else:
+            self.reporter.chart_input_fields_self_ref_no_formula += 1
+
     def _build_element_input_fields(
         self,
         *,
@@ -6118,6 +6268,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
         wb_only_warehouse_keys: FrozenSet[str] = frozenset(),
+        formulas_incomplete: bool = False,
     ) -> List[InputFieldClass]:
         """Emit exactly one InputField per chart column.
 
@@ -6128,6 +6279,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Counter invariant per element:
           resolved + self_ref_fallback + skipped_parameter + skipped_sibling
           == len(element.columns)
+
+        ``self_ref_fallback`` is split three ways by cause:
+        ``self_ref_unresolved_refs`` (a formula existed and its refs did not
+        resolve -- the population that can hide a resolver defect),
+        ``formulas_not_fetched`` (this workbook's /columns call aborted, so no
+        formula was ever retrieved) and ``self_ref_no_formula`` (Sigma really
+        reported none). ``formulas_incomplete`` is what separates the middle
+        one; without it a fetch failure is indistinguishable from an upstream
+        limitation.
 
         wb_only_warehouse_keys: uppercase table names that are present only in
           the workbook-level index (not in the per-element SQL-parser index).
@@ -6235,33 +6395,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         )
                     )
             else:
-                if all_param:
-                    schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
-                    self.reporter.chart_input_fields_skipped_parameter += 1
-                elif all_sibling:
-                    schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
-                    self.reporter.chart_input_fields_skipped_sibling += 1
-                else:
-                    schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
-                    self.reporter.chart_input_fields_self_ref_fallback += 1
-                    # Split the fallback bucket by cause. It is the largest
-                    # bucket in the report (~81k on one tenant, 2026-09) and today says
-                    # nothing about why: a column with no formula at all is
-                    # expected, whereas a column whose refs failed to resolve is
-                    # the population that could be hiding a parse defect. Only
-                    # the latter is logged, so the probe cannot flood the log.
-                    if refs:
-                        self.reporter.chart_input_fields_self_ref_unresolved_refs += 1
-                        logger.debug(
-                            "chart element %s column %r: self-ref fallback with "
-                            "unresolved refs=%r segment_counts=%r",
-                            element.elementId,
-                            column,
-                            [r.raw for r in refs],
-                            [len(r.parts) for r in refs],
-                        )
-                    else:
-                        self.reporter.chart_input_fields_self_ref_no_formula += 1
+                schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
+                self._count_unresolved_chart_column(
+                    element=element,
+                    column=column,
+                    refs=refs,
+                    all_param=all_param,
+                    all_sibling=all_sibling,
+                    formulas_incomplete=formulas_incomplete,
+                )
                 fields.append(
                     InputFieldClass(
                         schemaFieldUrn=schema_field_urn,
@@ -6450,6 +6592,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 element_warehouse_table_index=merged_warehouse_table_index,
                 elementId_to_chart_urn=elementId_to_chart_urn,
                 wb_only_warehouse_keys=wb_only_warehouse_keys,
+                formulas_incomplete=(
+                    workbook.workbookId
+                    in self.sigma_api.column_formulas_incomplete_workbooks
+                ),
             )
 
             # Stash formula-derived fields for customSQL charts so we can merge at

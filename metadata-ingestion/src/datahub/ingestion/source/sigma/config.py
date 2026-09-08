@@ -419,6 +419,20 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Combining nodes the BFS walked through, by type. Separate from the
     # unhandled map so a type moving from one to the other is visible.
     workbook_lineage_pass_through_nodes: Dict[str, int] = field(default_factory=dict)
+    # Chart columns whose workbook's /columns fetch aborted, so no formula was
+    # ever retrieved for them. Split out of chart_input_fields_self_ref_no_formula,
+    # which otherwise reports a fetch failure as "Sigma has no formula" -- on one
+    # tenant (2026-09) 12 workbooks aborted having retrieved ZERO entries, and
+    # every column in them was attributed to the wrong cause.
+    chart_input_fields_formulas_not_fetched: int = 0
+    # Why chart formula refs failed to resolve, by cause. The aggregate
+    # (chart_input_fields_self_ref_unresolved_refs) reached 17,944 on one tenant
+    # while concentrating in just 87 distinct source names, so the bucket is a
+    # few causes rather than thousands of distinct problems. Two synthetic keys
+    # split the "unknown source" case by whether the name exists elsewhere in
+    # the run: it does => our lookup scope is too narrow; it does not => the run
+    # never saw that element (filtered, 409-ing, or outside the ingest).
+    chart_ref_miss_reasons: Dict[str, int] = field(default_factory=dict)
     # 'datasheet' nodes whose nodeId is a bare element id, admitted as sheet
     # upstreams. The emit-time element lookup drops any that do not match a
     # real element, so this is an attempt count, not an emitted-edge count.

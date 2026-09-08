@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from datahub.ingestion.source.sigma.config import SigmaSourceConfig
+from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
 from datahub.ingestion.source.sigma.data_classes import (
     Element,
     Page,
@@ -94,6 +94,8 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source._bridge_unresolved_warned = set()
     # Memos for maps derived from the per-workbook indexes.
     source._normalized_index_memo = None
+    source._known_dm_element_names = None
+    source.dm_element_urn_by_name = {}
     source._chart_cols_memo = None
     return source
 
@@ -1180,3 +1182,110 @@ class TestJoinChainProbeDoesNotInflateCounters:
         )
         assert source.reporter.chart_ref_source_normalized_match == 0
         assert source.reporter.chart_ref_source_near_miss == 0
+
+
+class TestChartRefMissIsAttributedToACause:
+    """A miss must say WHICH step gave up.
+
+    ``chart_input_fields_self_ref_unresolved_refs`` reached 17,944 on one tenant
+    (2026-09) while concentrating in only 87 distinct source names -- so the
+    bucket is a handful of causes, and a single number could not tell which.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        # The shared fixture mocks the reporter; these assertions read counters.
+        self.src.reporter = SigmaSourceReport()
+
+    def _resolve(self, ref, **kwargs):
+        return self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id=kwargs.pop("chart_element_id", "e1"),
+            chart_upstream_element_ids=kwargs.pop("chart_upstream_element_ids", set()),
+            dm_upstream_urn_by_element_name=kwargs.pop(
+                "dm_upstream_urn_by_element_name", {}
+            ),
+            wb_element_index=kwargs.pop("wb_element_index", {}),
+            element_warehouse_table_index=kwargs.pop(
+                "element_warehouse_table_index", {}
+            ),
+            elementId_to_chart_urn=kwargs.pop("elementId_to_chart_urn", {}),
+            **kwargs,
+        )
+
+    def test_unknown_source_absent_from_the_run_is_separated_from_a_scope_miss(
+        self,
+    ) -> None:
+        """Two different bugs that used to be one number.
+
+        A name nothing in the run defines means the run never saw that element.
+        A name another Data Model DOES define means our lookup scope was too
+        narrow -- fixable here, unlike the first.
+        """
+        assert self._resolve(_make_ref("NeverSeen", "col")) is None
+        reasons = self.src.reporter.chart_ref_miss_reasons
+        assert reasons["source_name_unknown_to_this_workbook"] == 1
+        assert reasons["unknown_source_absent_from_entire_run"] == 1
+
+        self.src.dm_element_urn_by_name = {"dm-a": {"KnownElsewhere": ["urn:x"]}}
+        self.src._known_dm_element_names = None
+        assert self._resolve(_make_ref("KnownElsewhere", "col")) is None
+        assert (
+            self.src.reporter.chart_ref_miss_reasons[
+                "unknown_source_but_name_exists_in_another_data_model"
+            ]
+            == 1
+        )
+
+    def test_speculative_candidate_splits_do_not_inflate_the_reasons(self) -> None:
+        """A join-chain ref probes up to 2N-3 splits through this resolver.
+
+        Counting each probe would report several misses for one ref, which is
+        what made the aggregate unreadable in the first place.
+        """
+        assert self._resolve(_make_ref("NeverSeen", "col"), count=False) is None
+        assert self.src.reporter.chart_ref_miss_reasons == {}
+
+        # Same ref, counted: proves the empty dict above is the gate working,
+        # not the recording being absent altogether.
+        assert self._resolve(_make_ref("NeverSeen", "col")) is None
+        assert self.src.reporter.chart_ref_miss_reasons != {}
+
+
+class TestFetchFailureIsNotReportedAsMissingFormula:
+    """A workbook whose /columns call aborted has no formulas THROUGH OUR FAULT.
+
+    On one tenant (2026-09) 12 workbooks aborted having retrieved zero entries,
+    and every column in them was counted under
+    ``chart_input_fields_self_ref_no_formula`` -- which reads as "Sigma has
+    nothing to give" and hid a fetch failure behind an upstream limitation.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+
+    def _count(self, *, formulas_incomplete: bool) -> None:
+        self.src._count_unresolved_chart_column(
+            element=_make_element("e1", "Chart", ["col"]),
+            column="col",
+            refs=[],
+            all_param=False,
+            all_sibling=False,
+            formulas_incomplete=formulas_incomplete,
+        )
+
+    def test_a_fetched_workbook_with_no_formula_stays_in_the_original_bucket(
+        self,
+    ) -> None:
+        self._count(formulas_incomplete=False)
+        assert self.src.reporter.chart_input_fields_self_ref_no_formula == 1
+        assert self.src.reporter.chart_input_fields_formulas_not_fetched == 0
+
+    def test_an_aborted_workbook_is_attributed_to_the_fetch_not_to_sigma(self) -> None:
+        self._count(formulas_incomplete=True)
+        assert self.src.reporter.chart_input_fields_formulas_not_fetched == 1
+        assert self.src.reporter.chart_input_fields_self_ref_no_formula == 0
+        # Still one column in the fallback bucket either way: the split is a
+        # sub-category, so the per-element invariant is unchanged.
+        assert self.src.reporter.chart_input_fields_self_ref_fallback == 1

@@ -93,6 +93,12 @@ class SigmaAPI:
         # report summary readable on large tenants with repeated unknown
         # node types.
         self._unknown_lineage_node_types_warned: Set[str] = set()
+        # Workbooks whose /columns fetch aborted, so their column formulas are
+        # missing or incomplete through no fault of the resolver. Read at emit
+        # time to keep those columns out of the "Sigma reported no formula"
+        # bucket. Public because SigmaSource, not the API client, is what
+        # attributes a column to a cause.
+        self.column_formulas_incomplete_workbooks: Set[str] = set()
         # /spec fails identically for every model when the token lacks the
         # scope; warn once and let the counter carry the magnitude.
         self._spec_unavailable_warned: bool = False
@@ -865,6 +871,14 @@ class SigmaAPI:
                     col_ids.setdefault(elem_id, {})[name] = column_id
         if self.report.pagination_aborted > aborts_before:
             self.report.column_formulas_fetch_partial += 1
+            # Recorded, not just counted. Without the id, a chart column from
+            # this workbook is indistinguishable at emit time from one Sigma
+            # genuinely reported no formula for, and the whole workbook lands
+            # in ``chart_input_fields_self_ref_no_formula`` -- which reads as
+            # "Sigma has nothing to give" when the truth is we never asked
+            # successfully. On one tenant (2026-09) 12 workbooks aborted with
+            # ZERO entries retrieved.
+            self.column_formulas_incomplete_workbooks.add(workbook_id)
             logger.debug(
                 "COLUMNS PARTIAL workbook %s: pagination aborted; %d element(s) "
                 "carry formulas. Every chart column absent from this response "
