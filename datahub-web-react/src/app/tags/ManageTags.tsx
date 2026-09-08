@@ -5,7 +5,12 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { PageContainer } from '@app/govern/structuredProperties/styledComponents';
+import {
+    ButtonContainer,
+    HeaderContainer,
+    HeaderContent,
+    PageContainer,
+} from '@app/govern/structuredProperties/styledComponents';
 import CreateNewTagModal from '@app/tags/CreateNewTagModal/CreateNewTagModal';
 import EmptyTags from '@app/tags/EmptyTags';
 import TagsTable from '@app/tags/TagsTable';
@@ -14,19 +19,6 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
-
-const HeaderContainer = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0px;
-`;
-
-const SearchContainer = styled.div`
-    display: flex;
-    align-items: center;
-    margin-bottom: 0px;
-`;
 
 // Simple loading indicator at the top of the page
 const LoadingBar = styled.div`
@@ -145,22 +137,19 @@ const ManageTags = () => {
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             {searchLoading && <LoadingBar />}
-
             <HeaderContainer>
-                <PageTitle title={t('tags.pageTitle')} subTitle={t('tags.pageSubtitle')} />
-                {createButton}
+                <HeaderContent>
+                    <PageTitle title={t('tags.pageTitle')} subTitle={t('tags.pageSubtitle')} />
+                </HeaderContent>
+                <ButtonContainer>{createButton}</ButtonContainer>
             </HeaderContainer>
-
-            <SearchContainer>
-                <SearchBar
-                    placeholder={t('tags.searchPlaceholder')}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e)}
-                    data-testid="tag-search-input"
-                    width="280px"
-                />
-            </SearchContainer>
-
+            <SearchBar
+                placeholder={t('tags.searchPlaceholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e)}
+                data-testid="tag-search-input"
+                width="280px"
+            />
             {!searchLoading && !hasSearchResults ? (
                 <EmptyTags isEmptySearch={debouncedSearchQuery.length > 0} />
             ) : (
