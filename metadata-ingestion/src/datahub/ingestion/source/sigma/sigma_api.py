@@ -63,6 +63,12 @@ logger = logging.getLogger(__name__)
 # so the model rejects them -- correctly, but they are not malformed data.
 _NON_DATA_ELEMENT_TYPES = frozenset({"control", "divider", "text", "image", "button"})
 
+# Lineage nodes that combine inputs and hold no data of their own, so the walk
+# continues through them to whatever feeds them. 'union' was found unhandled on
+# a live tenant (2026-09): every element behind one lost its upstreams entirely,
+# for the same reason 'join' would have before it was handled.
+_PASS_THROUGH_NODE_TYPES = frozenset({"join", "union"})
+
 BASE_ELEMENT_TYPES = frozenset({"table", "visualization"})
 INGESTED_ELEMENT_TYPES = BASE_ELEMENT_TYPES | frozenset({"pivot-table", "input-table"})
 
@@ -451,8 +457,15 @@ class SigmaAPI:
                     context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
                     exc=e,
                 )
-        elif source_type == "join":
-            queue.append(source_node_id)  # pass-through
+        elif source_type in _PASS_THROUGH_NODE_TYPES:
+            # A combining node holds no data of its own: its upstreams are what
+            # feed it, so re-enqueue and keep walking. The BFS ``visited`` set
+            # makes re-enqueueing safe.
+            self.report.workbook_lineage_pass_through_nodes[str(source_type)] = (
+                self.report.workbook_lineage_pass_through_nodes.get(str(source_type), 0)
+                + 1
+            )
+            queue.append(source_node_id)
         elif source_type == "table":
             # nodeId format: "inode-{urlId}". Strip prefix; name is used for
             # name-based resolution in SigmaSource via wb_warehouse_table_index.
@@ -496,6 +509,23 @@ class SigmaAPI:
             # one loses its upstreams silently.
             self.report.workbook_lineage_node_types_unhandled[warn_key] = (
                 self.report.workbook_lineage_node_types_unhandled.get(warn_key, 0) + 1
+            )
+            logger.debug(
+                "UNKNOWN LINEAGE NODE type=%r element=%s workbook=%s: key "
+                "skeleton (structure only, no values): %r",
+                source_type,
+                element.elementId,
+                workbook.workbookId,
+                {
+                    k: (
+                        f"<str len={len(v)}>"
+                        if isinstance(v, str)
+                        else type(v).__name__
+                    )
+                    for k, v in sorted(source_node.items())
+                }
+                if isinstance(source_node, dict)
+                else type(source_node).__name__,
             )
             if warn_key not in self._unknown_lineage_node_types_warned:
                 self._unknown_lineage_node_types_warned.add(warn_key)

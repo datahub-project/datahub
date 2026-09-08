@@ -692,6 +692,51 @@ class TestGetElementUpstreamSources:
         assert isinstance(result["good_ds"], DatasetUpstream)
         assert len(api.report.warnings) == 1  # malformed-edge warning only
 
+    def test_union_node_is_walked_through_like_a_join(self) -> None:
+        """A union combines inputs and holds no data of its own.
+
+        Found unhandled on a live tenant: every element behind a union node
+        lost its upstreams entirely, for the same reason a join would have
+        before joins were walked through.
+        """
+        api = _create_sigma_api()
+        element = _make_element()
+        workbook = _make_workbook()
+
+        with patch.object(
+            api,
+            "_get_api_call",
+            return_value=_lineage_response(
+                {
+                    "dependencies": {
+                        "tgt_node": {
+                            "nodeId": "tgt_node",
+                            "elementId": "elem1",
+                            "type": "sheet",
+                        },
+                        "union_node": {"nodeId": "union_node", "type": "union"},
+                        "src_ds": {
+                            "nodeId": "src_ds",
+                            "name": "Upstream Dataset",
+                            "type": "dataset",
+                        },
+                    },
+                    "edges": [
+                        {"source": "union_node", "target": "tgt_node"},
+                        {"source": "src_ds", "target": "union_node"},
+                    ],
+                }
+            ),
+        ):
+            result = api._get_element_upstream_sources(element, workbook)
+
+        # The dataset behind the union is reached; the union itself is not an
+        # upstream in its own right.
+        assert "src_ds" in result
+        assert "union_node" not in result
+        assert api.report.workbook_lineage_pass_through_nodes == {"union": 1}
+        assert api.report.workbook_lineage_node_types_unhandled == {}
+
     def test_request_exception_is_reported_and_returns_empty(self) -> None:
         api = _create_sigma_api()
         element = _make_element()

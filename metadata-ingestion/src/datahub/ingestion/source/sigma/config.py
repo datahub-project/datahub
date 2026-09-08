@@ -388,6 +388,9 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # the magnitude appears. 'union' is the one to watch: it combines inputs
     # the way 'join' does, so every element behind one loses its upstreams.
     workbook_lineage_node_types_unhandled: Dict[str, int] = field(default_factory=dict)
+    # Combining nodes the BFS walked through, by type. Separate from the
+    # unhandled map so a type moving from one to the other is visible.
+    workbook_lineage_pass_through_nodes: Dict[str, int] = field(default_factory=dict)
     # Layout elements (control, divider, ...) returned alongside data elements.
     # They have no name and are correctly skipped; counted separately so
     # pagination_malformed_entries_dropped keeps meaning "a real entry failed
