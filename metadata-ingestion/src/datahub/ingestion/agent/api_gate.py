@@ -1,10 +1,14 @@
 import re
-from typing import Iterable, List, Pattern
-from urllib.parse import unquote
+from typing import Iterable, List, Optional, Pattern
+from urllib.parse import unquote, urlsplit
 
 # Only reads. Unlike the SQL gate's "is this a SELECT", which needed CTE and
 # subquery analysis to mean anything, this one is exact.
-_READ_METHOD = "GET"
+#
+# Public because the framework passes it in: it was private, so probe_methods
+# spelled "GET" as a literal at the call site and _effective_path spelled it a
+# third time. One name, so read-only cannot be relaxed in one place only.
+READ_METHOD = "GET"
 
 # A placeholder stands for exactly one path segment. Allowing it to span "/"
 # would let "/spaces/{token}/reports" match "/spaces/a/b/reports" and reach an
@@ -33,18 +37,52 @@ def _compile(entry: str) -> Pattern[str]:
 
 
 def _allowed_paths(allowlist: Iterable[str]) -> List[Pattern[str]]:
-    return [
-        _compile(e) for e in allowlist if e.split(" ", 1)[0].upper() == _READ_METHOD
-    ]
+    return [_compile(e) for e in allowlist if e.split(" ", 1)[0].upper() == READ_METHOD]
 
 
-def check_api_request(method: str, path: str, allowlist: Iterable[str]) -> None:
+def _effective_path(base_url: str, path: str) -> str:
+    """The path the client will actually request, resolved as the client resolves it.
+
+    RestApiPassthrough.api sends f"{api_base_url}{path}", and requests then
+    normalises dot segments and drops any fragment. Reproducing that here means
+    the gate inspects the wire path rather than the caller's string, and the
+    result is returned relative to the base so it can be matched against an
+    allowlist written in the connector's own terms ("GET /spaces").
+
+    A path that resolves outside the base is refused outright: the base is what
+    scopes these credentials to one workspace, and escaping it aims them
+    somewhere the allowlist never described.
+    """
+    import requests
+
+    prepared = requests.Request(READ_METHOD, f"{base_url}{path}").prepare()
+    resolved = urlsplit(prepared.url or "").path
+    base_path = urlsplit(base_url).path.rstrip("/")
+    if not base_path:
+        return resolved
+    if resolved == base_path:
+        return "/"
+    if not resolved.startswith(base_path + "/"):
+        raise ApiScopeError(
+            f"'{path}' resolves to '{resolved}', outside this connector's API "
+            f"base '{base_path}' -- the base is what scopes these credentials "
+            f"to one workspace"
+        )
+    return resolved[len(base_path) :]
+
+
+def check_api_request(
+    method: str,
+    path: str,
+    allowlist: Iterable[str],
+    base_url: Optional[str] = None,
+) -> None:
     """Raise ApiScopeError unless `path` is a listed read endpoint.
 
     Fail-closed: an empty allowlist permits nothing, so a connector that has
     not opted in exposes no endpoints at all.
     """
-    if method.upper() != _READ_METHOD:
+    if method.upper() != READ_METHOD:
         raise ApiScopeError(
             f"the probe is read-only; {method.upper()} is not permitted"
         )
@@ -78,7 +116,25 @@ def check_api_request(method: str, path: str, allowlist: Iterable[str]) -> None:
         # would aim its credentials somewhere it never meant to call.
         raise ApiScopeError(f"'{path}' may not traverse outside its base path")
 
-    bare = decoded.split("?")[0]
+    # Match on the path the client will REALLY request, whenever the caller can
+    # tell us the base. Checking the caller's own string is what let two
+    # bypasses through, both of the same shape -- one path validated, another
+    # issued:
+    #
+    #   "#"    truncated the request client-side, so the gate matched a listed
+    #          template and the client fetched a shorter path.
+    #   "%3F"  truncated only the gate's view. It decodes to "?" here, so
+    #          `decoded.split("?")[0]` stopped there -- while on the wire it
+    #          stays an ordinary path character, leaving the "../" segments
+    #          after it live. requests normalises dot segments itself, so
+    #          "/reports/x%3F/../../../api/other_ws/spaces" reached
+    #          "/api/api/other_ws/spaces": outside the workspace base the
+    #          allowlist scopes these credentials to, with no cooperating
+    #          server needed.
+    #
+    # Resolving the URL the way the client resolves it ends the class rather
+    # than adding a third special case.
+    bare = _effective_path(base_url, path) if base_url else decoded.split("?")[0]
     if not any(pattern.match(bare) for pattern in _allowed_paths(allowlist)):
         raise ApiScopeError(
             f"'{bare}' is not in this connector's allowlist of read endpoints"

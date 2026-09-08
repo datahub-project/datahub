@@ -101,3 +101,55 @@ def test_an_encoded_hash_is_data_and_stays_usable(path):
     starts a fragment, so the check reads the raw path rather than the decoded
     one, which is the single place here that distinction matters."""
     check_api_request("GET", path, ALLOWLIST)
+
+
+_BASE = "https://app.example.com/api/myworkspace"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        # The %3F bypass. It decodes to "?" so the gate's own split stopped
+        # there, while on the wire it stays an ordinary path character and the
+        # "../" segments after it stay live. requests normalises dot segments
+        # itself, so this reached /api/api/other_ws/spaces -- outside the
+        # workspace base that scopes these credentials -- with no cooperating
+        # server needed.
+        "/reports/x%3F/../../../api/other_ws/spaces",
+        "/reports/x%3F/../../../../etc",
+        # Encoded separators, the same trick one level down.
+        "/reports/x%2F..%2F..%2Fadmin",
+        # And the shapes the earlier checks already caught, re-asserted through
+        # the base-aware path so a refactor cannot lose them.
+        "/spaces/a#b/reports",
+        "/spaces/../../other",
+    ],
+)
+def test_a_path_resolving_outside_the_api_base_is_refused(path):
+    with pytest.raises(ApiScopeError):
+        check_api_request("GET", path, ALLOWLIST, base_url=_BASE)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/spaces",
+        "/spaces/abc/reports",
+        "/spaces?filter=all&per_page=30",
+        # An encoded "#" is data, not a fragment, and must survive.
+        "/spaces?filter=%23tag",
+    ],
+)
+def test_a_listed_path_still_matches_against_the_resolved_url(path):
+    check_api_request("GET", path, ALLOWLIST, base_url=_BASE)
+
+
+def test_the_gate_still_works_without_a_base_url():
+    """Not every provider primes api_base_url, and the raw checks must still
+    apply when it is absent -- the base-aware match is an upgrade, not the only
+    line of defence."""
+    check_api_request("GET", "/spaces", ALLOWLIST)
+    with pytest.raises(ApiScopeError):
+        check_api_request("GET", "/spaces/a#b/reports", ALLOWLIST)
+    with pytest.raises(ApiScopeError):
+        check_api_request("GET", "/admin", ALLOWLIST)

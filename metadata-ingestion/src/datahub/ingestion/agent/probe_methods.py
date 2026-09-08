@@ -424,7 +424,10 @@ def _enforce_gates(
         )
 
     if spec.scoped_path_param is not None:
-        from datahub.ingestion.agent.api_gate import check_api_request
+        from datahub.ingestion.agent.api_gate import (
+            READ_METHOD,
+            check_api_request,
+        )
 
         allowlist = getattr(provider, "api_allowlist", None)
         if allowlist is None:
@@ -438,7 +441,15 @@ def _enforce_gates(
                 f"provider declares no api_allowlist, so no path can be permitted"
             )
         # GET-only is the rule, so the method is not the caller's to choose.
-        check_api_request("GET", str(call_kwargs[spec.scoped_path_param]), allowlist)
+        # The base URL is passed so the gate can resolve the path the way the
+        # client will and match on that, rather than on the caller's string --
+        # see _effective_path for the two bypasses that distinction closes.
+        check_api_request(
+            READ_METHOD,
+            str(call_kwargs[spec.scoped_path_param]),
+            allowlist,
+            base_url=getattr(provider, "api_base_url", None),
+        )
 
 
 def _report_entries(report: object, kind: str) -> Set[str]:
