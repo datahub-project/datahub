@@ -3125,3 +3125,56 @@ class TestPaginationAbortAccounting:
         with patch.object(api, "_get_api_call", return_value=self._failing()):
             api._get_data_model_columns("dm-1")
         assert api.report.data_model_columns_fetch_partial == 1
+
+
+class TestApiFailuresReachTheReport:
+    """``_log_http_error`` is the terminal handler for most API failures.
+
+    It used to log a context-free ``HTTP status-code = 404`` at WARNING, put
+    the only identifying detail on a DEBUG line, and touch the report not at
+    all -- so an operator not running with ``--debug`` saw a bare status code,
+    and the ingestion report showed nothing. On one tenant (2026-09) that hid
+    26 failures across three status codes.
+    """
+
+    def test_an_http_failure_is_counted_and_reported_with_context(self) -> None:
+        api = _create_sigma_api()
+        response = requests.Response()
+        response.status_code = 404
+        try:
+            raise requests.exceptions.HTTPError(response=response)
+        except requests.exceptions.HTTPError:
+            api._log_http_error(message="Unable to fetch workspace 'ws-1'.")
+
+        assert api.report.api_call_failures_by_status == {"404": 1}
+        assert len(api.report.warnings) == 1
+        assert "ws-1" in api.report.warnings[0].context[0]
+
+    def test_a_failure_with_no_response_is_keyed_by_exception_type(self) -> None:
+        """A connection error has no status code but is still a failed call."""
+        api = _create_sigma_api()
+        try:
+            raise requests.exceptions.ConnectionError("refused")
+        except requests.exceptions.ConnectionError:
+            api._log_http_error(message="Unable to fetch datasets.")
+
+        assert api.report.api_call_failures_by_status == {"ConnectionError": 1}
+
+    def test_a_caller_with_its_own_warning_is_not_double_reported(self) -> None:
+        """The counter must still fire even when the warning is suppressed.
+
+        Pagination aborts already emit a warning naming the endpoint, the URL
+        and how many rows survived. Adding a second, vaguer one for the same
+        failure would make the report harder to read, but dropping the count
+        would put us back to invisible.
+        """
+        api = _create_sigma_api()
+        response = requests.Response()
+        response.status_code = 500
+        try:
+            raise requests.exceptions.HTTPError(response=response)
+        except requests.exceptions.HTTPError:
+            api._log_http_error(message="ctx", report_warning=False)
+
+        assert api.report.api_call_failures_by_status == {"500": 1}
+        assert api.report.warnings == []

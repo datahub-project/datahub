@@ -4077,6 +4077,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             try:
                 upstream = SchemaFieldUrn.from_string(fgl.upstreams[0])
             except InvalidUrnError:
+                # Only reachable if an edge built earlier in this method minted
+                # a malformed field URN. Silently skipping meant join-key
+                # expansion could stop working entirely while every counter
+                # still read as healthy.
+                self.reporter.data_model_join_key_upstream_urn_invalid += 1
+                logger.debug(
+                    "JOIN KEY DM %s element %s: existing edge has an unparseable "
+                    "upstream field URN, so no predicate can be matched against "
+                    "it -- this points at the edge builder, not at /spec",
+                    data_model.dataModelId,
+                    element.elementId,
+                )
                 continue
             parent = str(upstream.parent)
             parent_key = (parent, upstream.field_path)

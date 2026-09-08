@@ -148,10 +148,46 @@ class SigmaAPI:
             }
         )
 
-    def _log_http_error(self, message: str) -> Any:
+    def _log_http_error(self, message: str, *, report_warning: bool = True) -> Any:
+        """Record a failed Sigma API call.
+
+        This is the terminal handler for most ``except`` blocks in this class,
+        so anything it drops is invisible. It used to log a context-free
+        ``HTTP status-code = 404`` at WARNING and put the only identifying
+        detail on a DEBUG line -- an operator not running with ``--debug`` saw
+        a bare status code and nothing about which call failed, and the
+        ingestion report showed nothing at all. On one tenant (2026-09) that
+        hid 26 failures across three status codes.
+
+        ``message`` already names the resource at every call site, so it is
+        passed through as the warning context. The title is fixed so LossyList
+        groups them, and the counter beside it carries the true total after
+        that list truncates.
+        """
         _, e, _ = sys.exc_info()
-        if isinstance(e, requests.exceptions.HTTPError):
-            logger.warning(f"HTTP status-code = {e.response.status_code}")
+        status = (
+            e.response.status_code
+            if isinstance(e, requests.exceptions.HTTPError) and e.response is not None
+            else None
+        )
+        key = str(status) if status is not None else type(e).__name__
+        self.report.api_call_failures_by_status[key] = (
+            self.report.api_call_failures_by_status.get(key, 0) + 1
+        )
+        if not report_warning:
+            # The caller emits its own, better-scoped warning for this failure
+            # (pagination aborts name the endpoint, the URL and how many rows
+            # survived). The counter above still fires, so the failure is
+            # never invisible -- only un-duplicated.
+            logger.debug(msg=message, exc_info=e)
+            return e
+        self.report.warning(
+            title="Sigma API call failed",
+            message="A Sigma API call failed. The affected objects are emitted "
+            "without whatever that call would have provided; see "
+            "api_call_failures_by_status for the totals by status code.",
+            context=f"{message} (http_status={status})",
+        )
         logger.debug(msg=message, exc_info=e)
         return e
 
@@ -1126,7 +1162,9 @@ class SigmaAPI:
                 ),
                 exc=e,
             )
-            self._log_http_error(message=f"{error_ctx} Exception: {e}")
+            self._log_http_error(
+                message=f"{error_ctx} Exception: {e}", report_warning=False
+            )
             return raw_entries
 
     # Cap per-endpoint malformed-entry warnings so a vendor regression

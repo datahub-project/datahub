@@ -296,6 +296,15 @@ models, and join keys are simply absent — everything else still ingests. If
 the shape the parser reads; run with `--debug` and look for `DM SPEC JOIN` lines, which log
 the descriptor's structure (key names and types only, never values).
 
+#### Failed API calls
+
+`api_call_failures_by_status` counts every Sigma API call that failed, keyed by HTTP status
+(or by exception class when there was no response). Each one also appears as a
+`Sigma API call failed` warning naming the resource. Read this first when lineage looks thin:
+a run with hundreds of 404s or 409s is missing input, not mis-resolving it. Failures that the
+calling code already reports in more detail — a pagination abort, for instance — are counted
+here but not warned about twice.
+
 #### Reading the chart InputFields counters
 
 Every chart column lands in exactly one bucket, and the fallback bucket is split by cause —

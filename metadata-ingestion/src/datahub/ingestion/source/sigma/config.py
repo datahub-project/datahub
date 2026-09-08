@@ -327,6 +327,9 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # skip used to be "not one of our elements", which also threw away joins
     # whose two sides BOTH live in other models.
     data_model_join_key_parent_outside_model: int = 0
+    # An edge this connector built carries an upstream field URN that will not
+    # parse. Non-zero means a defect in the edge builder, not in Sigma's data.
+    data_model_join_key_upstream_urn_invalid: int = 0
     # Union output columns read out of /spec, before any of them is matched
     # against real columns. The denominator for the three union counters below.
     data_model_union_output_columns_read: int = 0
@@ -419,6 +422,12 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Combining nodes the BFS walked through, by type. Separate from the
     # unhandled map so a type moving from one to the other is visible.
     workbook_lineage_pass_through_nodes: Dict[str, int] = field(default_factory=dict)
+    # Failed Sigma API calls by HTTP status (or exception class when there is
+    # no response). Every ``except`` in the API client funnels into
+    # ``_log_http_error``, which previously logged a context-free status code
+    # and touched the report not at all -- so these failures were invisible
+    # unless the run was in debug. On one tenant (2026-09): 11x404, 9x400, 6x409.
+    api_call_failures_by_status: Dict[str, int] = field(default_factory=dict)
     # Chart columns whose workbook's /columns fetch aborted, so no formula was
     # ever retrieved for them. Split out of chart_input_fields_self_ref_no_formula,
     # which otherwise reports a fetch failure as "Sigma has no formula" -- on one
