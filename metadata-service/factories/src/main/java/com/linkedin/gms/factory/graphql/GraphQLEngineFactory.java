@@ -11,6 +11,10 @@ import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.CompositeAnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.DefaultAnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.PostgresAnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.postgres.PostgresAnalyticsQueries;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLWorkerPoolThreadFactory;
 import com.linkedin.entity.client.EntityClient;
@@ -25,6 +29,8 @@ import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.knowledge.DocumentImportServiceFactory;
 import com.linkedin.gms.factory.knowledge.DocumentServiceFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
+import com.linkedin.metadata.analytics.postgres.AnalyticsMetricFamilies;
+import com.linkedin.metadata.analytics.postgres.PgAnalyticsStoreRegistry;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.graphql.GraphQLConcurrencyConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
@@ -91,7 +97,7 @@ import org.springframework.context.annotation.Import;
 })
 public class GraphQLEngineFactory {
 
-  @Autowired
+  @Autowired(required = false)
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
 
@@ -218,6 +224,9 @@ public class GraphQLEngineFactory {
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
+  @Autowired(required = false)
+  private PgAnalyticsStoreRegistry pgAnalyticsStoreRegistry;
+
   @Autowired
   @Qualifier("businessAttributeService")
   private BusinessAttributeService businessAttributeService;
@@ -277,7 +286,7 @@ public class GraphQLEngineFactory {
             configProvider.getCache().getClient().getUsageClient(),
             metricUtils));
     if (isAnalyticsEnabled) {
-      args.setAnalyticsService(new AnalyticsService(elasticClient, indexConvention));
+      args.setAnalyticsService(createAnalyticsService());
     }
     args.setEntityService(entityService);
     args.setRecommendationsService(recommendationsService);
@@ -350,6 +359,34 @@ public class GraphQLEngineFactory {
   protected AspectMappingRegistry aspectMappingRegistry(
       @Qualifier("graphQLEngine") final GraphQLEngine engine) {
     return new AspectMappingRegistry(engine.getGraphQL().getGraphQLSchema());
+  }
+
+  @Nonnull
+  private AnalyticsService createAnalyticsService() {
+    DefaultAnalyticsService defaultAnalytics =
+        elasticClient != null ? new DefaultAnalyticsService(elasticClient, indexConvention) : null;
+    if (configProvider.getPlatformAnalytics().getUsageEvents().usePostgresql()) {
+      if (pgAnalyticsStoreRegistry == null) {
+        throw new IllegalStateException(
+            "platformAnalytics.usage-events.implementation=postgres requires"
+                + " postgres.pgAnalytics.enabled=true (PgAnalyticsStoreRegistry missing)");
+      }
+      PostgresAnalyticsQueries queries =
+          new PostgresAnalyticsQueries(
+              pgAnalyticsStoreRegistry.resolve(AnalyticsMetricFamilies.DATAHUB_USAGE).getStore(),
+              indexConvention);
+      PostgresAnalyticsService postgresAnalytics =
+          new PostgresAnalyticsService(indexConvention, queries);
+      if (defaultAnalytics == null) {
+        return postgresAnalytics;
+      }
+      return new CompositeAnalyticsService(postgresAnalytics, defaultAnalytics);
+    }
+    if (defaultAnalytics == null) {
+      throw new IllegalStateException(
+          "Analytics charts require elasticsearch.enabled=true or pgAnalytics");
+    }
+    return defaultAnalytics;
   }
 
   @Bean(name = "graphQLWorkerPool")

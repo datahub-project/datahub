@@ -203,13 +203,11 @@ public final class PgTimeseriesStoreConnections {
   }
 
   @Nullable
-  private static Map<String, String> ebeanCustomProperties(
-      @Nullable DataSourceBuilder.Settings cfg) {
+  static Map<String, String> ebeanCustomProperties(@Nullable DataSourceBuilder.Settings cfg) {
     return cfg == null ? null : cfg.getCustomProperties();
   }
 
-  private static void mergeNonBlank(
-      @Nonnull Properties target, @Nullable Map<String, String> extra) {
+  static void mergeNonBlank(@Nonnull Properties target, @Nullable Map<String, String> extra) {
     if (extra == null) {
       return;
     }
@@ -222,7 +220,7 @@ public final class PgTimeseriesStoreConnections {
   }
 
   @Nullable
-  private static String firstNonBlank(String... values) {
+  static String firstNonBlank(String... values) {
     if (values == null) {
       return null;
     }
@@ -246,7 +244,7 @@ public final class PgTimeseriesStoreConnections {
   }
 
   @Nullable
-  private static String emptyToNull(String s) {
+  static String emptyToNull(String s) {
     if (s == null || s.isBlank()) {
       return null;
     }
@@ -254,7 +252,7 @@ public final class PgTimeseriesStoreConnections {
   }
 
   @Nullable
-  private static String blankToNull(@Nullable String s) {
+  static String blankToNull(@Nullable String s) {
     return emptyToNull(s);
   }
 }

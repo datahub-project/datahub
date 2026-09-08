@@ -10,6 +10,12 @@ public final class PgQueueLeaseMarkers {
   /** {@code lock_owner} value for a committed (acked) message within a consumer group. */
   public static final String ACKED_LOCK_OWNER = "__acked__";
 
+  /**
+   * {@code lock_owner} after an explicit release (nack) so the row is eligible for immediate
+   * re-acquire without waiting for visibility timeout.
+   */
+  public static final String RELEASED_LOCK_OWNER = "__released__";
+
   /** {@code locked_until} for acked rows; always in the past so they never block dequeue. */
   public static final Instant ACKED_LOCKED_UNTIL = Instant.EPOCH;
 

@@ -7,19 +7,27 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.CompositeAnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.DefaultAnalyticsService;
 import com.linkedin.datahub.graphql.analytics.service.EntityStats;
+import com.linkedin.datahub.graphql.analytics.service.PostgresAnalyticsService;
+import com.linkedin.datahub.graphql.analytics.service.postgres.PostgresAnalyticsQueries;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.NamedBar;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.analytics.postgres.AnalyticsMetricFamilies;
+import com.linkedin.metadata.analytics.postgres.PgAnalyticsStoreRegistry;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -47,6 +55,7 @@ public class DailyReport {
   private final ConfigurationProvider _configurationProvider;
   private final EntityService<?> _entityService;
   private final GitVersion _gitVersion;
+  private final PgAnalyticsStoreRegistry _pgAnalyticsStoreRegistry;
 
   private static final String MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a";
 
@@ -93,15 +102,32 @@ public class DailyReport {
 
   public DailyReport(
       @Nonnull OperationContext systemOperationContext,
-      SearchClientShim<?> elasticClient,
+      @Nullable SearchClientShim<?> elasticClient,
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
       GitVersion gitVersion) {
+    this(
+        systemOperationContext,
+        elasticClient,
+        configurationProvider,
+        entityService,
+        gitVersion,
+        null);
+  }
+
+  public DailyReport(
+      @Nonnull OperationContext systemOperationContext,
+      @Nullable SearchClientShim<?> elasticClient,
+      ConfigurationProvider configurationProvider,
+      EntityService<?> entityService,
+      GitVersion gitVersion,
+      PgAnalyticsStoreRegistry pgAnalyticsStoreRegistry) {
     this.systemOperationContext = systemOperationContext;
     this._elasticClient = elasticClient;
     this._configurationProvider = configurationProvider;
     this._entityService = entityService;
     this._gitVersion = gitVersion;
+    this._pgAnalyticsStoreRegistry = pgAnalyticsStoreRegistry;
     try {
       String clientId = getClientId(systemOperationContext, entityService);
 
@@ -131,9 +157,7 @@ public class DailyReport {
   // statistics to send daily
   @Scheduled(fixedDelay = 24 * 60 * 60 * 1000)
   public void dailyReport() {
-    AnalyticsService analyticsService =
-        new AnalyticsService(
-            _elasticClient, systemOperationContext.getSearchContext().getIndexConvention());
+    AnalyticsService analyticsService = createAnalyticsService();
 
     DateTime endDate = DateTime.now();
     DateTime yesterday = endDate.minusDays(1);
@@ -216,6 +240,9 @@ public class DailyReport {
    * @return the count of users, or 0 if an error occurs
    */
   private int getTotalUserCount() {
+    if (_elasticClient == null) {
+      return 0;
+    }
     try {
       String corpUserIndex =
           systemOperationContext
@@ -248,6 +275,9 @@ public class DailyReport {
    * @return the count of service accounts, or 0 if an error occurs
    */
   private int getServiceAccountCount() {
+    if (_elasticClient == null) {
+      return 0;
+    }
     try {
       String corpUserIndex =
           systemOperationContext
@@ -470,5 +500,37 @@ public class DailyReport {
     } else {
       return "1M+";
     }
+  }
+
+  @Nonnull
+  private AnalyticsService createAnalyticsService() {
+    IndexConvention indexConvention =
+        systemOperationContext.getSearchContext().getIndexConvention();
+    DefaultAnalyticsService defaultAnalytics =
+        _elasticClient != null
+            ? new DefaultAnalyticsService(_elasticClient, indexConvention)
+            : null;
+    if (_configurationProvider.getPlatformAnalytics().getUsageEvents().usePostgresql()) {
+      if (_pgAnalyticsStoreRegistry == null) {
+        throw new IllegalStateException(
+            "platformAnalytics.usage-events.implementation=postgres requires"
+                + " postgres.pgAnalytics.enabled=true (PgAnalyticsStoreRegistry missing)");
+      }
+      PostgresAnalyticsQueries queries =
+          new PostgresAnalyticsQueries(
+              _pgAnalyticsStoreRegistry.resolve(AnalyticsMetricFamilies.DATAHUB_USAGE).getStore(),
+              indexConvention);
+      PostgresAnalyticsService postgresAnalytics =
+          new PostgresAnalyticsService(indexConvention, queries);
+      if (defaultAnalytics == null) {
+        return postgresAnalytics;
+      }
+      return new CompositeAnalyticsService(postgresAnalytics, defaultAnalytics);
+    }
+    if (defaultAnalytics == null) {
+      throw new IllegalStateException(
+          "Daily telemetry analytics require elasticsearch.enabled=true or pgAnalytics");
+    }
+    return defaultAnalytics;
   }
 }

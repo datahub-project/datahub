@@ -928,6 +928,21 @@ def cmd_test(args: argparse.Namespace) -> int:
 
     # Set up environment variables (replicate set-test-env-vars.sh)
     env = _dev_env()
+    # Mirror docker common-env keys into the pytest process (compose reads the file;
+    # pytest does not unless we inject). Prefer explicit process env already present.
+    if DEV_ENV_FILE.exists():
+        for line in DEV_ENV_FILE.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            if key in (
+                "DATAHUB_USAGE_EVENTS_IMPLEMENTATION",
+                "DATAHUB_PGANALYTICS_ENABLED",
+                "DB_TYPE",
+            ):
+                env.setdefault(key, value.strip().strip('"').strip("'"))
     gms_base_path = env.get("DATAHUB_GMS_BASE_PATH", "")
     instance_gms_url = _gms_url()
     if gms_base_path == "/" or not gms_base_path:

@@ -68,3 +68,10 @@ bootstrap:
       mcps_location: "bootstrap_mcps/ingestion-datahub-documents.yaml"
       values_env: "DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_DOCUMENTS_REVISION"
+
+    - name: ingestion-datahub-analytics-compaction
+      version: v2
+      optional: true
+      mcps_location: "bootstrap_mcps/ingestion-datahub-analytics-compaction.yaml"
+      values_env: "DATAHUB_ANALYTICS_COMPACTION_BOOTSTRAP_VALUES"
+      revision_env: "DATAHUB_ANALYTICS_COMPACTION_BOOTSTRAP_REVISION"

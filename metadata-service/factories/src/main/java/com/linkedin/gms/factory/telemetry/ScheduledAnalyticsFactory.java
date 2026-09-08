@@ -1,11 +1,13 @@
 package com.linkedin.gms.factory.telemetry;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.analytics.postgres.PgAnalyticsStoreRegistry;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -21,11 +23,17 @@ public class ScheduledAnalyticsFactory {
   @ConditionalOnProperty("telemetry.enabledServer")
   public DailyReport dailyReport(
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
-      @Qualifier("searchClientShim") SearchClientShim<?> elasticClient,
+      @Autowired(required = false) @Qualifier("searchClientShim") SearchClientShim<?> elasticClient,
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
-      GitVersion gitVersion) {
+      GitVersion gitVersion,
+      @Autowired(required = false) PgAnalyticsStoreRegistry pgAnalyticsStoreRegistry) {
     return new DailyReport(
-        systemOperationContext, elasticClient, configurationProvider, entityService, gitVersion);
+        systemOperationContext,
+        elasticClient,
+        configurationProvider,
+        entityService,
+        gitVersion,
+        pgAnalyticsStoreRegistry);
   }
 }

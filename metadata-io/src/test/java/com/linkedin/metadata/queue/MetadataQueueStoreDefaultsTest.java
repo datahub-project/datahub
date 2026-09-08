@@ -76,6 +76,7 @@ public class MetadataQueueStoreDefaultsTest {
         () -> store.receiveBatchForGroup("g", 1L, List.of(0), "owner", Duration.ofSeconds(1), 1));
     expectThrows(
         UnsupportedOperationException.class, () -> store.commitForGroup("g", List.of(), true));
+    expectThrows(UnsupportedOperationException.class, () -> store.releaseForGroup("g", List.of()));
     expectThrows(
         UnsupportedOperationException.class,
         () -> store.extendVisibilityForGroup("g", List.of(), "owner", Duration.ofSeconds(1)));

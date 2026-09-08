@@ -17,9 +17,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "smoke-test"))
 
-from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import (
+from datahub.emitter.mce_builder import make_dataset_urn  # noqa: E402
+from datahub.emitter.mcp import MetadataChangeProposalWrapper  # noqa: E402
+from datahub.metadata.schema_classes import (  # noqa: E402
     DatasetPropertiesClass,
     GlobalTagsClass,
     OwnerClass,
@@ -27,8 +27,8 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     TagAssociationClass,
 )
-from conftest import build_auth_session, build_graph_client
-from tests.consistency_utils import wait_for_writes_to_sync
+from conftest import build_auth_session, build_graph_client  # noqa: E402
+from tests.consistency_utils import wait_for_writes_to_sync  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +96,9 @@ def emit_dataset(graph, platform: str, name: str, description: str) -> str:
     graph.emit_mcp(
         MetadataChangeProposalWrapper(
             entityUrn=urn,
-            aspect=DatasetPropertiesClass(name=name.split(".")[-1], description=description),
+            aspect=DatasetPropertiesClass(
+                name=name.split(".")[-1], description=description
+            ),
         )
     )
     return urn

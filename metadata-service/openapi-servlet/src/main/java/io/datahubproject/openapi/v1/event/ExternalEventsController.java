@@ -65,7 +65,7 @@ public class ExternalEventsController {
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
       AuthorizerChain authorizerChain,
       DataHubUsageService dataHubUsageService,
-      ExternalEventsService eventsService) {
+      @Autowired(required = false) @Nullable ExternalEventsService eventsService) {
     this.systemOperationContext = systemOperationContext;
     this.authorizationChain = authorizerChain;
     this.dataHubUsageService = dataHubUsageService;
@@ -106,6 +106,12 @@ public class ExternalEventsController {
           Integer lookbackWindowDays) {
     try {
       final Authentication authentication = AuthenticationContext.getAuthentication();
+
+      if (eventsService == null) {
+        ExternalEventsResponse disabled = new ExternalEventsResponse();
+        disabled.setErrorMessage("Events poll API is disabled (eventsApi.enabled=false)");
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(disabled);
+      }
 
       final OperationContext opContext =
           OperationContext.asSession(

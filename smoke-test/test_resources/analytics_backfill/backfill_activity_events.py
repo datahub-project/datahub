@@ -15,7 +15,9 @@ Supports events for:
 import argparse
 import json
 import logging
+import os
 import random
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
@@ -480,9 +482,18 @@ class ActivityEventGenerator:
                 f"Added {len(coverage_events)} guaranteed coverage events for {date.date()}"
             )
 
-        # Working hours are 9 AM to 6 PM
+        # Working hours are 9 AM to 6 PM UTC; never schedule past "now" for today.
         work_start = date.replace(hour=9, minute=0, second=0, microsecond=0)
         work_end = date.replace(hour=18, minute=0, second=0, microsecond=0)
+        now_utc = datetime.now(timezone.utc)
+        if work_start.date() == now_utc.date() and work_end > now_utc:
+            work_end = now_utc
+        if work_end <= work_start:
+            logger.info(
+                "Skipping synthetic sessions for %s; work window is empty relative to now",
+                date.date(),
+            )
+            return events
 
         # Generate sessions throughout the day
         num_sessions = random.randint(target_events // 10, target_events // 5)
@@ -558,6 +569,129 @@ def send_events_to_elasticsearch(
         raise
 
 
+def _event_time_from_ms(timestamp_ms: int) -> datetime:
+    return datetime.fromtimestamp(timestamp_ms / 1000.0, tz=timezone.utc)
+
+
+def _default_product_event_table() -> str:
+    """Match smoke SoT: PRODUCT_TABLE_PREFIX + _event, or PRODUCT_EVENT_TABLE override."""
+    explicit = os.getenv("DATAHUB_PGANALYTICS_PRODUCT_EVENT_TABLE")
+    if explicit:
+        return explicit
+    prefix = os.getenv(
+        "DATAHUB_PGANALYTICS_PRODUCT_TABLE_PREFIX",
+        "metadata_analytics_product",
+    )
+    return f"{prefix}_event"
+
+
+_PG_IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _validate_postgres_relation_name(name: str) -> str:
+    """Allow ``table`` or ``schema.table``; reject SQL injection via CLI/env overrides."""
+    parts = name.split(".")
+    if not (1 <= len(parts) <= 2) or not all(_PG_IDENT.fullmatch(p) for p in parts):
+        raise ValueError(
+            f"Invalid Postgres relation name {name!r}: expected unquoted "
+            "identifier or schema.table (letters, digits, underscore)."
+        )
+    return name
+
+
+def send_events_to_postgres(
+    events: List[Dict],
+    postgres_url: str,
+    username: str,
+    password: str,
+    database: str = "datahub",
+    table: Optional[str] = None,
+    batch_size: int = 500,
+) -> None:
+    """
+    Insert synthetic usage events into pgAnalytics product store
+    (metadata_analytics_product_event by default, derived from table prefix).
+
+    Column mapping mirrors PostgresAnalyticsEventJson.parseDatahubUsage.
+    """
+    if table is None:
+        table = _default_product_event_table()
+    table = _validate_postgres_relation_name(table)
+    import psycopg2
+    from psycopg2.extras import execute_batch
+
+    host, _, port_s = postgres_url.partition(":")
+    port = int(port_s or "5432")
+    logger.info(
+        "Sending %s events to Postgres %s:%s/%s table %s...",
+        len(events),
+        host,
+        port,
+        database,
+        table,
+    )
+
+    insert_sql = f"""
+        INSERT INTO {table} (
+            event_time, metric_family, event_id, metric_name, event_type, actor_urn,
+            entity_urn, entity_type, usage_source, browser_id, query, section,
+            action_type, aspect_name, dimensions, document
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s,
+            %s, %s, NULL, %s::jsonb
+        )
+        ON CONFLICT (event_time, metric_family, event_id) DO NOTHING
+    """
+
+    rows = []
+    for event in events:
+        ts = event.get("timestamp")
+        if ts is None:
+            raise ValueError(f"Event missing timestamp: {event}")
+        event_id = str(uuid.uuid4())
+        document_json = json.dumps(event)
+        rows.append(
+            (
+                _event_time_from_ms(int(ts)),
+                "datahub_usage",
+                event_id,
+                "event_count",
+                event.get("type"),
+                event.get("actorUrn"),
+                event.get("entityUrn"),
+                event.get("entityType"),
+                event.get("usageSource"),
+                event.get("browserId"),
+                event.get("query"),
+                event.get("section"),
+                event.get("actionType"),
+                event.get("aspectName"),
+                document_json,
+            )
+        )
+
+    conn = psycopg2.connect(
+        host=host,
+        port=port,
+        user=username,
+        password=password,
+        dbname=database,
+    )
+    try:
+        with conn.cursor() as cur:
+            for i in range(0, len(rows), batch_size):
+                chunk = rows[i : i + batch_size]
+                execute_batch(cur, insert_sql, chunk, page_size=batch_size)
+        conn.commit()
+        logger.info("✅ Successfully indexed %s events to Postgres", len(events))
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Backfill synthetic activity events for DataHub analytics"
@@ -605,6 +739,39 @@ def main():
         "--load-to-elasticsearch",
         action="store_true",
         help="Load events directly to Elasticsearch after generation",
+    )
+    parser.add_argument(
+        "--load-to-postgres",
+        action="store_true",
+        help="Load events directly to Postgres pgAnalytics after generation",
+    )
+    parser.add_argument(
+        "--postgres-url",
+        default=os.getenv("DATAHUB_POSTGRES_URL", "localhost:5432"),
+        help="Postgres host:port (default: DATAHUB_POSTGRES_URL or localhost:5432)",
+    )
+    parser.add_argument(
+        "--postgres-username",
+        default=os.getenv("DATAHUB_POSTGRES_USERNAME", "datahub"),
+        help="Postgres username",
+    )
+    parser.add_argument(
+        "--postgres-password",
+        default=os.getenv("DATAHUB_POSTGRES_PASSWORD", "datahub"),
+        help="Postgres password",
+    )
+    parser.add_argument(
+        "--postgres-database",
+        default=os.getenv("DATAHUB_POSTGRES_DATABASE", "datahub"),
+        help="Postgres database name",
+    )
+    parser.add_argument(
+        "--postgres-table",
+        default=None,
+        help=(
+            "Product event table (default: DATAHUB_PGANALYTICS_PRODUCT_EVENT_TABLE "
+            "or DATAHUB_PGANALYTICS_PRODUCT_TABLE_PREFIX + '_event')"
+        ),
     )
     parser.add_argument(
         "--seed",
@@ -694,6 +861,16 @@ def main():
         send_events_to_elasticsearch(
             events=all_events,
             elasticsearch_url=args.elasticsearch_url,
+        )
+
+    if args.load_to_postgres:
+        send_events_to_postgres(
+            events=all_events,
+            postgres_url=args.postgres_url,
+            username=args.postgres_username,
+            password=args.postgres_password,
+            database=args.postgres_database,
+            table=args.postgres_table,
         )
 
     logger.info("✅ Event generation complete!")

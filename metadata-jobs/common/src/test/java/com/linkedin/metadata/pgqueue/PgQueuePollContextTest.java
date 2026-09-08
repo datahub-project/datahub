@@ -36,6 +36,17 @@ public class PgQueuePollContextTest {
   }
 
   @Test
+  public void testReleaseDelegatesToStore() {
+    MetadataQueueStore store = mock(MetadataQueueStore.class);
+    PgQueuePollContext ctx = new PgQueuePollContext(store, "grp1", Duration.ofSeconds(30), null);
+
+    QueueMessageHandle handle = new QueueMessageHandle(1L, Instant.now(), 1L, 0, 10L);
+    ctx.release(List.of(handle));
+
+    verify(store).releaseForGroup(eq("grp1"), eq(List.of(handle)));
+  }
+
+  @Test
   public void testCommitSkipsEmptyList() {
     MetadataQueueStore store = mock(MetadataQueueStore.class);
     PgQueuePollContext ctx = new PgQueuePollContext(store, "grp1", Duration.ofSeconds(30), null);
@@ -43,6 +54,16 @@ public class PgQueuePollContextTest {
     ctx.commit(List.of());
 
     verify(store, never()).commitForGroup(anyString(), any(), any(Boolean.class));
+  }
+
+  @Test
+  public void testReleaseSkipsEmptyList() {
+    MetadataQueueStore store = mock(MetadataQueueStore.class);
+    PgQueuePollContext ctx = new PgQueuePollContext(store, "grp1", Duration.ofSeconds(30), null);
+
+    ctx.release(List.of());
+
+    verify(store, never()).releaseForGroup(anyString(), any());
   }
 
   @Test(expectedExceptions = IllegalStateException.class)
