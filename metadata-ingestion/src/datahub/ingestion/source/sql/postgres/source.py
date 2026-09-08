@@ -65,7 +65,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BytesTypeClass,
     MapTypeClass,
-    RecordTypeClass,
     StringTypeClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
@@ -140,15 +139,18 @@ LTREE = _make_postgres_type("LTREE")
 CITEXT = _make_postgres_type("CITEXT")
 
 # PostGIS types are reflected via the geoalchemy2 import above; map them so
-# their columns stop falling back to NullType.
-register_custom_type(Geometry, RecordTypeClass)
-register_custom_type(Geography, RecordTypeClass)
-register_custom_type(Raster, RecordTypeClass)
+# their columns stop falling back to NullType. BytesTypeClass (not
+# RecordTypeClass, which signals a struct with nested sub-fields) follows the
+# Teradata/Snowflake precedent for opaque geospatial scalars — PostGIS values
+# really are WKB on the wire.
+register_custom_type(Geometry, BytesTypeClass)
+register_custom_type(Geography, BytesTypeClass)
+register_custom_type(Raster, BytesTypeClass)
 
 for _vector_type in (VECTOR, HALFVEC, SPARSEVEC):
     register_custom_type(_vector_type, ArrayTypeClass)
 for _geometric_type in (POINT, LINE, LSEG, BOX, PATH, POLYGON, CIRCLE):
-    register_custom_type(_geometric_type, RecordTypeClass)
+    register_custom_type(_geometric_type, BytesTypeClass)
 for _string_like_type in (XML, LTREE, CITEXT):
     register_custom_type(_string_like_type, StringTypeClass)
 
