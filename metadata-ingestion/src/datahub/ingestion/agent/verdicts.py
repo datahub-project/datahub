@@ -119,6 +119,19 @@ class ProbeSoftError(ValueError):
     """
 
 
+class ProbeReadFailed(Exception):
+    """A command failed and the connector had already recorded why.
+
+    Deliberately NOT a ValueError. A getter can call report.failure() and then
+    raise something from the ValueError family -- Hex's _project_id_or_raise
+    raises ProbeSoftError("no project titled 'x'") after its /projects fetch
+    already failed and was recorded. Mapped to exit 2, that tells an agent its
+    argument was wrong for what was an auth or transport error, and sends it to
+    fix a title that was never the problem. This carries the recorded reason and
+    maps to exit 3.
+    """
+
+
 @contextmanager
 def soft_on_status(*codes: int, context: str) -> Iterator[None]:
     """Treat the given HTTP statuses as expected absence, not failure.

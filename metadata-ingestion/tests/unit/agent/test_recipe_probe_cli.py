@@ -423,3 +423,58 @@ def test_a_name_containing_a_comma_is_judged_whole(monkeypatch, tmp_path):
     )
     assert result.exit_code == 0, result.output
     assert seen["names"] == ["Finance, EMEA", "Sales"]
+
+
+def test_the_failure_message_is_redacted_like_everything_else(monkeypatch, tmp_path):
+    """The payload was masked and then the raw failure strings were joined onto
+    stderr -- and those come from driver and report text, the very channel this
+    CLI treats as leaky. A secret masked on stdout reached the agent on the
+    error line."""
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("mode", {}, {"s3cr3t-pw"}))
+    monkeypatch.setattr(
+        rc,
+        "run_probe_method",
+        lambda st, cfg, cmd, kwargs: ProbeMethodResult(
+            st,
+            cmd,
+            kwargs,
+            {},
+            failures=["auth failed for postgresql://u:s3cr3t-pw@db/x"],
+        ),
+    )
+    res = CliRunner().invoke(
+        recipe, ["probe", "run", "data_sources", "--recipe", _recipe_file(tmp_path)]
+    )
+    assert res.exit_code != 0
+    assert "s3cr3t-pw" not in res.output
+    assert "***" in res.output
+
+
+def test_an_internal_failure_with_no_connectivity_report_does_not_exit_zero(
+    monkeypatch, tmp_path
+):
+    """A connector can fail before it reaches basic_connectivity, leaving
+    capable None and only internal_failure set -- which exited 0, the very
+    thing the capable check was added to stop."""
+    from datahub.ingestion.api.source import TestConnectionReport
+
+    class _Failing:
+        @staticmethod
+        def test_connection(config_dict):
+            return TestConnectionReport(
+                internal_failure=True,
+                internal_failure_reason="client blew up before connecting",
+            )
+
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        lambda st: _Failing,
+    )
+    monkeypatch.setattr(
+        "datahub.ingestion.api.source.TestableSource", _Failing, raising=False
+    )
+    res = CliRunner().invoke(
+        recipe, ["test-connection", "--recipe", _recipe_file(tmp_path)]
+    )
+    assert res.exit_code == 3, res.output

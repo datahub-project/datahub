@@ -297,7 +297,13 @@ def test_connection(recipe_path: str) -> None:
             basic = safe_report.get("basic_connectivity")
             if isinstance(basic, dict):
                 capable = basic.get("capable")
-        if capable is False:
+        internal = getattr(report, "internal_failure", None)
+        if internal is None and isinstance(safe_report, dict):
+            internal = safe_report.get("internal_failure")
+        # A connector can fail before it ever gets to basic_connectivity, in
+        # which case capable stays None and only internal_failure is set --
+        # which exited 0, the very thing this branch exists to stop.
+        if capable is False or internal is True:
             _fail(
                 f"connection test failed for source '{source_type}'; "
                 f"see basic_connectivity in the emitted report",
@@ -459,8 +465,17 @@ def probe_run_cmd(
         # must not read as success. Emitting first keeps the partial result and
         # the reason available to the caller; only the exit code changes.
         if result.failures:
+            # SECURITY: redacted like everything else that leaves this command.
+            # The payload above was masked and then this line joined the raw
+            # failure strings onto stderr -- and those come from driver and
+            # report text, which is exactly the channel the rest of this file
+            # treats as leaky. A secret masked on stdout still reached the
+            # agent on the error line.
+            joined = "; ".join(str(f) for f in result.failures)
             _fail(
-                f"'{command}' could not be completed: "
-                + "; ".join(str(f) for f in result.failures),
+                _redacted_text(
+                    ValueError(f"'{command}' could not be completed: {joined}"),
+                    secret_values,
+                ),
                 EXIT_CONNECTION,
             )

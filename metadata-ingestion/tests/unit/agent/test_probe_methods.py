@@ -351,3 +351,57 @@ def test_a_dialect_that_cannot_answer_says_so_instead_of_looking_unreachable(
     # ValueError is what recipe_cli maps to the user-error exit code; anything else
     # lands in the catch-all and is reported as a connection problem.
     assert "reached" in str(err.value)
+
+
+def test_a_failure_recorded_before_a_raise_is_not_discarded(monkeypatch):
+    """The report was only read on the success path.
+
+    A getter can record report.failure() and *then* raise -- Hex's
+    _project_id_or_raise raises ProbeSoftError("no project titled 'x'") after
+    its /projects fetch already failed and was recorded. Reading the report only
+    after a successful return threw that reason away, and ProbeSoftError being a
+    ValueError meant the caller was told at exit 2 to fix a title when the
+    listing had 401'd.
+    """
+    from datahub.ingestion.agent.verdicts import ProbeReadFailed, ProbeSoftError
+
+    class _Report:
+        def __init__(self) -> None:
+            self.failures = ["Listing projects failed: 403 Forbidden"]
+            self.warnings: List[str] = []
+
+    class _Prov:
+        def __init__(self) -> None:
+            self._report = _Report()
+
+        @property
+        def probe_report(self) -> object:
+            return self._report
+
+        def __enter__(self) -> "_Prov":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        @classmethod
+        def for_config(cls, config: object) -> "_Prov":
+            return cls()
+
+        @probe_method(name="projects")
+        def projects(self) -> object:
+            """Records a failure, then raises about the title."""
+            raise ProbeSoftError("no project titled 'x' found in this workspace")
+
+    # monkeypatch, not direct assignment: these are module globals, and
+    # setting them unrestored leaks into every later test in the session.
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _Prov)
+    monkeypatch.setattr(
+        pm,
+        "config_class_for",
+        lambda st: type("C", (), {"model_validate": staticmethod(lambda d: None)}),
+    )
+    with pytest.raises(ProbeReadFailed, match="403 Forbidden") as exc_info:
+        pm.run_probe_method("hex", {}, "projects", {})
+    # Not a ValueError, so it maps to exit 3 rather than blaming the argument.
+    assert not isinstance(exc_info.value, ValueError)

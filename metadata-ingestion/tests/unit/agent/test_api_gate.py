@@ -153,3 +153,31 @@ def test_the_gate_still_works_without_a_base_url():
         check_api_request("GET", "/spaces/a#b/reports", ALLOWLIST)
     with pytest.raises(ApiScopeError):
         check_api_request("GET", "/admin", ALLOWLIST)
+
+
+@pytest.mark.parametrize("base", [_BASE, _BASE + "/"])
+def test_a_trailing_slash_on_the_base_does_not_reject_a_listed_endpoint(base):
+    """Joining with f"{base}{path}" gave "//projects" when both carried a
+    slash, so the stripped result never matched "/projects". Fail-closed, but a
+    legitimate endpoint refused for a stray slash is still wrong -- and Hex's
+    base is user-supplied and not normalised."""
+    check_api_request("GET", "/projects", ["GET /projects"], base_url=base)
+
+
+def test_an_encoded_separator_cannot_hide_inside_a_placeholder():
+    """A single-segment placeholder sees no "/" in "a%2Fb", so it matched --
+    while an API router that decodes percent-escapes routes
+    "/spaces/a/b/reports", an endpoint nobody listed."""
+    with pytest.raises(ApiScopeError):
+        check_api_request("GET", "/spaces/a%2Fb/reports", ALLOWLIST, base_url=_BASE)
+
+
+def test_a_provider_with_no_base_gets_the_same_resolution():
+    """The fallback used to be `decoded.split("?")[0]` -- the original buggy
+    form -- so a provider declaring no api_base_url kept both the %3F and %2F
+    holes. There is one resolution path now, via a synthetic base."""
+    with pytest.raises(ApiScopeError):
+        check_api_request("GET", "/reports/x%3F/../../admin", ALLOWLIST)
+    with pytest.raises(ApiScopeError):
+        check_api_request("GET", "/spaces/a%2Fb/reports", ALLOWLIST)
+    check_api_request("GET", "/spaces", ALLOWLIST)

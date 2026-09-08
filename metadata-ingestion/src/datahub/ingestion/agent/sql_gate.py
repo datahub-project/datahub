@@ -292,15 +292,30 @@ def _visible_cte_names(table: exp.Table) -> Set[str]:
     """
     names: Set[str] = set()
     node: Optional[exp.Expr] = table.parent
+    # Which CTE's body this reference sits in, if any -- set on the way up.
+    inside: Optional[exp.Expr] = None
     while node is not None:
-        # Scanned by value rather than by key: sqlglot holds the clause under
-        # "with_" in v30 (it was "with"), and reading the wrong key fails
-        # silently open -- no CTE is ever visible, so every WITH query gets
-        # refused. Matching on the node type cannot drift with a rename.
+        if isinstance(node, exp.CTE):
+            inside = node
+        # Scanned by value rather than by key: on this pin the clause sits under
+        # "with_", not "with", and reading the wrong key fails silently open --
+        # no CTE is ever visible, so every WITH query gets refused. Matching on
+        # the node type cannot drift with a rename.
         for value in node.args.values():
-            if isinstance(value, exp.With):
-                for cte in value.expressions:
-                    names.add(cte.alias_or_name.lower())
+            if not isinstance(value, exp.With):
+                continue
+            ctes = list(value.expressions)
+            visible = ctes
+            if inside is not None and inside in ctes:
+                # A CTE body sees only siblings declared BEFORE it, and itself
+                # only when the WITH is RECURSIVE. Admitting all of them let an
+                # earlier CTE reference an unqualified user table whose name
+                # matches a LATER sibling -- which SQL resolves to the table,
+                # not the CTE, so the gate excused a real table read.
+                cut = ctes.index(inside)
+                visible = ctes[: cut + 1] if value.args.get("recursive") else ctes[:cut]
+            for cte in visible:
+                names.add(cte.alias_or_name.lower())
         node = node.parent
     return names
 

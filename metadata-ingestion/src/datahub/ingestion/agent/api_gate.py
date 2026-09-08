@@ -10,6 +10,11 @@ from urllib.parse import unquote, urlsplit
 # third time. One name, so read-only cannot be relaxed in one place only.
 READ_METHOD = "GET"
 
+# Stands in when a provider declares no api_base_url, so path resolution has
+# one implementation instead of a weaker fallback. Never contacted: only its
+# path component is read back out.
+_SYNTHETIC_BASE = "https://probe.invalid"
+
 # A placeholder stands for exactly one path segment. Allowing it to span "/"
 # would let "/spaces/{token}/reports" match "/spaces/a/b/reports" and reach an
 # endpoint nobody listed.
@@ -55,9 +60,21 @@ def _effective_path(base_url: str, path: str) -> str:
     """
     import requests
 
-    prepared = requests.Request(READ_METHOD, f"{base_url}{path}").prepare()
-    resolved = urlsplit(prepared.url or "").path
-    base_path = urlsplit(base_url).path.rstrip("/")
+    # Joined with exactly one separator. `f"{base}{path}"` gives "//projects"
+    # when the base ends in "/" and the path begins with one -- and Hex's base
+    # is user-supplied and not normalised -- so the stripped result was
+    # "//projects" and a listed "/projects" failed to match. Fail-closed, but a
+    # legitimate endpoint refused for a stray slash is still a bug.
+    joined = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
+    prepared = requests.Request(READ_METHOD, joined).prepare()
+    # Decoded before matching. An encoded separator is invisible to a
+    # single-segment placeholder -- "/spaces/a%2Fb/reports" satisfies
+    # "/spaces/{token}/reports" because "a%2Fb" holds no literal "/" -- while an
+    # API router that decodes percent-escapes sees "/spaces/a/b/reports", an
+    # endpoint nobody listed. Matching the decoded form is what the server will
+    # actually route on.
+    resolved = unquote(urlsplit(prepared.url or "").path)
+    base_path = unquote(urlsplit(base_url).path).rstrip("/")
     if not base_path:
         return resolved
     if resolved == base_path:
@@ -134,7 +151,11 @@ def check_api_request(
     #
     # Resolving the URL the way the client resolves it ends the class rather
     # than adding a third special case.
-    bare = _effective_path(base_url, path) if base_url else decoded.split("?")[0]
+    # One code path. When a provider primes no api_base_url, a synthetic base
+    # gives the same resolution rather than falling back to
+    # `decoded.split("?")[0]` -- which was the original buggy form and left the
+    # %3F and %2F holes open for exactly the providers that declare no base.
+    bare = _effective_path(base_url or _SYNTHETIC_BASE, path)
     if not any(pattern.match(bare) for pattern in _allowed_paths(allowlist)):
         raise ApiScopeError(
             f"'{bare}' is not in this connector's allowlist of read endpoints"

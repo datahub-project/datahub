@@ -99,10 +99,13 @@ def _match_target(config: Any, kind: str, ctx: ClassifyContext) -> str:
         # Postgres table on its bare name when ingestion matches
         # db.schema.table gives the wrong verdict, and a wrong verdict with
         # nothing marking it is indistinguishable from a right one.
+        # Deliberately does not name the object, like the two branches around
+        # it: check_filters' warn closure dedupes on the message string, so
+        # embedding ctx.name emits one near-identical warning per table judged.
         ctx.warn(
-            f"the connector's identifier resolver returned nothing usable for "
-            f"'{ctx.name}', so it was judged on its bare name; the verdict may "
-            f"not be the one ingestion makes"
+            "the connector's identifier resolver returned nothing usable, so "
+            "these were judged on their bare names; the verdict may not be the "
+            "one ingestion makes"
         )
         return ctx.name
     if target.startswith(".") or ".." in target:

@@ -81,6 +81,14 @@ PERMITTED: List[Tuple[str, str, str]] = [
     ("postgres", "postgres", "SELECT * FROM pg_catalog.pg_proc"),
     ("postgres", "postgres", "SELECT attname FROM pg_catalog.pg_attribute"),
     ("postgres", "postgres", "SELECT * FROM pg_catalog.pg_views"),
+    # A RECURSIVE CTE legitimately references itself, so the sibling-order rule
+    # must admit the CTE being defined when the WITH is recursive.
+    (
+        "postgres",
+        "postgres",
+        "WITH RECURSIVE r AS (SELECT 1 AS n UNION ALL "
+        "SELECT n+1 FROM r WHERE n<3) SELECT * FROM r",
+    ),
 ]
 
 # The text-bearing relation that sits in the same catalog as the ones above. Each of
@@ -166,6 +174,15 @@ REFUSED_CATALOG_IMPERSONATION: List[Tuple[str, str, str]] = [
         "postgres",
         "SELECT * FROM customer_pii WHERE 1 IN "
         "(WITH customer_pii AS (SELECT 1 AS a) SELECT a FROM customer_pii)",
+    ),
+    # A CTE body sees only siblings declared BEFORE it, so 'a' referencing
+    # customer_pii resolves to the real table even though a LATER sibling
+    # carries that name. Admitting every sibling excused the table read.
+    (
+        "postgres",
+        "postgres",
+        "WITH a AS (SELECT * FROM customer_pii), "
+        "customer_pii AS (SELECT 1 AS x) SELECT * FROM a",
     ),
 ]
 

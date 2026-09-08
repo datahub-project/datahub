@@ -565,6 +565,22 @@ def run_probe_method(
                 f"fine -- this is a limit of the engine, so choose another command "
                 f"rather than retrying"
             ) from exc
+        except Exception as exc:
+            # The report was only read on the success path, so a getter that
+            # recorded a failure and then raised had its reason discarded --
+            # Hex's _project_id_or_raise raises ProbeSoftError("no project
+            # titled 'x'") after a failed /projects fetch, and the caller was
+            # told at exit 2 to fix a title when the listing had 401'd.
+            recorded = _report_entries(
+                getattr(provider, "probe_report", None), "failures"
+            )
+            if recorded:
+                from datahub.ingestion.agent.verdicts import ProbeReadFailed
+
+                raise ProbeReadFailed(
+                    f"{exc}; the connector recorded: " + "; ".join(sorted(recorded))
+                ) from exc
+            raise
         # Optional, source-agnostic: a provider that degrades a sub-fetch
         # instead of failing outright (see agent.verdicts.ProbeSoftError) may
         # expose its own `warnings` list to report that here. Duck-typed
