@@ -41,6 +41,7 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.timeseries",
       "com.linkedin.gms.factory.analytics",
+      "com.linkedin.gms.factory.systemmetadata",
       "com.linkedin.gms.factory.assertion",
       "com.linkedin.gms.factory.plugins",
       "com.linkedin.gms.factory.change",

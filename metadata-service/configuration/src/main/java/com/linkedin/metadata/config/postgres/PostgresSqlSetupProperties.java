@@ -17,7 +17,7 @@ import org.springframework.lang.Nullable;
 
 /**
  * Binds {@code postgres.*} from {@code application.yaml} for optional SqlSetup PostgreSQL DDL
- * (pgQueue, pgTimeseries, pgAnalytics).
+ * (pgQueue, pgTimeseries, pgAnalytics, pgSystemMetadata).
  *
  * <p>Configuration defaults live in {@code application.yaml}, not on fields in this class.
  */
@@ -74,6 +74,7 @@ public class PostgresSqlSetupProperties {
 
   private PgTimeseries pgTimeseries = new PgTimeseries();
   private PgAnalytics pgAnalytics = new PgAnalytics();
+  private PgSystemMetadata pgSystemMetadata = new PgSystemMetadata();
   private PgQueue pgQueue = new PgQueue();
   private PgCron pgCron = new PgCron();
 
@@ -89,6 +90,7 @@ public class PostgresSqlSetupProperties {
     PostgresSqlSetupProperties p = new PostgresSqlSetupProperties();
     p.getPgTimeseries().setEnabled(false);
     p.getPgAnalytics().setEnabled(false);
+    p.getPgSystemMetadata().setEnabled(false);
     p.getPgQueue().setEnabled(false);
     return p;
   }
@@ -107,6 +109,9 @@ public class PostgresSqlSetupProperties {
     }
     if (pgAnalytics.isEnabled()) {
       validatePgAnalyticsConfig();
+    }
+    if (pgSystemMetadata.isEnabled()) {
+      validatePgSystemMetadataConfig();
     }
     if (pgQueue.isEnabled()) {
       validatePgQueueConfig();
@@ -568,6 +573,35 @@ public class PostgresSqlSetupProperties {
     return new PgAnalyticsSetupOptions(defaultStoreName, stores, routing);
   }
 
+  /**
+   * Built system-metadata options, or null when {@code postgres.pgSystemMetadata.enabled} is false.
+   */
+  public PgSystemMetadataSetupOptions buildPgSystemMetadataOptions() {
+    if (!pgSystemMetadata.isEnabled()) {
+      return null;
+    }
+    PgSystemMetadata.Pool pool = pgSystemMetadata.getPool();
+    return PgSystemMetadataSetupOptions.builder()
+        .schema(normalizedPostgresSchema())
+        .tablePrefix(normalizedPgSystemMetadataTablePrefix())
+        .tableName(normalizedPgSystemMetadataTableName())
+        .poolUrl(pool != null ? pool.getUrl() : null)
+        .poolDriver(pool != null ? pool.getDriver() : null)
+        .poolUsername(pool != null ? pool.getUsername() : null)
+        .poolPassword(pool != null ? pool.getPassword() : null)
+        .build();
+  }
+
+  public String normalizedPgSystemMetadataTablePrefix() {
+    return normalizeTablePrefix(
+        pgSystemMetadata.getTablePrefix(), "postgres.pgSystemMetadata.tablePrefix");
+  }
+
+  public String normalizedPgSystemMetadataTableName() {
+    return normalizeTablePrefix(
+        pgSystemMetadata.getTableName(), "postgres.pgSystemMetadata.tableName");
+  }
+
   @NonNull
   public String normalizedPgAnalyticsDefaultStoreName() {
     String raw = pgAnalytics.getDefaultStore();
@@ -885,6 +919,11 @@ public class PostgresSqlSetupProperties {
                 + "'.");
       }
     }
+  }
+
+  private void validatePgSystemMetadataConfig() {
+    normalizedPgSystemMetadataTablePrefix();
+    normalizedPgSystemMetadataTableName();
   }
 
   /** Built timeseries registry, or null when {@code postgres.pgTimeseries.enabled} is false. */
@@ -1636,6 +1675,41 @@ public class PostgresSqlSetupProperties {
       private boolean apiUsageFlushEnabled;
       private boolean entityCountEnabled;
     }
+
+    @Getter
+    @Setter
+    public static class Pool {
+      private String url;
+      private String driver;
+      private String username;
+      private String password;
+      private int minConnections;
+      private int maxConnections;
+      private int maxInactiveTimeSeconds;
+      private int maxAgeMinutes;
+      private int leakTimeMinutes;
+      private int waitTimeoutMillis;
+    }
+  }
+
+  @Getter
+  @Setter
+  public static class PgSystemMetadata {
+    private boolean enabled;
+
+    /**
+     * Prefix for the SqlSetup migration ledger only ({@code {prefix}_schema_migration}). The data
+     * table uses {@link #tableName}.
+     */
+    private String tablePrefix;
+
+    /**
+     * Unqualified table name (default {@code system_metadata_service_v1}, matching the ES index
+     * name).
+     */
+    private String tableName;
+
+    private Pool pool = new Pool();
 
     @Getter
     @Setter

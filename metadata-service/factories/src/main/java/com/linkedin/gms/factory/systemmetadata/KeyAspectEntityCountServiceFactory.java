@@ -19,7 +19,7 @@ public class KeyAspectEntityCountServiceFactory {
   @Nonnull
   protected KeyAspectEntityCountService getInstance(
       @Qualifier("entityRegistry") EntityRegistry entityRegistry,
-      @Qualifier("elasticSearchSystemMetadataService") SystemMetadataService systemMetadataService,
+      @Qualifier("systemMetadataService") SystemMetadataService systemMetadataService,
       ObjectProvider<HazelcastInstance> hazelcastInstance,
       ConfigurationProvider configurationProvider) {
     var keyAspectConfig = configurationProvider.getCache().getEntityCounts().getKeyAspect();

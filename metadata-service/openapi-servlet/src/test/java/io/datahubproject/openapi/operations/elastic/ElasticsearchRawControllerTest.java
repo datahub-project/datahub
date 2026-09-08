@@ -62,7 +62,9 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
   private static final Urn TEST_URN_3 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)");
 
-  @MockitoBean private SystemMetadataService mockSystemMetadataService;
+  @MockitoBean(name = "elasticSearchSystemMetadataService")
+  private SystemMetadataService mockSystemMetadataService;
+
   @MockitoBean private TimeseriesAspectService mockTimeseriesAspectService;
   @MockitoBean private EntitySearchService mockSearchService;
   @MockitoBean private GraphService mockGraphService;

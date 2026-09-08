@@ -150,6 +150,43 @@ public class LoadIndicesIndexManagerTest {
   }
 
   @Test
+  public void testDiscoverSkipsSystemMetadataIndexWhenPostgresSoT() throws IOException {
+    indexManager =
+        new LoadIndicesIndexManager(mockSearchClient, mockIndexConvention, mockIndexBuilder, false);
+
+    GetIndexResponse mockEntityResponse = mock(GetIndexResponse.class);
+    when(mockEntityResponse.getIndices()).thenReturn(new String[] {"datahub_datasetindex_v2"});
+    GetIndexResponse mockGraphResponse = mock(GetIndexResponse.class);
+    when(mockGraphResponse.getIndices()).thenReturn(new String[] {"datahub_graph_service_v1"});
+
+    when(mockSearchClient.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(mockEntityResponse)
+        .thenReturn(mockGraphResponse);
+
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
+        .thenReturn(List.of("datahub_*index_v2"));
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext), eq(ElasticSearchGraphService.INDEX_NAME)))
+        .thenReturn("datahub_graph_service_v1");
+
+    ReindexConfig entityConfig = mock(ReindexConfig.class);
+    when(entityConfig.name()).thenReturn("datahub_datasetindex_v2");
+    ReindexConfig graphConfig = mock(ReindexConfig.class);
+    when(graphConfig.name()).thenReturn("datahub_graph_service_v1");
+    when(mockIndexBuilder.buildReindexState(
+            any(OperationContext.class), any(String.class), any(Map.class), any(Map.class)))
+        .thenReturn(entityConfig)
+        .thenReturn(graphConfig);
+
+    var result = indexManager.discoverDataHubIndexConfigs(mockOpContext);
+
+    assertEquals(result.size(), 2);
+    verify(mockIndexConvention, never())
+        .getIndexName(eq(mockOpContext), eq(ElasticSearchSystemMetadataService.INDEX_NAME));
+  }
+
+  @Test
   public void testDiscoverDataHubIndexConfigsWithIOException() throws IOException {
     // Mock getAllEntityIndicesPatterns to return a pattern so the loop executes
     when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))

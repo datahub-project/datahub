@@ -70,6 +70,7 @@ import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.propertyeditors.StringArrayPropertyEditor;
 import org.springframework.http.HttpStatus;
@@ -105,7 +106,7 @@ public class ElasticsearchController {
 
   public ElasticsearchController(
       OperationContext systemOperationContext,
-      SystemMetadataService systemMetadataService,
+      @Qualifier("elasticSearchSystemMetadataService") SystemMetadataService systemMetadataService,
       TimeseriesAspectService timeseriesAspectService,
       EntitySearchService searchService,
       EntityService<?> entityService,

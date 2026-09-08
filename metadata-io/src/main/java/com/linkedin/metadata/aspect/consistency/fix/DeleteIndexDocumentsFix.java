@@ -4,7 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.consistency.ConsistencyIssue;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,8 +16,8 @@ import org.springframework.stereotype.Component;
 /**
  * Fix implementation that deletes orphaned documents directly from indices.
  *
- * <p>This fix is used when entities exist in ES indices (system metadata, entity search, graph) but
- * NOT in SQL. These are orphaned documents that cannot be cleaned up via normal MCP operations.
+ * <p>This fix is used when entities exist in search/graph (and the system-metadata store) but NOT
+ * in primary SQL. These are orphaned documents that cannot be cleaned up via normal MCP operations.
  *
  * <p>Deletion order is important - system metadata is deleted LAST because it's how orphans are
  * detected. If we delete system metadata first and other deletions fail, we lose the ability to
@@ -28,7 +28,7 @@ import org.springframework.stereotype.Component;
  * <ol>
  *   <li>Entity Search Index - via EntitySearchService.deleteDocument()
  *   <li>Graph Index - via GraphService.removeNode()
- *   <li>System Metadata Index - via ESSystemMetadataDAO.deleteByUrn() (LAST)
+ *   <li>System metadata store - via SystemMetadataService.deleteUrn() (LAST)
  * </ol>
  *
  * <p>Uses the following fields from Issue:
@@ -43,15 +43,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class DeleteIndexDocumentsFix implements ConsistencyFix {
 
-  private final ESSystemMetadataDAO esSystemMetadataDAO;
+  private final SystemMetadataService systemMetadataService;
   private final EntitySearchService entitySearchService;
   private final GraphService graphService;
 
   public DeleteIndexDocumentsFix(
-      @Qualifier("esSystemMetadataDAO") ESSystemMetadataDAO esSystemMetadataDAO,
+      @Qualifier("systemMetadataService") SystemMetadataService systemMetadataService,
       @Qualifier("entitySearchService") EntitySearchService entitySearchService,
       @Qualifier("graphService") GraphService graphService) {
-    this.esSystemMetadataDAO = esSystemMetadataDAO;
+    this.systemMetadataService = systemMetadataService;
     this.entitySearchService = entitySearchService;
     this.graphService = graphService;
   }
@@ -153,15 +153,15 @@ public class DeleteIndexDocumentsFix implements ConsistencyFix {
       lastException = e;
     }
 
-    // 3. Delete from system metadata index LAST
+    // 3. Delete from system metadata store LAST
     // This is intentionally last because system metadata is how orphans are detected.
     // If we delete it first and other deletions fail, we can't detect and retry.
     try {
-      esSystemMetadataDAO.deleteByUrn(opContext, urnStr);
-      log.debug("Deleted from system metadata index: {}", urnStr);
+      systemMetadataService.deleteUrn(opContext, urnStr);
+      log.debug("Deleted from system metadata store: {}", urnStr);
       successCount++;
     } catch (Exception e) {
-      log.warn("Failed to delete from system metadata index {}: {}", urnStr, e.getMessage());
+      log.warn("Failed to delete from system metadata store {}: {}", urnStr, e.getMessage());
       lastException = e;
     }
 
