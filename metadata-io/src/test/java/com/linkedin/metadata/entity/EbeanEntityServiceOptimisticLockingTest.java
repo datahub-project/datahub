@@ -30,11 +30,13 @@ import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
 import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.retention.RetentionTestUtils;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -108,7 +110,9 @@ public class EbeanEntityServiceOptimisticLockingTest {
             server,
             1000,
             new PlainAspectTableResolver(),
-            new PassThroughScopedTransactionFactory(server));
+            new PassThroughScopedTransactionFactory(server),
+            RetentionTestUtils.systemEntityClient(
+                entityService, mockProducer, mock(MetricUtils.class)));
     entityService.setRetentionService(retentionService);
 
     opContext =

@@ -61,9 +61,10 @@ public class OnBootApplicationListener {
 
       // Initialize Ebean first
       try {
-        Class.forName("io.ebean.XServiceProvider");
+        // Ebean 16 renamed io.ebean.XServiceProvider -> io.ebean.XBootstrapService.
+        Class.forName("io.ebean.XBootstrapService");
       } catch (ClassNotFoundException e) {
-        log.error("Failed to initialize io.ebean.XServiceProvider", e);
+        log.error("Failed to initialize io.ebean.XBootstrapService", e);
         throw new RuntimeException(e);
       }
 

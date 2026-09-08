@@ -149,7 +149,7 @@ class AzureDataFactoryContainerKey(ContainerKey):
 
 @platform_name("Azure Data Factory")
 @config_class(AzureDataFactoryConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_COARSE,

@@ -33,6 +33,7 @@ import com.linkedin.metadata.aspect.validation.LogicalParentAuthorizationValidat
 import com.linkedin.metadata.aspect.validation.LogicalParentFieldPathValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentPlatformValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
+import com.linkedin.metadata.aspect.validation.PrivilegeGrantAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.TagPrivilegeConstraintsValidator;
@@ -42,6 +43,7 @@ import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
 import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.PoliciesConfiguration;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
+import com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffect;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.entity.AspectSizePayloadValidator;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
@@ -72,7 +74,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -259,18 +260,48 @@ public class SpringStandardPluginConfiguration {
     return new DataProductUnsetSideEffect().setConfig(config);
   }
 
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.sideEffects.dataProductAssets.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public MCPSideEffect dataProductAssetsSideEffect(
+      @Value("${metadataChangeProposal.sideEffects.dataProductAssets.maxFanoutPerCommit:500}")
+          final int maxFanoutPerCommit) {
+    // Mirrors Data Product membership onto each member asset's dataProducts aspect so assets are
+    // filterable/facetable by Data Product in search. Enabled regardless of the
+    // multipleDataProductsPerAsset flag. Uses post-commit MCL before/after to emit patches.
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .enabled(true)
+            .className(DataProductAssetsSideEffect.class.getName())
+            .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE", "DELETE"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DATA_PRODUCT_ENTITY_NAME)
+                        .aspectName(Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
+                        .build(),
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.DATA_PRODUCT_ENTITY_NAME)
+                        .aspectName(Constants.DATA_PRODUCT_KEY_ASPECT_NAME)
+                        .build()))
+            .build();
+
+    log.info(
+        "Initialized {} with maxFanoutPerCommit={}",
+        DataProductAssetsSideEffect.class.getName(),
+        maxFanoutPerCommit);
+    return new DataProductAssetsSideEffect()
+        .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
+        .setConfig(config);
+  }
+
   // Returns null when MeterRegistry/ObjectMapper unavailable
   @Bean
   @ConditionalOnProperty(name = "ingestionMetrics.enabled", havingValue = "true")
   public MCPObserver ingestionMetricsEmitter(
-      ObjectProvider<MeterRegistry> meterRegistryProvider,
-      ObjectProvider<ObjectMapper> objectMapperProvider) {
-    MeterRegistry meterRegistry = meterRegistryProvider.getIfAvailable();
-    ObjectMapper objectMapper = objectMapperProvider.getIfAvailable();
-    if (meterRegistry == null || objectMapper == null) {
-      log.info("Required beans not available, skipping IngestionMetricsEmitter");
-      return null;
-    }
+      MeterRegistry meterRegistry, ObjectMapper objectMapper) {
     AspectPluginConfig config =
         AspectPluginConfig.builder()
             .className(IngestionMetricsEmitter.class.getName())
@@ -475,6 +506,18 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(CORP_GROUP_ENTITY_NAME)
                             .aspectName(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATASET_ENTITY_NAME)
+                            .aspectName(EMBED_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CHART_ENTITY_NAME)
+                            .aspectName(EMBED_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DASHBOARD_ENTITY_NAME)
+                            .aspectName(EMBED_ASPECT_NAME)
                             .build()))
                 .build());
   }
@@ -527,6 +570,57 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(CORP_USER_ENTITY_NAME)
                             .aspectName(CORP_USER_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  /**
+   * Aspect-level privilege floor on role, group membership, and group ownership writes. API
+   * authorization keys on entity type alone, so without this an entity-level edit privilege is
+   * enough to write a role grant on any user or group.
+   */
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.privilegeGrant.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator privilegeGrantAuthorizationValidator() {
+    return new PrivilegeGrantAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(PrivilegeGrantAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(AUTH_CHANGE_TYPE_OPERATIONS)
+                // Entity names and aspect names are matched in two independent passes, so these
+                // entries select the cartesian product rather than the listed pairs. That is fine
+                // and intended here: the extra combinations are aspects the entity does not carry
+                // (no ownership on corpuser, no group membership on corpGroup), so they are
+                // unreachable, and should one ever become reachable, guarding it is what we want.
+                // Do not narrow this to exact pairs - it would only shrink a security control.
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(ROLE_MEMBERSHIP_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_GROUP_ENTITY_NAME)
+                            .aspectName(ROLE_MEMBERSHIP_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(GROUP_MEMBERSHIP_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_USER_ENTITY_NAME)
+                            .aspectName(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)
+                            .build(),
+                        // corpGroup only: the Asset Owners policy grants EDIT_ENTITY and
+                        // EDIT_GROUP_MEMBERS on owned resources, and corpGroup is the only
+                        // privilege-bearing entity with an ownership aspect.
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(CORP_GROUP_ENTITY_NAME)
+                            .aspectName(OWNERSHIP_ASPECT_NAME)
                             .build()))
                 .build());
   }

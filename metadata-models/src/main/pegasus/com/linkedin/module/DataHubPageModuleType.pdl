@@ -45,6 +45,10 @@ enum DataHubPageModuleType {
    */
   DATA_PRODUCTS
   /**
+   * Module displaying the child data products of a data product
+   */
+  SUB_DATA_PRODUCTS
+  /**
    * Module displaying the related terms of a given glossary term
    */
   RELATED_TERMS

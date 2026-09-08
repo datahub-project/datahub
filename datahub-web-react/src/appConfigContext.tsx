@@ -34,6 +34,8 @@ export const DEFAULT_APP_CONFIG = {
     },
     authConfig: {
         tokenAuthEnabled: false,
+        allowNoExpiry: false,
+        allowedAccessTokenDurations: ['PT1H', 'P1D', 'P7D', 'P30D', 'P90D', 'P180D', 'P365D'],
     },
     telemetryConfig: {
         enableThirdPartyLogging: false,
@@ -73,6 +75,7 @@ export const DEFAULT_APP_CONFIG = {
         themeV2Enabled: false,
         themeV2Default: false,
         themeV2Toggleable: false,
+        themeDarkModeEnabled: false,
         showSeparateSiblings: false,
         schemaFieldCLLEnabled: false,
         schemaFieldLineageIgnoreStatus: false,

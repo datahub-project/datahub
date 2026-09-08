@@ -43,16 +43,18 @@ public final class ConsistencyCheckCadence {
     return switch (schedule) {
       case EVERY_RUN -> Long.MIN_VALUE;
       case DAILY -> today.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
-      case WEEKLY -> today
-          .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-          .atStartOfDay(ZoneOffset.UTC)
-          .toInstant()
-          .toEpochMilli();
-      case MONTHLY -> today
-          .with(TemporalAdjusters.firstDayOfMonth())
-          .atStartOfDay(ZoneOffset.UTC)
-          .toInstant()
-          .toEpochMilli();
+      case WEEKLY ->
+          today
+              .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+              .atStartOfDay(ZoneOffset.UTC)
+              .toInstant()
+              .toEpochMilli();
+      case MONTHLY ->
+          today
+              .with(TemporalAdjusters.firstDayOfMonth())
+              .atStartOfDay(ZoneOffset.UTC)
+              .toInstant()
+              .toEpochMilli();
     };
   }
 

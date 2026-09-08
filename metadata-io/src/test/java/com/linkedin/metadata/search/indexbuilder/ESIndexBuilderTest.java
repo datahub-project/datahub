@@ -14,6 +14,7 @@ import static org.testng.Assert.fail;
 
 import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
@@ -167,6 +168,31 @@ public class ESIndexBuilderTest {
     assertEquals(indexBuilder.getConfig().getIndex().getNumRetries(), NUM_RETRIES);
     assertEquals(
         indexBuilder.getConfig().getIndex().getRefreshIntervalSeconds(), REFRESH_INTERVAL_SECONDS);
+  }
+
+  @Test
+  void testShouldPreserveStructuredPropertyMappings() {
+    // Explicit copy request always preserves (the definition-driven mapping-update path).
+    Assert.assertTrue(indexBuilder.shouldPreserveStructuredPropertyMappings(true));
+    // With the structured-property system-update machinery disabled (the default), the current
+    // index's SP mappings must be carried into the reindex target: the container is mapped
+    // dynamic:false, so a target without them would leave every pre-existing SP value unindexed.
+    Assert.assertTrue(indexBuilder.shouldPreserveStructuredPropertyMappings(false));
+
+    ESIndexBuilder systemUpdateEnabledBuilder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            StructuredPropertiesConfiguration.builder()
+                .enabled(true)
+                .systemUpdateEnabled(true)
+                .build(),
+            Map.of(),
+            gitVersion);
+    // When the system-update machinery owns the SP mapping diff (including removals), current
+    // mappings must not be merged into the target.
+    Assert.assertFalse(systemUpdateEnabledBuilder.shouldPreserveStructuredPropertyMappings(false));
+    Assert.assertTrue(systemUpdateEnabledBuilder.shouldPreserveStructuredPropertyMappings(true));
   }
 
   @Test

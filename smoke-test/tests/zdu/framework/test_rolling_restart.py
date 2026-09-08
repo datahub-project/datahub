@@ -7,11 +7,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.context import TestContext
 from tests.zdu.framework.phases.rolling_restart import (
     RollingRestartPhase,
     _compose_env_for_service,
 )
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 class TestComposeEnvForService:

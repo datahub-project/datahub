@@ -5,11 +5,12 @@ from typing import Dict, List
 import pytest
 
 from conftest import _ingest_cleanup_data_impl
+from tests.utilities.domains import Domain
 from tests.utilities.metadata_operations import get_highlights
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
 
 
 @pytest.fixture(scope="module", autouse=True)

@@ -8,11 +8,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.context import TestContext
 from tests.zdu.framework.phases.upgrade_blocking import (
     UpgradeBlockingPhase,
     parse_indices_state,
 )
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 class TestParseIndicesState:

@@ -20,6 +20,7 @@ public class UsageDimensionsTest {
     Assert.assertEquals(UsageDimensions.INGESTION_RUNNER, "ingestion_runner");
     Assert.assertEquals(UsageDimensions.ACTOR_CLASS, "actor_class");
     Assert.assertEquals(UsageDimensions.ENTITY_TYPE, "entity_type");
+    Assert.assertEquals(UsageDimensions.PLATFORM, "platform");
   }
 
   @Test
@@ -34,7 +35,8 @@ public class UsageDimensionsTest {
             UsageDimensions.AUTH_CHANNEL,
             UsageDimensions.INGESTION_RUNNER,
             UsageDimensions.ACTOR_CLASS,
-            UsageDimensions.ENTITY_TYPE));
+            UsageDimensions.ENTITY_TYPE,
+            UsageDimensions.PLATFORM));
   }
 
   @Test

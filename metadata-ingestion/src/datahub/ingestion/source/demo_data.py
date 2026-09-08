@@ -76,7 +76,7 @@ class DemoDataConfig(ConfigModel):
 
 @platform_name("Demo Data")
 @config_class(DemoDataConfig)
-@support_status(SupportStatus.UNKNOWN)
+@support_status(SupportStatus.BETA)
 class DemoDataSource(Source):
     """Load curated data packs into DataHub.
 

@@ -1,7 +1,10 @@
 import pytest
 
 from conftest import _ingest_cleanup_data_impl
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, get_admin_username
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -62,6 +65,7 @@ mutation upsertLink($input: UpsertLinkInput!) {\n
 ADMIN_USERNAME = get_admin_username()
 
 
+@pytest.mark.p0
 def test_get_institutional_memory(auth_session):
     res_data = execute_graphql(auth_session, QUERY_LIST, {"urn": TEST_DATASET_URN})
 

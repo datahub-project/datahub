@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -57,25 +57,21 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchAddGlossaryTermModalVisible(false);
-                    message.loading({ content: tf('updating'), duration: 3 });
+                    toast.loading(tf('updating'), { duration: 0, key: 'add-assets' });
                     setTimeout(() => {
-                        message.success({
-                            content: t('assets.addedTermSuccess'),
-                            duration: 2,
-                        });
+                        toast.success(t('assets.addedTermSuccess'), { duration: 2, key: 'add-assets' });
                         refetch?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
                     }, 3000);
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(entityUrns, e, {
-                        content: t('assets.addTermError', { error: e.message || '' }),
-                        duration: 3,
-                    }),
-                );
+                toast.destroy('add-assets');
+                const errorMessage = handleBatchError(entityUrns, e, {
+                    content: t('assets.addTermError', { error: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(errorMessage.content, { duration: errorMessage.duration });
             })
             .finally(() => {
                 setShowAddAssetsModal(false);
@@ -96,12 +92,9 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetDomainModalVisible(false);
-                    message.loading({ content: tf('updating'), duration: 3 });
+                    toast.loading(tf('updating'), { duration: 0, key: 'add-assets' });
                     setTimeout(() => {
-                        message.success({
-                            content: t('assets.addedToDomainSuccess'),
-                            duration: 3,
-                        });
+                        toast.success(t('assets.addedToDomainSuccess'), { duration: 3, key: 'add-assets' });
                         refetch?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
                         entityState?.setShouldRefetchContents(true);
@@ -114,13 +107,12 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(entityUrns, e, {
-                        content: t('assets.addToDomainError', { error: e.message || '' }),
-                        duration: 3,
-                    }),
-                );
+                toast.destroy('add-assets');
+                const errorMessage = handleBatchError(entityUrns, e, {
+                    content: t('assets.addToDomainError', { error: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(errorMessage.content, { duration: errorMessage.duration });
             })
             .finally(() => {
                 setShowAddAssetsModal(false);
@@ -139,12 +131,9 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     setIsBatchSetDataProductModalVisible(false);
-                    message.loading({ content: tf('updating'), duration: 3 });
+                    toast.loading(tf('updating'), { duration: 0, key: 'add-assets' });
                     setTimeout(() => {
-                        message.success({
-                            content: t('assets.addedToDataProductSuccess'),
-                            duration: 3,
-                        });
+                        toast.success(t('assets.addedToDataProductSuccess'), { duration: 3, key: 'add-assets' });
                         refetch?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
                     }, 3000);
@@ -156,13 +145,12 @@ export default function AddAssetsModal({ setShowAddAssetsModal }: Props) {
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(entityUrns, e, {
-                        content: t('assets.addToDataProductError'),
-                        duration: 3,
-                    }),
-                );
+                toast.destroy('add-assets');
+                const errorMessage = handleBatchError(entityUrns, e, {
+                    content: t('assets.addToDataProductError'),
+                    duration: 3,
+                });
+                toast.error(errorMessage.content, { duration: errorMessage.duration });
             })
             .finally(() => {
                 setShowAddAssetsModal(false);

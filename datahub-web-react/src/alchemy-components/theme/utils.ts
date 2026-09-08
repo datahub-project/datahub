@@ -23,7 +23,8 @@ export const getColor = (
     }
 
     if (!color) return finalColors.black;
-    if (color === 'inherit' || color === 'transparent' || color === 'current') return finalColors;
+    if (color === 'inherit' || color === 'transparent') return color;
+    if (color === 'current') return 'currentColor';
     if (color === 'white') return finalColors.white;
     if (color === 'black') return finalColors.black;
     const colorValue = finalColors[color];

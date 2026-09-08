@@ -2,8 +2,9 @@ import base64
 import hashlib
 import hmac
 import json
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterator, Optional
 from unittest.mock import patch
 
 import pytest
@@ -163,9 +164,11 @@ def test_cube_core_ingest(
     )
 
 
-def test_cube_cloud_metadata_api(pytestconfig: pytest.Config, tmp_path: Any) -> None:
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/cube"
-    output_path = tmp_path / "cube_cloud_mces.json"
+@contextmanager
+def _mocked_cloud_apis(test_resources_dir: Path) -> Iterator[None]:
+    # Shared Cloud-API mocking for tests that only differ in recipe and
+    # golden file: /v1/meta + Metadata API responses, and the Platform API's
+    # reports/workbooks responses.
     meta_response = _load(test_resources_dir, "cloud_meta.json")
     entities_response = _load(test_resources_dir, "cloud_entities.json")
     data_sources_response = _load(test_resources_dir, "cloud_data_sources.json")
@@ -205,10 +208,42 @@ def test_cube_cloud_metadata_api(pytestconfig: pytest.Config, tmp_path: Any) -> 
         patch.object(CubeAPIClient, "_request", mock_request),
         patch.object(CubeAPIClient, "_platform_request", mock_platform_request),
     ):
+        yield
+
+
+def test_cube_cloud_metadata_api(pytestconfig: pytest.Config, tmp_path: Any) -> None:
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/cube"
+    output_path = tmp_path / "cube_cloud_mces.json"
+
+    with _mocked_cloud_apis(test_resources_dir):
         _run_pipeline(test_resources_dir / "cube_cloud_to_file.yml", output_path)
 
     mce_helpers.check_golden_file(
         pytestconfig=pytestconfig,
         output_path=output_path,
         golden_path=test_resources_dir / "cube_cloud_mces_golden.json",
+    )
+
+
+def test_cube_cloud_semantic_model_entities(
+    pytestconfig: pytest.Config, tmp_path: Any
+) -> None:
+    # End-to-end coverage for emit_semantic_model_entities: true -- the prior
+    # test only exercises the default (view-as-dataset) path. Reuses the same
+    # mocked Cloud fixtures (a view aliasing measures/dimensions from the
+    # "orders" cube, and a report querying that view) so the golden file
+    # captures semanticModel/metric/logical-dataset entities and chart
+    # lineage pointing at the logical dataset instead of a view dataset.
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/cube"
+    output_path = tmp_path / "cube_cloud_semantic_model_mces.json"
+
+    with _mocked_cloud_apis(test_resources_dir):
+        _run_pipeline(
+            test_resources_dir / "cube_cloud_semantic_model_to_file.yml", output_path
+        )
+
+    mce_helpers.check_golden_file(
+        pytestconfig=pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "cube_cloud_semantic_model_mces_golden.json",
     )

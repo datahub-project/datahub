@@ -51,7 +51,7 @@ class KinesisRegionKey(ContainerKey):
 
 @platform_name("Amazon Kinesis Data Streams", id=PLATFORM_NAME)
 @config_class(KinesisSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.CONTAINERS, "Region containers")
 @capability(SourceCapability.LINEAGE_COARSE, "Firehose -> destination lineage")

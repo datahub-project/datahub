@@ -21,8 +21,11 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn, VersionSetUrn
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 # Stable URNs for this test — deterministic so cleanup is reliable.
 _PLATFORM = "timeline_smoke"

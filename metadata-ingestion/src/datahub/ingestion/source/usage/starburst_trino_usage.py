@@ -113,7 +113,7 @@ class TrinoUsageReport(SourceReport):
 
 @platform_name("Trino", id="trino")
 @config_class(TrinoUsageConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
 @dataclasses.dataclass
 class TrinoUsageSource(Source):

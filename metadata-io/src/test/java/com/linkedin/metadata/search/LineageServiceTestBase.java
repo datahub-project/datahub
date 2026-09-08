@@ -617,6 +617,95 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   }
 
   @Test
+  public void testScrollAcrossLineageClampsExcessiveMaxHops() throws Exception {
+    // scrollAcrossLineage must clamp a caller-supplied maxHops the same way searchAcrossLineage
+    // does. Previously the scroll path defaulted to 1000 without clamping, so a caller could
+    // request an unbounded deep traversal.
+    when(graphService.getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
+        .thenReturn(mockResult(Collections.emptyList()));
+
+    lineageSearchService.scrollAcrossLineage(
+        getOperationContext()
+            .withSearchFlags(flags -> flags.setSkipCache(true))
+            .withLineageFlags(
+                flags ->
+                    flags
+                        .setStartTimeMillis(null, SetMode.REMOVE_IF_NULL)
+                        .setEndTimeMillis(null, SetMode.REMOVE_IF_NULL)),
+        TEST_URN,
+        LineageDirection.DOWNSTREAM,
+        ImmutableList.of(),
+        TEST1,
+        Integer.MAX_VALUE,
+        null,
+        null,
+        null,
+        "5m",
+        10);
+
+    ArgumentCaptor<Integer> maxHopsCaptor = ArgumentCaptor.forClass(Integer.class);
+    Mockito.verify(graphService)
+        .getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            maxHopsCaptor.capture());
+    // Integer.MAX_VALUE must have been clamped down to the exact configured impact hop limit.
+    assertEquals(
+        maxHopsCaptor.getValue().intValue(),
+        getElasticSearchConfiguration().getSearch().getGraph().getImpact().getMaxHops());
+    clearCache(false);
+  }
+
+  @Test
+  public void testScrollAcrossLineageDefaultsNullMaxHopsToConfiguredLimit() throws Exception {
+    // A null maxHops must resolve to the finite configured impact hop limit, not pass through as an
+    // unbounded (or null) deep traversal.
+    when(graphService.getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
+        .thenReturn(mockResult(Collections.emptyList()));
+
+    lineageSearchService.scrollAcrossLineage(
+        getOperationContext()
+            .withSearchFlags(flags -> flags.setSkipCache(true))
+            .withLineageFlags(
+                flags ->
+                    flags
+                        .setStartTimeMillis(null, SetMode.REMOVE_IF_NULL)
+                        .setEndTimeMillis(null, SetMode.REMOVE_IF_NULL)),
+        TEST_URN,
+        LineageDirection.DOWNSTREAM,
+        ImmutableList.of(),
+        TEST1,
+        null,
+        null,
+        null,
+        null,
+        "5m",
+        10);
+
+    ArgumentCaptor<Integer> maxHopsCaptor = ArgumentCaptor.forClass(Integer.class);
+    Mockito.verify(graphService)
+        .getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            maxHopsCaptor.capture());
+    // null must resolve to the exact configured impact hop limit, not pass through.
+    assertEquals(
+        maxHopsCaptor.getValue().intValue(),
+        getElasticSearchConfiguration().getSearch().getGraph().getImpact().getMaxHops());
+    clearCache(false);
+  }
+
+  @Test
   public void testLightningSearchService() throws Exception {
     // Mostly this test ensures the code path is exercised
 
@@ -1074,16 +1163,13 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             .get(),
         Long.valueOf(200));
 
-    // Set up filters
+    // Test AND filter
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
     Criterion platform1Crit = buildCriterion("platform", Condition.EQUAL, kafkaPlatform);
-
-    CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
-    conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
     Criterion originCrit = buildCriterion("origin", Condition.EQUAL, "DEV");
 
-    conCritArr.add(
-        new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(originCrit))));
+    CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit, originCrit));
+    conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
 
     from = 500;
     size = 10;
@@ -1106,6 +1192,32 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             .filter(x -> x.getName().equals("origin") && x.getAggregations().containsKey("PROD"))
             .collect(Collectors.toList())
             .isEmpty());
+
+    // Test OR filter
+    ConjunctiveCriterionArray orCritArr = new ConjunctiveCriterionArray();
+    orCritArr.add(
+        new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(platform1Crit))));
+    orCritArr.add(
+        new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(originCrit))));
+
+    lineageSearchResult =
+        lineageSearchService.getLightningSearchResult(
+            lineageRelationships, new Filter().setOr(orCritArr), from, size, entityNames);
+
+    assertEquals(
+        lineageSearchResult.getMetadata().getAggregations().stream()
+            .filter(x -> x.getName().equals("origin"))
+            .map(x -> x.getAggregations().get("DEV"))
+            .findFirst()
+            .get(),
+        Long.valueOf(450));
+    assertEquals(
+        lineageSearchResult.getMetadata().getAggregations().stream()
+            .filter(x -> x.getName().equals("origin"))
+            .map(x -> x.getAggregations().get("PROD"))
+            .findFirst()
+            .get(),
+        Long.valueOf(200));
   }
 
   @Test
@@ -1286,7 +1398,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     int size = 10;
     Set<String> entityNames = Collections.emptySet();
 
-    Assert.assertTrue(lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null));
+    Assert.assertTrue(
+        lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null, false));
 
     // Set up filters
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
@@ -1305,7 +1418,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     from = 500;
     size = 10;
     filter = new Filter().setOr(conCritArr);
-    Assert.assertTrue(lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null));
+    Assert.assertTrue(
+        lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null, false));
   }
 
   @Test
