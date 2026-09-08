@@ -16,7 +16,7 @@ on:
         description: "Version without 'v' prefix (e.g. 1.0.0)"
         required: true
       sha:
-        description: "Full 40-character commit SHA to cut from. Leave empty to use the tip of the source branch (master for release, releases/v{version} for hotfix)."
+        description: "Full 40-character commit SHA to cut from. Leave empty to use the tip of the source branch."
         required: false
         type: string
         default: ""
