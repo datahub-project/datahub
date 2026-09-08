@@ -344,11 +344,14 @@ class TestDmElementUpstreamResolvesToDatasetUrn:
         # dm_page_elem.col has no formula → self-ref fallback.
         assert source.reporter.chart_input_fields_self_ref_fallback == 1
 
-    def test_dm_element_ref_not_in_lineage_falls_back_to_self_ref(self) -> None:
-        """Chart formula refs a workbook element that IS named in the workbook
-        but has NO DataModelElementUpstream linking it to the DM. Without the
-        upstream registration, the ref is unresolvable and should fall back to
-        self-ref (preserving the column in V2) rather than emitting nothing.
+    def test_ref_to_an_undeclared_workbook_element_still_resolves(self) -> None:
+        """Sigma's /lineage does not declare every element a formula reaches.
+
+        The chart names a workbook element that carries no upstream
+        declaration. That used to fall back to a self-reference; on one tenant
+        (2026-09) 8,814 refs across 62 names ended there. The formula itself is
+        Sigma stating the chart reads that column, and the element is uniquely
+        named in this workbook and has the column, so the edge is emitted.
         """
         source = self._build_source_with_dm()
 
@@ -363,15 +366,38 @@ class TestDmElementUpstreamResolvesToDatasetUrn:
         workbook = _make_workbook([dm_page_elem, chart_elem])
         result = _collect_input_fields(source, [dm_page_elem, chart_elem], workbook)
 
+        fields = result[_chart_urn("chartElem01")].fields
+        assert len(fields) == 1
+        assert fields[0].schemaFieldUrn == _schema_field_urn(
+            _chart_urn("elem01"), "col"
+        )
+        assert source.reporter.chart_ref_workbook_name_resolved == 1
+        assert source.reporter.chart_input_fields_resolved == 1
+
+    def test_an_undeclared_element_without_the_column_stays_a_self_ref(self) -> None:
+        """The column check is what keeps the widened scope honest.
+
+        Same shape as above, but the named element does not have the column, so
+        the name match is a coincidence and no edge is emitted.
+        """
+        source = self._build_source_with_dm()
+
+        dm_page_elem = _make_element("elem01", "My DM Element", ["other"], {}, {})
+        chart_elem = _make_element(
+            element_id="chartElem01",
+            name="My Chart",
+            columns=["chart_col"],
+            column_formulas={"chart_col": "[My DM Element/col]"},
+            upstream_sources={},
+        )
+        workbook = _make_workbook([dm_page_elem, chart_elem])
+        result = _collect_input_fields(source, [dm_page_elem, chart_elem], workbook)
+
         chart_urn = _chart_urn("chartElem01")
         fields = result[chart_urn].fields
-
-        assert len(fields) == 1, (
-            "Unresolvable formula ref should still emit one InputField (self-ref fallback)"
-        )
+        assert len(fields) == 1
         assert fields[0].schemaFieldUrn == _schema_field_urn(chart_urn, "chart_col")
-        # dm_page_elem.col (no formula) + chart_elem.chart_col (unresolvable) = 2.
-        assert source.reporter.chart_input_fields_self_ref_fallback == 2
+        assert source.reporter.chart_ref_workbook_name_column_absent == 1
         assert source.reporter.chart_input_fields_resolved == 0
 
 

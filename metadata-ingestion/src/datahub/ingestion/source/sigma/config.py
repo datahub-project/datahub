@@ -437,6 +437,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # the name identifies exactly one Data Model element run-wide AND that
     # element owns the referenced column. On one tenant (2026-09) this was the
     # largest recoverable share of the unresolved bucket.
+    # Chart formula refs resolved to an element of the SAME workbook that
+    # Sigma's per-element /lineage did not declare as an upstream. Guarded the
+    # same way as the global-name step: unique name in the workbook, and the
+    # element must have the column.
+    chart_ref_workbook_name_resolved: int = 0
+    chart_ref_workbook_name_ambiguous: int = 0
+    chart_ref_workbook_name_column_absent: int = 0
     chart_ref_global_name_resolved: int = 0
     # Refused because the name identifies more than one element. Sigma element
     # names repeat across models, and picking one would attach a real column to

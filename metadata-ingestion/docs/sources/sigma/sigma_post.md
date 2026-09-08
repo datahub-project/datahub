@@ -308,14 +308,15 @@ these are not interchangeable:
 | `chart_input_fields_formulas_not_fetched`     | **our** `/columns` call for that workbook aborted, so no formula was ever retrieved |
 | `chart_input_fields_self_ref_no_formula`      | Sigma genuinely reported no formula for the column                                  |
 
-When no step resolves a ref, a last-resort lookup matches the source name against **every**
-Data Model element in the run — the chart's own upstream list often omits an element its
-formulas reference. Two conditions must both hold, because `InputFields` carry no
-`confidenceScore` and a wrong edge here cannot be marked uncertain: the name must identify
-exactly one element run-wide (`chart_ref_global_name_ambiguous` counts refusals — Sigma
-element names repeat across models), and that element must own the referenced column
-(`chart_ref_global_name_column_absent` counts the coincidences this rejects). Resolutions
-are counted under `chart_ref_global_name_resolved`.
+Sigma's per-element `/lineage` does not declare every element a formula reaches, so two
+last-resort steps run when nothing else matches: first the source name is matched against
+the **other elements of the same workbook**, then against **every Data Model element in the
+run**. Both apply the same two conditions, because `InputFields` carry no `confidenceScore`
+and a wrong edge cannot be marked uncertain — the name must identify exactly one element
+(names repeat, and picking one would attach a real column to the wrong dataset), and that
+element must have the referenced column, which is what makes the widened scope safe. Each
+step counts its resolutions and both kinds of refusal separately
+(`chart_ref_workbook_name_*`, `chart_ref_global_name_*`).
 
 `chart_ref_miss_reasons` breaks the unresolved bucket down by the resolution step that gave
 up. Two of its keys matter most when judging whether a gap is fixable:

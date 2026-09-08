@@ -5687,6 +5687,61 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self._known_dm_element_index = index
         return self._known_dm_element_index
 
+    def _resolve_ref_by_workbook_element_name(
+        self,
+        ref: BracketRef,
+        *,
+        candidates: List[Element],
+        chart_element_id: str,
+        elementId_to_chart_urn: Dict[str, str],
+        count: bool,
+    ) -> Optional[Tuple[str, str]]:
+        """The ref names an element of THIS workbook that /lineage did not list.
+
+        Sigma's per-element ``/lineage`` does not declare every element a
+        formula reaches, so a ref can name a sibling chart on the same page and
+        still fail Step 3a. On one tenant (2026-09) 8,814 refs across 62 names
+        ended here.
+
+        The same two guards as the global-name step, for the same reason
+        (InputFields carry no confidenceScore): the name must identify exactly
+        one element in this workbook, and that element must actually have the
+        column. A name collision or a missing column means no edge.
+        """
+        if ref.column is None:
+            return None
+        emitted = [
+            elem
+            for elem in candidates
+            if elem.elementId != chart_element_id
+            and elementId_to_chart_urn.get(elem.elementId)
+        ]
+        if len(emitted) != 1:
+            if emitted and count:
+                self.reporter.chart_ref_workbook_name_ambiguous += 1
+            return None
+        target = emitted[0]
+        wanted = ref.column.strip().lower()
+        canonical = next(
+            (c for c in target.columns if c.strip().lower() == wanted), None
+        )
+        if canonical is None:
+            if count:
+                self.reporter.chart_ref_workbook_name_column_absent += 1
+            return None
+        if count:
+            self.reporter.chart_ref_workbook_name_resolved += 1
+            logger.debug(
+                "CHART REF WORKBOOK NAME element %s ref=%r: %r is the only "
+                "emitted element of this workbook with that name and it has "
+                "column %r, though /lineage did not list it as an upstream",
+                chart_element_id,
+                ref.raw,
+                ref.source,
+                canonical,
+            )
+        return (elementId_to_chart_urn[target.elementId], canonical)
+
     def _resolve_ref_by_global_element_name(
         self, ref: BracketRef, *, chart_element_id: str, count: bool
     ) -> Optional[Tuple[str, str]]:
@@ -5935,6 +5990,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # validate and be accepted ahead of the right one, which is the failure
         # the split search exists to avoid.
         if count:
+            workbook_match = self._resolve_ref_by_workbook_element_name(
+                ref,
+                candidates=candidates,
+                chart_element_id=chart_element_id,
+                elementId_to_chart_urn=elementId_to_chart_urn,
+                count=count,
+            )
+            if workbook_match is not None:
+                return workbook_match
             global_match = self._resolve_ref_by_global_element_name(
                 ref, chart_element_id=chart_element_id, count=count
             )
