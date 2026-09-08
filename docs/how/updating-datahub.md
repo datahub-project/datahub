@@ -139,6 +139,8 @@ Requirements:
 
 - `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED` (default `true`) — Schema-driven GraphQL aspect fetching. See Other Notable Changes above and [Environment Variables](../deploy/environment-vars.md).
 
+- #17664 **(Ingestion / Trino)** Column-level lineage to connector sources now resolves the upstream column names from the connector source's own `schemaMetadata` in DataHub, so upstream `schemaField` URNs carry the source's real casing (for example mixed-case Iceberg columns) instead of the lowercased names Trino reports in `information_schema`. Previously those upstream URNs could point at columns that do not exist on the source, leaving the fine-grained lineage unresolved. Resolution needs a configured DataHub graph (a `datahub-rest` sink or `datahub_api`); without one, or when the source dataset has not been ingested yet, the Trino column name is used as before and no warning is raised. A lookup that actively fails (for example GMS returning an error) also falls back to the Trino column name, and that case _is_ recorded as a warning in the ingestion report. When the source schema _is_ known but has no column matching a Trino column, that column's fine-grained lineage is now skipped instead of emitting a `schemaField` URN that does not exist. **Action:** none. Ingest the connector source (e.g. Iceberg) before or alongside Trino so its schema is available for resolution; re-running Trino ingestion after upgrade replaces the previously emitted upstream column URNs.
+
 ## v1.7.0
 
 Requirements:
