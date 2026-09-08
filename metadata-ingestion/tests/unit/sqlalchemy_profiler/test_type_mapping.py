@@ -134,9 +134,11 @@ class TestTypeMapping:
 
     def test_get_column_types_to_ignore(self):
         """Test database-specific type filtering."""
-        # PostgreSQL — both the platform name ("postgres") and the SQLAlchemy
-        # dialect name ("postgresql") must resolve to the same exclusions.
-        for dialect in ("postgres", "postgresql"):
+        # PostgreSQL — the platform name ("postgres"), the SQLAlchemy dialect
+        # name ("postgresql"), and the postgres-family sources that share
+        # PGDialect's process-global ischema_names but report their own
+        # platform names must all resolve to the same exclusions.
+        for dialect in ("postgres", "postgresql", "timescaledb", "cockroachdb"):
             ignored = _get_column_types_to_ignore(dialect)
             assert "JSON" in ignored
             # Geometric types and xml have no equality operator, so

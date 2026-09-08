@@ -148,9 +148,12 @@ def _get_column_types_to_ignore(dialect_name: str) -> list[str]:
     """
     dialect_lower = dialect_name.lower()
     # PostgresSource.get_platform() reports "postgres" while the SQLAlchemy
-    # dialect is named "postgresql" — match both, otherwise these exclusions
-    # never fire for the postgres source.
-    if dialect_lower in ("postgres", "postgresql"):
+    # dialect is named "postgresql". The postgres ischema_names registrations
+    # are process-global on PGDialect, so they also reach the postgres-family
+    # sources that reflect through it but report their own platform names
+    # (TimescaleDB, CockroachDB) — match all of them, otherwise these
+    # exclusions never fire.
+    if dialect_lower in ("postgres", "postgresql", "timescaledb", "cockroachdb"):
         # The built-in geometric types and xml have no default equality
         # operator, so COUNT(DISTINCT col) fails with "could not identify an
         # equality operator for type ..." during field profiling.
