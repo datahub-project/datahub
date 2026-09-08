@@ -34,7 +34,7 @@ def _acquired_model_dataset_urn() -> str:
     )
 
 
-def _register_pipeline_mocks(requests_mock, test_resources_dir: Path) -> None:
+def _register_pipeline_mocks(requests_mock: Mocker, test_resources_dir: Path) -> None:
     requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
 
     # The connector queries the OData "Resources" data endpoints directly (without reading the
@@ -153,7 +153,7 @@ def test_query_odata_entities_follows_pagination(requests_mock):
     assert [entity["resourceId"] for entity in results] == ["A", "B"]
 
 
-def _make_source(requests_mock, run_id: str) -> SACSource:
+def _make_source(requests_mock: Mocker, run_id: str) -> SACSource:
     requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
     config = SACSourceConfig(
         tenant_url=MOCK_TENANT_URL,
