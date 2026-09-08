@@ -784,7 +784,13 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
                     "all_indexes",
                     "all_ind_columns",
                     "all_mviews",
-                    "all_users",
+                    # all_users is deliberately absent: it is user identity, not
+                    # schema shape, and Oracle's ingestion never reads it. Every
+                    # other dialect here already withholds its equivalent --
+                    # Redshift's pg_user/svv_user_info, Snowflake's
+                    # account_usage.users, Postgres's pg_user/pg_roles,
+                    # ClickHouse's system.users, DBC.UsersV, sys.sql_logins --
+                    # so permitting it made Oracle the one inconsistent dialect.
                     "dba_tables",
                     "dba_views",
                     "dba_tab_columns",

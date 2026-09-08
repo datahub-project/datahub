@@ -189,10 +189,8 @@ def check_query_scope(
     # table-based check alone never sees it.
     _check_functions(statement)
 
-    cte_names = {cte.alias_or_name.lower() for cte in statement.find_all(exp.CTE)}
-
     for table in statement.find_all(exp.Table):
-        _check_table(table, scope=permitted, cte_names=cte_names)
+        _check_table(table, scope=permitted, platform=platform)
 
 
 def _check_functions(statement: exp.Expr) -> None:
@@ -239,7 +237,75 @@ def _parse_single_statement(
     return statements[0]
 
 
-def _check_table(table: exp.Table, scope: CatalogScope, cte_names: Set[str]) -> None:
+# Dialects whose parser leaves a dot INSIDE one identifier slot, so the slot has
+# to be split to recover the path. Measured, not assumed: of the dialects this
+# gate serves, only BigQuery does it -- `myds.INFORMATION_SCHEMA.TABLES` parses
+# as db='myds', name='INFORMATION_SCHEMA.TABLES'. Everything else fills
+# catalog/db/name properly.
+#
+# This is deliberately an allowlist rather than "split everywhere". Splitting
+# every dialect is what turned a BigQuery accommodation into a bypass on all the
+# others: a quoted user table named "information_schema.tables" decomposed into
+# ["information_schema", "tables"], which every Postgres and MySQL scope
+# permits. A dialect absent from here is never split, so a future parser quirk
+# fails closed (a refused legitimate query) instead of open.
+_DOT_IN_SLOT_DIALECTS = frozenset({"bigquery"})
+
+
+def _slot_pieces(slot: object, platform: str) -> List[str]:
+    """The path pieces one identifier slot contributes.
+
+    The dialect decides, and `Identifier.quoted` deliberately does not get a
+    vote: sqlglot reports quoted=True for BigQuery's `myds.INFORMATION_SCHEMA
+    .TABLES` even though the SQL carries no quotes, so keying on it blocks the
+    split for the one dialect that needs it. It is safe to split BigQuery
+    unconditionally because BigQuery identifiers cannot contain a dot -- a
+    dotted name there is always a path, never a table's own name.
+    """
+    if not isinstance(slot, exp.Identifier):
+        # Not an identifier, so it contributes no path. The name slot is
+        # guaranteed to be one by _check_table's own guard.
+        return []
+    text = slot.name
+    if not text:
+        return []
+    if platform.lower() not in _DOT_IN_SLOT_DIALECTS:
+        return [text]
+    return [piece for piece in text.split(".") if piece]
+
+
+def _visible_cte_names(table: exp.Table) -> Set[str]:
+    """CTE names in scope for this table: only those declared by an enclosing WITH.
+
+    Collecting them for the whole statement instead let an inner, non-enclosing
+    CTE license its name anywhere, including outer scopes where SQL itself
+    resolves the name to the real table:
+
+        SELECT * FROM customer_pii
+        WHERE 1 IN (WITH customer_pii AS (SELECT 1 AS a) SELECT a FROM customer_pii)
+
+    Postgres does not make an inner WITH visible to an outer FROM, so the outer
+    reference is the user's table -- and the gate waved it through. Walking the
+    node's own ancestors instead means a name is only excused where the SQL
+    engine would actually resolve it to a CTE. A CTE body referring to an
+    earlier sibling still works: the enclosing WITH is on its ancestor chain.
+    """
+    names: Set[str] = set()
+    node: Optional[exp.Expr] = table.parent
+    while node is not None:
+        # Scanned by value rather than by key: sqlglot holds the clause under
+        # "with_" in v30 (it was "with"), and reading the wrong key fails
+        # silently open -- no CTE is ever visible, so every WITH query gets
+        # refused. Matching on the node type cannot drift with a rename.
+        for value in node.args.values():
+            if isinstance(value, exp.With):
+                for cte in value.expressions:
+                    names.add(cte.alias_or_name.lower())
+        node = node.parent
+    return names
+
+
+def _check_table(table: exp.Table, scope: CatalogScope, platform: str) -> None:
     if not isinstance(table.this, exp.Identifier):
         # A set-returning function in FROM position. Caught here as well as in
         # _check_functions so that a vendor function sqlglot *does* model still
@@ -257,17 +323,19 @@ def _check_table(table: exp.Table, scope: CatalogScope, cte_names: Set[str]) -> 
     # for that as well as Postgres's db.schema.table.
     parts = [
         piece
-        for part in (table.catalog, table.db, table.name)
-        if part
-        for piece in part.split(".")
-        if piece
+        for slot in (
+            table.args.get("catalog"),
+            table.args.get("db"),
+            table.args.get("this"),
+        )
+        for piece in _slot_pieces(slot, platform)
     ]
 
     if len(parts) < 2:
         name = parts[0] if parts else table.name
         # A CTE alias reads as an unqualified table; refusing it would reject
         # legitimate catalog queries that use WITH.
-        if name.lower() in cte_names:
+        if name.lower() in _visible_cte_names(table):
             return
         # Some dialects expose their catalog unqualified: Oracle's dictionary
         # views are public synonyms, so `FROM dba_tables` is the idiomatic read

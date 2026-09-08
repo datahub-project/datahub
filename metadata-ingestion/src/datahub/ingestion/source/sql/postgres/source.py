@@ -166,22 +166,63 @@ class BasePostgresConfig(BasicSQLAlchemyConfig):
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:
-        # pg_catalog is metadata throughout apart from its query-text views, which
-        # is the rare case where a schema-level allow plus exclusions is sound.
-        # pg_stat_statements holds normalized query text and pg_stat_activity the
-        # running statement; both can carry WHERE-clause literals.
+        # pg_catalog is named relation by relation, NOT allowed at schema level.
+        # It was a schema-level allow with three exclusions, and the comment
+        # beside it conceded the risk in as many words -- "the exclusions have to
+        # be complete, and nothing tells you when they are not". They were not,
+        # and the gap was worse than query text:
+        #
+        #   pg_stats, pg_statistic  -- most_common_vals and histogram_bounds are
+        #     literal sampled values out of user columns. Not a WHERE-clause
+        #     literal inside a query string: the row values themselves.
+        #   pg_largeobject, pg_largeobject_metadata -- raw bytes of user large
+        #     objects.
+        #   pg_shadow, pg_authid -- role password hashes.
+        #
+        # The list below is derived from postgres/query.py and source.py (what
+        # ingestion reads) plus the structural counterparts an agent reaches for,
+        # the same way the Redshift and MSSQL declarations are built.
         # Inherited by CockroachDB and TimescaleDB.
+        #
+        # Deliberately absent, and why:
+        #   pg_stat_statements, pg_stat_activity, pg_prepared_statements --
+        #     statement text.
+        #   the pg_stats/pg_largeobject/pg_shadow families above.
+        #   pg_user, pg_roles, pg_authid, pg_auth_members, pg_user_mapping --
+        #     user identity rather than schema shape. This matches Redshift,
+        #     which withholds pg_user/svv_user_info, and Snowflake, which
+        #     withholds account_usage.users.
         return CatalogScope(
-            schemas=frozenset({INFORMATION_SCHEMA, "pg_catalog"}),
-            # pg_prepared_statements holds the text of prepared statements, so it
-            # belongs with the other two. Missing it is the hazard a schema-level
-            # allow always carries: the exclusions have to be complete, and nothing
-            # tells you when they are not.
-            excluded_relations=frozenset(
+            schemas=frozenset({INFORMATION_SCHEMA}),
+            relations=frozenset(
                 {
-                    "pg_stat_statements",
-                    "pg_stat_activity",
-                    "pg_prepared_statements",
+                    # Core catalog: names, columns, types, defaults, comments.
+                    "pg_catalog.pg_class",
+                    "pg_catalog.pg_namespace",
+                    "pg_catalog.pg_database",
+                    "pg_catalog.pg_attribute",
+                    "pg_catalog.pg_attrdef",
+                    "pg_catalog.pg_type",
+                    "pg_catalog.pg_description",
+                    "pg_catalog.pg_index",
+                    "pg_catalog.pg_constraint",
+                    "pg_catalog.pg_inherits",
+                    "pg_catalog.pg_sequence",
+                    "pg_catalog.pg_enum",
+                    # Read by ingestion for lineage and stored procedures.
+                    "pg_catalog.pg_depend",
+                    "pg_catalog.pg_rewrite",
+                    "pg_catalog.pg_proc",
+                    "pg_catalog.pg_language",
+                    "pg_catalog.pg_extension",
+                    # The friendly views over the above. Their *_def columns are
+                    # object DDL, which is schema and which ingestion publishes
+                    # as dataset properties -- consistent with permitting
+                    # Snowflake's ACCOUNT_USAGE.VIEWS.
+                    "pg_catalog.pg_tables",
+                    "pg_catalog.pg_views",
+                    "pg_catalog.pg_matviews",
+                    "pg_catalog.pg_indexes",
                 }
             ),
         )

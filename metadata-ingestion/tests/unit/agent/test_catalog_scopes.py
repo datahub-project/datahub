@@ -57,6 +57,30 @@ PERMITTED: List[Tuple[str, str, str]] = [
     ("redshift", "redshift", "SELECT attname FROM pg_catalog.pg_attribute"),
     ("mssql", "mssql", "SELECT * FROM sys.sql_expression_dependencies"),
     ("mssql", "mssql", "SELECT * FROM sys.database_query_store_options"),
+    # BigQuery is the one dialect whose parser leaves a dot inside an
+    # identifier slot, so it is the only one whose slots get split. These must
+    # keep working after that split was narrowed to it.
+    ("bigquery", "bigquery", "SELECT * FROM myds.INFORMATION_SCHEMA.VIEWS"),
+    # A CTE is still excused where an enclosing WITH declares it, including a
+    # later CTE referring to an earlier sibling.
+    (
+        "postgres",
+        "postgres",
+        "WITH t AS (SELECT * FROM information_schema.tables) SELECT * FROM t",
+    ),
+    (
+        "postgres",
+        "postgres",
+        "WITH a AS (SELECT * FROM information_schema.tables), "
+        "b AS (SELECT * FROM a) SELECT * FROM b",
+    ),
+    # Postgres moved from a schema-level pg_catalog allow to named relations;
+    # these are what its own query.py/source.py read.
+    ("postgres", "postgres", "SELECT * FROM pg_catalog.pg_depend"),
+    ("postgres", "postgres", "SELECT * FROM pg_catalog.pg_rewrite"),
+    ("postgres", "postgres", "SELECT * FROM pg_catalog.pg_proc"),
+    ("postgres", "postgres", "SELECT attname FROM pg_catalog.pg_attribute"),
+    ("postgres", "postgres", "SELECT * FROM pg_catalog.pg_views"),
 ]
 
 # The text-bearing relation that sits in the same catalog as the ones above. Each of
@@ -124,7 +148,70 @@ REFUSED_CATALOG_IMPERSONATION: List[Tuple[str, str, str]] = [
     ("oracle", "oracle", "SELECT * FROM hr.all_tables"),
     ("oracle", "oracle", "SELECT * FROM my_schema.dba_tables"),
     ("oracle", "oracle", "SELECT * FROM some_db.hr.all_tab_columns"),
+    # A quoted identifier is ONE name, even when it contains dots. Splitting
+    # every slot on "." -- an accommodation BigQuery needs, applied to every
+    # dialect -- let a user table named after a catalog view read as that view,
+    # on every dialect at once. The same substitution as the ACCOUNT_USAGE
+    # cases above, one level lower down.
+    ("postgres", "postgres", 'SELECT * FROM "information_schema.tables"'),
+    ("mysql", "mysql", "SELECT * FROM `information_schema.tables`"),
+    ("snowflake", "snowflake", 'SELECT * FROM "snowflake.account_usage.tables"'),
+    ("mssql", "mssql", 'SELECT * FROM "sys.tables"'),
+    # CTE names were collected for the whole statement, so a CTE in an inner,
+    # non-enclosing scope licensed its name in an outer FROM -- where SQL
+    # itself resolves the name to the real table. Postgres does not make an
+    # inner WITH visible to an outer FROM.
+    (
+        "postgres",
+        "postgres",
+        "SELECT * FROM customer_pii WHERE 1 IN "
+        "(WITH customer_pii AS (SELECT 1 AS a) SELECT a FROM customer_pii)",
+    ),
 ]
+
+# Relations that are not query text and not schema shape either: sampled row
+# values, raw object bytes, credentials, user identity. Each of these was
+# permitted by a schema-level allow whose exclusion list was incomplete -- the
+# hazard CatalogScope's own docstring argues against.
+REFUSED_NOT_SCHEMA_SHAPE: List[Tuple[str, str, str]] = [
+    # most_common_vals / histogram_bounds are literal sampled values out of
+    # user columns -- the row values themselves, not values inside a query.
+    ("postgres", "postgres", "SELECT most_common_vals FROM pg_catalog.pg_stats"),
+    ("postgres", "postgres", "SELECT * FROM pg_catalog.pg_statistic"),
+    # Raw bytes of user large objects.
+    ("postgres", "postgres", "SELECT data FROM pg_catalog.pg_largeobject"),
+    ("postgres", "postgres", "SELECT * FROM pg_catalog.pg_largeobject_metadata"),
+    # Role password hashes.
+    ("postgres", "postgres", "SELECT passwd FROM pg_catalog.pg_shadow"),
+    ("postgres", "postgres", "SELECT rolpassword FROM pg_catalog.pg_authid"),
+]
+
+# User identity, withheld consistently across every dialect. Oracle's
+# all_users was the one that had been permitted.
+REFUSED_USER_IDENTITY: List[Tuple[str, str, str]] = [
+    ("oracle", "oracle", "SELECT username FROM all_users"),
+    ("postgres", "postgres", "SELECT usename FROM pg_catalog.pg_user"),
+    ("postgres", "postgres", "SELECT rolname FROM pg_catalog.pg_roles"),
+    ("clickhouse", "clickhouse", "SELECT name FROM system.users"),
+    ("teradata", "teradata", "SELECT UserName FROM DBC.UsersV"),
+    ("mssql", "mssql", "SELECT name FROM sys.sql_logins"),
+]
+
+
+@pytest.mark.parametrize("source_type,platform,query", REFUSED_NOT_SCHEMA_SHAPE)
+def test_a_relation_that_is_not_schema_shape_is_refused(
+    source_type: str, platform: str, query: str
+) -> None:
+    with pytest.raises(SqlScopeError):
+        check_query_scope(query, platform=platform, scope=_scope(source_type))
+
+
+@pytest.mark.parametrize("source_type,platform,query", REFUSED_USER_IDENTITY)
+def test_user_identity_is_withheld_on_every_dialect(
+    source_type: str, platform: str, query: str
+) -> None:
+    with pytest.raises(SqlScopeError):
+        check_query_scope(query, platform=platform, scope=_scope(source_type))
 
 
 @pytest.mark.parametrize("source_type,platform,query", REFUSED_CATALOG_IMPERSONATION)
@@ -366,9 +453,15 @@ def test_every_declared_relation_does_work():
 
 def test_the_postgres_declaration_is_inherited_by_its_derivatives():
     # One declaration covers three connectors; CockroachDB and TimescaleDB extend
-    # PostgresConfig rather than restating it.
+    # PostgresConfig rather than restating it. Asserted on the named relations
+    # and on what they withhold, since pg_catalog is no longer allowed at schema
+    # level -- the derivatives must inherit the narrowing, not just the allowing.
     for source_type in ("postgres", "cockroachdb", "timescaledb"):
-        assert "pg_catalog" in _scope(source_type).schemas
+        scope = _scope(source_type)
+        assert "pg_catalog.pg_class" in scope.relations
+        assert "pg_catalog" not in scope.schemas
+        assert not scope.permits_path(["pg_catalog", "pg_shadow"])
+        assert scope.permits_path(["pg_catalog", "pg_class"])
 
 
 def test_the_default_is_information_schema_and_nothing_else():
