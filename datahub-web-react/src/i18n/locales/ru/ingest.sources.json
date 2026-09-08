@@ -22,7 +22,7 @@
     "sources.confluence.description": "Импорт страниц и пространств из Confluence как документов с поддержкой семантического поиска.",
     "sources.csvEnricher.description": "Импорт метаданных из отформатированного CSV.",
     "sources.custom.description": "Настройте пользовательский рецепт с помощью YAML.",
-    "sources.dagster.description": "Импорт пайплайнов, задач, активов и lineage из Dagster.",
+    "sources.dagster.description": "Импорт пайплайнов, задач, ассетов и lineage из Dagster.",
     "sources.databricks.description": "Импорт метастораджей, схем, таблиц, lineage, запросов и статистики из Databricks Unity Catalog.",
     "sources.dbt.description": "Импорт источников, seed-данных, моделей, снапшотов, тестов и lineage из dbt.",
     "sources.dbtCloud.description": "Импорт источников, seed-данных, моделей, снапшотов, тестов и lineage из dbt Cloud.",

@@ -5,7 +5,7 @@
     "queriesTab.addHighlightedQueryTooltip": "Добавить отмеченный запрос",
     "queriesTab.addUnauthorizedMessage": "У вас нет прав добавлять запросы к этому объекту.",
     "queriesTab.downstreamQueriesTitle": "Нижестоящие запросы",
-    "queriesTab.downstreamQueriesTooltip": "Запросы, которые формируют нижестоящие активы",
+    "queriesTab.downstreamQueriesTooltip": "Запросы, которые формируют нижестоящие ассеты",
     "queriesTab.highlightedQueriesTitle": "Отмеченные запросы",
     "queriesTab.highlightedQueriesTooltip": "Отобранные запросы, относящиеся к этому набору данных",
     "queriesTab.recentQueriesTitle": "Последние запросы",

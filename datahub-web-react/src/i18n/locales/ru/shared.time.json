@@ -19,7 +19,7 @@
     "lastDaysCount_few": "Последние {{count}} дня",
     "lastDaysCount_many": "Последние {{count}} дней",
     "lastDaysCount_other": "Последние {{count}} дня",
-    "lastUpdated.defaultAssetType": "актив",
+    "lastUpdated.defaultAssetType": "ассет",
     "lastUpdated.lastChangedNoPlatform": "Время последнего изменения {{typeName}} в исходной платформе",
     "lastUpdated.lastChangedWithPlatform": "Время последнего изменения {{typeName}} в <platform>{{platformName}}</platform>",
     "lastUpdated.legendOlder": "Обновлено <bold>более месяца назад</bold>",

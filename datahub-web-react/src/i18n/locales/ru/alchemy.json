@@ -49,7 +49,7 @@
     "fileUpload.dragDropPrompt": "Перетащите файл или <uploadButton>нажмите, чтобы загрузить</uploadButton>",
     "fileUpload.maxSize": "Максимальный размер: 2 ГБ",
     "graphCard.moreInfo": "Подробнее",
-    "graphCard.noStats": "Для этого актива пока не собрана статистика.",
+    "graphCard.noStats": "Для этого ассета пока не собрана статистика.",
     "incidentStage.fixed": "Исправлено",
     "incidentStage.inProgress": "В работе",
     "incidentStage.investigation": "Расследование",

@@ -1,5 +1,5 @@
 {
-    "graph.empty": "Для этого актива пока не собрана статистика.",
+    "graph.empty": "Для этого ассета пока не собрана статистика.",
     "graph.rowCount_one": "{{formattedCount}} строка",
     "graph.rowCount_few": "{{formattedCount}} строки",
     "graph.rowCount_many": "{{formattedCount}} строк",

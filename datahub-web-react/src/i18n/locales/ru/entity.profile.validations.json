@@ -579,7 +579,7 @@
     "status.noStatus": "Нет статуса",
     "status.passing": "Проходит",
     "status.zeroRunning": "0 выполняется",
-    "summary.groupAssetsTooltip": "Нельзя просмотреть контракт данных для группы активов.",
+    "summary.groupAssetsTooltip": "Нельзя просмотреть контракт данных для группы ассетов.",
     "summary.navigateViaSection": "Перейдите через раздел боковой панели <bold>«Состоит из»</bold> справа.",
     "tabs.assertions": "Проверки",
     "tabs.dataContract": "Контракт данных",

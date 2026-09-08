@@ -2,7 +2,7 @@
     "completedBy": "Заполнено <name>{{completedByName}}</name>",
     "fieldLabel": "Поле: {{fieldPath}}",
     "fieldLevelRequirementsTitle": "Требования на уровне поля",
-    "introDescription": "Пожалуйста, заполните следующую информацию для {{entityName}}, чтобы мы могли отслеживать статус актива",
+    "introDescription": "Пожалуйста, заполните следующую информацию для {{entityName}}, чтобы мы могли отслеживать статус ассета",
     "notAssignedTooltip": "Вам не назначен просмотр или редактирование этой формы",
     "optionalResponsesRemaining_one": "Осталось {{count}} необязательный ответ",
     "optionalResponsesRemaining_few": "Осталось {{count}} необязательных ответа",

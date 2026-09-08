@@ -2,7 +2,7 @@
     "externalUrl.sourceFallback": "источник",
     "externalUrl.viewIn": "Открыть в {{displayName}}",
     "noteModal.contentLabel": "Содержание",
-    "noteModal.contentPlaceholder": "Напишите заметку. Упомяните @пользователя или @актив, чтобы оживить заметку!",
+    "noteModal.contentPlaceholder": "Напишите заметку. Упомяните @пользователя или @ассет, чтобы оживить заметку!",
     "noteModal.createdSuccess": "Заметка создана!",
     "noteModal.createError": "Не удалось создать заметку! Произошла непредвиденная ошибка",
     "noteModal.createTitle": "Создать заметку",

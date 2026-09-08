@@ -56,7 +56,7 @@
     "notesCount_few": "{{count}} заметки",
     "notesCount_many": "{{count}} заметок",
     "notesCount_other": "{{count}} заметок",
-    "outputPortTooltip": "Этот актив является выходным портом для данного продукта данных",
+    "outputPortTooltip": "Этот ассет является выходным портом для данного продукта данных",
     "pill.downstreamColumnCount_one": "{{count}} нижестоящий столбец",
     "pill.downstreamColumnCount_few": "{{count}} нижестоящих столбца",
     "pill.downstreamColumnCount_many": "{{count}} нижестоящих столбцов",
