@@ -74,6 +74,8 @@
     "state.all": "Все",
     "state.resolved": "Разрешён",
     "summary.activeCount_one": "Активный инцидент: {{count}}",
+    "summary.activeCount_few": "Активных инцидентов: {{count}}",
+    "summary.activeCount_many": "Активных инцидентов: {{count}}",
     "summary.activeCount_other": "Активных инцидентов: {{count}}",
     "summary.noActive": "Активных инцидентов нет",
     "summary.noneRaised": "Инцидентов не создавалось",

@@ -64,6 +64,8 @@
     "pagination.previousPage": "Предыдущая страница",
     "radio.label": "Метка",
     "resizablePills.moreHiddenCount_one": "Скрыт ещё {{count}} элемент",
+    "resizablePills.moreHiddenCount_few": "Скрыто ещё {{count}} элемента",
+    "resizablePills.moreHiddenCount_many": "Скрыто ещё {{count}} элементов",
     "resizablePills.moreHiddenCount_other": "Скрыто ещё {{count}} элементов",
     "search.placeholder": "Поиск...",
     "select.placeholder": "Выберите значение",

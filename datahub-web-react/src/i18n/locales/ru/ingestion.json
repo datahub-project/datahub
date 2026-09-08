@@ -124,6 +124,8 @@
     "source.emptySearchTitle": "Результатов поиска нет!",
     "source.emptyTitle": "{{sourceType}} пока нет!",
     "source.entityTypeNameCount_one": "{{type}}",
+    "source.entityTypeNameCount_few": "{{type}}",
+    "source.entityTypeNameCount_many": "{{type}}",
     "source.entityTypeNameCount_other": "{{type}}",
     "source.execute": "Выполнить",
     "source.executeConfirmText": "Нажмите «Выполнить», чтобы запустить этот источник загрузки.",

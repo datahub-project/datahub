@@ -33,6 +33,8 @@
     "groups.loadError": "Не удалось загрузить группы! Произошла непредвиденная ошибка.",
     "groups.loading": "Загрузка групп...",
     "groups.membersCount_one": "{{formattedCount}} участник",
+    "groups.membersCount_few": "{{formattedCount}} участника",
+    "groups.membersCount_many": "{{formattedCount}} участников",
     "groups.membersCount_other": "{{formattedCount}} участников",
     "groups.noRole": "Без роли",
     "groups.searchPlaceholder": "Поиск групп...",

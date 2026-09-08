@@ -1,6 +1,8 @@
 {
     "graph.empty": "Для этого актива пока не собрана статистика.",
     "graph.rowCount_one": "{{formattedCount}} строка",
+    "graph.rowCount_few": "{{formattedCount}} строки",
+    "graph.rowCount_many": "{{formattedCount}} строк",
     "graph.rowCount_other": "{{formattedCount}} строк",
     "graph.statName": "количество строк",
     "graph.title": "Количество строк",
