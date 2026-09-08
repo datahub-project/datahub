@@ -1409,7 +1409,7 @@ textual==8.0.2
     # via memray
 thoughtspot-rest-api==2.0.3
     # via acryl-datahub
-thrift==0.16.0
+thrift==0.24.0
     # via
     #   acryl-pyhive
     #   databricks-sql-connector
