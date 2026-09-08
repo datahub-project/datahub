@@ -107,20 +107,17 @@ class ZDUTestConfig:
             "docker-compose.zdu-test-override.yml",
         ]
     )
-    # Topology under test. ``debug`` runs MAE/MCE embedded in GMS; and
-    # ``debug-consumers`` splits them into their own containers, which is the
-    # shape production runs and the only one where the MCL write path — and so
-    # rollback dual-write — executes outside GMS. Override with
-    # ``ZDU_COMPOSE_PROFILES``; the four service names below follow along
-    # automatically via ``constants.PROFILE_SERVICES``.
+    # Topology under test. ``debug-consumers`` is the production shape and the
+    # only one where the MCL write path — so rollback dual-write — runs outside
+    # GMS. Override with ``ZDU_COMPOSE_PROFILES``; the service names below
+    # follow via ``constants.PROFILE_SERVICES``.
     compose_profiles: list[str] = field(default_factory=lambda: [DEFAULT_PROFILE])
     rebuild_command: str = "scripts/dev/datahub-dev.sh rebuild --wait"
     rebuild_cwd: str = field(default_factory=lambda: str(REPO_ROOT))
     gms_service: str = PROFILE_SERVICES[DEFAULT_PROFILE].gms
     upgrade_service: str = PROFILE_SERVICES[DEFAULT_PROFILE].upgrade
-    # Consumer containers. Absent under ``debug`` — the phases that consume
-    # these filter against the services the running stack actually reports, so
-    # a name that no profile brings up is skipped rather than failing.
+    # Absent under ``debug``. Phases filter against the running stack, so a
+    # name no profile brings up is skipped rather than failing.
     mae_service: str = MAE_SERVICE
     mce_service: str = MCE_SERVICE
 
@@ -254,13 +251,21 @@ class ZDUTestConfig:
     build_dir: str = field(default_factory=lambda: str(REPO_ROOT / "smoke-test/build"))
 
     @property
+    def consumer_services(self) -> tuple[str, ...]:
+        """MCL/MCP consumer containers; empty when they run inside GMS.
+
+        Phases that hold GMS on OLD need these — swapping GMS alone leaves a
+        split topology's write path on the other side of the upgrade.
+        """
+        return tuple(s for s in (self.mae_service, self.mce_service) if s)
+
+    @property
     def services_in_restart_order(self) -> tuple[str, ...]:
         """Services the rolling-restart / prepare-old-stack phases drive.
 
-        GMS first: the consumers declare ``depends_on`` GMS, so restarting it
-        first lets them pick up the new image on the cascade. Names that the
-        active profile does not bring up are dropped by those phases against
-        the live stack, so an embedded-consumer profile needs no special case.
+        GMS first — the consumers ``depends_on`` it and pick up the new image
+        on the cascade. Names the active profile lacks are dropped against the
+        live stack, so embedded-consumer profiles need no special case.
         """
         return tuple(
             s for s in (self.gms_service, self.mae_service, self.mce_service) if s
@@ -274,16 +279,13 @@ class ZDUTestConfig:
         # in this loop are pure env-var lookups.
         if v := _resolve_gms_token():
             kwargs["gms_token"] = v
-        # Topology first: selecting a profile renames all four services, and the
-        # per-service ZDU_*_SERVICE vars below are applied afterwards so an
-        # explicit override still wins over the profile's derived name.
+        # Topology first — the per-service ZDU_*_SERVICE vars are applied after,
+        # so an explicit override still wins over the profile's derived name.
         if v := os.environ.get("ZDU_COMPOSE_PROFILES"):
             profiles = [p.strip() for p in v.split(",") if p.strip()]
             kwargs["compose_profiles"] = profiles
-            # Only a single known profile yields service names; a multi-profile
-            # or unrecognised value keeps the dataclass defaults, on the
-            # assumption the caller pins the names explicitly. Silently guessing
-            # here would point log tailing at a container that never exists and
+            # Multi-profile or unrecognised values keep the defaults: guessing
+            # would point log tailing at a container that never exists and
             # report "no dual-write events" instead of a wiring failure.
             if len(profiles) == 1 and profiles[0] in PROFILE_SERVICES:
                 services = PROFILE_SERVICES[profiles[0]]

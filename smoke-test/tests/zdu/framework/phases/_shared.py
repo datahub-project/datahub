@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
-from typing import Iterator
+from typing import Iterator, Sequence
 
 from ..constants import PER_SERVICE_VERSION_KEY, REPO_ROOT, TOKEN_SERVICE_KEYS
 from ..docker_compose import DockerComposeClient
@@ -55,22 +55,23 @@ def compose_env_for_service(
 
 
 @contextmanager
-def old_image_gms_window(
+def old_image_window(
     docker: DockerComposeClient,
     *,
     gms_service: str,
+    consumer_services: Sequence[str] = (),
     old_image_tag: str,
     new_image_tag: str,
     build_images_root: str,
     log_prefix: str,
 ) -> Iterator[bool]:
-    """Run a block of work with GMS temporarily reverted to the OLD image.
+    """Run a block of work with the write path temporarily reverted to OLD.
 
-    Yields ``True`` when GMS was actually swapped, ``False`` when there is no
-    distinct OLD image to swap to (both tags equal, e.g. under
-    ``ZDU_SKIP_BUILD_IMAGES=1``) and the caller should expect NEW-image
-    behaviour. GMS is restored on the way out even if the block raises —
-    leaving it on OLD would invalidate every later phase.
+    Yields ``True`` when the swap happened, ``False`` when there is no distinct
+    OLD image to swap to (both tags equal, e.g. under ``ZDU_SKIP_BUILD_IMAGES=1``)
+    and the caller should expect NEW-image behaviour. Services are restored on
+    the way out even if the block raises — leaving one on OLD would invalidate
+    every later phase.
 
     Why the sweep scenarios need this. They must observe the batch sweep's own
     cursor and delay mechanics, which requires rows that are still un-migrated
@@ -79,22 +80,29 @@ def old_image_gms_window(
     ``${ZDU_STAGE_20:false}`` and so the write-path
     ``AspectMigrationMutatorChain`` is armed. Two consequences:
 
-    * Seeding through the NEW GMS migrates each aspect to the target version on
+    * Seeding through a NEW GMS migrates each aspect to the target version on
       ingest, so the fixture lands already-at-target.
-    * The MCE/MAE consumers run *embedded in the GMS process* (``MCE_CONSUMER_ENABLED``
-      / ``MAE_CONSUMER_ENABLED``), so a NEW GMS also drains any backlog of
-      already-seeded rows through that same armed path — at a few hundred rows a
-      second, which is faster than a paced sweep can consume them.
+    * A NEW MCL/MCP consumer drains any backlog of already-seeded rows through
+      that same armed path — at a few hundred rows a second, which is faster
+      than a paced sweep can consume them.
 
     The second point is why this wraps the *whole* sweep rather than just the
-    seed: restoring GMS to NEW straight after seeding hands the fresh fixture to
-    an armed consumer, and the rows are gone before the sweep's first batch.
+    seed: restoring to NEW straight after seeding hands the fresh fixture to an
+    armed consumer, and the rows are gone before the sweep's first batch.
+
+    It is also why ``consumer_services`` exists. Where the consumers run is a
+    property of the topology, not a constant: the embedded profiles run them
+    inside the GMS process, so swapping GMS alone covers them, but a split
+    topology runs them as separate containers that a GMS-only swap leaves on
+    NEW — still armed, still draining the fixture. Callers pass whichever
+    consumer containers the active profile brings up; an embedded profile
+    passes none and this behaves exactly as before.
 
     The OLD image is built without the ZDU test-fixture patch, and that patch is
     what *creates* the mutator classes and ``ZduTestMutatorConfiguration`` — so
-    the OLD chain is necessarily empty and neither its write path nor its
-    embedded consumers can migrate anything. That also matches how stale rows
-    arise in production: written by nodes that predate the upgrade.
+    the OLD chain is necessarily empty and no OLD process, GMS or consumer, can
+    migrate anything. That also matches how stale rows arise in production:
+    written by nodes that predate the upgrade.
 
     Safe for the sweep itself to run inside the window: the sweep executes in a
     one-shot ``datahub-upgrade`` container with its own ``EntityService`` writing
@@ -116,31 +124,43 @@ def old_image_gms_window(
     # signing key.
     token_env = read_token_passthrough(docker, gms_service, purpose="old_image_window")
 
+    # Only swap consumers the active profile actually brings up. Recreating a
+    # service Compose doesn't know about fails the whole window.
+    present = set(docker.get_all_service_images().keys())
+    targets = [gms_service, *(s for s in consumer_services if s in present)]
+    if skipped := [s for s in consumer_services if s not in present]:
+        log.info(
+            "%s consumers not in current stack, not swapping: %s", log_prefix, skipped
+        )
+
     def swap(side: str, image_tag: str) -> None:
         # Host mounts have to move with the image: the compose YAML overlays the
-        # GMS war and the models resources from a host directory, so leaving them
-        # on the NEW worktree while running the OLD image would mix NEW PDL into
-        # an OLD container — the mismatch worktree_mount_env exists to prevent.
+        # GMS war, the consumer jars and the models resources from host
+        # directories, so leaving them on the NEW worktree while running the OLD
+        # image would mix NEW PDL into an OLD container — the mismatch
+        # worktree_mount_env exists to prevent.
         mount_env = worktree_mount_env(REPO_ROOT, build_images_root, side)
-        log.info(
-            "%s recreating %s on %s image (tag=%s, mounts=%s)",
-            log_prefix,
-            gms_service,
-            side.upper(),
-            image_tag,
-            "pinned" if mount_env else "YAML defaults",
-        )
-        docker.recreate_service(
-            service=gms_service,
-            compose_env=compose_env_for_service(
-                gms_service, image_tag, passthrough=token_env, mount_env=mount_env
-            ),
-            timeout_s=_SEED_RECREATE_TIMEOUT_S,
-            # Swap the image only. Letting GMS's depends_on cascade fire would
-            # re-run system-update inside this window, sweeping the very fixture
-            # the window exists to keep un-migrated.
-            no_deps=True,
-        )
+        for service in targets:
+            log.info(
+                "%s recreating %s on %s image (tag=%s, mounts=%s)",
+                log_prefix,
+                service,
+                side.upper(),
+                image_tag,
+                "pinned" if mount_env else "YAML defaults",
+            )
+            docker.recreate_service(
+                service=service,
+                compose_env=compose_env_for_service(
+                    service, image_tag, passthrough=token_env, mount_env=mount_env
+                ),
+                timeout_s=_SEED_RECREATE_TIMEOUT_S,
+                # Swap the image only. Letting the depends_on cascade fire would
+                # re-run system-update inside this window, sweeping the very
+                # fixture the window exists to keep un-migrated — and would
+                # bounce GMS again for every consumer that depends on it.
+                no_deps=True,
+            )
 
     swap("old", old_image_tag)
     try:
