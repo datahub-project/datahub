@@ -15,6 +15,11 @@ on:
       version:
         description: "Version without 'v' prefix (e.g. 1.0.0)"
         required: true
+      sha:
+        description: "Full 40-character commit SHA to cut from. Leave empty to use the tip of the source branch."
+        required: false
+        type: string
+        default: ""
 
 permissions: {}
 
@@ -39,23 +44,34 @@ jobs:
           sparse-checkout-cone-mode: true
           fetch-depth: 1
 
-      - name: Validate inputs
-        run: |
-          python3 .github/scripts/release/validate_inputs.py cut-branch \
-            --version "${{ inputs.version }}" \
-            --branch-type "${{ inputs.branch_type }}"
-
       - name: Resolve source and target branches
         id: branches
+        env:
+          BRANCH_TYPE: ${{ inputs.branch_type }}
+          VERSION: ${{ inputs.version }}
         run: |
-          if [ "${{ inputs.branch_type }}" == "release" ]; then
+          if [ "$BRANCH_TYPE" == "release" ]; then
             SOURCE=$(PYTHONPATH=.github/scripts:.github/scripts/release python3 -c "from release_variables import DEFAULT_BRANCH; print(DEFAULT_BRANCH)")
             echo "source=${SOURCE}" >> "$GITHUB_OUTPUT"
-            echo "target=releases/v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "target=releases/v${VERSION}" >> "$GITHUB_OUTPUT"
           else
-            echo "source=releases/v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-            echo "target=hotfixes/v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "source=releases/v${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "target=hotfixes/v${VERSION}" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Validate inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          BRANCH_TYPE: ${{ inputs.branch_type }}
+          SHA: ${{ inputs.sha }}
+          SOURCE: ${{ steps.branches.outputs.source }}
+        run: |
+          python3 .github/scripts/release/validate_inputs.py cut-branch \
+            --version "$VERSION" \
+            --branch-type "$BRANCH_TYPE" \
+            --sha "$SHA" \
+            --source "$SOURCE"
 
       - name: Generate GitHub App token
         id: app-token
@@ -64,10 +80,10 @@ jobs:
           client-id: ${{ vars.RELEASE_TEAM_GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_TEAM_GH_APP_PRIVATE_KEY }}
 
-      - name: Check out source branch
+      - name: Check out source commit
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ steps.branches.outputs.source }}
+          ref: ${{ inputs.sha != '' && inputs.sha || steps.branches.outputs.source }}
           # PAT required: GITHUB_TOKEN pushes do not trigger push-event workflows
           # (e.g. docker-unified.yml on releases/** and hotfixes/**).
           token: ${{ steps.app-token.outputs.token }}
@@ -101,15 +117,22 @@ jobs:
           echo "Created branch: $TARGET"
 
       - name: Write job summary
+        env:
+          SOURCE: ${{ steps.branches.outputs.source }}
+          TARGET: ${{ steps.branches.outputs.target }}
+          COMMIT_SHA: ${{ steps.create_branch.outputs.commit_sha }}
+          SHA: ${{ inputs.sha }}
         run: |
+          REQUESTED="${SHA:-"(source tip)"}"
           cat >> "$GITHUB_STEP_SUMMARY" << EOF
           ## Branch Cut Summary
 
           | Field         | Value                                        |
           |---------------|----------------------------------------------|
-          | Source branch | \`${{ steps.branches.outputs.source }}\`     |
-          | Target branch | \`${{ steps.branches.outputs.target }}\`     |
-          | Commit SHA    | \`${{ steps.create_branch.outputs.commit_sha }}\` |
+          | Source branch | \`${SOURCE}\`                                |
+          | Requested SHA | \`${REQUESTED}\`                             |
+          | Target branch | \`${TARGET}\`                                |
+          | Commit SHA    | \`${COMMIT_SHA}\`                            |
           EOF
 
   notify_release_channel:
