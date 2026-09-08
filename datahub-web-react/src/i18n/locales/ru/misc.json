@@ -226,6 +226,7 @@
     "marketplace.applicationFilter.placeholder": "Фильтр приложений",
     "marketplace.createTooltip": "Создать продукт данных",
     "marketplace.cardAssets_other": "{{count}} ассетов",
+    "marketplace.cardAssets_one": "{{count}} ассет",
     "marketplace.cardAssets_few": "{{count}} ассета",
     "marketplace.cardAssets_many": "{{count}} ассетов",
     "marketplace.cardDeprecated": "Устарело",
