@@ -155,6 +155,136 @@ def test_an_unwritable_report_path_is_a_bad_argument(monkeypatch, tmp_path):
     assert "cannot write report" in res.output
 
 
+def test_an_unreachable_source_exits_on_the_connection_code(monkeypatch, tmp_path):
+    """The other half of the exit-code contract, which nothing asserted.
+
+    Every fix in this area moved a case from 3 to 2, so only the 2 side was
+    pinned -- widening the ValueError family to `except Exception` made exit 3
+    unreachable with the whole suite still green, which would tell an agent
+    that every connection failure was its own fault.
+    """
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
+
+    def fake_run(st, cfg, cmd, kwargs):
+        raise RuntimeError("could not connect to the server")
+
+    monkeypatch.setattr(rc, "run_probe_method", fake_run)
+    res = CliRunner().invoke(
+        recipe, ["probe", "run", "tables", "--recipe", _recipe_file(tmp_path)]
+    )
+    assert res.exit_code == 3, res.output
+    assert "could not connect" in res.output
+
+
+def test_a_missing_plugin_extra_is_a_bad_argument_not_a_traceback(tmp_path):
+    """ConfigurationError is MetaError, not ValueError, so it escaped every
+    ladder -- and it is the likeliest first-contact failure there is. Its
+    message carries the `pip install` hint, which was being dropped."""
+    res = CliRunner().invoke(recipe, ["describe", "definitely-not-a-real-source"])
+    assert res.exit_code == 2, res.output
+    assert '"error"' in res.output
+
+
+def test_a_malformed_try_pattern_is_a_bad_argument_not_a_traceback(tmp_path):
+    """AllowDenyPattern compiles lazily inside .allowed(), and re.error is not a
+    ValueError -- so a bad pattern crashed the command whose whole job is
+    diagnosing patterns."""
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            _recipe_file(tmp_path),
+            "--kind",
+            "Table",
+            "--name",
+            "t",
+            "--try-allow",
+            "[",
+        ],
+    )
+    assert res.exit_code == 2, res.output
+    assert '"error"' in res.output
+
+
+def test_a_connection_free_command_never_reports_an_unreachable_source(
+    monkeypatch, tmp_path
+):
+    """probe filter opens no connection, so EXIT_CONNECTION would send an agent
+    to retry something it never attempted. Unclassifiable failures there are
+    EXIT_INTERNAL."""
+
+    def boom(**kwargs):
+        raise RuntimeError("something unexpected")
+
+    monkeypatch.setattr(rc, "check_filters", boom)
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            _recipe_file(tmp_path),
+            "--kind",
+            "Table",
+            "--name",
+            "t",
+        ],
+    )
+    assert res.exit_code == rc.EXIT_INTERNAL, res.output
+    assert res.exit_code != rc.EXIT_CONNECTION
+
+
+def test_validate_redacts_a_resolved_secret(monkeypatch, tmp_path):
+    """validate was the one command with no redaction at all -- while being the
+    command whose job is warning about plaintext secrets. A pydantic
+    ValidationError embeds input_value=, so it could echo the secret back."""
+    monkeypatch.setenv("PROBE_TEST_PW", "s3cr3t-value")
+    p = tmp_path / "r.yml"
+    p.write_text(
+        "source:\n  type: postgres\n  config:\n"
+        "    host_port: localhost:5432\n    username: u\n"
+        "    password: ${PROBE_TEST_PW}\n"
+    )
+    res = CliRunner().invoke(recipe, ["validate", str(p)])
+    assert "s3cr3t-value" not in res.output
+
+
+def test_a_failed_connection_test_does_not_exit_zero(monkeypatch, tmp_path):
+    """The report was emitted but never consulted, so a failed test exited 0 --
+    in a CLI whose contract is that the caller reads the exit code, the one
+    command named after reaching the source did not use it."""
+    from datahub.ingestion.api.source import (
+        CapabilityReport,
+        TestConnectionReport,
+    )
+
+    class _Failing:
+        @staticmethod
+        def test_connection(config_dict):
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(
+                    capable=False, failure_reason="bad credentials"
+                )
+            )
+
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        lambda st: _Failing,
+    )
+    monkeypatch.setattr(
+        "datahub.ingestion.api.source.TestableSource", _Failing, raising=False
+    )
+    res = CliRunner().invoke(
+        recipe, ["test-connection", "--recipe", _recipe_file(tmp_path)]
+    )
+    # The report still reaches stdout; only the exit code changes.
+    assert res.exit_code == 3, res.output
+    assert "bad credentials" in res.output
+
+
 def test_a_soft_error_exits_on_the_bad_argument_code(monkeypatch, tmp_path):
     """A soft error reports that the caller named something absent, so it is a
     bad argument (2), not an unreachable source (3). Reported as 3, an agent

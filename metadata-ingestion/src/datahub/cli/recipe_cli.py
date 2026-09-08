@@ -1,11 +1,14 @@
 import importlib.resources
 import json
+import re
 import sys
-from typing import Dict, NoReturn, Optional, Set, Tuple
+from contextlib import contextmanager
+from typing import Dict, Iterator, NoReturn, Optional, Set, Tuple, Type
 
 import click
 import yaml
 
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
@@ -77,6 +80,64 @@ def _write_report(report_to: Optional[str], payload: object) -> None:
             raise ValueError(f"cannot write report to '{report_to}': {exc}") from exc
 
 
+# Exceptions that mean "your input was wrong" (EXIT_USER), in one place.
+#
+# There were seven copies of this ladder and they had drifted apart: `validate`
+# omitted KeyError, and five of the seven had no catch-all at all, so anything
+# unexpected escaped as an unredacted traceback. verdicts.py's own comment
+# predicted it -- "the CLI has four such ladders, and adding a clause to three
+# of four is how this landed on the wrong code to begin with" -- and there were
+# seven, not four. Classifying once is the fix; adding an eighth clause is not.
+#
+# The last two are the ones that were escaping. Neither is a ValueError:
+#   ConfigurationError is MetaError, raised by source_registry.get() when a
+#     plugin extra is not installed -- the most likely first-contact failure,
+#     and its message already carries the `pip install 'acryl-datahub[x]'` hint.
+#   re.error comes from an AllowDenyPattern compiling lazily inside .allowed(),
+#     so a malformed --try-allow crashed the very command meant to diagnose it.
+_USER_ERRORS: Tuple[Type[BaseException], ...] = (
+    ValueError,  # SqlScopeError, ApiScopeError, ProbeSoftError all subclass it
+    TypeError,
+    AssertionError,
+    KeyError,
+    ConfigurationError,
+    re.error,
+)
+
+
+def _redacted_text(exc: BaseException, secret_values: Set[str]) -> str:
+    # SECURITY: exception text is where credentials leak in practice -- a driver
+    # echoing a connection string, a pydantic ValidationError echoing its
+    # input_value. Redact before it reaches stderr.
+    redacted = redact(str(exc), secret_values)
+    assert isinstance(redacted, str)
+    return redacted
+
+
+@contextmanager
+def _exit_codes(
+    secret_values: Optional[Set[str]] = None, fallback: int = EXIT_INTERNAL
+) -> Iterator[None]:
+    """Map any exception to this CLI's exit-code contract, redacting on the way.
+
+    `fallback` is what an unclassifiable exception becomes: EXIT_CONNECTION for
+    a command that reaches the source, EXIT_INTERNAL for one that cannot (a
+    connection-free command reporting "I could not reach the source" would send
+    an agent to retry something it never attempted).
+    """
+    # `or set()` would be wrong here, and subtly: an empty set is falsey, so it
+    # would hand back a *new* set and drop the caller's reference -- and the
+    # caller's set is empty at entry precisely because the secrets get collected
+    # inside the block. The redaction would then silently do nothing.
+    secrets = set() if secret_values is None else secret_values
+    try:
+        yield
+    except _USER_ERRORS as exc:
+        _fail(_redacted_text(exc, secrets), EXIT_USER)
+    except Exception as exc:
+        _fail(_redacted_text(exc, secrets), fallback)
+
+
 def _fail(message: str, code: int) -> NoReturn:
     click.echo(json.dumps({"error": message}), err=True)
     sys.exit(code)
@@ -123,36 +184,82 @@ def _resolve_for_probe(
     return source_type, resolved.config, secret_values
 
 
+def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
+    """Every secret this recipe resolves to, best-effort, never raising.
+
+    Independent of describe_source on purpose. _resolve_for_probe resolves
+    secrets and *then* validates the source type, so a recipe with an unknown
+    type but a resolvable ${SECRET} reached the error handler with an empty
+    secret set and emitted unredacted. Each fallback below keeps whatever was
+    already collected rather than returning nothing.
+    """
+    values: Set[str] = set()
+    raw_source = recipe.get("source")
+    source: Dict[str, object] = raw_source if isinstance(raw_source, dict) else {}
+    raw_config = source.get("config")
+    config: Dict[str, object] = raw_config if isinstance(raw_config, dict) else {}
+    # Floor: inline literals recognisable by key name, straight off the raw
+    # recipe, so a later failure cannot cost us these.
+    values |= collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
+    try:
+        resolved = resolve_config_collecting(config, default_resolvers())
+    except Exception:
+        # An unresolvable ${ref} is the command's own finding to report, and it
+        # produced no value, so there is nothing further to mask.
+        return values
+    values |= resolved.secret_values
+    values |= collect_nested_secret_values(resolved.config, _SENSITIVE_KEY_HINTS)
+    try:
+        spec = describe_source(str(source.get("type")))
+    except Exception:
+        # Unknown or uninstalled source type: keep the refs already resolved.
+        return values
+    values |= collect_secret_values(
+        resolved.config, {f.name for f in spec.fields if f.kind == FieldKind.SECRET}
+    )
+    return values
+
+
 @click.group(cls=_AgentAwareGroup, name="recipe")
 def recipe() -> None:
     """Agent-facing probe/introspection interface for ingestion recipes."""
+    # SECURITY backstop. Every command redacts its own output and error text
+    # against the secrets it resolved, but that only covers what reaches _fail.
+    # This installs the masking sys.excepthook, so a traceback that escapes
+    # anyway is masked too -- `datahub ingest` has had it since it was written
+    # (ingest_cli.py) and the recipe path did not, which left the commands that
+    # had no catch-all printing raw connection strings.
+    from datahub.masking.bootstrap import initialize_secret_masking
+
+    initialize_secret_masking()
 
 
 @recipe.command()
 @click.argument("source_type")
 def describe(source_type: str) -> None:
-    try:
+    with _exit_codes():
         _emit(describe_source(source_type).to_dict())
-    except (ValueError, TypeError, AssertionError, KeyError) as exc:
-        _fail(str(exc), EXIT_USER)
 
 
 @recipe.command(name="scaffold")
 @click.argument("source_type")
 def recipe_scaffold(source_type: str) -> None:
-    try:
+    with _exit_codes():
         _emit(scaffold(source_type))
-    except (ValueError, TypeError, AssertionError, KeyError) as exc:
-        _fail(str(exc), EXIT_USER)
 
 
 @recipe.command(name="validate")
 @click.argument("path")
 def recipe_validate(path: str) -> None:
-    try:
-        _emit(validate_recipe(_load_recipe(path)))
-    except (ValueError, TypeError, AssertionError) as exc:
-        _fail(str(exc), EXIT_USER)
+    # SECURITY: this was the one command with no redaction. validate_recipe
+    # reports raw str(exc) from model_validate, and pydantic v2 embeds
+    # input_value= in most messages -- so the command whose job is warning you
+    # about a plaintext secret could echo that secret back in the same breath.
+    secret_values: Set[str] = set()
+    with _exit_codes(secret_values):
+        recipe_doc = _load_recipe(path)
+        secret_values.update(_secrets_in_recipe(recipe_doc))
+        _emit(redact(validate_recipe(recipe_doc), secret_values))
 
 
 @recipe.command(name="test-connection")
@@ -161,10 +268,9 @@ def test_connection(recipe_path: str) -> None:
     # Bound before the try so it is always defined, even if resolution itself
     # fails before any secret can be collected.
     secret_values: Set[str] = set()
-    try:
-        source_type, resolved, secret_values = _resolve_for_probe(
-            _load_recipe(recipe_path)
-        )
+    with _exit_codes(secret_values, fallback=EXIT_CONNECTION):
+        source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
+        secret_values.update(found)
         # Lazy import: keeps TestableSource / source_registry out of this
         # module's import-time surface until test-connection is actually invoked.
         from datahub.ingestion.api.source import TestableSource
@@ -179,19 +285,24 @@ def test_connection(recipe_path: str) -> None:
         # past the redactor (which only inspects str/dict/list values).
         safe_report = json.loads(json.dumps(report, default=_json_default))
         _emit(redact(safe_report, secret_values))
-    except (ValueError, TypeError, AssertionError, KeyError) as exc:
-        # SECURITY: the exception text may embed a resolved secret (e.g. a
-        # Pydantic ValidationError's input_value or a connection string with
-        # an embedded password), so redact before it reaches stderr.
-        redacted = redact(str(exc), secret_values)
-        assert isinstance(redacted, str)
-        _fail(redacted, EXIT_USER)
-    except Exception as exc:
-        # SECURITY: same rationale as above -- DBAPI/SQLAlchemy connection
-        # errors routinely embed the connection string, password included.
-        redacted = redact(str(exc), secret_values)
-        assert isinstance(redacted, str)
-        _fail(redacted, EXIT_CONNECTION)
+        # The report was emitted but never consulted, so a FAILED connection
+        # test exited 0 -- in a CLI whose whole contract is that the caller
+        # reads the exit code to tell "your input was wrong" from "I could not
+        # reach the source", the one command named after reaching the source
+        # did not use it. An agent read a bad credential as a success.
+        capable = getattr(getattr(report, "basic_connectivity", None), "capable", None)
+        if capable is None and isinstance(safe_report, dict):
+            # test_connection returns a TestConnectionReport, but a source may
+            # hand back a plain dict; read either shape rather than trusting one.
+            basic = safe_report.get("basic_connectivity")
+            if isinstance(basic, dict):
+                capable = basic.get("capable")
+        if capable is False:
+            _fail(
+                f"connection test failed for source '{source_type}'; "
+                f"see basic_connectivity in the emitted report",
+                EXIT_CONNECTION,
+            )
 
 
 @recipe.group(name="probe")
@@ -230,18 +341,11 @@ def probe_methods_cmd(recipe_path: str) -> None:
     # Connection-free: lists each command, its params, and its docstring (the
     # help the agent reads to decide which method to call).
     secret_values: Set[str] = set()
-    try:
-        source_type, _resolved, secret_values = _resolve_for_probe(
-            _load_recipe(recipe_path)
-        )
+    with _exit_codes(secret_values, fallback=EXIT_INTERNAL):
+        source_type, _resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
+        secret_values.update(found)
         specs = list_probe_methods(source_type)
         _emit({"source_type": source_type, "methods": [s.to_dict() for s in specs]})
-    except (ValueError, TypeError, AssertionError, KeyError) as exc:
-        # SECURITY: see test_connection -- exception text may embed a resolved
-        # secret (validation input_value / connection string password).
-        redacted = redact(str(exc), secret_values)
-        assert isinstance(redacted, str)
-        _fail(redacted, EXIT_USER)
 
 
 @probe_group.command(name="filter")
@@ -301,10 +405,9 @@ def probe_filter_cmd(
     pattern matching nothing.
     """
     secret_values: Set[str] = set()
-    try:
-        source_type, resolved, secret_values = _resolve_for_probe(
-            _load_recipe(recipe_path)
-        )
+    with _exit_codes(secret_values, fallback=EXIT_INTERNAL):
+        source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
+        secret_values.update(found)
         result = check_filters(
             source_type=source_type,
             config_dict=resolved,
@@ -317,10 +420,6 @@ def probe_filter_cmd(
         payload = redact(result.to_dict(), secret_values)
         _write_report(report_to, payload)
         _emit(payload)
-    except (ValueError, TypeError, AssertionError, KeyError) as exc:
-        redacted = redact(str(exc), secret_values)
-        assert isinstance(redacted, str)
-        _fail(redacted, EXIT_USER)
 
 
 @probe_group.command(
@@ -344,10 +443,9 @@ def probe_run_cmd(
     report_to: Optional[str],
 ) -> None:
     secret_values: Set[str] = set()
-    try:
-        source_type, resolved, secret_values = _resolve_for_probe(
-            _load_recipe(recipe_path)
-        )
+    with _exit_codes(secret_values, fallback=EXIT_CONNECTION):
+        source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
+        secret_values.update(found)
         call_kwargs: Dict[str, object] = dict(_parse_extra_params(params))
         result = run_probe_method(source_type, resolved, command, call_kwargs)
         # SECURITY: normalize to pure JSON types before redacting, so a raw
@@ -357,15 +455,3 @@ def probe_run_cmd(
         payload = redact(safe, secret_values)
         _write_report(report_to, payload)
         _emit(payload)
-    except (ValueError, TypeError, AssertionError, KeyError) as exc:
-        # SECURITY: exception text may embed a resolved secret (e.g. a
-        # connection-string password) surfaced by a failed provider call.
-        redacted = redact(str(exc), secret_values)
-        assert isinstance(redacted, str)
-        _fail(redacted, EXIT_USER)
-    except Exception as exc:
-        # SECURITY: same rationale as above -- underlying driver errors
-        # routinely embed the connection string, password included.
-        redacted = redact(str(exc), secret_values)
-        assert isinstance(redacted, str)
-        _fail(redacted, EXIT_CONNECTION)
