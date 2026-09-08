@@ -78,8 +78,31 @@ pytest --domain catalog --domain ingestion -vv
 
 A test that spans domains declares all of them, e.g.
 `@pytest.mark.domain(Domain.CATALOG, Domain.INGESTION)`, and is selected by
-either. Tests marked `p0` are the ones critical enough to run on every pull
-request; combine the two with `pytest -m p0 --domain catalog`.
+either.
+
+#### Selecting tests by criticality tier
+
+Tests critical enough to gate every pull request carry `@pytest.mark.p0`. Select
+them with an ordinary marker expression:
+
+```bash
+# Only the p0 tier
+pytest -m p0 -vv
+
+# The p0 tier within one domain
+pytest -m p0 --domain catalog -vv
+```
+
+CI drives the choice through the `SMOKE_TIER` env var that `smoke.sh` reads:
+`docker-unified.yml` sets it to `p0` for pull requests while the
+`PYTEST_P0_SMOKE` repository variable is `true`, and leaves post-merge runs on
+the full suite.
+
+On a pull request CI additionally runs any test module the PR itself touches,
+even when it carries no `p0` marker — conftest marks those modules p0 during
+collection so `-m p0` keeps them. That is per-module: a change to a shared
+fixture or to `conftest.py` pulls in no test module of its own, so a PR needing
+broader coverage asks for the whole suite with the full-suite PR label.
 
 ## Test Categories
 
