@@ -132,21 +132,25 @@ public class LineageRegistryTest {
 
   @Test
   public void testCaseInsensitiveSchemaFieldName() {
-    // Test with EXACT case schema field name
     List<LineageRegistry.EdgeInfo> upstreamEdges =
-        lineageRegistry.getLineageRelationships(
-            Constants.SCHEMA_FIELD_ENTITY_NAME, LineageDirection.UPSTREAM);
+        lineageRegistry.getLineageRelationships("schemafield", LineageDirection.UPSTREAM);
+    List<LineageRegistry.EdgeInfo> downstreamEdges =
+        lineageRegistry.getLineageRelationships("SCHEMAFIELD", LineageDirection.DOWNSTREAM);
 
-    // Verify we get the correct relationships with the correct case
-    assertEquals(
-        upstreamEdges.size(), 1, "Schema field should have 1 upstream edge with correct name");
+    assertEquals(upstreamEdges.size(), 1, "Schema field should have 1 upstream edge");
     assertTrue(
         upstreamEdges.contains(
             new LineageRegistry.EdgeInfo(
                 "DownstreamOf",
                 RelationshipDirection.OUTGOING,
-                Constants.SCHEMA_FIELD_ENTITY_NAME)),
-        "Expected upstream edge not found with correct name");
+                Constants.SCHEMA_FIELD_ENTITY_NAME)));
+    assertEquals(downstreamEdges.size(), 1, "Schema field should have 1 downstream edge");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "DownstreamOf",
+                RelationshipDirection.INCOMING,
+                Constants.SCHEMA_FIELD_ENTITY_NAME)));
   }
 
   @Test

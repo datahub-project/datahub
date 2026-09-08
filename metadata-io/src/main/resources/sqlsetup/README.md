@@ -39,3 +39,8 @@ See [pgQueue design doc](../../../../../docs/pgqueue-design.md) and `PgQueueSqlM
 
 See [pgTimeseries design doc](../../../../../docs/pgtimeseries-design.md), `pgtimeseries/migrations`,
 and `PgTimeseriesSqlMigrationModules`.
+
+## pgGraph
+
+See [pgGraph design doc](../../../../../docs/pggraph-design.md), `pggraph/migrations`, and
+`PgGraphSqlMigrationModules`.

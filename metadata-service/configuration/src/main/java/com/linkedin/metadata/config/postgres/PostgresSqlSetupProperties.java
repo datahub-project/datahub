@@ -17,7 +17,7 @@ import org.springframework.lang.Nullable;
 
 /**
  * Binds {@code postgres.*} from {@code application.yaml} for optional SqlSetup PostgreSQL DDL
- * (pgQueue, pgTimeseries, pgAnalytics, pgSystemMetadata).
+ * (pgQueue, pgTimeseries, pgAnalytics, pgSystemMetadata, pgGraph).
  *
  * <p>Configuration defaults live in {@code application.yaml}, not on fields in this class.
  */
@@ -75,6 +75,7 @@ public class PostgresSqlSetupProperties {
   private PgTimeseries pgTimeseries = new PgTimeseries();
   private PgAnalytics pgAnalytics = new PgAnalytics();
   private PgSystemMetadata pgSystemMetadata = new PgSystemMetadata();
+  private PgGraph pgGraph = new PgGraph();
   private PgQueue pgQueue = new PgQueue();
   private PgCron pgCron = new PgCron();
 
@@ -91,6 +92,7 @@ public class PostgresSqlSetupProperties {
     p.getPgTimeseries().setEnabled(false);
     p.getPgAnalytics().setEnabled(false);
     p.getPgSystemMetadata().setEnabled(false);
+    p.getPgGraph().setEnabled(false);
     p.getPgQueue().setEnabled(false);
     return p;
   }
@@ -112,6 +114,9 @@ public class PostgresSqlSetupProperties {
     }
     if (pgSystemMetadata.isEnabled()) {
       validatePgSystemMetadataConfig();
+    }
+    if (pgGraph.isEnabled()) {
+      validatePgGraphConfig();
     }
     if (pgQueue.isEnabled()) {
       validatePgQueueConfig();
@@ -926,6 +931,64 @@ public class PostgresSqlSetupProperties {
     normalizedPgSystemMetadataTableName();
   }
 
+  /** Built graph options, or null when {@code postgres.pgGraph.enabled} is false. */
+  public PgGraphSetupOptions buildPgGraphOptions() {
+    if (!pgGraph.isEnabled()) {
+      return null;
+    }
+    PgGraph.Pool pool = pgGraph.getPool();
+    return PgGraphSetupOptions.builder()
+        .schema(normalizedPostgresSchema())
+        .tablePrefix(normalizedPgGraphTablePrefix())
+        .partitionCount(normalizedPgGraphPartitionCount())
+        .idHashAlgo(normalizedPgGraphIdHashAlgo())
+        .maxEdgeWriteBatchSize(pgGraph.getMaxEdgeWriteBatchSize())
+        .poolUrl(pool != null ? pool.getUrl() : null)
+        .poolDriver(pool != null ? pool.getDriver() : null)
+        .poolUsername(pool != null ? pool.getUsername() : null)
+        .poolPassword(pool != null ? pool.getPassword() : null)
+        .build();
+  }
+
+  public String normalizedPgGraphTablePrefix() {
+    return normalizeTablePrefix(pgGraph.getTablePrefix(), "postgres.pgGraph.tablePrefix");
+  }
+
+  public int normalizedPgGraphPartitionCount() {
+    int n = pgGraph.getPartitionCount();
+    if (n < 1) {
+      return 2;
+    }
+    return n;
+  }
+
+  public String normalizedPgGraphIdHashAlgo() {
+    String raw = pgGraph.getIdHashAlgo();
+    if (raw == null || raw.isBlank()) {
+      return "XXHASH64";
+    }
+    return raw.trim();
+  }
+
+  private void validatePgGraphConfig() {
+    normalizedPgGraphTablePrefix();
+    String algo = normalizedPgGraphIdHashAlgo();
+    if (!"XXHASH64".equalsIgnoreCase(algo)) {
+      throw new IllegalStateException(
+          "postgres.pgGraph.idHashAlgo must be XXHASH64 (got '" + algo + "').");
+    }
+    int partitionCount = pgGraph.getPartitionCount();
+    if (partitionCount < 1 || partitionCount > 1024) {
+      throw new IllegalStateException(
+          "postgres.pgGraph.partitionCount must be between 1 and 1024 inclusive.");
+    }
+    int batch = pgGraph.getMaxEdgeWriteBatchSize();
+    if (batch < 1 || batch > 100_000) {
+      throw new IllegalStateException(
+          "postgres.pgGraph.maxEdgeWriteBatchSize must be between 1 and 100000 inclusive.");
+    }
+  }
+
   /** Built timeseries registry, or null when {@code postgres.pgTimeseries.enabled} is false. */
   public PgTimeseriesSetupOptions buildPgTimeseriesOptions() {
     if (!pgTimeseries.isEnabled()) {
@@ -1710,6 +1773,58 @@ public class PostgresSqlSetupProperties {
     private String tableName;
 
     private Pool pool = new Pool();
+
+    @Getter
+    @Setter
+    public static class Pool {
+      private String url;
+      private String driver;
+      private String username;
+      private String password;
+      private int minConnections;
+      private int maxConnections;
+      private int maxInactiveTimeSeconds;
+      private int maxAgeMinutes;
+      private int leakTimeMinutes;
+      private int waitTimeoutMillis;
+    }
+  }
+
+  @Getter
+  @Setter
+  public static class PgGraph {
+    private boolean enabled;
+
+    /**
+     * Prefix for graph tables/views/functions ({@code {prefix}_vertices}, {@code {prefix}_edges})
+     * and the SqlSetup ledger ({@code {prefix}_schema_migration}).
+     */
+    private String tablePrefix;
+
+    /**
+     * Hash partitions for {@code {prefix}_edges}. Default is defined in {@code application.yaml}.
+     */
+    private int partitionCount;
+
+    /** Vertex id hash for {@code xxhash64_id}. Only {@code XXHASH64} is supported. */
+    private String idHashAlgo;
+
+    /** Upper bound on edges per JDBC {@code executeBatch} chunk for graph mutations. */
+    private int maxEdgeWriteBatchSize;
+
+    /**
+     * Optional connected-component analytics. SqlSetup still creates CC tables/functions when
+     * pgGraph is enabled; GMS does not populate them unless this flag is true (jobs not wired yet).
+     */
+    private ConnectedComponents connectedComponents = new ConnectedComponents();
+
+    private Pool pool = new Pool();
+
+    @Getter
+    @Setter
+    public static class ConnectedComponents {
+      private boolean enabled;
+    }
 
     @Getter
     @Setter

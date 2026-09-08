@@ -68,7 +68,14 @@ public class NonBlockingConfigs {
         configurationProvider.getElasticSearch().getBulkDelete().toBuilder()
             .numRetries(numRetries)
             .build();
-    return new RemoveQueryEdges(opContext, entityService, esWriteDao, enabled, override);
+    String graphType =
+        configurationProvider.getGraphService() != null
+            ? configurationProvider.getGraphService().getType()
+            : null;
+    boolean graphOnElasticsearch =
+        graphType == null || !"postgres".equalsIgnoreCase(graphType.trim());
+    return new RemoveQueryEdges(
+        opContext, entityService, esWriteDao, enabled && graphOnElasticsearch, override);
   }
 
   @Bean

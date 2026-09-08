@@ -93,7 +93,7 @@ public class CleanupUpgradeConfig {
 
     // Order: ES first (so indices aren't queried during DB drop), then Kafka, then SQL
     if (esEnabled && esComponents != null) {
-      steps.add(new DeleteElasticsearchIndicesStep(esComponents));
+      steps.add(new DeleteElasticsearchIndicesStep(esComponents, configurationProvider));
       log.info("Elasticsearch cleanup step enabled");
     } else if (esEnabled) {
       log.warn("Elasticsearch cleanup requested but ES components not available — skipping");

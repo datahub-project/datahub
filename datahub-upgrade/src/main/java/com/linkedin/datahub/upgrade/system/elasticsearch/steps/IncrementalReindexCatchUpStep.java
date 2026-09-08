@@ -542,7 +542,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
     String graphIndexName =
         indexConvention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME);
     if (indexName.equals(graphIndexName)) {
-      return true;
+      return indexedServices.stream().anyMatch(s -> s instanceof ElasticSearchGraphService);
     }
     boolean systemMetadataOnElasticsearch =
         indexedServices.stream().anyMatch(s -> s instanceof ElasticSearchSystemMetadataService);

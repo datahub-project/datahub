@@ -40,11 +40,18 @@ public class LoadIndicesConfig {
     boolean includeSystemMetadataEsIndex =
         configurationProvider.getSystemMetadataService().getImplementation()
             != SystemMetadataServiceImplementation.postgres;
+    String graphType =
+        configurationProvider.getGraphService() != null
+            ? configurationProvider.getGraphService().getType()
+            : null;
+    boolean includeGraphEsIndex =
+        graphType == null || !"postgres".equalsIgnoreCase(graphType.trim());
     return new LoadIndicesIndexManager(
         searchClient,
         systemOperationContext.getSearchContext().getIndexConvention(),
         indexBuilder,
-        includeSystemMetadataEsIndex);
+        includeSystemMetadataEsIndex,
+        includeGraphEsIndex);
   }
 
   @Bean(name = "loadIndices")
