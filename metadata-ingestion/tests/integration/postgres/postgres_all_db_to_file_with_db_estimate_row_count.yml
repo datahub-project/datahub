@@ -8,11 +8,6 @@ source:
     username: 'postgres'
     password: 'example'
     include_view_lineage: True
-    # Several special_types columns (box, polygon, ...) have no equality
-    # operator, so field-level profiling cannot run distinct counts on them.
-    profile_pattern:
-      deny:
-        - .*special_types
     profiling:
       enabled: true
       profile_table_row_count_estimate_only: true
@@ -30,6 +25,9 @@ source:
       include_field_distinct_value_frequencies: false
       include_field_histogram: false
       catch_exceptions: true
+      # turn_off_expensive_profiling_metrics caps profiled fields at 10 by
+      # default; special_types alone has more profile-eligible columns.
+      max_number_of_fields_to_profile: 20
     include_views: true
 sink:
   type: file

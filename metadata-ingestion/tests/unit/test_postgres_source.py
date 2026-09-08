@@ -2,10 +2,57 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
+from geoalchemy2 import Geography, Geometry, Raster
 from pydantic import ValidationError
+from sqlalchemy.dialects.postgresql import (
+    CIDR,
+    DATERANGE,
+    INT4RANGE,
+    INT8RANGE,
+    NUMRANGE,
+    TSRANGE,
+    TSTZRANGE,
+    base as pg_base,
+)
+from sqlalchemy.dialects.postgresql.base import PGDialect
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
+
+# Importing the placeholder types directly (rather than relying on the
+# module-level registration side effects of importing the source) makes the
+# dependency on postgres/source.py explicit and enforced.
+from datahub.ingestion.source.sql.postgres.source import (
+    BOX,
+    CIRCLE,
+    CITEXT,
+    DATEMULTIRANGE,
+    HALFVEC,
+    INT4MULTIRANGE,
+    INT8MULTIRANGE,
+    LINE,
+    LSEG,
+    LTREE,
+    NUMMULTIRANGE,
+    PATH,
+    POINT,
+    POLYGON,
+    SPARSEVEC,
+    TSMULTIRANGE,
+    TSTZMULTIRANGE,
+    VECTOR,
+    XML,
+)
+from datahub.ingestion.source.sql.sql_common import get_column_type
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    BytesTypeClass,
+    StringTypeClass,
+)
+from datahub.utilities.sqlalchemy_type_converter import (
+    get_native_data_type_for_sqlalchemy_type,
+)
 
 
 def _base_config():
@@ -343,46 +390,52 @@ def test_get_procedures_for_schema(create_engine_mock):
 
 def test_postgres_special_types_map_to_datahub_types():
     """
-    PostGIS, pgvector, built-in geometric, xml, ltree, citext, cidr and range
-    columns must map to real DataHub types instead of NullType (#18575).
+    PostGIS, pgvector, built-in geometric, xml, ltree, citext, cidr, range and
+    multirange columns must map to real DataHub types instead of NullType
+    (#18575).
     """
-    from geoalchemy2 import Geography, Geometry, Raster
-    from sqlalchemy.dialects.postgresql import (
-        CIDR,
-        DATERANGE,
-        INT4RANGE,
-        INT8RANGE,
-        NUMRANGE,
-        TSRANGE,
-        TSTZRANGE,
-        base as pg_base,
-    )
-
-    from datahub.ingestion.source.sql.sql_common import get_column_type
-    from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-    from datahub.metadata.schema_classes import (
-        ArrayTypeClass,
-        BytesTypeClass,
-        StringTypeClass,
-    )
+    # Reflection resolves these through ischema_names; the placeholders (or a
+    # real implementation such as pgvector's) must be registered there.
+    for ischema_key in (
+        "vector",
+        "halfvec",
+        "sparsevec",
+        "point",
+        "line",
+        "lseg",
+        "box",
+        "path",
+        "polygon",
+        "circle",
+        "xml",
+        "ltree",
+        "citext",
+        "int4multirange",
+        "int8multirange",
+        "nummultirange",
+        "datemultirange",
+        "tsmultirange",
+        "tstzmultirange",
+    ):
+        assert ischema_key in pg_base.ischema_names
 
     cases = [
         (Geometry(), BytesTypeClass),
         (Geography(), BytesTypeClass),
         (Raster(), BytesTypeClass),
-        (pg_base.ischema_names["vector"](), ArrayTypeClass),
-        (pg_base.ischema_names["halfvec"](), ArrayTypeClass),
-        (pg_base.ischema_names["sparsevec"](), ArrayTypeClass),
-        (pg_base.ischema_names["point"](), BytesTypeClass),
-        (pg_base.ischema_names["line"](), BytesTypeClass),
-        (pg_base.ischema_names["lseg"](), BytesTypeClass),
-        (pg_base.ischema_names["box"](), BytesTypeClass),
-        (pg_base.ischema_names["path"](), BytesTypeClass),
-        (pg_base.ischema_names["polygon"](), BytesTypeClass),
-        (pg_base.ischema_names["circle"](), BytesTypeClass),
-        (pg_base.ischema_names["xml"](), StringTypeClass),
-        (pg_base.ischema_names["ltree"](), StringTypeClass),
-        (pg_base.ischema_names["citext"](), StringTypeClass),
+        (VECTOR(), ArrayTypeClass),
+        (HALFVEC(), ArrayTypeClass),
+        (SPARSEVEC(), ArrayTypeClass),
+        (POINT(), BytesTypeClass),
+        (LINE(), BytesTypeClass),
+        (LSEG(), BytesTypeClass),
+        (BOX(), BytesTypeClass),
+        (PATH(), BytesTypeClass),
+        (POLYGON(), BytesTypeClass),
+        (CIRCLE(), BytesTypeClass),
+        (XML(), StringTypeClass),
+        (LTREE(), StringTypeClass),
+        (CITEXT(), StringTypeClass),
         (CIDR(), StringTypeClass),
         (INT4RANGE(), StringTypeClass),
         (INT8RANGE(), StringTypeClass),
@@ -390,12 +443,12 @@ def test_postgres_special_types_map_to_datahub_types():
         (DATERANGE(), StringTypeClass),
         (TSRANGE(), StringTypeClass),
         (TSTZRANGE(), StringTypeClass),
-        (pg_base.ischema_names["int4multirange"](), StringTypeClass),
-        (pg_base.ischema_names["int8multirange"](), StringTypeClass),
-        (pg_base.ischema_names["nummultirange"](), StringTypeClass),
-        (pg_base.ischema_names["datemultirange"](), StringTypeClass),
-        (pg_base.ischema_names["tsmultirange"](), StringTypeClass),
-        (pg_base.ischema_names["tstzmultirange"](), StringTypeClass),
+        (INT4MULTIRANGE(), StringTypeClass),
+        (INT8MULTIRANGE(), StringTypeClass),
+        (NUMMULTIRANGE(), StringTypeClass),
+        (DATEMULTIRANGE(), StringTypeClass),
+        (TSMULTIRANGE(), StringTypeClass),
+        (TSTZMULTIRANGE(), StringTypeClass),
     ]
 
     report = SQLSourceReport()
@@ -411,39 +464,32 @@ def test_postgres_special_types_map_to_datahub_types():
 
 def test_postgres_special_types_preserve_native_names():
     """nativeDataType must carry the real type name, not 'null' (#18575)."""
-    from sqlalchemy.dialects.postgresql import CIDR, INT4RANGE, base as pg_base
-    from sqlalchemy.dialects.postgresql.base import PGDialect
-
-    from datahub.utilities.sqlalchemy_type_converter import (
-        get_native_data_type_for_sqlalchemy_type,
-    )
-
     inspector = mock.MagicMock()
     inspector.dialect = PGDialect()
 
     expected_native = {
-        "vector": "VECTOR",
-        "point": "POINT",
-        "line": "LINE",
-        "lseg": "LSEG",
-        "box": "BOX",
-        "path": "PATH",
-        "polygon": "POLYGON",
-        "circle": "CIRCLE",
-        "xml": "XML",
-        "ltree": "LTREE",
-        "citext": "CITEXT",
-        "int4multirange": "INT4MULTIRANGE",
-        "int8multirange": "INT8MULTIRANGE",
-        "nummultirange": "NUMMULTIRANGE",
-        "datemultirange": "DATEMULTIRANGE",
-        "tsmultirange": "TSMULTIRANGE",
-        "tstzmultirange": "TSTZMULTIRANGE",
+        VECTOR: "VECTOR",
+        POINT: "POINT",
+        LINE: "LINE",
+        LSEG: "LSEG",
+        BOX: "BOX",
+        PATH: "PATH",
+        POLYGON: "POLYGON",
+        CIRCLE: "CIRCLE",
+        XML: "XML",
+        LTREE: "LTREE",
+        CITEXT: "CITEXT",
+        INT4MULTIRANGE: "INT4MULTIRANGE",
+        INT8MULTIRANGE: "INT8MULTIRANGE",
+        NUMMULTIRANGE: "NUMMULTIRANGE",
+        DATEMULTIRANGE: "DATEMULTIRANGE",
+        TSMULTIRANGE: "TSMULTIRANGE",
+        TSTZMULTIRANGE: "TSTZMULTIRANGE",
     }
-    for ischema_key, native in expected_native.items():
-        column_type = pg_base.ischema_names[ischema_key]()
+    for column_type_cls, native in expected_native.items():
         assert (
-            get_native_data_type_for_sqlalchemy_type(column_type, inspector) == native
+            get_native_data_type_for_sqlalchemy_type(column_type_cls(), inspector)
+            == native
         )
 
     assert get_native_data_type_for_sqlalchemy_type(CIDR(), inspector) == "CIDR"
@@ -452,9 +498,4 @@ def test_postgres_special_types_preserve_native_names():
     )
 
     # Reflection passes type modifiers through, e.g. a vector(4) column.
-    assert (
-        get_native_data_type_for_sqlalchemy_type(
-            pg_base.ischema_names["vector"](4), inspector
-        )
-        == "VECTOR(4)"
-    )
+    assert get_native_data_type_for_sqlalchemy_type(VECTOR(4), inspector) == "VECTOR(4)"

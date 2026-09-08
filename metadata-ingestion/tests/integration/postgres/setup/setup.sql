@@ -110,5 +110,7 @@ CREATE TABLE special_types (
     tstz_multirange TSTZMULTIRANGE
 );
 
--- Populate reltuples so row-count estimates are real values instead of -1.
-ANALYZE;
+-- Populate reltuples so special_types gets a real row-count estimate instead
+-- of -1. Scoped to this table: raw_orders/processed_orders were created after
+-- the ANALYZE above and intentionally cover the never-analyzed (-1) branch.
+ANALYZE special_types;
