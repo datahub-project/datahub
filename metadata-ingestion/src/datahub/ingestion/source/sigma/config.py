@@ -321,6 +321,34 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # last way join-key lineage can produce nothing, and the one a counter could
     # not otherwise distinguish from "no predicates were read at all".
     data_model_join_key_no_matching_edge: int = 0
+    # Existing edges whose upstream is neither an element of this Data Model nor
+    # a column any predicate names -- a warehouse table, or a foreign element
+    # this model's joins never touch. Nothing to expand, but counted because the
+    # skip used to be "not one of our elements", which also threw away joins
+    # whose two sides BOTH live in other models.
+    data_model_join_key_parent_outside_model: int = 0
+    # Union output columns read out of /spec, before any of them is matched
+    # against real columns. The denominator for the three union counters below.
+    data_model_union_output_columns_read: int = 0
+    # ``matches[].sourceColumns`` entries with no branch at the same index.
+    # Non-zero means the positional alignment this parser assumes is wrong for
+    # this tenant, which would silently pair columns across the wrong branches.
+    data_model_union_branch_index_out_of_range: int = 0
+    # Column edges added from a 'union' element's /spec: one per branch, for
+    # every branch the output column's formula did not name. Without these a
+    # union looks single-sourced no matter how many branches it stacks.
+    data_model_element_fgl_union_resolved: int = 0
+    # /spec named an output column that is absent from the union element's own
+    # /columns response -- the two endpoints disagree, so no edge is emitted.
+    data_model_union_output_column_absent: int = 0
+    # A union branch names an element this Data Model does not contain. Unlike
+    # a join side, a union source carries no dataModelId, so there is nothing
+    # to pin a foreign element with and the branch is dropped rather than
+    # guessed at.
+    data_model_union_branch_element_unknown: int = 0
+    # The branch element exists but has no column matching the name /spec gave,
+    # by column id or by display name.
+    data_model_union_branch_column_absent: int = 0
     # Predicate sides naming a warehouse table rather than an element in this
     # Data Model. /spec identifies those by connection and path and describes
     # none of their columns, so they cannot become element-to-element column
@@ -391,6 +419,20 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Combining nodes the BFS walked through, by type. Separate from the
     # unhandled map so a type moving from one to the other is visible.
     workbook_lineage_pass_through_nodes: Dict[str, int] = field(default_factory=dict)
+    # 'datasheet' nodes whose nodeId is a bare element id, admitted as sheet
+    # upstreams. The emit-time element lookup drops any that do not match a
+    # real element, so this is an attempt count, not an emitted-edge count.
+    workbook_lineage_datasheet_as_sheet: int = 0
+    # 'datasheet' nodes whose nodeId is an inode. The node carries no name and
+    # the lineage endpoint gives nothing else, so resolving these needs a
+    # /files lookup the walk does not do.
+    workbook_lineage_datasheet_inode_unresolved: int = 0
+    # 'datafile' nodes: an uploaded file with no dataset on any platform behind
+    # it. A genuine leaf -- counted so it is not mistaken for a gap.
+    workbook_lineage_datafile_leaf: int = 0
+    # 'semantic-view' nodes. They name a warehouse table but carry no
+    # connectionId, so there is nothing to choose a platform with.
+    workbook_lineage_semantic_view_unresolved: int = 0
     # Sub-count of chart_input_fields_warehouse_column_bridge_unresolved where
     # the native-name map DOES hold the column under different casing. That is
     # a normalisation bug, not missing data, and needs a different fix from a

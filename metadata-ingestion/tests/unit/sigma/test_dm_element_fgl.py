@@ -1894,3 +1894,209 @@ def test_predicates_that_match_no_existing_edge_are_reported() -> None:
     ]
     assert source.reporter.data_model_element_fgl_join_key_resolved == 0
     assert source.reporter.data_model_join_key_no_matching_edge == 1
+
+
+# ---------------------------------------------------------------------------
+# Union lineage from /spec
+# ---------------------------------------------------------------------------
+
+
+def _union_spec_source(source: SigmaSource, source_columns: List[str]) -> None:
+    """Make /spec report a union of A and C feeding element U's column 'k'."""
+    spec_mock = MagicMock()
+    source.sigma_api = spec_mock
+    spec_mock.get_data_model_spec.return_value = {
+        "kind": "data-model",
+        "pages": [
+            {
+                "elements": [
+                    {
+                        "id": "a",
+                        "columns": [{"id": "a-k", "formula": ""}],
+                        "source": {"kind": "warehouse-table"},
+                    },
+                    {
+                        "id": "c",
+                        "columns": [{"id": "c-k", "formula": ""}],
+                        "source": {"kind": "warehouse-table"},
+                    },
+                    {
+                        "id": "u",
+                        "columns": [{"id": "u-k", "formula": ""}],
+                        "source": {
+                            "kind": "union",
+                            "sources": [
+                                {"elementId": "a", "kind": "table"},
+                                {"elementId": "c", "kind": "table"},
+                            ],
+                            "matches": [
+                                {
+                                    "outputColumnName": "k",
+                                    "sourceColumns": source_columns,
+                                }
+                            ],
+                        },
+                    },
+                ]
+            }
+        ],
+    }
+
+
+def _build_union(source: SigmaSource, source_columns: List[str]) -> list:
+    _union_spec_source(source, source_columns)
+    a_urn, c_urn, u_urn = _urn("a"), _urn("c"), _urn("u")
+    # The output column's formula names ONE branch, which is the whole problem:
+    # without /spec, branch C is invisible no matter how many branches stack.
+    element = _element("u", "U", [_column("u-k", "k", "[A/k]")], source_ids=["a", "c"])
+    return source._build_dm_element_fine_grained_lineages(
+        element=element,
+        element_dataset_urn=u_urn,
+        element_name_to_eids={"a": ["a"], "c": ["c"]},
+        elementId_to_dataset_urn={"a": a_urn, "c": c_urn, "u": u_urn},
+        entity_level_upstream_urns={a_urn, c_urn},
+        data_model=_data_model(
+            [
+                element,
+                _upstream_element("a", "A", ["k"]),
+                _upstream_element("c", "C", ["k"]),
+            ]
+        ),
+        warehouse_url_id_map={},
+        discovered_upstreams=set(),
+    )
+
+
+def test_union_output_column_gets_an_edge_from_every_branch() -> None:
+    source = _source()
+    lineages = _build_union(source, ["a-k", "c-k"])
+
+    downstream = builder.make_schema_field_urn(_urn("u"), "k")
+    upstreams = {
+        fgl.upstreams[0] for fgl in lineages if fgl.downstreams == [downstream]
+    }
+    # Without the union path only the formula's own branch (A) would appear.
+    assert builder.make_schema_field_urn(_urn("c"), "k") in upstreams
+    assert builder.make_schema_field_urn(_urn("a"), "k") in upstreams
+    assert source.reporter.data_model_element_fgl_union_resolved >= 1
+
+
+def test_union_branch_column_matches_by_display_name_too() -> None:
+    """/spec does not say whether it named a column by id or by name."""
+    source = _source()
+    lineages = _build_union(source, ["k", "k"])
+
+    downstream = builder.make_schema_field_urn(_urn("u"), "k")
+    upstreams = {
+        fgl.upstreams[0] for fgl in lineages if fgl.downstreams == [downstream]
+    }
+    assert builder.make_schema_field_urn(_urn("c"), "k") in upstreams
+
+
+def test_union_branch_naming_an_absent_column_is_counted_not_invented() -> None:
+    source = _source()
+    lineages = _build_union(source, ["a-k", "no-such-column"])
+
+    downstream = builder.make_schema_field_urn(_urn("u"), "k")
+    upstreams = {
+        fgl.upstreams[0] for fgl in lineages if fgl.downstreams == [downstream]
+    }
+    assert builder.make_schema_field_urn(_urn("c"), "k") not in upstreams
+    assert source.reporter.data_model_union_branch_column_absent == 1
+
+
+# ---------------------------------------------------------------------------
+# A join whose BOTH sides live in other Data Models
+# ---------------------------------------------------------------------------
+
+_LEFT_FOREIGN_URN = _urn("left-dm.dim_a")
+_RIGHT_FOREIGN_URN = _urn("right-dm.fact_b")
+
+
+def _both_sides_foreign_spec(source: SigmaSource) -> None:
+    """A join element whose left AND right sides name other models' elements.
+
+    The join itself belongs to this model; only the two inputs are foreign.
+    Sigma sends ``dataModelId`` on each side, which is the only thing that can
+    pin an element id -- ids repeat across models.
+    """
+    spec_mock = MagicMock()
+    source.sigma_api = spec_mock
+    spec_mock.get_data_model_spec.return_value = {
+        "kind": "data-model",
+        "pages": [
+            {
+                "elements": [
+                    {
+                        "id": "j",
+                        "columns": [],
+                        "source": {
+                            "kind": "join",
+                            "joins": [
+                                {
+                                    "joinType": "inner",
+                                    "left": {
+                                        "dataModelId": "left-dm",
+                                        "elementId": "dim_a",
+                                        "kind": "element",
+                                    },
+                                    "right": {
+                                        "dataModelId": "right-dm",
+                                        "elementId": "fact_b",
+                                        "kind": "element",
+                                    },
+                                    "columns": [
+                                        {"left": "[col_k]", "right": "[col_k]"}
+                                    ],
+                                }
+                            ],
+                        },
+                    },
+                ]
+            }
+        ],
+    }
+    source.dm_element_urn_by_key_and_eid[("left-dm", "dim_a")] = _LEFT_FOREIGN_URN
+    source.dm_element_urn_by_key_and_eid[("right-dm", "fact_b")] = _RIGHT_FOREIGN_URN
+    source.dm_keys_by_element_id["dim_a"] = {"left-dm"}
+    source.dm_keys_by_element_id["fact_b"] = {"right-dm"}
+    source.dm_element_urn_to_cols[_LEFT_FOREIGN_URN] = {"col_k": "Col K"}
+    source.dm_element_urn_to_cols[_RIGHT_FOREIGN_URN] = {"col_k": "Col K"}
+
+
+def test_join_with_both_sides_in_other_models_still_expands() -> None:
+    """The reported symptom: a join element linked to only one of its inputs.
+
+    The join's own output column carries a formula naming the LEFT input, so
+    /columns produces that edge and nothing else. Both inputs live in other
+    Data Models, and the expansion used to require the edge's upstream to be an
+    element of THIS model -- which threw the predicate away precisely when both
+    sides were foreign, leaving the right-hand input with no column lineage.
+    """
+    source = _source()
+    _both_sides_foreign_spec(source)
+    source.dm_element_urn_by_name = {"left-dm": {"dim_a": [_LEFT_FOREIGN_URN]}}
+    source.dm_element_urn_to_cols[_LEFT_FOREIGN_URN] = {"col_k": "Col K"}
+    element = _element(
+        "j",
+        "J",
+        [_column("j-key", "Col K", "[dim_a/col_k]")],
+        source_ids=["left-dm/suffix"],
+    )
+
+    lineages = source._build_dm_element_fine_grained_lineages(
+        element=element,
+        element_dataset_urn=_urn("j"),
+        element_name_to_eids={},
+        # The formula's own edge resolves cross-DM, so its upstream is a
+        # foreign URN -- not a member of elementId_to_dataset_urn.
+        elementId_to_dataset_urn={"j": _urn("j")},
+        entity_level_upstream_urns={_LEFT_FOREIGN_URN},
+        data_model=_data_model([element]),
+        warehouse_url_id_map={},
+        discovered_upstreams=set(),
+    )
+
+    upstreams = {(lineage.upstreams or [""])[0] for lineage in lineages}
+    assert builder.make_schema_field_urn(_RIGHT_FOREIGN_URN, "Col K") in upstreams
+    assert source.reporter.data_model_element_fgl_join_key_resolved == 1

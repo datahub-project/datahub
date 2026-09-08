@@ -258,3 +258,104 @@ def test_renamed_side_descriptors_are_unreadable_not_warehouse_side() -> None:
     assert index.unreadable_join_element_ids == ["el-join"]
     # Must NOT be mistaken for the genuine warehouse-side case.
     assert index.warehouse_side_predicates == 0
+
+
+# The 'union' descriptor, recovered from a live tenant's key skeletons (2026-09):
+#
+#     source = {"kind": "union",
+#               "sources": [{"elementId": ..., "groupingId": ..., "kind": ...}],
+#               "matches": [{"outputColumnName": ...,
+#                            "sourceColumns": [...]}]}
+#
+# ``sourceColumns`` is positional against ``sources``.
+def _union_spec(source: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "kind": "data-model",
+        "pages": [
+            {
+                "id": "p1",
+                "elements": [
+                    _element("el-a", ["c-a"], {"kind": "warehouse-table"}),
+                    _element("el-b", ["c-b"], {"kind": "warehouse-table"}),
+                    _element("el-union", [], source),
+                ],
+            }
+        ],
+    }
+
+
+def test_union_output_column_pairs_each_branch_positionally() -> None:
+    index = parse_data_model_spec(
+        _union_spec(
+            {
+                "kind": "union",
+                "sources": [
+                    {"elementId": "el-a", "groupingId": "g1", "kind": "table"},
+                    {"elementId": "el-b", "groupingId": "g2", "kind": "table"},
+                ],
+                "matches": [
+                    {"outputColumnName": "OUT", "sourceColumns": ["c-a", "c-b"]}
+                ],
+            }
+        ),
+        data_model_id="dm-1",
+    )
+    assert len(index.unions) == 1
+    union = index.unions[0]
+    assert union.union_element_id == "el-union"
+    assert union.output_column == "OUT"
+    assert union.branches == (("el-a", "c-a"), ("el-b", "c-b"))
+    assert index.union_branch_index_out_of_range == 0
+
+
+def test_union_branch_beyond_the_sources_list_is_counted_not_reassigned() -> None:
+    """A misalignment must surface as a number, never as a wrong pairing.
+
+    Positional alignment is an inference: the skeleton log could only show that
+    ``sourceColumns`` and ``sources`` have equal length. If that ever stops
+    holding, pairing the extra column with some other branch would assert
+    lineage that does not exist, so the entry is dropped and counted.
+    """
+    index = parse_data_model_spec(
+        _union_spec(
+            {
+                "kind": "union",
+                "sources": [{"elementId": "el-a", "kind": "table"}],
+                "matches": [
+                    {"outputColumnName": "OUT", "sourceColumns": ["c-a", "c-b"]}
+                ],
+            }
+        ),
+        data_model_id="dm-1",
+    )
+    assert index.unions[0].branches == (("el-a", "c-a"),)
+    assert index.union_branch_index_out_of_range == 1
+
+
+def test_union_branch_contributing_no_column_is_skipped_silently() -> None:
+    """An empty slot is a normal union, not a defect."""
+    index = parse_data_model_spec(
+        _union_spec(
+            {
+                "kind": "union",
+                "sources": [
+                    {"elementId": "el-a", "kind": "table"},
+                    {"elementId": "el-b", "kind": "table"},
+                ],
+                "matches": [{"outputColumnName": "OUT", "sourceColumns": ["c-a", ""]}],
+            }
+        ),
+        data_model_id="dm-1",
+    )
+    assert index.unions[0].branches == (("el-a", "c-a"),)
+    assert index.union_branch_index_out_of_range == 0
+
+
+def test_unreadable_union_yields_no_pairs_and_no_join_failure() -> None:
+    """A union this parser cannot read must not be filed as a broken join."""
+    index = parse_data_model_spec(
+        _union_spec({"kind": "union", "branches": [], "columnMap": {}}),
+        data_model_id="dm-1",
+    )
+    assert index.unions == []
+    assert index.unreadable_join_element_ids == []

@@ -275,6 +275,20 @@ would assert an equality its data path never applies.
 > filtering the 0.6/0.7 column edges still keeps the table-level edge those column edges
 > introduced. Set `extract_join_key_lineage: false` to suppress both.
 
+A join's two inputs may both live in **other** Data Models — a shared mapping element joined
+into a model that owns neither side. Sigma sends a `dataModelId` on each such side, which is
+what pins the element (element ids are not unique across models); a side that resolves to
+more than one candidate model is refused rather than guessed at, and counted under
+`data_model_join_key_foreign_ambiguous`.
+
+Unions have the same blind spot as joins and the same fix. A `union` element's output column
+carries a formula naming at most one branch, so every other branch is invisible from
+`/columns`. `/spec` states the branch pairing explicitly, and those edges score **1.0** — a
+union stacks rows, so the output column _is_ each branch's column rather than a value derived
+from one. `data_model_element_fgl_union_resolved` counts them; if
+`data_model_union_branch_index_out_of_range` is non-zero, Sigma changed the shape of the
+descriptor and the pairing should not be trusted.
+
 The `/spec` call needs the API token's data model read scope. Without it the call fails,
 one warning is reported for the run, `data_model_spec_fetch_failed` counts the affected
 models, and join keys are simply absent — everything else still ingests. If

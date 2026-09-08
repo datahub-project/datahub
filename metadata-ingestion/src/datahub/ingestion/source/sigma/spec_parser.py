@@ -20,6 +20,11 @@ _DATA_MODEL_ID = "dataModelId"
 # A side with no elementId is a warehouse table only if it says so.
 _WAREHOUSE_SIDE_KEYS = ("connectionId", "path")
 _JOIN_KIND = "join"
+_UNION_KIND = "union"
+_MATCHES = "matches"
+_SOURCES = "sources"
+_OUTPUT_COLUMN_NAME = "outputColumnName"
+_SOURCE_COLUMNS = "sourceColumns"
 # Samples per unread source kind, per process. More than one because a kind
 # whose shape VARIES between elements would look settled from a single sample,
 # and reading it wrongly is what cost two runs already. Small enough to stay
@@ -56,6 +61,26 @@ class SpecColumnRef:
     data_model_id: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class UnionOutputColumn:
+    """One output column of a ``union`` element and the branch columns it merges.
+
+    A union is the multi-source case a Sigma formula cannot express: the output
+    column's ``/columns`` formula names at most one branch, so every other
+    branch is invisible from ``/columns`` alone. ``/spec`` states all of them.
+
+    ``output_column`` and each branch column are kept VERBATIM. The document
+    does not say whether they are column ids or display names, exactly as with
+    join predicate sides, so the caller resolves them against the element's real
+    ``/columns`` and can try both.
+    """
+
+    union_element_id: str
+    output_column: str
+    # (branch element id, that branch's column) in ``sources`` order.
+    branches: Tuple[Tuple[str, str], ...]
+
+
 @dataclass
 class DataModelSpecIndex:
     """Join predicates read from a Data Model's /spec document.
@@ -67,6 +92,13 @@ class DataModelSpecIndex:
     """
 
     pairs: List["JoinPredicate"] = field(default_factory=list)
+    unions: List[UnionOutputColumn] = field(default_factory=list)
+    # ``matches[].sourceColumns`` entries that had no source at the same index.
+    # Positional alignment between ``sourceColumns`` and ``sources`` is the one
+    # thing the skeleton log could not prove (it can only show that the two
+    # lists are the same length), so a misalignment must show up as a number
+    # rather than as silently mismatched column pairs.
+    union_branch_index_out_of_range: int = 0
     element_id_by_column_id: Dict[str, str] = field(default_factory=dict)
     # Elements whose source.kind is 'join' but whose predicates could not be
     # read. Non-empty means the shape below is wrong for this tenant, and the
@@ -259,6 +291,65 @@ def _predicates_for_join(
     return out, understood
 
 
+def _union_output_columns(
+    source: Dict[str, Any], *, union_element_id: str, index: DataModelSpecIndex
+) -> List[UnionOutputColumn]:
+    """Read a ``union`` source descriptor.
+
+    Shape, confirmed from a live tenant's spec documents (2026-09)::
+
+        source = {"kind": "union",
+                  "sources": [{"elementId": ..., "groupingId": ..., "kind": ...}],
+                  "matches": [{"outputColumnName": ...,
+                               "sourceColumns": [...]}]}
+
+    ``sourceColumns`` is POSITIONAL against ``sources``: entry *i* is the column
+    contributed by branch *i*. Every sample had the two lists at equal length,
+    including one with 37 branches. Because that alignment is an inference and
+    not something the document states, an index with no matching source is
+    counted rather than matched against some other branch -- pairing the wrong
+    branch's column would assert lineage that does not exist.
+    """
+    sources = source.get(_SOURCES)
+    matches = source.get(_MATCHES)
+    if not isinstance(sources, list) or not isinstance(matches, list):
+        return []
+    branch_element_ids: List[str] = []
+    for branch in sources:
+        branch_element_ids.append(
+            str(branch.get(_ELEMENT_ID) or "") if isinstance(branch, dict) else ""
+        )
+
+    outputs: List[UnionOutputColumn] = []
+    for match in matches:
+        if not isinstance(match, dict):
+            continue
+        output_column = str(match.get(_OUTPUT_COLUMN_NAME) or "")
+        source_columns = match.get(_SOURCE_COLUMNS)
+        if not output_column or not isinstance(source_columns, list):
+            continue
+        branches: List[Tuple[str, str]] = []
+        for position, column in enumerate(source_columns):
+            if position >= len(branch_element_ids):
+                index.union_branch_index_out_of_range += 1
+                continue
+            element_id = branch_element_ids[position]
+            column_name = str(column or "")
+            # A branch that contributes nothing to this output column is a
+            # normal union, not a defect: Sigma sends an empty slot for it.
+            if element_id and column_name:
+                branches.append((element_id, column_name))
+        if branches:
+            outputs.append(
+                UnionOutputColumn(
+                    union_element_id=union_element_id,
+                    output_column=output_column,
+                    branches=tuple(branches),
+                )
+            )
+    return outputs
+
+
 def parse_data_model_spec(
     spec: Optional[Dict[str, Any]], *, data_model_id: str
 ) -> DataModelSpecIndex:
@@ -303,22 +394,44 @@ def parse_data_model_spec(
             continue
         kind = str(source.get(_KIND) or "")
         index.source_kind_counts[kind] = index.source_kind_counts.get(kind, 0) + 1
+        if kind == _UNION_KIND and element_id:
+            outputs = _union_output_columns(
+                source, union_element_id=element_id, index=index
+            )
+            index.unions.extend(outputs)
+            if not outputs:
+                logger.debug(
+                    "DM SPEC UNION %s/%s: source.kind='union' but no output "
+                    "column could be read. Key skeleton (structure only, no "
+                    "values): %r",
+                    data_model_id,
+                    element_id,
+                    _key_skeleton(source),
+                )
+            else:
+                logger.debug(
+                    "DM SPEC UNION %s/%s: %d output column(s), %d branch "
+                    "reference(s) across %d branch element(s)",
+                    data_model_id,
+                    element_id,
+                    len(outputs),
+                    sum(len(o.branches) for o in outputs),
+                    len({eid for o in outputs for eid, _ in o.branches}),
+                )
+            continue
         if kind != _JOIN_KIND or not element_id:
-            # A 'union' combines several branches, so each of its output
-            # columns has one upstream PER BRANCH -- the multi-source case a
-            # single formula can never express, and the only /spec kind still
-            # unread. Its field names are unknown, and this shape has been
-            # guessed wrong twice already, so log the structure and read it
-            # once the run says what it is. One sample per kind per model
-            # keeps this off the hot path.
+            # Every remaining kind is single-source, so /columns formulas
+            # already reach its upstream. Logged anyway because a kind whose
+            # shape this parser has never seen is exactly what cost two runs;
+            # a few samples per kind keeps that off the hot path.
             seen = _MULTI_SOURCE_KIND_SAMPLES.get(kind, 0)
             if kind and element_id and seen < _MAX_SOURCE_KIND_SAMPLES:
                 _MULTI_SOURCE_KIND_SAMPLES[kind] = seen + 1
                 logger.debug(
                     "DM SPEC SOURCE KIND %s/%s: kind=%r not read by this "
-                    "parser (sample %d of %d). To read a 'union' we need the "
-                    "field naming its branches and how each branch names its "
-                    "columns. Key skeleton (structure only, no values): %r",
+                    "parser (sample %d of %d). If lineage is missing for this "
+                    "element, the shape below says what a reader would need. "
+                    "Key skeleton (structure only, no values): %r",
                     data_model_id,
                     element_id,
                     kind,
@@ -360,7 +473,8 @@ def parse_data_model_spec(
     logger.debug(
         "DM SPEC %s: %d element(s), %d column id(s), source kinds=%r, "
         "%d join predicate(s), %d warehouse-side predicate(s) skipped, "
-        "%d unreadable join element(s)",
+        "%d unreadable join element(s), %d union output column(s), "
+        "%d union branch index(es) out of range",
         data_model_id,
         len(elements),
         len(index.element_id_by_column_id),
@@ -368,5 +482,7 @@ def parse_data_model_spec(
         len(index.pairs),
         index.warehouse_side_predicates,
         len(index.unreadable_join_element_ids),
+        len(index.unions),
+        index.union_branch_index_out_of_range,
     )
     return index

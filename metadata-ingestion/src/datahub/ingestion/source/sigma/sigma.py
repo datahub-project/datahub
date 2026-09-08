@@ -175,6 +175,10 @@ _FGL_CONFIDENCE_JOIN_KEY: float = 0.7
 # on the rest the unmatched side is NULL. Still a real upstream, but a weaker
 # claim than an inner join's, so it gets its own tier rather than being dropped.
 _FGL_CONFIDENCE_JOIN_KEY_OUTER: float = 0.6
+# A union stacks rows, so an output column IS each branch's column rather than
+# a value derived from one. /spec states the pairing per branch explicitly, so
+# this is as exact as a formula-derived edge.
+_FGL_CONFIDENCE_UNION_BRANCH: float = 1.0
 
 
 def _warehouse_column_from_display_name(display_name: str) -> str:
@@ -3625,6 +3629,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.data_model_join_elements_unreadable += len(
                 cached.unreadable_join_element_ids
             )
+            self.reporter.data_model_union_output_columns_read += len(cached.unions)
+            self.reporter.data_model_union_branch_index_out_of_range += (
+                cached.union_branch_index_out_of_range
+            )
         return cached
 
     def _build_join_partner_map(
@@ -3843,6 +3851,138 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._dm_ancestors_cache[data_model.dataModelId] = closure
         return closure
 
+    @staticmethod
+    def _dm_element_column_lookup(
+        element: SigmaDataModelElement,
+    ) -> Dict[str, str]:
+        """Column id AND lowercased display name -> canonical display name.
+
+        /spec names a column without saying which of the two it used, the same
+        ambiguity join predicate sides have, so both are accepted.
+        """
+        winners, _ = _dedup_dm_element_columns(element.columns)
+        keys: Dict[str, str] = {}
+        for col in winners.values():
+            if col.columnId:
+                keys[col.columnId] = col.name
+            keys[col.name.strip().lower()] = col.name
+        return keys
+
+    def _add_union_fgls(
+        self,
+        *,
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+        data_model: SigmaDataModel,
+        elementId_to_dataset_urn: Dict[str, str],
+        fgls: List[FineGrainedLineageClass],
+        emitted_pairs: Set[Tuple[str, str]],
+        discovered_upstreams: Set[str],
+    ) -> None:
+        """Add one edge per branch for every output column of a union element.
+
+        A union's output column has an upstream in EVERY branch, but its
+        /columns formula names at most one of them, so all the other branches
+        are unreachable from formulas alone -- the same multi-source blind spot
+        joins have, and the reason a union element's downstreams looked
+        single-sourced.
+
+        The edges score 1.0: a union stacks rows, so the output column IS the
+        branch column, not a value derived from it.
+        """
+        spec = self._get_dm_spec_index(data_model)
+        if not spec.unions:
+            return
+        outputs = [u for u in spec.unions if u.union_element_id == element.elementId]
+        if not outputs:
+            return
+        own_columns = self._dm_element_column_lookup(element)
+        branch_columns: Dict[str, Dict[str, str]] = {}
+        for dm_el in data_model.elements:
+            branch_columns[dm_el.elementId] = self._dm_element_column_lookup(dm_el)
+
+        added = 0
+        for output in outputs:
+            downstream_name = own_columns.get(output.output_column) or own_columns.get(
+                output.output_column.strip().lower()
+            )
+            if downstream_name is None:
+                self.reporter.data_model_union_output_column_absent += 1
+                logger.debug(
+                    "UNION DM %s element %s: output column %r is not among the "
+                    "element's %d /columns entries -- no edge for its %d "
+                    "branch(es)",
+                    data_model.dataModelId,
+                    element.elementId,
+                    output.output_column,
+                    len(element.columns),
+                    len(output.branches),
+                )
+                continue
+            downstream_field = builder.make_schema_field_urn(
+                element_dataset_urn, downstream_name
+            )
+            for branch_element_id, branch_column in output.branches:
+                branch_urn = elementId_to_dataset_urn.get(branch_element_id)
+                if branch_urn is None:
+                    # The branch is filtered out of this run, or lives in
+                    # another Data Model. /spec gives no dataModelId on a union
+                    # source, so there is nothing to pin it with.
+                    self.reporter.data_model_union_branch_element_unknown += 1
+                    logger.debug(
+                        "UNION DM %s element %s: branch element %r for output "
+                        "column %r is not an element of this Data Model",
+                        data_model.dataModelId,
+                        element.elementId,
+                        branch_element_id,
+                        output.output_column,
+                    )
+                    continue
+                keys = branch_columns.get(branch_element_id) or {}
+                upstream_name = keys.get(branch_column) or keys.get(
+                    branch_column.strip().lower()
+                )
+                if upstream_name is None:
+                    self.reporter.data_model_union_branch_column_absent += 1
+                    logger.debug(
+                        "UNION DM %s element %s: output column %r names column "
+                        "%r in branch %s, but that branch has %d columns and "
+                        "none of them match by id or by name",
+                        data_model.dataModelId,
+                        element.elementId,
+                        output.output_column,
+                        branch_column,
+                        branch_element_id,
+                        len(keys),
+                    )
+                    continue
+                upstream_field = builder.make_schema_field_urn(
+                    branch_urn, upstream_name
+                )
+                pair = (downstream_field, upstream_field)
+                if pair in emitted_pairs or downstream_field == upstream_field:
+                    continue
+                emitted_pairs.add(pair)
+                fgls.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[downstream_field],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[upstream_field],
+                        confidenceScore=_FGL_CONFIDENCE_UNION_BRANCH,
+                    )
+                )
+                discovered_upstreams.add(branch_urn)
+                added += 1
+                self.reporter.data_model_element_fgl_union_resolved += 1
+        logger.debug(
+            "UNION DM %s element %s: %d output column(s) in /spec produced %d edge(s)",
+            data_model.dataModelId,
+            element.elementId,
+            len(outputs),
+            added,
+        )
+
     def _add_join_key_fgls(
         self,
         *,
@@ -3906,7 +4046,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         added = 0
-        # (element id, field) pairs this element's edges actually reached.
+        # (upstream dataset urn, field) pairs this element's edges actually
+        # reached. Keyed by URN, not element id, so the diagnostic below can be
+        # compared key-for-key against the partner map.
         looked_up: Set[Tuple[str, str]] = set()
         for fgl in list(fgls) + list(cross_dm_fgls):
             if not fgl.upstreams or not fgl.downstreams:
@@ -3917,11 +4059,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             except InvalidUrnError:
                 continue
             parent = str(upstream.parent)
-            if parent not in element_id_by_urn:
-                # A warehouse table or another Data Model's element: the spec
-                # describes only this model's own elements.
+            parent_key = (parent, upstream.field_path)
+            if parent not in element_id_by_urn and parent_key not in partners:
+                # A warehouse table, or an element of another Data Model that
+                # no predicate in this model's spec names. The membership test
+                # cannot be "is it one of OUR elements" -- a join whose two
+                # sides both live in other models is exactly the case that
+                # needs this map, and it was silently dropped here while the
+                # partner map had already resolved both sides.
+                self.reporter.data_model_join_key_parent_outside_model += 1
                 continue
-            looked_up.add((element_id_by_urn[parent], upstream.field_path))
+            looked_up.add(parent_key)
             for join_element_id, partner_urn, partner_col, is_outer in sorted(
                 partners.get((parent, upstream.field_path), set())
             ):
@@ -3936,7 +4084,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         data_model.dataModelId,
                         element.elementId,
                         join_element_id,
-                        element_id_by_urn[parent],
+                        element_id_by_urn.get(parent, parent),
                         upstream.field_path,
                         sorted(in_scope_joins)[:10],
                     )
@@ -3978,7 +4126,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     data_model.dataModelId,
                     element.elementId,
                     downstream_field,
-                    element_id_by_urn[parent],
+                    element_id_by_urn.get(parent, parent),
                     upstream.field_path,
                     partner_field,
                 )
@@ -4312,6 +4460,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # edges. Cross-DM is tracked separately via fgl_cross_dm_resolved.
         # Sub-counts overlap it deliberately (fgl_warehouse_resolved,
         # fgl_join_key_resolved) so each mechanism can be triaged on its own.
+        self._add_union_fgls(
+            element=element,
+            element_dataset_urn=element_dataset_urn,
+            data_model=data_model,
+            elementId_to_dataset_urn=elementId_to_dataset_urn,
+            fgls=fgls,
+            emitted_pairs=emitted_pairs,
+            discovered_upstreams=discovered_upstreams,
+        )
         self._add_join_key_fgls(
             element=element,
             element_dataset_urn=element_dataset_urn,

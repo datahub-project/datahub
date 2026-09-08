@@ -72,6 +72,11 @@ _NON_DATA_ELEMENT_TYPES = frozenset({"control", "divider", "text", "image", "but
 # for the same reason 'join' would have before it was handled.
 _PASS_THROUGH_NODE_TYPES = frozenset({"join", "union"})
 
+# A lineage nodeId that names a stored file rather than an element.
+_INODE_PREFIX = "inode-"
+_SEMANTIC_VIEW_TABLE = "semanticViewTable"
+_CONNECTION_ID = "connectionId"
+
 BASE_ELEMENT_TYPES = frozenset({"table", "visualization"})
 INGESTED_ELEMENT_TYPES = BASE_ELEMENT_TYPES | frozenset({"pivot-table", "input-table"})
 
@@ -514,6 +519,68 @@ class SigmaAPI:
             upstream_sources[source_node_id] = WarehouseTableUpstream(
                 url_id=url_id,
                 name=name,
+            )
+        elif source_type == "datasheet":
+            # Shape confirmed on a live tenant (2026-09): ``{nodeId, type}`` --
+            # no ``name`` and no sources of its own, so it is a leaf, not a
+            # pass-through. Its nodeId comes in two shapes and the type field
+            # does not say which, so each branch TESTS the shape rather than
+            # assuming it.
+            if source_node_id.startswith(_INODE_PREFIX):
+                # A stored datasheet. Nothing here identifies a warehouse table
+                # or carries a name, and DatasetUpstream needs a name to
+                # SQL-correlate, so emitting one would only add a counted drop.
+                self.report.workbook_lineage_datasheet_inode_unresolved += 1
+                logger.debug(
+                    "DATASHEET NODE element=%s workbook=%s: nodeId is an "
+                    "inode with no name on the node, so there is nothing to "
+                    "resolve it by. Resolving these needs the /files entry for "
+                    "the inode, which this endpoint does not give.",
+                    element.elementId,
+                    workbook.workbookId,
+                )
+                return
+            # Otherwise the nodeId is a bare element id. Emitting a SheetUpstream
+            # is self-validating: the emit-time lookup drops it when no element
+            # in this workbook has that id, so a wrong guess costs a debug line
+            # rather than a fabricated edge.
+            try:
+                upstream_sources[source_node_id] = SheetUpstream(
+                    name=source_node.get(Constant.NAME),
+                    element_id=source_node_id,
+                )
+                self.report.workbook_lineage_datasheet_as_sheet += 1
+            except ValidationError as e:
+                self.report.warning(
+                    title="Sigma lineage node parse failed",
+                    message="Failed to parse Sigma lineage node",
+                    context=f"node={source_node_id}, element={element.name}, workbook={workbook.name}",
+                    exc=e,
+                )
+        elif source_type == "datafile":
+            # An uploaded file. Shape is ``{name, nodeId, type}`` with a UUID
+            # nodeId, no sources and no warehouse counterpart -- there is no
+            # dataset on any platform to point an upstream at. A true leaf, so
+            # this is counted rather than warned about.
+            self.report.workbook_lineage_datafile_leaf += 1
+        elif source_type == "semantic-view":
+            # Shape is ``{name, nodeId, semanticViewTable, type}``.
+            # ``semanticViewTable`` looks like a warehouse path, but resolving
+            # one needs the connection behind it to pick a platform, and this
+            # node carries no connectionId. Logged with the part count only --
+            # enough to settle whether it is db.schema.view without printing a
+            # customer's warehouse path.
+            self.report.workbook_lineage_semantic_view_unresolved += 1
+            table_ref = source_node.get(_SEMANTIC_VIEW_TABLE)
+            logger.debug(
+                "SEMANTIC VIEW NODE element=%s workbook=%s: not resolved to a "
+                "warehouse dataset. semanticViewTable has %d dot-separated "
+                "part(s); the node carries connectionId=%s, which is what a "
+                "resolver would need to choose a platform.",
+                element.elementId,
+                workbook.workbookId,
+                len(str(table_ref).split(".")) if isinstance(table_ref, str) else -1,
+                _CONNECTION_ID in source_node,
             )
         elif source_type == "customSQL":
             pass  # handled by _build_workbook_customsql_registry via the workbook-level lineage endpoint

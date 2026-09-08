@@ -737,6 +737,86 @@ class TestGetElementUpstreamSources:
         assert api.report.workbook_lineage_pass_through_nodes == {"union": 1}
         assert api.report.workbook_lineage_node_types_unhandled == {}
 
+    def _datasheet_result(self, node_id: str) -> Dict[str, Any]:
+        """Walk one 'datasheet' node feeding the element under test."""
+        api = _create_sigma_api()
+        self._last_api = api
+        with patch.object(
+            api,
+            "_get_api_call",
+            return_value=_lineage_response(
+                {
+                    "dependencies": {
+                        "tgt_node": {
+                            "nodeId": "tgt_node",
+                            "elementId": "elem1",
+                            "type": "sheet",
+                        },
+                        # Shape confirmed on a live tenant: no name, no sources.
+                        node_id: {"nodeId": node_id, "type": "datasheet"},
+                    },
+                    "edges": [{"source": node_id, "target": "tgt_node"}],
+                }
+            ),
+        ):
+            return api._get_element_upstream_sources(_make_element(), _make_workbook())
+
+    def test_datasheet_node_with_an_element_id_becomes_a_sheet_upstream(self) -> None:
+        """171 of these on one tenant, every one of them dropped as unknown."""
+        result = self._datasheet_result("elem-abc")
+
+        assert isinstance(result["elem-abc"], SheetUpstream)
+        assert result["elem-abc"].element_id == "elem-abc"
+        assert self._last_api.report.workbook_lineage_datasheet_as_sheet == 1
+        assert self._last_api.report.workbook_lineage_node_types_unhandled == {}
+
+    def test_datasheet_node_with_an_inode_id_is_counted_not_guessed(self) -> None:
+        """An inode carries no name here, so there is nothing to resolve it by.
+
+        Emitting a nameless DatasetUpstream would only add a counted drop
+        further downstream, and treating the inode as an element id would
+        fabricate a reference to an element that does not exist.
+        """
+        result = self._datasheet_result("inode-abc123")
+
+        assert result == {}
+        assert self._last_api.report.workbook_lineage_datasheet_inode_unresolved == 1
+        assert self._last_api.report.workbook_lineage_datasheet_as_sheet == 0
+
+    def test_datafile_node_is_a_leaf_not_an_unhandled_type(self) -> None:
+        """An uploaded file has no dataset on any platform behind it."""
+        api = _create_sigma_api()
+        with patch.object(
+            api,
+            "_get_api_call",
+            return_value=_lineage_response(
+                {
+                    "dependencies": {
+                        "tgt_node": {
+                            "nodeId": "tgt_node",
+                            "elementId": "elem1",
+                            "type": "sheet",
+                        },
+                        "file-1": {
+                            "nodeId": "file-1",
+                            "name": "An Upload",
+                            "type": "datafile",
+                        },
+                    },
+                    "edges": [{"source": "file-1", "target": "tgt_node"}],
+                }
+            ),
+        ):
+            result = api._get_element_upstream_sources(
+                _make_element(), _make_workbook()
+            )
+
+        assert result == {}
+        assert api.report.workbook_lineage_datafile_leaf == 1
+        # Must stop counting against the "types we have never looked at" total.
+        assert api.report.workbook_lineage_node_types_unhandled == {}
+        assert api.report.warnings == []
+
     def test_request_exception_is_reported_and_returns_empty(self) -> None:
         api = _create_sigma_api()
         element = _make_element()
