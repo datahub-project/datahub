@@ -690,9 +690,13 @@ class BigQuerySchemaApi:
                 with PerfTimer() as current_timer:
                     try:
                         # retry=None: a failed/throttled fetch skips this view
-                        # instead of retrying rateLimitExceeded for ~600s.
+                        # instead of retrying rateLimitExceeded for ~600s. The
+                        # stubs type retry as Retry (not Optional), but _call_api
+                        # gates on `if retry:`, so None disables retries at runtime.
                         return self.bq_client.get_table(
-                            table_ref, retry=None, timeout=_MV_STATS_TIMEOUT_SEC
+                            table_ref,
+                            retry=None,  # type: ignore[arg-type]
+                            timeout=_MV_STATS_TIMEOUT_SEC,
                         )
                     except Exception as e:
                         report.warning(
