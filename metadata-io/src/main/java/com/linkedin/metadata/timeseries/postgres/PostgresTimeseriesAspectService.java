@@ -110,6 +110,31 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     }
   }
 
+  /**
+   * Writers store {@link AspectSpec#getName()} (canonical casing). ES GC historically passes
+   * lowercased index aspect names; resolve those to the registry name so {@code aspect_name}
+   * predicates match.
+   */
+  @Nonnull
+  static String canonicalTimeseriesAspectName(
+      @Nonnull EntitySpec entitySpec, @Nonnull String aspectName) {
+    AspectSpec exact = entitySpec.getAspectSpec(aspectName);
+    if (exact != null) {
+      return exact.getName();
+    }
+    for (AspectSpec spec : entitySpec.getAspectSpecs()) {
+      if (spec.getName().equalsIgnoreCase(aspectName)) {
+        return spec.getName();
+      }
+    }
+    return aspectName;
+  }
+
+  @Nonnull
+  private String canonicalAspectName(@Nonnull String entityName, @Nonnull String aspectName) {
+    return canonicalTimeseriesAspectName(entityRegistry.getEntitySpec(entityName), aspectName);
+  }
+
   @Nonnull
   private StoreHandle store(@Nonnull String entityName, @Nonnull String aspectName) {
     return storeRegistry.resolve(entityName, aspectName);
@@ -132,6 +157,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nonnull String aspectName,
       @Nullable Filter filter) {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
+    aspectName = canonicalTimeseriesAspectName(entitySpec, aspectName);
     return TimeseriesFilterSqlBuilder.buildDocumentFilter(
         filter,
         true,
@@ -147,6 +173,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nonnull String entityName,
       @Nonnull String aspectName,
       @Nullable Filter filter) {
+    aspectName = canonicalAspectName(entityName, aspectName);
     TimeseriesFilterSqlBuilder.BuiltSql built =
         documentFilter(opContext, entityName, aspectName, filter);
     String sql =
@@ -186,6 +213,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nullable Filter filter,
       @Nullable SortCriterion sort) {
 
+    aspectName = canonicalAspectName(entityName, aspectName);
     TimeseriesFilterSqlBuilder.BuiltSql built =
         documentFilter(opContext, entityName, aspectName, filter);
 
@@ -326,13 +354,17 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       String entityName = urn.getEntityType();
       Map<String, EnvelopedAspect> perAspect = new HashMap<>();
       for (String aspectName : aspectNames) {
-        AspectSpec asp = entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName);
+        String canonical = canonicalAspectName(entityName, aspectName);
+        AspectSpec asp = entityRegistry.getEntitySpec(entityName).getAspectSpec(canonical);
         if (asp == null || !asp.isTimeseries()) {
           continue;
         }
-        Long end = endTimeMillis == null ? null : endTimeMillis.get(aspectName);
+        Long end =
+            endTimeMillis == null
+                ? null
+                : endTimeMillis.getOrDefault(aspectName, endTimeMillis.get(canonical));
         List<EnvelopedAspect> one =
-            getAspectValues(opContext, urn, entityName, aspectName, null, end, 1, null, null);
+            getAspectValues(opContext, urn, entityName, canonical, null, end, 1, null, null);
         if (!one.isEmpty()) {
           perAspect.put(aspectName, one.get(0));
         }
@@ -354,6 +386,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nullable Filter filter,
       @Nullable GroupingBucket[] groupingBuckets) {
 
+    aspectName = canonicalAspectName(entityName, aspectName);
     TimeseriesFilterSqlBuilder.BuiltSql built =
         documentFilter(opContext, entityName, aspectName, filter);
     AspectSpec aspectSpec =
@@ -397,6 +430,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       int batchSize,
       long timeoutSeconds) {
 
+    aspectName = canonicalAspectName(entityName, aspectName);
     TimeseriesFilterSqlBuilder.BuiltSql built =
         documentFilter(opContext, entityName, aspectName, filter);
     List<Object> baseParams = new ArrayList<>();
@@ -568,6 +602,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nonnull String aspectName,
       @Nonnull String docId,
       @Nonnull JsonNode document) {
+    aspectName = canonicalAspectName(entityName, aspectName);
     TimeseriesAspectRowPayload row =
         TimeseriesPgDocumentMapper.parsePayload(entityName, aspectName, docId, document);
     try {
@@ -628,6 +663,7 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
 
+    aspectName = canonicalAspectName(entityName, aspectName);
     TimeseriesFilterSqlBuilder.BuiltSql built =
         documentFilter(opContext, entityName, aspectName, filter);
 
@@ -1136,21 +1172,22 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
         String entityName = urn.getEntityType();
         Map<String, Map<String, Object>> aspects = new HashMap<>();
         for (String aspectName : e.getValue()) {
+          String canonical = canonicalAspectName(entityName, aspectName);
           AspectSpec asp =
-              opContext.getEntityRegistry().getEntitySpec(entityName).getAspectSpec(aspectName);
+              opContext.getEntityRegistry().getEntitySpec(entityName).getAspectSpec(canonical);
           if (asp == null || !asp.isTimeseries()) {
             continue;
           }
           String sql =
               "SELECT document FROM "
-                  + qualifiedTable(entityName, aspectName)
+                  + qualifiedTable(entityName, canonical)
                   + " WHERE entity_name = ? AND aspect_name = ? AND urn = ?"
                   + primaryTimeseriesRowPredicate()
                   + " ORDER BY event_time DESC LIMIT 1";
-          try (Connection c = database(entityName, aspectName).dataSource().getConnection();
+          try (Connection c = database(entityName, canonical).dataSource().getConnection();
               PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setString(1, entityName);
-            ps.setString(2, aspectName);
+            ps.setString(2, canonical);
             ps.setString(3, urn.toString());
             try (ResultSet rs = ps.executeQuery()) {
               if (rs.next()) {

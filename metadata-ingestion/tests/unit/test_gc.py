@@ -43,7 +43,7 @@ class TestDataHubGcTimeseriesTruncateTargets(unittest.TestCase):
         targets = source._timeseries_truncate_targets()
         self.assertEqual(len(targets), 5)
         self.assertIn(("dataset", "operation", 45), targets)
-        self.assertIn(("dataset", "datasetusagestatistics", 45), targets)
+        self.assertIn(("dataset", "datasetUsageStatistics", 45), targets)
 
     def test_aspect_retentions_override_list_and_days(self):
         config = DataHubGcSourceConfig(

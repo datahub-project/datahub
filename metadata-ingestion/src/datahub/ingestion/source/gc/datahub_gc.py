@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 class TimeseriesAspectRetentionConfig(ConfigModel):
     entity_type: str = Field(description="Entity type, e.g. dataset")
     aspect: str = Field(
-        description="Timeseries aspect name, e.g. datasetusagestatistics"
+        description="Timeseries aspect name, e.g. datasetUsageStatistics"
     )
     older_than_days: Optional[int] = Field(
         default=None,
@@ -246,10 +246,10 @@ class DataHubGcSource(Source):
             ]
         defaults = [
             ("dataset", "operation"),
-            ("dataset", "datasetusagestatistics"),
+            ("dataset", "datasetUsageStatistics"),
             ("chart", "chartUsageStatistics"),
             ("dashboard", "dashboardUsageStatistics"),
-            ("query", "queryusagestatistics"),
+            ("query", "queryUsageStatistics"),
         ]
         return [(entity, aspect, default_days) for entity, aspect in defaults]
 
