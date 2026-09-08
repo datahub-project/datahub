@@ -38,16 +38,53 @@ public final class DualWriteTestSupport {
 
   public static final String DATASET_INDEX = "datasetindex_v2";
 
+  /**
+   * A second, MIXED-CASE entity. {@code dataset} alone cannot detect the key-skew this PR fixes,
+   * because it is already all-lowercase: the two sides of the lookup agree on it by accident.
+   *
+   * <p>The skew only appears when the registry name has capitals. The map is built from {@code
+   * IndexConvention.getEntityName()}, which derives the name from the LOWERCASED physical index
+   * ({@code aiagentindex_v2} -> {@code aiagent}), while writes look the target up by {@code
+   * EntitySpec.getName()}, which is the registry name ({@code aiAgent}).
+   */
+  public static final String AI_AGENT_INDEX = "aiagentindex_v2";
+
+  public static final String AI_AGENT_OLD_BACKING_INDEX = "aiagentindex_v2_old_789";
+
+  /**
+   * Registry-cased name for {@link #AI_AGENT_INDEX}, i.e. what {@code EntitySpec.getName()}
+   * returns.
+   */
+  public static final String AI_AGENT_REGISTRY_NAME = "aiAgent";
+
+  /** Lowercased form {@code IndexConvention} derives, i.e. how the target map is actually keyed. */
+  public static final String AI_AGENT_DERIVED_NAME = "aiagent";
+
   private DualWriteTestSupport() {}
 
-  /** Phase 1 state with a recorded old backing index, which is what makes a target eligible. */
+  /**
+   * Phase 1 state with a recorded old backing index, which is what makes a target eligible. Carries
+   * two indices so the assertions cover both an all-lowercase entity and a mixed-case one.
+   */
   public static EntityResponse completedPhase1Response() {
-    final Map<String, String> state =
+    Map<String, String> state =
         IncrementalReindexState.setPhase1State(
             null,
             DATASET_INDEX,
             "datasetindex_v2_next_123",
             OLD_BACKING_INDEX,
+            100L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+
+    state =
+        IncrementalReindexState.setPhase1State(
+            state,
+            AI_AGENT_INDEX,
+            "aiagentindex_v2_next_789",
+            AI_AGENT_OLD_BACKING_INDEX,
             100L,
             0L,
             null,
