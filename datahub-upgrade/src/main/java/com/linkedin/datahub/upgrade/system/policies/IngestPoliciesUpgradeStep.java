@@ -22,7 +22,6 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -242,22 +241,6 @@ public class IngestPoliciesUpgradeStep implements UpgradeStep {
 
     _entitySearchService.upsertDocument(
         systemOperationContext, Constants.POLICY_ENTITY_NAME, searchDocument.get(), v2DocId);
-
-    try {
-      String searchGroup =
-          systemOperationContext
-              .getEntityRegistry()
-              .getEntitySpec(Constants.POLICY_ENTITY_NAME)
-              .getSearchGroup();
-      String v3DocId =
-          new Sha256UrnEntityDocumentIdHasher()
-              .documentId(systemOperationContext, entityResponse.getUrn());
-      _entitySearchService.upsertDocumentBySearchGroup(
-          systemOperationContext, searchGroup, searchDocument.get(), v3DocId);
-    } catch (Exception e) {
-      log.warn(
-          "Failed V3 search upsert for policy {}: {}", entityResponse.getUrn(), e.getMessage());
-    }
   }
 
   private void ingestPolicy(

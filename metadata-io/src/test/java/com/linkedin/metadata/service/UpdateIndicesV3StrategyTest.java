@@ -268,6 +268,39 @@ public class UpdateIndicesV3StrategyTest {
     assertTrue(documentCaptor.getValue().contains("\"_ext\":\"1\""));
   }
 
+  @Test
+  public void testProcessBatch_DocumentContributorCannotOverwriteUrn() throws Exception {
+    V3SearchDocumentContributor contributor =
+        (operation, urn, document) -> document.put("urn", "overwritten");
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(contributor));
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    expectThrows(
+        IllegalStateException.class,
+        () ->
+            strategy.processBatch(
+                operationContext,
+                Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+                true));
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
   // Note: Key aspect deletion test is complex due to static method calls
   // and would require more sophisticated mocking. Skipping for now.
 

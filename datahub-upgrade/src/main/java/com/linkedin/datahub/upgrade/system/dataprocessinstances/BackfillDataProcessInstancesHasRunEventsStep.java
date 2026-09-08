@@ -13,7 +13,6 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -157,7 +156,6 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
           }
           if (!urns.isEmpty()) {
             urns = entityService.exists(opContext, urns);
-            Sha256UrnEntityDocumentIdHasher v3Hasher = new Sha256UrnEntityDocumentIdHasher();
             urns.forEach(
                 urn -> {
                   elasticSearchService.upsertDocument(
@@ -165,23 +163,6 @@ public class BackfillDataProcessInstancesHasRunEventsStep implements UpgradeStep
                       DATA_PROCESS_INSTANCE_ENTITY_NAME,
                       json.toString(),
                       indexConvention.getEntityDocumentId(urn));
-                  try {
-                    String searchGroup =
-                        opContext
-                            .getEntityRegistry()
-                            .getEntitySpec(DATA_PROCESS_INSTANCE_ENTITY_NAME)
-                            .getSearchGroup();
-                    elasticSearchService.upsertDocumentBySearchGroup(
-                        opContext,
-                        searchGroup,
-                        json.toString(),
-                        v3Hasher.documentId(opContext, urn));
-                  } catch (Exception e) {
-                    log.warn(
-                        "Failed V3 search upsert for data process instance {}: {}",
-                        urn,
-                        e.getMessage());
-                  }
                 });
           }
           if (aggregation.afterKey() == null) {

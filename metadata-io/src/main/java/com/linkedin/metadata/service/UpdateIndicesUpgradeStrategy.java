@@ -352,13 +352,27 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
   /**
    * V3 backing indexes — including reindex names that append a timestamp after {@code index_v3} —
    * always use the V3 hasher. V2 keeps URL-encoded URN ids.
+   *
+   * <p>Matches {@code index_v3} as a version token at the end of the name, or followed by {@code _}
+   * and digits. A substring such as {@code index_v3} in a prefix must not classify a V2 index.
    */
   private String documentId(
       @Nonnull OperationContext opContext, @Nonnull String indexName, @Nonnull Urn urn) {
-    if (indexName.contains("index_v3")) {
+    if (isV3BackingIndex(indexName)) {
       return entityDocumentIdHasher.documentId(opContext, urn);
     }
     return opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
+  }
+
+  @VisibleForTesting
+  static boolean isV3BackingIndex(@Nonnull String indexName) {
+    final String token = "index_v3";
+    int tokenStart = indexName.lastIndexOf(token);
+    if (tokenStart <= 0) {
+      return false;
+    }
+    String after = indexName.substring(tokenStart + token.length());
+    return after.isEmpty() || after.matches("_\\d+");
   }
 
   private void shutdownPoller() {

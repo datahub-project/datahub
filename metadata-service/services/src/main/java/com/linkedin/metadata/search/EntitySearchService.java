@@ -66,7 +66,8 @@ public interface EntitySearchService {
 
   /**
    * Updates or inserts a document in the V3 search-group index. Default is a no-op for
-   * implementations that do not write V3.
+   * implementations that do not write V3. Elasticsearch also no-ops when the V3 entity index is
+   * disabled.
    */
   default void upsertDocumentBySearchGroup(
       @Nonnull OperationContext opContext,
@@ -76,7 +77,7 @@ public interface EntitySearchService {
 
   /**
    * Deletes a document from the V3 search-group index. Default is a no-op for implementations that
-   * do not write V3.
+   * do not write V3. Elasticsearch also no-ops when the V3 entity index is disabled.
    */
   default void deleteDocumentBySearchGroup(
       @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {}

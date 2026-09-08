@@ -33,6 +33,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -51,6 +52,13 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final TimeseriesAspectService timeseriesAspectService;
   private final MultiEntityMappingsBuilder mappingsBuilder;
   @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
+  private static final Set<String> STRATEGY_OWNED_DOCUMENT_FIELDS =
+      Set.of(
+          "urn",
+          "_entityType",
+          MappingConstants.ASPECTS_FIELD_NAME,
+          Constants.STRUCTURED_PROPERTY_MAPPING_FIELD);
+
   private final EntityDocumentIdHasher entityDocumentIdHasher;
   private final List<V3SearchDocumentContributor> documentContributors;
 
@@ -341,10 +349,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     String entityType = events.get(0).getEntitySpec().getName();
     combinedDocument.put("_entityType", entityType);
 
-    for (V3SearchDocumentContributor contributor : documentContributors) {
-      contributor.contribute(opContext, urn, combinedDocument);
-    }
-
     // Create _aspects object to hold all aspects
     ObjectNode aspectsNode = JsonNodeFactory.instance.objectNode();
 
@@ -423,7 +427,34 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       combinedDocument.set(MappingConstants.ASPECTS_FIELD_NAME, aspectsNode);
     }
 
-    return hasAnyAspects ? combinedDocument : null;
+    if (!hasAnyAspects) {
+      return null;
+    }
+
+    applyDocumentContributors(opContext, urn, combinedDocument);
+    return combinedDocument;
+  }
+
+  private void applyDocumentContributors(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull ObjectNode document) {
+    for (V3SearchDocumentContributor contributor : documentContributors) {
+      ObjectNode extras = JsonNodeFactory.instance.objectNode();
+      contributor.contribute(opContext, urn, extras);
+      extras
+          .fields()
+          .forEachRemaining(
+              entry -> {
+                String fieldName = entry.getKey();
+                if (STRATEGY_OWNED_DOCUMENT_FIELDS.contains(fieldName) || document.has(fieldName)) {
+                  throw new IllegalStateException(
+                      "V3 search document contributor attempted to overwrite field '"
+                          + fieldName
+                          + "' for "
+                          + urn);
+                }
+                document.set(fieldName, entry.getValue());
+              });
+    }
   }
 
   /**

@@ -332,6 +332,45 @@ public class UpdateIndicesUpgradeStrategyTest {
   }
 
   @Test
+  public void testIsV3BackingIndexClassifiesVersionTokenNotSubstring() {
+    assertTrue(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v3"));
+    assertTrue(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v3_1683649932260"));
+    assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v2"));
+    assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v2_next_123"));
+    assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("index_v3_datasetindex_v2"));
+    assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("index_v3"));
+  }
+
+  @Test
+  public void testProcessBatchPrefixContainingIndexV3KeepsUrlEncodedDocumentId() throws Exception {
+    String nextIndex = "index_v3_datasetindex_v2";
+    Map<String, String> targets = Map.of("dataset", nextIndex);
+    UpdateIndicesUpgradeStrategy strategy =
+        new UpdateIndicesUpgradeStrategy(
+            elasticSearchService, searchDocumentTransformer, targets, null, null, null, null, 0);
+
+    ObjectNode searchDoc = JsonNodeFactory.instance.objectNode();
+    searchDoc.put("urn", testUrn.toString());
+
+    when(searchDocumentTransformer.transformAspect(any(), any(), any(), any(), eq(false), any()))
+        .thenReturn(Optional.of(searchDoc));
+
+    LinkedHashMap<Urn, List<MCLItem>> events = new LinkedHashMap<>();
+    events.put(testUrn, List.of(mockEvent));
+
+    strategy.processBatch(operationContext, events, false);
+
+    org.mockito.ArgumentCaptor<String> docIdCaptor =
+        org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq(nextIndex), eq(searchDoc.toString()), docIdCaptor.capture());
+    assertEquals(
+        docIdCaptor.getValue(),
+        operationContext.getSearchContext().getIndexConvention().getEntityDocumentId(testUrn));
+  }
+
+  @Test
   public void testDualWriteStartTimeCallbackCalledOnce() throws Exception {
     String nextIndex = "datasetindex_v2_next_123";
     Map<String, String> targets = Map.of("dataset", nextIndex);

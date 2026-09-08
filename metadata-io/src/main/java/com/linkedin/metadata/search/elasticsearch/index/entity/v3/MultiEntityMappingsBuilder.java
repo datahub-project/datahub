@@ -481,7 +481,16 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       combinedMappings.put("properties", properties);
     }
     for (V3MappingContributor contributor : mappingContributors) {
-      properties.putAll(contributor.extraRootProperties());
+      Map<String, Object> extras = contributor.extraRootProperties();
+      for (Map.Entry<String, Object> extra : extras.entrySet()) {
+        if (properties.containsKey(extra.getKey())) {
+          throw new IllegalArgumentException(
+              "V3 mapping contributor attempted to overwrite existing property '"
+                  + extra.getKey()
+                  + "'");
+        }
+        properties.put(extra.getKey(), extra.getValue());
+      }
     }
   }
 

@@ -119,6 +119,21 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   @Test
+  public void testGetIndexMappingsRejectsMappingContributorOverwrite() throws IOException {
+    V3MappingContributor first =
+        () -> Collections.singletonMap("_ext", FieldTypeMapper.getMappingsForKeyword());
+    V3MappingContributor second =
+        () -> Collections.singletonMap("_ext", FieldTypeMapper.getMappingsForKeyword());
+    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(first, second));
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
+
+    expectThrows(
+        IllegalArgumentException.class, () -> mappingsBuilder.getIndexMappings(operationContext));
+  }
+
+  @Test
   public void testGetIndexMappingsWithV3Disabled() throws IOException {
     // Setup: V3 disabled
     when(mockV3Config.isEnabled()).thenReturn(false);

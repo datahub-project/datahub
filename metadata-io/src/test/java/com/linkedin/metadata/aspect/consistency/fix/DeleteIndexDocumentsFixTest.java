@@ -680,4 +680,30 @@ public class DeleteIndexDocumentsFixTest {
     verify(mockEntitySearchService)
         .deleteDocument(eq(opContext), eq("dataset"), eq(getExpectedDocId(urn)));
   }
+
+  @Test
+  public void testV3NoOpDeleteDoesNotCountAsSuccessWhenOtherDeletesFail() {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    doThrow(new RuntimeException("System metadata delete failed"))
+        .when(mockEsSystemMetadataDAO)
+        .deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+    doThrow(new RuntimeException("Search delete failed"))
+        .when(mockEntitySearchService)
+        .deleteDocument(eq(opContext), eq("dataset"), eq(getExpectedDocId(urn)));
+    doThrow(new RuntimeException("Graph delete failed"))
+        .when(mockGraphService)
+        .removeNode(eq(opContext), eq(urn));
+
+    try {
+      fix.deleteFromAllIndices(opContext, urn, "dataset");
+      fail("Expected RuntimeException");
+    } catch (RuntimeException e) {
+      assertTrue(e.getMessage().contains("Failed to delete from all indices"));
+    }
+
+    verify(mockEntitySearchService)
+        .deleteDocumentBySearchGroup(eq(opContext), anyString(), anyString());
+  }
 }

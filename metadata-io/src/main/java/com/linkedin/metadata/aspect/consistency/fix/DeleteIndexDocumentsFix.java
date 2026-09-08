@@ -174,9 +174,8 @@ public class DeleteIndexDocumentsFix implements ConsistencyFix {
           urnStr,
           searchGroup,
           v3DocId);
-      if (successCount == 0) {
-        successCount++;
-      }
+      // V3 delete is additive cleanup. EntitySearchService's default is a no-op, so a
+      // non-throwing call is not evidence that a document was removed.
     } catch (Exception e) {
       log.warn("Failed to delete from V3 entity search index {}: {}", urnStr, e.getMessage());
       lastException = e;
