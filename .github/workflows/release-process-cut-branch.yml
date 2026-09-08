@@ -15,6 +15,11 @@ on:
       version:
         description: "Version without 'v' prefix (e.g. 1.0.0)"
         required: true
+      sha:
+        description: "Full 40-character commit SHA to cut from. Leave empty to use the tip of the source branch (master for release, releases/v{version} for hotfix)."
+        required: false
+        type: string
+        default: ""
 
 permissions: {}
 
@@ -43,7 +48,8 @@ jobs:
         run: |
           python3 .github/scripts/release/validate_inputs.py cut-branch \
             --version "${{ inputs.version }}" \
-            --branch-type "${{ inputs.branch_type }}"
+            --branch-type "${{ inputs.branch_type }}" \
+            --sha "${{ inputs.sha }}"
 
       - name: Resolve source and target branches
         id: branches
@@ -64,10 +70,10 @@ jobs:
           client-id: ${{ vars.RELEASE_TEAM_GH_APP_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_TEAM_GH_APP_PRIVATE_KEY }}
 
-      - name: Check out source branch
+      - name: Check out source commit
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ steps.branches.outputs.source }}
+          ref: ${{ inputs.sha != '' && inputs.sha || steps.branches.outputs.source }}
           # PAT required: GITHUB_TOKEN pushes do not trigger push-event workflows
           # (e.g. docker-unified.yml on releases/** and hotfixes/**).
           token: ${{ steps.app-token.outputs.token }}
@@ -77,6 +83,19 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Validate SHA is on the source branch
+        if: ${{ inputs.sha != '' }}
+        env:
+          SOURCE: ${{ steps.branches.outputs.source }}
+          SHA: ${{ inputs.sha }}
+        run: |
+          git fetch origin "$SOURCE"
+          if ! git merge-base --is-ancestor "$SHA" "origin/$SOURCE"; then
+            echo "Error: sha '$SHA' is not an ancestor of origin/$SOURCE."
+            echo "Cut Branch can only start from a commit that is already on the source branch."
+            exit 1
+          fi
 
       - name: Validate target branch does not already exist
         run: |
@@ -108,6 +127,7 @@ jobs:
           | Field         | Value                                        |
           |---------------|----------------------------------------------|
           | Source branch | \`${{ steps.branches.outputs.source }}\`     |
+          | Requested SHA | \`${{ inputs.sha != '' && inputs.sha || '(source tip)' }}\` |
           | Target branch | \`${{ steps.branches.outputs.target }}\`     |
           | Commit SHA    | \`${{ steps.create_branch.outputs.commit_sha }}\` |
           EOF

@@ -56,3 +56,20 @@ def test_emit_parsed_ref_invalid_exits_without_output(tmp_path, monkeypatch):
         vi.emit_parsed_ref(DEFAULT_BRANCH)
 
     assert not (tmp_path / "gh_output").exists()
+
+
+def test_validate_cut_branch_accepts_empty_sha():
+    vi.validate_cut_branch("1.0.0", "release", sha="")
+
+
+def test_validate_cut_branch_accepts_full_sha():
+    vi.validate_cut_branch(
+        "1.0.0", "hotfix", sha="0123456789abcdef0123456789ABCDEF01234567"
+    )
+
+
+@pytest.mark.parametrize("sha", ["abc", "not-a-sha", "a" * 39, "g" * 40])
+def test_validate_cut_branch_rejects_invalid_sha(sha):
+    with pytest.raises(SystemExit) as exc:
+        vi.validate_cut_branch("1.0.0", "release", sha=sha)
+    assert exc.value.code == 1

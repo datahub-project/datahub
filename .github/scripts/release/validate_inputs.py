@@ -4,6 +4,7 @@ Validate workflow_dispatch inputs for the Cut Branch and Cut Tag workflows.
 
 Usage:
   python3 validate_inputs.py cut-branch --version 1.0.0 --branch-type release
+  python3 validate_inputs.py cut-branch --version 1.0.0 --branch-type release --sha <40-char hex>
   python3 validate_inputs.py cut-tag --version 1.0.0 --branch-type release --release-type rc
   python3 validate_inputs.py cut-tag --version 1.0.0 --branch-type hotfix --release-type final --hotfix-version 1.0.1
   python3 validate_inputs.py parse-ref --ref releases/v1.0.0
@@ -19,6 +20,7 @@ Environment variables (parse-ref):
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 
@@ -50,10 +52,26 @@ def release_exists(tag: str, repo: str) -> bool:
     return result.returncode == 0
 
 
-def validate_cut_branch(version: str, branch_type: str) -> None:
-    validate_version_format(version, "version")
+_FULL_SHA_PATTERN = re.compile(r"[0-9a-fA-F]{40}")
 
-    print(f"Inputs valid: branch_type={branch_type}, version={version}")
+
+def validate_sha(sha: str) -> None:
+    if sha and not _FULL_SHA_PATTERN.fullmatch(sha):
+        print(
+            f"Error: sha '{sha}' is not valid. "
+            "Expected a 40-character hex commit SHA, or leave empty for the source branch tip."
+        )
+        sys.exit(1)
+
+
+def validate_cut_branch(version: str, branch_type: str, sha: str = "") -> None:
+    validate_version_format(version, "version")
+    validate_sha(sha)
+
+    print(
+        f"Inputs valid: branch_type={branch_type}, version={version}, "
+        f"sha={sha or '(source tip)'}"
+    )
 
 
 def validate_cut_tag(
@@ -164,6 +182,11 @@ def build_parser() -> argparse.ArgumentParser:
     branch.add_argument(
         "--branch-type", required=True, choices=["release", "hotfix"]
     )
+    branch.add_argument(
+        "--sha",
+        default="",
+        help="Full 40-character commit SHA to cut from; empty uses the source branch tip",
+    )
 
     tag = sub.add_parser("cut-tag", help="Validate Cut Tag inputs")
     tag.add_argument("--version", required=True, help="e.g. 1.0.0")
@@ -184,7 +207,7 @@ def main() -> None:
     args = build_parser().parse_args()
 
     if args.command == "cut-branch":
-        validate_cut_branch(args.version, args.branch_type)
+        validate_cut_branch(args.version, args.branch_type, args.sha)
     elif args.command == "parse-ref":
         emit_parsed_ref(args.ref)
     else:
