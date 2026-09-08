@@ -230,6 +230,7 @@ public final class PgQueuePollWorker implements Runnable {
 
         // On empty poll, check for expired accumulators (linger timeout)
         if (!anyMessages) {
+          boolean flushedLinger = false;
           for (Map.Entry<String, PgQueueBatchAccumulator> entry : accumulators.entrySet()) {
             if (entry.getValue().isExpired()) {
               Duration vis = visibilityTimeout();
@@ -237,15 +238,23 @@ public final class PgQueuePollWorker implements Runnable {
                   new PgQueuePollContext(
                       store, registration.consumerGroupId(), vis, avroDeserializer);
               flushAccumulator(entry.getKey(), entry.getValue(), flushHandler, flushCtx);
+              flushedLinger = true;
             }
           }
-          long sleepMs = emptyPollBackoff.nextSleepMillis();
+          if (flushedLinger) {
+            emptyPollBackoff.reset();
+            continue;
+          }
+          long proposed = emptyPollBackoff.peekSleepMillis();
           long lingerCap = Long.MAX_VALUE;
           for (PgQueueBatchAccumulator accumulator : accumulators.values()) {
             lingerCap = Math.min(lingerCap, accumulator.millisUntilExpire());
           }
-          if (lingerCap < sleepMs) {
+          long sleepMs;
+          if (lingerCap < proposed) {
             sleepMs = Math.max(1L, lingerCap);
+          } else {
+            sleepMs = emptyPollBackoff.nextSleepMillis();
           }
           Thread.sleep(sleepMs);
         } else {

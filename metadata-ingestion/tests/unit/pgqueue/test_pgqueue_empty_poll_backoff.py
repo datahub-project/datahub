@@ -12,6 +12,14 @@ def test_doubles_until_max_then_stays_capped() -> None:
     assert backoff.next_sleep_millis() == 5000
 
 
+def test_peek_does_not_advance() -> None:
+    backoff = EmptyPollBackoff(1000, 5000)
+    assert backoff.peek_sleep_millis() == 1000
+    assert backoff.peek_sleep_millis() == 1000
+    assert backoff.next_sleep_millis() == 1000
+    assert backoff.peek_sleep_millis() == 2000
+
+
 def test_reset_returns_to_min() -> None:
     backoff = EmptyPollBackoff(1000, 5000)
     backoff.next_sleep_millis()

@@ -74,3 +74,18 @@ def test_consumer_empty_poll_min_clamped_to_max() -> None:
     )
     assert cfg.empty_poll_sleep_min_millis == 5000
     assert cfg.empty_poll_sleep_max_millis == 5000
+
+
+def test_consumer_poll_sleep_defaults_match_gms() -> None:
+    cfg = PgQueueConsumerConfig(
+        queue=PgQueueConnectionConfig(
+            host_port="localhost:5432",
+            database="db",
+            username="u",
+            password="secret",
+        ),
+    )
+    assert cfg.empty_poll_sleep_min_millis == 1000
+    assert cfg.empty_poll_sleep_max_millis == 5000
+    assert cfg.missing_topic_sleep_millis == 500
+    assert cfg.error_recovery_sleep_millis == 1000

@@ -90,6 +90,9 @@ class DatahubPgQueueConsumer(Closeable):
             config.empty_poll_sleep_min_millis,
             config.empty_poll_sleep_max_millis,
         )
+        # True until a poll observes otherwise so wait_after_poll without a prior
+        # poll matches Java immediate-mode empty backoff.
+        self._last_poll_any_topic_cataloged = True
 
     def visibility_timedelta(self) -> timedelta:
         secs = self.config.visibility_timeout_seconds
@@ -112,7 +115,9 @@ class DatahubPgQueueConsumer(Closeable):
         meta = self._repo.fetch_topic_row(self._conn, topic_name)
         if meta is None:
             logger.debug("pgQueue topic %s does not exist yet", topic_name)
+            self._last_poll_any_topic_cataloged = False
             return []
+        self._last_poll_any_topic_cataloged = True
 
         topic_id, partition_count, _default_content_type_id = meta
         self._repo.register_consumer(self._conn, self.config.consumer_group, topic_id)
@@ -159,20 +164,30 @@ class DatahubPgQueueConsumer(Closeable):
     ) -> List[PgQueueConsumedRecord]:
         """Drain each route key in order, up to ``max_messages`` per key."""
         out: List[PgQueueConsumedRecord] = []
+        any_cataloged = False
         for rk in route_keys:
             out.extend(
                 self.poll_route_key(
                     rk, max_messages=max_messages, partition_ids=partition_ids
                 )
             )
+            any_cataloged = any_cataloged or self._last_poll_any_topic_cataloged
+        self._last_poll_any_topic_cataloged = any_cataloged
         return out
 
     def wait_after_poll(self, had_messages: bool) -> None:
-        """Reset idle backoff after work, or sleep with exponential empty-poll delay."""
+        """Match Java poll-worker idle: missing topic, busy reset, or empty-poll backoff."""
+        if not self._last_poll_any_topic_cataloged:
+            time.sleep(self.config.missing_topic_sleep_millis / 1000.0)
+            return
         if had_messages:
             self._empty_poll_backoff.reset()
             return
         time.sleep(self._empty_poll_backoff.next_sleep_seconds())
+
+    def wait_after_error(self) -> None:
+        """Sleep after a poll-loop exception without growing empty-poll backoff."""
+        time.sleep(self.config.error_recovery_sleep_millis / 1000.0)
 
     def ack(self, handles: Sequence[PgQueueMessageHandle]) -> int:
         """Advance consumer group offsets for the given handles."""

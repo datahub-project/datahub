@@ -18,6 +18,15 @@ public class PgQueueEmptyPollBackoffTest {
   }
 
   @Test
+  public void peekDoesNotAdvance() {
+    PgQueueEmptyPollBackoff backoff = new PgQueueEmptyPollBackoff(1000, 5000);
+    assertEquals(backoff.peekSleepMillis(), 1000L);
+    assertEquals(backoff.peekSleepMillis(), 1000L);
+    assertEquals(backoff.nextSleepMillis(), 1000L);
+    assertEquals(backoff.peekSleepMillis(), 2000L);
+  }
+
+  @Test
   public void resetReturnsToMin() {
     PgQueueEmptyPollBackoff backoff = new PgQueueEmptyPollBackoff(1000, 5000);
     backoff.nextSleepMillis();

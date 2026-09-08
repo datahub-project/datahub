@@ -313,6 +313,24 @@ class PgQueueConsumerConfig(ConfigModel):
         ),
     )
 
+    missing_topic_sleep_millis: int = Field(
+        default=500,
+        ge=1,
+        description=(
+            "Sleep when no routed logical topic exists yet "
+            "(DATAHUB_PGQUEUE_MISSING_TOPIC_SLEEP_MS on GMS). Does not grow empty-poll backoff."
+        ),
+    )
+
+    error_recovery_sleep_millis: int = Field(
+        default=1000,
+        ge=1,
+        description=(
+            "Sleep after a poll-loop exception "
+            "(DATAHUB_PGQUEUE_ERROR_RECOVERY_SLEEP_MS on GMS). Does not grow empty-poll backoff."
+        ),
+    )
+
     @model_validator(mode="after")
     def clamp_empty_poll_sleep(self) -> "PgQueueConsumerConfig":
         if self.empty_poll_sleep_min_millis > self.empty_poll_sleep_max_millis:

@@ -34,6 +34,21 @@ public class PgQueueSchemaStepTest {
   }
 
   @Test
+  public void testToPgCronScheduleRejectsFiveHours() {
+    expectThrows(IllegalArgumentException.class, () -> PgQueueSchemaStep.toPgCronSchedule(18000));
+  }
+
+  @Test
+  public void testToPgCronScheduleRejectsSevenMinutes() {
+    expectThrows(IllegalArgumentException.class, () -> PgQueueSchemaStep.toPgCronSchedule(420));
+  }
+
+  @Test
+  public void testToPgCronScheduleEverySixHours() {
+    assertEquals(PgQueueSchemaStep.toPgCronSchedule(21600), "0 */6 * * *");
+  }
+
+  @Test
   public void testToPgCronScheduleRejectsNinetyMinutes() {
     expectThrows(IllegalArgumentException.class, () -> PgQueueSchemaStep.toPgCronSchedule(5400));
   }

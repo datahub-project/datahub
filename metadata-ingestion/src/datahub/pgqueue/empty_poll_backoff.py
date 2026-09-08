@@ -6,6 +6,9 @@ First empty poll sleeps ``min_millis``; each subsequent empty poll doubles, capp
 
 from __future__ import annotations
 
+# Match Java long multiply overflow in PgQueueEmptyPollBackoff.
+_INT64_MAX = 2**63 - 1
+
 
 class EmptyPollBackoff:
     def __init__(self, min_millis: int, max_millis: int) -> None:
@@ -16,6 +19,10 @@ class EmptyPollBackoff:
         self._max_millis = max_millis
         self._min_millis = min(min_millis, max_millis)
         self._current_millis = self._min_millis
+
+    def peek_sleep_millis(self) -> int:
+        """Current idle interval without growing it."""
+        return self._current_millis
 
     def next_sleep_millis(self) -> int:
         sleep = self._current_millis
@@ -31,5 +38,6 @@ class EmptyPollBackoff:
     def _multiply_capped(self, value: int) -> int:
         if value >= self._max_millis:
             return self._max_millis
-        doubled = value * 2
-        return min(self._max_millis, doubled)
+        if value > _INT64_MAX // 2:
+            return self._max_millis
+        return min(self._max_millis, value * 2)

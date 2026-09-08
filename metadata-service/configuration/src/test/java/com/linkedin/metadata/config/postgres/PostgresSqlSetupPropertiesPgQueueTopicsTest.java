@@ -148,6 +148,33 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
   }
 
   @Test
+  public void validatePgQueue_rejectsSevenMinuteCronInterval() {
+    PostgresSqlSetupProperties props = basePgQueueProps();
+    enablePgQueueCron(props, 420);
+    IllegalStateException thrown =
+        expectThrows(
+            IllegalStateException.class, () -> props.validateForUse(DatabaseType.POSTGRES));
+    assertTrue(thrown.getMessage().contains("cannot be expressed as a pg_cron"));
+  }
+
+  @Test
+  public void validatePgQueue_rejectsFiveHourCronInterval() {
+    PostgresSqlSetupProperties props = basePgQueueProps();
+    enablePgQueueCron(props, 18000);
+    IllegalStateException thrown =
+        expectThrows(
+            IllegalStateException.class, () -> props.validateForUse(DatabaseType.POSTGRES));
+    assertTrue(thrown.getMessage().contains("cannot be expressed as a pg_cron"));
+  }
+
+  @Test
+  public void validatePgQueue_acceptsSixHourCronInterval() {
+    PostgresSqlSetupProperties props = basePgQueueProps();
+    enablePgQueueCron(props, 21600);
+    props.validateForUse(DatabaseType.POSTGRES);
+  }
+
+  @Test
   public void validatePgQueue_acceptsHourlyCronInterval() {
     PostgresSqlSetupProperties props = basePgQueueProps();
     enablePgQueueCron(props, 3600);

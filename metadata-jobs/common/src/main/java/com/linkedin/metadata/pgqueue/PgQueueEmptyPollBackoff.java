@@ -23,6 +23,11 @@ public final class PgQueueEmptyPollBackoff {
     this.currentMillis = this.minMillis;
   }
 
+  /** Current idle interval without growing it. */
+  public long peekSleepMillis() {
+    return currentMillis;
+  }
+
   /** Sleep for this empty poll, then grow the next interval. */
   public long nextSleepMillis() {
     long sleep = currentMillis;

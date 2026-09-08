@@ -500,8 +500,9 @@ public class PostgresSqlSetupProperties {
   /**
    * Maps intervalSeconds to a pg_cron schedule (minute/hour/day granularity).
    *
-   * <p>Only intervals that map cleanly are accepted: multiples of 60 seconds up to 59 minutes,
-   * multiples of 3600 up to 23 hours, or exactly 1 day (86400 seconds). Multi-day day-of-month cron
+   * <p>Only intervals that map to a constant cadence are accepted: minute values that divide 60,
+   * hour values that divide 24, or exactly 1 day (86400 seconds). Step cron fields wrap at field
+   * boundaries, so a 5-hour or 7-minute step is not an even interval. Multi-day day-of-month
    * schedules skip or bunch at month boundaries, so they are rejected. Values below 60 are treated
    * as 60 seconds ({@code every minute}).
    */
@@ -520,25 +521,25 @@ public class PostgresSqlSetupProperties {
     }
     if (sec % 3600 == 0) {
       int hours = sec / 3600;
-      if (hours < 1 || hours > 23) {
+      if (hours < 1 || hours > 12 || 24 % hours != 0) {
         throw new IllegalArgumentException(
             "intervalSeconds="
                 + intervalSeconds
-                + " hour cadence must be between 1 and 23 hours inclusive");
+                + " hour cadence must divide 24 (1, 2, 3, 4, 6, 8, or 12 hours)");
       }
       return "0 */" + hours + " * * *";
     }
     if (sec % 60 == 0) {
       int minutes = sec / 60;
-      if (minutes >= 1 && minutes <= 59) {
+      if (minutes >= 1 && minutes <= 30 && 60 % minutes == 0) {
         return "*/" + minutes + " * * * *";
       }
     }
     throw new IllegalArgumentException(
         "intervalSeconds="
             + intervalSeconds
-            + " cannot be represented as a pg_cron schedule; use a multiple of 60 (1–59 min),"
-            + " 3600 (1–23 h), or 86400 (1 day)");
+            + " cannot be represented as a pg_cron schedule; use a minute interval that divides 60"
+            + " (1–30 min), an hour interval that divides 24 (1–12 h), or 86400 (1 day)");
   }
 
   private void validatePgQueueConfig() {
