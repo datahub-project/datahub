@@ -64,7 +64,7 @@ public class AnalyticsServiceTest {
             any(OperationFingerprint.class), eq(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX)))
         .thenReturn(USAGE_INDEX);
 
-    service = new AnalyticsService(mockClient, mockIndexConvention);
+    service = new AnalyticsService(mockClient, mockIndexConvention, opContext.getEntityRegistry());
   }
 
   private Map<String, DateRange> twoRanges() {
@@ -151,21 +151,36 @@ public class AnalyticsServiceTest {
   }
 
   @Test
-  public void testCoerceTermValuesConvertsBooleanStrings() {
-    Object[] coerced = AnalyticsService.coerceTermValues(List.of("true", "FALSE"));
+  public void testCoerceTermValuesConvertsBooleanFields() {
+    Object[] coerced = service.coerceTermValues("hasOwners", List.of("true", "FALSE"));
     assertEquals(coerced.length, 2);
     assertEquals(coerced[0], true);
     assertEquals(coerced[1], false);
-    assertFalse(
-        AnalyticsService.termsQuery("hasOwners", List.of("true")).toString().contains("\"true\""));
-    assertTrue(
-        AnalyticsService.termsQuery("hasOwners", List.of("true")).toString().contains("true"));
+    String json = compactJson(service.termsQuery("hasOwners", List.of("true")).toString());
+    assertFalse(json.contains("\"true\""));
+    assertTrue(json.contains("true"));
   }
 
   @Test
-  public void testCoerceTermValuesLeavesNonBooleanStrings() {
-    Object[] coerced = AnalyticsService.coerceTermValues(List.of("urn:li:corpuser:admin"));
+  public void testCoerceTermValuesLeavesKeywordFieldsAsStrings() {
+    Object[] coerced = service.coerceTermValues("actor.urn", List.of("urn:li:corpuser:admin"));
     assertEquals(coerced[0], "urn:li:corpuser:admin");
+  }
+
+  @Test
+  public void testCoerceTermValuesDoesNotInferBooleanFromValueSpelling() {
+    Object[] coerced = service.coerceTermValues("eventType", List.of("true"));
+    assertEquals(coerced[0], "true");
+    String json = compactJson(service.termsQuery("eventType", List.of("true")).toString());
+    assertTrue(json.contains("\"true\""));
+  }
+
+  @Test
+  public void testCoerceTermValuesUsesEntityRegistryBooleanMapping() {
+    Object[] removed = service.coerceTermValues("removed", List.of("true"));
+    assertEquals(removed[0], true);
+    Object[] hasOwners = service.coerceTermValues("hasOwners", List.of("true"));
+    assertEquals(hasOwners[0], true);
   }
 
   private static String compactJson(String json) {
@@ -209,6 +224,9 @@ public class AnalyticsServiceTest {
     assertTrue(source.contains("\"_index\""), "entity buckets must be scoped by _index");
     assertTrue(source.contains("datasetindex_v2"), "expected the dataset index alias as the term");
     assertTrue(source.contains("hasOwners"), "expected the facet field as a term filter");
+    String compact = compactJson(source);
+    assertTrue(compact.contains("\"hasOwners\":[true]"));
+    assertFalse(compact.contains("\"hasOwners\":[\"true\"]"));
     assertTrue(source.contains("removed"), "soft-deleted entities must be excluded");
   }
 

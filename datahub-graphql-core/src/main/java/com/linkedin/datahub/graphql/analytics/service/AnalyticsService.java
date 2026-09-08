@@ -14,15 +14,20 @@ import com.linkedin.datahub.graphql.generated.NumericDataPoint;
 import com.linkedin.datahub.graphql.generated.Row;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -56,6 +61,7 @@ public class AnalyticsService {
 
   private final SearchClientShim<?> _elasticClient;
   private final IndexConvention _indexConvention;
+  private final EntityRegistry _entityRegistry;
 
   private static final String FILTERED = "filtered";
   private static final String DATE_HISTOGRAM = "date_histogram";
@@ -68,6 +74,7 @@ public class AnalyticsService {
   private static final String INDEX_FIELD = "_index";
   private static final String REMOVED = "removed";
   private static final String TRUE = "true";
+
   public static final String NA = "N/A";
 
   public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
@@ -591,21 +598,51 @@ public class AnalyticsService {
         .lt(parseEpochMillis(dateRange.getEnd(), dateRangeField, "end"));
   }
 
-  static QueryBuilder termsQuery(String field, List<String> values) {
-    return QueryBuilders.termsQuery(field, coerceTermValues(values));
+  QueryBuilder termsQuery(String field, List<String> values) {
+    return QueryBuilders.termsQuery(field, coerceTermValues(field, values));
   }
 
-  static Object[] coerceTermValues(List<String> values) {
-    if (values != null
-        && !values.isEmpty()
-        && values.stream().allMatch(AnalyticsService::isBooleanString)) {
-      return values.stream().map(Boolean::parseBoolean).toArray();
+  Object[] coerceTermValues(String field, List<String> values) {
+    if (values == null || values.isEmpty()) {
+      return new Object[0];
     }
-    return values == null ? new Object[0] : values.toArray(new String[0]);
+    if (isBooleanSearchField(field)) {
+      return values.stream().map(AnalyticsService::parseBooleanTerm).toArray();
+    }
+    return values.toArray(new String[0]);
   }
 
-  private static boolean isBooleanString(String value) {
-    return "true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value);
+  private Set<String> booleanSearchFields;
+
+  private boolean isBooleanSearchField(String field) {
+    return booleanSearchFields().contains(field.split("\\.")[0]);
+  }
+
+  private Set<String> booleanSearchFields() {
+    if (booleanSearchFields == null) {
+      Set<String> fields = new HashSet<>();
+      for (EntitySpec entitySpec : _entityRegistry.getEntitySpecs().values()) {
+        for (Map.Entry<String, Set<SearchableAnnotation.FieldType>> entry :
+            entitySpec.getSearchableFieldTypes().entrySet()) {
+          if (entry.getValue().contains(SearchableAnnotation.FieldType.BOOLEAN)) {
+            fields.add(entry.getKey());
+          }
+        }
+      }
+      booleanSearchFields = Set.copyOf(fields);
+    }
+    return booleanSearchFields;
+  }
+
+  private static boolean parseBooleanTerm(String value) {
+    if ("true".equalsIgnoreCase(value)) {
+      return true;
+    }
+    if ("false".equalsIgnoreCase(value)) {
+      return false;
+    }
+    throw new IllegalArgumentException(
+        String.format("Boolean term field expected true/false, got: %s", value));
   }
 
   private static long parseEpochMillis(String value, String dateRangeField, String bound) {
