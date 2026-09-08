@@ -20,6 +20,9 @@ _DATA_MODEL_ID = "dataModelId"
 # A side with no elementId is a warehouse table only if it says so.
 _WAREHOUSE_SIDE_KEYS = ("connectionId", "path")
 _JOIN_KIND = "join"
+# Sampled once per kind per process so the shape appears in a run without
+# printing one line per element.
+_MULTI_SOURCE_KINDS_SEEN_SAMPLE: set = set()
 _JOIN_TYPE = "joinType"
 # Join types whose ON equality holds only on matched rows.
 _OUTER_JOIN_TYPES = frozenset({"left", "right", "full", "outer", "full-outer"})
@@ -298,6 +301,23 @@ def parse_data_model_spec(
         kind = str(source.get(_KIND) or "")
         index.source_kind_counts[kind] = index.source_kind_counts.get(kind, 0) + 1
         if kind != _JOIN_KIND or not element_id:
+            # A 'union' combines several branches, so each of its output
+            # columns has one upstream PER BRANCH -- the multi-source case a
+            # single formula can never express, and the only /spec kind still
+            # unread. Its field names are unknown, and this shape has been
+            # guessed wrong twice already, so log the structure and read it
+            # once the run says what it is. One sample per kind per model
+            # keeps this off the hot path.
+            if kind and kind not in _MULTI_SOURCE_KINDS_SEEN_SAMPLE and element_id:
+                _MULTI_SOURCE_KINDS_SEEN_SAMPLE.add(kind)
+                logger.debug(
+                    "DM SPEC SOURCE KIND %s/%s: kind=%r not read by this "
+                    "parser. Key skeleton (structure only, no values): %r",
+                    data_model_id,
+                    element_id,
+                    kind,
+                    _key_skeleton(source),
+                )
             continue
         joins = source.get(_JOINS)
         found: List[JoinPredicate] = []
