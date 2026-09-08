@@ -64,6 +64,7 @@
     "prop.platformInstanceDesc": "Den specifika plattformsinstansen där tillgången finns.",
     "prop.softDeleted": "Mjukraderad",
     "prop.softDeletedDesc": "Om tillgången har mjukraderats.",
+    "prop.structuredPropertyGroup": "Strukturerad egenskap",
     "prop.subType": "Undertyp",
     "prop.subTypeDesc": "Tillgångens undertyp (t.ex. tabell, vy, ämne).",
     "publicTab": "Publika vyer",

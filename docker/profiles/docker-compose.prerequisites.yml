@@ -120,6 +120,7 @@ x-kafka-broker-profiles: &kafka-broker-profiles
   - debug-consumers
   - debug-consumers-cdc
   - debug-neo4j
+  - debug-elasticsearch
   - debug-backend-aws
   - debug-aws
 
