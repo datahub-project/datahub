@@ -62,6 +62,7 @@ _NON_DATA_PLATFORM_SOURCES: Set[str] = {
     "datahubapply",
     "datahubdebug",
     "datahubgc",
+    "datahub-analytics-compaction",  # SYSTEM; no browsable platform
     "demo-data",  # sample-data generator
     "business-glossary",  # emits glossary terms, not platform-scoped assets
     "csv-enricher",  # enrichment, no platform
