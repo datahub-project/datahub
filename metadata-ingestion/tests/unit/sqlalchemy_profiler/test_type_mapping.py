@@ -134,9 +134,24 @@ class TestTypeMapping:
 
     def test_get_column_types_to_ignore(self):
         """Test database-specific type filtering."""
-        # PostgreSQL
-        ignored = _get_column_types_to_ignore("postgresql")
-        assert "JSON" in ignored or "JSONB" in ignored
+        # PostgreSQL — both the platform name ("postgres") and the SQLAlchemy
+        # dialect name ("postgresql") must resolve to the same exclusions.
+        for dialect in ("postgres", "postgresql"):
+            ignored = _get_column_types_to_ignore(dialect)
+            assert "JSON" in ignored
+            # Geometric types and xml have no equality operator, so
+            # COUNT(DISTINCT col) would fail during field profiling.
+            for geo_type in (
+                "POINT",
+                "LINE",
+                "LSEG",
+                "BOX",
+                "PATH",
+                "POLYGON",
+                "CIRCLE",
+                "XML",
+            ):
+                assert geo_type in ignored
 
         # BigQuery
         ignored = _get_column_types_to_ignore("bigquery")
