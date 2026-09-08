@@ -370,7 +370,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
   static boolean isV3BackingIndex(@Nonnull String indexName) {
     final String token = "index_v3";
     int tokenStart = indexName.lastIndexOf(token);
-    if (tokenStart <= 0) {
+    if (tokenStart <= 0 || indexName.lastIndexOf("index_v2") > tokenStart) {
       return false;
     }
     String after = indexName.substring(tokenStart + token.length());

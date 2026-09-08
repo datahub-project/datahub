@@ -11,7 +11,8 @@ import javax.annotation.Nonnull;
  *
  * <p>Contributors run only when the strategy is emitting a real V3 document (searchable aspects
  * present). They must add new fields only; strategy-owned keys such as {@code urn}, {@code
- * _entityType}, {@code _aspects}, and {@code structuredProperties} are rejected.
+ * _entityType}, {@code _aspects}, {@code structuredProperties}, {@code runId}, and {@code _search}
+ * are rejected.
  */
 public interface V3SearchDocumentContributor {
 

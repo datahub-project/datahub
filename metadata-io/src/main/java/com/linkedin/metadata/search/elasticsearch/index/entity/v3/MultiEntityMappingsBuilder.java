@@ -483,7 +483,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     for (V3MappingContributor contributor : mappingContributors) {
       Map<String, Object> extras = contributor.extraRootProperties();
       for (Map.Entry<String, Object> extra : extras.entrySet()) {
-        if (properties.containsKey(extra.getKey())) {
+        if (properties.containsKey(extra.getKey())
+            || MappingConstants.STRATEGY_OWNED_ROOT_FIELDS.contains(extra.getKey())) {
           throw new IllegalArgumentException(
               "V3 mapping contributor attempted to overwrite existing property '"
                   + extra.getKey()

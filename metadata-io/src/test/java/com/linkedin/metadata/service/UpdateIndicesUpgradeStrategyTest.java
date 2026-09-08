@@ -348,6 +348,12 @@ public class UpdateIndicesUpgradeStrategyTest {
     assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v2_next_123"));
     assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("index_v3_datasetindex_v2"));
     assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("index_v3"));
+    assertFalse(
+        UpdateIndicesUpgradeStrategy.isV3BackingIndex("fooindex_v3_datasetindex_v2_1683649932260"));
+    assertFalse(
+        UpdateIndicesUpgradeStrategy.isV3BackingIndex(
+            ESIndexBuilder.getIncrementalNextIndexName(
+                "fooindex_v3_datasetindex_v2", "1.2.3-4", 1000L)));
   }
 
   @Test

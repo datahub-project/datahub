@@ -53,14 +53,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final MultiEntityMappingsBuilder mappingsBuilder;
   @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
   private static final Set<String> STRATEGY_OWNED_DOCUMENT_FIELDS =
-      Set.of(
-          "urn",
-          "_entityType",
-          MappingConstants.ASPECTS_FIELD_NAME,
-          Constants.STRUCTURED_PROPERTY_MAPPING_FIELD);
+      MappingConstants.STRATEGY_OWNED_ROOT_FIELDS;
 
   private final EntityDocumentIdHasher entityDocumentIdHasher;
   private final List<V3SearchDocumentContributor> documentContributors;
+  private final boolean v2Enabled;
 
   public UpdateIndicesV3Strategy(
       @Nonnull EntityIndexVersionConfiguration v3Config,
@@ -75,7 +72,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         timeseriesAspectService,
         timeseriesThrottleCache,
         new Sha256UrnEntityDocumentIdHasher(),
-        List.of());
+        List.of(),
+        false);
   }
 
   public UpdateIndicesV3Strategy(
@@ -86,6 +84,26 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
       @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
       @Nonnull List<V3SearchDocumentContributor> documentContributors) {
+    this(
+        v3Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        timeseriesThrottleCache,
+        entityDocumentIdHasher,
+        documentContributors,
+        false);
+  }
+
+  public UpdateIndicesV3Strategy(
+      @Nonnull EntityIndexVersionConfiguration v3Config,
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
+      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
+      @Nonnull List<V3SearchDocumentContributor> documentContributors,
+      boolean v2Enabled) {
     this.v3Config = v3Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
@@ -94,6 +112,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     this.entityDocumentIdHasher = entityDocumentIdHasher;
     this.documentContributors =
         documentContributors == null ? List.of() : List.copyOf(documentContributors);
+    this.v2Enabled = v2Enabled;
     try {
       this.mappingsBuilder =
           new MultiEntityMappingsBuilder(
@@ -224,6 +243,28 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    * @param events the events for this URN
    */
   private void processUrnBatch(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull List<MCLItem> events,
+      boolean structuredPropertiesHookEnabled,
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
+
+    try {
+      processUrnBatchUnchecked(
+          opContext, urn, events, structuredPropertiesHookEnabled, throttleSummary);
+    } catch (RuntimeException e) {
+      if (v2Enabled) {
+        log.error(
+            "V3 search write failed for URN {} while V2 dual-write is enabled; skipping V3 document",
+            urn,
+            e);
+        return;
+      }
+      throw e;
+    }
+  }
+
+  private void processUrnBatchUnchecked(
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull List<MCLItem> events,
