@@ -304,8 +304,6 @@ def test_caching_reduces_api_calls(pytestconfig):
         print(f"  Data structures fetched: {len(result1)}")
 
 
-
-
 @pytest.mark.integration
 def test_large_dataset_performance(pytestconfig):
     """

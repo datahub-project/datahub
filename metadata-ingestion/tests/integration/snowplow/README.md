@@ -91,7 +91,6 @@ python -m pytest tests/integration/snowplow/test_snowplow_performance.py -v
 
 - **test_parallel_fetching_performance**: Parallel vs sequential deployment fetching
 - **test_caching_reduces_api_calls**: Instance-level caching effectiveness
-- **test_event_schema_urn_caching**: URN extraction caching
 - **test_large_dataset_performance**: Performance with 1000 schemas
 - **test_api_call_count_without_field_tracking**: API call optimization
 
@@ -136,9 +135,9 @@ docker compose -f docker-compose.iglu.yml down -v
 The performance tests assert deterministic properties rather than wall-clock
 ratios, so they do not depend on how fast or how loaded the runner is:
 
-- **Parallel fetching**: with `max_concurrent_api_calls` above 1, deployment
-  fetches overlap (peak in-flight of at least 2); with a single worker they
-  never overlap; both modes issue the same number of fetches
+- **Parallel fetching**: with `enable_parallel_fetching` on, deployment fetches
+  overlap (peak in-flight of at least 2); with it off they never overlap; both
+  modes issue the same number of fetches
 - **Caching**: repeated data structure lookups reach the API once, a 66%+
   reduction over three calls
 - **Large datasets**: 1000 schemas with 20 concurrent workers fetch the
