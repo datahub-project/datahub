@@ -2453,7 +2453,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .retrieverContext(aspectsBatch.getRetrieverContext())
                   .items(
                       aspectsBatch.getItems().stream()
-                          .filter(item -> !item.getAspectSpec().isTimeseries())
+                          // Null spec: unknown aspect under alternate MCP validation;
+                          // IgnoreUnknownMutator drops it.
+                          .filter(
+                              item ->
+                                  item.getAspectSpec() == null
+                                      || !item.getAspectSpec().isTimeseries())
                           .collect(Collectors.toList()))
                   .build(opContext);
 
@@ -2461,7 +2466,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               nonTimeseries.getMCPItems().stream()
                   .filter(
                       item ->
-                          !MCPItem.isValidChangeType(item.getChangeType(), item.getAspectSpec()))
+                          item.getAspectSpec() != null
+                              && !MCPItem.isValidChangeType(
+                                  item.getChangeType(), item.getAspectSpec()))
                   .collect(Collectors.toList());
           if (!unsupported.isEmpty()) {
             throw new UnsupportedOperationException(
