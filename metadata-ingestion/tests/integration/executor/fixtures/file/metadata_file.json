@@ -1,0 +1,78 @@
+[
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "datasetProperties",
+        "aspect": {
+            "json": {
+                "name": "TABLE_1",
+                "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_1",
+                "description": "Comment for Table",
+                "tags": []
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1615443388097,
+            "runId": "snowflake-2023_12_18-10_16_09",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "datasetProperties",
+        "aspect": {
+            "json": {
+                "name": "TABLE_2",
+                "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_2",
+                "description": "Comment for Table",
+                "tags": []
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1615443388097,
+            "runId": "snowflake-2023_12_18-10_16_09",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "datasetProperties",
+        "aspect": {
+            "json": {
+                "name": "TABLE_3",
+                "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_3",
+                "description": "Comment for Table",
+                "tags": []
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1615443388097,
+            "runId": "snowflake-2023_12_18-10_16_09",
+            "lastRunId": "no-run-id-provided"
+        }
+    },
+    {
+        "entityType": "dataset",
+        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD)",
+        "changeType": "UPSERT",
+        "aspectName": "datasetProperties",
+        "aspect": {
+            "json": {
+                "name": "TABLE_4",
+                "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_4",
+                "description": "Comment for Table",
+                "tags": []
+            }
+        },
+        "systemMetadata": {
+            "lastObserved": 1615443388097,
+            "runId": "snowflake-2023_12_18-10_16_09",
+            "lastRunId": "no-run-id-provided"
+        }
+    }
+]

@@ -14,12 +14,14 @@ from datahub.ingestion.source.ge_profiling_config import (
     ProfilingIsolationLevel,
 )
 from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
+from datahub.ingestion.source.sql.postgres.source import BOX, CITEXT, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
 from datahub.metadata.schema_classes import DatasetFieldProfileClass
+from datahub.utilities.stats_collections import float_top_k_dict
 
 
 @pytest.fixture
@@ -76,6 +78,10 @@ def mock_report():
     report = MagicMock(spec=SQLSourceReport)
     report.report_dropped = MagicMock()
     report.warning = MagicMock()
+    report.info = MagicMock()
+    # Dataclass fields with default_factory are not class attributes, so a spec'd mock
+    # does not expose them; wire the real TopKDict so the profiler's finally block can write.
+    report.profiling_time_taken_per_table_secs = float_top_k_dict()
     return report
 
 
@@ -123,6 +129,28 @@ class TestSQLAlchemyProfiler:
         assert not profiler._should_ignore_column(sa.Integer(), "id")
         assert not profiler._should_ignore_column(sa.String(), "name")
         assert not profiler._should_ignore_column(sa.Float(), "value")
+        # NullType stringifies to "NULL"; this is how Databricks VARIANT columns
+        # (reflected as NullType) get skipped for profiling instead of erroring.
+        assert profiler._should_ignore_column(sa.types.NullType(), "payload")
+
+    def test_should_ignore_column_postgres_no_equality_types(
+        self, sqlite_engine, profiler_config, mock_report
+    ):
+        """Postgres geometric/xml columns have no equality operator, so
+        COUNT(DISTINCT col) errors; they must be excluded from field profiling.
+        """
+        profiler = SQLAlchemyProfiler(
+            conn=sqlite_engine,
+            report=mock_report,
+            config=profiler_config,
+            platform="postgres",
+            env="TEST",
+        )
+        assert profiler._should_ignore_column(BOX(), "bbox")
+        assert profiler._should_ignore_column(XML(), "doc")
+        # Types with btree operator classes profile fine and must not be skipped.
+        assert not profiler._should_ignore_column(LTREE(), "tree_path")
+        assert not profiler._should_ignore_column(CITEXT(), "ci")
 
     def test_generate_profiles_empty_list(self, profiler):
         """Test generate_profiles with empty request list."""

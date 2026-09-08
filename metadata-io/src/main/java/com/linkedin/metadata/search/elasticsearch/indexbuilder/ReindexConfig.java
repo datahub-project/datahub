@@ -332,9 +332,10 @@ public class ReindexConfig {
             structuredPropertiesDiffCount(super.currentMappings, super.targetMappings);
         super.hasNewStructuredProperty = spDiffCount.getSecond() > 0;
         super.hasRemovedStructuredProperty = spDiffCount.getFirst() > 0;
-        // StructuredProperties is dynamic=true, so calculateMapDifference strips it from
-        // mappingsDiff. Detect type conflicts (e.g. float vs double) separately so system-update
-        // can reindex indices that locked the wrong type via dynamic mapping.
+        // calculateMapDifference strips the structuredProperties subtree from mappingsDiff (by
+        // name via isKnownDynamicField). Detect type conflicts (e.g. float vs double) separately
+        // so system-update can reindex indices that locked the wrong type via dynamic mapping on
+        // an older, dynamic:true container.
         Set<String> mismatchedStructuredPropertyFields =
             structuredPropertyTypeMismatches(super.currentMappings, super.targetMappings);
         super.hasStructuredPropertyTypeMismatch = !mismatchedStructuredPropertyFields.isEmpty();
@@ -880,7 +881,11 @@ public class ReindexConfig {
         return true;
       }
 
-      // structuredProperties is dynamic by design
+      // structuredProperties fields are managed by dedicated definition-driven mapping updates
+      // (and the dedicated new/removed/type-mismatch detection paths), not the general mapping
+      // diff. Existing indexes may still carry dynamic:true on the container while new ones are
+      // created dynamic:false; excluding the subtree here keeps that difference from triggering
+      // reindexes.
       if ("structuredProperties".equals(fieldName) && "object".equals(fieldMapping.get("type"))) {
         return true;
       }

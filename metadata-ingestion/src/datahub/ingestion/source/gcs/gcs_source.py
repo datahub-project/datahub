@@ -228,7 +228,7 @@ class GCSSourceReport(DataLakeSourceReport):
 
 @platform_name("Google Cloud Storage", id=PLATFORM_GCS)
 @config_class(GCSSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",

@@ -9,10 +9,10 @@ import PillRemoveIcon from '@app/sharedV2/icons/PillRemoveIcon';
  * `borderless` — inline-with-text usage (breadcrumbs, mentions, modal option rows). No chip body.
  * `highlighted` — chip is the active search match. Uses the hover border/background tokens.
  */
-export type TagPillVariant = 'default' | 'borderless' | 'highlighted';
+type TagPillVariant = 'default' | 'borderless' | 'highlighted';
 
 /** `md` is the canonical sidebar/modal size; `sm` is the compact size used in dense filter rows. */
-export type TagPillSize = 'sm' | 'md';
+type TagPillSize = 'sm' | 'md';
 
 // Shared color-hash instance — matches StyledTag.tsx so URN-derived colors line up with the rest of
 // the app's tag chips.

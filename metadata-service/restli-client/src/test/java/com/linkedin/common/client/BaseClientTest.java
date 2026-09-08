@@ -2,6 +2,7 @@ package com.linkedin.common.client;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -18,6 +19,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.RequiredFieldNotPresentException;
@@ -65,6 +67,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -245,6 +248,74 @@ public class BaseClientTest {
 
     // Verify all URNs were returned
     assertEquals(result.size(), 15);
+  }
+
+  @Test
+  public void testBatchIngestProposalsSendsPartitionNotFullCollection()
+      throws RemoteInvocationException {
+    // Evenly divisible and remainder cases — remainder catches off-by-one in partition sizing.
+    assertBatchIngestSendsPartitionsOnly(15, 5);
+    assertBatchIngestSendsPartitionsOnly(13, 5);
+  }
+
+  /**
+   * Regression helper: proposalsParam must use the partition, not the full input collection.
+   * Sending N on every request of size B multiplies work by ceil(N/B).
+   *
+   * <p>Batch sizes are compared as a sorted multiset — not in capture order — because
+   * batchIngestConcurrency &gt; 1 submits partitions concurrently and ArgumentCaptor order follows
+   * thread scheduling.
+   */
+  private void assertBatchIngestSendsPartitionsOnly(int total, int batchSize)
+      throws RemoteInvocationException {
+    reset(mockRestliClient);
+    List<MetadataChangeProposal> mcps = createTestMCPs(total);
+
+    ArgumentCaptor<ActionRequest> requestCaptor = ArgumentCaptor.forClass(ActionRequest.class);
+    when(mockRestliClient.sendRequest(requestCaptor.capture())).thenReturn(mockFuture);
+    when(mockFuture.getResponse()).thenReturn(mockResponse);
+    when(mockResponse.getEntity()).thenReturn("success");
+
+    testClient =
+        new RestliEntityClient(
+            mockRestliClient,
+            EntityClientConfig.builder()
+                .backoffPolicy(new ExponentialBackoff(1))
+                .retryCount(0)
+                .batchGetV2Size(10)
+                .batchGetV2Concurrency(2)
+                .batchIngestSize(batchSize)
+                .batchIngestConcurrency(3)
+                .build(),
+            mockMetricUtils);
+
+    List<String> result = testClient.batchIngestProposals(opContext, mcps, false);
+
+    assertEquals(result.size(), total);
+    List<ActionRequest> requests = requestCaptor.getAllValues();
+    int expectedBatches = (total + batchSize - 1) / batchSize;
+    assertEquals(requests.size(), expectedBatches);
+
+    List<Integer> expectedSizes = new ArrayList<>();
+    for (int remaining = total; remaining > 0; remaining -= batchSize) {
+      expectedSizes.add(Math.min(batchSize, remaining));
+    }
+    Collections.sort(expectedSizes);
+
+    List<Integer> actualSizes = new ArrayList<>();
+    for (ActionRequest request : requests) {
+      // ActionRequest only exposes the Rest.li input as a DataMap; the field name matches
+      // AspectsDoIngestProposalBatchRequestBuilder.proposalsParam (generated Rest.li schema).
+      DataList proposals = request.getInputRecord().data().getDataList("proposals");
+      int size = proposals.size();
+      assertTrue(size > 0 && size <= batchSize, "partition size out of range: " + size);
+      if (total > batchSize) {
+        assertTrue(size < total, "request must not send the full input collection");
+      }
+      actualSizes.add(size);
+    }
+    Collections.sort(actualSizes);
+    assertEquals(actualSizes, expectedSizes);
   }
 
   @Test

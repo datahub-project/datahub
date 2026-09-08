@@ -20,7 +20,9 @@ import com.linkedin.datahub.graphql.generated.EntityIncidentsResult;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.IncidentPriority;
 import com.linkedin.datahub.graphql.generated.MLFeature;
+import com.linkedin.datahub.graphql.generated.MLFeatureTable;
 import com.linkedin.datahub.graphql.generated.MLModel;
+import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -75,6 +77,26 @@ public class EntityIncidentsResolverTest {
     MLFeature parentEntity = new MLFeature();
     parentEntity.setUrn(mlFeatureUrn.toString());
     assertIncidentsResolvedForSource(mlFeatureUrn, parentEntity);
+  }
+
+  @Test
+  public void testGetSuccessMlFeatureTableEntity() throws Exception {
+    Urn mlFeatureTableUrn =
+        Urn.createFromString(
+            "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table)");
+    MLFeatureTable parentEntity = new MLFeatureTable();
+    parentEntity.setUrn(mlFeatureTableUrn.toString());
+    assertIncidentsResolvedForSource(mlFeatureTableUrn, parentEntity);
+  }
+
+  @Test
+  public void testGetSuccessSchemaFieldEntity() throws Exception {
+    Urn schemaFieldUrn =
+        Urn.createFromString(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD),test-field)");
+    SchemaFieldEntity parentEntity = new SchemaFieldEntity();
+    parentEntity.setUrn(schemaFieldUrn.toString());
+    assertIncidentsResolvedForSource(schemaFieldUrn, parentEntity);
   }
 
   private void assertIncidentsResolvedForSource(Urn entityUrn, Entity source) throws Exception {

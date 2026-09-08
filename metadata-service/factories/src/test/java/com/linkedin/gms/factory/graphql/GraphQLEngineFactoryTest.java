@@ -104,6 +104,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   private ExecutorService graphQLWorkerPool;
 
   @Autowired
+  @Qualifier("systemOperationContext")
+  private OperationContext systemOperationContext;
+
+  @Autowired
   @Qualifier("configurationProvider")
   private ConfigurationProvider configurationProvider;
 
@@ -411,7 +415,11 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     // When
     GraphQLEngine engineWithAnalytics =
         factoryWithAnalytics.graphQLEngine(
-            entityClient, systemEntityClient, entityVersioningService, metricUtils);
+            entityClient,
+            systemEntityClient,
+            systemOperationContext,
+            entityVersioningService,
+            metricUtils);
 
     // Then
     assertNotNull(engineWithAnalytics);
@@ -470,45 +478,23 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testGraphQLConcurrencyConfiguration() {
-    // Test the actual concurrency configuration from the default ConfigurationProvider
     var concurrencyConfig = configurationProvider.getGraphQL().getConcurrency();
     assertNotNull(concurrencyConfig);
-
-    // These should have default values
-    assertNotNull(concurrencyConfig.getCorePoolSize());
-    assertNotNull(concurrencyConfig.getMaxPoolSize());
+    assertFalse(concurrencyConfig.isScaleWithProcessors());
+    assertEquals(concurrencyConfig.getCorePoolSize(), 40);
+    assertEquals(concurrencyConfig.getMaxPoolSize(), 800);
+    assertEquals(concurrencyConfig.getQueueSize(), 0);
     assertNotNull(concurrencyConfig.getKeepAlive());
     assertNotNull(concurrencyConfig.getStackSize());
   }
 
   @Test
-  public void testGraphQLWorkerPoolWithDifferentConfiguration() {
-    // Test worker pool creation with different configurations
-    var concurrencyConfig = configurationProvider.getGraphQL().getConcurrency();
-
-    // Create a new factory to test different scenarios
-    ExecutorService executorService = graphQLEngineFactory.graphQLWorkerPool(metricUtils);
-    assertNotNull(executorService);
-
-    ThreadPoolExecutor threadPool = (ThreadPoolExecutor) executorService;
-
-    // If core pool size is negative, it should use default calculation
-    if (concurrencyConfig.getCorePoolSize() < 0) {
-      assertEquals(threadPool.getCorePoolSize(), Runtime.getRuntime().availableProcessors() * 5);
-    } else {
-      assertEquals(threadPool.getCorePoolSize(), concurrencyConfig.getCorePoolSize());
-    }
-
-    // If max pool size is zero or negative, it should use default calculation
-    if (concurrencyConfig.getMaxPoolSize() <= 0) {
-      assertEquals(
-          threadPool.getMaximumPoolSize(), Runtime.getRuntime().availableProcessors() * 100);
-    } else {
-      assertEquals(threadPool.getMaximumPoolSize(), concurrencyConfig.getMaxPoolSize());
-    }
-
-    // Cleanup
-    executorService.shutdown();
+  public void testGraphQLWorkerPoolUsesEightCoreDefaults() {
+    ThreadPoolExecutor threadPool = (ThreadPoolExecutor) graphQLWorkerPool;
+    assertEquals(threadPool.getCorePoolSize(), 40);
+    assertEquals(threadPool.getMaximumPoolSize(), 800);
+    assertTrue(threadPool.getQueue() instanceof java.util.concurrent.SynchronousQueue);
+    assertFalse(threadPool.allowsCoreThreadTimeOut());
   }
 
   @Test

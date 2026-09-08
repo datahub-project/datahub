@@ -6,6 +6,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Type
 
 import sqlglot
 from sqlglot import ParseError, expressions as exp
+from sqlparse.exceptions import SQLParseError
 
 from datahub.configuration.source_common import PlatformDetail
 from datahub.emitter import mce_builder as builder
@@ -437,6 +438,26 @@ class AbstractLineage(ABC):
         except (ParseError, Exception):
             logger.debug(f"Failed to parse query as SQL: {query}")
             return False
+
+    def get_tables_using_old_parser(self, query: str) -> List[str]:
+        # sqlparse raises SQLParseError once its DoS-protection limits
+        # (MAX_GROUPING_DEPTH / MAX_GROUPING_TOKENS) are hit. Without this, the
+        # error escapes to the caller in parser.py, which abandons the remaining
+        # data-access functions for this table and reports the generic "Unknown
+        # M-Query Pattern" warning. Only that error is caught: anything else is a
+        # bug in get_tables and should not be relabelled as a parse failure.
+        try:
+            return native_sql_parser.get_tables(query)
+        except SQLParseError as e:
+            self.reporter.warning(
+                title=Constant.SQL_PARSING_FAILURE,
+                message="Native SQL exceeded the SQL parser's size limits, so "
+                "lineage for this query is skipped. Enabling "
+                "enable_advance_lineage_sql_construct uses the sqlglot-based parser instead.",
+                context=f"table-name={self.table.full_name}",
+                exc=e,
+            )
+            return []
 
     def parse_custom_sql(
         self,
@@ -982,6 +1003,12 @@ class OracleLineage(AbstractLineage):
         return False
 
 
+# Databricks navigation chains are ordered catalog -> schema -> table, so a step
+# that omits Kind (valid M that Power BI refreshes) takes the first level the
+# chain has not filled yet.
+_DATABRICKS_NAVIGATION_LEVELS: Tuple[str, ...] = ("Database", "Schema", "Table")
+
+
 class DatabricksLineage(AbstractLineage):
     def form_qualified_table_name(
         self,
@@ -1030,7 +1057,30 @@ class DatabricksLineage(AbstractLineage):
                 table_detail["Schema"] = temp_accessor.items["Schema"]
                 table_detail["Table"] = temp_accessor.items["Item"]
             else:
-                table_detail[temp_accessor.items["Kind"]] = temp_accessor.items["Name"]
+                name: Optional[str] = temp_accessor.items.get("Name")
+                level: Optional[str] = temp_accessor.items.get("Kind")
+                if level is None:
+                    level = next(
+                        (
+                            candidate
+                            for candidate in _DATABRICKS_NAVIGATION_LEVELS
+                            if candidate not in table_detail
+                        ),
+                        None,
+                    )
+
+                if name is None or level is None:
+                    self.reporter.warning(
+                        title="Unusable M-Query navigation step",
+                        message="A navigation step could not be mapped to a Databricks "
+                        "catalog, schema or table. Lineage will be missing for this "
+                        "table.",
+                        context=f"table-full-name={self.table.full_name}, "
+                        f"navigation-step={temp_accessor.items}",
+                    )
+                    return Lineage.empty()
+
+                table_detail[level] = name
 
             if temp_accessor.next is not None:
                 temp_accessor = temp_accessor.next
@@ -1242,7 +1292,7 @@ class MSSqlLineage(TwoStepDataAccessPattern):
     ) -> List[DataPlatformTable]:
         dataplatform_tables: List[DataPlatformTable] = []
 
-        tables: List[str] = native_sql_parser.get_tables(query)
+        tables: List[str] = self.get_tables_using_old_parser(query)
 
         for parsed_table in tables:
             # components: List[str] = [v.strip("[]") for v in parsed_table.split(".")]
@@ -1475,11 +1525,22 @@ class GoogleBigQueryLineage(ThreeStepDataAccessPattern):
         )
 
 
+# Both Databricks connectors are called as (host, http path, [Database=…,
+# Catalog=…]), so a native query's database resolves identically for either.
+_DATABRICKS_NATIVE_QUERY_FUNCTIONS = frozenset(
+    {
+        FunctionName.DATABRICK_DATA_ACCESS.value,
+        FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value,
+    }
+)
+
+
 class NativeQueryLineage(AbstractLineage):
     # Maps the full data-access function name (e.g. "Snowflake.Databases") to its platform.
     SUPPORTED_NATIVE_QUERY_DATA_PLATFORM: dict = {
         FunctionName.SNOWFLAKE_DATA_ACCESS.value: SupportedDataPlatform.SNOWFLAKE,
         FunctionName.AMAZON_REDSHIFT_DATA_ACCESS.value: SupportedDataPlatform.AMAZON_REDSHIFT,
+        FunctionName.DATABRICK_DATA_ACCESS.value: SupportedDataPlatform.DATABRICKS_SQL,
         FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value: SupportedDataPlatform.DatabricksMultiCloud_SQL,
         FunctionName.MSSQL_DATA_ACCESS.value: SupportedDataPlatform.MS_SQL,
         FunctionName.POSTGRESQL_DATA_ACCESS.value: SupportedDataPlatform.POSTGRES_SQL,
@@ -1500,7 +1561,7 @@ class NativeQueryLineage(AbstractLineage):
     def create_urn_using_old_parser(self, query: str, server: str) -> Lineage:
         dataplatform_tables: List[DataPlatformTable] = []
 
-        tables: List[str] = native_sql_parser.get_tables(query)
+        tables: List[str] = self.get_tables_using_old_parser(query)
 
         column_lineage = []
         for qualified_table_name in tables:
@@ -1532,10 +1593,7 @@ class NativeQueryLineage(AbstractLineage):
         return Lineage(upstreams=dataplatform_tables, column_lineage=column_lineage)
 
     def get_db_name(self, data_access_tokens: List[str]) -> Optional[str]:
-        if (
-            data_access_tokens[0]
-            == FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value
-        ):
+        if data_access_tokens[0] in _DATABRICKS_NATIVE_QUERY_FUNCTIONS:
             database: Optional[str] = get_next_item(data_access_tokens, "Database")
 
             if (

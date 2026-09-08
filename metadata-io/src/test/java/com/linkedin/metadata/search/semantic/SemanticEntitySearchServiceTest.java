@@ -225,6 +225,27 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
+  public void testSearchAppliesMinScoreFloor() throws IOException {
+    setupMockKnnResponse(
+        Arrays.asList(
+            "urn:li:dataset:(urn:li:dataPlatform:test,table1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:test,table2,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:test,table3,PROD)"),
+        Arrays.asList(0.95, 0.80, 0.50));
+    when(mockSearchFlags.getMinScore()).thenReturn(0.75f);
+
+    SearchResult result =
+        service.search(
+            mockOpContext, Arrays.asList(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
+
+    assertNotNull(result);
+    // the 0.50 hit is below the 0.75 floor and is dropped; 0.95 and 0.80 remain
+    assertEquals(result.getNumEntities().intValue(), 2);
+    assertEquals(result.getEntities().size(), 2);
+    assertTrue(result.getEntities().stream().allMatch(e -> e.getScore() >= 0.75));
+  }
+
+  @Test
   public void testSearchPaginationBeyondResults() throws IOException {
     // Setup mock response with 1 hit
     setupMockKnnResponse(

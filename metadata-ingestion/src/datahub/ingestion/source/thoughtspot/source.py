@@ -276,7 +276,7 @@ class WorkspaceKey(ContainerKey):
 
 
 @platform_name("ThoughtSpot")
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @config_class(ThoughtSpotConfig)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")

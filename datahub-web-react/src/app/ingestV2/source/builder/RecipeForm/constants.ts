@@ -193,6 +193,15 @@ import {
     HIVE_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/hive';
 import {
+    INFORMIX_ACCEPT_IBM_JDBC_LICENSE,
+    INFORMIX_DATABASE,
+    INFORMIX_HOST_PORT,
+    INFORMIX_INCLUDE_VIEW_LINEAGE,
+    INFORMIX_PASSWORD,
+    INFORMIX_SERVER,
+    INFORMIX_USERNAME,
+} from '@app/ingestV2/source/builder/RecipeForm/informix';
+import {
     KAFKA_BOOTSTRAP,
     KAFKA_SASL_MECHANISM,
     KAFKA_SASL_PASSWORD,
@@ -477,6 +486,7 @@ import {
     DATABRICKS,
     DBT_CLOUD,
     GITHUB_DOCUMENTS,
+    INFORMIX,
     MATILLION_DPC,
     MICROSTRATEGY,
     MYSQL,
@@ -731,6 +741,19 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific Databases, Schemas, Tables and Views from ingestion.',
+    },
+    [INFORMIX]: {
+        fields: [
+            INFORMIX_HOST_PORT,
+            INFORMIX_SERVER,
+            INFORMIX_DATABASE,
+            INFORMIX_USERNAME,
+            INFORMIX_PASSWORD,
+            INFORMIX_ACCEPT_IBM_JDBC_LICENSE,
+        ],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [INCLUDE_TABLES, INCLUDE_VIEWS, INFORMIX_INCLUDE_VIEW_LINEAGE, STATEFUL_INGESTION_ENABLED],
+        filterSectionTooltip: 'Include or exclude specific Schemas (owners), Tables and Views from ingestion.',
     },
     [HIVE]: {
         fields: [HIVE_HOST_PORT, HIVE_USERNAME, HIVE_PASSWORD, HIVE_DATABASE],

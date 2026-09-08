@@ -1,6 +1,34 @@
 #import "./incident.graphql"
 #import "./fragments.graphql"
 
+# Deliberately minimal: name, description and platform icon only.
+#
+# getSearchResultsForMultiple is close to graphql-java's complexity ceiling
+# (GRAPHQL_QUERY_COMPLEXITY_LIMIT, default 2000), and complexity counts each fragment
+# definition once rather than per spread site — so every field added here is a field added
+# to the whole query. Revisit once the shared search fragments are slimmed down.
+fragment metricSearchFields on Metric {
+    id
+    info {
+        name
+        description
+    }
+    platform {
+        ...platformFields
+    }
+}
+
+fragment semanticModelSearchFields on SemanticModel {
+    id
+    info {
+        name
+        description
+    }
+    platform {
+        ...platformFields
+    }
+}
+
 # Lean fields for compact home-widget cards. Omits ownership, tags, lineage, health,
 # structured properties, and Dataset stats/access (those stay on autoCompleteFields).
 fragment searchResultCardFields on Entity {
@@ -439,16 +467,10 @@ fragment searchResultCardFields on Entity {
         }
     }
     ... on Metric {
-        id
-        info {
-            name
-        }
+        ...metricSearchFields
     }
     ... on SemanticModel {
-        id
-        info {
-            name
-        }
+        ...semanticModelSearchFields
     }
 }
 
@@ -1425,6 +1447,12 @@ fragment searchResultsWithoutSchemaField on Entity {
                 }
             }
         }
+    }
+    ... on Metric {
+        ...metricSearchFields
+    }
+    ... on SemanticModel {
+        ...semanticModelSearchFields
     }
 }
 

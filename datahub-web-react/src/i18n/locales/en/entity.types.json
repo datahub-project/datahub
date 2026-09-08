@@ -329,5 +329,8 @@
     "user.tab.ownerOf": "Owner Of",
     "user.teamLabel": "Team",
     "user.teamsHeading": "Teams",
-    "user.titleRoleLabel": "Title/Role"
+    "user.titleRoleLabel": "Title/Role",
+    "tab.outputPorts": "Output Ports",
+    "dataProduct.outputPortsToggle": "Output ports · {{count}}",
+    "dataProduct.allAssetsToggle": "All assets · {{count}}"
 }

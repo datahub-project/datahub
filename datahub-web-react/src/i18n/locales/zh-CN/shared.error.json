@@ -1,0 +1,11 @@
+{
+    "boundary.onPremActionMessage": "请将浏览器中的错误信息报告给你的 DataHub 管理员",
+    "bulkEditUnauthorized": "你的批量编辑选择中包含你无权更新的实体。本次批量编辑将不会被保存。",
+    "fallback.defaultMessage": "我们的团队已收到此意外错误的通知，正在着手解决。",
+    "fallback.subtitle": "出现了一些意外情况。",
+    "fallback.title": "哎呀！",
+    "section.description": "发生意外错误。请稍后重试，或联系你的管理员",
+    "section.needSupport": "<bold>需要帮助？</bold>请查看以下资源：",
+    "section.title": "出错了。",
+    "unauthorized": "未授权。请联系你的 DataHub 管理员。"
+}

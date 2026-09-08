@@ -347,12 +347,12 @@ extend type Assertion {
   """
   The dataset targeted by this assertion.
   """
-  dataset: Dataset
+  dataset: Dataset @aspectMapping(aspects: ["assertionInfo"])
 
   """
   The actions associated with the Assertion
   """
-  actions: AssertionActions
+  actions: AssertionActions @aspectMapping(aspects: ["assertionActions"])
 }
 
 """

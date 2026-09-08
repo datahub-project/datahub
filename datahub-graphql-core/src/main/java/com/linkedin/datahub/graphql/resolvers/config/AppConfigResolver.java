@@ -263,6 +263,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setThemeV2Enabled(_featureFlags.isThemeV2Enabled())
             .setThemeV2Default(_featureFlags.isThemeV2Default())
             .setThemeV2Toggleable(_featureFlags.isThemeV2Toggleable())
+            .setThemeDarkModeEnabled(_featureFlags.isThemeDarkModeEnabled())
             .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
             .setShowManageStructuredProperties(_featureFlags.isShowManageStructuredProperties())
             .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
@@ -502,6 +503,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .getResourceType()
         .equals(resourceType)) {
       return EntityType.MLFEATURE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ML_FEATURE_TABLE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.MLFEATURE_TABLE;
     } else {
       return null;
     }

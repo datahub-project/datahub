@@ -74,6 +74,51 @@ source:
       "my_topic_2-value": "io.acryl.Schema3"
 ```
 
+#### Confluent Cloud Stream Catalog
+
+On Confluent Cloud, tags and business metadata curated in Stream Governance are held in the
+Stream Catalog rather than on the topics themselves. Enable the `confluent_catalog` block to
+bring them across onto the corresponding DataHub topic datasets.
+
+The catalog is served from the Schema Registry endpoint and accepts the same API key, so a
+recipe that already reaches Schema Registry needs nothing beyond `enabled: true`:
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: "abc-defg.eu-west-1.aws.confluent.cloud:9092"
+      schema_registry_url: "https://abc-defgh.us-east-2.aws.confluent.cloud"
+      schema_registry_config:
+        basic.auth.user.info: "${REGISTRY_API_KEY_ID}:${REGISTRY_API_KEY_SECRET}"
+
+    confluent_catalog:
+      enabled: true
+```
+
+Confluent tags become DataHub tags and business metadata attributes become custom properties on
+the topic. Set `include_tags` or `include_business_metadata` to `false` to take only one of the two.
+
+Requirements and limitations:
+
+- **Confluent Cloud only**, and the environment needs the **Stream Governance Advanced** package.
+  Tags and business metadata are an Advanced feature: on Essentials the catalog API returns
+  `403` even for reads. The catalog does not exist on self-managed Kafka, and the block is
+  ignored elsewhere.
+- The Schema Registry API key needs a role that grants catalog read access — in practice
+  **DataSteward** on the environment. `EnvironmentAdmin` alone is not enough: it administers the
+  environment but does not carry the catalog read permission.
+- If the key cannot read the catalog, ingestion continues without catalog metadata and records a
+  warning rather than failing.
+- The catalog covers a whole **environment**, so if that environment holds more than one Kafka
+  cluster the same topic name can appear twice. Those topics are skipped, with a warning, unless
+  you set `confluent_catalog.cluster_id` to the cluster this recipe ingests (e.g. `lkc-xxxxx`).
+- The catalog carries **no lineage between topics**. The producer/consumer graph shown in
+  Confluent's Stream Lineage UI is not exposed by the API. Connector-to-topic lineage is
+  available through the [`kafka-connect`](/docs/generated/ingestion/sources/kafka-connect)
+  source for environments that use Kafka Connect.
+
 #### Custom Schema Registry
 
 The Kafka Source uses the schema registry to figure out the schema associated with both `key` and `value` for the topic.

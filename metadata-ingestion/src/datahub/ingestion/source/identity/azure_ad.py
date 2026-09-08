@@ -171,7 +171,7 @@ class AzureADSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("Azure AD")
 @config_class(AzureADConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )

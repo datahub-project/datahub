@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
+import com.datahub.util.exception.ESQueryException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,6 +51,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -64,6 +66,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.text.Text;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -434,6 +437,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       Filter filter,
       int from,
       @Nullable Integer size) {
+    handleShardFailures(opContext, searchResponse);
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse);
     SearchResultMetadata searchResultMetadata =
@@ -455,6 +459,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable String keepAlive,
       @Nullable Integer size,
       boolean supportsPointInTime) {
+    handleShardFailures(opContext, searchResponse);
     int totalCount = (int) searchResponse.getHits().getTotalHits().value;
     size = ConfigUtils.applyLimit(searchServiceConfig, size);
 
@@ -518,6 +523,70 @@ public class SearchRequestHandler extends BaseRequestHandler {
       scrollResult.setScrollId(nextScrollId);
     }
     return scrollResult;
+  }
+
+  /**
+   * Surfaces per-shard failures that Elasticsearch reports inside an HTTP 200 response. Without
+   * this check, hits from failing shards are silently dropped and entities simply vanish from
+   * results. Deterministic failures (query/mapping bugs that fail on every retry, e.g. a terms
+   * aggregation on a dynamically-mapped text field) throw so callers see a loud error; transient
+   * failures (circuit breakers, timeouts, rejected executions on a busy cluster) keep the partial
+   * result and are surfaced via log + metric only.
+   */
+  @VisibleForTesting
+  void handleShardFailures(
+      @Nonnull OperationContext opContext, @Nonnull SearchResponse searchResponse) {
+    ShardSearchFailure[] shardFailures = searchResponse.getShardFailures();
+    if (shardFailures == null || shardFailures.length == 0) {
+      return;
+    }
+    for (ShardSearchFailure failure : shardFailures) {
+      if (isDeterministicShardFailure(failure)) {
+        throw new ESQueryException(
+            String.format(
+                "Search response had %d/%d failed shards with a deterministic query failure: %s",
+                shardFailures.length, searchResponse.getTotalShards(), shardFailureReason(failure)),
+            failure.getCause());
+      }
+    }
+    log.warn(
+        "Search response had {}/{} failed shards (transient). First failure: {}",
+        shardFailures.length,
+        searchResponse.getTotalShards(),
+        shardFailureReason(shardFailures[0]));
+    opContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils ->
+                metricUtils.increment(
+                    SearchRequestHandler.class, "transientShardFailures", shardFailures.length));
+  }
+
+  private static boolean isDeterministicShardFailure(@Nonnull ShardSearchFailure failure) {
+    String reason = shardFailureReason(failure).toLowerCase(Locale.ROOT);
+    // Covers both the REST-parsed form ("type=illegal_argument_exception") and the local/transport
+    // form (the cause's class name), plus the specific fielddata error Lucene emits when a terms
+    // aggregation hits a dynamically-mapped text field.
+    // NOTE: the ES8 client shim rebuilds shard failures from the reason message alone and drops the
+    // exception type, so on ES8 a non-fielddata illegal_argument error lacks the type token and
+    // falls through to the transient path (no regression vs pre-change — the text-fielddata symptom
+    // that causes the SP poisoning still matches on every backend). Carrying the type through the
+    // shim is a follow-up.
+    return reason.contains("illegal_argument_exception")
+        || reason.contains("illegalargumentexception")
+        || reason.contains("text fields are not optimised");
+  }
+
+  private static String shardFailureReason(@Nonnull ShardSearchFailure failure) {
+    StringBuilder reason = new StringBuilder();
+    if (failure.reason() != null) {
+      reason.append(failure.reason());
+    }
+    Throwable cause = failure.getCause();
+    if (cause != null) {
+      reason.append(' ').append(cause);
+    }
+    return reason.toString();
   }
 
   @Nonnull

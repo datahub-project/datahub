@@ -146,6 +146,9 @@ function list_markdown_files(): string[] {
     /^metadata-ingestion\/src\/datahub\/ingestion\/source\/odcs\/odcs_schema\//, // vendored ODCS JSON schemas + attribution README, not user-facing
     /^metadata-ingestion\/tests\//,
     /^metadata-ingestion-examples\//,
+    // Smoke-test READMEs are developer-facing (see smoke-test/AGENTS.md). Keeping them out of
+    // genDocs avoids broken relative links to excluded AGENTS.md files during docusaurus build.
+    /^smoke-test\//,
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
@@ -721,7 +724,7 @@ ${CODE_FENCE}
 // Keep in sync with FeatureCardSection component (src/pages/docs/_components/FeatureCardSection/index.jsx)
 const FEATURE_CARD_SECTION_MD = `- **[Data Discovery](/docs/how/search)** — Search your entire data ecosystem, including dashboards, datasets, ML models, and raw files.
 - **[Data Governance](https://datahub.com/blog/)** — Define ownership and track PII.
-- **[Data Quality & Observability](/docs/features/feature-guides/observe)** — Detect and resolve quality issues before they impact production. Automated anomaly detection, assertions, and data contracts keep data reliable.
+- **[Data Quality & Observability](/docs/managed-datahub/observe/overview)** — Detect and resolve quality issues before they impact production. Automated anomaly detection, assertions, and data contracts keep data reliable.
 - **[UI-based Ingestion](/docs/ui-ingestion)** — Easily set up integrations in minutes using DataHub's intuitive UI-based ingestion feature.
 - **[APIs and SDKs](/docs/api/datahub-apis)** — For users who prefer programmatic control, DataHub offers a comprehensive set of APIs and SDKs.
 - **[Vibrant Community](/docs/slack)** — Our community provides support through office hours, workshops, and a Slack channel.`;
@@ -767,11 +770,11 @@ function clean_mdx_for_serving(content: string): string {
       if (has("saasOnly")) {
         base = "DataHub Cloud only";
       } else if (has("ossOnly")) {
-        base = "Self-Hosted DataHub (open source) only";
+        base = "DataHub Core (OSS) only";
       } else if (has("selfHostedPartial")) {
-        base = "DataHub Cloud (fully) · Self-Hosted (partial)";
+        base = "DataHub Cloud (fully) · DataHub Core (partial)";
       } else {
-        base = "Self-Hosted DataHub & DataHub Cloud";
+        base = "DataHub Core (OSS) & DataHub Cloud";
       }
       const stage_match = attrs.match(/stage=["']([^"']+)["']/);
       let line = `> **Availability:** ${base}`;

@@ -543,16 +543,17 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         StructuredPropertyMappingBuilder.createStructuredPropertyMappings(
             entitySpec, structuredProperties);
 
-    // Add structured properties from parameters under a structuredProperties container
-    // Always create the structuredProperties field as dynamic to handle future structured
-    // properties
+    // Add structured properties from parameters under a structuredProperties container.
+    // dynamic:false — a structured property value indexed before its mapping update must stay
+    // in _source unindexed rather than be dynamic-mapped as text, which permanently poisons the
+    // field type and breaks terms aggregations across multi-index searches.
     mappings.put(
         STRUCTURED_PROPERTY_MAPPING_FIELD,
         ImmutableMap.of(
             TYPE,
             ESUtils.OBJECT_FIELD_TYPE,
             "dynamic",
-            true,
+            false,
             PROPERTIES,
             structuredPropertyMappings.isEmpty() ? new HashMap<>() : structuredPropertyMappings));
 

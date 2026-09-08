@@ -3,6 +3,8 @@ package com.linkedin.metadata.systemmetadata.metrics;
 import com.linkedin.metadata.config.EntityCountMetricsConfiguration;
 import com.linkedin.metadata.systemmetadata.KeyAspectEntityCountResult;
 import com.linkedin.metadata.systemmetadata.KeyAspectEntityCountService;
+import com.linkedin.metadata.systemmetadata.PlatformEntityCountResult;
+import com.linkedin.metadata.systemmetadata.PlatformEntityCounts;
 import io.datahubproject.metadata.context.OperationContext;
 import io.micrometer.core.instrument.Timer;
 import java.util.concurrent.Executors;
@@ -17,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 public class EntityCountMetricsPublisher implements AutoCloseable {
 
   private final KeyAspectEntityCountService keyAspectEntityCountService;
+  @Nullable private final PlatformEntityCounts platformEntityCounts;
   private final OperationContext systemOperationContext;
   private final EntityCountMetricsSink sink;
   @Nullable private final MicrometerEntityCountMetricsSink micrometerLifecycleSink;
@@ -25,11 +28,13 @@ public class EntityCountMetricsPublisher implements AutoCloseable {
 
   public EntityCountMetricsPublisher(
       @Nonnull KeyAspectEntityCountService keyAspectEntityCountService,
+      @Nullable PlatformEntityCounts platformEntityCounts,
       @Nonnull OperationContext systemOperationContext,
       @Nonnull EntityCountMetricsSink sink,
       @Nullable MicrometerEntityCountMetricsSink micrometerLifecycleSink,
       @Nonnull EntityCountMetricsConfiguration config) {
     this.keyAspectEntityCountService = keyAspectEntityCountService;
+    this.platformEntityCounts = platformEntityCounts;
     this.systemOperationContext = systemOperationContext;
     this.sink = sink;
     this.micrometerLifecycleSink = micrometerLifecycleSink;
@@ -65,6 +70,14 @@ public class EntityCountMetricsPublisher implements AutoCloseable {
       KeyAspectEntityCountResult result =
           keyAspectEntityCountService.getCounts(systemOperationContext, null, config.isSkipCache());
       sink.publish(result);
+      if (platformEntityCounts != null) {
+        PlatformEntityCountResult platformResult =
+            platformEntityCounts.getCountsByPlatform(systemOperationContext, null);
+        sink.publishPlatform(platformResult);
+        log.debug(
+            "Refreshed platform entity count metrics for {} series",
+            platformResult.getCounts().size());
+      }
       if (micrometerLifecycleSink != null) {
         micrometerLifecycleSink.recordRefreshSuccess();
       }

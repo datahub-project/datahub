@@ -3,23 +3,15 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Label } from '@components/components/Input/components';
+
 import { DataProductBuilderState } from '@app/entityV2/domain/DataProductsTab/types';
 import DataProductParentSelect from '@app/entityV2/shared/EntityDropdown/DataProductParentSelect';
-
-const StyledEditor = styled(Editor)`
-    border: 1px solid ${(props) => props.theme.colors.bgHover};
-`;
 
 const FieldGroup = styled.div`
     display: flex;
     flex-direction: column;
     gap: 16px;
-`;
-
-const FieldLabel = styled.div`
-    margin-bottom: 4px;
-    font-size: 14px;
-    color: ${(props) => props.theme.colors.text};
 `;
 
 type Props = {
@@ -71,13 +63,13 @@ export default function DataProductBuilderForm({ builderState, updateBuilderStat
             />
             {/* eslint-enable i18next/no-literal-string */}
             <div>
-                <FieldLabel>{tl('description')}</FieldLabel>
-                <StyledEditor doNotFocus content={builderState.description} onChange={updateDescription} />
+                <Label>{tl('description')}</Label>
+                <Editor doNotFocus content={builderState.description} onChange={updateDescription} />
             </div>
             <div>
-                <FieldLabel>
+                <Label>
                     {t('dataProduct.parentLabel')} {tl('optional')}
-                </FieldLabel>
+                </Label>
                 <DataProductParentSelect
                     selectedParentUrn={builderState.parentDataProductUrn || ''}
                     setSelectedParentUrn={setSelectedParentUrn}

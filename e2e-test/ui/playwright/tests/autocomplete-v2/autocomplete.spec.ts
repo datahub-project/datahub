@@ -16,6 +16,7 @@
 
 import { test } from '../../fixtures/base-test';
 import { AutocompletePage } from '../../pages/autocomplete.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 test.use({ featureName: 'autocomplete-v2' });
 
@@ -29,7 +30,8 @@ const SAMPLE_CHART_URN = 'urn:li:chart:(looker,sample-chart)';
 test.describe('Autocomplete Search Bar', () => {
   let autocompletePage: AutocompletePage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     autocompletePage = new AutocompletePage(page, logger, logDir);
     await autocompletePage.navigateToHome();
   });

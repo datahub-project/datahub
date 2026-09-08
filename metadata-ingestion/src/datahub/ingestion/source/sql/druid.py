@@ -60,7 +60,7 @@ class DruidConfig(BasicSQLAlchemyConfig):
 
 @platform_name("Druid")
 @config_class(DruidConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class DruidSource(SQLAlchemySource):
     """

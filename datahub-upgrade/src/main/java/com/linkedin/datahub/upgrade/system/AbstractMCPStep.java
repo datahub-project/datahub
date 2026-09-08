@@ -182,7 +182,7 @@ public abstract class AbstractMCPStep implements UpgradeStep {
                       if (continueOnValidationFailure()) {
                         ValidationExceptionCollection exceptions =
                             AspectsBatch.validateProposed(
-                                opContext, batchItems, opContext.getRetrieverContext(), null);
+                                opContext, batchItems, opContext.getRetrieverContext(), opContext);
                         if (!exceptions.isEmpty()) {
                           validItems = new ArrayList<>(exceptions.successful(batchItems));
                           log.error(
