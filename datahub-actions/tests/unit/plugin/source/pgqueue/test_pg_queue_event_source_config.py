@@ -32,14 +32,16 @@ def test_build_consumer_config_uses_pipeline_name_as_group() -> None:
 def test_poll_interval_seconds_rejected() -> None:
     """poll_interval_seconds was removed — config must not accept it."""
     with pytest.raises(ValidationError):
-        PgQueueEventSourceConfig(
-            queue={
-                "host_port": "localhost:5432",
-                "database": "datahub",
-                "username": "datahub",
-                "password": "datahub",
-            },
-            poll_interval_seconds=2.0,
+        PgQueueEventSourceConfig.model_validate(
+            {
+                "queue": {
+                    "host_port": "localhost:5432",
+                    "database": "datahub",
+                    "username": "datahub",
+                    "password": "datahub",
+                },
+                "poll_interval_seconds": 2.0,
+            }
         )
 
 
