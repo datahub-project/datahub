@@ -550,6 +550,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # kept as an aggregate for dashboards that already read it.
     data_model_element_upstreams_unresolved_external: int = 0
     data_model_element_upstreams_unknown_shape: int = 0
+    # Blank entries in an element's ``source_ids``. Split out of
+    # ``unknown_shape``, which implies a shape this parser fails to recognise
+    # and so invites a hunt for a missing branch -- there is no shape here at
+    # all. On one tenant (2026-09) every "unknown shape" was this.
+    data_model_element_upstreams_empty_source_id: int = 0
     data_model_element_upstreams_unresolved: int = 0
 
     # Cross-DM element references (DM-A element pulls from DM-B). Success

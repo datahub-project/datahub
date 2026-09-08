@@ -2100,3 +2100,26 @@ def test_join_with_both_sides_in_other_models_still_expands() -> None:
     upstreams = {(lineage.upstreams or [""])[0] for lineage in lineages}
     assert builder.make_schema_field_urn(_RIGHT_FOREIGN_URN, "Col K") in upstreams
     assert source.reporter.data_model_element_fgl_join_key_resolved == 1
+
+
+def test_blank_source_id_is_not_reported_as_an_unrecognised_shape() -> None:
+    """ "Unknown shape" invites a hunt for a missing parser branch.
+
+    A blank entry in ``source_ids`` has no shape to recognise. On one tenant
+    (2026-09) all 19 "unknown shapes" were this, which would have sent someone
+    looking for a Sigma descriptor that was never there.
+    """
+    source = _source()
+    element = _element("b", "B", [_column("b-x", "x", None)], source_ids=[""])
+
+    source._gen_data_model_element_upstream_lineage(
+        element,
+        _data_model([element]),
+        _urn("b"),
+        elementId_to_dataset_urn={"b": _urn("b")},
+        element_name_to_eids={},
+        warehouse_url_id_map={},
+    )
+
+    assert source.reporter.data_model_element_upstreams_empty_source_id == 1
+    assert source.reporter.data_model_element_upstreams_unknown_shape == 0

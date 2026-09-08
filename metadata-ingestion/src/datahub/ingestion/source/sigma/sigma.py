@@ -2434,7 +2434,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # ``<prefix>/<suffix>`` refs are caught in the
                 # ``"/" in source_id`` branch above, so this bucket is
                 # genuinely "nothing we recognize."
-                if source_id not in unresolved_seen:
+                if not source_id:
+                    # An EMPTY entry in source_ids, which some tenants send.
+                    # There is no shape here to recognise, so filing it under
+                    # "unknown shape" sends a reader hunting for a parser gap
+                    # that does not exist -- on one tenant (2026-09) every one
+                    # of the 19 "unknown shapes" was this.
+                    self.reporter.data_model_element_upstreams_empty_source_id += 1
+                elif source_id not in unresolved_seen:
                     unresolved_seen.add(source_id)
                     self.reporter.data_model_element_upstreams_unknown_shape += 1
                     self.reporter.data_model_element_upstreams_unresolved += 1
