@@ -85,7 +85,7 @@ public class SqlSetup implements Upgrade {
     if (setupArgs.getDbType() == DatabaseType.POSTGRES
         && postgresProperties != null
         && postgresProperties.getPgSystemMetadata().isEnabled()) {
-      steps.add(new PgSystemMetadataSchemaStep(server, postgresProperties));
+      steps.add(new PgSystemMetadataSchemaStep(server, postgresProperties, ebeanDataSourceConfig));
     }
     if (setupArgs.getDbType() == DatabaseType.POSTGRES
         && postgresProperties != null

@@ -28,20 +28,40 @@ public final class PgSystemMetadataStoreConnections {
       @Nonnull Database fallbackServer,
       @Nonnull PostgresSqlSetupProperties props)
       throws SQLException {
+    return open(options, fallbackServer, props, null);
+  }
+
+  @Nonnull
+  public static Connection open(
+      @Nonnull PgSystemMetadataSetupOptions options,
+      @Nonnull Database fallbackServer,
+      @Nonnull PostgresSqlSetupProperties props,
+      @Nullable DataSourceBuilder.Settings ebeanDataSourceConfig)
+      throws SQLException {
     String url = options.getPoolUrl();
     if (url == null || url.isBlank()) {
       return fallbackServer.dataSource().getConnection();
     }
 
-    String user = options.getPoolUsername();
-    String pass = options.getPoolPassword();
-    if (isBlank(user) || isBlank(pass)) {
-      String[] ebeanCreds = ebeanCredentials(fallbackServer);
-      if (isBlank(user)) {
-        user = ebeanCreds[0];
+    String user = PgTimeseriesStoreConnections.blankToNull(options.getPoolUsername());
+    String pass = PgTimeseriesStoreConnections.blankToNull(options.getPoolPassword());
+    if (user == null || pass == null) {
+      if (ebeanDataSourceConfig != null) {
+        if (user == null) {
+          user = PgTimeseriesStoreConnections.blankToNull(ebeanDataSourceConfig.getUsername());
+        }
+        if (pass == null) {
+          pass = PgTimeseriesStoreConnections.blankToNull(ebeanDataSourceConfig.getPassword());
+        }
       }
-      if (isBlank(pass)) {
-        pass = ebeanCreds[1];
+      if (user == null || pass == null) {
+        String[] ebeanCreds = ebeanCredentials(fallbackServer);
+        if (user == null) {
+          user = PgTimeseriesStoreConnections.blankToNull(ebeanCreds[0]);
+        }
+        if (pass == null) {
+          pass = PgTimeseriesStoreConnections.blankToNull(ebeanCreds[1]);
+        }
       }
     }
     if (user == null) {
@@ -57,7 +77,7 @@ public final class PgSystemMetadataStoreConnections {
             : "org.postgresql.Driver";
 
     Iam iam = props.getPgCron() != null ? props.getPgCron().getIam() : null;
-    boolean shouldUseIam = iam != null && (iam.isUseIamAuth() || iam.isPostgresUseIamAuth());
+    boolean shouldUseIam = PgTimeseriesStoreConnections.shouldUseIam(iam, ebeanDataSourceConfig);
     if (!shouldUseIam) {
       try {
         Class.forName(defaultDriver);
@@ -67,24 +87,51 @@ public final class PgSystemMetadataStoreConnections {
       return DriverManager.getConnection(url.trim(), user, pass);
     }
 
+    String jdbcUrl = url.trim();
+    boolean sharesEbeanPool =
+        PgTimeseriesStoreConnections.sharesEbeanPoolUrl(jdbcUrl, ebeanDataSourceConfig);
+    String cloudProvider =
+        PgTimeseriesStoreConnections.firstNonBlank(
+            iam == null ? null : PgTimeseriesStoreConnections.emptyToNull(iam.getCloudProvider()),
+            PgTimeseriesStoreConnections.inferCloudProvider(null, jdbcUrl),
+            sharesEbeanPool
+                ? PgTimeseriesStoreConnections.inferCloudProvider(ebeanDataSourceConfig, jdbcUrl)
+                : null,
+            "auto");
+
     CrossCloudIamUtils.CrossCloudConfig cfg =
         CrossCloudIamUtils.configureCrossCloudIam(
-            url.trim(),
+            jdbcUrl,
             defaultDriver,
             true,
-            emptyToNull(iam.getCloudProvider()),
-            emptyToNull(iam.getAwsRegion()),
-            emptyToNull(iam.getAwsAccessKeyId()),
-            emptyToNull(iam.getAwsSecretAccessKey()),
-            emptyToNull(iam.getAwsSessionToken()),
-            emptyToNull(iam.getGoogleApplicationCredentials()),
-            emptyToNull(iam.getGcpProject()),
-            emptyToNull(iam.getInstanceConnectionName()));
+            cloudProvider,
+            iam == null ? null : PgTimeseriesStoreConnections.emptyToNull(iam.getAwsRegion()),
+            iam == null ? null : PgTimeseriesStoreConnections.emptyToNull(iam.getAwsAccessKeyId()),
+            iam == null
+                ? null
+                : PgTimeseriesStoreConnections.emptyToNull(iam.getAwsSecretAccessKey()),
+            iam == null ? null : PgTimeseriesStoreConnections.emptyToNull(iam.getAwsSessionToken()),
+            iam == null
+                ? null
+                : PgTimeseriesStoreConnections.emptyToNull(iam.getGoogleApplicationCredentials()),
+            iam == null ? null : PgTimeseriesStoreConnections.emptyToNull(iam.getGcpProject()),
+            iam == null
+                ? null
+                : PgTimeseriesStoreConnections.emptyToNull(iam.getInstanceConnectionName()));
+
+    String driver = cfg.driver;
+    if (sharesEbeanPool
+        && ebeanDataSourceConfig != null
+        && ebeanDataSourceConfig.getDriver() != null
+        && ebeanDataSourceConfig.getDriver().contains("cloud.sql")
+        && (driver == null || !driver.contains("cloud.sql"))) {
+      driver = ebeanDataSourceConfig.getDriver();
+    }
 
     try {
-      Class.forName(cfg.driver);
+      Class.forName(driver);
     } catch (ClassNotFoundException e) {
-      throw new SQLException("JDBC driver not found: " + cfg.driver, e);
+      throw new SQLException("JDBC driver not found: " + driver, e);
     }
 
     Properties connProps = new Properties();
@@ -94,9 +141,11 @@ public final class PgSystemMetadataStoreConnections {
     if (!pass.isEmpty()) {
       connProps.setProperty("password", pass);
     }
-    if (cfg.customProperties != null) {
-      cfg.customProperties.forEach(connProps::setProperty);
+    if (sharesEbeanPool) {
+      PgTimeseriesStoreConnections.mergeNonBlank(
+          connProps, PgTimeseriesStoreConnections.ebeanCustomProperties(ebeanDataSourceConfig));
     }
+    PgTimeseriesStoreConnections.mergeNonBlank(connProps, cfg.customProperties);
     return DriverManager.getConnection(cfg.url, connProps);
   }
 
@@ -113,17 +162,5 @@ public final class PgSystemMetadataStoreConnections {
     } catch (RuntimeException e) {
       throw new SQLException("Unable to read Ebean credentials for pgSystemMetadata SqlSetup", e);
     }
-  }
-
-  private static boolean isBlank(@Nullable String s) {
-    return s == null || s.isBlank();
-  }
-
-  @Nullable
-  private static String emptyToNull(String s) {
-    if (s == null || s.isBlank()) {
-      return null;
-    }
-    return s.trim();
   }
 }

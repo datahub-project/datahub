@@ -21,7 +21,8 @@ public class PgSystemMetadataSchemaStepTest {
   public void nullOptions_returnsFailed() {
     PostgresSqlSetupProperties props = mock(PostgresSqlSetupProperties.class);
     when(props.buildPgSystemMetadataOptions()).thenReturn(null);
-    PgSystemMetadataSchemaStep step = new PgSystemMetadataSchemaStep(mock(Database.class), props);
+    PgSystemMetadataSchemaStep step =
+        new PgSystemMetadataSchemaStep(mock(Database.class), props, null);
 
     UpgradeContext context = mock(UpgradeContext.class);
     when(context.report()).thenReturn(mock(UpgradeReport.class));
@@ -42,7 +43,7 @@ public class PgSystemMetadataSchemaStepTest {
     when(database.dataSource()).thenReturn(dataSource);
     when(dataSource.getConnection()).thenThrow(new SQLException("unavailable"));
 
-    PgSystemMetadataSchemaStep step = new PgSystemMetadataSchemaStep(database, props);
+    PgSystemMetadataSchemaStep step = new PgSystemMetadataSchemaStep(database, props, null);
     UpgradeContext context = mock(UpgradeContext.class);
     when(context.report()).thenReturn(mock(UpgradeReport.class));
 

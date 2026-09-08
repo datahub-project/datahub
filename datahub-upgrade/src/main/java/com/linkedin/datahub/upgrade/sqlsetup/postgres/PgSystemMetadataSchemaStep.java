@@ -13,8 +13,10 @@ import com.linkedin.metadata.sqlsetup.postgres.pgsystemmetadata.PgSystemMetadata
 import com.linkedin.metadata.sqlsetup.postgres.pgsystemmetadata.PgSystemMetadataSqlMigrationTokens;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
+import io.ebean.datasource.DataSourceBuilder;
 import java.sql.Connection;
 import java.util.function.Function;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -24,6 +26,7 @@ public class PgSystemMetadataSchemaStep implements UpgradeStep {
 
   private final Database server;
   private final PostgresSqlSetupProperties postgresProperties;
+  @Nullable private final DataSourceBuilder.Settings ebeanDataSourceConfig;
 
   @Override
   public String id() {
@@ -48,7 +51,8 @@ public class PgSystemMetadataSchemaStep implements UpgradeStep {
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
         }
         try (Connection connection =
-            PgSystemMetadataStoreConnections.open(options, server, postgresProperties)) {
+            PgSystemMetadataStoreConnections.open(
+                options, server, postgresProperties, ebeanDataSourceConfig)) {
           connection.setAutoCommit(true);
           PgSystemMetadataSqlMigrationTokens tokens =
               PgSystemMetadataSqlMigrationTokens.builder()

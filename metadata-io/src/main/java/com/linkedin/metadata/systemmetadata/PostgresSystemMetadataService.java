@@ -157,6 +157,15 @@ public class PostgresSystemMetadataService implements SystemMetadataService {
     };
   }
 
+  @Nonnull
+  private static Object bindValueForSqlParamKey(@Nonnull String paramKey, @Nonnull String value) {
+    return switch (paramKey) {
+      case FIELD_LAST_UPDATED -> Long.parseLong(value);
+      case FIELD_REMOVED -> Boolean.parseBoolean(value);
+      default -> value;
+    };
+  }
+
   private static AspectRowSummary rowToSummary(JsonNode document) {
     AspectRowSummary summary = new AspectRowSummary();
     summary.setRunId(textOrNull(document.path(RUN_ID_JSON)));
@@ -338,11 +347,11 @@ public class PostgresSystemMetadataService implements SystemMetadataService {
     StringBuilder sql =
         new StringBuilder("SELECT document::text FROM ").append(qualifiedTable()).append(" WHERE ");
     List<String> cond = new ArrayList<>();
-    List<String> vals = new ArrayList<>();
+    List<Object> vals = new ArrayList<>();
     for (Map.Entry<String, String> e : systemMetaParams.entrySet()) {
       String col = columnForSqlParamKey(e.getKey());
       cond.add(col + " = ?");
-      vals.add(e.getValue());
+      vals.add(bindValueForSqlParamKey(e.getKey(), e.getValue()));
     }
     if (vals.isEmpty()) {
       return Collections.emptyList();
@@ -356,8 +365,14 @@ public class PostgresSystemMetadataService implements SystemMetadataService {
     try (Connection c = openConnection();
         PreparedStatement ps = c.prepareStatement(sql.toString())) {
       int i = 1;
-      for (String v : vals) {
-        ps.setString(i++, v);
+      for (Object v : vals) {
+        if (v instanceof Long l) {
+          ps.setLong(i++, l);
+        } else if (v instanceof Boolean b) {
+          ps.setBoolean(i++, b);
+        } else {
+          ps.setString(i++, (String) v);
+        }
       }
       ps.setInt(i++, limit);
       ps.setInt(i, from);
