@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { Button, PageTitle, Pagination, SearchBar, StructuredPopover } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -65,20 +64,17 @@ const ManageTags = () => {
     const entityRegistry = useEntityRegistry();
     const [showCreateTagModal, setShowCreateTagModal] = useState(false);
 
-    // Check permissions using UserContext
     const userContext = useUserContext();
     const canCreateTags = userContext?.platformPrivileges?.createTags || userContext?.platformPrivileges?.manageTags;
 
-    // Debounce search query input to reduce unnecessary renders
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearchQuery(searchQuery);
-        }, 300); // 300ms delay
+        }, 300);
 
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // Search query configuration
     const searchInputs = useMemo(
         () => ({
             types: [EntityType.Tag],
@@ -98,24 +94,21 @@ const ManageTags = () => {
         networkStatus,
     } = useGetSearchResultsForMultipleQuery({
         variables: { input: searchInputs },
-        fetchPolicy: 'cache-first', // Changed from cache-and-network to prevent double loading
-        notifyOnNetworkStatusChange: false, // Changed to false to reduce unnecessary re-renders
+        fetchPolicy: 'cache-first',
+        notifyOnNetworkStatusChange: false,
     });
 
     const totalTags = searchData?.searchAcrossEntities?.total || 0;
 
-    // Check if we have results to display
     const hasSearchResults = useMemo(() => {
         const results = searchData?.searchAcrossEntities?.searchResults || [];
         if (debouncedSearchQuery) {
-            // If there's a search query, check if any tags match
             return results.some((result) => {
                 const tag = result.entity;
                 const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag);
                 return displayName.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
             });
         }
-        // Otherwise just check if we have any results
         return results.length > 0;
     }, [searchData, debouncedSearchQuery, entityRegistry]);
 
@@ -123,38 +116,31 @@ const ManageTags = () => {
         return <Message type="error" content={t('tags.loadError', { error: searchError.message })} />;
     }
 
-    // Create the Create Tag button with proper permissions handling
-    const renderCreateTagButton = () => {
-        if (!canCreateTags) {
-            return (
-                <StructuredPopover
-                    title={t('tags.noCreatePermissionTooltip')}
-                    placement="left"
-                    showArrow
-                    mouseEnterDelay={0.1}
-                    mouseLeaveDelay={0.1}
-                >
-                    <span>
-                        <Button size="md" color="violet" icon={{ icon: Plus }} disabled>
-                            {t('tags.createButton')}
-                        </Button>
-                    </span>
-                </StructuredPopover>
-            );
-        }
-
-        return (
-            <Button
-                onClick={() => setShowCreateTagModal(true)}
-                size="md"
-                color="violet"
-                icon={{ icon: Plus }}
-                data-testid="add-tag-button"
-            >
-                {t('tags.createButton')}
-            </Button>
-        );
-    };
+    const createButton = !canCreateTags ? (
+        <StructuredPopover
+            title={t('tags.noCreatePermissionTooltip')}
+            placement="left"
+            showArrow
+            mouseEnterDelay={0.1}
+            mouseLeaveDelay={0.1}
+        >
+            <span>
+                <Button size="md" color="primary" icon={{ icon: Plus }} disabled>
+                    {t('tags.createButton')}
+                </Button>
+            </span>
+        </StructuredPopover>
+    ) : (
+        <Button
+            onClick={() => setShowCreateTagModal(true)}
+            size="md"
+            color="primary"
+            icon={{ icon: Plus }}
+            data-testid="add-tag-button"
+        >
+            {t('tags.createButton')}
+        </Button>
+    );
 
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
@@ -162,7 +148,7 @@ const ManageTags = () => {
 
             <HeaderContainer>
                 <PageTitle title={t('tags.pageTitle')} subTitle={t('tags.pageSubtitle')} />
-                {renderCreateTagButton()}
+                {createButton}
             </HeaderContainer>
 
             <SearchContainer>
