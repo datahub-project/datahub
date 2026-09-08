@@ -455,3 +455,12 @@ def probe_run_cmd(
         payload = redact(safe, secret_values)
         _write_report(report_to, payload)
         _emit(payload)
+        # A failure means the result is not a complete answer, so the command
+        # must not read as success. Emitting first keeps the partial result and
+        # the reason available to the caller; only the exit code changes.
+        if result.failures:
+            _fail(
+                f"'{command}' could not be completed: "
+                + "; ".join(str(f) for f in result.failures),
+                EXIT_CONNECTION,
+            )

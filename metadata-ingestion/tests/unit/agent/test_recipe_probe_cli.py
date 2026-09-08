@@ -155,6 +155,38 @@ def test_an_unwritable_report_path_is_a_bad_argument(monkeypatch, tmp_path):
     assert "cannot write report" in res.output
 
 
+def test_a_read_the_provider_could_not_complete_does_not_exit_zero(
+    monkeypatch, tmp_path
+):
+    """The cardinal case: an empty result that is not an empty source.
+
+    A connector reusing its ingestion fetchers records an unreadable endpoint
+    with report.failure(), which nothing used to read -- so a 403 on Mode's
+    data_sources came back as {"result": {}, "warnings": []} at exit 0, exactly
+    what a workspace with no data sources returns. The partial result is still
+    emitted; what changes is that the command no longer claims success.
+    """
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("mode", {}, set()))
+
+    def fake_run(st, cfg, cmd, kwargs):
+        return ProbeMethodResult(
+            st,
+            cmd,
+            kwargs,
+            {},
+            failures=["Failed to retrieve Data Sources: 403 Forbidden"],
+        )
+
+    monkeypatch.setattr(rc, "run_probe_method", fake_run)
+    res = CliRunner().invoke(
+        recipe, ["probe", "run", "data_sources", "--recipe", _recipe_file(tmp_path)]
+    )
+    assert res.exit_code != 0, res.output
+    # The result and the reason both reach the caller.
+    assert "403 Forbidden" in res.output
+    assert '"failures"' in res.output
+
+
 def test_an_unreachable_source_exits_on_the_connection_code(monkeypatch, tmp_path):
     """The other half of the exit-code contract, which nothing asserted.
 

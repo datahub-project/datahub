@@ -81,18 +81,22 @@ class HexMetadataProbe(RestApiPassthrough):
         return self._api._auth_header()
 
     @property
-    def warnings(self) -> List[str]:
-        """What HexApi recorded while serving this command.
+    def probe_report(self) -> object:
+        """The HexApi report, both halves of it.
 
-        run_probe_method reads this back, so a command that came back empty
-        carries the connector's own reason for it rather than looking like an
-        empty workspace -- fetch_queried_tables returning None because the
-        workspace is not Enterprise is the case that matters.
+        This used to be a `warnings` property that translated
+        self._api.report.warnings by hand -- and so read only half the report.
+        HexApi records a failed projects listing with report.failure()
+        (api.py's RequestException and ValidationError branches), then clears
+        the cursor and returns, so `projects`, `components` and `categories`
+        all came back as [] with no warnings at exit 0 on a bad token. Worse,
+        _project_id_or_raise then reported "no project titled 'X' found in this
+        workspace" -- exit 2, blaming the caller's argument for an auth failure.
+
+        Exposing the report itself means the framework renders both lists and
+        there is no second place to forget one.
         """
-        return [
-            f"{entry.title}: {entry.message}" if entry.message else str(entry.title)
-            for entry in self._api.report.warnings
-        ]
+        return self._api.report
 
     @probe_method(kind=BIAssetSubTypes.HEX_PROJECT, row_limit_param="limit")
     def projects(self, limit: int = 200) -> List[Dict[str, object]]:

@@ -14,6 +14,7 @@ from datahub.ingestion.agent.probe_methods import (
     ProbeMethodSpec,
     _enforce_gates,
     _iter_specs,
+    _report_entries,
 )
 from datahub.ingestion.agent.verdicts import ProbeSoftError
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
@@ -316,7 +317,8 @@ def test_a_non_enterprise_workspace_reports_why_rather_than_looking_empty():
     api = _FakeApi(enterprise=False)
     probe = _probe_for(api)
     assert probe.queried_tables("Revenue, EMEA") == []
-    assert any("Enterprise" in w for w in probe.warnings)
+    rendered = _report_entries(probe.probe_report, "warnings")
+    assert any("Enterprise" in w for w in rendered)
 
 
 def test_an_unknown_title_degrades_with_a_warning_not_a_false_empty():
@@ -338,14 +340,28 @@ def test_workspace_reports_the_id_every_urn_is_scoped_by():
     assert _probe().workspace() == {"workspace_id": "ws-123"}
 
 
-def test_the_probe_surfaces_the_connectors_own_warnings():
-    # run_probe_method reads `warnings` back after each command, so anything HexApi
-    # recorded while serving it reaches the caller.
+def test_the_probe_surfaces_both_halves_of_the_connectors_report():
+    """run_probe_method renders the provider's report after each command.
+
+    Asserted through the framework's own renderer rather than a translation
+    property on the probe: the property read only report.warnings, so a failed
+    listing -- which HexApi records with report.failure() -- came back as an
+    empty result with no warnings at exit 0.
+    """
     api = _FakeApi(enterprise=True)
     probe = _probe_for(api)
-    assert probe.warnings == []
+    assert _report_entries(probe.probe_report, "warnings") == set()
+    assert _report_entries(probe.probe_report, "failures") == set()
+
     api.report.warning(title="Something degraded", message="and here is why")
-    assert probe.warnings == ["Something degraded: and here is why"]
+    assert _report_entries(probe.probe_report, "warnings") == {
+        "Something degraded: and here is why"
+    }
+
+    api.report.failure(title="Listing failed", message="403 Forbidden")
+    assert _report_entries(probe.probe_report, "failures") == {
+        "Listing failed: 403 Forbidden"
+    }
 
 
 def test_project_detail_reports_what_ingestion_would_emit():

@@ -27,6 +27,22 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
     # which no type checker can see priming an attribute.
     warnings: List[str]
 
+    @property
+    def probe_report(self) -> object:
+        """The ingestion report these commands write into, so its failures reach
+        the caller.
+
+        Several probe methods are @probe_method directly on ModeSource and reuse
+        its fetchers verbatim -- `data_sources` and `definitions` among them. On
+        a ModeRequestError those call self.report.failure() and return {}, which
+        is right for an ingestion run. Nothing read report.failures, so a 403 on
+        data_sources came back as an empty dict at exit 0, indistinguishable
+        from a workspace with no warehouse connections -- and that dict is the
+        "so no lineage" diagnosis, the most consequential answer this probe
+        gives.
+        """
+        return self.report
+
     # Read endpoints `probe api` may reach: the escape hatch for a question no
     # getter anticipated (a report's last-run time, whether a space is
     # restricted).

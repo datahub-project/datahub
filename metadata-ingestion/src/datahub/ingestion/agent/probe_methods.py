@@ -7,6 +7,7 @@ from typing import (
     List,
     Optional,
     Protocol,
+    Set,
     Tuple,
     Type,
     Union,
@@ -259,6 +260,18 @@ class ProbeMethodResult:
     # run_probe_method reads back after the call; a provider with no such
     # attribute always reports an empty list here.
     warnings: List[str] = field(default_factory=list)
+    # Reads the provider could not complete at all, as opposed to the degraded
+    # sub-fetches in `warnings`. This exists because a connector that reuses its
+    # ingestion fetchers records such a read with report.failure(), and nothing
+    # here used to look at report.failures -- so a 403 on Mode's data_sources
+    # came back as `{"result": {}, "warnings": []}` at exit 0, byte-identical to
+    # a workspace with genuinely no data sources. Reporting "empty" when the
+    # truth is "could not read" is the one confusion this interface exists to
+    # prevent, and it was the default for anything reusing an ingestion path.
+    #
+    # A non-empty list here means the result is NOT a complete answer, and
+    # recipe_cli exits non-zero on it.
+    failures: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -269,6 +282,7 @@ class ProbeMethodResult:
             "parent_path": self.parent_path,
             "result": self.result,
             "warnings": self.warnings,
+            "failures": self.failures,
         }
 
 
@@ -427,6 +441,36 @@ def _enforce_gates(
         check_api_request("GET", str(call_kwargs[spec.scoped_path_param]), allowlist)
 
 
+def _report_entries(report: object, kind: str) -> Set[str]:
+    """Render one list off a provider's SourceReport, if it exposes one.
+
+    A connector that reuses its ingestion fetchers already has a SourceReport
+    holding both halves of the story; exposing it as `probe_report` is cheaper
+    and less forgettable than translating entries into a bespoke list per
+    connector, which is what hex_probe was doing for warnings only.
+
+    Entries are StructuredLogEntry, not strings. Rendered as "title: message"
+    to match the translation hex_probe already did by hand, so the two shapes
+    read the same in output.
+    """
+    if report is None:
+        return set()
+    entries: Set[str] = set()
+    for entry in getattr(report, kind, None) or []:
+        if isinstance(entry, str):
+            entries.add(entry)
+            continue
+        title = getattr(entry, "title", None)
+        message = getattr(entry, "message", None)
+        if title and message:
+            entries.add(f"{title}: {message}")
+        elif title or message:
+            entries.add(str(title or message))
+        else:
+            entries.add(str(entry))
+    return entries
+
+
 def run_probe_method(
     source_type: str,
     config_dict: Dict[str, object],
@@ -486,6 +530,22 @@ def run_probe_method(
         # rather than part of the ProbeProvider Protocol, since most
         # providers have nothing to report and shouldn't need to declare it.
         provider_warnings = getattr(provider, "warnings", None)
+        # And the other half of the same report. A connector that reuses its
+        # ingestion fetchers records an unreadable endpoint with
+        # report.failure(), not report.warning() -- correct for ingestion, which
+        # emits what it can and surfaces the gap to an operator. Reading only
+        # `warnings` meant those reads came back as an empty result at exit 0,
+        # so the probe's central promise (never report empty for unread) held
+        # only for connectors that happened not to reuse an ingestion path.
+        #
+        # Both shapes are accepted: a plain `failures` list, or a SourceReport
+        # exposed as `probe_report` whose warnings and failures are folded in.
+        # The latter is what a connector reusing its own fetchers already has.
+        provider_report = getattr(provider, "probe_report", None)
+        provider_failures = set(
+            getattr(provider, "failures", None) or []
+        ) | _report_entries(provider_report, "failures")
+        report_warnings = _report_entries(provider_report, "warnings")
     spec = specs[command]
     # A command whose kind depends on the recipe rather than the class declares it
     # here: get_schema_names() returns Schemas on a three-tier source and Databases
@@ -503,5 +563,8 @@ def run_probe_method(
             str(call_kwargs[p]) for p in spec.parent_params if p in call_kwargs
         ],
         result=result,
-        warnings=list(provider_warnings) if provider_warnings else [],
+        warnings=sorted(
+            set(list(provider_warnings) if provider_warnings else []) | report_warnings
+        ),
+        failures=sorted(provider_failures),
     )
