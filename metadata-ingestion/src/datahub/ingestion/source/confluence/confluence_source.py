@@ -16,7 +16,6 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -47,10 +46,8 @@ from datahub.ingestion.source.unstructured.document_builder import (
     DocumentEntityBuilder,
 )
 from datahub.metadata.schema_classes import (
-    DataPlatformInfoClass,
     DataPlatformInstanceClass,
     DocumentStateClass,
-    PlatformTypeClass,
 )
 from datahub.sdk.document import Document
 
@@ -1131,20 +1128,6 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         Yields:
             MetadataWorkUnit for all entities
         """
-        # Emit platform metadata with Confluence logo
-        platform_urn = make_data_platform_urn(self.platform)
-        platform_info = DataPlatformInfoClass(
-            name=self.platform,
-            type=PlatformTypeClass.OTHERS,
-            datasetNameDelimiter=".",
-            displayName="Confluence",
-            logoUrl="assets/platforms/confluencelogo.svg",
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=platform_urn,
-            aspect=platform_info,
-        ).as_workunit()
-
         # Track all page IDs being ingested for parent validation
         all_pages: List[Dict[str, Any]] = []
 
