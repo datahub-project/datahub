@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-const ShowMoreButton = styled.div`
+export const ShowMoreButton = styled.div`
     padding: 4px;
     color: ${(props) => props.theme.colors.textSecondary};
     text-align: left;

@@ -19,6 +19,10 @@ const LoadingSpinner = styled(CircleNotch)`
 export const buttonDefaults: ButtonPropsDefaults = {
     variant: 'filled',
     color: 'primary',
+    // Intentionally undefined: when unset, getButtonColorStyles uses theme.colors.buttonFillBrand
+    // for primary/violet so configurable brand colors (and borders) apply. Only pass colorLevel
+    // when you need a specific foundation shade.
+    colorLevel: undefined,
     size: 'md',
     iconPosition: 'left',
     isCircle: false,
@@ -29,6 +33,7 @@ export const buttonDefaults: ButtonPropsDefaults = {
 export const Button = ({
     variant = buttonDefaults.variant,
     color = buttonDefaults.color,
+    colorLevel = buttonDefaults.colorLevel,
     size = buttonDefaults.size,
     icon, // default undefined
     iconPosition = buttonDefaults.iconPosition,
@@ -41,6 +46,7 @@ export const Button = ({
     const styleProps = {
         variant,
         color,
+        colorLevel,
         size,
         isCircle,
         isLoading,

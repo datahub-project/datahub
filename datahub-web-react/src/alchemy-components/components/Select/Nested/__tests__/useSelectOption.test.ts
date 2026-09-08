@@ -4,9 +4,9 @@ import useNestedOption from '@components/components/Select/Nested/useSelectOptio
 
 const option = { value: '1', label: '1', isParent: true };
 const children = [
-    { value: '2', label: '2' },
-    { value: '3', label: '3' },
-    { value: '4', label: '4' },
+    { value: '2', label: '2', isParent: false, parentValue: '1' },
+    { value: '3', label: '3', isParent: false, parentValue: '1' },
+    { value: '4', label: '4', isParent: false, parentValue: '1' },
 ];
 
 const defaultProps = {
@@ -16,6 +16,7 @@ const defaultProps = {
     selectableChildren: children,
     areParentsSelectable: true,
     implicitlySelectChildren: false,
+    selectChildrenWithParent: true,
     isMultiSelect: true,
     addOptions: () => {},
     removeOptions: () => {},
@@ -480,5 +481,79 @@ describe('useSelectChildren - isMultiSelect is false (single select mode)', () =
 
         childResult.current.selectOption();
         expect(mockSetSelectedOptions).toHaveBeenCalledWith([childOption]);
+    });
+});
+
+describe('useSelectChildren - selectChildrenWithParent is false (granular selection)', () => {
+    it('should deselect parent when parent is selected alone without children', () => {
+        const mockRemoveOptions = vi.fn();
+        const { result } = renderHook(() =>
+            useNestedOption({
+                ...defaultProps,
+                selectChildrenWithParent: false,
+                selectedOptions: [option], // Only parent is selected, not children
+                removeOptions: mockRemoveOptions,
+            }),
+        );
+
+        const { selectOption, isSelected } = result.current;
+
+        expect(isSelected).toBe(true);
+        selectOption();
+        // Should remove only the parent
+        expect(mockRemoveOptions).toHaveBeenCalledWith([option]);
+    });
+
+    it('should add only parent when parent is not selected', () => {
+        const mockAddOptions = vi.fn();
+        const { result } = renderHook(() =>
+            useNestedOption({
+                ...defaultProps,
+                selectChildrenWithParent: false,
+                addOptions: mockAddOptions,
+            }),
+        );
+
+        const { selectOption } = result.current;
+
+        selectOption();
+        // Should add only the parent, not children
+        expect(mockAddOptions).toHaveBeenCalledWith([option]);
+    });
+
+    it('should deselect only parent even when all children are selected', () => {
+        const mockRemoveOptions = vi.fn();
+        const { result } = renderHook(() =>
+            useNestedOption({
+                ...defaultProps,
+                selectChildrenWithParent: false,
+                selectedOptions: [option, ...children], // Both parent and all children selected
+                removeOptions: mockRemoveOptions,
+            }),
+        );
+
+        const { selectOption } = result.current;
+
+        selectOption();
+        // Should remove only the parent, children stay selected
+        expect(mockRemoveOptions).toHaveBeenCalledWith([option]);
+    });
+
+    it('should deselect only parent even when some children are selected', () => {
+        const mockRemoveOptions = vi.fn();
+        const { result } = renderHook(() =>
+            useNestedOption({
+                ...defaultProps,
+                selectChildrenWithParent: false,
+                selectedOptions: [option, children[0], children[1]], // Parent and some children selected
+                removeOptions: mockRemoveOptions,
+            }),
+        );
+
+        const { selectOption } = result.current;
+
+        selectOption();
+        // Should remove only the parent, children stay selected
+        expect(mockRemoveOptions).toHaveBeenCalledWith([option]);
     });
 });
