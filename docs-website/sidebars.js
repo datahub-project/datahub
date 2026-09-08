@@ -1517,6 +1517,7 @@ module.exports = {
         "docs/pgtimeseries-design",
         "docs/pganalytics-design",
         "docs/pgsystemmetadata-design",
+        "docs/pggraph-design",
         "docs/docker/development",
         "metadata-ingestion/developing",
         "docs/api/graphql/graphql-endpoint-development",

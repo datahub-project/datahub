@@ -297,4 +297,39 @@ public class SqlSetupTest {
         sqlSetup.steps().stream().map(UpgradeStep::id).collect(Collectors.toList());
     assertTrue(stepIds.stream().anyMatch(s -> s.equals("PgSystemMetadataSchemaStep")));
   }
+
+  @Test
+  public void testBuildStepsIncludesPgGraphWhenPostgresAndEnabled() {
+    PostgresSqlSetupProperties pg = PostgresSqlSetupProperties.disabled();
+    pg.setSchema("public");
+    pg.getPgGraph().setEnabled(true);
+    pg.getPgGraph().setTablePrefix("metadata_graph");
+    pg.getPgGraph().setPartitionCount(2);
+    pg.getPgGraph().setIdHashAlgo("XXHASH64");
+    pg.getPgGraph().setMaxEdgeWriteBatchSize(1000);
+
+    SqlSetupArgs setupArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            false,
+            false,
+            DatabaseType.POSTGRES,
+            false,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            5432,
+            "datahub",
+            "datahub",
+            false,
+            pg);
+
+    sqlSetup = new SqlSetup(mockDatabase, setupArgs);
+    List<String> stepIds =
+        sqlSetup.steps().stream().map(UpgradeStep::id).collect(Collectors.toList());
+    assertTrue(stepIds.stream().anyMatch(s -> s.equals("PgGraphSchemaStep")));
+  }
 }

@@ -9,10 +9,19 @@ import org.testng.annotations.Test;
 public class PostgresSqlSetupPropertiesTest {
 
   @Test
+  public void pgGraphConnectedComponentsDisabledByDefault() {
+    PostgresSqlSetupProperties props = PostgresSqlSetupProperties.disabled();
+    assertEquals(props.getPgGraph().getConnectedComponents().isEnabled(), false);
+    PostgresSqlSetupProperties.PgGraph graph = new PostgresSqlSetupProperties.PgGraph();
+    assertEquals(graph.getConnectedComponents().isEnabled(), false);
+  }
+
+  @Test
   public void disabled_pgQueueNotBuilt() {
     PostgresSqlSetupProperties props = PostgresSqlSetupProperties.disabled();
     assertNull(props.buildPgQueueOptions());
     assertNull(props.buildPgSystemMetadataOptions());
+    assertNull(props.buildPgGraphOptions());
     props.validateForUse(DatabaseType.MYSQL);
   }
 
@@ -135,6 +144,34 @@ public class PostgresSqlSetupPropertiesTest {
     assertEquals(o.getTableName(), "system_metadata_service_v1");
     assertEquals(o.getTablePrefix(), "metadata_system_metadata");
     assertEquals(o.qualifiedTable(), "public.system_metadata_service_v1");
+  }
+
+  @Test
+  public void buildPgGraphOptions_usesTablePrefix() {
+    PostgresSqlSetupProperties props = PostgresSqlSetupProperties.disabled();
+    props.setSchema("public");
+    props.getPgGraph().setEnabled(true);
+    props.getPgGraph().setTablePrefix("metadata_graph");
+    props.getPgGraph().setPartitionCount(4);
+    props.getPgGraph().setIdHashAlgo("XXHASH64");
+    props.getPgGraph().setMaxEdgeWriteBatchSize(500);
+    props.validateForUse(DatabaseType.POSTGRES);
+    PgGraphSetupOptions o = props.buildPgGraphOptions();
+    assertEquals(o.getTablePrefix(), "metadata_graph");
+    assertEquals(o.getPartitionCount(), 4);
+    assertEquals(o.getIdHashAlgo(), "XXHASH64");
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void validateForUse_rejectsInvalidPgGraphHashAlgo() {
+    PostgresSqlSetupProperties props = PostgresSqlSetupProperties.disabled();
+    props.setSchema("public");
+    props.getPgGraph().setEnabled(true);
+    props.getPgGraph().setTablePrefix("metadata_graph");
+    props.getPgGraph().setPartitionCount(2);
+    props.getPgGraph().setIdHashAlgo("MD5");
+    props.getPgGraph().setMaxEdgeWriteBatchSize(1000);
+    props.validateForUse(DatabaseType.POSTGRES);
   }
 
   @Test(expectedExceptions = IllegalStateException.class)

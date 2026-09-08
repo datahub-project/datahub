@@ -152,7 +152,7 @@ public class LineageRegistry {
       return Collections.emptyList();
     }
 
-    if (entityName.equals(SCHEMA_FIELD_ENTITY_NAME)) {
+    if (SCHEMA_FIELD_ENTITY_NAME.equalsIgnoreCase(entityName)) {
       return getSchemaFieldRelationships(direction);
     }
 

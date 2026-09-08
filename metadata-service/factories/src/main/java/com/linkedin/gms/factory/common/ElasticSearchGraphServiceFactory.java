@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.common;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.graph.PgGraphBackendGuard;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
@@ -23,7 +24,7 @@ import org.springframework.context.annotation.Import;
     name = "graphService.type",
     havingValue = "elasticsearch",
     matchIfMissing = true)
-@Import({BaseElasticSearchComponentsFactory.class})
+@Import({BaseElasticSearchComponentsFactory.class, PgGraphBackendGuard.class})
 public class ElasticSearchGraphServiceFactory {
   @Autowired
   @Qualifier("baseElasticSearchComponents")

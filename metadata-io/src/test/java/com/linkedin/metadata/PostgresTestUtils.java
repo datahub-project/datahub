@@ -370,4 +370,37 @@ public final class PostgresTestUtils {
       connection.commit();
     }
   }
+
+  @Nonnull
+  public static PostgresSqlSetupProperties testPgGraphProperties(
+      @Nonnull String schema, @Nonnull String tablePrefix) {
+    PostgresSqlSetupProperties p = PostgresSqlSetupProperties.disabled();
+    p.setSchema(schema);
+    p.getPgGraph().setEnabled(true);
+    p.getPgGraph().setTablePrefix(tablePrefix);
+    p.getPgGraph().setPartitionCount(2);
+    p.getPgGraph().setIdHashAlgo("XXHASH64");
+    p.getPgGraph().setMaxEdgeWriteBatchSize(1000);
+    return p;
+  }
+
+  public static void applyPgGraphSchema(
+      @Nonnull Connection connection, @Nonnull PostgresSqlSetupProperties props) throws Exception {
+    com.linkedin.metadata.config.postgres.PgGraphSetupOptions options = props.buildPgGraphOptions();
+    if (options == null) {
+      throw new IllegalStateException("expected pgGraph options");
+    }
+    com.linkedin.metadata.sqlsetup.postgres.pggraph.PgGraphSqlMigrationTokens tokens =
+        com.linkedin.metadata.sqlsetup.postgres.pggraph.PgGraphSqlMigrationTokens.builder()
+            .tablePrefix(options.getTablePrefix())
+            .build();
+    connection.setAutoCommit(true);
+    try (Statement st = connection.createStatement()) {
+      st.execute("SET datahub.pgrouting_partition_count = '" + options.getPartitionCount() + "'");
+    }
+    com.linkedin.metadata.sqlsetup.postgres.migration.PostgresSqlMigrationRunner.migrate(
+        connection,
+        com.linkedin.metadata.sqlsetup.postgres.pggraph.PgGraphSqlMigrationModules.from(
+            options, tokens));
+  }
 }

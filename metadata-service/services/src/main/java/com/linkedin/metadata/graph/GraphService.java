@@ -45,6 +45,27 @@ public interface GraphService {
    */
   void removeEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge);
 
+  default void addEdges(
+      @Nonnull final OperationContext opContext, @Nonnull final List<Edge> edges) {
+    for (Edge edge : edges) {
+      addEdge(opContext, edge);
+    }
+  }
+
+  default void upsertEdges(
+      @Nonnull final OperationContext opContext, @Nonnull final List<Edge> edges) {
+    for (Edge edge : edges) {
+      upsertEdge(opContext, edge);
+    }
+  }
+
+  default void removeEdges(
+      @Nonnull final OperationContext opContext, @Nonnull final List<Edge> edges) {
+    for (Edge edge : edges) {
+      removeEdge(opContext, edge);
+    }
+  }
+
   /**
    * Find related entities (nodes) connected to a source entity via edges of given relationship
    * types. Related entities can be filtered by source and destination type (use `null` for any

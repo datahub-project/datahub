@@ -28,6 +28,9 @@ x-primary-datastore-postgres-env: &primary-datastore-postgres-env
   # Use Postgres as the exclusive system-metadata source of truth.
   DATAHUB_PGSYSTEMMETADATA_ENABLED: ${DATAHUB_PGSYSTEMMETADATA_ENABLED:-true}
   SYSTEM_METADATA_SERVICE_IMPLEMENTATION: ${SYSTEM_METADATA_SERVICE_IMPLEMENTATION:-postgres}
+  # Use Postgres as the exclusive graph source of truth (search stays on Elasticsearch/OpenSearch).
+  DATAHUB_PGGRAPH_ENABLED: ${DATAHUB_PGGRAPH_ENABLED:-true}
+  GRAPH_SERVICE_IMPL: ${GRAPH_SERVICE_IMPL:-postgres}
   # Land api_usage flush (incl. active identities) + system entity-count gauges into pgAnalytics.
   DATAHUB_PGANALYTICS_API_USAGE_FLUSH_ENABLED: ${DATAHUB_PGANALYTICS_API_USAGE_FLUSH_ENABLED:-true}
   DATAHUB_PGANALYTICS_ENTITY_COUNT_SINK_ENABLED: ${DATAHUB_PGANALYTICS_ENTITY_COUNT_SINK_ENABLED:-true}
@@ -50,6 +53,10 @@ x-graph-datastore-neo4j-env: &graph-datastore-neo4j-env
   NEO4J_PASSWORD: datahub
 x-graph-datastore-search-env: &graph-datastore-search-env
   GRAPH_SERVICE_IMPL: elasticsearch
+
+x-graph-datastore-postgres-env: &graph-datastore-postgres-env
+  GRAPH_SERVICE_IMPL: ${GRAPH_SERVICE_IMPL:-postgres}
+  DATAHUB_PGGRAPH_ENABLED: ${DATAHUB_PGGRAPH_ENABLED:-true}
 
 x-search-datastore-opensearch-env: &search-datastore-env
   ELASTICSEARCH_HOST: search
@@ -372,7 +379,7 @@ services:
     profiles:
       - quickstart-postgres
     environment:
-      <<: [*primary-datastore-postgres-env, *datahub-system-update-env]
+      <<: [*primary-datastore-postgres-env, *datahub-system-update-env, *graph-datastore-postgres-env]
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
     depends_on:
       postgres:
@@ -384,7 +391,7 @@ services:
     profiles:
       - quickstart-postgres-consumers
     environment:
-      <<: [*primary-datastore-postgres-env, *datahub-system-update-env]
+      <<: [*primary-datastore-postgres-env, *datahub-system-update-env, *graph-datastore-postgres-env]
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
     depends_on:
       postgres:
@@ -396,7 +403,7 @@ services:
     profiles:
       - quickstart-postgres-cdc
     environment: &system-update-quickstart-postgres-cdc-env
-      <<: [*primary-datastore-postgres-env, *datahub-system-update-env]
+      <<: [*primary-datastore-postgres-env, *datahub-system-update-env, *graph-datastore-postgres-env]
       DEBEZIUM_CONNECTOR_CLASS: io.debezium.connector.postgresql.PostgresConnector
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_CONFIGURE_SOURCE: true
@@ -478,7 +485,7 @@ services:
     profiles:
       - debug-postgres
     environment:
-      <<: [*primary-datastore-postgres-env, *datahub-system-update-dev-env]
+      <<: [*primary-datastore-postgres-env, *datahub-system-update-dev-env, *graph-datastore-postgres-env]
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
     depends_on:
       postgres:
@@ -490,7 +497,7 @@ services:
     profiles:
       - debug-postgres-consumers
     environment:
-      <<: [*primary-datastore-postgres-env, *datahub-system-update-dev-env]
+      <<: [*primary-datastore-postgres-env, *datahub-system-update-dev-env, *graph-datastore-postgres-env]
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
     depends_on:
       postgres:
@@ -557,7 +564,7 @@ services:
     profiles:
       - quickstart-postgres
     environment:
-      <<: [*primary-datastore-postgres-env, *datahub-gms-env]
+      <<: [*primary-datastore-postgres-env, *datahub-gms-env, *graph-datastore-postgres-env]
       DEV_TOOLING_ENABLED: ${DEV_TOOLING_ENABLED:-false}
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
       SKIP_KAFKA_CHECK: true
@@ -569,7 +576,7 @@ services:
     profiles:
       - quickstart-postgres-consumers
     environment:
-      <<: [*primary-datastore-postgres-env, *datahub-gms-env]
+      <<: [*primary-datastore-postgres-env, *datahub-gms-env, *graph-datastore-postgres-env]
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
       DEV_TOOLING_ENABLED: ${DEV_TOOLING_ENABLED:-false}
@@ -583,7 +590,7 @@ services:
     profiles:
       - quickstart-postgres-cdc
     environment:
-      <<: [*primary-datastore-postgres-env, *datahub-gms-env]
+      <<: [*primary-datastore-postgres-env, *datahub-gms-env, *graph-datastore-postgres-env]
       DEV_TOOLING_ENABLED: ${DEV_TOOLING_ENABLED:-false}
       DEBEZIUM_CONNECTOR_CLASS: io.debezium.connector.postgresql.PostgresConnector
       CDC_MCL_PROCESSING_ENABLED: true
@@ -651,7 +658,7 @@ services:
     profiles:
       - debug-postgres
     environment:
-      <<: [*primary-datastore-postgres-env, *datahub-gms-dev-env]
+      <<: [*primary-datastore-postgres-env, *datahub-gms-dev-env, *graph-datastore-postgres-env]
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
       SKIP_KAFKA_CHECK: true
     depends_on:
@@ -662,7 +669,7 @@ services:
     profiles:
       - debug-postgres-consumers
     environment:
-      <<: [*primary-datastore-postgres-env, *datahub-gms-dev-env]
+      <<: [*primary-datastore-postgres-env, *datahub-gms-dev-env, *graph-datastore-postgres-env]
       MAE_CONSUMER_ENABLED: false
       MCE_CONSUMER_ENABLED: false
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
@@ -675,7 +682,7 @@ services:
     profiles:
       - debug-postgres-cdc
     environment:
-      <<: [*primary-datastore-postgres-env, *datahub-gms-dev-env]
+      <<: [*primary-datastore-postgres-env, *datahub-gms-dev-env, *graph-datastore-postgres-env]
       DEBEZIUM_CONNECTOR_CLASS: io.debezium.connector.postgresql.PostgresConnector
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_CONFIGURE_SOURCE: true
@@ -768,7 +775,7 @@ services:
   datahub-mae-consumer-quickstart-postgres-cdc:
     <<: *datahub-mae-consumer-service
     environment:
-      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env, *graph-datastore-postgres-env]
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_CONFIGURE_SOURCE: true
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-kafka}
@@ -780,7 +787,7 @@ services:
   datahub-mae-consumer-quickstart-postgres-consumers:
     <<: *datahub-mae-consumer-service
     environment:
-      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env]
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *graph-datastore-postgres-env]
       ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
       MCL_CONSUMER_BATCH_ENABLED: ${MCL_CONSUMER_BATCH_ENABLED:-true}
@@ -806,7 +813,7 @@ services:
   datahub-mae-consumer-debug-postgres-consumers:
     <<: *datahub-mae-consumer-service-dev
     environment:
-      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-dev-telemetry-env, *kafka-env, *datahub-common-env]
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-dev-telemetry-env, *kafka-env, *datahub-common-env, *graph-datastore-postgres-env]
       ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
       MCL_CONSUMER_BATCH_ENABLED: ${MCL_CONSUMER_BATCH_ENABLED:-true}
@@ -842,7 +849,7 @@ services:
   datahub-mce-consumer-quickstart-postgres-consumers-cdc:
     <<: *datahub-mce-consumer-service
     environment:
-      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env, *graph-datastore-postgres-env]
       CDC_MCL_PROCESSING_ENABLED: true
       CDC_CONFIGURE_SOURCE: true
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-kafka}
@@ -854,7 +861,7 @@ services:
   datahub-mce-consumer-quickstart-postgres-consumers:
     <<: *datahub-mce-consumer-service
     environment:
-      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env, *graph-datastore-postgres-env]
       ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
       STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
       ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
@@ -889,7 +896,7 @@ services:
   datahub-mce-consumer-debug-postgres-consumers:
     <<: *datahub-mce-consumer-service-dev
     environment:
-      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-dev-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
+      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-dev-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env, *graph-datastore-postgres-env]
       ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
       STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
       ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}

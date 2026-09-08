@@ -411,6 +411,7 @@ entityService:
     overwriteNonSystemPolicies: ${ENTITY_SERVICE_RETENTION_OVERWRITE_NON_SYSTEM_POLICIES:false}
 
 graphService:
+  # elasticsearch (default), neo4j, or postgres (requires DATAHUB_PGGRAPH_ENABLED=true)
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
   limit:
     results:
@@ -727,6 +728,26 @@ postgres:
       maxAgeMinutes: ${DATAHUB_PGSYSTEMMETADATA_MAX_AGE_MINUTES:120}
       leakTimeMinutes: ${DATAHUB_PGSYSTEMMETADATA_LEAK_TIME_MINUTES:15}
       waitTimeoutMillis: ${DATAHUB_PGSYSTEMMETADATA_WAIT_TIMEOUT_MILLIS:1000}
+
+  pgGraph:
+    enabled: ${DATAHUB_PGGRAPH_ENABLED:false}
+    tablePrefix: ${DATAHUB_PGGRAPH_TABLE_PREFIX:metadata_graph}
+    partitionCount: ${DATAHUB_PGGRAPH_PARTITION_COUNT:2}
+    idHashAlgo: ${DATAHUB_PGGRAPH_ID_HASH_ALGO:XXHASH64}
+    maxEdgeWriteBatchSize: ${DATAHUB_PGGRAPH_MAX_EDGE_WRITE_BATCH_SIZE:1000}
+    connectedComponents:
+      enabled: ${DATAHUB_PGGRAPH_CONNECTED_COMPONENTS_ENABLED:false}
+    pool:
+      url: ${DATAHUB_PGGRAPH_DATASOURCE_URL:${ebean.url}}
+      driver: ${DATAHUB_PGGRAPH_DATASOURCE_DRIVER:${ebean.driver}}
+      username: ${DATAHUB_PGGRAPH_DATASOURCE_USERNAME:${ebean.username}}
+      password: ${DATAHUB_PGGRAPH_DATASOURCE_PASSWORD:${ebean.password}}
+      minConnections: ${DATAHUB_PGGRAPH_MIN_CONNECTIONS:1}
+      maxConnections: ${DATAHUB_PGGRAPH_MAX_CONNECTIONS:12}
+      maxInactiveTimeSeconds: ${DATAHUB_PGGRAPH_MAX_INACTIVE_TIME_SECONDS:120}
+      maxAgeMinutes: ${DATAHUB_PGGRAPH_MAX_AGE_MINUTES:120}
+      leakTimeMinutes: ${DATAHUB_PGGRAPH_LEAK_TIME_MINUTES:15}
+      waitTimeoutMillis: ${DATAHUB_PGGRAPH_WAIT_TIMEOUT_MILLIS:1000}
 
   # pg_cron registry DB (postgresql.conf cron.database_name). Defaults reuse EBEAN_DATASOURCE_* env vars; override with DATAHUB_POSTGRES_PG_CRON_ADMIN_* . Jobs still run in the app DB via cron.schedule_in_database.
   pgCron:

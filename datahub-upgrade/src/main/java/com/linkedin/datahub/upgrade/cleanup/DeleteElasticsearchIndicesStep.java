@@ -6,6 +6,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexDeletionUtils;
@@ -44,10 +45,18 @@ import org.opensearch.client.indices.GetIndexRequest;
 public class DeleteElasticsearchIndicesStep implements UpgradeStep {
 
   private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents;
+  private final ConfigurationProvider configurationProvider;
 
   public DeleteElasticsearchIndicesStep(
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents) {
+    this(esComponents, null);
+  }
+
+  public DeleteElasticsearchIndicesStep(
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      ConfigurationProvider configurationProvider) {
     this.esComponents = esComponents;
+    this.configurationProvider = configurationProvider;
   }
 
   @Override
@@ -79,10 +88,12 @@ public class DeleteElasticsearchIndicesStep implements UpgradeStep {
             opContext, client, convention.getAllTimeseriesAspectIndicesPattern(opContext));
 
         // Well-known named indices
-        safeDeleteIndex(
-            opContext,
-            client,
-            convention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME));
+        if (includeGraphEsIndex()) {
+          safeDeleteIndex(
+              opContext,
+              client,
+              convention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME));
+        }
         safeDeleteIndex(
             opContext,
             client,
@@ -101,6 +112,14 @@ public class DeleteElasticsearchIndicesStep implements UpgradeStep {
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
+  }
+
+  private boolean includeGraphEsIndex() {
+    if (configurationProvider == null || configurationProvider.getGraphService() == null) {
+      return true;
+    }
+    String graphType = configurationProvider.getGraphService().getType();
+    return graphType == null || !"postgres".equalsIgnoreCase(graphType.trim());
   }
 
   /**

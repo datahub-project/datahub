@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.common;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.graph.PgGraphBackendGuard;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -18,7 +19,7 @@ import org.springframework.context.annotation.Import;
 
 @Configuration
 @ConditionalOnProperty(name = "graphService.type", havingValue = "neo4j")
-@Import({Neo4jDriverFactory.class})
+@Import({Neo4jDriverFactory.class, PgGraphBackendGuard.class})
 public class Neo4jGraphServiceFactory {
   @Autowired
   @Qualifier("neo4jDriver")

@@ -43,12 +43,13 @@ public class LoadIndicesIndexManager {
   private String discoveredForPrefix = null;
 
   private final boolean includeSystemMetadataEsIndex;
+  private final boolean includeGraphEsIndex;
 
   public LoadIndicesIndexManager(
       SearchClientShim<?> searchClient,
       IndexConvention indexConvention,
       ESIndexBuilder indexBuilder) {
-    this(searchClient, indexConvention, indexBuilder, true);
+    this(searchClient, indexConvention, indexBuilder, true, true);
   }
 
   public LoadIndicesIndexManager(
@@ -56,19 +57,29 @@ public class LoadIndicesIndexManager {
       IndexConvention indexConvention,
       ESIndexBuilder indexBuilder,
       boolean includeSystemMetadataEsIndex) {
+    this(searchClient, indexConvention, indexBuilder, includeSystemMetadataEsIndex, true);
+  }
+
+  public LoadIndicesIndexManager(
+      SearchClientShim<?> searchClient,
+      IndexConvention indexConvention,
+      ESIndexBuilder indexBuilder,
+      boolean includeSystemMetadataEsIndex,
+      boolean includeGraphEsIndex) {
     this.searchClient = searchClient;
     this.indexConvention = indexConvention;
     this.indexBuilder = indexBuilder;
     this.includeSystemMetadataEsIndex = includeSystemMetadataEsIndex;
-    // Delay index discovery until first use
+    this.includeGraphEsIndex = includeGraphEsIndex;
     this.managedIndexConfigs = new ArrayList<>();
   }
 
   /**
    * Discovers all DataHub indices that should have settings managed during bulk operations. This
-   * Includes entity indices, the graph service index, and the Elasticsearch system-metadata index
-   * when that backend is the SoT. Timeseries indices are excluded. When Postgres is the
-   * system-metadata SoT, that ES index is not discovered.
+   * Includes entity indices, the graph service index when Elasticsearch is the graph SoT, and the
+   * Elasticsearch system-metadata index when that backend is the SoT. Timeseries indices are
+   * excluded. When Postgres is the graph or system-metadata SoT, those ES indices are not
+   * discovered.
    *
    * @param opContext the operation context
    * @return List of ReindexConfig objects for managed indices
@@ -102,32 +113,34 @@ public class LoadIndicesIndexManager {
       }
     }
 
-    // Get graph service index
-    String graphIndexName =
-        indexConvention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME);
-    log.debug("Querying graph service index: {}", graphIndexName);
-    GetIndexRequest graphRequest = new GetIndexRequest(graphIndexName);
-    try {
-      GetIndexResponse graphResponse =
-          searchClient.getIndex(opContext, graphRequest, RequestOptions.DEFAULT);
-      String[] graphIndices = graphResponse.getIndices();
-      for (String indexName : graphIndices) {
-        try {
-          ReindexConfig config =
-              indexBuilder.buildReindexState(
-                  opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
-          configs.add(config);
-          log.debug("Added graph service index config: {}", indexName);
-        } catch (IOException e) {
-          log.warn(
-              "Failed to build reindex config for graph index {}: {}", indexName, e.getMessage());
+    // Get graph service index (Elasticsearch SoT only)
+    if (includeGraphEsIndex) {
+      String graphIndexName =
+          indexConvention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME);
+      log.debug("Querying graph service index: {}", graphIndexName);
+      GetIndexRequest graphRequest = new GetIndexRequest(graphIndexName);
+      try {
+        GetIndexResponse graphResponse =
+            searchClient.getIndex(opContext, graphRequest, RequestOptions.DEFAULT);
+        String[] graphIndices = graphResponse.getIndices();
+        for (String indexName : graphIndices) {
+          try {
+            ReindexConfig config =
+                indexBuilder.buildReindexState(
+                    opContext, indexName, Map.<String, Object>of(), Map.<String, Object>of());
+            configs.add(config);
+            log.debug("Added graph service index config: {}", indexName);
+          } catch (IOException e) {
+            log.warn(
+                "Failed to build reindex config for graph index {}: {}", indexName, e.getMessage());
+          }
         }
+      } catch (Exception e) {
+        log.debug(
+            "Graph service index {} does not exist or is not accessible: {}",
+            graphIndexName,
+            e.getMessage());
       }
-    } catch (Exception e) {
-      log.debug(
-          "Graph service index {} does not exist or is not accessible: {}",
-          graphIndexName,
-          e.getMessage());
     }
 
     // Get system metadata index (Elasticsearch SoT only; Postgres exclusive SoT has no ES index)
