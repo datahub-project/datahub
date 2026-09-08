@@ -3,6 +3,7 @@ package com.linkedin.metadata.config.postgres;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
@@ -137,6 +138,23 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
   }
 
   @Test
+  public void validatePgQueue_rejectsUnrepresentableCronInterval() {
+    PostgresSqlSetupProperties props = basePgQueueProps();
+    enablePgQueueCron(props, 5400);
+    IllegalStateException thrown =
+        expectThrows(
+            IllegalStateException.class, () -> props.validateForUse(DatabaseType.POSTGRES));
+    assertTrue(thrown.getMessage().contains("cannot be expressed as a pg_cron"));
+  }
+
+  @Test
+  public void validatePgQueue_acceptsHourlyCronInterval() {
+    PostgresSqlSetupProperties props = basePgQueueProps();
+    enablePgQueueCron(props, 3600);
+    props.validateForUse(DatabaseType.POSTGRES);
+  }
+
+  @Test
   public void buildPgQueueResolvedTopicCatalog_normalizesZeroOverrideToOne() {
     PostgresSqlSetupProperties props = basePgQueueProps();
     props.getPgQueue().getTopicDefaults().setConsumerConcurrency(3);
@@ -231,5 +249,11 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
     props.getPgQueue().getMaintenance().setBatchDeleteLimit(5000);
     props.getPgQueue().setPayloadCompression("SNAPPY");
     return props;
+  }
+
+  private static void enablePgQueueCron(PostgresSqlSetupProperties props, int intervalSeconds) {
+    props.getPgQueue().getMaintenance().setCronEnabled(true);
+    props.getPgQueue().getMaintenance().setIntervalSeconds(intervalSeconds);
+    props.getPgCron().getAdmin().setJdbcUrl("jdbc:postgresql://localhost:5432/postgres");
   }
 }

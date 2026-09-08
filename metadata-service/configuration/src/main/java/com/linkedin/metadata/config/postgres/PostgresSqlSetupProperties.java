@@ -497,6 +497,50 @@ public class PostgresSqlSetupProperties {
     return s.toLowerCase();
   }
 
+  /**
+   * Maps intervalSeconds to a pg_cron schedule (minute/hour/day granularity).
+   *
+   * <p>Only intervals that map cleanly are accepted: multiples of 60 seconds up to 59 minutes,
+   * multiples of 3600 up to 23 hours, or exactly 1 day (86400 seconds). Multi-day day-of-month cron
+   * schedules skip or bunch at month boundaries, so they are rejected. Values below 60 are treated
+   * as 60 seconds ({@code every minute}).
+   */
+  @NonNull
+  public static String toPgCronSchedule(int intervalSeconds) {
+    int sec = Math.max(60, intervalSeconds);
+    if (sec % 86400 == 0) {
+      int days = sec / 86400;
+      if (days == 1) {
+        return "0 0 * * *";
+      }
+      throw new IllegalArgumentException(
+          "intervalSeconds="
+              + intervalSeconds
+              + " multi-day cadences cannot be represented as a pg_cron day-of-month schedule");
+    }
+    if (sec % 3600 == 0) {
+      int hours = sec / 3600;
+      if (hours < 1 || hours > 23) {
+        throw new IllegalArgumentException(
+            "intervalSeconds="
+                + intervalSeconds
+                + " hour cadence must be between 1 and 23 hours inclusive");
+      }
+      return "0 */" + hours + " * * *";
+    }
+    if (sec % 60 == 0) {
+      int minutes = sec / 60;
+      if (minutes >= 1 && minutes <= 59) {
+        return "*/" + minutes + " * * * *";
+      }
+    }
+    throw new IllegalArgumentException(
+        "intervalSeconds="
+            + intervalSeconds
+            + " cannot be represented as a pg_cron schedule; use a multiple of 60 (1–59 min),"
+            + " 3600 (1–23 h), or 86400 (1 day)");
+  }
+
   private void validatePgQueueConfig() {
     normalizedPgQueueSchema();
     normalizedPgQueueTablePrefix();
@@ -558,6 +602,15 @@ public class PostgresSqlSetupProperties {
       if (m.getIntervalSeconds() < 60 || m.getIntervalSeconds() > 86400 * 30) {
         throw new IllegalStateException(
             "postgres.pgQueue.maintenance.intervalSeconds must be between 60 and 2592000 inclusive when cron is enabled.");
+      }
+      try {
+        toPgCronSchedule(m.getIntervalSeconds());
+      } catch (IllegalArgumentException e) {
+        throw new IllegalStateException(
+            "postgres.pgQueue.maintenance.intervalSeconds cannot be expressed as a pg_cron"
+                + " schedule: "
+                + e.getMessage(),
+            e);
       }
     }
     if (m.getBatchDeleteLimit() < 1 || m.getBatchDeleteLimit() > 100_000) {
