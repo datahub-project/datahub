@@ -165,10 +165,13 @@ class PgQueueEventSource(EventSource):
                 else:
                     self._consumer.wait_after_poll(False)
             except Exception:
+                consumer = self._consumer
+                if not self.running or consumer is None:
+                    break
                 logger.exception(
                     "pgQueue actions source poll error; sleeping then retrying"
                 )
-                self._consumer.wait_after_error()
+                consumer.wait_after_error()
 
         logger.info("pgQueue consumer exiting main loop")
 
