@@ -3,6 +3,7 @@ from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
     Any,
+    ClassVar,
     Dict,
     Iterable,
     List,
@@ -85,24 +86,39 @@ class _PostgresCustomType(UserDefinedType):
     Registering these in ``ischema_names`` keeps their columns from reflecting
     as ``NullType``, which would both classify them as DataHub NullType and
     replace their native type name with the literal string "null".
+
+    ``UserDefinedType`` with ``get_col_spec`` is used instead of the existing
+    ``make_sqlalchemy_type`` helper because that helper sets
+    ``impl = LargeBinary``, which would compile these types to a misleading
+    ``BYTEA`` native type name; this route preserves the real type name,
+    including its modifier (e.g. ``VECTOR(4)``).
     """
 
-    cache_ok = True
-    type_name = ""
+    # No default on purpose: a subclass that forgets to set it fails loudly at
+    # first compile instead of silently emitting an empty nativeDataType.
+    type_name: ClassVar[str]
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        # Reflection passes type modifiers through (e.g. vector(4) -> args=(4,)).
-        self._type_args = args
+    def __init__(self, dimensions: Optional[int] = None) -> None:
+        # Reflection passes the type modifier through as a single int
+        # (e.g. vector(4) -> dimensions=4). A named parameter — rather than
+        # *args — is required for SQLAlchemy's statement-cache key to include
+        # the modifier (VECTOR(4) vs VECTOR(1536) must not share a key), and
+        # it also survives adapt()/constructor_copy().
+        self.dimensions = dimensions
 
     def get_col_spec(self, **kw: Any) -> str:
-        if self._type_args:
-            return f"{self.type_name}({', '.join(str(arg) for arg in self._type_args)})"
+        if self.dimensions is not None:
+            return f"{self.type_name}({self.dimensions})"
         return self.type_name
 
 
 def _make_postgres_type(name: str) -> Type[_PostgresCustomType]:
+    assert name, "postgres placeholder types need a non-empty type name"
+    # cache_ok must be in each subclass's own __dict__ — SQLAlchemy does not
+    # consult the MRO for it, and without it every statement touching one of
+    # these columns is uncacheable and emits an SAWarning.
     postgres_type: Type[_PostgresCustomType] = type(
-        name, (_PostgresCustomType,), {"type_name": name}
+        name, (_PostgresCustomType,), {"type_name": name, "cache_ok": True}
     )
     return postgres_type
 
@@ -147,24 +163,43 @@ for _range_type in (
 ):
     register_custom_type(_range_type, StringTypeClass)
 
-# Same pattern as the MySQL source's spatial type registrations.
-custom_types.base.ischema_names.update(
-    {
-        "vector": VECTOR,
-        "halfvec": HALFVEC,
-        "sparsevec": SPARSEVEC,
-        "point": POINT,
-        "line": LINE,
-        "lseg": LSEG,
-        "box": BOX,
-        "path": PATH,
-        "polygon": POLYGON,
-        "circle": CIRCLE,
-        "xml": XML,
-        "ltree": LTREE,
-        "citext": CITEXT,
-    }
-)
+# If the pgvector SQLAlchemy integration is installed, importing it registers
+# a full-featured `vector` type in ischema_names (it parses dimensions
+# properly). Prefer it over the placeholder — the setdefault below yields to
+# it — and map it to the same DataHub type.
+try:
+    from pgvector.sqlalchemy import Vector as _PgVectorType
+
+    register_custom_type(_PgVectorType, ArrayTypeClass)
+except ImportError:
+    pass
+
+# ischema_names is process-global state shared by every PGDialect subclass in
+# the process (CockroachDB, TimescaleDB, ... inherit these entries; Redshift
+# does not go through this source). setdefault instead of update so a real
+# type implementation registered by another library (pgvector above,
+# SQLAlchemy 2.0.7+'s own CITEXT, ...) is never clobbered by a placeholder.
+#
+# Reflection precedence caveat: PGDialect._get_column_info consults
+# ischema_names *before* user-defined domains, so a domain named exactly like
+# one of these entries (e.g. "xml", "box") now resolves to the placeholder and
+# skips the domain branch — including its nullability and default handling.
+for _type_name, _placeholder_type in {
+    "vector": VECTOR,
+    "halfvec": HALFVEC,
+    "sparsevec": SPARSEVEC,
+    "point": POINT,
+    "line": LINE,
+    "lseg": LSEG,
+    "box": BOX,
+    "path": PATH,
+    "polygon": POLYGON,
+    "circle": CIRCLE,
+    "xml": XML,
+    "ltree": LTREE,
+    "citext": CITEXT,
+}.items():
+    custom_types.base.ischema_names.setdefault(_type_name, _placeholder_type)
 
 
 VIEW_LINEAGE_QUERY = """
