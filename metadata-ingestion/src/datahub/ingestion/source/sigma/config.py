@@ -383,6 +383,16 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # predicates, joined into nine models. Element ids repeat across models, so
     # the model is pinned by the side's dataModelId when Sigma sends one, else
     # by the models this one sources from.
+    # Workbook lineage node types the connector does not handle, by type and
+    # count. The warning is deduplicated per type, so this is the only place
+    # the magnitude appears. 'union' is the one to watch: it combines inputs
+    # the way 'join' does, so every element behind one loses its upstreams.
+    workbook_lineage_node_types_unhandled: Dict[str, int] = field(default_factory=dict)
+    # Layout elements (control, divider, ...) returned alongside data elements.
+    # They have no name and are correctly skipped; counted separately so
+    # pagination_malformed_entries_dropped keeps meaning "a real entry failed
+    # to parse".
+    non_data_elements_skipped: Dict[str, int] = field(default_factory=dict)
     data_model_join_key_foreign_resolved: int = 0
     # No Data Model could be pinned for the foreign element.
     data_model_join_key_foreign_dm_unknown: int = 0

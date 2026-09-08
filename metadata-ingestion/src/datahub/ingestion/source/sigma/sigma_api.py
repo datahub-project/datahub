@@ -59,6 +59,10 @@ logger = logging.getLogger(__name__)
 # reference, and both are things a user sees on the page, so representing them
 # as Charts is consistent with how 'table' is treated. They cost the same two
 # per-element calls (/lineage and /query) as any other admitted element.
+# Layout/UI elements Sigma returns alongside data elements. They carry no name,
+# so the model rejects them -- correctly, but they are not malformed data.
+_NON_DATA_ELEMENT_TYPES = frozenset({"control", "divider", "text", "image", "button"})
+
 BASE_ELEMENT_TYPES = frozenset({"table", "visualization"})
 INGESTED_ELEMENT_TYPES = BASE_ELEMENT_TYPES | frozenset({"pivot-table", "input-table"})
 
@@ -486,6 +490,13 @@ class SigmaAPI:
         else:
             # Warn once per unknown source_type to avoid log spam.
             warn_key = source_type if isinstance(source_type, str) else "<non-str>"
+            # The warning fires once per type, so without this the report says
+            # a type exists but never how much lineage it costs. A 'union' node
+            # combines inputs the same way 'join' does, and every element behind
+            # one loses its upstreams silently.
+            self.report.workbook_lineage_node_types_unhandled[warn_key] = (
+                self.report.workbook_lineage_node_types_unhandled.get(warn_key, 0) + 1
+            )
             if warn_key not in self._unknown_lineage_node_types_warned:
                 self._unknown_lineage_node_types_warned.add(warn_key)
                 self.report.warning(
@@ -1022,6 +1033,22 @@ class SigmaAPI:
             try:
                 parsed = model_cls.model_validate(entry)
             except ValidationError as ve:
+                entry_type = entry.get("type") if isinstance(entry, dict) else None
+                if entry_type in _NON_DATA_ELEMENT_TYPES:
+                    # Not malformed: Sigma returns layout elements with no name
+                    # alongside real ones. Counting them as malformed buried the
+                    # signal that a REAL entry failed to parse.
+                    self.report.non_data_elements_skipped[str(entry_type)] = (
+                        self.report.non_data_elements_skipped.get(str(entry_type), 0)
+                        + 1
+                    )
+                    logger.debug(
+                        "%s Skipping non-data element of type %r (no name; not a "
+                        "parse failure).",
+                        error_ctx,
+                        entry_type,
+                    )
+                    continue
                 self.report.pagination_malformed_entries_dropped += 1
                 if malformed_warned < self._MAX_MALFORMED_WARNINGS_PER_ENDPOINT:
                     self.report.warning(

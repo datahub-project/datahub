@@ -745,6 +745,47 @@ class TestGetElementUpstreamSources:
         assert len(api.report.warnings) == 0
 
 
+class TestNonDataElementsAreNotMalformed:
+    """Layout elements have no name, so the model rejects them -- correctly.
+
+    Counting them as malformed made pagination_malformed_entries_dropped read
+    5 on a tenant where nothing was actually malformed, which is the number an
+    operator would check to see whether real data failed to parse.
+    """
+
+    def _entries(self, api: SigmaAPI, entries: list) -> list:
+        with patch.object(api, "_paginated_raw_entries", return_value=entries):
+            return api._paginated_entries(
+                "http://x/dataModels/dm-1/elements",
+                SigmaDataModelElement,
+                "Unable to fetch elements for data model 'dm-1'.",
+            )
+
+    def test_control_and_divider_are_skipped_not_counted_as_malformed(self) -> None:
+        api = _create_sigma_api()
+        parsed = self._entries(
+            api,
+            [
+                {"elementId": "a", "type": "control"},
+                {"elementId": "b", "type": "divider"},
+                {"elementId": "c", "name": "Real", "type": "table"},
+            ],
+        )
+
+        assert [e.elementId for e in parsed] == ["c"]
+        assert api.report.pagination_malformed_entries_dropped == 0
+        assert api.report.non_data_elements_skipped == {"control": 1, "divider": 1}
+
+    def test_a_genuinely_malformed_data_entry_still_counts(self) -> None:
+        """The signal the layout noise was burying."""
+        api = _create_sigma_api()
+        parsed = self._entries(api, [{"elementId": "a", "type": "table"}])
+
+        assert parsed == []
+        assert api.report.pagination_malformed_entries_dropped == 1
+        assert api.report.non_data_elements_skipped == {}
+
+
 class TestGetElementInputDetails:
     """Unit tests for SigmaSource._get_element_input_details."""
 
