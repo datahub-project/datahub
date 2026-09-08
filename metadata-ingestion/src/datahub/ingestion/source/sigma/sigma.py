@@ -581,7 +581,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         ] = None
         # Built lazily on the first chart-ref miss, by which point every Data
         # Model has been walked. Used only to classify misses, never to resolve.
-        self._known_dm_element_names: Optional[FrozenSet[str]] = None
+        self._known_dm_element_index: Optional[Dict[str, List[str]]] = None
         self._chart_cols_memo: Optional[
             Tuple[
                 Dict[str, List[Element]],
@@ -5666,23 +5666,71 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         return candidates
 
-    def _all_known_dm_element_names(self) -> FrozenSet[str]:
-        """Every Data Model element name seen this run, lowercased.
+    def _global_dm_element_index(self) -> Dict[str, List[str]]:
+        """Lowercased Data Model element name -> every URN carrying that name.
 
-        Used only to classify a MISS. A ref naming something this set contains
-        failed because the resolver's scope was too narrow (the name exists, but
-        not among the upstreams offered for this chart); a ref naming something
-        absent from it failed because the run never saw that element at all --
-        filtered, 409-ing, or in a workspace outside the ingest. Those are
-        different bugs and were previously one number.
+        Flattened across all Data Models, so a name is resolvable only when the
+        list has exactly one entry. A chart formula ref that names an element
+        the chart's own upstream list does not offer is otherwise unresolvable,
+        and on one tenant (2026-09) that was the single largest gap in the run.
         """
-        if self._known_dm_element_names is None:
-            names: Set[str] = set()
+        if self._known_dm_element_index is None:
+            index: Dict[str, List[str]] = {}
             for by_name in self.dm_element_urn_by_name.values():
-                if isinstance(by_name, dict):
-                    names.update(str(n).strip().lower() for n in by_name)
-            self._known_dm_element_names = frozenset(names)
-        return self._known_dm_element_names
+                if not isinstance(by_name, dict):
+                    continue
+                for name, urns in by_name.items():
+                    key = str(name).strip().lower()
+                    for urn in urns if isinstance(urns, list) else [urns]:
+                        if urn not in index.setdefault(key, []):
+                            index[key].append(urn)
+            self._known_dm_element_index = index
+        return self._known_dm_element_index
+
+    def _resolve_ref_by_global_element_name(
+        self, ref: BracketRef, *, chart_element_id: str, count: bool
+    ) -> Optional[Tuple[str, str]]:
+        """Last resort: the ref names exactly one element in the whole run.
+
+        InputFields carry no confidenceScore, so a wrong edge here would be
+        indistinguishable from a right one. Two conditions therefore both have
+        to hold, and either failing means no edge rather than a guess:
+
+        * the name identifies exactly ONE Data Model element across every model
+          in the run -- Sigma element names repeat, and a collision resolved by
+          picking one would attach a real column to the wrong dataset;
+        * that element actually OWNS the referenced column. This is what makes
+          the widened scope safe: a same-named element that does not have the
+          column is a coincidence, not the upstream.
+        """
+        if ref.column is None:
+            return None
+        candidates = self._global_dm_element_index().get(ref.source.strip().lower())
+        if not candidates:
+            return None
+        if len(candidates) > 1:
+            if count:
+                self.reporter.chart_ref_global_name_ambiguous += 1
+            return None
+        urn = candidates[0]
+        cols = self.dm_element_urn_to_cols.get(urn) or {}
+        canonical = cols.get(ref.column.strip().lower())
+        if canonical is None:
+            if count:
+                self.reporter.chart_ref_global_name_column_absent += 1
+            return None
+        if count:
+            self.reporter.chart_ref_global_name_resolved += 1
+            logger.debug(
+                "CHART REF GLOBAL NAME element %s ref=%r: %r names exactly one "
+                "Data Model element in this run and it owns column %r -> %s",
+                chart_element_id,
+                ref.raw,
+                ref.source,
+                canonical,
+                urn,
+            )
+        return (urn, canonical)
 
     def _note_chart_ref_miss(
         self, reason: str, *, ref: BracketRef, chart_element_id: str, count: bool
@@ -5702,7 +5750,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.chart_ref_miss_reasons.get(reason, 0) + 1
         )
         if reason == _CHART_REF_MISS_UNKNOWN_SOURCE:
-            known = ref.source.strip().lower() in self._all_known_dm_element_names()
+            known = ref.source.strip().lower() in self._global_dm_element_index()
             key = (
                 "unknown_source_but_name_exists_in_another_data_model"
                 if known
@@ -5876,6 +5924,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 count=count,
             )
             return None
+
+        # Step 5: the ref names a Data Model element that this chart's own
+        # upstream list does not offer. Accepted only when the name is unique
+        # run-wide AND that element owns the column -- see the helper.
+        #
+        # Only on a REAL attempt. A join-chain ref tries up to 2N-3 candidate
+        # splits through here, and this step is deliberately the most permissive
+        # one: letting it judge a speculative split would let a wrong split
+        # validate and be accepted ahead of the right one, which is the failure
+        # the split search exists to avoid.
+        if count:
+            global_match = self._resolve_ref_by_global_element_name(
+                ref, chart_element_id=chart_element_id, count=count
+            )
+            if global_match is not None:
+                return global_match
 
         # Nothing matched at any step. ``candidates`` distinguishes the two
         # shapes of this: a workbook element WAS named ref.source but is neither

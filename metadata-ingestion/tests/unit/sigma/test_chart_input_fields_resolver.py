@@ -94,7 +94,7 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source._bridge_unresolved_warned = set()
     # Memos for maps derived from the per-workbook indexes.
     source._normalized_index_memo = None
-    source._known_dm_element_names = None
+    source._known_dm_element_index = None
     source.dm_element_urn_by_name = {}
     source._chart_cols_memo = None
     return source
@@ -1227,8 +1227,12 @@ class TestChartRefMissIsAttributedToACause:
         assert reasons["source_name_unknown_to_this_workbook"] == 1
         assert reasons["unknown_source_absent_from_entire_run"] == 1
 
+        # The element exists but does NOT have the referenced column, so the
+        # last-resort global-name step refuses it and the miss still lands in
+        # the "scope was too narrow" bucket rather than resolving.
         self.src.dm_element_urn_by_name = {"dm-a": {"KnownElsewhere": ["urn:x"]}}
-        self.src._known_dm_element_names = None
+        self.src.dm_element_urn_to_cols = {"urn:x": {"other": "Other"}}
+        self.src._known_dm_element_index = None
         assert self._resolve(_make_ref("KnownElsewhere", "col")) is None
         assert (
             self.src.reporter.chart_ref_miss_reasons[
@@ -1289,3 +1293,66 @@ class TestFetchFailureIsNotReportedAsMissingFormula:
         # Still one column in the fallback bucket either way: the split is a
         # sub-category, so the per-element invariant is unchanged.
         assert self.src.reporter.chart_input_fields_self_ref_fallback == 1
+
+
+class TestGlobalElementNameFallback:
+    """A ref naming an element the chart's own upstream list does not offer.
+
+    On one tenant (2026-09) this was the largest recoverable share of the
+    unresolved bucket: 53% of unresolved refs named an element that exists in
+    the run, is uniquely named, and owns the referenced column.
+    """
+
+    _URN = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm1.dim,PROD)"
+    _OTHER = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm2.dim,PROD)"
+
+    def _source(self, *, urns=None, cols=("Col A",)):
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src.dm_element_urn_by_name = {"dm1": {"DIM_A": list(urns or [self._URN])}}
+        src.dm_element_urn_to_cols = {
+            u: {c.lower(): c for c in cols} for u in (urns or [self._URN])
+        }
+        return src
+
+    def _resolve(self, src, **kw):
+        return src._resolve_chart_formula_upstream(
+            _make_ref("DIM_A", "Col A"),
+            chart_element_id="e1",
+            chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={},
+            **kw,
+        )
+
+    def test_a_uniquely_named_element_that_owns_the_column_resolves(self) -> None:
+        src = self._source()
+        assert self._resolve(src) == (self._URN, "Col A")
+        assert src.reporter.chart_ref_global_name_resolved == 1
+
+    def test_a_repeated_name_is_refused_rather_than_picked(self) -> None:
+        """InputFields carry no confidenceScore, so a wrong edge cannot be
+        marked as uncertain -- guessing would be unattributable."""
+        src = self._source(urns=[self._URN, self._OTHER])
+        assert self._resolve(src) is None
+        assert src.reporter.chart_ref_global_name_ambiguous == 1
+        assert src.reporter.chart_ref_global_name_resolved == 0
+
+    def test_a_name_match_without_the_column_is_a_coincidence(self) -> None:
+        """The column check is what makes widening the scope safe."""
+        src = self._source(cols=("Unrelated",))
+        assert self._resolve(src) is None
+        assert src.reporter.chart_ref_global_name_column_absent == 1
+
+    def test_speculative_join_chain_splits_never_reach_this_step(self) -> None:
+        """The most permissive step must not judge a candidate split.
+
+        A join-chain ref tries up to 2N-3 splits through this resolver; letting
+        this step validate one would let a wrong split be accepted ahead of the
+        right one, which is exactly what the split search exists to prevent.
+        """
+        src = self._source()
+        assert self._resolve(src, count=False) is None
+        assert src.reporter.chart_ref_global_name_resolved == 0
