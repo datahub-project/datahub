@@ -47,8 +47,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.annotation.Nonnull;
@@ -68,7 +69,18 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
   @Nonnull private final EntityRegistry entityRegistry;
   private final ExecutorService deleteExecutor =
-      Executors.newCachedThreadPool(r -> new Thread(r, "pg-timeseries-delete"));
+      new ThreadPoolExecutor(
+          1,
+          Math.max(2, Runtime.getRuntime().availableProcessors()),
+          60L,
+          TimeUnit.SECONDS,
+          new LinkedBlockingQueue<>(64),
+          r -> {
+            Thread t = new Thread(r, "pg-timeseries-delete");
+            t.setDaemon(true);
+            return t;
+          },
+          new ThreadPoolExecutor.CallerRunsPolicy());
 
   /** In-flight async deletes keyed by returned task id (removed when the task finishes). */
   private final java.util.concurrent.ConcurrentHashMap<String, Future<?>> deleteTasks =
@@ -83,6 +95,19 @@ public class PostgresTimeseriesAspectService implements TimeseriesAspectService 
     this.timeseriesAspectServiceConfig = timeseriesAspectServiceConfig;
     this.queryFilterRewriteChain = queryFilterRewriteChain;
     this.entityRegistry = entityRegistry;
+  }
+
+  /** Spring {@code destroyMethod}; stops in-flight truncate workers on GMS/MAE shutdown. */
+  public void shutdown() {
+    deleteExecutor.shutdown();
+    try {
+      if (!deleteExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
+        deleteExecutor.shutdownNow();
+      }
+    } catch (InterruptedException e) {
+      deleteExecutor.shutdownNow();
+      Thread.currentThread().interrupt();
+    }
   }
 
   @Nonnull
