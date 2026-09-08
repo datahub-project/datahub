@@ -53,6 +53,24 @@ class QueryBudget:
     # only one of the two that bounds spend rather than duration.
     max_bytes_billed: Optional[int] = None
 
+    def __post_init__(self) -> None:
+        # There were two ways to say "unbounded" and only one of them was
+        # honest. Every applier treats <= 0 as no ceiling (sql_probe's
+        # _timeout_connect_args, install_statement_timeout,
+        # applies_statement_timeout all bail on it), but describe() checked
+        # only `is not None` -- so QueryBudget(timeout_seconds=0) reported
+        # "0s", which reads as a ceiling and is not one. That is precisely the
+        # failure the docstring above warns against, reachable through the
+        # constructor. None is the one representation of unbounded.
+        for name in ("timeout_seconds", "max_bytes_billed"):
+            value = getattr(self, name)
+            if value is not None and value <= 0:
+                raise ValueError(
+                    f"QueryBudget.{name} must be positive or None; got {value!r}. "
+                    f"None means no ceiling -- a non-positive number would be "
+                    f"reported as a ceiling that nothing enforces"
+                )
+
     def describe(self) -> str:
         """What to tell a caller about the ceiling that actually applies."""
         parts = []

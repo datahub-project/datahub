@@ -369,7 +369,7 @@ class ModeConfig(
         """Mode's own ?filter=all/custom query param for the /spaces
         endpoint, controlled by exclude_personal_collections. Shared by
         _get_space_name_and_tokens (ingestion, below) and mode_probe.py's
-        hierarchy lister, so this decision lives in exactly one place."""
+        probe, so this decision lives in exactly one place."""
         return "custom" if self.exclude_personal_collections else "all"
 
     @classmethod
@@ -406,7 +406,7 @@ def is_restricted_space(space: dict) -> bool:
     restricted. Not underscore-prefixed: this is the one place that decides
     what "restricted" means for a Mode space, shared by
     _get_space_name_and_tokens (ingestion, below) and mode_probe.py's
-    hierarchy lister, rather than each maintaining its own copy of this
+    probe, rather than each maintaining its own copy of this
     check."""
     return (
         bool(space.get("restricted"))
@@ -416,7 +416,7 @@ def is_restricted_space(space: dict) -> bool:
 
 def is_archived_report(report: dict) -> bool:
     """Shared by _get_reports (ingestion, below) and mode_probe.py's
-    hierarchy lister, for the same reason as is_restricted_space above."""
+    probe, for the same reason as is_restricted_space above."""
     return bool(report.get("archived", False))
 
 
@@ -662,9 +662,7 @@ class ModeSource(StatefulIngestionSourceBase):
         connector plumbing: same session/rate-limit/retry path, same debug
         curl logging, same always-degrade-on-error policy, as a real
         ingestion run, rather than a second probe-side reimplementation with
-        its own error-handling policy. Also used by mode_probe.py's
-        hierarchy probe (_build_mode_client, as a plain ModeSource), which
-        needs the same fetch plumbing but none of the probe_method commands.
+        its own error-handling policy.
 
         Built via __new__ (bypassing __init__ entirely) rather than calling
         __init__ with a dummy PipelineContext: __init__ opens its own

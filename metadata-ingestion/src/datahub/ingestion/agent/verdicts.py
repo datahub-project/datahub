@@ -63,7 +63,7 @@ class ClassifyContext:
     # Report that this node's classification degraded rather than raised (e.g.
     # a connector couldn't resolve its exact ingestion identifier and matched
     # on a less-precise stand-in instead). Feeds the same ProbeMethodResult.warnings
-    # list ProbeSoftError does, deduplicated by list_children so a single
+    # list ProbeSoftError does, deduplicated by check_filters so a single
     # connector-wide reason isn't appended once per node it's classified for.
     warn: Callable[[str], None]
 
@@ -86,41 +86,36 @@ def pattern_verdict(config: Any, pattern_field: Optional[str], target: str) -> V
 
 
 class ProbeSoftError(ValueError):
-    """A connector's list_names raises this to report that one endpoint
-    couldn't be read cleanly -- a 404 on a resource deleted between listing
-    and fetch, or a 403 on something this token can't read -- and that
-    ClientProbe.list_children should treat the contribution as empty rather
-    than either:
+    """A connector raises this when one endpoint could not be read cleanly -- a
+    404 on a resource deleted between listing and fetch, or a 403 on something
+    this token cannot read -- and the connector wants to report that as an
+    empty contribution rather than failing the whole command.
 
-    - letting the exception propagate and kill the whole list_children call,
-      discarding sibling levels (e.g. Reports vs Datasets under a Mode Space)
-      that already succeeded, or
-    - silently swallowing it and returning [], which is indistinguishable
-      from the level genuinely having no children.
+    **The connector that raises it must also catch it and record the reason.**
+    run_probe_method catches only NotImplementedError; there is no
+    framework-level catch for this. mode_probe's _listing is the worked example.
+    Uncaught, it reaches the CLI and exits 2.
 
-    list_children catches this per LEVEL (not per endpoint): for a plain
-    list_names/list_items level, that is the same thing, since one lister
-    call produces the level's entire contribution. But a level assembled
-    from several LevelSources (ProbeLevel.sources, e.g. tables + views) is
-    fed by more than one lister, and the catch is still level-wide -- if the
-    second source raises, whatever the first source already produced for
-    this level is discarded too, not just the second source's share. No
-    connector's sources= level raises ProbeSoftError today, so this hasn't
-    manifested, but it is a real limitation of the current per-level
-    granularity, not per-lister-within-a-level.
+    An earlier version of this docstring described a mechanism that no longer
+    exists -- ClientProbe.list_children catching per level, ProbeLevel.sources,
+    LevelSource -- all from the declared hierarchy deleted within this branch.
+    It also claimed run_probe_method records str(exc) on
+    ProbeMethodResult.warnings and continues, which it does not. Recording the
+    reason is the connector's job, and the two connectors that raise this
+    disagreed about it: Mode caught it, Hex did not.
 
-    run_probe_method records str(exc) on ProbeMethodResult.warnings and continues
-    with the remaining sibling levels. Source-agnostic: any connector's
-    lister may raise it, not just Mode's.
+    Prefer a plain ValueError for "the caller named something that is not
+    there" -- a nonexistent space or report is a bad argument, not a degraded
+    read, and routing it through the soft path reports exit 0 with an empty
+    result for what is really exit 2.
 
     Subclasses ValueError deliberately. When one does reach the CLI uncaught,
     what it reports is that the caller named something that isn't there ("no
     report named 'x'"), which is a bad argument, not an unreachable source --
     so it must exit 2, not 3, or the agent retries the connection instead of
-    fixing the name. Declaring the category on the exception routes it through
-    every existing handler at once; the CLI has four such ladders, and adding
-    a clause to three of four is how this landed on the wrong code to begin
-    with.
+    fixing the name. recipe_cli now classifies exceptions in one place
+    (_USER_ERRORS), so that mapping no longer depends on remembering to add a
+    clause to each of seven ladders.
     """
 
 

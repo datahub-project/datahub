@@ -218,3 +218,41 @@ def test_the_unfiltered_sentinel_is_an_include_not_a_field_name():
     v = pattern_verdict(object(), UNFILTERED, "anything")
     assert v.included is True
     assert v.excluded_by is None
+
+
+def test_soft_on_status_degrades_only_the_statuses_it_was_given():
+    """The empty-vs-unread primitive, which had no test at all.
+
+    The load-bearing branch is the one that does NOT degrade: if an unlisted
+    status became a ProbeSoftError, a 500 or a dropped connection would be
+    reported as "this space has no datasets" plus a warning, at exit 2 -- the
+    exact confusion this interface exists to prevent, arriving as the caller's
+    fault.
+    """
+    import pytest
+
+    from datahub.ingestion.agent.verdicts import ProbeSoftError, soft_on_status
+
+    class _Resp:
+        def __init__(self, code):
+            self.status_code = code
+
+    class _HttpError(Exception):
+        def __init__(self, code):
+            self.response = _Resp(code)
+
+    # A listed status is expected absence.
+    with pytest.raises(ProbeSoftError, match="404"):
+        with soft_on_status(403, 404, context="listing datasets"):
+            raise _HttpError(404)
+
+    # An unlisted status is a real failure and must propagate unchanged.
+    with pytest.raises(_HttpError):
+        with soft_on_status(403, 404, context="listing datasets"):
+            raise _HttpError(500)
+
+    # No .response at all -- a connection error or exhausted retries. The
+    # duck-typed getattr chain must fall through to a re-raise, not swallow.
+    with pytest.raises(ConnectionError):
+        with soft_on_status(403, 404, context="listing datasets"):
+            raise ConnectionError("connection reset")

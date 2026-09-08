@@ -19,8 +19,7 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
     __exit__ on every source, so putting this override on ModeSource itself
     would change ingestion (it broke 4 integration tests when tried). The
     probe's ad hoc session (for_probe) should close when this short-lived `with`
-    block exits, mirroring _close_mode_client for the hierarchy probe's
-    client."""
+    block exits."""
 
     # Read back by run_probe_method after each command. Declared here (rather
     # than only assigned in for_probe) because for_probe builds via __new__,
@@ -178,8 +177,8 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
 def _get_embedded(
     source: ModeSource, url: str, key: str, context: str
 ) -> List[Dict[str, Any]]:
-    """The hierarchy probe's Query-level fetch: goes through ModeSource's own
-    bound _get_request_json (see for_probe/_build_mode_client) rather than a
+    """Queries under one report: goes through ModeSource's own
+    bound _get_request_json (see for_probe) rather than a
     bare session.get(), so it shares session/rate-limit/retry/debug-logging
     with a real ingestion run.
 

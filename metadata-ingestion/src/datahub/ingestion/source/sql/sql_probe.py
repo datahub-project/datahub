@@ -344,7 +344,7 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     except AttributeError as exc:
         # Message is connector-wide (source_cls + the missing attribute), not
         # per-node: ctx.warn dedupes on the message (see
-        # ClientProbe.list_children's warn closure), so including ctx.fqn here
+        # check_filters' warn closure), so including ctx.fqn here
         # would defeat that dedupe and flood ProbeMethodResult.warnings with one
         # near-identical entry per table.
         ctx.warn(

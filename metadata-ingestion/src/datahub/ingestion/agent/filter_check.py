@@ -94,6 +94,16 @@ def _match_target(config: Any, kind: str, ctx: ClassifyContext) -> str:
         return ctx.name
     target = resolver(ctx)
     if not isinstance(target, str) or not target:
+        # The only degrade here that used to be silent, while the branches on
+        # either side both warn -- and for the same reason they do: judging a
+        # Postgres table on its bare name when ingestion matches
+        # db.schema.table gives the wrong verdict, and a wrong verdict with
+        # nothing marking it is indistinguishable from a right one.
+        ctx.warn(
+            f"the connector's identifier resolver returned nothing usable for "
+            f"'{ctx.name}', so it was judged on its bare name; the verdict may "
+            f"not be the one ingestion makes"
+        )
         return ctx.name
     if target.startswith(".") or ".." in target:
         # A missing component the connector expected. Match on the bare name and

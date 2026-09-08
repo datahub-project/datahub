@@ -233,3 +233,21 @@ def test_the_engine_keeps_the_connector_s_own_options():
     assert options["pool_size"] == 3
     assert options["connect_args"]["sslmode"] == "require"
     assert "statement_timeout" in str(options["connect_args"])
+
+
+def test_a_non_positive_ceiling_is_refused_at_construction():
+    """There were two ways to spell "unbounded" and only one was honest.
+
+    Every applier treats <= 0 as no ceiling, but describe() checked only
+    `is not None` -- so QueryBudget(timeout_seconds=0) reported "0s", which
+    reads as a ceiling and is not one. That is the exact failure this class's
+    own docstring warns against, reachable straight through the constructor.
+    """
+    for kwargs in ({"timeout_seconds": 0}, {"timeout_seconds": -1}):
+        with pytest.raises(ValueError, match="positive or None"):
+            QueryBudget(**kwargs)
+    with pytest.raises(ValueError, match="positive or None"):
+        QueryBudget(max_bytes_billed=0)
+
+    # None stays the one representation of unbounded, and describe() says so.
+    assert QueryBudget(timeout_seconds=None).describe() == "no server-side ceiling"
