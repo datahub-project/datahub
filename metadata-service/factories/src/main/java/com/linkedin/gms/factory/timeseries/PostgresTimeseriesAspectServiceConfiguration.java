@@ -18,7 +18,7 @@ import org.springframework.context.annotation.Configuration;
 @Slf4j
 public class PostgresTimeseriesAspectServiceConfiguration {
 
-  @Bean
+  @Bean(destroyMethod = "shutdown")
   @Nonnull
   @Conditional(TimeseriesPostgresBackendCondition.class)
   public PostgresTimeseriesAspectService postgresTimeseriesAspectService(
