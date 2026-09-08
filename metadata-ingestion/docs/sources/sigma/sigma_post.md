@@ -273,7 +273,7 @@ would assert an equality its data path never applies.
 > Data Model element the chart or dataset did not already depend on, that element is also
 > added to `upstreamLineage.upstreams`. `Upstream` has no `confidenceScore`, so a consumer
 > filtering the 0.6/0.7 column edges still keeps the table-level edge those column edges
-> introduced. Set `extract_join_key_lineage: false` to suppress both.
+> introduced. Set `extract_data_model_spec_lineage: false` to suppress both.
 
 A join's two inputs may both live in **other** Data Models — a shared mapping element joined
 into a model that owns neither side. Sigma sends a `dataModelId` on each such side, which is
@@ -349,8 +349,10 @@ excluding them left those references permanently unresolvable.
 > roughly 1,200 charts. It also costs two extra API calls per newly-admitted element. Set
 > `ingest_pivot_and_input_tables: false` to keep the previous entity set.
 
-Similarly, `extract_join_key_lineage` (default `true`) controls the one extra
-`/dataModels/{id}/spec` call per Data Model that join-key lineage requires.
+Similarly, `extract_data_model_spec_lineage` (default `true`) controls the one extra
+`/dataModels/{id}/spec` call per Data Model. It governs **both** lineages that document
+provides — join keys (0.7/0.6) and union branches (1.0) — so turning it off drops both, not
+just the join-key edges its name might suggest.
 
 A Data Model can reference a warehouse table that `/v2/files/{urlId}` cannot resolve for
 the ingestion credential. Those columns receive no warehouse column lineage and are counted

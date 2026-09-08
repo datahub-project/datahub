@@ -227,7 +227,6 @@ def test_missing_or_malformed_spec_is_inert() -> None:
     for spec in (None, {}, {"pages": None}, {"pages": [{"elements": ["junk"]}]}):
         index = parse_data_model_spec(spec, data_model_id="dm-1")
         assert index.pairs == []
-        assert index.element_id_by_column_id == {}
 
 
 def test_renamed_side_descriptors_are_unreadable_not_warehouse_side() -> None:

@@ -598,9 +598,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # One /spec parse per Data Model, keyed by dataModelId.
         self._dm_spec_index_cache: Dict[str, DataModelSpecIndex] = {}
         # Join partners, built once per Data Model rather than per element.
-        self._join_partner_cache: Dict[
-            str, Dict[Tuple[str, str], Set[Tuple[str, str, str, bool]]]
-        ] = {}
+        # Three caches with three lifetimes, deliberately:
+        #   _join_partner_cache holds ONE model. It is the largest of the three
+        #     (every predicate of every join) and elements are walked one model
+        #     at a time, so a second entry would never be read.
+        #   _dm_ancestors_cache and _dm_spec_index_cache are per-run: an
+        #     element's join-path closure is consulted again whenever another
+        #     model's join names a foreign element, so evicting them would mean
+        #     re-fetching /spec.
+        self._join_partner_cache: Optional[
+            Tuple[str, Dict[Tuple[str, str], Set[Tuple[str, str, str, bool]]]]
+        ] = None
+        # Same one-model policy: rebuilt per union element otherwise.
+        self._dm_column_lookup_cache: Optional[
+            Tuple[str, Dict[str, Dict[str, str]]]
+        ] = None
         # Intra-DM element ancestry, keyed by dataModelId.
         self._dm_ancestors_cache: Dict[str, Dict[str, Set[str]]] = {}
         # Built once per run, lazily, by _ensure_global_warehouse_index.
@@ -1015,11 +1027,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._global_warehouse_files_by_name = by_name
 
         self.reporter.warehouse_files_listed = len(entries)
-        # 10,000 exactly is the number to watch: /v2/files reported
-        # 'total: 10000' on a live tenant (2026-09), suspiciously round, so the
-        # listing may be server-capped. A capped listing is silently
-        # incomplete and would need name-filtered fetching instead.
-        truncated = len(entries) in (10000, 100000)
+        # Truncation is decided by the pagination layer, which compares the
+        # rows it returned against the endpoint's own ``total``. Guessing from
+        # a round row count here missed a 5,000 cap and fired falsely on a
+        # tenant with exactly 10,000 tables.
+        truncated = any(
+            "warehouse table files" in endpoint
+            for endpoint in self.reporter.pagination_short_of_reported_total
+        )
         colliding = sum(1 for rows in by_name.values() if len(rows) > 1)
         logger.debug(
             "GLOBAL WAREHOUSE INDEX built from /v2/files: %d table entries, "
@@ -3636,7 +3651,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         perfectly well may still be missing its other side.
         """
         dm_id = data_model.dataModelId
-        if not self.config.extract_join_key_lineage:
+        if not self.config.extract_data_model_spec_lineage:
             return DataModelSpecIndex()
         cached = self._dm_spec_index_cache.get(dm_id)
         if cached is None:
@@ -3651,6 +3666,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.data_model_join_elements_unreadable += len(
                 cached.unreadable_join_element_ids
             )
+            for kind, n in cached.source_kind_counts.items():
+                self.reporter.data_model_spec_source_kinds[kind] = (
+                    self.reporter.data_model_spec_source_kinds.get(kind, 0) + n
+                )
             self.reporter.data_model_union_output_columns_read += len(cached.unions)
             self.reporter.data_model_union_branch_index_out_of_range += (
                 cached.union_branch_index_out_of_range
@@ -3890,6 +3909,26 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             keys[col.name.strip().lower()] = col.name
         return keys
 
+    def _dm_column_lookups(
+        self, data_model: SigmaDataModel
+    ) -> Dict[str, Dict[str, str]]:
+        """Per-element column lookups for one Data Model, built once.
+
+        Cached for the same reason the join partner map is: this is called once
+        per UNION element, and rebuilding it re-walked every element's columns
+        each time. Holds one model, since elements are walked a model at a time.
+        """
+        dm_id = data_model.dataModelId
+        cached = self._dm_column_lookup_cache
+        if cached is not None and cached[0] == dm_id:
+            return cached[1]
+        lookups = {
+            dm_el.elementId: self._dm_element_column_lookup(dm_el)
+            for dm_el in data_model.elements
+        }
+        self._dm_column_lookup_cache = (dm_id, lookups)
+        return lookups
+
     def _add_union_fgls(
         self,
         *,
@@ -3919,9 +3958,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if not outputs:
             return
         own_columns = self._dm_element_column_lookup(element)
-        branch_columns: Dict[str, Dict[str, str]] = {}
-        for dm_el in data_model.elements:
-            branch_columns[dm_el.elementId] = self._dm_element_column_lookup(dm_el)
+        branch_columns = self._dm_column_lookups(data_model)
 
         added = 0
         for output in outputs:
@@ -4049,15 +4086,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Keyed by dataModelId alone. The element->URN map was part of the key
         # via id(), which added nothing (the URNs are a pure function of the
         # model) and risked a reused address matching a different map.
+        # Deliberately holds ONE model, as a (dataModelId, partners) pair
+        # rather than a dict that is reassigned: elements are walked one model
+        # at a time, so a second entry would only be dead weight, and the old
+        # `self._join_partner_cache = {dm_id: partners}` read as a dict that
+        # was accidentally being replaced instead of inserted into.
         dm_id = data_model.dataModelId
-        partners = self._join_partner_cache.get(dm_id)
-        if partners is None:
+        cached = self._join_partner_cache
+        if cached is not None and cached[0] == dm_id:
+            partners = cached[1]
+        else:
             partners = self._build_join_partner_map(
                 spec=spec,
                 data_model=data_model,
                 elementId_to_dataset_urn=elementId_to_dataset_urn,
             )
-            self._join_partner_cache = {dm_id: partners}
+            self._join_partner_cache = (dm_id, partners)
         if not partners:
             return
         element_id_by_urn = {urn: eid for eid, urn in elementId_to_dataset_urn.items()}
@@ -5372,6 +5416,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 chart_cols,
             )
         trace: List[str] = []
+        winner: Optional[Tuple[str, str, str]] = None
         for source, column in candidates:
             probe = replace(
                 ref, source=source, column=column, segments=(source, column)
@@ -5411,18 +5456,40 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     f"from its {len(known)} columns"
                 )
                 continue
+            if winner is None:
+                winner = (upstream_urn, canonical, source)
+                # Keep scanning. Candidates are ordered most-specific-first and
+                # first-wins is deliberate -- an element genuinely named "A/B"
+                # should beat an unrelated "B" that happens to have column C --
+                # but everywhere else this connector refuses on ambiguity, so a
+                # second validating split must at least be visible.
+                continue
+            self.reporter.chart_join_chain_split_ambiguous += 1
+            logger.debug(
+                "chart element %s: join-chain ref %r had a SECOND split that "
+                "validates (source=%r) after accepting source=%r. First-wins "
+                "keeps the more specific split; a large count here means the "
+                "ordering is carrying more weight than it should.",
+                chart_element_id,
+                ref.raw,
+                source,
+                winner[2],
+            )
+            break
+
+        if winner is not None:
             self.reporter.chart_join_chain_resolved += 1
             logger.debug(
                 "chart element %s: join-chain ref %r resolved to source=%r "
                 "column=%r (upstream=%s); rejected candidates=%r",
                 chart_element_id,
                 ref.raw,
-                source,
-                canonical,
-                upstream_urn,
+                winner[2],
+                winner[1],
+                winner[0],
                 trace,
             )
-            return (upstream_urn, canonical)
+            return (winner[0], winner[1])
 
         # No split named an upstream the chart declares. The commonest reason,
         # by far, is that the middle segment is a table joined in *inside* the

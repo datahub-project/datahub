@@ -30,7 +30,8 @@ def _source() -> SigmaSource:
         {"client_id": "t", "client_secret": "t"}
     )
     source._dm_spec_index_cache = {}
-    source._join_partner_cache = {}
+    source._join_partner_cache = None
+    source._dm_column_lookup_cache = None
     source._dm_ancestors_cache = {}
     source.dm_keys_by_element_id = {}
     source.dm_element_urn_by_key_and_eid = {}
@@ -2123,3 +2124,64 @@ def test_blank_source_id_is_not_reported_as_an_unrecognised_shape() -> None:
 
     assert source.reporter.data_model_element_upstreams_empty_source_id == 1
     assert source.reporter.data_model_element_upstreams_unknown_shape == 0
+
+
+class TestDataModelSpecOptOut:
+    """``extract_data_model_spec_lineage=False`` must drop BOTH /spec lineages.
+
+    The flag was called ``extract_join_key_lineage`` and documented only in
+    terms of join predicates, while union branch edges go through the same
+    ``_get_dm_spec_index``. Turning it off therefore silently dropped 1.0-score
+    union edges that have nothing to do with the "equality, not a value copy"
+    reasoning the flag was named for. This test is what makes the rename
+    load-bearing rather than cosmetic.
+    """
+
+    def _source(self, *, enabled: bool) -> SigmaSource:
+        source = _source()
+        source.config = SigmaSourceConfig.model_validate(
+            {
+                "client_id": "t",
+                "client_secret": "t",
+                "extract_data_model_spec_lineage": enabled,
+            }
+        )
+        return source
+
+    def test_disabling_it_drops_join_key_edges(self) -> None:
+        source = self._source(enabled=False)
+        _join_spec_source(source)
+        element = _element(
+            "b", "B", [_column("b-key", "col_k", "[A/col_k]")], source_ids=["j"]
+        )
+        source._build_dm_element_fine_grained_lineages(
+            element=element,
+            element_dataset_urn=_urn("b"),
+            element_name_to_eids={"a": ["a"]},
+            elementId_to_dataset_urn={"a": _urn("a"), "c": _urn("c")},
+            entity_level_upstream_urns={_urn("a")},
+            data_model=_data_model(
+                [
+                    element,
+                    _element("a", "A", [_column(_LEFT_COL_ID, "col_k", None)]),
+                    _element("c", "C", [_column(_RIGHT_COL_ID, "col_k", None)]),
+                    _element("j", "J", [], source_ids=["a", "c"]),
+                ]
+            ),
+            warehouse_url_id_map={},
+            discovered_upstreams=set(),
+        )
+        assert source.reporter.data_model_element_fgl_join_key_resolved == 0
+
+    def test_disabling_it_also_drops_union_branch_edges(self) -> None:
+        """The half the old flag name did not describe."""
+        source = self._source(enabled=False)
+        lineages = _build_union(source, ["a-k", "c-k"])
+
+        upstreams = {(fgl.upstreams or [""])[0] for fgl in lineages}
+        assert builder.make_schema_field_urn(_urn("c"), "k") not in upstreams
+        assert source.reporter.data_model_element_fgl_union_resolved == 0
+
+    def test_enabled_is_the_default(self) -> None:
+        source = _source()
+        assert source.config.extract_data_model_spec_lineage is True

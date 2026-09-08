@@ -27,7 +27,11 @@ from datahub.ingestion.source.sigma.data_classes import (
     Workspace,
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource, _WorkbookWarehouseIndex
-from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
+from datahub.ingestion.source.sigma.sigma_api import (
+    BASE_ELEMENT_TYPES,
+    INGESTED_ELEMENT_TYPES,
+    SigmaAPI,
+)
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     OwnershipClass,
@@ -35,10 +39,11 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def _create_sigma_api() -> SigmaAPI:
+def _create_sigma_api(**config_overrides: object) -> SigmaAPI:
     config = SigmaSourceConfig(
         client_id="test_client_id",
         client_secret="test_secret",
+        **config_overrides,  # type: ignore[arg-type]
     )
     report = SigmaSourceReport()
 
@@ -3178,3 +3183,40 @@ class TestApiFailuresReachTheReport:
 
         assert api.report.api_call_failures_by_status == {"500": 1}
         assert api.report.warnings == []
+
+
+class TestPivotAndInputTableOptOut:
+    """``ingest_pivot_and_input_tables=False`` restores the previous entity set.
+
+    Default-on adds ~1,200 chart entities on the reference tenant, so the
+    escape hatch an existing installation would reach for needs coverage of its
+    own — the default-on path being tested says nothing about it.
+    """
+
+    def test_disabled_admits_only_the_original_two_types(self) -> None:
+        api = _create_sigma_api(ingest_pivot_and_input_tables=False)
+        assert api.ingested_element_types == BASE_ELEMENT_TYPES
+        assert "pivot-table" not in api.ingested_element_types
+        assert "input-table" not in api.ingested_element_types
+
+    def test_enabled_by_default_admits_all_four(self) -> None:
+        api = _create_sigma_api()
+        assert api.ingested_element_types == INGESTED_ELEMENT_TYPES
+
+    def test_a_pivot_table_is_skipped_when_disabled(self) -> None:
+        """A pivot element is admitted or skipped purely by the flag."""
+        api = _create_sigma_api(ingest_pivot_and_input_tables=False)
+        workbook, page = _make_workbook(), MagicMock(pageId="p1", name="Page 1")
+        entry = {
+            "elementId": "pivot1",
+            "name": "A Pivot",
+            "type": "pivot-table",
+            "url": "https://example.com/p",
+        }
+        with patch.object(
+            api, "_get_api_call", return_value=_lineage_response({"entries": [entry]})
+        ):
+            elements = api.get_page_elements(workbook, page)
+
+        assert elements == []
+        assert api.report.workbook_elements_skipped_by_type == {"pivot-table": 1}

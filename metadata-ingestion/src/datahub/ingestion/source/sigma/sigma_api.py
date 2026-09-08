@@ -47,7 +47,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     Workspace,
 )
 from datahub.ingestion.source.sigma.spec_parser import (
-    _key_skeleton as spec_key_skeleton,
+    key_skeleton,
 )
 
 # Logger instance
@@ -627,15 +627,37 @@ class SigmaAPI:
         elif source_type == "customSQL":
             pass  # handled by _build_workbook_customsql_registry via the workbook-level lineage endpoint
         else:
-            # Warn once per unknown source_type to avoid log spam.
-            warn_key = source_type if isinstance(source_type, str) else "<non-str>"
-            # The warning fires once per type, so without this the report says
-            # a type exists but never how much lineage it costs. A 'union' node
-            # combines inputs the same way 'join' does, and every element behind
-            # one loses its upstreams silently.
-            self.report.workbook_lineage_node_types_unhandled[warn_key] = (
-                self.report.workbook_lineage_node_types_unhandled.get(warn_key, 0) + 1
+            self._record_unknown_lineage_node(
+                source_type=source_type,
+                source_node=source_node,
+                element=element,
+                workbook=workbook,
             )
+
+    def _record_unknown_lineage_node(
+        self,
+        *,
+        source_type: Any,
+        source_node: Dict,
+        element: Element,
+        workbook: Workbook,
+    ) -> None:
+        """A lineage node type this walk does not handle.
+
+        Split out of ``_process_lineage_node`` so the dispatch there stays a
+        flat list of node types.
+        """
+        warn_key = source_type if isinstance(source_type, str) else "<non-str>"
+        # The warning fires once per type, so without this the report says a
+        # type exists but never how much lineage it costs. A 'union' node
+        # combines inputs the same way 'join' does, and every element behind one
+        # loses its upstreams silently.
+        self.report.workbook_lineage_node_types_unhandled[warn_key] = (
+            self.report.workbook_lineage_node_types_unhandled.get(warn_key, 0) + 1
+        )
+        # Guarded: this fires per NODE, not per type, and ``key_skeleton``
+        # walks the whole descriptor.
+        if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
                 "UNKNOWN LINEAGE NODE type=%r element=%s workbook=%s: this "
                 "node's upstreams are not walked, so anything behind it has no "
@@ -650,19 +672,19 @@ class SigmaAPI:
                 # Recursive: a one-level view renders a nested descriptor as
                 # just "list"/"dict" and hides the field that says what the
                 # node points at.
-                spec_key_skeleton(source_node),
+                key_skeleton(source_node),
             )
-            if warn_key not in self._unknown_lineage_node_types_warned:
-                self._unknown_lineage_node_types_warned.add(warn_key)
-                self.report.warning(
-                    title="Unknown Sigma lineage node type",
-                    message="Unknown Sigma lineage node type",
-                    context=(
-                        f"type={source_type!r}, element={element.name}, "
-                        f"workbook={workbook.name} (further occurrences of "
-                        f"this type will be suppressed)"
-                    ),
-                )
+        if warn_key not in self._unknown_lineage_node_types_warned:
+            self._unknown_lineage_node_types_warned.add(warn_key)
+            self.report.warning(
+                title="Unknown Sigma lineage node type",
+                message="Unknown Sigma lineage node type",
+                context=(
+                    f"type={source_type!r}, element={element.name}, "
+                    f"workbook={workbook.name} (further occurrences of "
+                    f"this type will be suppressed)"
+                ),
+            )
 
     def _get_element_upstream_sources(
         self, element: Element, workbook: Workbook
@@ -865,8 +887,13 @@ class SigmaAPI:
                 fetch="query",
                 exc=e,
             )
+            # report_warning=False: _record_element_fetch_failure above already
+            # warned and counted this failure. _get_element_upstream_sources
+            # does the same; the asymmetry here produced two report warnings
+            # and two counters for one failed call.
             self._log_http_error(
-                message=f"Unable to fetch sql query for element {element.name} of workbook '{workbook.name}'. Exception: {e}"
+                message=f"Unable to fetch sql query for element {element.name} of workbook '{workbook.name}'. Exception: {e}",
+                report_warning=False,
             )
         return None
 
@@ -1093,6 +1120,11 @@ class SigmaAPI:
         # detected (e.g. page=1 → nextPageToken=1 → page=1 repeating).
         seen_cursors: Set[Tuple[str, str]] = set()
         first_page = True
+        # Sigma reports the full row count on each page. Comparing against it
+        # is the only reliable truncation test: a caller guessing from round
+        # numbers misses a 5,000 cap and false-positives on a tenant that
+        # genuinely has exactly 10,000 rows.
+        reported_total: Optional[int] = None
         try:
             while True:
                 response = self._get_api_call(url)
@@ -1116,6 +1148,9 @@ class SigmaAPI:
                     len(raw_entries),
                     response_dict.get("total"),
                 )
+                raw_total = response_dict.get("total")
+                if isinstance(raw_total, int):
+                    reported_total = raw_total
                 next_page = response_dict.get(Constant.NEXTPAGE)
                 next_token = response_dict.get(Constant.NEXTPAGETOKEN)
                 if next_page:
@@ -1136,6 +1171,21 @@ class SigmaAPI:
                     break
                 seen_cursors.add(cursor_key)
                 url = f"{base_url}{separator}{cursor}"
+            if reported_total is not None and len(raw_entries) < reported_total:
+                self.report.pagination_short_of_reported_total[error_ctx] = (
+                    reported_total - len(raw_entries)
+                )
+                self.report.warning(
+                    title="Sigma paginated endpoint returned fewer rows than it reported",
+                    message="The endpoint's own ``total`` exceeds the rows "
+                    "pagination actually returned, so this listing is "
+                    "incomplete and anything resolved from it may be missing "
+                    "entries. See pagination_short_of_reported_total.",
+                    context=(
+                        f"endpoint={error_ctx}, returned={len(raw_entries)}, "
+                        f"reported_total={reported_total}"
+                    ),
+                )
             return raw_entries
         except Exception as e:
             # Surface HTTP/JSON pagination failures so the operator sees
@@ -1645,25 +1695,26 @@ class SigmaAPI:
     def get_data_model_spec(self, data_model_id: str) -> Optional[Dict[str, Any]]:
         """Fetch ``/v2/dataModels/{id}/spec``, the Data Model's authoring document.
 
-        This is the only endpoint that describes a JOIN's predicate. Neither
-        ``/elements`` nor ``/columns`` nor ``/lineage`` carries it, so a join's
-        output column can only ever be linked to the side its formula names --
-        the other side's key column is invisible without this call.
+        This is the only endpoint that describes a JOIN's predicate or a
+        UNION's branch pairing. Neither ``/elements`` nor ``/columns`` nor
+        ``/lineage`` carries either, so a join's output column can only be
+        linked to the side its formula names and a union's only to one branch --
+        every other upstream is invisible without this call.
 
-        Verified response shape on a live tenant::
+        Response shape, confirmed on a live tenant (2026-09)::
 
             {"kind": "data-model", "pages": [{"elements": [
                 {"id": ..., "kind": "table", "order": [columnId, ...],
                  "columns": [{"id": ..., "formula": ...}],
-                 "source": {"kind": "warehouse-table"|"table",
-                            "connectionId": ..., "path": [...]}}]}]}
+                 "source": {...}}]}]}
 
-        ``source.kind`` observed as ``table`` and ``warehouse-table``; the join
-        variant is documented but was not present on the probed models, so the
-        consumer parses it defensively and logs any shape it cannot read.
+        ``source.kind`` observed as ``warehouse-table``, ``table``, ``join``,
+        ``data-model``, ``union`` and ``sql``. :func:`parse_data_model_spec`
+        holds the per-kind shapes it reads and logs a structural skeleton for
+        any it does not.
 
         Returns the raw document, or None on non-200 / exception -- a Data Model
-        whose spec is unavailable simply gets no join-key lineage.
+        whose spec is unavailable simply gets no join-key or union lineage.
         """
         logger.debug("Fetching spec for data model '%s'.", data_model_id)
         url = f"{self.config.api_url}/dataModels/{quote(data_model_id, safe='')}/spec"

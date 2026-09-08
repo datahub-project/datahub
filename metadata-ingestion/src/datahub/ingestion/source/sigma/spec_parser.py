@@ -30,7 +30,6 @@ _SOURCE_COLUMNS = "sourceColumns"
 # and reading it wrongly is what cost two runs already. Small enough to stay
 # off the hot path.
 _MAX_SOURCE_KIND_SAMPLES = 5
-_MULTI_SOURCE_KIND_SAMPLES: Dict[str, int] = {}
 _JOIN_TYPE = "joinType"
 # Join types whose ON equality holds only on matched rows.
 _OUTER_JOIN_TYPES = frozenset({"left", "right", "full", "outer", "full-outer"})
@@ -99,12 +98,16 @@ class DataModelSpecIndex:
     # lists are the same length), so a misalignment must show up as a number
     # rather than as silently mismatched column pairs.
     union_branch_index_out_of_range: int = 0
-    element_id_by_column_id: Dict[str, str] = field(default_factory=dict)
     # Elements whose source.kind is 'join' but whose predicates could not be
     # read. Non-empty means the shape below is wrong for this tenant, and the
     # debug log holds the key skeleton needed to correct it.
     unreadable_join_element_ids: List[str] = field(default_factory=list)
     source_kind_counts: Dict[str, int] = field(default_factory=dict)
+    # Samples already logged per unread source kind. Per index rather than
+    # module-level: a module global survives between ingestion runs in a
+    # long-lived process, so the second run logs nothing, and it makes test
+    # outcomes depend on execution order.
+    logged_kind_samples: Dict[str, int] = field(default_factory=dict)
     # Predicate sides that name a warehouse table rather than an element. Kept
     # as a counter because they are a real, expected shape -- not a parse
     # failure -- but cannot become element-to-element column lineage.
@@ -143,8 +146,12 @@ def _iter_spec_elements(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
     return elements
 
 
-def _key_skeleton(node: Any, depth: int = 0) -> Any:
+def key_skeleton(node: Any, depth: int = 0) -> Any:
     """Key names and container shapes only -- never values.
+
+    Public because ``sigma_api`` logs the same kind of skeleton for lineage
+    nodes it cannot read, and importing a private name across modules hides
+    that this is a shared contract about what may be logged.
 
     A Data Model spec is customer content, so an unreadable descriptor is
     logged as structure alone. Leaf strings are described by length, which is
@@ -153,9 +160,9 @@ def _key_skeleton(node: Any, depth: int = 0) -> Any:
     if depth > 6:
         return "..."
     if isinstance(node, dict):
-        return {k: _key_skeleton(v, depth + 1) for k, v in sorted(node.items())}
+        return {k: key_skeleton(v, depth + 1) for k, v in sorted(node.items())}
     if isinstance(node, list):
-        return [_key_skeleton(node[0], depth + 1), f"...x{len(node)}"] if node else []
+        return [key_skeleton(node[0], depth + 1), f"...x{len(node)}"] if node else []
     if isinstance(node, str):
         return f"<str len={len(node)}>"
     return type(node).__name__
@@ -379,16 +386,6 @@ def parse_data_model_spec(
     elements = _iter_spec_elements(spec)
     for element in elements:
         element_id = str(element.get(_ID) or "")
-        if not element_id:
-            continue
-        for column in element.get(_COLUMNS) or []:
-            if isinstance(column, dict):
-                column_id = str(column.get(_ID) or "")
-                if column_id:
-                    index.element_id_by_column_id[column_id] = element_id
-
-    for element in elements:
-        element_id = str(element.get(_ID) or "")
         source = element.get(_SOURCE)
         if not isinstance(source, dict):
             continue
@@ -399,14 +396,14 @@ def parse_data_model_spec(
                 source, union_element_id=element_id, index=index
             )
             index.unions.extend(outputs)
-            if not outputs:
+            if not outputs and logger.isEnabledFor(logging.DEBUG):
                 logger.debug(
                     "DM SPEC UNION %s/%s: source.kind='union' but no output "
                     "column could be read. Key skeleton (structure only, no "
                     "values): %r",
                     data_model_id,
                     element_id,
-                    _key_skeleton(source),
+                    key_skeleton(source),
                 )
             else:
                 logger.debug(
@@ -424,9 +421,14 @@ def parse_data_model_spec(
             # already reach its upstream. Logged anyway because a kind whose
             # shape this parser has never seen is exactly what cost two runs;
             # a few samples per kind keeps that off the hot path.
-            seen = _MULTI_SOURCE_KIND_SAMPLES.get(kind, 0)
-            if kind and element_id and seen < _MAX_SOURCE_KIND_SAMPLES:
-                _MULTI_SOURCE_KIND_SAMPLES[kind] = seen + 1
+            seen = index.logged_kind_samples.get(kind, 0)
+            if (
+                kind
+                and element_id
+                and seen < _MAX_SOURCE_KIND_SAMPLES
+                and logger.isEnabledFor(logging.DEBUG)
+            ):
+                index.logged_kind_samples[kind] = seen + 1
                 logger.debug(
                     "DM SPEC SOURCE KIND %s/%s: kind=%r not read by this "
                     "parser (sample %d of %d). If lineage is missing for this "
@@ -437,7 +439,7 @@ def parse_data_model_spec(
                     kind,
                     seen + 1,
                     _MAX_SOURCE_KIND_SAMPLES,
-                    _key_skeleton(source),
+                    key_skeleton(source),
                 )
             continue
         joins = source.get(_JOINS)
@@ -460,24 +462,26 @@ def parse_data_model_spec(
         # names a warehouse table was understood perfectly well.
         if not (isinstance(joins, list) and (joins == [] or understood)):
             index.unreadable_join_element_ids.append(element_id)
-            logger.debug(
-                "DM SPEC JOIN %s/%s: source.kind=%r but no element-to-element "
-                "predicate could be read. Key skeleton (structure only, no "
-                "values): %r",
-                data_model_id,
-                element_id,
-                kind,
-                _key_skeleton(source),
-            )
+            # ``_key_skeleton`` walks the whole descriptor, so it must not run
+            # as an unguarded logger.debug argument.
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "DM SPEC JOIN %s/%s: source.kind=%r but no element-to-element "
+                    "predicate could be read. Key skeleton (structure only, no "
+                    "values): %r",
+                    data_model_id,
+                    element_id,
+                    kind,
+                    key_skeleton(source),
+                )
 
     logger.debug(
-        "DM SPEC %s: %d element(s), %d column id(s), source kinds=%r, "
+        "DM SPEC %s: %d element(s), source kinds=%r, "
         "%d join predicate(s), %d warehouse-side predicate(s) skipped, "
         "%d unreadable join element(s), %d union output column(s), "
         "%d union branch index(es) out of range",
         data_model_id,
         len(elements),
-        len(index.element_id_by_column_id),
         index.source_kind_counts,
         len(index.pairs),
         index.warehouse_side_predicates,

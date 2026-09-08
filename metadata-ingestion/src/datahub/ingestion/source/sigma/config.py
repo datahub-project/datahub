@@ -310,6 +310,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # -- check data_model_join_elements_unreadable and the DM SPEC JOIN debug
     # lines, which log the descriptor's key skeleton.
     data_model_join_key_pairs_read: int = 0
+    # ``source.kind`` values seen across every Data Model /spec, with counts.
+    # The only number that says which spec shapes this parser skipped, and the
+    # first thing to read when a Data Model has less lineage than expected.
+    data_model_spec_source_kinds: Dict[str, int] = field(default_factory=dict)
     # Elements whose source.kind is 'join' but whose predicate the parser could
     # not read. Non-zero is the signal that the shape assumption is wrong.
     data_model_join_elements_unreadable: int = 0
@@ -388,19 +392,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # falls back to a self-reference instead, matching how the Data Model path
     # treats an unknown upstream column.
     chart_join_chain_dangling_suppressed: int = 0
-    # Join-chain refs resolved by looking the middle segment up among the
-    # siblings of the Data Model the FIRST segment resolved into, rather than
-    # among the chart's own upstreams. A chart declares only the join element;
-    # the table joined into it is that element's sibling and is invisible from
-    # the chart side, which is why the plain candidate search cannot see it.
-    # A subset of chart_join_chain_resolved, not an addition to it.
-    # A join predicate named a column this element references, but the join it
-    # came from is not in the element's upstream closure -- two elements can
-    # read the same key column while only one flows through the join. Expanding
-    # the other would assert an equality its data path never applies, so the
-    # predicate is skipped. A large value beside a small
-    # data_model_element_fgl_join_key_resolved means the scoping is doing most
-    # of the work; a large value with resolved at 0 means it is too tight.
+    # A join-chain ref where a SECOND candidate split also validated against a
+    # real element and its schema. First-wins is deliberate -- candidates are
+    # ordered most-specific-first, so an element genuinely named "A/B" beats an
+    # unrelated "B" that happens to carry column C -- but everywhere else this
+    # connector refuses on ambiguity, so a large value here means the ordering
+    # is carrying more weight than it should and the rule needs revisiting.
+    chart_join_chain_split_ambiguous: int = 0
     # Sub-count of data_model_element_fgl_warehouse_passthrough_deferred: the
     # element is named after its own warehouse table and the column's columnId
     # is not inode-shaped, so no pre-built warehouse edge existed. These are the
@@ -408,12 +406,6 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # counter is inode-shaped columnIds whose warehouse resolution failed, which
     # is a different problem with a different fix.
     data_model_element_fgl_self_named_no_passthrough: int = 0
-    # A join predicate side naming an element in ANOTHER Data Model. Sigma
-    # allows a model to join in an element it does not own, and one tenant had
-    # a single shared mapping element on 9 of 10 otherwise-unresolvable
-    # predicates, joined into nine models. Element ids repeat across models, so
-    # the model is pinned by the side's dataModelId when Sigma sends one, else
-    # by the models this one sources from.
     # Workbook lineage node types the connector does not handle, by type and
     # count. The warning is deduplicated per type, so this is the only place
     # the magnitude appears. 'union' is the one to watch: it combines inputs
@@ -428,6 +420,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # and touched the report not at all -- so these failures were invisible
     # unless the run was in debug. On one tenant (2026-09): 11x404, 9x400, 6x409.
     api_call_failures_by_status: Dict[str, int] = field(default_factory=dict)
+    # Endpoints whose own ``total`` exceeded the rows pagination returned, and
+    # by how many. Replaces a round-number guess that missed a 5,000 cap and
+    # fired falsely on a tenant with exactly 10,000 rows.
+    pagination_short_of_reported_total: Dict[str, int] = field(default_factory=dict)
     # Chart columns whose workbook's /columns fetch aborted, so no formula was
     # ever retrieved for them. Split out of chart_input_fields_self_ref_no_formula,
     # which otherwise reports a fetch failure as "Sigma has no formula" -- on one
@@ -442,6 +438,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # the run: it does => our lookup scope is too narrow; it does not => the run
     # never saw that element (filtered, 409-ing, or outside the ingest).
     chart_ref_miss_reasons: Dict[str, int] = field(default_factory=dict)
+    # Chart formula refs resolved to an element of the SAME workbook that
+    # Sigma's per-element /lineage did not declare as an upstream. Guarded the
+    # same way as the scoped-name step: unique name in the workbook, and the
+    # element must have the column.
+    chart_ref_workbook_name_resolved: int = 0
+    chart_ref_workbook_name_ambiguous: int = 0
+    chart_ref_workbook_name_column_absent: int = 0
     # Chart formula refs resolved by the last-resort element-name lookup: the
     # name identifies exactly one element among the Data Models THIS WORKBOOK
     # loads, and that element owns the referenced column. Gated behind
@@ -449,13 +452,6 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # rather than from lineage Sigma stated. On one tenant (2026-09) an
     # unscoped version of this reached the largest share of the unresolved
     # bucket; the scoped version trades some of that for precision.
-    # Chart formula refs resolved to an element of the SAME workbook that
-    # Sigma's per-element /lineage did not declare as an upstream. Guarded the
-    # same way as the global-name step: unique name in the workbook, and the
-    # element must have the column.
-    chart_ref_workbook_name_resolved: int = 0
-    chart_ref_workbook_name_ambiguous: int = 0
-    chart_ref_workbook_name_column_absent: int = 0
     chart_ref_scoped_name_resolved: int = 0
     # Refused because the name identifies more than one element among the
     # workbook's models. Sigma element names repeat, and picking one would
@@ -496,6 +492,12 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # pagination_malformed_entries_dropped keeps meaning "a real entry failed
     # to parse".
     non_data_elements_skipped: Dict[str, int] = field(default_factory=dict)
+    # A join predicate side naming an element in ANOTHER Data Model. Sigma
+    # allows a model to join in an element it does not own, and one tenant had
+    # a single shared mapping element on 9 of 10 otherwise-unresolvable
+    # predicates, joined into nine models. Element ids repeat across models, so
+    # the model is pinned by the side's dataModelId when Sigma sends one, else
+    # by the models this one sources from.
     data_model_join_key_foreign_resolved: int = 0
     # No Data Model could be pinned for the foreign element.
     data_model_join_key_foreign_dm_unknown: int = 0
@@ -504,7 +506,20 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Model pinned, but it has no column by that name. A large value means the
     # wrong model is being pinned.
     data_model_join_key_foreign_column_absent: int = 0
+    # A join predicate named a column this element references, but the join it
+    # came from is not in the element's upstream closure -- two elements can
+    # read the same key column while only one flows through the join. Expanding
+    # the other would assert an equality its data path never applies, so the
+    # predicate is skipped. A large value beside a small
+    # data_model_element_fgl_join_key_resolved means the scoping is doing most
+    # of the work; a large value with resolved at 0 means it is too tight.
     data_model_join_key_out_of_join_path: int = 0
+    # Join-chain refs resolved by looking the middle segment up among the
+    # siblings of the Data Model the FIRST segment resolved into, rather than
+    # among the chart's own upstreams. A chart declares only the join element;
+    # the table joined into it is that element's sibling and is invisible from
+    # the chart side, which is why the plain candidate search cannot see it.
+    # A subset of chart_join_chain_resolved, not an addition to it.
     chart_join_chain_sibling_resolved: int = 0
     # The first segment resolved, but to a chart or warehouse table rather than
     # a Data Model element, so there were no siblings to search.
@@ -948,15 +963,20 @@ class SigmaSourceConfig(
         "of lineage at the workbook surface don't get a lineage endpoint hit under a "
         "different flag).",
     )
-    extract_join_key_lineage: bool = pydantic.Field(
+    extract_data_model_spec_lineage: bool = pydantic.Field(
         default=True,
-        description="Whether to read ``/dataModels/{id}/spec`` to recover column "
-        "lineage across a join's ON clause. A join's output column carries a "
-        "formula naming only one side, so without this the other side's key "
-        "column gets no edge. Costs one extra API call per Data Model, and the "
-        "edges it adds carry a reduced ``confidenceScore`` (0.7) because a join "
-        "predicate asserts equality rather than a value copy. Requires "
-        "``ingest_data_models`` and ``extract_lineage``.",
+        description="Whether to read ``/dataModels/{id}/spec``, the only source "
+        "for column lineage a formula cannot express. It governs TWO kinds of "
+        "edge, so turning it off drops both:\n\n"
+        "* **Join keys.** A join's output column carries a formula naming only "
+        "one side, so without the ON clause the other side's key column gets no "
+        "edge. These score 0.7 (0.6 under an outer join) because a predicate "
+        "asserts equality rather than a value copy.\n"
+        "* **Union branches.** A union's output column names at most one branch "
+        "in its formula, so every other branch is invisible. These score 1.0 — "
+        "a union stacks rows, so the output column IS each branch's column.\n\n"
+        "Costs one extra API call per Data Model. Requires ``ingest_data_models`` "
+        "and ``extract_lineage``.",
     )
     resolve_chart_refs_by_element_name: bool = pydantic.Field(
         default=False,
