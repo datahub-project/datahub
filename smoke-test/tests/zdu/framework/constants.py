@@ -32,10 +32,9 @@ REPO_ROOT: pathlib.Path = pathlib.Path(__file__).parents[4]
 
 @dataclasses.dataclass(frozen=True)
 class ProfileServices:
-    """The Compose service names one topology profile brings up.
+    """Compose service names one topology profile brings up.
 
-    ``mae`` / ``mce`` are ``None`` on profiles that run the consumers embedded
-    in the GMS process rather than as separate containers.
+    ``mae`` / ``mce`` are ``None`` where the consumers run inside GMS.
     """
 
     gms: str
@@ -45,26 +44,14 @@ class ProfileServices:
 
     @property
     def in_restart_order(self) -> tuple[str, ...]:
-        """Services to roll, GMS first.
-
-        Downstream consumers depend on GMS, so restarting it first lets them
-        pick up the new image when they cascade-restart on that dependency.
-        """
+        """GMS first — the consumers cascade-restart on that dependency."""
         return tuple(s for s in (self.gms, self.mae, self.mce) if s is not None)
 
 
-# Topology profiles the framework knows how to drive.
-#
-# `debug` collapses MCE + MAE into the GMS process (MAE_CONSUMER_ENABLED is set
-# on GMS itself), so there are no consumer containers to name. `debug-consumers`
-# is the production-shaped split: GMS runs with both consumers disabled and the
-# MCL/MCP write paths live in their own containers. The distinction is not
-# cosmetic for ZDU — rollback dual-write runs wherever the MCL write path runs,
-# so it is only observable in the MAE container under `debug-consumers`.
-#
-# Every service key in docker/profiles/docker-compose.gms.yml carries the
-# profile as a suffix, which is why GMS and system-update are renamed here too
-# and not just the consumers.
+# `debug` runs MAE/MCE inside GMS; `debug-consumers` splits them out, which is
+# the production shape and the only one where rollback dual-write runs outside
+# GMS. Every service key in docker-compose.gms.yml is profile-suffixed, so the
+# profile renames GMS and system-update too, not just the consumers.
 PROFILE_SERVICES: dict[str, ProfileServices] = {
     "debug": ProfileServices(
         gms="datahub-gms-debug",
@@ -79,6 +66,18 @@ PROFILE_SERVICES: dict[str, ProfileServices] = {
 }
 
 DEFAULT_PROFILE: str = "debug"
+
+# The incremental-reindex upgrade id is
+# "BuildIndicesIncremental_<gitVersion>-<revision>". OLD and NEW are built from
+# near-identical commits here, so they share a gitVersion and would share that
+# id — the NEW upgrade would inherit the OLD boot's COMPLETED state and skip the
+# reindex. Production never collides; its releases differ.
+#
+# Note the writers (GMS/MAE) are NOT given this revision, so they resolve
+# "<gitVersion>-0" and see no Phase-1 state. Aligning them was tried and did
+# not make dual-write engage — the reindex deletes the old backing index, so
+# there is no dual-write target regardless.
+ZDU_NEW_REVISION: str = "1"
 
 GMS_SERVICE: str = PROFILE_SERVICES[DEFAULT_PROFILE].gms
 UPGRADE_SERVICE: str = PROFILE_SERVICES[DEFAULT_PROFILE].upgrade

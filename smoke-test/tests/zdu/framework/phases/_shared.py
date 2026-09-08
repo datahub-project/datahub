@@ -90,13 +90,10 @@ def old_image_window(
     seed: restoring to NEW straight after seeding hands the fresh fixture to an
     armed consumer, and the rows are gone before the sweep's first batch.
 
-    It is also why ``consumer_services`` exists. Where the consumers run is a
-    property of the topology, not a constant: the embedded profiles run them
-    inside the GMS process, so swapping GMS alone covers them, but a split
-    topology runs them as separate containers that a GMS-only swap leaves on
-    NEW — still armed, still draining the fixture. Callers pass whichever
-    consumer containers the active profile brings up; an embedded profile
-    passes none and this behaves exactly as before.
+    It is also why ``consumer_services`` exists. Embedded profiles run the
+    consumers inside GMS, so swapping GMS covers them; a split topology leaves
+    them on NEW, still armed and still draining the fixture. Callers pass
+    whichever consumer containers the active profile brings up.
 
     The OLD image is built without the ZDU test-fixture patch, and that patch is
     what *creates* the mutator classes and ``ZduTestMutatorConfiguration`` — so
@@ -124,8 +121,7 @@ def old_image_window(
     # signing key.
     token_env = read_token_passthrough(docker, gms_service, purpose="old_image_window")
 
-    # Only swap consumers the active profile actually brings up. Recreating a
-    # service Compose doesn't know about fails the whole window.
+    # Recreating a service Compose doesn't know about fails the whole window.
     present = set(docker.get_all_service_images().keys())
     targets = [gms_service, *(s for s in consumer_services if s in present)]
     if skipped := [s for s in consumer_services if s not in present]:
@@ -134,11 +130,8 @@ def old_image_window(
         )
 
     def swap(side: str, image_tag: str) -> None:
-        # Host mounts have to move with the image: the compose YAML overlays the
-        # GMS war, the consumer jars and the models resources from host
-        # directories, so leaving them on the NEW worktree while running the OLD
-        # image would mix NEW PDL into an OLD container — the mismatch
-        # worktree_mount_env exists to prevent.
+        # Mounts travel with the image side: the YAML overlays war/jars/PDL
+        # from host dirs, so OLD image + NEW worktree would mix sides.
         mount_env = worktree_mount_env(REPO_ROOT, build_images_root, side)
         for service in targets:
             log.info(
@@ -152,7 +145,10 @@ def old_image_window(
             docker.recreate_service(
                 service=service,
                 compose_env=compose_env_for_service(
-                    service, image_tag, passthrough=token_env, mount_env=mount_env
+                    service,
+                    image_tag,
+                    passthrough=token_env,
+                    mount_env=mount_env,
                 ),
                 timeout_s=_SEED_RECREATE_TIMEOUT_S,
                 # Swap the image only. Letting the depends_on cascade fire would

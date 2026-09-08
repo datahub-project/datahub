@@ -40,10 +40,10 @@ class TestComposeEnvForService:
 
     def test_unknown_service_falls_back_to_global_only(self) -> None:
         env = _compose_env_for_service("custom-service", "v1.6.0")
-        # Unknown service: only global DATAHUB_VERSION + auth-bypass override
-        # (which keeps METADATA_SERVICE_AUTH_ENABLED=false across the restart
-        # so post-restart phases can keep ingesting without a token), plus the
-        # G20a mappings-reindex flag.
+        # Unknown service: no per-service version pin, just the globals —
+        # DATAHUB_VERSION and the auth-bypass override, which keeps
+        # METADATA_SERVICE_AUTH_ENABLED=false across the restart so
+        # post-restart phases can ingest without a token.
         assert env == {
             "DATAHUB_VERSION": "v1.6.0",
             "METADATA_SERVICE_AUTH_ENABLED": "false",
