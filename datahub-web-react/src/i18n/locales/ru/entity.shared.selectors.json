@@ -6,5 +6,7 @@
     "entitySearch.noEntitiesFound": "Объекты не найдены",
     "entitySearch.placeholder": "Поиск объектов...",
     "groupBy.displayValue": "Группировать {{label}}",
-    "groupBy.group": "Группировать"
+    "groupBy.group": "Группировать",
+    "domainSelector.singleLabel": "Домен",
+    "domainSelector.singlePlaceholder": "Выберите домен"
 }

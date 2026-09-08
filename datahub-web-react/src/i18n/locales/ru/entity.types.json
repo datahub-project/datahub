@@ -360,5 +360,9 @@
     "user.tab.ownerOf": "Владелец",
     "user.teamLabel": "Команда",
     "user.teamsHeading": "Команды",
-    "user.titleRoleLabel": "Должность/роль"
+    "user.titleRoleLabel": "Должность/роль",
+    "dataProduct.parentLabel": "Родительский продукт данных",
+    "tab.outputPorts": "Выходные порты",
+    "dataProduct.outputPortsToggle": "Выходные порты · {{count}}",
+    "dataProduct.allAssetsToggle": "Все ассеты · {{count}}"
 }

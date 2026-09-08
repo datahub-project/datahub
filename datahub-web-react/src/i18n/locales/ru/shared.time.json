@@ -28,5 +28,20 @@
     "lastUpdated.updatedRelative": "Обновлено {{relativeTime}}",
     "now": "сейчас",
     "unknownTimeRange": "Неизвестный период времени",
-    "untilDate": "До {{date}}"
+    "untilDate": "До {{date}}",
+    "compactDaysAgo_one": "{{count}} дн. назад",
+    "compactDaysAgo_other": "{{count}} дн. назад",
+    "compactHoursAgo_one": "{{count}} ч. назад",
+    "compactHoursAgo_other": "{{count}} ч. назад",
+    "compactJustNow": "только что",
+    "compactMinutesAgo_one": "{{count}} мин. назад",
+    "compactMinutesAgo_other": "{{count}} мин. назад",
+    "compactMonthsAgo_one": "{{count}} мес. назад",
+    "compactMonthsAgo_other": "{{count}} мес. назад",
+    "compactSecondsAgo_one": "{{count}} с. назад",
+    "compactSecondsAgo_other": "{{count}} с. назад",
+    "compactWeeksAgo_one": "{{count}} нед. назад",
+    "compactWeeksAgo_other": "{{count}} нед. назад",
+    "compactYearsAgo_one": "{{count}} г. назад",
+    "compactYearsAgo_other": "{{count}} г. назад"
 }

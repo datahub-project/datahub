@@ -133,5 +133,6 @@
     "yourTags.filterPlaceholder": "Фильтр по тегам, которые вы создали...",
     "yourTags.learnMoreAbout": "<anchor>Подробнее</anchor> о тегах.",
     "yourTags.tip": "Теги, которые вы создали",
-    "yourTags.title": "Ваши теги"
+    "yourTags.title": "Ваши теги",
+    "navLinks.marketplace": "Маркетплейс"
 }

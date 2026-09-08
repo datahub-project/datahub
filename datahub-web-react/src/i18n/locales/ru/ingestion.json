@@ -161,5 +161,6 @@
     "status.succeeded": "Успешно",
     "status.succeededWithWarnings": "Успешно с предупреждениями",
     "status.success": "Успех",
-    "status.upForRetry": "Ожидает повтора"
+    "status.upForRetry": "Ожидает повтора",
+    "filters.sourceType": "Тип источника"
 }

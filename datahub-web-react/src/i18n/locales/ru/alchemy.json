@@ -84,5 +84,13 @@
     "whiskerChart.metric.max": "Макс.",
     "whiskerChart.metric.median": "Медиана",
     "whiskerChart.metric.min": "Мин.",
-    "whiskerChart.metric.thirdQuartile": "Третий квартиль"
+    "whiskerChart.metric.thirdQuartile": "Третий квартиль",
+    "codeBlock.editorLabel": "Редактор кода",
+    "codeBlock.format": "Форматировать",
+    "codeBlock.formatInvalid": "Не удалось отформатировать код. Проверьте, что он корректен.",
+    "codeBlock.formatSuccess": "Отформатировано",
+    "codeBlock.sqlSyntaxWarning": "В этом SQL может быть синтаксическая ошибка.",
+    "codeBlock.syntaxInvalid": "В этом коде есть синтаксическая ошибка.",
+    "codeBlock.validate": "Проверить",
+    "codeBlock.validateSuccess": "Похоже, всё корректно"
 }

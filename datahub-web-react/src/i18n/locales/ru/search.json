@@ -178,5 +178,7 @@
     "sort.relevance": "По релевантности (по умолчанию)",
     "sort.tooltipTitle": "Сортировка результатов поиска",
     "suggestions.didYouMean": "Возможно, вы имели в виду <suggestion>{{suggestText}}</suggestion>?",
-    "viewAllResultsFor": "Показать все результаты по запросу <strong>{{searchText}}</strong>"
+    "viewAllResultsFor": "Показать все результаты по запросу <strong>{{searchText}}</strong>",
+    "fieldLabel.application": "Приложение",
+    "fieldLabel.topUsersLast30Days": "Топ пользователей за последние 30 дней"
 }

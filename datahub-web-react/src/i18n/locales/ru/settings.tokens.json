@@ -63,5 +63,8 @@
     "tokenUsageDescription": "Чтобы использовать токен, укажите его как <keyboard>Bearer</keyboard>-токен в заголовке <keyboard>Authorization</keyboard> при выполнении запросов к API:",
     "tokenWillExpireOn": "Срок действия токена истекает {{date}} в {{time}}.",
     "updateError": "Не удалось обновить токен.",
-    "usageSectionTitle": "Использование"
+    "usageSectionTitle": "Использование",
+    "duration.oneWeek": "1 неделя",
+    "duration.oneYear": "1 год",
+    "duration.sixMonths": "6 месяцев"
 }

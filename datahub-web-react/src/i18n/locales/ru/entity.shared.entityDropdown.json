@@ -95,5 +95,11 @@
     "unlinkVersion.confirmTitle": "Вы уверены?",
     "unlinkVersion.error": "Не удалось отвязать: \n {{errorMessage}}",
     "unlinkVersion.loading": "Отвязывание...",
-    "unlinkVersion.success": "{{entityName}} отвязан(а)!"
+    "unlinkVersion.success": "{{entityName}} отвязан(а)!",
+    "deprecation.replacementColumnLabel": "Столбец",
+    "deprecation.replacementColumnPlaceholder": "Выберите столбец",
+    "deprecation.replacementParentPlaceholder": "Выберите {{entityName}}",
+    "dataProductSelect.notFound": "Продукты данных не найдены",
+    "dataProductSelect.placeholder": "Выберите родительский продукт данных",
+    "moveDataProduct.title": "Переместить продукт данных"
 }

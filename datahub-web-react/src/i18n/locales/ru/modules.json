@@ -176,5 +176,13 @@
     "assets.relatedModuleName": "Связанные активы",
     "assets.dashboardsModuleDescription": "Дашборды, включающие этот график",
     "assets.contentsModuleDescription": "Графики, входящие в этот дашборд",
-    "assets.dataSourcesModuleDescription": "Наборы данных, из которых читают графики этого дашборда"
+    "assets.dataSourcesModuleDescription": "Наборы данных, из которых читают графики этого дашборда",
+    "subDataProducts.moduleName": "Подпродукты",
+    "subDataProducts.moduleDescription": "Просмотр дочерних продуктов данных этого продукта данных",
+    "subDataProducts.emptyDescription": "Создайте дочерний продукт данных внутри этого продукта данных, чтобы увидеть его в этом списке",
+    "subDataProducts.emptyLink": "Создать подпродукты для этого продукта данных",
+    "subDataProducts.emptyTitle": "Нет подпродуктов",
+    "semanticModelDatasets.aliasLabel": "Псевдоним",
+    "semanticModelDatasets.nameLabel": "Имя",
+    "semanticModelDatasets.descriptionLabel": "Описание"
 }
