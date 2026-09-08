@@ -1,7 +1,9 @@
-from typing import Dict, Generator
+import time
+from typing import Dict, Generator, Set
 
 import pytest
 
+from datahub.configuration.common import GraphError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sdk.dataset import Dataset
@@ -9,9 +11,37 @@ from datahub.sdk.lineage_client import LineageResult
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_filters import FilterDsl as F
 from tests.utilities.domains import Domain
-from tests.utils import wait_for_writes_to_sync
+from tests.utils import get_sleep_info, wait_for_writes_to_sync
 
 pytestmark = pytest.mark.domain(Domain.CATALOG)
+
+
+def _wait_for_downstream_lineage(
+    test_client: DataHubClient,
+    upstream_urn: str,
+    expected_urns: Set[str],
+) -> None:
+    """Poll until table-level downstream lineage is visible in the graph index."""
+    sleep_sec, sleep_times = get_sleep_info()
+    last_urns: Set[str] = set()
+    for attempt in range(sleep_times):
+        try:
+            results = test_client.lineage.get_lineage(
+                source_urn=upstream_urn,
+                direction="downstream",
+                max_hops=3,
+            )
+            last_urns = {r.urn for r in results}
+        except GraphError:
+            last_urns = set()
+        if expected_urns <= last_urns:
+            return
+        if attempt < sleep_times - 1:
+            time.sleep(sleep_sec)
+    raise AssertionError(
+        f"Downstream lineage for {upstream_urn} did not include "
+        f"{sorted(expected_urns)} (last={sorted(last_urns)})"
+    )
 
 
 @pytest.fixture(scope="module")
@@ -68,7 +98,18 @@ def test_datasets(
         column_lineage=True,
     )
 
-    wait_for_writes_to_sync(mcp_only=True)
+    wait_for_writes_to_sync()
+
+    expected_downstream = {
+        str(datasets["downstream1"].urn),
+        str(datasets["downstream2"].urn),
+        str(datasets["downstream3"].urn),
+    }
+    _wait_for_downstream_lineage(
+        test_client,
+        str(datasets["upstream"].urn),
+        expected_downstream,
+    )
 
     yield datasets
 
