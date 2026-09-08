@@ -461,7 +461,7 @@ public class AnalyticsService {
             .toArray(KeyedFilter[]::new);
     KeyedFilter[] facetFilters =
         facetFields.stream()
-            .map(field -> new KeyedFilter(field, QueryBuilders.termsQuery(field, TRUE)))
+            .map(field -> new KeyedFilter(field, termsQuery(field, List.of(TRUE))))
             .toArray(KeyedFilter[]::new);
 
     AggregationBuilder byEntityAgg = AggregationBuilders.filters(BY_ENTITY, entityFilters);
@@ -548,22 +548,20 @@ public class AnalyticsService {
       // extract results, validated against document model as well
       return searchResponse.getAggregations().<Filter>get(FILTERED);
     } catch (Exception e) {
-      log.error(String.format("Search query failed: %s", e.getMessage()));
+      log.error("Search query failed", e);
       throw new RuntimeException("Search query failed:", e);
     }
   }
 
-  // Make dateRangeField as customizable
-  private AggregationBuilder getFilteredAggregation(
+  AggregationBuilder getFilteredAggregation(
       Map<String, List<String>> mustFilters,
       Map<String, List<String>> mustNotFilters,
       Optional<DateRange> dateRange,
       String dateRangeField) {
     BoolQueryBuilder filteredQuery = QueryBuilders.boolQuery();
     filteredQuery.filter(getDefaultFilters());
-    mustFilters.forEach((key, values) -> filteredQuery.must(QueryBuilders.termsQuery(key, values)));
-    mustNotFilters.forEach(
-        (key, values) -> filteredQuery.mustNot(QueryBuilders.termsQuery(key, values)));
+    mustFilters.forEach((key, values) -> filteredQuery.must(termsQuery(key, values)));
+    mustNotFilters.forEach((key, values) -> filteredQuery.mustNot(termsQuery(key, values)));
     dateRange.ifPresent(range -> filteredQuery.must(dateRangeQuery(range, dateRangeField)));
     return AggregationBuilders.filter(FILTERED, filteredQuery);
   }
@@ -572,28 +570,54 @@ public class AnalyticsService {
       Map<String, List<String>> mustFilters,
       Map<String, List<String>> mustNotFilters,
       Optional<DateRange> dateRange) {
-    // Use timestamp as dateRangeField
     return getFilteredAggregation(mustFilters, mustNotFilters, dateRange, "timestamp");
   }
 
-  private QueryBuilder getDefaultFilters() {
+  QueryBuilder getDefaultFilters() {
     return QueryBuilders.boolQuery()
         .mustNot(
             QueryBuilders.termQuery(
-                DataHubUsageEventConstants.USAGE_SOURCE,
+                DataHubUsageEventConstants.USAGE_SOURCE + ".keyword",
                 DataHubUsageEventConstants.BACKEND_SOURCE));
   }
 
-  private QueryBuilder dateRangeQuery(DateRange dateRange) {
-    // Use timestamp as dateRangeField
+  QueryBuilder dateRangeQuery(DateRange dateRange) {
     return dateRangeQuery(dateRange, "timestamp");
   }
 
-  // Make dateRangeField as customizable
-  private QueryBuilder dateRangeQuery(DateRange dateRange, String dateRangeField) {
+  QueryBuilder dateRangeQuery(DateRange dateRange, String dateRangeField) {
     return QueryBuilders.rangeQuery(dateRangeField)
-        .gte(dateRange.getStart())
-        .lt(dateRange.getEnd());
+        .gte(parseEpochMillis(dateRange.getStart(), dateRangeField, "start"))
+        .lt(parseEpochMillis(dateRange.getEnd(), dateRangeField, "end"));
+  }
+
+  static QueryBuilder termsQuery(String field, List<String> values) {
+    return QueryBuilders.termsQuery(field, coerceTermValues(values));
+  }
+
+  static Object[] coerceTermValues(List<String> values) {
+    if (values != null
+        && !values.isEmpty()
+        && values.stream().allMatch(AnalyticsService::isBooleanString)) {
+      return values.stream().map(Boolean::parseBoolean).toArray();
+    }
+    return values == null ? new Object[0] : values.toArray(new String[0]);
+  }
+
+  private static boolean isBooleanString(String value) {
+    return "true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value);
+  }
+
+  private static long parseEpochMillis(String value, String dateRangeField, String bound) {
+    try {
+      return Long.parseLong(value);
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Analytics DateRange %s for field %s must be epoch millis, got: %s",
+              bound, dateRangeField, value),
+          e);
+    }
   }
 
   private AggregationBuilder getUniqueQuery(String uniqueOn) {

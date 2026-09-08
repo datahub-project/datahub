@@ -7,6 +7,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -15,6 +16,7 @@ import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
@@ -23,6 +25,7 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.opensearch.action.search.SearchRequest;
@@ -110,9 +113,63 @@ public class AnalyticsServiceTest {
     // The cardinality metric hangs off the range buckets rather than off separate queries.
     assertNotNull(subAggByName(byRange, "unique"));
 
-    String source = request.source().toString();
+    String source = compactJson(request.source().toString());
     assertTrue(source.contains(BROWSER_ID), "expected cardinality on browserId");
     assertTrue(source.contains("\"size\":0"), "aggregation-only request should fetch no hits");
+    assertTrue(source.contains("\"gte\":100") || source.contains("\"from\":100"));
+    assertFalse(source.contains("\"gte\":\"100\""));
+  }
+
+  @Test
+  public void testDateRangeQuerySerializesNumericEpochMillis() {
+    String json =
+        compactJson(service.dateRangeQuery(new DateRange("100", "200"), "timestamp").toString());
+
+    assertFalse(json.contains("\"gte\":\"100\""));
+    assertFalse(json.contains("\"lt\":\"200\""));
+    assertTrue(json.contains("\"gte\":100") || json.contains("\"from\":100"));
+    assertTrue(json.contains("\"lt\":200") || json.contains("\"to\":200"));
+  }
+
+  @Test
+  public void testDateRangeQueryRejectsNonNumericBounds() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> service.dateRangeQuery(new DateRange("not-a-timestamp", "200"), "timestamp"));
+  }
+
+  @Test
+  public void testFilteredAggregationUsesNumericRangeAndKeywordUsageSource() {
+    AggregationBuilder agg =
+        service.getFilteredAggregation(
+            Map.of(), Map.of(), Optional.of(new DateRange("100", "200")), "timestamp");
+    String json = compactJson(agg.toString());
+
+    assertTrue(json.contains("\"gte\":100") || json.contains("\"from\":100"));
+    assertFalse(json.contains("\"gte\":\"100\""));
+    assertTrue(json.contains("\"" + DataHubUsageEventConstants.USAGE_SOURCE + ".keyword\""));
+  }
+
+  @Test
+  public void testCoerceTermValuesConvertsBooleanStrings() {
+    Object[] coerced = AnalyticsService.coerceTermValues(List.of("true", "FALSE"));
+    assertEquals(coerced.length, 2);
+    assertEquals(coerced[0], true);
+    assertEquals(coerced[1], false);
+    assertFalse(
+        AnalyticsService.termsQuery("hasOwners", List.of("true")).toString().contains("\"true\""));
+    assertTrue(
+        AnalyticsService.termsQuery("hasOwners", List.of("true")).toString().contains("true"));
+  }
+
+  @Test
+  public void testCoerceTermValuesLeavesNonBooleanStrings() {
+    Object[] coerced = AnalyticsService.coerceTermValues(List.of("urn:li:corpuser:admin"));
+    assertEquals(coerced[0], "urn:li:corpuser:admin");
+  }
+
+  private static String compactJson(String json) {
+    return json.replaceAll("\\s+", "");
   }
 
   @Test
