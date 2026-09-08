@@ -46,6 +46,9 @@ from datahub.ingestion.source.sigma.data_classes import (
     WorkbookLineageTableEntry,
     Workspace,
 )
+from datahub.ingestion.source.sigma.spec_parser import (
+    _key_skeleton as spec_key_skeleton,
+)
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -525,21 +528,20 @@ class SigmaAPI:
                 self.report.workbook_lineage_node_types_unhandled.get(warn_key, 0) + 1
             )
             logger.debug(
-                "UNKNOWN LINEAGE NODE type=%r element=%s workbook=%s: key "
-                "skeleton (structure only, no values): %r",
+                "UNKNOWN LINEAGE NODE type=%r element=%s workbook=%s: this "
+                "node's upstreams are not walked, so anything behind it has no "
+                "lineage at all. To handle it we need three things from this "
+                "skeleton: whether the nodeId is an inode-<urlId>, whether it "
+                "carries a name, and whether it has sources of its own (which "
+                "would make it a pass-through like join/union rather than a "
+                "leaf). Key skeleton (structure only, no values): %r",
                 source_type,
                 element.elementId,
                 workbook.workbookId,
-                {
-                    k: (
-                        f"<str len={len(v)}>"
-                        if isinstance(v, str)
-                        else type(v).__name__
-                    )
-                    for k, v in sorted(source_node.items())
-                }
-                if isinstance(source_node, dict)
-                else type(source_node).__name__,
+                # Recursive: a one-level view renders a nested descriptor as
+                # just "list"/"dict" and hides the field that says what the
+                # node points at.
+                spec_key_skeleton(source_node),
             )
             if warn_key not in self._unknown_lineage_node_types_warned:
                 self._unknown_lineage_node_types_warned.add(warn_key)

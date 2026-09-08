@@ -20,9 +20,12 @@ _DATA_MODEL_ID = "dataModelId"
 # A side with no elementId is a warehouse table only if it says so.
 _WAREHOUSE_SIDE_KEYS = ("connectionId", "path")
 _JOIN_KIND = "join"
-# Sampled once per kind per process so the shape appears in a run without
-# printing one line per element.
-_MULTI_SOURCE_KINDS_SEEN_SAMPLE: set = set()
+# Samples per unread source kind, per process. More than one because a kind
+# whose shape VARIES between elements would look settled from a single sample,
+# and reading it wrongly is what cost two runs already. Small enough to stay
+# off the hot path.
+_MAX_SOURCE_KIND_SAMPLES = 5
+_MULTI_SOURCE_KIND_SAMPLES: Dict[str, int] = {}
 _JOIN_TYPE = "joinType"
 # Join types whose ON equality holds only on matched rows.
 _OUTER_JOIN_TYPES = frozenset({"left", "right", "full", "outer", "full-outer"})
@@ -308,14 +311,19 @@ def parse_data_model_spec(
             # guessed wrong twice already, so log the structure and read it
             # once the run says what it is. One sample per kind per model
             # keeps this off the hot path.
-            if kind and kind not in _MULTI_SOURCE_KINDS_SEEN_SAMPLE and element_id:
-                _MULTI_SOURCE_KINDS_SEEN_SAMPLE.add(kind)
+            seen = _MULTI_SOURCE_KIND_SAMPLES.get(kind, 0)
+            if kind and element_id and seen < _MAX_SOURCE_KIND_SAMPLES:
+                _MULTI_SOURCE_KIND_SAMPLES[kind] = seen + 1
                 logger.debug(
                     "DM SPEC SOURCE KIND %s/%s: kind=%r not read by this "
-                    "parser. Key skeleton (structure only, no values): %r",
+                    "parser (sample %d of %d). To read a 'union' we need the "
+                    "field naming its branches and how each branch names its "
+                    "columns. Key skeleton (structure only, no values): %r",
                     data_model_id,
                     element_id,
                     kind,
+                    seen + 1,
+                    _MAX_SOURCE_KIND_SAMPLES,
                     _key_skeleton(source),
                 )
             continue
