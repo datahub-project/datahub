@@ -33,6 +33,8 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
     DownstreamColumnRef,
+    SqlParsingDebugInfo,
+    SqlParsingResult,
 )
 from datahub.testing import mce_helpers
 from datahub.utilities.file_backed_collections import FileBackedCounter
@@ -1969,3 +1971,216 @@ def test_usage_aggregator_uses_shared_connection() -> None:
         )
     finally:
         aggregator.close()
+
+
+# --- dynamic-table INPUTS fallback on definition parse-failure ---
+
+_UNPARSEABLE_DT_DDL = (
+    "create or replace dynamic table db.schema.dt (a int) "
+    "target_lag='1 hour' refresh_mode=CUSTOM_INCREMENTAL initialize=ON_CREATE warehouse=w "
+    "refresh using (merge into self as t "
+    "using (select a from db.schema.src changes(information=>default)) s on t.a=s.a "
+    "when matched then update set t.a=s.a when not matched then insert (a) values (s.a))"
+)
+
+
+def _upstream_lineage_aspect(mcps, downstream_urn):
+    for mcp in mcps:
+        if mcp.entityUrn == downstream_urn and isinstance(
+            mcp.aspect, UpstreamLineageClass
+        ):
+            return mcp.aspect
+    return None
+
+
+def _skip_query_present(mcps):
+    return any(
+        isinstance(mcp.aspect, QueryPropertiesClass)
+        and mcp.aspect.statement.value == "-skip-"
+        for mcp in mcps
+    )
+
+
+def test_dynamic_table_definition_table_error_uses_inputs_fallback() -> None:
+    """An unparseable dynamic-table definition falls back to table-level INPUTS,
+    with no column lineage."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    dt = DatasetUrn("snowflake", "db.schema.dt").urn()
+    up_a = DatasetUrn("snowflake", "db.schema.src_a").urn()
+    up_b = DatasetUrn("snowflake", "db.schema.src_b").urn()
+    aggregator.add_view_definition(
+        view_urn=dt,
+        view_definition=_UNPARSEABLE_DT_DDL,
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[up_a, up_b],
+    )
+    mcps = list(aggregator.gen_metadata())
+    aspect = _upstream_lineage_aspect(mcps, dt)
+    assert aspect is not None
+    assert sorted(u.dataset for u in aspect.upstreams) == sorted([up_a, up_b])
+    assert not aspect.fineGrainedLineages
+    # the fallback must not surface a spurious Query entity carrying the "-skip-" placeholder.
+    assert not _skip_query_present(mcps)
+    assert aggregator.report.num_views_table_level_fallback == 1
+
+
+def test_table_level_fallback_excludes_self() -> None:
+    """The table-level fallback path drops the view from its own upstreams, so a caller that includes
+    the view in the fallback list can't produce a self-loop."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    dt = DatasetUrn("snowflake", "db.schema.dt").urn()
+    up = DatasetUrn("snowflake", "db.schema.src").urn()
+    aggregator.add_view_definition(
+        view_urn=dt,
+        view_definition=_UNPARSEABLE_DT_DDL,
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[dt, up],  # includes the view itself
+    )
+    aspect = _upstream_lineage_aspect(list(aggregator.gen_metadata()), dt)
+    assert aspect is not None
+    upstreams = [u.dataset for u in aspect.upstreams]
+    assert up in upstreams
+    assert dt not in upstreams  # self excluded by the fallback path
+
+    # A fallback list of only the view strips to empty, so no upstream lineage is emitted.
+    all_self = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    all_self.add_view_definition(
+        view_urn=dt,
+        view_definition=_UNPARSEABLE_DT_DDL,
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[dt],
+    )
+    assert _upstream_lineage_aspect(list(all_self.gen_metadata()), dt) is None
+
+
+def test_dynamic_table_definition_table_error_empty_fallback_no_aspect() -> None:
+    """An unparseable definition with no INPUTS emits no upstreamLineage aspect and no
+    spurious Query entity."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    dt = DatasetUrn("snowflake", "db.schema.dt").urn()
+    aggregator.add_view_definition(
+        view_urn=dt,
+        view_definition=_UNPARSEABLE_DT_DDL,
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[],
+    )
+    mcps = list(aggregator.gen_metadata())
+    assert _upstream_lineage_aspect(mcps, dt) is None
+    assert aggregator.report.num_views_table_level_fallback == 0
+    assert not _skip_query_present(mcps)
+
+
+def test_parseable_definition_ignores_inputs_fallback() -> None:
+    """When the definition parses, the INPUTS fallback is ignored (no pollution)."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    v = DatasetUrn("snowflake", "db.schema.v").urn()
+    real = DatasetUrn("snowflake", "db.schema.bar").urn()
+    wrong = DatasetUrn("snowflake", "db.schema.wrong").urn()
+    aggregator.add_view_definition(
+        view_urn=v,
+        view_definition="create view v as select a from db.schema.bar",
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[wrong],
+    )
+    aspect = _upstream_lineage_aspect(list(aggregator.gen_metadata()), v)
+    assert aspect is not None
+    upstreams = [u.dataset for u in aspect.upstreams]
+    assert real in upstreams
+    assert wrong not in upstreams
+
+
+def test_view_definition_self_reference_is_excluded() -> None:
+    """A parsed definition that references the view itself must not emit a self-loop or
+    self-column-lineage; the parse path applies the same self-exclusion as the INPUTS fallback."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    v = DatasetUrn("snowflake", "db.schema.v").urn()
+    real = DatasetUrn("snowflake", "db.schema.bar").urn()
+    # Mock the parser so it lists the view as its own upstream (a partial parse of a MERGE INTO
+    # SELF could do that). The self-exclusion should drop the self-reference and keep the rest.
+    parsed = SqlParsingResult(
+        in_tables=[v, real],
+        out_tables=[v],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=v, column="a"),
+                upstreams=[ColumnRef(table=v, column="a")],  # self edge
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=v, column="b"),
+                upstreams=[ColumnRef(table=real, column="b")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=v, column="c"),
+                upstreams=[
+                    ColumnRef(table=v, column="c"),  # self edge, dropped
+                    ColumnRef(table=real, column="c"),  # real upstream, kept
+                ],
+            ),
+        ],
+        debug_info=SqlParsingDebugInfo(confidence=1.0),
+    )
+    aggregator.add_view_definition(
+        view_urn=v,
+        view_definition="create view v as select a, b from db.schema.bar",
+        default_db="db",
+        default_schema="schema",
+    )
+    with patch.object(aggregator, "_run_sql_parser", return_value=parsed):
+        mcps = list(aggregator.gen_metadata())
+
+    aspect = _upstream_lineage_aspect(mcps, v)
+    assert aspect is not None
+    upstreams = [u.dataset for u in aspect.upstreams]
+    assert real in upstreams
+    assert v not in upstreams  # self-loop excluded at the table level
+    # the self column-lineage edge is dropped; the real one is kept
+    fgl_upstreams = [
+        up for fgl in (aspect.fineGrainedLineages or []) for up in (fgl.upstreams or [])
+    ]
+    assert any(real in up for up in fgl_upstreams)
+    assert all(v not in up for up in fgl_upstreams)
+    # A mixed entry (self-edge plus a real upstream) keeps the real part instead of being dropped
+    # whole: column c should still have its real upstream, not the self one.
+    c_upstreams = [
+        up
+        for fgl in (aspect.fineGrainedLineages or [])
+        if any(d.endswith(",c)") for d in (fgl.downstreams or []))
+        for up in (fgl.upstreams or [])
+    ]
+    assert any(real in up for up in c_upstreams)
+    assert all(v not in up for up in c_upstreams)
