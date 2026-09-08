@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.recommendation.candidatesource;
 
 import com.linkedin.gms.factory.analytics.PgAnalyticsEbeanConfigFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.analytics.postgres.PgAnalyticsStoreRegistry;
 import com.linkedin.metadata.recommendation.candidatesource.ElasticsearchUsageEventRecommendationBackend;
 import com.linkedin.metadata.recommendation.candidatesource.NoOpUsageEventRecommendationBackend;
@@ -31,12 +32,28 @@ public class UsageEventRecommendationBackendFactory {
       @Autowired(required = false) @Qualifier("searchClientShim") SearchClientShim<?> searchClient,
       @Autowired(required = false) @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
           IndexConvention indexConvention,
-      @Autowired(required = false) @Nullable PgAnalyticsStoreRegistry pgAnalyticsStoreRegistry) {
+      @Autowired(required = false) @Nullable PgAnalyticsStoreRegistry pgAnalyticsStoreRegistry,
+      ConfigurationProvider configurationProvider) {
+    int lookbackDays =
+        configurationProvider.getPlatformAnalytics() != null
+                && configurationProvider.getPlatformAnalytics().getUsageEvents() != null
+            ? configurationProvider
+                .getPlatformAnalytics()
+                .getUsageEvents()
+                .getRecommendationLookbackDays()
+            : 30;
+    boolean postgresSoT =
+        configurationProvider.getPlatformAnalytics() != null
+            && configurationProvider.getPlatformAnalytics().getUsageEvents() != null
+            && configurationProvider.getPlatformAnalytics().getUsageEvents().usePostgresql();
+    if (postgresSoT && pgAnalyticsStoreRegistry != null) {
+      return new PostgresUsageEventRecommendationBackend(pgAnalyticsStoreRegistry, lookbackDays);
+    }
     if (searchClient != null && indexConvention != null) {
       return new ElasticsearchUsageEventRecommendationBackend(searchClient, indexConvention);
     }
     if (pgAnalyticsStoreRegistry != null) {
-      return new PostgresUsageEventRecommendationBackend(pgAnalyticsStoreRegistry);
+      return new PostgresUsageEventRecommendationBackend(pgAnalyticsStoreRegistry, lookbackDays);
     }
     return new NoOpUsageEventRecommendationBackend();
   }

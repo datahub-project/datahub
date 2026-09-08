@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 public class PostgresUsageEventRecommendationBackend implements UsageEventRecommendationBackend {
 
   private final PgAnalyticsStoreRegistry registry;
+  private final int recommendationLookbackDays;
 
   @Override
   public boolean isAvailable(@Nonnull OperationContext opContext) {
@@ -29,7 +30,7 @@ public class PostgresUsageEventRecommendationBackend implements UsageEventRecomm
       @Nonnull String eventType,
       int limit) {
     return PostgresUsageRecommendationQueries.recentEntityUrns(
-        store(), actorUrn.toString(), eventType, limit);
+        store(), actorUrn.toString(), eventType, limit, recommendationLookbackDays);
   }
 
   @Override
@@ -40,7 +41,7 @@ public class PostgresUsageEventRecommendationBackend implements UsageEventRecomm
       int limit,
       @Nullable List<String> actorPeers) {
     return PostgresUsageRecommendationQueries.mostViewedEntityUrns(
-        store(), eventType, limit, actorPeers);
+        store(), eventType, limit, actorPeers, recommendationLookbackDays);
   }
 
   @Override
@@ -48,7 +49,7 @@ public class PostgresUsageEventRecommendationBackend implements UsageEventRecomm
   public List<String> recentSearchQueries(
       @Nonnull OperationContext opContext, @Nonnull Urn actorUrn, int limit) {
     return PostgresUsageRecommendationQueries.recentSearchQueries(
-        store(), actorUrn.toString(), limit);
+        store(), actorUrn.toString(), limit, recommendationLookbackDays);
   }
 
   private PostgresAnalyticsStore store() {

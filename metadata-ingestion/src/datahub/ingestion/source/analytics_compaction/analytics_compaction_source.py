@@ -36,6 +36,18 @@ class DataHubAnalyticsCompactionConfig(ConfigModel):
         default=None,
         description="Override server default wall-clock budget in milliseconds",
     )
+    hour_lookback_hours: Optional[int] = Field(
+        default=None,
+        description="Override server default hour-seal lookback (catch-up horizon)",
+    )
+    day_lookback_days: Optional[int] = Field(
+        default=None,
+        description="Override server default day-compaction lookback",
+    )
+    month_lookback_months: Optional[int] = Field(
+        default=None,
+        description="Override server default month-compaction lookback",
+    )
 
 
 class DataHubAnalyticsCompactionReport(SourceReport):
@@ -84,6 +96,12 @@ class DataHubAnalyticsCompactionSource(Source):
             payload["maxMonthsToCompact"] = self.config.max_months_to_compact
         if self.config.max_wall_clock_millis is not None:
             payload["maxWallClockMillis"] = self.config.max_wall_clock_millis
+        if self.config.hour_lookback_hours is not None:
+            payload["hourLookbackHours"] = self.config.hour_lookback_hours
+        if self.config.day_lookback_days is not None:
+            payload["dayLookbackDays"] = self.config.day_lookback_days
+        if self.config.month_lookback_months is not None:
+            payload["monthLookbackMonths"] = self.config.month_lookback_months
 
         # Use the public session/config surface so OAuth and other auth providers apply.
         url = f"{graph.config.server.rstrip('/')}{COMPACT_PATH}"

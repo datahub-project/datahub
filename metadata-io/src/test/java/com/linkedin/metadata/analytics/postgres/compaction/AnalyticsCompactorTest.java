@@ -15,6 +15,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.analytics.compaction.AnalyticsCompactionRequest;
 import com.linkedin.metadata.analytics.compaction.AnalyticsCompactionResult;
+import com.linkedin.metadata.analytics.postgres.AnalyticsMetricFamilies;
 import com.linkedin.metadata.analytics.postgres.PgAnalyticsStoreRegistry;
 import com.linkedin.metadata.analytics.postgres.PostgresAnalyticsStore;
 import com.linkedin.metadata.config.postgres.PgAnalyticsStoreOptions;
@@ -160,5 +161,38 @@ public class AnalyticsCompactorTest {
     // Usage already sealed — rematerialize skipped; remaining family watermarks written.
     verify(store, never()).materializeDatahubUsageHourlyFromRaw(any(Instant.class));
     verify(store, times(2)).upsertWatermark(anyString(), anyString(), anyString(), any());
+  }
+
+  @Test
+  public void compact_dayCatchUpStartsAfterLatestSealedDay() throws Exception {
+    Instant openDay = Instant.now().truncatedTo(ChronoUnit.DAYS);
+    Instant latestDay = openDay.minus(3, ChronoUnit.DAYS);
+    when(store.getLatestSealedHourStart(anyString()))
+        .thenReturn(openDay.minus(1, ChronoUnit.HOURS));
+    when(store.getLatestSealedDayStart(anyString())).thenReturn(latestDay);
+    when(store.getLatestSealedMonthStart(anyString())).thenReturn(null);
+    when(store.getSealedThrough(anyString(), anyString(), anyString()))
+        .thenAnswer(
+            invocation -> {
+              String layer = invocation.getArgument(0);
+              if (AnalyticsMetricFamilies.LAYER_DAY.equals(layer)
+                  || AnalyticsMetricFamilies.LAYER_MONTH.equals(layer)) {
+                return null;
+              }
+              return Instant.EPOCH;
+            });
+    when(store.isDayFullySealed(anyString(), any())).thenReturn(true);
+
+    AnalyticsCompactionResult result =
+        compactor.compact(
+            AnalyticsCompactionRequest.builder()
+                .maxHoursToSeal(0)
+                .maxDaysToCompact(10)
+                .maxMonthsToCompact(0)
+                .maxWallClockMillis(60_000L)
+                .build());
+
+    assertEquals(result.getDaysCompacted(), 2);
+    verify(store, times(6)).compactHoursToDay(anyString(), any(Instant.class));
   }
 }

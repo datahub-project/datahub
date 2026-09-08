@@ -17,6 +17,7 @@ import com.linkedin.metadata.sqlsetup.postgres.pganalytics.PgAnalyticsSqlMigrati
 import com.linkedin.metadata.sqlsetup.postgres.pganalytics.PgAnalyticsSqlMigrationTokens;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
+import io.ebean.datasource.DataSourceBuilder;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
@@ -38,6 +39,7 @@ public class PgAnalyticsSchemaStep implements UpgradeStep {
 
   private final Database server;
   private final PostgresSqlSetupProperties postgresProperties;
+  @Nullable private final DataSourceBuilder.Settings ebeanDataSourceConfig;
 
   @Override
   public String id() {
@@ -66,7 +68,8 @@ public class PgAnalyticsSchemaStep implements UpgradeStep {
         for (PgAnalyticsStoreOptions store : registry.getStores().values()) {
           context.report().addLine("Applying pgAnalytics store '" + store.getName() + "'...");
           try (Connection connection =
-              PgAnalyticsStoreConnections.open(store, server, postgresProperties)) {
+              PgAnalyticsStoreConnections.open(
+                  store, server, postgresProperties, ebeanDataSourceConfig)) {
             connection.setAutoCommit(true);
             applyStore(context, store, connection, cronSchema);
           }

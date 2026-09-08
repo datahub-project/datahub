@@ -26,12 +26,12 @@ public class PostgresUsageRecommendationQueriesTest {
 
     List<String> urns =
         PostgresUsageRecommendationQueries.recentEntityUrns(
-            store, "urn:li:corpuser:datahub", "EntityViewEvent", 5);
+            store, "urn:li:corpuser:datahub", "EntityViewEvent", 5, 30);
 
     assertEquals(urns, List.of("urn:li:dataset:1"));
     assertTrue(sql.get().contains("GROUP BY entity_urn"));
     assertTrue(sql.get().contains("ORDER BY MAX(event_time) DESC"));
-    assertTrue(sql.get().contains("public.metadata_analytics_event"));
+    assertTrue(sql.get().contains("event_time >= ?"));
   }
 
   @Test
@@ -40,7 +40,7 @@ public class PostgresUsageRecommendationQueriesTest {
     PostgresAnalyticsStore store = storeCapturingSql(sql, "urn:li:dataset:2");
 
     PostgresUsageRecommendationQueries.mostViewedEntityUrns(
-        store, "EntityViewEvent", 5, List.of("urn:li:corpuser:a"));
+        store, "EntityViewEvent", 5, List.of("urn:li:corpuser:a"), 30);
 
     assertTrue(sql.get().contains("actor_urn = ANY(?)"));
     assertTrue(sql.get().contains("ORDER BY COUNT(*) DESC"));

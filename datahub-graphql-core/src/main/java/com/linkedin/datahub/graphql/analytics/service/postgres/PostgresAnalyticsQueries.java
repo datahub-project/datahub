@@ -184,6 +184,16 @@ public class PostgresAnalyticsQueries {
     }
   }
 
+  /**
+   * COUNT(DISTINCT) in PostgreSQL still counts empty strings. Drop null/blank identities so DAU and
+   * unique-on charts match Elasticsearch missing-value semantics.
+   */
+  static String distinctCountExpr(Optional<String> uniqueOn) {
+    return uniqueOn
+        .map(u -> "COUNT(DISTINCT NULLIF(btrim(" + mappedField(normalizeFk(u)) + "::text), ''))")
+        .orElse("COUNT(*)");
+  }
+
   private int bind(PreparedStatement ps, int idx, WherePred wp) throws SQLException {
 
     int i = idx;
@@ -390,8 +400,7 @@ public class PostgresAnalyticsQueries {
 
     Optional<String> dimSql = dimension.map(d -> mappedField(normalizeFk(d)));
 
-    String countExpr =
-        uniqueOn.map(u -> "COUNT(DISTINCT " + mappedField(normalizeFk(u)) + ")").orElse("COUNT(*)");
+    String countExpr = distinctCountExpr(uniqueOn);
 
     String sql;
 
@@ -484,8 +493,7 @@ public class PostgresAnalyticsQueries {
 
     WherePred w = whereUsage(range, filters, mustNot);
 
-    String agg =
-        uniqueOn.map(u -> "COUNT(DISTINCT " + mappedField(normalizeFk(u)) + ")").orElse("COUNT(*)");
+    String agg = distinctCountExpr(uniqueOn);
 
     try {
 
@@ -665,8 +673,7 @@ public class PostgresAnalyticsQueries {
 
     String gf = mappedField(normalizeFk(groupField));
 
-    String agg =
-        uniqueOn.map(u -> "COUNT(DISTINCT " + mappedField(normalizeFk(u)) + ")").orElse("COUNT(*)");
+    String agg = distinctCountExpr(uniqueOn);
 
     String sql =
         "SELECT "
@@ -729,8 +736,7 @@ public class PostgresAnalyticsQueries {
 
     WherePred w = whereUsage(range, filters, mustNot);
 
-    String agg =
-        uniqueOn.map(u -> "COUNT(DISTINCT " + mappedField(normalizeFk(u)) + ")").orElse("COUNT(*)");
+    String agg = distinctCountExpr(uniqueOn);
 
     String sql = "SELECT " + agg + " FROM " + tbl() + " WHERE " + w.predicate;
 

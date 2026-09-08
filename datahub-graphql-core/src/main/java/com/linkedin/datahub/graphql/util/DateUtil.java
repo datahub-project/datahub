@@ -6,7 +6,7 @@ import org.joda.time.DateTimeConstants;
 
 public class DateUtil {
   public DateTime getNow() {
-    return DateTime.now();
+    return DateTime.now(org.joda.time.DateTimeZone.UTC);
   }
 
   public DateTime getStartOfNextWeek() {

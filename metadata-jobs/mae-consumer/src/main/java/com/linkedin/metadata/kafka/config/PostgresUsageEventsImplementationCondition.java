@@ -7,12 +7,18 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 public class PostgresUsageEventsImplementationCondition implements Condition {
   @Override
   public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
-    // With no Elasticsearch cluster, pgAnalytics is the only place usage events can land, so it
-    // takes over even if the configured implementation still names Elasticsearch. Leaving neither
-    // condition matched would drop the dataHubUsageEventIndexer bean entirely.
+    if (!pgAnalyticsEnabled(context)) {
+      return false;
+    }
+    // With no Elasticsearch cluster, pgAnalytics is the only place usage events can land.
     if (!UsageEventsImplementation.elasticsearchEnabled(context)) {
       return true;
     }
     return "postgres".equalsIgnoreCase(UsageEventsImplementation.configured(context));
+  }
+
+  private static boolean pgAnalyticsEnabled(ConditionContext context) {
+    return Boolean.TRUE.equals(
+        context.getEnvironment().getProperty("postgres.pgAnalytics.enabled", Boolean.class));
   }
 }

@@ -29,11 +29,18 @@ public class UsageEventsImplementationConditionsTest {
     when(context.getEnvironment()).thenReturn(env);
   }
 
-  private void configure(@Nullable String implementation, boolean elasticsearchEnabled) {
+  private void configure(
+      @Nullable String implementation, boolean elasticsearchEnabled, boolean pgAnalyticsEnabled) {
     when(env.getProperty("platformAnalytics.usage-events.implementation"))
         .thenReturn(implementation);
     when(env.getProperty("DATAHUB_USAGE_EVENTS_IMPLEMENTATION")).thenReturn(null);
     when(env.getProperty("elasticsearch.enabled", Boolean.class)).thenReturn(elasticsearchEnabled);
+    when(env.getProperty("postgres.pgAnalytics.enabled", Boolean.class))
+        .thenReturn(pgAnalyticsEnabled);
+  }
+
+  private void configure(@Nullable String implementation, boolean elasticsearchEnabled) {
+    configure(implementation, elasticsearchEnabled, true);
   }
 
   private boolean esMatches() {
@@ -74,5 +81,19 @@ public class UsageEventsImplementationConditionsTest {
     configure("elasticsearch", false);
     assertFalse(esMatches());
     assertTrue(pgMatches());
+  }
+
+  @Test
+  public void postgresIndexerRequiresPgAnalyticsEnabled() {
+    configure("postgres", true, false);
+    assertFalse(esMatches());
+    assertFalse(pgMatches());
+  }
+
+  @Test
+  public void elasticsearchDisabledDoesNotDefaultToPostgresWhenPgAnalyticsOff() {
+    configure(null, false, false);
+    assertFalse(esMatches());
+    assertFalse(pgMatches());
   }
 }

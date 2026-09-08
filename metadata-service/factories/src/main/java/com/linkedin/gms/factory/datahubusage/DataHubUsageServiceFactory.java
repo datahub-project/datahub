@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.datahubusage;
 
 import com.linkedin.gms.factory.analytics.PgAnalyticsEbeanConfigFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.analytics.postgres.PgAnalyticsStoreRegistry;
 import com.linkedin.metadata.datahubusage.DataHubUsageService;
 import com.linkedin.metadata.datahubusage.DataHubUsageServiceImpl;
@@ -32,7 +33,20 @@ public class DataHubUsageServiceFactory {
       @Autowired(required = false) SearchClientShim<?> elasticClient,
       @Autowired(required = false) @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
           IndexConvention indexConvention,
-      @Autowired(required = false) @Nullable PgAnalyticsStoreRegistry pgAnalyticsStoreRegistry) {
+      @Autowired(required = false) @Nullable PgAnalyticsStoreRegistry pgAnalyticsStoreRegistry,
+      ConfigurationProvider configurationProvider) {
+    boolean postgresSoT =
+        configurationProvider.getPlatformAnalytics() != null
+            && configurationProvider.getPlatformAnalytics().getUsageEvents() != null
+            && configurationProvider.getPlatformAnalytics().getUsageEvents().usePostgresql();
+    if (postgresSoT) {
+      if (pgAnalyticsStoreRegistry == null) {
+        throw new IllegalStateException(
+            "platformAnalytics.usage-events.implementation=postgres requires"
+                + " postgres.pgAnalytics.enabled=true");
+      }
+      return new PostgresDataHubUsageService(pgAnalyticsStoreRegistry);
+    }
     if (elasticClient != null && indexConvention != null) {
       return new DataHubUsageServiceImpl(elasticClient, indexConvention);
     }

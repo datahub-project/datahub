@@ -444,13 +444,45 @@ public class PostgresAnalyticsStore {
    */
   @Nullable
   public Instant getLatestSealedHourStart(@Nonnull String metricFamily) throws SQLException {
+    return getLatestSealedBucketStart(
+        AnalyticsMetricFamilies.LAYER_HOUR, metricFamily, PostgresAnalyticsUtc::truncateToUtcHour);
+  }
+
+  /**
+   * Latest day bucket start that has a watermark for {@code metricFamily}, derived from {@code
+   * sealed_through - 1 day}. Returns null when no day watermark exists.
+   */
+  @Nullable
+  public Instant getLatestSealedDayStart(@Nonnull String metricFamily) throws SQLException {
+    return getLatestSealedBucketStart(
+        AnalyticsMetricFamilies.LAYER_DAY, metricFamily, PostgresAnalyticsUtc::truncateToUtcDay);
+  }
+
+  /**
+   * Latest month bucket start that has a watermark for {@code metricFamily}, derived from {@code
+   * sealed_through - 1 second}. Returns null when no month watermark exists.
+   */
+  @Nullable
+  public Instant getLatestSealedMonthStart(@Nonnull String metricFamily) throws SQLException {
+    return getLatestSealedBucketStart(
+        AnalyticsMetricFamilies.LAYER_MONTH,
+        metricFamily,
+        PostgresAnalyticsUtc::truncateToUtcMonth);
+  }
+
+  @Nullable
+  private Instant getLatestSealedBucketStart(
+      @Nonnull String layer,
+      @Nonnull String metricFamily,
+      @Nonnull java.util.function.Function<Instant, Instant> truncate)
+      throws SQLException {
     String sql =
         "SELECT MAX(sealed_through) FROM "
             + qualifiedWatermarkTable()
             + " WHERE layer = ? AND metric_family = ?";
     try (Connection c = openReadConnection();
         PreparedStatement ps = c.prepareStatement(sql)) {
-      PostgresPreparedBinder.bind(ps, List.of(AnalyticsMetricFamilies.LAYER_HOUR, metricFamily));
+      PostgresPreparedBinder.bind(ps, List.of(layer, metricFamily));
       try (ResultSet rs = ps.executeQuery()) {
         if (!rs.next()) {
           return null;
@@ -459,7 +491,7 @@ public class PostgresAnalyticsStore {
         if (ts == null) {
           return null;
         }
-        return PostgresAnalyticsUtc.truncateToUtcHour(ts.toInstant().minusSeconds(1));
+        return truncate.apply(ts.toInstant().minusSeconds(1));
       }
     }
   }

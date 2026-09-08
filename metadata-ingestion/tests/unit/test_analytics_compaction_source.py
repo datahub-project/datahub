@@ -84,6 +84,9 @@ def test_sends_config_overrides_in_payload():
             "max_days_to_compact": 5,
             "max_months_to_compact": 2,
             "max_wall_clock_millis": 60000,
+            "hour_lookback_hours": 96,
+            "day_lookback_days": 21,
+            "month_lookback_months": 6,
         },
         ctx,
     )
@@ -95,6 +98,9 @@ def test_sends_config_overrides_in_payload():
             "maxDaysToCompact": 5,
             "maxMonthsToCompact": 2,
             "maxWallClockMillis": 60000,
+            "hourLookbackHours": 96,
+            "dayLookbackDays": 21,
+            "monthLookbackMonths": 6,
         },
     )
 

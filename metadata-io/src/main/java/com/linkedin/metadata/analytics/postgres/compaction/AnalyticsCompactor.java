@@ -133,9 +133,10 @@ public class AnalyticsCompactor {
     }
 
     int daysCompacted = 0;
-    Instant dayCursor =
+    Instant lookbackDayStart =
         PostgresAnalyticsUtc.truncateToUtcDay(now).minus(dayLookbackDays, ChronoUnit.DAYS);
     Instant openDay = PostgresAnalyticsUtc.truncateToUtcDay(now);
+    Instant dayCursor = daySealCursorStart(store, lookbackDayStart);
     while (dayCursor.isBefore(openDay)) {
       if (Instant.now().isAfter(deadline)) {
         moreWork = true;
@@ -170,7 +171,8 @@ public class AnalyticsCompactor {
 
     int monthsCompacted = 0;
     YearMonth openMonth = YearMonth.from(now.atZone(ZoneOffset.UTC));
-    YearMonth monthCursor = openMonth.minusMonths(monthLookbackMonths);
+    YearMonth lookbackMonth = openMonth.minusMonths(monthLookbackMonths);
+    YearMonth monthCursor = monthSealCursorStart(store, lookbackMonth);
     while (monthCursor.isBefore(openMonth)) {
       if (Instant.now().isAfter(deadline)) {
         moreWork = true;
@@ -235,6 +237,33 @@ public class AnalyticsCompactor {
       frontier = frontier == null || latest.isBefore(frontier) ? latest : frontier;
     }
     return frontier.plus(1, ChronoUnit.HOURS);
+  }
+
+  private static Instant daySealCursorStart(
+      @Nonnull PostgresAnalyticsStore store, @Nonnull Instant lookbackStart) throws SQLException {
+    Instant frontier = null;
+    for (String family : FAMILIES) {
+      Instant latest = store.getLatestSealedDayStart(family);
+      if (latest == null) {
+        return lookbackStart;
+      }
+      frontier = frontier == null || latest.isBefore(frontier) ? latest : frontier;
+    }
+    return frontier.plus(1, ChronoUnit.DAYS);
+  }
+
+  private static YearMonth monthSealCursorStart(
+      @Nonnull PostgresAnalyticsStore store, @Nonnull YearMonth lookbackStart) throws SQLException {
+    YearMonth frontier = null;
+    for (String family : FAMILIES) {
+      Instant latest = store.getLatestSealedMonthStart(family);
+      if (latest == null) {
+        return lookbackStart;
+      }
+      YearMonth ym = YearMonth.from(latest.atZone(ZoneOffset.UTC));
+      frontier = frontier == null || ym.isBefore(frontier) ? ym : frontier;
+    }
+    return frontier.plusMonths(1);
   }
 
   private static boolean isDaySealed(PostgresAnalyticsStore store, String family, Instant dayStart)

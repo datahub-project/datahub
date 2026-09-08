@@ -19,7 +19,7 @@ final class UsageEventsImplementation {
     if (impl == null || impl.isBlank()) {
       impl = context.getEnvironment().getProperty("DATAHUB_USAGE_EVENTS_IMPLEMENTATION");
     }
-    return impl;
+    return impl == null ? null : impl.trim();
   }
 
   /** Absent property means Elasticsearch integration is on (master default). */

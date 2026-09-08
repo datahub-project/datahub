@@ -7,6 +7,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -24,15 +28,22 @@ public final class PostgresUsageRecommendationQueries {
       @Nonnull PostgresAnalyticsStore store,
       @Nonnull String actorUrn,
       @Nonnull String eventType,
-      int limit) {
+      int limit,
+      int lookbackDays) {
     String sql =
         "SELECT entity_urn FROM "
             + store.qualifiedEventTable()
             + " WHERE metric_family = ? AND actor_urn = ? AND event_type = ?"
             + " AND entity_urn IS NOT NULL"
+            + lookbackPredicate(lookbackDays)
             + " GROUP BY entity_urn ORDER BY MAX(event_time) DESC LIMIT ?";
-    return queryStrings(
-        store, sql, List.of(AnalyticsMetricFamilies.DATAHUB_USAGE, actorUrn, eventType, limit));
+    List<Object> params = new ArrayList<>();
+    params.add(AnalyticsMetricFamilies.DATAHUB_USAGE);
+    params.add(actorUrn);
+    params.add(eventType);
+    addLookbackParam(params, lookbackDays);
+    params.add(limit);
+    return queryStrings(store, sql, params);
   }
 
   @Nonnull
@@ -40,15 +51,18 @@ public final class PostgresUsageRecommendationQueries {
       @Nonnull PostgresAnalyticsStore store,
       @Nonnull String eventType,
       int limit,
-      @Nullable List<String> actorPeers) {
+      @Nullable List<String> actorPeers,
+      int lookbackDays) {
     StringBuilder sql =
         new StringBuilder(
             "SELECT entity_urn FROM "
                 + store.qualifiedEventTable()
-                + " WHERE metric_family = ? AND event_type = ? AND entity_urn IS NOT NULL");
+                + " WHERE metric_family = ? AND event_type = ? AND entity_urn IS NOT NULL"
+                + lookbackPredicate(lookbackDays));
     List<Object> params = new ArrayList<>();
     params.add(AnalyticsMetricFamilies.DATAHUB_USAGE);
     params.add(eventType);
+    addLookbackParam(params, lookbackDays);
     if (actorPeers != null && !actorPeers.isEmpty()) {
       sql.append(" AND actor_urn = ANY(?)");
       params.add(actorPeers.toArray(String[]::new));
@@ -60,23 +74,40 @@ public final class PostgresUsageRecommendationQueries {
 
   @Nonnull
   public static List<String> recentSearchQueries(
-      @Nonnull PostgresAnalyticsStore store, @Nonnull String actorUrn, int limit) {
+      @Nonnull PostgresAnalyticsStore store,
+      @Nonnull String actorUrn,
+      int limit,
+      int lookbackDays) {
     String sql =
         "SELECT query FROM "
             + store.qualifiedEventTable()
             + " WHERE metric_family = ? AND actor_urn = ? AND event_type = ?"
             + " AND query IS NOT NULL AND btrim(query) <> '' AND query <> '*'"
             + " AND COALESCE((document->>'total')::numeric, 0) > 0"
+            + lookbackPredicate(lookbackDays)
             + " GROUP BY query ORDER BY MAX(event_time) DESC LIMIT ?";
-    return queryStrings(
-        store,
-        sql,
-        List.of(
-            AnalyticsMetricFamilies.DATAHUB_USAGE,
-            actorUrn,
-            com.linkedin.metadata.datahubusage.DataHubUsageEventType.SEARCH_RESULTS_VIEW_EVENT
-                .getType(),
-            limit));
+    List<Object> params = new ArrayList<>();
+    params.add(AnalyticsMetricFamilies.DATAHUB_USAGE);
+    params.add(actorUrn);
+    params.add(
+        com.linkedin.metadata.datahubusage.DataHubUsageEventType.SEARCH_RESULTS_VIEW_EVENT
+            .getType());
+    addLookbackParam(params, lookbackDays);
+    params.add(limit);
+    return queryStrings(store, sql, params);
+  }
+
+  @Nonnull
+  private static String lookbackPredicate(int lookbackDays) {
+    return lookbackDays > 0 ? " AND event_time >= ?" : "";
+  }
+
+  private static void addLookbackParam(@Nonnull List<Object> params, int lookbackDays) {
+    if (lookbackDays > 0) {
+      params.add(
+          OffsetDateTime.ofInstant(
+              Instant.now().minus(lookbackDays, ChronoUnit.DAYS), ZoneOffset.UTC));
+    }
   }
 
   /**

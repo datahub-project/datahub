@@ -18,6 +18,6 @@ public class UsageEventsConfiguration {
   private int recommendationLookbackDays;
 
   public boolean usePostgresql() {
-    return "postgres".equalsIgnoreCase(implementation);
+    return implementation != null && "postgres".equalsIgnoreCase(implementation.trim());
   }
 }
