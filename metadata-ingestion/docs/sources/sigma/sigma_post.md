@@ -168,6 +168,24 @@ Snowflake is the only platform that requires a case bridge (Snowflake's catalog 
 Redshift connections where the Sigma connection record omits `database`/`schema`, see
 [Connection record overrides](#connection-record-overrides-connection_to_platform_map) above.
 
+**Warehouse column names are confirmed against DataHub where possible.** Sigma reports a
+warehouse column by its display name (`Order Ref Id`), and where the `columnId` does not carry the
+native name the connector has to derive it (`ORDER_REF_ID`) — a convention, not a fact, and this
+connector holds no warehouse schema of its own to check it against. So when the DataHub graph is
+reachable it reads that table's `schemaMetadata` (once per table, cached for the run) and emits the
+field name the warehouse connector itself recorded, scoring it as high as a `columnId`-derived
+name. `warehouse_column_verified_against_graph` counts those.
+
+Where DataHub holds no schema for the table — no graph, or the warehouse connector has not ingested
+it yet — the derived name stands and is counted under `warehouse_column_unverifiable_no_schema`.
+That is a different risk, not the same one: the dataset is an un-ingested stub, so there is no
+schema for a wrong name to contradict, and the derived name is the only signal available. The case
+worth watching is `warehouse_column_absent_from_graph_schema` — DataHub **has** the schema and
+neither the display name nor the derived name matches any field in it, which is the one situation
+where the derived name is provably a dangling field reference. The edge is still emitted at the
+reduced confidence so the information is not lost, but a large value there means the convention
+does not hold on your warehouse.
+
 **Counters to monitor** (visible in the ingestion report):
 
 | Counter                                       | Meaning                                             |

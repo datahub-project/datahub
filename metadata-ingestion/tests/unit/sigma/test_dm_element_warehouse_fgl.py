@@ -42,6 +42,13 @@ from datahub.ingestion.source.sigma.sigma import (
 )
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import FineGrainedLineageClass
+from datahub.metadata.schema_classes import (
+    OtherSchemaClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -1215,3 +1222,107 @@ class TestColumnLevelDirectLookupRecovery:
             ]
             == 1
         )
+
+
+class TestWarehouseColumnVerifiedAgainstTheGraph:
+    """Inverting Sigma's display-name convention is a guess.
+
+    "Order Ref Id" -> ORDER_REF_ID is a convention, and this connector holds no
+    warehouse schema of its own to check it against — so it could emit a field
+    reference that does not exist. Where DataHub already holds that table's
+    schema the guess is unnecessary, and where it does not the guess is
+    harmless: the dataset is an un-ingested stub with no schema to contradict.
+    """
+
+    def _source_with_schema(self, field_paths: Optional[List[str]]) -> SigmaSource:
+        source = _make_source()
+        graph = MagicMock()
+        graph.get_aspect.return_value = (
+            None
+            if field_paths is None
+            else SchemaMetadataClass(
+                schemaName="s",
+                platform="urn:li:dataPlatform:snowflake",
+                version=0,
+                hash="",
+                platformSchema=OtherSchemaClass(rawSchema=""),
+                fields=[
+                    SchemaFieldClass(
+                        fieldPath=p,
+                        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                        nativeDataType="VARCHAR",
+                    )
+                    for p in field_paths
+                ],
+            )
+        )
+        source.ctx.graph = graph
+        return source
+
+    def _resolve(self, source: SigmaSource) -> List:
+        # A columnId with no inode prefix, so the display-name guess is the
+        # only thing the old code had to go on.
+        col = _column("opaque-col-1", "Customer Id", "[CUSTOMERS/Customer Id]")
+        elem = _element("el-self", "CUSTOMERS", [col], [_SF_INODE_SOURCE])
+        return _build_fgls(
+            source,
+            elem,
+            warehouse_map=_SF_WAREHOUSE_MAP,
+            element_name_to_eids={"customers": ["el-self"]},
+        )
+
+    def test_a_confirmed_field_name_is_emitted_verbatim(self) -> None:
+        """DataHub says the column is CUSTOMER_ID, so stop guessing at it."""
+        source = self._source_with_schema(["CUSTOMER_ID", "OTHER"])
+        fgls = self._resolve(source)
+
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "CUSTOMER_ID")
+        ]
+        assert source.reporter.warehouse_column_verified_against_graph == 1
+        # As trustworthy as a columnId-derived name, because it is the name the
+        # warehouse connector itself emitted.
+        assert fgls[0].confidenceScore == 1.0
+
+    def test_no_schema_in_datahub_keeps_the_derived_name(self) -> None:
+        """An un-ingested table is a stub; nothing contradicts the guess."""
+        source = self._source_with_schema(None)
+        fgls = self._resolve(source)
+
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "customer_id")
+        ]
+        assert source.reporter.warehouse_column_unverifiable_no_schema == 1
+        assert source.reporter.warehouse_column_verified_against_graph == 0
+
+    def test_a_real_schema_without_the_column_is_flagged(self) -> None:
+        """The one case where the guess is provably a dangling reference."""
+        source = self._source_with_schema(["SOMETHING_ELSE"])
+        fgls = self._resolve(source)
+
+        assert source.reporter.warehouse_column_absent_from_graph_schema == 1
+        # Still emitted, at the reduced confidence -- the counter is the signal.
+        assert fgls[0].confidenceScore == 0.5
+
+    def test_a_graph_error_never_fails_the_run(self) -> None:
+        source = _make_source()
+        graph = MagicMock()
+        graph.get_aspect.side_effect = RuntimeError("graph unreachable")
+        source.ctx.graph = graph
+
+        fgls = self._resolve(source)
+
+        assert fgls[0].upstreams == [
+            builder.make_schema_field_urn(_SF_DATASET_URN, "customer_id")
+        ]
+        assert source.reporter.warehouse_schema_lookup_failed == 1
+
+    def test_the_schema_is_fetched_once_per_table(self) -> None:
+        """One graph round-trip per warehouse table, not per column."""
+        source = self._source_with_schema(["CUSTOMER_ID"])
+        graph = source.ctx.graph
+        assert isinstance(graph, MagicMock)
+        self._resolve(source)
+        self._resolve(source)
+
+        assert graph.get_aspect.call_count == 1

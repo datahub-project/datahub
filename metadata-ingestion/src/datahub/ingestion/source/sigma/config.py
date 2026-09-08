@@ -281,6 +281,24 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # signal for the warehouse column name -- so these edges carry a reduced
     # confidence score.
     data_model_element_fgl_warehouse_table_name_resolved: int = 0
+    # Warehouse column names confirmed against the schema DataHub already holds
+    # for that table, rather than derived from Sigma's display-name convention
+    # ("Order Ref Id" -> ORDER_REF_ID). A confirmed name is emitted verbatim and
+    # scores as high as a columnId-derived one, because it IS what the warehouse
+    # connector emitted.
+    warehouse_column_verified_against_graph: int = 0
+    # DataHub holds no schema for the table -- no graph, or the warehouse
+    # connector has not ingested it. The derived name stands: the dataset is an
+    # un-ingested stub, so there is no schema for a wrong name to contradict.
+    warehouse_column_unverifiable_no_schema: int = 0
+    # DataHub HAS the schema and neither the display name nor the derived name
+    # matches any field in it. The edge is still emitted at the reduced
+    # confidence, but this is the population where the derived name is provably
+    # a dangling field reference -- the number to watch.
+    warehouse_column_absent_from_graph_schema: int = 0
+    # A graph read raised. Never fatal: the derived name is what this connector
+    # used before the check existed.
+    warehouse_schema_lookup_failed: int = 0
     # Sub-count of the above: the table was not declared by the element either,
     # and was found by NAME in the tenant-wide /v2/files listing. Both the table
     # and the column are inferred, so these carry the lowest confidence score of

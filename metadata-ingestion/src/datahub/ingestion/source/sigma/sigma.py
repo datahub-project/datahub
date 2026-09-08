@@ -613,6 +613,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._dm_column_lookup_cache: Optional[
             Tuple[str, Dict[str, Dict[str, str]]]
         ] = None
+        # Warehouse dataset urn -> its fields as DataHub holds them, or None
+        # when DataHub holds no schema. Misses are cached too: a table absent
+        # from DataHub stays absent for the run.
+        self._warehouse_schema_cache: Dict[str, Optional[Dict[str, str]]] = {}
         # Intra-DM element ancestry, keyed by dataModelId.
         self._dm_ancestors_cache: Dict[str, Dict[str, Set[str]]] = {}
         # Built once per run, lazily, by _ensure_global_warehouse_index.
@@ -3531,13 +3535,28 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             column.columnId if column else None,
             allowed_prefixes={element.elementId, *element.source_ids},
         )
-        native = _normalize_warehouse_identifier(
-            exact
-            if exact is not None
-            else _warehouse_column_from_display_name(ref.column),
-            record.datahub_platform,
-            lowercase,
-        )
+        verified = False
+        if exact is not None:
+            native = _normalize_warehouse_identifier(
+                exact, record.datahub_platform, lowercase
+            )
+        else:
+            # Check the guess against the schema DataHub already holds, if it
+            # holds one. A confirmed field name is emitted verbatim -- it needs
+            # no platform normalisation, because it IS what the warehouse
+            # connector emitted.
+            candidate, verified = self._verified_warehouse_column(
+                parent_urn=parent_urn,
+                display_name=ref.column,
+                guessed=_warehouse_column_from_display_name(ref.column),
+            )
+            native = (
+                candidate
+                if verified
+                else _normalize_warehouse_identifier(
+                    candidate, record.datahub_platform, lowercase
+                )
+            )
         upstream_field = builder.make_schema_field_urn(parent_urn, native)
         pair = (downstream_field, upstream_field)
         if pair not in emitted_pairs:
@@ -3551,8 +3570,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     confidenceScore=(
                         _FGL_CONFIDENCE_WAREHOUSE_GLOBAL_NAME_DERIVED
                         if derived_globally
+                        # Confirmed against the warehouse's own schema, so no
+                        # weaker than a columnId-derived name.
                         else _FGL_CONFIDENCE_WAREHOUSE_NAME_EXACT_COLUMN
-                        if exact is not None
+                        if exact is not None or verified
                         else _FGL_CONFIDENCE_WAREHOUSE_NAME_DERIVED
                     ),
                 )
@@ -3928,6 +3949,87 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         }
         self._dm_column_lookup_cache = (dm_id, lookups)
         return lookups
+
+    def _warehouse_schema_fields(self, dataset_urn: str) -> Optional[Dict[str, str]]:
+        """``normalised field name -> real fieldPath`` for a warehouse dataset.
+
+        None when DataHub has no schema for it -- either there is no graph
+        (a file sink, or ``--dry-run``) or the warehouse connector has not
+        ingested that table yet. None and an empty dict mean different things
+        and callers must not conflate them: no schema is "nothing can
+        contradict this", an empty schema is "the table has no columns".
+
+        One ``get_aspect`` per distinct warehouse dataset, cached for the run,
+        including the misses -- a table absent from DataHub stays absent.
+        """
+        if dataset_urn in self._warehouse_schema_cache:
+            return self._warehouse_schema_cache[dataset_urn]
+        fields: Optional[Dict[str, str]] = None
+        graph = self.ctx.graph
+        if graph is not None:
+            try:
+                schema = graph.get_aspect(dataset_urn, SchemaMetadataClass)
+            except Exception as e:
+                # A graph read must never fail the ingestion: the guess below
+                # is what the connector did before this check existed.
+                self.reporter.warehouse_schema_lookup_failed += 1
+                logger.debug(
+                    "WAREHOUSE SCHEMA lookup failed for %s: %s", dataset_urn, e
+                )
+                schema = None
+            if schema is not None:
+                fields = {}
+                for schema_field in schema.fields or []:
+                    fields.setdefault(
+                        _normalize_element_name(schema_field.fieldPath),
+                        schema_field.fieldPath,
+                    )
+        self._warehouse_schema_cache[dataset_urn] = fields
+        return fields
+
+    def _verified_warehouse_column(
+        self,
+        *,
+        parent_urn: str,
+        display_name: str,
+        guessed: str,
+    ) -> Tuple[str, bool]:
+        """Return (column name to emit, whether DataHub confirmed it).
+
+        Inverting Sigma's display-name convention ("Order Ref Id" ->
+        ORDER_REF_ID) is a guess, and the connector has no warehouse schema of
+        its own to check it against. Where DataHub DOES hold that schema, the
+        guess is unnecessary: the real field name is right there, so match the
+        display name against it and emit what the warehouse actually calls the
+        column.
+
+        Where DataHub holds no schema the guess stands. That is not the same
+        risk: the dataset is an un-ingested stub, so there is no schema for a
+        wrong name to contradict, and the guess is the only signal available.
+        The guess is only ever WRONG against a real schema -- which is exactly
+        the case this checks.
+        """
+        fields = self._warehouse_schema_fields(parent_urn)
+        if fields is None:
+            self.reporter.warehouse_column_unverifiable_no_schema += 1
+            return guessed, False
+        wanted = _normalize_element_name(display_name)
+        real = fields.get(wanted) or fields.get(_normalize_element_name(guessed))
+        if real is None:
+            self.reporter.warehouse_column_absent_from_graph_schema += 1
+            logger.debug(
+                "WAREHOUSE COLUMN %s: neither the display name %r nor the "
+                "derived name %r matches any of the %d fields DataHub holds "
+                "for this table, so the derived name would be a dangling "
+                "field reference",
+                parent_urn,
+                display_name,
+                guessed,
+                len(fields),
+            )
+            return guessed, False
+        self.reporter.warehouse_column_verified_against_graph += 1
+        return real, True
 
     def _add_union_fgls(
         self,
