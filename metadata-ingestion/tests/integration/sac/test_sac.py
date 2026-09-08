@@ -354,11 +354,16 @@ def test_connection_succeeds_when_data_export_service_is_reachable(requests_mock
 
 
 def test_connection_skips_data_export_service_when_disabled(requests_mock):
-    # Acquired-model schema ingestion is off by default, so the Data Export Service is not
-    # probed and its access is not required for a successful connection test.
+    # With acquired-model schema ingestion explicitly disabled, the Data Export Service is
+    # not probed and its access is not required for a successful connection test.
     _register_test_connection_mocks(requests_mock)
 
-    report = SACSource.test_connection(_test_connection_config())
+    report = SACSource.test_connection(
+        {
+            **_test_connection_config(),
+            "ingest_acquired_data_model_schema_metadata": False,
+        }
+    )
 
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable
