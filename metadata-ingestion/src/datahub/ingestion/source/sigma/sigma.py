@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import re
 from dataclasses import dataclass, replace
@@ -1973,6 +1974,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             platform=record.datahub_platform,
             env=target_env,
             platform_instance=target_platform_instance,
+        )
+        # The aggregator parses lazily at drain, and sqlglot's own warnings
+        # ("Unknown subquery scope: SELECT ...") carry no Sigma identity -- one
+        # run produced 72 of them with nothing to attribute them to. Log the
+        # registration with a fingerprint of the SQL so a later warning quoting
+        # that SQL can be tied back to the element that owns it.
+        logger.debug(
+            "CUSTOMSQL REGISTER %s urn=%s customsql_name=%r platform=%s "
+            "default_db=%r default_schema=%r sql_len=%d sql_sha1=%s "
+            "sql_first_line=%r",
+            reg.label,
+            reg.urn,
+            customsql_entry.name,
+            record.datahub_platform,
+            default_db,
+            default_schema,
+            len(definition),
+            hashlib.sha1(definition.encode("utf-8")).hexdigest()[:12],
+            definition.strip().splitlines()[0][:120] if definition.strip() else "",
         )
         try:
             aggregator.add_view_definition(
@@ -5837,12 +5857,30 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.chart_input_fields_warehouse_column_bridged += 1
             return native
         self.reporter.chart_input_fields_warehouse_column_bridge_unresolved += 1
+        # Print WHAT the map held, not just that the lookup missed. Without it
+        # "map was empty", "present under different casing" and "genuinely
+        # absent" are indistinguishable, and they need different fixes.
+        casefold_hit = next(
+            (
+                key
+                for key in column_native_names
+                if key.casefold() == sigma_display_name.casefold()
+            ),
+            None,
+        )
+        if casefold_hit is not None:
+            self.reporter.chart_input_fields_bridge_case_only_miss += 1
         logger.debug(
             "Column bridge unresolved: display name %r not in native-name map "
-            "for upstream %r (element=%s); fieldPath will use display name.",
+            "for upstream %r (element=%s); map has %d entr(ies), "
+            "case-insensitive match=%r, keys sample=%r; fieldPath will use the "
+            "display name.",
             sigma_display_name,
             upstream_urn,
             element_id,
+            len(column_native_names),
+            casefold_hit,
+            sorted(column_native_names)[:15],
         )
         warn_key = (upstream_urn, sigma_display_name)
         if warn_key not in self._bridge_unresolved_warned:

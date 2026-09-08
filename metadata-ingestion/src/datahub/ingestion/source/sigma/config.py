@@ -391,6 +391,17 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Combining nodes the BFS walked through, by type. Separate from the
     # unhandled map so a type moving from one to the other is visible.
     workbook_lineage_pass_through_nodes: Dict[str, int] = field(default_factory=dict)
+    # Sub-count of chart_input_fields_warehouse_column_bridge_unresolved where
+    # the native-name map DOES hold the column under different casing. That is
+    # a normalisation bug, not missing data, and needs a different fix from a
+    # genuine absence -- which is why the two are separated.
+    chart_input_fields_bridge_case_only_miss: int = 0
+    # Workspace id could not be resolved from a file path. Previously only a
+    # logger.error, so it never reached the ingestion report at all.
+    workspace_id_lookup_failed: int = 0
+    # /workbooks/{id}/lineage non-200 responses, by HTTP status. The warning is
+    # capped by LossyList, so this is the only place the distribution survives.
+    workbook_lineage_non_200_by_status: Dict[str, int] = field(default_factory=dict)
     # Layout elements (control, divider, ...) returned alongside data elements.
     # They have no name and are correctly skipped; counted separately so
     # pagination_malformed_entries_dropped keeps meaning "a real entry failed

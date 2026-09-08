@@ -268,8 +268,22 @@ class SigmaAPI:
                 path_list.pop()
             return parent_id
         except Exception as e:
+            self.report.workspace_id_lookup_failed += 1
             logger.error(
                 f"Unable to find workspace id using file path '{path}'. Exception: {e}"
+            )
+            # Was a bare logger.error, so it never reached the ingestion report
+            # -- an operator reading the report saw nothing at all.
+            self.report.warning(
+                title="Sigma workspace id lookup failed",
+                message=(
+                    "Could not walk a file path back to its workspace. The "
+                    "affected entity is emitted without workspace attribution, "
+                    "so it will be missing from workspace browse paths and from "
+                    "the per-workspace counts."
+                ),
+                context=f"path={path!r}, remaining_segments={len(path_list)}",
+                exc=e,
             )
             return None
 
@@ -1770,6 +1784,14 @@ class SigmaAPI:
                         context=f"workbook_id={workbook_id}, http_status={status}",
                     )
                 else:
+                    # LossyList caps the warning list, so the distribution of
+                    # statuses would not survive a run with many of these.
+                    self.report.workbook_lineage_non_200_by_status[str(status)] = (
+                        self.report.workbook_lineage_non_200_by_status.get(
+                            str(status), 0
+                        )
+                        + 1
+                    )
                     self.report.warning(
                         title="Sigma /workbooks/{id}/lineage returned non-200",
                         message=(
