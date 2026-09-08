@@ -21,7 +21,7 @@ source:
     # Optional: replace the built-in aspect list and/or set per-aspect days
     # truncate_aspect_retentions:
     #   - entity_type: dataset
-        aspect: datasetUsageStatistics
+    #     aspect: datasetUsageStatistics
     #     older_than_days: 30
     #   - entity_type: dataset
     #     aspect: operation
