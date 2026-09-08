@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
@@ -77,10 +76,31 @@ class PgQueueEventSourceConfig(ConfigModel):
         default=None,
         description="Override queue visibility timeout when set.",
     )
-    poll_interval_seconds: float = Field(default=2.0, ge=0.1, le=120.0)
+    empty_poll_sleep_min_millis: int = Field(
+        default=1000,
+        ge=1,
+        description="Minimum empty-poll sleep; consecutive empty polls double until max.",
+    )
+    empty_poll_sleep_max_millis: int = Field(
+        default=5000,
+        ge=1,
+        description="Maximum empty-poll sleep (backoff ceiling).",
+    )
+    poll_interval_seconds: Optional[float] = Field(
+        default=None,
+        ge=0.1,
+        le=120.0,
+        description=(
+            "Deprecated: when set, overrides empty_poll_sleep_max_millis "
+            "(value is converted from seconds)."
+        ),
+    )
     batch_size: int = Field(default=100, ge=1, le=5000)
 
     def build_consumer_config(self, pipeline_name: str) -> PgQueueConsumerConfig:
+        max_millis = self.empty_poll_sleep_max_millis
+        if self.poll_interval_seconds is not None:
+            max_millis = max(1, int(self.poll_interval_seconds * 1000))
         return PgQueueConsumerConfig(
             queue=self.queue,
             schema_registry_url=self.schema_registry_url,
@@ -89,6 +109,8 @@ class PgQueueEventSourceConfig(ConfigModel):
             consumer_group=pipeline_name,
             visibility_timeout_seconds=self.visibility_timeout_seconds,
             payload_kind_by_route_key=dict(self.payload_kind_by_route_key),
+            empty_poll_sleep_min_millis=self.empty_poll_sleep_min_millis,
+            empty_poll_sleep_max_millis=max_millis,
         )
 
 
@@ -138,8 +160,9 @@ class PgQueueEventSource(EventSource):
             if batch:
                 for rec in batch:
                     yield from self._records_to_envelopes(rec)
+                self._consumer.wait_after_poll(True)
             else:
-                time.sleep(self.source_config.poll_interval_seconds)
+                self._consumer.wait_after_poll(False)
 
         logger.info("pgQueue consumer exiting main loop")
 

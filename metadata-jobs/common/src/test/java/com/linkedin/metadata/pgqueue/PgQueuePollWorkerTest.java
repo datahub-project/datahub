@@ -81,7 +81,7 @@ public class PgQueuePollWorkerTest {
   public void constructorRejectsShardCountLessThanOne() {
     PgQueuePollerRegistration reg =
         new PgQueuePollerRegistration(
-            GROUP, List.of(TOPIC), 10, "thread-0", 100, 100, 100, (topic, msgs, ctx) -> {});
+            GROUP, List.of(TOPIC), 10, "thread-0", 100, 100, 100, 100, (topic, msgs, ctx) -> {});
     try {
       new PgQueuePollWorker(
           reg,
@@ -102,7 +102,7 @@ public class PgQueuePollWorkerTest {
   public void constructorRejectsShardIndexOutOfRange() {
     PgQueuePollerRegistration reg =
         new PgQueuePollerRegistration(
-            GROUP, List.of(TOPIC), 10, "thread-0", 100, 100, 100, (topic, msgs, ctx) -> {});
+            GROUP, List.of(TOPIC), 10, "thread-0", 100, 100, 100, 100, (topic, msgs, ctx) -> {});
     try {
       new PgQueuePollWorker(
           reg,
@@ -147,7 +147,7 @@ public class PgQueuePollWorkerTest {
 
     PgQueuePollerRegistration reg =
         new PgQueuePollerRegistration(
-            GROUP, List.of(TOPIC), 10, "thread-0", 100, 100, 100, handler);
+            GROUP, List.of(TOPIC), 10, "thread-0", 100, 100, 100, 100, handler);
 
     PgQueuePollWorker worker =
         new PgQueuePollWorker(
@@ -188,7 +188,8 @@ public class PgQueuePollWorkerTest {
         };
 
     PgQueuePollerRegistration reg =
-        new PgQueuePollerRegistration(GROUP, List.of(TOPIC), 10, "thread-0", 50, 100, 100, handler);
+        new PgQueuePollerRegistration(
+            GROUP, List.of(TOPIC), 10, "thread-0", 50, 50, 100, 100, handler);
 
     PgQueuePollWorker worker =
         new PgQueuePollWorker(
@@ -231,7 +232,7 @@ public class PgQueuePollWorkerTest {
 
     PgQueuePollerRegistration reg =
         new PgQueuePollerRegistration(
-            GROUP, List.of(TOPIC), 10, "thread-0", 100, 10, 100, (topic, msgs, ctx) -> {});
+            GROUP, List.of(TOPIC), 10, "thread-0", 100, 100, 10, 100, (topic, msgs, ctx) -> {});
 
     PgQueuePollWorker worker =
         new PgQueuePollWorker(
@@ -257,7 +258,8 @@ public class PgQueuePollWorkerTest {
     AtomicInteger receiveCalls = new AtomicInteger(0);
 
     PgQueuePollerRegistration reg =
-        new PgQueuePollerRegistration(GROUP, List.of(TOPIC), 10, "thread-0", 10, 100, 100, handler);
+        new PgQueuePollerRegistration(
+            GROUP, List.of(TOPIC), 10, "thread-0", 10, 10, 100, 100, handler);
 
     PgQueuePollWorker worker =
         new PgQueuePollWorker(
@@ -299,6 +301,7 @@ public class PgQueuePollWorkerTest {
             List.of(TOPIC),
             10,
             "thread-0",
+            10,
             10,
             100,
             100,
@@ -353,6 +356,7 @@ public class PgQueuePollWorkerTest {
             10,
             "thread-0",
             10,
+            10,
             50,
             100,
             (topic, msgs, ctx) -> {},
@@ -399,7 +403,8 @@ public class PgQueuePollWorkerTest {
     AtomicInteger receiveCalls = new AtomicInteger(0);
 
     PgQueuePollerRegistration reg =
-        new PgQueuePollerRegistration(GROUP, List.of(TOPIC), 10, "thread-0", 100, 100, 10, handler);
+        new PgQueuePollerRegistration(
+            GROUP, List.of(TOPIC), 10, "thread-0", 100, 100, 100, 10, handler);
 
     PgQueuePollWorker worker =
         new PgQueuePollWorker(
@@ -445,7 +450,7 @@ public class PgQueuePollWorkerTest {
     PgQueuePollHandler handler = mock(PgQueuePollHandler.class);
     PgQueuePollerRegistration reg =
         new PgQueuePollerRegistration(
-            GROUP, List.of(TOPIC), 10, "thread-0", 100, 100, 100, handler);
+            GROUP, List.of(TOPIC), 10, "thread-0", 100, 100, 100, 100, handler);
 
     PgQueuePollWorker worker =
         new PgQueuePollWorker(
@@ -476,7 +481,7 @@ public class PgQueuePollWorkerTest {
     PgQueuePollHandler handler = mock(PgQueuePollHandler.class);
     PgQueuePollerRegistration reg =
         new PgQueuePollerRegistration(
-            GROUP, List.of(TOPIC), 10, "thread-0", 100, 100, 100, handler);
+            GROUP, List.of(TOPIC), 10, "thread-0", 100, 100, 100, 100, handler);
 
     PgQueuePollWorker worker =
         new PgQueuePollWorker(
@@ -512,6 +517,7 @@ public class PgQueuePollWorkerTest {
             List.of(TOPIC),
             10,
             "thread-0",
+            10,
             10,
             100,
             100,
@@ -561,6 +567,7 @@ public class PgQueuePollWorkerTest {
             List.of(TOPIC),
             10,
             "thread-0",
+            10,
             10,
             100,
             100,

@@ -266,3 +266,31 @@ class TestClose:
 
         consumer.close()
         consumer._conn.close.assert_called_once()
+
+
+class TestWaitAfterPoll:
+    @patch("datahub.pgqueue.consumer.time.sleep")
+    @patch("datahub.pgqueue.consumer.create_pgqueue_connection")
+    @patch("datahub.pgqueue.consumer.SchemaRegistryClient")
+    @patch("datahub.pgqueue.consumer.AvroDeserializer")
+    def test_empty_polls_backoff_then_reset(
+        self,
+        _deser_cls: MagicMock,
+        _sr_cls: MagicMock,
+        _conn_fn: MagicMock,
+        sleep_fn: MagicMock,
+    ) -> None:
+        from datahub.pgqueue.consumer import DatahubPgQueueConsumer
+
+        cfg = _make_consumer_config()
+        consumer = DatahubPgQueueConsumer(cfg)
+
+        consumer.wait_after_poll(False)
+        consumer.wait_after_poll(False)
+        consumer.wait_after_poll(True)
+        consumer.wait_after_poll(False)
+
+        assert sleep_fn.call_args_list[0].args[0] == 1.0
+        assert sleep_fn.call_args_list[1].args[0] == 2.0
+        assert sleep_fn.call_args_list[2].args[0] == 1.0
+        assert sleep_fn.call_count == 3

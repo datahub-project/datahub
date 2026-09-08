@@ -79,6 +79,7 @@ public final class PgQueuePollWorker implements Runnable {
   /** Original poll loop: each poll result is dispatched immediately to the handler. */
   private void runImmediateMode() {
     String lockOwner = registration.consumerGroupId() + ":" + UUID.randomUUID();
+    PgQueueEmptyPollBackoff emptyPollBackoff = registration.emptyPollBackoff();
     while (!stopped && !Thread.currentThread().isInterrupted()) {
       try {
         boolean anyTopicCataloged =
@@ -136,7 +137,9 @@ public final class PgQueuePollWorker implements Runnable {
         }
 
         if (!anyMessages) {
-          Thread.sleep(registration.emptyPollSleepMillis());
+          Thread.sleep(emptyPollBackoff.nextSleepMillis());
+        } else {
+          emptyPollBackoff.reset();
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
@@ -162,6 +165,7 @@ public final class PgQueuePollWorker implements Runnable {
     PgQueueBatchFlushHandler flushHandler = registration.flushHandler();
     String lockOwner = registration.consumerGroupId() + ":" + UUID.randomUUID();
     Map<String, PgQueueBatchAccumulator> accumulators = new HashMap<>();
+    PgQueueEmptyPollBackoff emptyPollBackoff = registration.emptyPollBackoff();
 
     while (!stopped && !Thread.currentThread().isInterrupted()) {
       try {
@@ -235,7 +239,17 @@ public final class PgQueuePollWorker implements Runnable {
               flushAccumulator(entry.getKey(), entry.getValue(), flushHandler, flushCtx);
             }
           }
-          Thread.sleep(registration.emptyPollSleepMillis());
+          long sleepMs = emptyPollBackoff.nextSleepMillis();
+          long lingerCap = Long.MAX_VALUE;
+          for (PgQueueBatchAccumulator accumulator : accumulators.values()) {
+            lingerCap = Math.min(lingerCap, accumulator.millisUntilExpire());
+          }
+          if (lingerCap < sleepMs) {
+            sleepMs = Math.max(1L, lingerCap);
+          }
+          Thread.sleep(sleepMs);
+        } else {
+          emptyPollBackoff.reset();
         }
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();

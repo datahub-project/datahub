@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Sequence, Union, cast
@@ -21,6 +22,7 @@ from datahub.metadata.schema_classes import (
 from datahub.pgqueue.compression import decode_stored, from_wire
 from datahub.pgqueue.config import PgQueueConsumerConfig
 from datahub.pgqueue.connection import consumer_lock_owner, create_pgqueue_connection
+from datahub.pgqueue.empty_poll_backoff import EmptyPollBackoff
 from datahub.pgqueue.priority_bands import resolve_priority_bands_json
 from datahub.pgqueue.repository import (
     PgQueueMessageHandle,
@@ -83,6 +85,10 @@ class DatahubPgQueueConsumer(Closeable):
         self._avro_deserializer = AvroDeserializer(
             schema_registry_client=registry,
             return_record_name=True,
+        )
+        self._empty_poll_backoff = EmptyPollBackoff(
+            config.empty_poll_sleep_min_millis,
+            config.empty_poll_sleep_max_millis,
         )
 
     def visibility_timedelta(self) -> timedelta:
@@ -160,6 +166,13 @@ class DatahubPgQueueConsumer(Closeable):
                 )
             )
         return out
+
+    def wait_after_poll(self, had_messages: bool) -> None:
+        """Reset idle backoff after work, or sleep with exponential empty-poll delay."""
+        if had_messages:
+            self._empty_poll_backoff.reset()
+            return
+        time.sleep(self._empty_poll_backoff.next_sleep_seconds())
 
     def ack(self, handles: Sequence[PgQueueMessageHandle]) -> int:
         """Advance consumer group offsets for the given handles."""

@@ -20,6 +20,22 @@ def test_build_consumer_config_uses_pipeline_name_as_group() -> None:
     assert consumer_cfg.consumer_group == "my-pipeline"
     assert consumer_cfg.queue.database == "datahub"
     assert consumer_cfg.topic_routes["mcl"] == "MetadataChangeLog_Versioned_v1"
+    assert consumer_cfg.empty_poll_sleep_min_millis == 1000
+    assert consumer_cfg.empty_poll_sleep_max_millis == 5000
+
+
+def test_poll_interval_seconds_overrides_max_sleep() -> None:
+    cfg = PgQueueEventSourceConfig(
+        queue={
+            "host_port": "localhost:5432",
+            "database": "datahub",
+            "username": "datahub",
+            "password": "datahub",
+        },
+        poll_interval_seconds=2.0,
+    )
+    consumer_cfg = cfg.build_consumer_config("pipeline")
+    assert consumer_cfg.empty_poll_sleep_max_millis == 2000
 
 
 def test_config_no_lock_owner_suffix() -> None:

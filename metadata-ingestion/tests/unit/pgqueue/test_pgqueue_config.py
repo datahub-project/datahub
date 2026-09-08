@@ -1,7 +1,11 @@
 import pytest
 from pydantic import ValidationError
 
-from datahub.pgqueue.config import PgQueueAuthMode, PgQueueConnectionConfig
+from datahub.pgqueue.config import (
+    PgQueueAuthMode,
+    PgQueueConnectionConfig,
+    PgQueueConsumerConfig,
+)
 
 
 def test_password_mode_requires_secret() -> None:
@@ -55,3 +59,18 @@ def test_rejects_unsafe_sql_identifiers(field: str, value: str) -> None:
     }
     with pytest.raises(ValidationError):
         PgQueueConnectionConfig(**kwargs)
+
+
+def test_consumer_empty_poll_min_clamped_to_max() -> None:
+    cfg = PgQueueConsumerConfig(
+        queue=PgQueueConnectionConfig(
+            host_port="localhost:5432",
+            database="db",
+            username="u",
+            password="secret",
+        ),
+        empty_poll_sleep_min_millis=8000,
+        empty_poll_sleep_max_millis=5000,
+    )
+    assert cfg.empty_poll_sleep_min_millis == 5000
+    assert cfg.empty_poll_sleep_max_millis == 5000

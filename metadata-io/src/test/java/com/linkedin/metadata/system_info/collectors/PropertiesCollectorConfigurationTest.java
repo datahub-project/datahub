@@ -1215,10 +1215,14 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "maeConsumer.elasticsearch.connectionRequestTimeoutMs",
           // MCE consumer pgQueue poll tuning
           "mceConsumer.pgQueue.metadataChangeProposalMaxBatch",
+          "mceConsumer.pgQueue.metadataChangeProposalEmptyPollSleepMillis",
           "mceConsumer.pgQueue.batchMetadataChangeProposalMaxBatch",
           "maeConsumer.pgQueue.usageEventsMaxBatch",
+          "maeConsumer.pgQueue.usageEventsEmptyPollSleepMillis",
           "maeConsumer.pgQueue.metadataChangeLogMaxBatch",
+          "maeConsumer.pgQueue.metadataChangeLogEmptyPollSleepMillis",
           "peConsumer.pgQueue.platformEventMaxBatch",
+          "peConsumer.pgQueue.platformEventEmptyPollSleepMillis",
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
           "metadataChangeLog.consumer.batch.size",
@@ -1260,8 +1264,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "postgres.pgQueue.pool.url",
           "postgres.pgQueue.pool.username",
           "postgres.pgQueue.pool.waitTimeoutMillis",
-          "postgres.pgQueue.consumerPoll.emptyPollSleepMillis",
-          "postgres.pgQueue.consumerPoll.mclEmptyPollSleepMillis",
+          "postgres.pgQueue.consumerPoll.emptyPollSleepMinMillis",
           "postgres.pgQueue.consumerPoll.missingTopicSleepMillis",
           "postgres.pgQueue.consumerPoll.errorRecoverySleepMillis",
           // Postgres PgCron configuration

@@ -294,3 +294,27 @@ class PgQueueConsumerConfig(ConfigModel):
         default_factory=_default_payload_kinds,
         description="Controls Avro deserialization wrapper for each logical route key.",
     )
+
+    empty_poll_sleep_min_millis: int = Field(
+        default=1000,
+        ge=1,
+        description=(
+            "Minimum sleep after an empty poll. Consecutive empty polls double until "
+            "empty_poll_sleep_max_millis (DATAHUB_PGQUEUE_EMPTY_POLL_SLEEP_MIN_MS on GMS)."
+        ),
+    )
+
+    empty_poll_sleep_max_millis: int = Field(
+        default=5000,
+        ge=1,
+        description=(
+            "Maximum sleep after consecutive empty polls. Align with GMS "
+            "DATAHUB_PGQUEUE_*_EMPTY_POLL_SLEEP_MS ceilings."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def clamp_empty_poll_sleep(self) -> "PgQueueConsumerConfig":
+        if self.empty_poll_sleep_min_millis > self.empty_poll_sleep_max_millis:
+            self.empty_poll_sleep_min_millis = self.empty_poll_sleep_max_millis
+        return self

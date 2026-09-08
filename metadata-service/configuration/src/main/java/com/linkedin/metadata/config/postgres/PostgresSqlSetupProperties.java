@@ -705,13 +705,11 @@ public class PostgresSqlSetupProperties {
     @Getter
     @Setter
     public static class ConsumerPoll {
-      /** Sleep when a poll returns no messages (most pipelines). */
-      private Long emptyPollSleepMillis;
-
       /**
-       * Shorter empty-poll sleep for MCL hook pollers; falls back to {@link #emptyPollSleepMillis}.
+       * Floor for empty-poll exponential backoff. Per-consumer {@code *EmptyPollSleepMillis} values
+       * are the ceiling.
        */
-      private Long mclEmptyPollSleepMillis;
+      private Long emptyPollSleepMinMillis;
 
       /** Sleep when the logical topic is not registered in pgQueue. */
       private Long missingTopicSleepMillis;
