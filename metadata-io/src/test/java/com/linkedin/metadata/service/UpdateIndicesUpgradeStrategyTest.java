@@ -27,6 +27,7 @@ import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultStore;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -273,7 +274,8 @@ public class UpdateIndicesUpgradeStrategyTest {
 
   @Test
   public void testProcessBatchV3BackingIndexUsesHashedDocumentId() throws Exception {
-    String oldIndex = "datasetindex_v3_1683649932260";
+    String oldIndex =
+        ESIndexBuilder.getIncrementalNextIndexName("datasetindex_v3", "1.2.3-4", 1000L);
     Map<String, String> targets = Map.of("dataset", oldIndex);
     UpdateIndicesUpgradeStrategy strategy =
         new UpdateIndicesUpgradeStrategy(
@@ -335,6 +337,13 @@ public class UpdateIndicesUpgradeStrategyTest {
   public void testIsV3BackingIndexClassifiesVersionTokenNotSubstring() {
     assertTrue(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v3"));
     assertTrue(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v3_1683649932260"));
+    assertTrue(
+        UpdateIndicesUpgradeStrategy.isV3BackingIndex(
+            ESIndexBuilder.getIncrementalNextIndexName("datasetindex_v3", "1.2.3-4", 1000L)));
+    assertTrue(
+        UpdateIndicesUpgradeStrategy.isV3BackingIndex(
+            ESIndexBuilder.getIncrementalNextIndexName(
+                "datasetindex_v3", "0.13.1-0", 1679000000000L)));
     assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v2"));
     assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("datasetindex_v2_next_123"));
     assertFalse(UpdateIndicesUpgradeStrategy.isV3BackingIndex("index_v3_datasetindex_v2"));

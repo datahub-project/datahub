@@ -350,11 +350,13 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
   }
 
   /**
-   * V3 backing indexes — including reindex names that append a timestamp after {@code index_v3} —
-   * always use the V3 hasher. V2 keeps URL-encoded URN ids.
+   * V3 backing indexes — including incremental-reindex names from {@code
+   * ESIndexBuilder.getIncrementalNextIndexName} — always use the V3 hasher. V2 keeps URL-encoded
+   * URN ids.
    *
-   * <p>Matches {@code index_v3} as a version token at the end of the name, or followed by {@code _}
-   * and digits. A substring such as {@code index_v3} in a prefix must not classify a V2 index.
+   * <p>Matches {@code index_v3} as a version token at the end of the name, or followed by {@code
+   * _<timestamp>} or {@code _<sanitizedVersion>_<timestamp>}. A substring such as {@code index_v3}
+   * in a prefix must not classify a V2 index.
    */
   private String documentId(
       @Nonnull OperationContext opContext, @Nonnull String indexName, @Nonnull Urn urn) {
@@ -372,7 +374,8 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
       return false;
     }
     String after = indexName.substring(tokenStart + token.length());
-    return after.isEmpty() || after.matches("_\\d+");
+    // Alias (`index_v3`), timestamp-only, or incremental next (`index_v3_1_2_3-4_1000`).
+    return after.isEmpty() || after.matches("_\\d+") || after.matches("_.+_\\d+");
   }
 
   private void shutdownPoller() {
