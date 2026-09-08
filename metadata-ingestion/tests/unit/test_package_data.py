@@ -24,8 +24,16 @@ from typing import Iterator
 
 if sys.version_info >= (3, 11):
     import tomllib
-else:
-    import tomli as tomllib
+
+    def _load_toml(text: str) -> dict:
+        return tomllib.loads(text)
+
+else:  # `toml` is a core dependency of acryl-datahub; no extra test dependency needed
+    import toml
+
+    def _load_toml(text: str) -> dict:
+        return toml.loads(text)
+
 
 import pytest
 
@@ -60,7 +68,7 @@ def setup_ns() -> dict:
 
 
 def _pyproject_table(name: str) -> dict:
-    data = tomllib.loads((_ROOT / "pyproject.toml").read_text())
+    data = _load_toml((_ROOT / "pyproject.toml").read_text())
     return data["tool"]["setuptools"].get(name, {})
 
 
@@ -480,7 +488,12 @@ def test_sdist_to_wheel_path_ships_resources(tmp_path: pathlib.Path) -> None:
     with tarfile.open(archive) as tf:
         members = [m.name for m in tf.getmembers()]
         assert any(m.endswith("src/datahub/cli/gql/search.gql") for m in members)
-        tf.extractall(tmp_path / "unpacked", filter="data")
+        # The `filter` argument exists from 3.12 (backported to 3.10.12 / 3.11.4);
+        # feature-detect it rather than the interpreter version, as PEP 706 recommends.
+        if hasattr(tarfile, "data_filter"):
+            tf.extractall(tmp_path / "unpacked", filter="data")
+        else:
+            tf.extractall(tmp_path / "unpacked")
     unpacked = next((tmp_path / "unpacked").iterdir())
     wheel = subprocess.run(
         [
