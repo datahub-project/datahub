@@ -6,14 +6,16 @@ import sqlglot
 from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
 
 from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.hex.model import HexConnection, SqlCell
 from datahub.metadata.urns import SchemaFieldUrn
-from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.schema_resolver import SchemaResolver, SchemaResolverReport
 from datahub.sql_parsing.sql_parsing_common import get_dialect_str
 from datahub.sql_parsing.sqlglot_lineage import (
     _table_name_from_sqlglot_table,
     sqlglot_lineage,
 )
+from datahub.sql_parsing.sqlglot_utils import get_dialect
 from datahub.utilities.lossy_collections import LossyList
 
 _MAX_SAMPLE_MISMATCHES = 5
@@ -57,14 +59,9 @@ class SkippedCell:
     # "missing_connection_id"    — cell had no dataConnectionId
     # "unresolved_platform"      — connection_id present but no platform mapping
     # "unparseable_table_name"   — queriedTables entry had no sqlglot dialect for
-    #                              the platform (db2, vertica, synapse, ...) or the
-    #                              tableName itself failed to parse
+    #                              the platform, or tableName failed to parse
     reason: str
-    # "<ExceptionClass>: <message>" for reasons that come from a caught exception
-    # (currently "unparseable_table_name"). None for reasons derived purely from
-    # control flow. Overall report size is bounded by the enclosing skipped_cells
-    # LossyList — no per-entry truncation, so operators see the full sqlglot
-    # error text on triage.
+    # "<ExceptionClass>: <message>" when the reason came from a caught exception.
     detail: Optional[str] = None
 
 
@@ -88,8 +85,11 @@ class MismatchedCell:
     sample_queried_urns: List[str]
 
 
+# Inherits SourceReport so the builder can call ``self._report.warning(...)``
+# directly — see build_validated_column_lineage for the "Column lineage dropped"
+# emission that replaced a Tuple[List[str], bool] return.
 @dataclass
-class LineageBuilderReport:
+class LineageBuilderReport(SourceReport):
     sql_cells_attempted: int = 0
     sql_cells_succeeded: int = 0
     sql_cells_failed: int = 0
@@ -99,12 +99,23 @@ class LineageBuilderReport:
     skipped_cells: LossyList[SkippedCell] = field(default_factory=LossyList)
     projects_lineage_via_queried_tables: int = 0
     projects_lineage_via_sql_parsing: int = 0
+    # queriedTables entries whose resolver probe missed DataHub. resolve_table
+    # still synthesizes a URN on a miss (per-platform default casing), so this
+    # counter is how a dangling upstream edge becomes diagnosable rather than
+    # silent — see build_from_queried_tables' "Known limitation" docstring.
+    queried_tables_unresolved_in_datahub: int = 0
+    queried_tables_unresolved_sample: LossyList[str] = field(default_factory=LossyList)
     # ENTERPRISE cross-validation: SQL parsing vs queriedTables
     enterprise_column_fields_emitted: int = 0
     enterprise_column_fields_skipped_mismatch: int = 0
     enterprise_cells_with_mismatch: int = 0
     enterprise_sample_mismatched_cells: List[MismatchedCell] = field(
         default_factory=list
+    )
+    # Threaded into every SchemaResolver via ``_get_resolver`` so cache
+    # hit/miss counters aggregate into the source report.
+    schema_resolver_report: SchemaResolverReport = field(
+        default_factory=SchemaResolverReport
     )
 
 
@@ -167,17 +178,32 @@ class HexLineageBuilder:
         construction. Only emits URNs for connections whose platform can be
         confidently resolved.
 
-        Bad inputs (a platform sqlglot has no dialect for — db2, vertica,
-        synapse, greenplum, impala, netezza, cockroachdb — or a tableName that
+        Known limitation: ``normalize_identifiers`` folds the tableName to the
+        dialect's canonical case *before* the resolver probes DataHub, so on
+        case-folding dialects (mssql/postgres/redshift) the author casing is
+        lost even when a case-preserved URN exists in DataHub. Misses are
+        surfaced via ``queried_tables_unresolved_in_datahub`` so a dangling
+        upstream edge is distinguishable from a matched one. See #19162.
+
+        Bad inputs (a platform sqlglot has no dialect for, or a tableName that
         fails to parse) are skipped and recorded rather than aborting the run,
-        so one bad entry does not cost every project not yet emitted.
+        so one bad entry does not cost every project not yet emitted. Rows
+        that are the wrong shape (non-dict, non-string tableName) are dropped
+        silently since ``fetch_queried_tables`` returns unvalidated JSON.
         """
         seen: Set[str] = set()
         result: List[str] = []
+        # Resolve dialect once per platform — a bad connection_platform_map
+        # entry is a single config issue, not N per-row failures.
+        dialects: Dict[str, Optional[sqlglot.Dialect]] = {}
+        unmapped_platforms_warned: Set[str] = set()
+
         for item in queried_tables:
+            if not isinstance(item, dict):
+                continue
             connection_id = item.get("dataConnectionId")
             table_name = item.get("tableName")
-            if not table_name:
+            if not table_name or not isinstance(table_name, str):
                 continue
 
             connection, reason = self._lookup_connection(connection_id)
@@ -190,25 +216,48 @@ class HexLineageBuilder:
                 )
                 continue
 
+            platform = connection.platform
+            if platform not in dialects:
+                try:
+                    dialects[platform] = get_dialect(platform)
+                except ValueError as e:
+                    dialects[platform] = None
+                    if platform not in unmapped_platforms_warned:
+                        unmapped_platforms_warned.add(platform)
+                        self._report.warning(
+                            title="Hex queriedTables: unmapped platform dialect",
+                            message=(
+                                "connection_platform_map names a platform that "
+                                "sqlglot has no dialect for, so its queriedTables "
+                                "entries cannot be parsed and are skipped from "
+                                "tier-1 lineage"
+                            ),
+                            context=f"platform={platform} error={e}",
+                        )
+            dialect = dialects[platform]
+            if dialect is None:
+                self._record_skip(
+                    connection_id=connection_id or "",
+                    cell_id="queriedTables",
+                    cell_label=table_name,
+                    reason="unparseable_table_name",
+                    detail=f"no sqlglot dialect for platform {platform!r}",
+                )
+                continue
+
             qualified_name = _qualify_table_name(
                 table_name,
                 default_database=connection.default_database,
                 default_schema=connection.default_schema,
             )
             try:
-                # get_dialect_str passes unmapped platforms through verbatim, so
-                # a connection_platform_map entry naming a platform sqlglot has
-                # no dialect for (db2, vertica, synapse, ...) raises here rather
-                # than returning. Parse errors come from tableName itself, which
-                # Hex does not guarantee is a well-formed identifier.
-                dialect = sqlglot.Dialect.get_or_raise(
-                    get_dialect_str(connection.platform)
-                )
+                # ParseError / TokenError come from tableName itself, which Hex
+                # does not guarantee is a well-formed identifier.
                 tbl = normalize_identifiers(
                     sqlglot.to_table(qualified_name, dialect=dialect),
                     dialect=dialect,
                 )
-            except (ValueError, sqlglot.ParseError, sqlglot.TokenError) as e:
+            except (sqlglot.ParseError, sqlglot.TokenError) as e:
                 self._record_skip(
                     connection_id=connection_id or "",
                     cell_id="queriedTables",
@@ -219,19 +268,27 @@ class HexLineageBuilder:
                 continue
 
             tn = _table_name_from_sqlglot_table(tbl, dialect)
-            urn, _ = self._get_resolver(
-                connection.platform, connection.platform_instance
+            urn, schema_info = self._get_resolver(
+                platform, connection.platform_instance
             ).resolve_table_parts(
                 database=tn.database,
                 db_schema=tn.db_schema,
                 table=tn.table,
             )
+            if schema_info is None:
+                # Synthesized URN — casing is a per-platform guess, not the
+                # warehouse's. Track so dangling edges are diagnosable.
+                self._report.queried_tables_unresolved_in_datahub += 1
+                self._report.queried_tables_unresolved_sample.append(urn)
             if urn not in seen:
                 seen.add(urn)
                 result.append(urn)
 
         self._report.upstream_datasets_found += len(result)
-        self._report.projects_lineage_via_queried_tables += 1
+        # Only count projects that actually produced tier-1 upstreams —
+        # otherwise hex.py suppresses the SQL-cell fallback that would work.
+        if result:
+            self._report.projects_lineage_via_queried_tables += 1
         return result
 
     def build_upstream_urns(
@@ -291,7 +348,7 @@ class HexLineageBuilder:
         self,
         sql_cells: List[SqlCell],
         queried_table_urns: List[str],
-    ) -> Tuple[List[str], bool]:
+    ) -> List[str]:
         """
         Extract column-level lineage from SQL cells, cross-validated against
         the queriedTables result set.
@@ -306,14 +363,11 @@ class HexLineageBuilder:
         parent and a queriedTables URN for the same table are identical
         strings — the comparison is a plain set membership test.
 
-        Returns ``(validated_fields, saw_mismatch)``. ``saw_mismatch`` is
-        ``True`` only when at least one cell produced SQL-parsed field URNs
-        whose parent didn't appear in ``queried_table_urns`` — i.e. a real
-        cross-validation failure. Callers that raise a "Column lineage
-        dropped" warning should gate it on this signal so an empty result
-        caused by unrelated reasons (SELECT * with a missing schema,
-        DDL-only cells, or ``_parse_cell`` returning no fields) doesn't
-        misreport as a mismatch.
+        Emits a "Column lineage dropped" warning when at least one cell
+        recorded a cross-tier mismatch *and* no validated fields were
+        produced. Gated on a real mismatch (not just an empty result) so
+        unrelated causes — SELECT * with a missing schema, DDL-only cells,
+        ``_parse_cell`` returning no fields — don't misreport.
         """
         queried_set: Set[str] = set(queried_table_urns)
 
@@ -378,7 +432,19 @@ class HexLineageBuilder:
                     validated_fields.append(furn)
 
         self._report.enterprise_column_fields_emitted += len(validated_fields)
-        return validated_fields, saw_mismatch
+        if saw_mismatch and not validated_fields:
+            # Gate on saw_mismatch, not on an empty result: empty also comes
+            # from SELECT * with no schema, DDL-only cells, or parse failures.
+            self._report.warning(
+                title="Column lineage dropped",
+                message=(
+                    "queriedTables produced upstream URNs but no SQL-cell "
+                    "column lineage matched them — check "
+                    "enterprise_sample_mismatched_cells"
+                ),
+                context=self._project_id,
+            )
+        return validated_fields
 
     def _lookup_connection(
         self, connection_id: Optional[str]
@@ -407,6 +473,7 @@ class HexLineageBuilder:
                 platform_instance=platform_instance,
                 env=self._env,
                 graph=self._graph,
+                report=self._report.schema_resolver_report,
             )
         return self._schema_resolvers[key]
 

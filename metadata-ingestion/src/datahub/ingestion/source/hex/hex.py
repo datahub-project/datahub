@@ -632,31 +632,14 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 if upstream_urns and self.ctx.graph:
                     sql_cells = _extract_sql_cells(all_cells)
                     if sql_cells:
-                        (
-                            hex_item.input_fields,
-                            saw_mismatch,
-                        ) = lineage_builder.build_validated_column_lineage(
-                            sql_cells, upstream_urns
-                        )
-                        # Only warn when a real cross-validation failure fired.
-                        # Empty input_fields alone is ambiguous — it also
-                        # happens for SELECT * with a missing schema, DDL-only
-                        # cells, or _parse_cell parse failures, none of which
-                        # are queriedTables/SQL disagreements.
-                        if saw_mismatch and not hex_item.input_fields:
-                            self.report.warning(
-                                title="Column lineage dropped",
-                                message=(
-                                    "queriedTables produced upstream URNs but no "
-                                    "SQL-cell column lineage matched them — "
-                                    "column-level lineage for this entity was "
-                                    "dropped. Check the lineage builder's mismatch "
-                                    "sample to confirm the queriedTables and "
-                                    "SQL-cell URNs refer to the same tables."
-                                ),
-                                context=f"{hex_item.id}",
+                        hex_item.input_fields = (
+                            lineage_builder.build_validated_column_lineage(
+                                sql_cells, upstream_urns
                             )
-                used_queried_tables = True
+                        )
+                # Gate the SQL-cell fallback on tier-1 producing anything —
+                # a fully-skipped response shouldn't suppress a path that works.
+                used_queried_tables = bool(upstream_urns)
 
         if not used_queried_tables:
             sql_cells = self._apply_cell_based_lineage(
