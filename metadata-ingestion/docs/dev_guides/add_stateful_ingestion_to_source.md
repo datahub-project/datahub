@@ -5,7 +5,7 @@ description: "Add stateful ingestion support to a DataHub source connector for s
 # Adding Stateful Ingestion to a Source
 
 Currently, datahub supports the [Stale Metadata Removal](./stateful.md#stale-entity-removal) and
-the [Redunant Run Elimination](./stateful.md#redundant-run-elimination) use-cases on top of the more generic stateful ingestion
+the [Redundant Run Elimination](./stateful.md#redundant-run-elimination) use-cases on top of the more generic stateful ingestion
 capability available for the sources. This document describes how to add support for these two use-cases to new sources.
 
 ## Adding Stale Metadata Removal to a Source

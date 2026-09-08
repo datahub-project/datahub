@@ -258,7 +258,7 @@ container[0] = "urn:li:container:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 container[1] = "urn:li:container:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 ```
 
-Those variables can be refered to, from the config, by using `$` character, like below:
+Those variables can be referred to, from the config, by using `$` character, like below:
 
 ```yaml
 transformers:
