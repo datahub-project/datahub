@@ -62,4 +62,20 @@ describe('localeBackend', () => {
         expect(first).toBe(second);
         expect(enLoader).toHaveBeenCalledTimes(1);
     });
+
+    it('retries a language after a transient load failure', async () => {
+        enLoader.mockRejectedValueOnce(new Error('network error'));
+
+        await expect(loadLocaleBundle('en')).rejects.toThrow('network error');
+        await expect(loadLocaleBundle('en')).resolves.toEqual({
+            alchemy: { save: 'Save' },
+            auth: { login: 'Log in' },
+        });
+        expect(enLoader).toHaveBeenCalledTimes(2);
+    });
+
+    it('rejects unsupported languages without caching the failure', async () => {
+        await expect(loadLocaleBundle('unsupported')).rejects.toThrow();
+        await expect(loadLocaleBundle('unsupported')).rejects.toThrow();
+    });
 });

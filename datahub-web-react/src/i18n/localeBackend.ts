@@ -9,9 +9,15 @@ export function loadLocaleBundle(lng: string): Promise<LocaleBundle> {
     if (cached) return cached;
 
     const loader = localeLoaders[lng];
-    const pending = loader
-        ? loader().then((mod) => mod.default)
-        : Promise.reject(new Error(`Missing i18n locale bundle for "${lng}"`));
+    if (!loader) return Promise.reject(new Error(`Missing i18n locale bundle for "${lng}"`));
+
+    const pending = loader().then(
+        (mod) => mod.default,
+        (error) => {
+            inflight.delete(lng);
+            throw error;
+        },
+    );
     inflight.set(lng, pending);
     return pending;
 }
