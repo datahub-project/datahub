@@ -746,20 +746,29 @@ class AbstractLineage(ABC):
         logger.debug(f"Native Query parsed result={parsed_result}")
         logger.debug(f"Generated dataplatform_tables={dataplatform_tables}")
 
+        # sqlglot returns downstream columns in the SQL's alias casing, which
+        # rarely matches the casing PowerBI stores its fields in. Remap in this
+        # shared SQL-parsing path so the downstream column resolves to the real
+        # PowerBI field regardless of the platform driving the parse.
+        column_lineage = _remap_column_lineage_to_pbi_fields(
+            parsed_result.column_lineage
+            if parsed_result.column_lineage is not None
+            else [],
+            self.table.columns,
+        )
+
+        # Drop entries that resolved no upstream column. A resolved EXTERNAL_QUERY
+        # federation is rewritten to an inert placeholder subquery
+        # (SELECT 1 AS pbi_federation_placeholder), so its outer columns have nothing
+        # real to trace into and sqlglot returns them with an empty upstreams list.
+        # (Columns that simply fail to resolve upstreams, e.g. when the source schema
+        # is unknown, land here too.) Emitting such a downstream as a FineGrainedLineage
+        # with no upstreams is a meaningless edge, so skip it rather than propagate it.
+        column_lineage = [cll for cll in column_lineage if cll.upstreams]
+
         return Lineage(
             upstreams=dataplatform_tables,
-            # sqlglot returns downstream columns in the SQL's alias casing, which
-            # rarely matches the casing PowerBI stores its fields in. Remap in this
-            # shared SQL-parsing path so the downstream column resolves to the real
-            # PowerBI field regardless of the platform driving the parse.
-            column_lineage=_remap_column_lineage_to_pbi_fields(
-                (
-                    parsed_result.column_lineage
-                    if parsed_result.column_lineage is not None
-                    else []
-                ),
-                self.table.columns,
-            ),
+            column_lineage=column_lineage,
         )
 
     def create_table_column_lineage(self, urn: str) -> List[ColumnLineageInfo]:

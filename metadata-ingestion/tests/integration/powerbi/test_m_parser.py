@@ -1255,6 +1255,59 @@ def test_bigquery_external_query_resolves_to_external_platform():
 
 
 @pytest.mark.integration
+def test_bigquery_external_query_no_empty_column_lineage_edge():
+    # A resolved federation is rewritten to an inert placeholder subquery
+    # (SELECT 1 AS pbi_federation_placeholder), so the outer column cannot trace into a
+    # real upstream and sqlglot returns it with an empty upstreams list. That entry must
+    # NOT be emitted: an empty FineGrainedLineage (downstream column with no upstreams) is
+    # a meaningless edge. Table-level federated lineage is still resolved.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select account_name from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+    )
+
+    # Table-level federated lineage still resolves.
+    assert len(lineage[0].upstreams) == 1
+    assert (
+        lineage[0].upstreams[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
+    )
+    # No column-lineage entry with an empty upstreams list is emitted.
+    assert all(cll.upstreams for cll in lineage[0].column_lineage)
+
+
+@pytest.mark.integration
 def test_bigquery_external_query_raw_string_args_resolve():
     # BigQuery raw-string literals (r'...') for the EXTERNAL_QUERY connection and inner
     # SQL parse as exp.RawString, not exp.Literal. Extraction must still treat them as
@@ -2179,28 +2232,13 @@ def test_sqlglot_parser():
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.operations_analytics.transformed_prod.v_sme_unit_targets,PROD)"
     )
 
-    # TODO: None of these columns have upstreams?
-    # That doesn't seem right - we probably need to add fake schemas for the two tables above.
-    cols = [
-        "client_director",
-        "tier",
-        'upper("manager")',
-        "team_type",
-        "date_target",
-        "monthid",
-        "target_team",
-        "seller_email",
-        "agent_key",
-        "sme_quota",
-        "revenue_quota",
-        "service_quota",
-        "bl_target",
-        "software_quota",
-    ]
-    for i, column in enumerate(cols):
-        assert lineage[0].column_lineage[i].downstream.table is None
-        assert lineage[0].column_lineage[i].downstream.column == column
-        assert lineage[0].column_lineage[i].upstreams == []
+    # None of these columns resolve an upstream (the two source tables above have no
+    # schema registered, so sqlglot cannot trace the outer columns into them). Such
+    # entries carry a downstream with an empty upstreams list, which would become a
+    # meaningless empty FineGrainedLineage; parse_custom_sql drops them, so no
+    # column-level lineage is emitted for this query.
+    # TODO: adding fake schemas for the two tables above would let these resolve.
+    assert lineage[0].column_lineage == []
 
 
 def test_databricks_multi_cloud():
