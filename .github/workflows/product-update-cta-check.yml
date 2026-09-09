@@ -1,0 +1,49 @@
+name: product-update CTA live
+
+# Fast merge gate for toast CTA hrefs. Always runs on PRs (required checks stay
+# pending if this workflow is path-filtered). Does not run Gradle.
+#
+# Admin: add the check named product_update_cta_live as a required status check on
+# master (branch protection or ruleset). Until then this job is advisory only.
+
+on:
+  pull_request:
+    branches:
+      - master
+      - releases/**
+      - hotfixes/**
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  product_update_cta_live:
+    name: product_update_cta_live
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Probe product-update CTA URLs
+        run: python3 .github/scripts/check_product_update_cta.py
+
+  rerun_failed_product_update_cta:
+    name: rerun_failed_product_update_cta
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Re-run failed CTA checks on open PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/rerun_failed_product_update_cta.py
