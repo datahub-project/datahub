@@ -1,19 +1,23 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { buildLocaleBundle, listLocaleLanguages } from '@src/i18n/buildLocaleBundle';
 import { NAMESPACES } from '@src/i18n/namespaces';
+
+/* Vite plugin lives outside `src/` so Node can load it without path aliases. */
+/* eslint-disable import-alias/import-alias, import/extensions */
+import { buildLocaleBundle, listLocaleLanguages } from '../../../vite-plugins/i18nLocaleBundlesPlugin';
+
+/* eslint-enable import-alias/import-alias, import/extensions */
 
 describe('buildLocaleBundle', () => {
     const tmpDirs: string[] = [];
 
     afterEach(() => {
-        for (const dir of tmpDirs) {
+        tmpDirs.forEach((dir) => {
             fs.rmSync(dir, { recursive: true, force: true });
-        }
+        });
         tmpDirs.length = 0;
     });
 
@@ -47,8 +51,8 @@ describe('buildLocaleBundle', () => {
     it('includes every registered namespace from the English source files', () => {
         const enDir = path.resolve(__dirname, '../locales/en');
         const bundle = buildLocaleBundle(enDir);
-        for (const ns of NAMESPACES) {
+        NAMESPACES.forEach((ns) => {
             expect(bundle).toHaveProperty(ns);
-        }
+        });
     });
 });

@@ -28,7 +28,7 @@ i18n.use(localeBundleBackend)
 if (import.meta.hot) {
     import.meta.hot.on(I18N_LOCALE_UPDATE_EVENT, ({ lng: updatedLng }: { lng: string }) => {
         evictLocaleBundle(updatedLng);
-        void i18n.reloadResources(updatedLng, [...NAMESPACES]);
+        i18n.reloadResources(updatedLng, [...NAMESPACES]).catch(() => undefined);
     });
 }
 

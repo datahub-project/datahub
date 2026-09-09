@@ -1,5 +1,6 @@
-import type { LocaleBundle } from '@src/i18n/i18nVirtualModules';
 import localeLoaders from 'virtual:i18n-locale-loaders';
+
+import type { LocaleBundle } from '@src/i18n/i18nVirtualModules';
 
 const inflight = new Map<string, Promise<LocaleBundle>>();
 
@@ -25,11 +26,7 @@ export function clearLocaleBundleCache(): void {
 
 export const localeBundleBackend = {
     type: 'backend' as const,
-    read(
-        lng: string,
-        ns: string,
-        callback: (error: unknown, data: false | Record<string, unknown>) => void,
-    ): void {
+    read(lng: string, ns: string, callback: (error: unknown, data: false | Record<string, unknown>) => void): void {
         loadLocaleBundle(lng)
             .then((bundle) => {
                 callback(null, bundle[ns] ?? {});

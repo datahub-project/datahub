@@ -1,5 +1,1 @@
-export {
-    detectBrowserLanguage,
-    isSupportedLanguage,
-    pickEffectiveLanguage,
-} from '@src/i18n/supportedLanguages';
+export { detectBrowserLanguage, isSupportedLanguage, pickEffectiveLanguage } from '@src/i18n/supportedLanguages';

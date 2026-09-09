@@ -8,7 +8,9 @@ import { PluginOption, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
 
-import { i18nLocaleBundlesPlugin } from './src/i18n/i18nLocaleBundlesPlugin';
+// Vite config is evaluated by Node before `@src` aliases exist.
+// eslint-disable-next-line import-alias/import-alias
+import { i18nLocaleBundlesPlugin } from './vite-plugins/i18nLocaleBundlesPlugin';
 
 const injectMeticulous = () => {
     if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
@@ -50,9 +52,7 @@ function assertLazyIconsGenerated(): PluginOption {
         name: 'assert-lazy-icons-generated',
         buildStart() {
             const iconsDir = path.resolve(__dirname, 'src/app/mfeframework/lazy-icons');
-            const hasStubs =
-                fs.existsSync(iconsDir) &&
-                fs.readdirSync(iconsDir).some((f) => f.endsWith('.ts'));
+            const hasStubs = fs.existsSync(iconsDir) && fs.readdirSync(iconsDir).some((f) => f.endsWith('.ts'));
             if (!hasStubs) {
                 throw new Error(
                     '\n\n  [Lazy Icons] Icon stubs are missing. Generate them before starting:\n\n' +
