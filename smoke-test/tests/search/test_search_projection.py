@@ -79,6 +79,7 @@ class TestSearchProjection:
     """Smoke tests for --projection flag: verifies that custom GQL projections
     execute successfully against a live DataHub instance."""
 
+    @pytest.mark.p0
     def test_minimal_projection(self, graph_client):
         """Projection with only urn+type returns entities without extra fields."""
         query = _build_search_query(semantic=False, projection="urn type")

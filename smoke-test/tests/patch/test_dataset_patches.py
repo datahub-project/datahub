@@ -35,7 +35,7 @@ from tests.patch.common_patch_tests import (
 )
 from tests.utilities.domains import Domain
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = [pytest.mark.domain(Domain.PLATFORM), pytest.mark.p0]
 
 
 @pytest.fixture(params=["graph_client", "openapi_graph_client"])

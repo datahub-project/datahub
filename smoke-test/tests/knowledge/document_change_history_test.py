@@ -50,6 +50,7 @@ def _unique_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8]}"
 
 
+@pytest.mark.p0
 @pytest.mark.dependency()
 def test_document_change_history(auth_session):
     """Test document change history tracking."""
@@ -174,6 +175,7 @@ def test_document_change_history(auth_session):
     assert del_res["data"]["deleteDocument"] is True
 
 
+@pytest.mark.p0
 @pytest.mark.dependency(depends=["test_document_change_history"])
 def test_document_change_history_with_time_range(auth_session):
     """Test document change history with time range parameters."""

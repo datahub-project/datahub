@@ -332,7 +332,7 @@ services:
         limits:
           memory: 1G
     healthcheck:
-      test: curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
+      test: curl -sS --fail "http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s"
       start_period: 30s
       interval: 1s
       retries: 3
@@ -350,7 +350,7 @@ services:
       - discovery.type=single-node
       - DISABLE_SECURITY_PLUGIN=true
     healthcheck:
-      test: curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
+      test: curl -sS --fail "http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s"
       start_period: 60s
       interval: 5s
       retries: 10
