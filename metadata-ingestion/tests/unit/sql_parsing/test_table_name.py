@@ -10,6 +10,7 @@ import sqlglot
 
 from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.sqlglot_lineage import (
+    _extract_table_names,
     _restore_mssql_temp_table_prefix,
     _table_name_from_sqlglot_table,
 )
@@ -152,6 +153,26 @@ class TestTableNameFromSqlglotTableWithDialect:
     def _get_postgres_dialect(self) -> sqlglot.Dialect:
         return get_dialect("postgres")
 
+    def _get_clickhouse_dialect(self) -> sqlglot.Dialect:
+        return get_dialect("clickhouse")
+
+    def _get_duckdb_dialect(self) -> sqlglot.Dialect:
+        return get_dialect("duckdb")
+
+    def _get_parameterized_view_table(self) -> sqlglot.exp.Table:
+        return sqlglot.exp.Table(
+            db=sqlglot.exp.Identifier(this="analytics", quoted=True),
+            this=sqlglot.exp.Anonymous(
+                this=sqlglot.exp.Identifier(this="events_view", quoted=True),
+                expressions=[
+                    sqlglot.exp.EQ(
+                        this=sqlglot.exp.column("final"),
+                        expression=sqlglot.exp.Literal.number(1),
+                    )
+                ],
+            ),
+        )
+
     def test_mssql_local_temp_gets_prefix(self):
         """MSSQL local temp table should get # prefix."""
         table = sqlglot.exp.Table(
@@ -183,6 +204,68 @@ class TestTableNameFromSqlglotTableWithDialect:
         )
         result = _table_name_from_sqlglot_table(table, None)
         assert result.table == "temptable"
+
+    def test_clickhouse_parameterized_view_keeps_table_name(self):
+        result = _table_name_from_sqlglot_table(
+            self._get_parameterized_view_table(),
+            self._get_clickhouse_dialect(),
+        )
+
+        assert result.database is None
+        assert result.db_schema == "analytics"
+        assert result.table == "events_view"
+        assert result.parts == ("analytics", "events_view")
+
+    def test_clickhouse_unquoted_parameterized_view_keeps_table_name(self):
+        statement = sqlglot.parse_one(
+            "SELECT * FROM analytics.events_view(final = 1)",
+            dialect="clickhouse",
+        )
+        (result,) = _extract_table_names(
+            statement.find_all(sqlglot.exp.Table),
+            self._get_clickhouse_dialect(),
+        )
+
+        assert result.database is None
+        assert result.db_schema == "analytics"
+        assert result.table == "events_view"
+        assert result.parts == ("analytics", "events_view")
+
+    def test_clickhouse_table_function_is_not_a_table(self):
+        table = sqlglot.exp.Table(
+            db=sqlglot.exp.Identifier(this="analytics", quoted=True),
+            this=sqlglot.exp.Anonymous(
+                this=sqlglot.exp.Identifier(this="numbers", quoted=True),
+                expressions=[sqlglot.exp.Literal.number(10)],
+            ),
+        )
+
+        result = _table_name_from_sqlglot_table(
+            table,
+            self._get_clickhouse_dialect(),
+        )
+
+        assert result.table == ""
+        assert not _extract_table_names([table], self._get_clickhouse_dialect())
+
+    def test_clickhouse_equality_table_function_is_not_a_table(self):
+        statement = sqlglot.parse_one(
+            "SELECT * FROM analytics.equals(1 = 1)",
+            dialect="clickhouse",
+        )
+
+        assert not _extract_table_names(
+            statement.find_all(sqlglot.exp.Table),
+            self._get_clickhouse_dialect(),
+        )
+
+    def test_non_clickhouse_parameterized_function_is_not_a_table(self):
+        result = _table_name_from_sqlglot_table(
+            self._get_parameterized_view_table(),
+            self._get_duckdb_dialect(),
+        )
+
+        assert result.table == ""
 
 
 class TestMSSQLTempTableExtraction:
