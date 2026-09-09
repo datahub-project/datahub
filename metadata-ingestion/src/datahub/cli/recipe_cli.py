@@ -234,10 +234,38 @@ def recipe() -> None:
     initialize_secret_masking()
 
 
+def _ping_probe(command: str, source_type: str, **dims: object) -> None:
+    """Record which probe command ran against which connector.
+
+    The auto-applied with_telemetry wrapper (see cli_utils.enable_auto_decorators)
+    already reports the function, its duration and its exit code -- and thanks to
+    _fail() raising SystemExit, the exit-2-vs-3 split is measurable from it. What
+    it cannot report is *which* command or *which* connector, because it only
+    captures kwargs a decorator names, and source_type is not a CLI flag at all:
+    it is read out of the recipe.
+
+    Those are the two questions worth asking about an agent-facing CLI nobody has
+    used yet. Ten commands ship per SQL connector; if traffic is all `tables` and
+    `columns` the rest are maintenance burden, and if it is all `sql` the typed
+    getters are not earning their place. Neither is answerable after the fact.
+
+    A separate ping rather than with_telemetry(capture_kwargs=...): that decorator
+    is already applied automatically, and adding a second one used to double every
+    function-call event for the command. Nothing here is customer data -- a
+    connector name, a command name, a filter kind.
+    """
+    from datahub.telemetry import telemetry
+
+    props: Dict[str, object] = {"command": command, "source_type": source_type}
+    props.update({k: v for k, v in dims.items() if v is not None})
+    telemetry.telemetry_instance.ping("recipe-probe", props)
+
+
 @recipe.command()
 @click.argument("source_type")
 def describe(source_type: str) -> None:
     with _exit_codes():
+        _ping_probe("describe", source_type)
         _emit(describe_source(source_type).to_dict())
 
 
@@ -358,6 +386,7 @@ def probe_methods_cmd(recipe_path: str) -> None:
     with _exit_codes(secret_values, fallback=EXIT_INTERNAL):
         source_type, _resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
         secret_values.update(found)
+        _ping_probe("methods", source_type)
         specs = list_probe_methods(source_type)
         _emit({"source_type": source_type, "methods": [s.to_dict() for s in specs]})
 
@@ -422,6 +451,7 @@ def probe_filter_cmd(
     with _exit_codes(secret_values, fallback=EXIT_INTERNAL):
         source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
         secret_values.update(found)
+        _ping_probe("filter", source_type, kind=kind)
         result = check_filters(
             source_type=source_type,
             config_dict=resolved,
@@ -460,6 +490,10 @@ def probe_run_cmd(
     with _exit_codes(secret_values, fallback=EXIT_CONNECTION):
         source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
         secret_values.update(found)
+        # Before the call, so a command that fails to reach the source is still
+        # counted -- "which methods do agents reach for" must include the ones
+        # that did not work.
+        _ping_probe("run", source_type, probe_command=command)
         call_kwargs: Dict[str, object] = dict(_parse_extra_params(params))
         result = run_probe_method(source_type, resolved, command, call_kwargs)
         # SECURITY: normalize to pure JSON types before redacting, so a raw
