@@ -10,7 +10,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability/>
 
 :::note
-In self-hosted DataHub (OSS), Compliance Forms are available via API only. The full UI experience — including form creation, assignment, Task Center notifications, and analytics — is available in DataHub Cloud. If you are using DataHub Core, please refer to the [Compliance Forms API Guide](../../../api/tutorials/forms.md).
+In DataHub Core, Compliance Forms are available via API only. The full UI experience — including form creation, assignment, Task Center notifications, and analytics — is available in DataHub Cloud. See the [Compliance Forms API Guide](../../../api/tutorials/forms.md).
 :::
 
 **DataHub Compliance Forms** streamline the process of documenting, annotating, and classifying your most critical Data Assets through a collaborative, crowdsourced approach.
@@ -27,7 +27,7 @@ A Compliance Form consists of:
 
 2. **Questions:** The set of requirements or conditions that must be completed for each asset. Questions are a vehicle to collect key attributes for your data assets. These can range from simple to complex, with questions that require differing types of answers to complete. Examples include Descriptions, Domains, Owners, Tags, Glossary Terms, and custom Structured Properties.
 
-3. **Assignees:** The users or groups responsible for completing the Form (e.g., asset owners, domain experts, or stewards).
+3. **Assignees:** The users or groups responsible for completing the Form (e.g., asset owners, domain experts, or stewards). You can assign forms to all owners or filter by specific ownership types (Technical Owners, Data Stewards, Business Owners, or custom ownership types).
 
 Once a Compliance Form is defined, it can be published. When a form is published, the assignees who are required to complete the requirements will be notified via the Inbox of the tasks that they must complete. In addition, analytics will begin to be gathered about the assets that are meeting or violating the requirements in the form so you can understand your initiative's progress over time.
 

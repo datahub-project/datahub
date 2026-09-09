@@ -4,9 +4,15 @@ import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 /**
  * Resolves the multi-select labeled chip text for a ValuesSelect property.
- * Falls back to capitalizing the raw property id when no override exists.
+ * Prefers the property's friendly display name (e.g. a structured property's title
+ * rather than its `structuredProperties.<qualifiedName>` field id) and falls back to
+ * capitalizing the raw property id when neither an override nor a display name exists.
  */
-export function getValuesSelectLabel(property: string | undefined, t: TFunction): string | undefined {
+export function getValuesSelectLabel(
+    property: string | undefined,
+    t: TFunction,
+    displayName?: string,
+): string | undefined {
     switch (property) {
         case 'urn':
             return t('value.assetsLabel');
@@ -25,6 +31,6 @@ export function getValuesSelectLabel(property: string | undefined, t: TFunction)
         case 'parentDocument':
             return t('value.documentsLabel');
         default:
-            return property ? capitalizeFirstLetterOnly(property) : undefined;
+            return displayName || (property ? capitalizeFirstLetterOnly(property) : undefined);
     }
 }

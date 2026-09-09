@@ -2,10 +2,11 @@ import json
 import logging
 import re
 from typing import Any, Dict, List, Tuple, cast
-from unittest.mock import patch
+from unittest.mock import create_autospec, patch
 
 import pydantic
 import pytest
+from opensearchpy.client.indices import IndicesClient
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.elastic_search import (
@@ -2593,3 +2594,17 @@ def test_no_api_key_omits_authorization_header(mock_opensearch: Any) -> None:
     )
     _, kwargs = mock_opensearch.call_args
     assert "headers" not in kwargs
+
+
+@patch("datahub.ingestion.source.elastic_search.OpenSearch")
+def test_index_apis_use_keyword_only_opensearch_3_api(mock_opensearch: Any) -> None:
+    client = mock_opensearch.return_value
+    client.indices = create_autospec(IndicesClient, instance=True)
+    client.indices.get_alias.return_value = {}
+    source = ElasticsearchSource.create(
+        {"host": "localhost:9200"},
+        PipelineContext(run_id="test"),
+    )
+    list(source.get_workunits_internal())
+    assert client.indices.get_alias.call_args.args == ()
+    assert client.indices.get_alias.call_args.kwargs == {}

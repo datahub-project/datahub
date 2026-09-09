@@ -108,7 +108,7 @@ public class EntityGraphDistributedStorePublishTest {
   }
 
   @Test
-  public void staleBuildingLeaseCanBeReclaimedExclusively() throws InterruptedException {
+  public void staleBuildingLeaseCanBeReclaimedExclusively() {
     String cacheKey = EntityGraphCacheKeys.fullCacheKey("domain", GraphSnapshotSource.SEARCH);
     long leaseBlockMillis = 60_000L;
     long staleAfterMillis = 50L;
@@ -116,10 +116,17 @@ public class EntityGraphDistributedStorePublishTest {
     assertTrue(store.tryClaimRebuild(cacheKey, leaseBlockMillis));
     assertFalse(store.tryClaimRebuild(cacheKey, leaseBlockMillis));
 
-    Thread.sleep(staleAfterMillis + 20);
+    // Backdate the BUILDING lease so staleness does not depend on Thread.sleep under CI load.
+    hazelcast
+        .getMap(EntityGraphCacheProperties.STATUS_MAP)
+        .put(
+            cacheKey,
+            EntityGraphOperationalStatus.of(
+                CacheStatus.BUILDING, System.currentTimeMillis() - staleAfterMillis - 1));
 
     assertTrue(store.tryClaimRebuild(cacheKey, staleAfterMillis));
-    assertFalse(store.tryClaimRebuild(cacheKey, staleAfterMillis));
+    // Exclusive check uses a long TTL so a GC pause cannot make the new lease look stale.
+    assertFalse(store.tryClaimRebuild(cacheKey, leaseBlockMillis));
   }
 
   @Test

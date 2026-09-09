@@ -92,7 +92,7 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
 
 @platform_name("ClickHouse", id="clickhouse")
 @config_class(ClickHouseUsageConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )

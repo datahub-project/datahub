@@ -89,7 +89,8 @@ public class ProductUpdateParser {
     }
 
     // Parse primary CTA (new format) - preferred over legacy ctaText/ctaLink
-    if (json.has("primaryCtaText") && json.has("primaryCtaLink")) {
+    boolean hasPrimaryCta = json.hasNonNull("primaryCtaText") && json.hasNonNull("primaryCtaLink");
+    if (hasPrimaryCta) {
       String primaryCtaText = json.get("primaryCtaText").asText();
       String primaryCtaLink = maybeDecorateUrl(json.get("primaryCtaLink").asText(), clientId);
 
@@ -98,7 +99,7 @@ public class ProductUpdateParser {
     }
 
     // Parse secondary CTA (optional)
-    if (json.has("secondaryCtaText") && json.has("secondaryCtaLink")) {
+    if (json.hasNonNull("secondaryCtaText") && json.hasNonNull("secondaryCtaLink")) {
       String secondaryCtaText = json.get("secondaryCtaText").asText();
       String secondaryCtaLink = maybeDecorateUrl(json.get("secondaryCtaLink").asText(), clientId);
 
@@ -108,10 +109,11 @@ public class ProductUpdateParser {
 
     // Parse legacy CTA fields (backward compatibility)
     // Only use if primary CTA is not provided
-    if (!json.has("primaryCtaText") || !json.has("primaryCtaLink")) {
-      String ctaText = json.has("ctaText") ? json.get("ctaText").asText() : "Learn more";
+    if (!hasPrimaryCta) {
+      String ctaText = json.hasNonNull("ctaText") ? json.get("ctaText").asText() : "Learn more";
       String ctaLink =
-          maybeDecorateUrl(json.has("ctaLink") ? json.get("ctaLink").asText() : "", clientId);
+          maybeDecorateUrl(
+              json.hasNonNull("ctaLink") ? json.get("ctaLink").asText() : "", clientId);
 
       productUpdate.setCtaText(ctaText);
       productUpdate.setCtaLink(ctaLink);

@@ -301,6 +301,23 @@ class SnowflakeIdentifierConfig(
         description="Whether to convert dataset urns to lowercase.",
     )
 
+    preserve_column_case: bool = Field(
+        default=False,
+        description="Preserve Snowflake's column casing in field paths and column-level "
+        "lineage instead of lowercasing them. Useful whenever a table has quoted "
+        "identifiers, because a quoted mixed-case column can only be queried by its "
+        'stored spelling — `SELECT "MixedCol"` works where `SELECT "mixedcol"` is an '
+        "invalid identifier — so the lowercased field path does not name anything you "
+        "can query. It is required when two quoted identifiers differ only by case "
+        '(e.g. `"col"` and `"COL"`), which would otherwise collapse into a single '
+        "field and lose one of them entirely. This value is part of each column's "
+        "schemaField URN identity, so changing it after data has been ingested re-keys "
+        "every column, orphaning column-level tags, glossary terms and documentation. "
+        "Pick one value before the first run and leave it unchanged. It must also match "
+        "across `snowflake` and `snowflake-queries` recipes pointed at the same account, "
+        "otherwise their field paths will not line up.",
+    )
+
     email_domain: Optional[str] = pydantic.Field(
         default=None,
         description="Email domain of your organization so users can be displayed on UI appropriately. This is used only if we cannot infer email ID.",
@@ -475,12 +492,15 @@ class SnowflakeV2Config(
 
     fetch_views_from_information_schema: bool = Field(
         default=False,
-        description="If enabled, uses information_schema.views to fetch view definitions instead of SHOW VIEWS command. "
-        "This alternative method can be more reliable for databases with large numbers of views (> 10K views), as the "
-        "SHOW VIEWS approach has proven unreliable and can lead to missing views in such scenarios. However, this method "
-        "requires OWNERSHIP privileges on views to retrieve their definitions. For views without ownership permissions "
-        "(where VIEW_DEFINITION is null/empty), the system will automatically fall back to using batched SHOW VIEWS queries "
-        "to populate the missing definitions.",
+        description="If enabled, uses information_schema.views to fetch views instead of the SHOW VIEWS command. "
+        "Enable this if you need `view_pattern` pushdown (see `push_down_metadata_patterns`, which cannot push a "
+        "pattern list into SHOW VIEWS) or an accurate `last_altered`, which SHOW VIEWS does not report. "
+        "Trade-offs: information_schema.views only exposes VIEW_DEFINITION to a view's owner, so definitions for "
+        "views you don't own are backfilled with batched SHOW VIEWS queries; it needs a running warehouse, whereas "
+        "SHOW VIEWS does not; and it does not report materialized views, which are absent from "
+        "information_schema.views and not covered by the default `table_types`. "
+        "This option is no longer needed for databases with more than 10K views - the SHOW VIEWS path now "
+        "paginates per schema and is exact at any scale.",
     )
 
     include_technical_schema: bool = Field(

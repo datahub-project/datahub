@@ -40,6 +40,9 @@
     "deprecation.ok": "Elavulttá tétel",
     "deprecation.reasonLabel": "Indok",
     "deprecation.reasonPlaceholder": "Indok hozzáadása",
+    "deprecation.replacementColumnLabel": "Oszlop",
+    "deprecation.replacementColumnPlaceholder": "Oszlop kiválasztása",
+    "deprecation.replacementParentPlaceholder": "{{entityName}} kiválasztása",
     "deprecation.replacementLabel": "Helyettesítő",
     "deprecation.replacementSearchTitle": "Válasszon ki egy entitást az elavult entitás helyettesítésére.",
     "deprecation.selectReplacement": "Helyettesítő kiválasztása",
@@ -95,5 +98,8 @@
     "unlinkVersion.confirmTitle": "Biztos benne?",
     "unlinkVersion.error": "A leválasztás sikertelen: \n {{errorMessage}}",
     "unlinkVersion.loading": "Leválasztás...",
-    "unlinkVersion.success": "{{entityName}} leválasztva!"
+    "unlinkVersion.success": "{{entityName}} leválasztva!",
+    "dataProductSelect.notFound": "Nem találhatók Data Productök",
+    "dataProductSelect.placeholder": "Szülő Data Product kiválasztása",
+    "moveDataProduct.title": "Data Product áthelyezése"
 }

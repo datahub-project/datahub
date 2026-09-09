@@ -45,6 +45,7 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -131,10 +132,8 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
 
     IndexConvention indexConvention =
         new IndexConventionImpl(
-            IndexConventionImpl.IndexConventionConfig.builder()
-                .prefix("es_timeseries_aspect_service_test")
-                .hashIdAlgo("MD5")
-                .build(),
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new ConfiguredIndexPrefixResolver("es_timeseries_aspect_service_test"),
             SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
     opContext =

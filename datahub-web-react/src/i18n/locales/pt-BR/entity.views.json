@@ -64,6 +64,7 @@
     "prop.platformInstanceDesc": "A instância específica da plataforma onde o ativo reside.",
     "prop.softDeleted": "Excluído Logicamente",
     "prop.softDeletedDesc": "Se o ativo foi excluído logicamente.",
+    "prop.structuredPropertyGroup": "Propriedade Estruturada",
     "prop.subType": "Subtipo",
     "prop.subTypeDesc": "O subtipo do ativo (ex.: Table, View, Topic).",
     "publicTab": "Visualizações Públicas",

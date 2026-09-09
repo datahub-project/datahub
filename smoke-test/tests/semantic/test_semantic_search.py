@@ -41,9 +41,12 @@ from typing import Any
 import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import run_datahub_cmd
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.AI)
 
 # Test gating - disabled by default
 SEMANTIC_SEARCH_ENABLED = (

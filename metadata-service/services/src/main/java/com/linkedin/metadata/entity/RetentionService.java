@@ -1,11 +1,12 @@
 package com.linkedin.metadata.entity;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
@@ -50,33 +51,40 @@ public abstract class RetentionService<U extends ChangeMCP> {
 
   protected abstract EntityService<U> getEntityService();
 
+  protected abstract SystemEntityClient getSystemEntityClient();
+
   /**
-   * Fetch retention policies given the entityName and aspectName Uses the entity service to fetch
-   * the latest retention policies set for the input entity and aspect
+   * Fetch retention policies given the entityName and aspectName. Resolution walks the prioritized
+   * list of retention keys: (entity, aspect), (entity, *), (*, aspect), (*, *). Reads go through
+   * {@link SystemEntityClient}'s entity/aspect cache (see {@code
+   * cache.client.entityClient.entityAspectTTLSeconds.dataHubRetention.dataHubRetentionConfig} in
+   * application.yaml), so repeated lookups for the same policy avoid a primary-storage read until
+   * the TTL expires or {@link #setRetention}/{@link #deleteRetention} invalidates the entry.
    *
    * @param entityName Name of the entity
    * @param aspectName Name of the aspect
    * @return retention policies to apply to the input entity and aspect
    */
+  @SneakyThrows
   public Retention getRetention(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String aspectName) {
     // Prioritized list of retention keys to fetch
     List<Urn> retentionUrns = getRetentionKeys(entityName, aspectName);
-    Map<Urn, List<RecordTemplate>> fetchedAspects =
-        getEntityService()
-            .getLatestAspects(
+    Map<Urn, EntityResponse> fetchedAspects =
+        getSystemEntityClient()
+            .batchGetV2(
                 opContext,
                 new HashSet<>(retentionUrns),
-                ImmutableSet.of(Constants.DATAHUB_RETENTION_ASPECT));
+                Set.of(Constants.DATAHUB_RETENTION_ASPECT));
     // Find the first retention info that is set among the prioritized list of retention keys above
     Optional<DataHubRetentionConfig> retentionInfo =
         retentionUrns.stream()
-            .flatMap(
-                urn ->
-                    fetchedAspects.getOrDefault(urn, Collections.emptyList()).stream()
-                        .filter(aspect -> aspect instanceof DataHubRetentionConfig))
-            .map(retention -> (DataHubRetentionConfig) retention)
-            .findFirst();
+            .map(fetchedAspects::get)
+            .filter(Objects::nonNull)
+            .map(response -> response.getAspects().get(Constants.DATAHUB_RETENTION_ASPECT))
+            .filter(Objects::nonNull)
+            .findFirst()
+            .map(envelopedAspect -> new DataHubRetentionConfig(envelopedAspect.getValue().data()));
     return retentionInfo.map(DataHubRetentionConfig::getRetention).orElse(new Retention());
   }
 
@@ -227,8 +235,13 @@ public abstract class RetentionService<U extends ChangeMCP> {
     AspectsBatch batch =
         buildAspectsBatch(opContext, List.of(keyProposal, aspectProposal), auditStamp);
 
-    return getEntityService().ingestProposal(opContext, batch, false).stream()
-        .anyMatch(IngestResult::isSqlCommitted);
+    boolean committed =
+        getEntityService().ingestProposal(opContext, batch, false).stream()
+            .anyMatch(IngestResult::isSqlCommitted);
+    getSystemEntityClient()
+        .getEntityClientCache()
+        .invalidate(retentionUrn, Set.of(Constants.DATAHUB_RETENTION_ASPECT));
+    return committed;
   }
 
   protected abstract AspectsBatch buildAspectsBatch(
@@ -254,6 +267,9 @@ public abstract class RetentionService<U extends ChangeMCP> {
     Urn retentionUrn =
         EntityKeyUtils.convertEntityKeyToUrn(retentionKey, Constants.DATAHUB_RETENTION_ENTITY);
     getEntityService().deleteUrn(opContext, retentionUrn);
+    getSystemEntityClient()
+        .getEntityClientCache()
+        .invalidate(retentionUrn, Set.of(Constants.DATAHUB_RETENTION_ASPECT));
   }
 
   private void validateRetention(Retention retention) {

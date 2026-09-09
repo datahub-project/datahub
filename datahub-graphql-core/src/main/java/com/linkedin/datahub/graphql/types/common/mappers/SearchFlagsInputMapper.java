@@ -75,6 +75,9 @@ public class SearchFlagsInputMapper
     if (searchFlags.getIncludeHiddenLifecycleStages() != null) {
       result.setIncludeHiddenLifecycleStages(searchFlags.getIncludeHiddenLifecycleStages());
     }
+    if (searchFlags.getMinScore() != null) {
+      result.setMinScore(searchFlags.getMinScore());
+    }
     return result;
   }
 }

@@ -224,19 +224,3 @@ def analytics_events_loaded(auth_session) -> Generator[dict, None, None]:
 
     # Cleanup happens automatically when fixture goes out of scope
     logger.info("Analytics test session complete")
-
-
-@pytest.fixture(scope="session")
-def analytics_cypress_entities_loaded(
-    analytics_events_loaded, ingest_cleanup_data
-) -> None:
-    """
-    Ensure Cypress test entities are ingested before running analytics tests.
-
-    This fixture depends on:
-    - analytics_events_loaded: Fresh analytics events
-    - ingest_cleanup_data: Standard Cypress test data
-    """
-    # Both dependencies ensure data is loaded
-    # This fixture just provides a convenient way to require both
-    logger.info("Analytics test data and entities ready")

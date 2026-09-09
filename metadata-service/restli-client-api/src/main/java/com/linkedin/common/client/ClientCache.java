@@ -113,6 +113,19 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
         caffeine.recordStats();
       }
 
+      try {
+        /*
+         Caffeine 2 and 3 are mostly API-compatible but differ in the signature of
+         'CacheLoader.loadAll'.
+         Caffeine 2 creeping into the classpath of code meant for Caffeine 3 leads to silent but
+         non-critical issues so we want a warning.
+        */
+        CacheLoader.class.getMethod("loadAll", Set.class);
+      } catch (NoSuchMethodException | SecurityException e) {
+        log.warn(
+            "Could not find CacheLoader.loadAll(Set<>). Please ensure classpath does not contain Caffeine 2");
+      }
+
       LoadingCache<K, V> cache = caffeine.build(loader);
 
       if (config.isStatsEnabled() && metricUtils != null) {

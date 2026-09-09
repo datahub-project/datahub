@@ -236,7 +236,7 @@ public class ElasticSearchServiceTest {
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getEntityIndexNameSemantic(TEST_URN.getEntityType());
+            .getEntityIndexNameSemantic(opContext, TEST_URN.getEntityType());
 
     // Capture the arguments for semantic index update
     ArgumentCaptor<String> indexNameCaptor = ArgumentCaptor.forClass(String.class);

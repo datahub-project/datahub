@@ -1,6 +1,5 @@
 import {
     BuildOutlined,
-    CloseCircleOutlined,
     DatabaseOutlined,
     DeleteOutlined,
     EnvironmentOutlined,
@@ -36,7 +35,6 @@ import {
     FIELD_TO_LABEL,
     GLOSSARY_TERMS_FILTER_NAME,
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    HAS_FAILING_ASSERTIONS_FILTER_NAME,
     HAS_SIBLINGS_FILTER_NAME,
     LAST_MODIFIED_FILTER_NAME,
     ORIGIN_FILTER_NAME,
@@ -214,15 +212,6 @@ const HAS_ACTIVE_INCIDENTS_FILTER: FilterField = {
     icon: <WarningOutlined />,
 };
 
-const HAS_FAILING_ASSERTIONS_FILTER: FilterField = {
-    field: HAS_FAILING_ASSERTIONS_FILTER_NAME,
-    get displayName() {
-        return FIELD_TO_LABEL[HAS_FAILING_ASSERTIONS_FILTER_NAME];
-    },
-    type: FieldType.BOOLEAN,
-    icon: <CloseCircleOutlined />,
-};
-
 const ORIGIN_FILTER: FilterField = {
     field: ORIGIN_FILTER_NAME,
     get displayName() {
@@ -344,7 +333,6 @@ export const DEFAULT_FILTER_FIELDS: FilterField[] = [
     FIELD_DESCRIPTIONS_FILTER,
     REMOVED_FILTER,
     HAS_ACTIVE_INCIDENTS_FILTER,
-    HAS_FAILING_ASSERTIONS_FILTER,
     ORIGIN_FILTER,
     DATA_PLATFORM_INSTANCE_FILTER,
     HAS_SIBLINGS_FILTER,

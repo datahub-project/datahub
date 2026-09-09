@@ -62,8 +62,9 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "datasetindex_v2_semantic_search";
     String taskId = "node123:456789";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
     when(searchClient.indexExists(
             any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
@@ -105,8 +106,9 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String baseIndexName = "datasetindex_v2";
     String semanticIndexName = "datasetindex_v2_semantic_search";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
     // Semantic index does not exist
     when(searchClient.indexExists(
             any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
@@ -135,8 +137,9 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "chartindex_v2_semantic_search";
     String taskId = "node456:789012";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
     when(searchClient.indexExists(
             any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
@@ -171,8 +174,9 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "dashboardindex_v2_semantic_search";
     String taskId = "invalid-task-id-without-colon"; // Invalid format
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
     when(searchClient.indexExists(
             any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
@@ -201,8 +205,9 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "datasetindex_v2_semantic_search";
     String taskId = "node123:456789";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
     when(searchClient.indexExists(
             any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
@@ -232,8 +237,9 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String baseIndexName = "datasetindex_v2";
     String semanticIndexName = "datasetindex_v2_semantic_search";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
     when(searchClient.indexExists(
             any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
@@ -259,8 +265,9 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "datasetindex_v2_semantic_search";
     String taskId = "node123:456789";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
     when(searchClient.indexExists(
             any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
@@ -365,8 +372,9 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "datasetindex_v2_semantic_search";
     String taskId = "node123:456789";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
     when(searchClient.indexExists(
             any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);

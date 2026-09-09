@@ -177,8 +177,11 @@ public class V2LegacySettingsBuilder implements SettingsBuilder {
   public Map<String, Object> getSettings(
       @Nonnull IndexConfiguration indexConfiguration, @Nonnull String indexName) {
     try {
-      // For v2, only apply settings to indices that match the v2 entity naming pattern
-      if (!indexConvention.isV2EntityIndex(indexName)) {
+      // For v2, only apply settings to indices that match the v2 entity naming pattern. Uses the
+      // prefix-INDEPENDENT type check: the index name is already fully resolved (it may carry a
+      // per-operation prefix), and this bootstrap path only needs its type — a prefix-scoped check
+      // with EMPTY would reject an index whose prefix came from an in-flight operation.
+      if (!indexConvention.isV2EntityIndexType(indexName)) {
         // Return empty settings if this is not a v2 entity index
         return ImmutableMap.of();
       }

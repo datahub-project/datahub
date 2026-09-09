@@ -9,5 +9,5 @@
     "summary.statusTooltip": "Den här statusen baseras på den senaste körningen av varje test.",
     "testResults.empty": "Inga tester hittades :(",
     "testResults.noEvaluations": "Inga utvärderingar",
-    "testResults.title": "Governance-testresultat"
+    "testResults.title": "Resultat för styrningstester"
 }

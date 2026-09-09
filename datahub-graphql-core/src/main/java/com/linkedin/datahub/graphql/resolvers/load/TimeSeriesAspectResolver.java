@@ -2,8 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.load;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.datahub.authorization.AuthUtil;
-import com.datahub.authorization.EntitySpec;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -11,9 +10,8 @@ import com.linkedin.datahub.graphql.generated.FilterInput;
 import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -88,28 +86,8 @@ public class TimeSeriesAspectResolver
 
   /** Check whether the actor is authorized to fetch the timeseries aspect given the resource urn */
   private boolean isAuthorized(QueryContext context, String urn) {
-    if (_entityName.equals(Constants.DATASET_ENTITY_NAME)
-        && _aspectName.equals(Constants.DATASET_PROFILE_ASPECT_NAME)) {
-      return AuthUtil.isAuthorized(
-          context.getOperationContext(),
-          PoliciesConfig.VIEW_DATASET_PROFILE_PRIVILEGE,
-          new EntitySpec(_entityName, urn));
-    }
-    if (_entityName.equals(Constants.DATASET_ENTITY_NAME)
-        && _aspectName.equals(Constants.DATASET_USAGE_STATISTICS_ASPECT_NAME)) {
-      return AuthUtil.isAuthorized(
-          context.getOperationContext(),
-          PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE,
-          new EntitySpec(_entityName, urn));
-    }
-    if (_entityName.equals(Constants.DATASET_ENTITY_NAME)
-        && _aspectName.equals(Constants.DATASET_OPERATION_ASPECT_NAME)) {
-      return AuthUtil.isAuthorized(
-          context.getOperationContext(),
-          PoliciesConfig.VIEW_DATASET_OPERATIONS_PRIVILEGE,
-          new EntitySpec(_entityName, urn));
-    }
-    return true;
+    return TimeseriesAuthUtil.canViewAspect(
+        context.getOperationContext(), UrnUtils.getUrn(urn), _entityName, _aspectName);
   }
 
   @Override

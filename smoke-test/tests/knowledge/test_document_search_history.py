@@ -5,8 +5,11 @@ import pytest
 
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.knowledge.document_helpers import execute_graphql, unique_id
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.AI)
 
 
 class TestDocumentSearchAndHistory:

@@ -4,6 +4,7 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -441,13 +442,7 @@ public class EntityGraphSnapshotBuilder {
           if (accumulator.isBypassed()) {
             break;
           }
-          accumulator.addEdge(
-              related.getSourceUrn(),
-              related.getDestinationUrn(),
-              relType,
-              definition.getBounds().getMaxVertices(),
-              definition.getBounds().getMaxEdges().orElse(Integer.MAX_VALUE));
-          neighbors.add(related.asRelatedEntity().getUrn());
+          addRelatedEdge(accumulator, related, relType, definition, neighbors);
         }
 
         if (result.getScrollId() != null && accumulator.isBypassed()) {
@@ -507,14 +502,7 @@ public class EntityGraphSnapshotBuilder {
                 com.linkedin.metadata.query.filter.Condition.EQUAL,
                 new ArrayList<>(frontierUrns)));
 
-    SearchFlags flags =
-        new SearchFlags()
-            .setFulltext(false)
-            .setSkipCache(true)
-            .setSkipAggregates(true)
-            .setSkipHighlighting(true)
-            .setIncludeSoftDeleted(false)
-            .setIncludeRestricted(true);
+    SearchFlags flags = searchBuildFlags(definition.getResolvedEdges());
 
     SearchRetriever searchRetriever = opContext.getRetrieverContext().getSearchRetriever();
     Set<String> neighbors = new LinkedHashSet<>();
@@ -632,14 +620,7 @@ public class EntityGraphSnapshotBuilder {
           .add(edge);
     }
 
-    SearchFlags flags =
-        new SearchFlags()
-            .setFulltext(false)
-            .setSkipCache(true)
-            .setSkipAggregates(true)
-            .setSkipHighlighting(true)
-            .setIncludeSoftDeleted(false)
-            .setIncludeRestricted(true);
+    SearchFlags flags = searchBuildFlags(definition.getResolvedEdges());
 
     SearchRetriever searchRetriever = opContext.getRetrieverContext().getSearchRetriever();
     String scrollId = null;
@@ -740,12 +721,7 @@ public class EntityGraphSnapshotBuilder {
                   if (accumulator.isBypassed()) {
                     return;
                   }
-                  accumulator.addEdge(
-                      related.getSourceUrn(),
-                      related.getDestinationUrn(),
-                      relType,
-                      definition.getBounds().getMaxVertices(),
-                      definition.getBounds().getMaxEdges().orElse(Integer.MAX_VALUE));
+                  addRelatedEdge(accumulator, related, relType, definition, null);
                 });
       } while (result != null && result.getScrollId() != null && !accumulator.isBypassed());
 
@@ -782,25 +758,49 @@ public class EntityGraphSnapshotBuilder {
                     metric, 1, "graphId", definition.getGraphId(), "reason", reason));
   }
 
+  @Nonnull
+  private static SearchFlags searchBuildFlags(
+      @Nonnull Collection<ResolvedGraphEdge> resolvedEdges) {
+    SearchFlags flags =
+        new SearchFlags()
+            .setFulltext(false)
+            .setSkipCache(true)
+            .setSkipAggregates(true)
+            .setSkipHighlighting(true)
+            .setIncludeSoftDeleted(false)
+            .setIncludeRestricted(true);
+    List<String> extraFields =
+        resolvedEdges.stream()
+            .filter(ResolvedGraphEdge::isSearchable)
+            .map(ResolvedGraphEdge::getSearchField)
+            .filter(field -> field != null && !field.isBlank())
+            .distinct()
+            .collect(Collectors.toList());
+    if (!extraFields.isEmpty()) {
+      flags.setFetchExtraFields(new StringArray(extraFields));
+    }
+    return flags;
+  }
+
   @Nullable
   static String extractRelatedUrn(@Nonnull SearchEntity entity, @Nullable String searchField) {
     if (searchField == null || entity.getExtraFields() == null) {
       return null;
     }
     StringMap extra = entity.getExtraFields();
-    String direct = extra.get(searchField);
-    if (direct != null && !direct.isBlank()) {
-      return stripQuotes(direct);
+    String parsed = EntityGraphEndpoints.parse(extra.get(searchField));
+    if (parsed != null) {
+      return parsed;
     }
     String leaf = leafFieldName(searchField);
     if (leaf != null) {
-      String leafVal = extra.get(leaf);
-      if (leafVal != null && !leafVal.isBlank()) {
-        return stripQuotes(leafVal);
+      parsed = EntityGraphEndpoints.parse(extra.get(leaf));
+      if (parsed != null) {
+        return parsed;
       }
-      String keyword = extra.get(leaf + ".keyword");
-      if (keyword != null && !keyword.isBlank()) {
-        return stripQuotes(keyword);
+      parsed = EntityGraphEndpoints.parse(extra.get(leaf + ".keyword"));
+      if (parsed != null) {
+        return parsed;
       }
     }
     return null;
@@ -809,14 +809,6 @@ public class EntityGraphSnapshotBuilder {
   private static String leafFieldName(@Nonnull String searchField) {
     int idx = searchField.lastIndexOf('.');
     return idx >= 0 ? searchField.substring(idx + 1) : searchField;
-  }
-
-  private static String stripQuotes(@Nonnull String value) {
-    String trimmed = value.trim();
-    if (trimmed.startsWith("\"") && trimmed.endsWith("\"") && trimmed.length() >= 2) {
-      return trimmed.substring(1, trimmed.length() - 1);
-    }
-    return trimmed;
   }
 
   @Nonnull
@@ -841,7 +833,33 @@ public class EntityGraphSnapshotBuilder {
     if (value instanceof Urn urn) {
       return urn.toString();
     }
-    return value.toString();
+    return EntityGraphEndpoints.parse(value.toString());
+  }
+
+  private static boolean addRelatedEdge(
+      @Nonnull EdgeAccumulator accumulator,
+      @Nonnull RelatedEntities related,
+      @Nonnull String relType,
+      @Nonnull EntityGraphDefinition definition,
+      @Nullable Set<String> neighbors) {
+    String source = EntityGraphEndpoints.parse(related.getSourceUrn());
+    String dest = EntityGraphEndpoints.parse(related.getDestinationUrn());
+    if (source == null || dest == null) {
+      return false;
+    }
+    accumulator.addCanonicalEdge(
+        source,
+        dest,
+        relType,
+        definition.getBounds().getMaxVertices(),
+        definition.getBounds().getMaxEdges().orElse(Integer.MAX_VALUE));
+    if (neighbors != null) {
+      String neighbor = EntityGraphEndpoints.parse(related.asRelatedEntity().getUrn());
+      if (neighbor != null) {
+        neighbors.add(neighbor);
+      }
+    }
+    return true;
   }
 
   @Nonnull
@@ -894,19 +912,29 @@ public class EntityGraphSnapshotBuilder {
     }
 
     void addEdge(String sourceUrn, String destUrn, String relType, int maxVertices, int maxEdges) {
-      if (bypassed) {
+      addCanonicalEdge(
+          EntityGraphEndpoints.parse(sourceUrn),
+          EntityGraphEndpoints.parse(destUrn),
+          relType,
+          maxVertices,
+          maxEdges);
+    }
+
+    void addCanonicalEdge(
+        String source, String dest, String relType, int maxVertices, int maxEdges) {
+      if (bypassed || source == null || dest == null) {
         return;
       }
-      vertices.add(sourceUrn);
-      vertices.add(destUrn);
+      vertices.add(source);
+      vertices.add(dest);
       if (vertices.size() > maxVertices) {
         bypass("vertex_limit");
         return;
       }
       DirectedEdge edge =
           DirectedEdge.builder()
-              .sourceUrn(sourceUrn)
-              .destinationUrn(destUrn)
+              .sourceUrn(source)
+              .destinationUrn(dest)
               .relationshipType(relType)
               .build();
       edgesByLine.putIfAbsent(edge.canonicalLine(), edge);
