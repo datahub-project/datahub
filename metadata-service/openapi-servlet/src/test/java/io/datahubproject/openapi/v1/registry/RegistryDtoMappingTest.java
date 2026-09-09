@@ -88,7 +88,7 @@ public class RegistryDtoMappingTest {
   }
 
   @Test
-  public void testEntitySpecDtoFromRealRegistryIncludesSearchGroup() {
+  public void testEntitySpecDtoFromRealRegistryHasUnsetSearchGroup() {
     EntitySpec dataset = TestOperationContexts.defaultEntityRegistry().getEntitySpec("dataset");
     assertNotNull(dataset);
 

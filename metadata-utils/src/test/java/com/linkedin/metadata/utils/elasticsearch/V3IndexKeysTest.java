@@ -7,8 +7,10 @@ import static org.testng.Assert.assertSame;
 
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.testng.annotations.Test;
 
 public class V3IndexKeysTest {
@@ -50,5 +52,28 @@ public class V3IndexKeysTest {
     assertEquals(grouped.get("query").size(), 1);
     assertSame(V3IndexKeys.groupEntitySpecs(registry), grouped);
     assertEquals(V3IndexKeys.entitySpecsForKey(registry, "primary").size(), 2);
+  }
+
+  @Test
+  public void groupEntitySpecsDoesNotRefreshForLaterPluginEntities() {
+    EntitySpec dataset = mock(EntitySpec.class);
+    when(dataset.getName()).thenReturn("dataset");
+    when(dataset.getSearchGroup()).thenReturn(null);
+
+    Map<String, EntitySpec> specs = new HashMap<>();
+    specs.put("dataset", dataset);
+    EntityRegistry registry = mock(EntityRegistry.class);
+    when(registry.getEntitySpecs()).thenAnswer(invocation -> specs);
+
+    Map<String, List<EntitySpec>> grouped = V3IndexKeys.groupEntitySpecs(registry);
+    assertEquals(grouped.keySet(), Set.of("dataset"));
+
+    EntitySpec pluginEntity = mock(EntitySpec.class);
+    when(pluginEntity.getName()).thenReturn("pluginEntity");
+    when(pluginEntity.getSearchGroup()).thenReturn(null);
+    specs.put("pluginEntity", pluginEntity);
+
+    assertSame(V3IndexKeys.groupEntitySpecs(registry), grouped);
+    assertEquals(grouped.keySet(), Set.of("dataset"));
   }
 }

@@ -28,7 +28,10 @@ import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.IncidentStats;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3DocumentIdResolver;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
@@ -91,6 +94,7 @@ public class ESSearchDAO {
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
   private final boolean testLoggingEnabled;
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
+  @Nonnull private final EntityDocumentIdHasher entityDocumentIdHasher;
 
   public ESSearchDAO(
       SearchClientShim<?> client,
@@ -106,7 +110,27 @@ public class ESSearchDAO {
         customSearchConfiguration,
         queryFilterRewriteChain,
         false,
-        searchServiceConfig);
+        searchServiceConfig,
+        new Sha256UrnEntityDocumentIdHasher());
+  }
+
+  public ESSearchDAO(
+      SearchClientShim<?> client,
+      boolean pointInTimeCreationEnabled,
+      @Nonnull ElasticSearchConfiguration searchConfiguration,
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      boolean testLoggingEnabled,
+      @Nonnull SearchServiceConfiguration searchServiceConfig) {
+    this(
+        client,
+        pointInTimeCreationEnabled,
+        searchConfiguration,
+        customSearchConfiguration,
+        queryFilterRewriteChain,
+        testLoggingEnabled,
+        searchServiceConfig,
+        new Sha256UrnEntityDocumentIdHasher());
   }
 
   public long docCount(@Nonnull OperationContext opContext, @Nonnull String entityName) {
@@ -932,7 +956,7 @@ public class ESSearchDAO {
     ExplainRequest explainRequest = new ExplainRequest();
     explainRequest
         .query(searchRequest.getLeft().source().query())
-        .id(documentId)
+        .id(documentIdForExplain(opContext, documentId))
         .index(entityIndexName(opContext, entityName));
     try {
       return client.explain(opContext, explainRequest, RequestOptions.DEFAULT);
@@ -940,6 +964,20 @@ public class ESSearchDAO {
       log.error("Failed to explain query.", e);
       throw new IllegalStateException("Failed to explain query:", e);
     }
+  }
+
+  /**
+   * V3 stores documents under a hashed {@code _id}. Explain callers historically passed a URN or V2
+   * URL-encoded URN; convert those when V3 keyword reads are on. An already-hashed id is left
+   * unchanged.
+   */
+  @VisibleForTesting
+  String documentIdForExplain(@Nonnull OperationContext opContext, @Nonnull String documentId) {
+    if (!EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())) {
+      return documentId;
+    }
+    return V3DocumentIdResolver.resolveExplainDocumentId(
+        opContext, entityDocumentIdHasher, documentId);
   }
 
   private boolean rewriteEntityTypeToIndex() {

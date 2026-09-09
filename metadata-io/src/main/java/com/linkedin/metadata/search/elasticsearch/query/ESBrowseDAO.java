@@ -18,6 +18,7 @@ import com.linkedin.metadata.browse.BrowseResultMetadata;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -138,7 +139,8 @@ public class ESBrowseDAO {
             flags -> applyDefaultSearchFlags(flags, path, DEFAULT_BROWSE_SEARCH_FLAGS));
 
     try {
-      final String indexName = entityIndexName(opContext, entityName);
+      // V1 browsePaths / browsePaths.length exist only on V2 mappings.
+      final String indexName = v2EntityIndexName(opContext, entityName);
 
       final SearchResponse groupsResponse =
           opContext.withSpan(
@@ -271,7 +273,7 @@ public class ESBrowseDAO {
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
 
     applyDefaultSearchFilters(
-        opContext, List.of(entityName), null, queryBuilder, searchConfiguration.getEntityIndex());
+        opContext, List.of(entityName), null, queryBuilder, (EntityIndexConfiguration) null);
 
     if (!path.isEmpty()) {
       queryBuilder.filter(QueryBuilders.termQuery(BROWSE_PATH, path));
@@ -438,12 +440,10 @@ public class ESBrowseDAO {
   @Nonnull
   public List<String> getBrowsePaths(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull Urn urn) {
-    final String indexName = entityIndexName(opContext, entityName);
+    final String indexName = v2EntityIndexName(opContext, entityName);
     final SearchRequest searchRequest = new SearchRequest(indexName);
     BoolQueryBuilder query =
         QueryBuilders.boolQuery().filter(QueryBuilders.termQuery(URN, urn.toString()));
-    EntitySearchIndexResolver.applyEntityTypeFilter(
-        query, List.of(entityName), searchConfiguration.getEntityIndex());
     searchRequest.source(new SearchSourceBuilder().query(query));
     final SearchHit[] searchHits;
     try {
@@ -834,5 +834,14 @@ public class ESBrowseDAO {
   private String entityIndexName(@Nonnull OperationContext opContext, @Nonnull String entityName) {
     return EntitySearchIndexResolver.indexName(
         opContext, entityName, searchConfiguration.getEntityIndex());
+  }
+
+  @Nonnull
+  private String v2EntityIndexName(
+      @Nonnull OperationContext opContext, @Nonnull String entityName) {
+    return opContext
+        .getSearchContext()
+        .getIndexConvention()
+        .getEntityIndexName(opContext, entityName);
   }
 }

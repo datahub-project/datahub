@@ -313,6 +313,48 @@ public class AnalyticsServiceTest {
     assertEquals(v3Service.queryEntityMustNotFilters(), Map.of("_entityType", List.of("query")));
   }
 
+  @Test
+  public void testBarChartSkipsV3EntityKeywordSubfields() throws Exception {
+    AnalyticsService v3Service =
+        new AnalyticsService(
+            mockClient, mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
+
+    assertEquals(
+        v3Service.getBarChart(
+            opContext,
+            "*index_v3",
+            Optional.empty(),
+            List.of("platform.keyword"),
+            Map.of(),
+            Map.of(),
+            Optional.empty(),
+            false),
+        List.of());
+    verify(mockClient, times(0)).search(any(), any(SearchRequest.class), any());
+  }
+
+  @Test
+  public void testBarChartStillQueriesUsageIndexOnV3() throws Exception {
+    AnalyticsService v3Service =
+        new AnalyticsService(
+            mockClient, mockIndexConvention, opContext.getEntityRegistry(), keywordReadV3());
+
+    try {
+      v3Service.getBarChart(
+          opContext,
+          USAGE_INDEX,
+          Optional.empty(),
+          List.of("actorUrn.keyword"),
+          Map.of(),
+          Map.of(),
+          Optional.empty(),
+          false);
+    } catch (RuntimeException ignored) {
+      // usage-index queries still hit ES; this test only asserts we did not skip them
+    }
+    verify(mockClient, times(1)).search(any(), any(SearchRequest.class), any());
+  }
+
   private static EntityIndexConfiguration keywordReadV3() {
     return EntityIndexConfiguration.builder()
         .v2(EntityIndexVersionConfiguration.builder().enabled(true).build())

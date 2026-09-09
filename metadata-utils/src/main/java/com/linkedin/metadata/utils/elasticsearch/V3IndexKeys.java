@@ -16,10 +16,10 @@ import javax.annotation.Nonnull;
  * Resolves the V3 Elasticsearch index key for an entity: explicit {@code searchGroup} consolidates;
  * unset group uses the entity type name (not a literal {@code default} group).
  *
- * <p>Grouping is memoized per {@link EntityRegistry} instance. Search groups are a static property
- * of a loaded registry: plugin overlays must keep {@code searchGroup} consistent, and remapping an
- * entity onto a different group (migration) is not supported. Callers must use the post-merge
- * registry (plugins already applied).
+ * <p>{@link #groupEntitySpecs} is a snapshot of the registry at first use. A later plugin overlay
+ * on the same instance is not re-read: plugins may only add new entity types (not change {@code
+ * searchGroup} on types already loaded), and those new types do not get search indices today, so
+ * search-group lookup does not refresh for them.
  */
 public final class V3IndexKeys {
 

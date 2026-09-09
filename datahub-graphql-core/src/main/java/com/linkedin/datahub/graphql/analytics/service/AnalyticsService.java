@@ -232,6 +232,13 @@ public class AnalyticsService {
     if (!(dimensions.size() == 1 || dimensions.size() == 2)) {
       throw new IllegalArgumentException("Dimensions must have 1 or 2 specified: " + dimensions);
     }
+    if (isUnimplementedV3EntityKeywordAggregation(indexName, dimensions)) {
+      log.error(
+          "Entity-index analytics aggregations on V2 keyword subfields {} are not implemented when Search V3 keyword reads are enabled (index {}). Returning empty results.",
+          dimensions,
+          indexName);
+      return ImmutableList.of();
+    }
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
 
     TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(dimensions.get(0));
@@ -284,6 +291,24 @@ public class AnalyticsService {
       log.error(String.format("Caught exception while getting bar chart: %s", e.getMessage()));
       return ImmutableList.of();
     }
+  }
+
+  /**
+   * Landscape charts still aggregate on V2 {@code .keyword} URN subfields ({@code
+   * platform.keyword}, {@code domains.keyword}, …). V3 maps those as keyword parents without that
+   * subfield, so the query is not implemented for V3 entity indices.
+   */
+  private boolean isUnimplementedV3EntityKeywordAggregation(
+      String indexName, List<String> dimensions) {
+    if (!EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration)) {
+      return false;
+    }
+    boolean usesKeywordSubfield =
+        dimensions.stream().anyMatch(field -> field.endsWith(SearchUtil.KEYWORD_SUFFIX));
+    if (!usesKeywordSubfield) {
+      return false;
+    }
+    return indexName.endsWith("index_v3") && indexName.length() > "index_v3".length();
   }
 
   private List<BarSegment> extractBarSegmentsFromAggregations(
