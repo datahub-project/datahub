@@ -377,7 +377,7 @@ def check_version_compatibility(
         return
 
     try:
-        client_config = load_client_config()
+        client_config = _resolve_datapack_client_config()
         from datahub.ingestion.graph.client import DataHubGraph
 
         graph = DataHubGraph(client_config)

@@ -1188,6 +1188,37 @@ class TestCheckVersionCompatibility:
         ):
             check_version_compatibility(pack, force=True)  # Should not raise
 
+    def test_missing_config_uses_quickstart_fallback(self) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+        from datahub.cli.datapack.loader import check_version_compatibility
+
+        pack = DataPackInfo(
+            name="t", description="t", url="https://x.com", min_server_version="0.14.0"
+        )
+        mock_graph = MagicMock()
+        mock_graph.server_config.is_datahub_cloud = False
+        mock_graph.server_config.is_version_at_least.return_value = True
+
+        with (
+            patch(
+                "datahub.cli.datapack.loader.build_auth_config_from_env",
+                return_value=None,
+            ),
+            patch("datahub.cli.datapack.loader.get_skip_config", return_value=False),
+            patch(
+                "datahub.cli.datapack.loader.load_client_config",
+                side_effect=MissingConfigError("No ~/.datahubenv file found"),
+            ),
+            patch(
+                "datahub.ingestion.graph.client.DataHubGraph", return_value=mock_graph
+            ) as mock_graph_cls,
+        ):
+            check_version_compatibility(pack)
+
+        client_config = mock_graph_cls.call_args.args[0]
+        assert client_config.server == "http://localhost:8080"
+        assert client_config.token is None
+
 
 class TestReferentialIntegrity:
     def test_detects_dangling_references(
