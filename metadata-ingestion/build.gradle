@@ -203,6 +203,14 @@ task lintFix(type: Exec, dependsOn: installDev) {
 // Add "PYTHONDEVMODE=1" here to also warn on unclosed sockets.
 def pytest_default_env = "PYTHONFAULTHANDLER=1"
 
+// Fail a wedged test fast instead of occupying CI until the job cap. pytest-timeout
+// (thread method) bounds each test's setup/call/teardown and dumps all thread stacks.
+// The process backstop catches a hang outside a test (collection/teardown); `timeout` is
+// absent on stock macOS (Homebrew ships gtimeout), so resolve it at runtime and skip
+// locally rather than failing the task.
+def pytest_timeout_args = "--timeout=600 --timeout-method=thread"
+def resolve_wall_clock = 'WALL="$(command -v timeout || command -v gtimeout || true)"; WALL="${WALL:+$WALL -s ABRT 2700}"; '
+
 task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
@@ -214,8 +222,9 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
   outputs.dir("test-results")
   def cvg_arg = get_coverage_args("quick")
   commandLine 'bash', '-c',
-    venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} tests/unit --random-order -m 'not integration' --junit-xml=test-results/junit.quick.xml"
+    venv_activate_command + resolve_wall_clock +
+    "${pytest_default_env} " + '$WALL ' +
+    "pytest ${cvg_arg} tests/unit --random-order -m 'not integration' ${pytest_timeout_args} --junit-xml=test-results/junit.quick.xml"
 }
 
 task testPerformance(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
@@ -285,8 +294,9 @@ integrationBatchIds.each { batchId ->
         inputs.file file("setup.cfg")
         inputs.file file("setup.py")
         commandLine 'bash', '-c',
-            venv_activate_command +
-            "${pytest_default_env} pytest ${cvgArg} -m '${markerName}' --junit-xml=${junitXml}"
+            venv_activate_command + resolve_wall_clock +
+            "${pytest_default_env} " + '$WALL ' +
+            "pytest ${cvgArg} -m '${markerName}' ${pytest_timeout_args} --junit-xml=${junitXml}"
     }
 }
 
