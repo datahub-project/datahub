@@ -25,7 +25,7 @@ import sqlalchemy.dialects.postgresql as custom_types
 from geoalchemy2 import Geography, Geometry, Raster
 from pydantic import BaseModel, field_validator, model_validator
 from pydantic.fields import Field
-from sqlalchemy import create_engine, event, inspect
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.types import UserDefinedType
@@ -63,13 +63,13 @@ from datahub.ingestion.source.sql.postgres.query import (
     POSTGRES_SYSTEM_DATABASES,
     PostgresQuery,
 )
+from datahub.ingestion.source.sql.rds_iam import RDSIAMConnectionMixin
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
-from datahub.ingestion.source.sql.sqlalchemy_uri import parse_host_port
 from datahub.ingestion.source.sql.stored_procedures.models import (
     BaseProcedure,
 )
@@ -295,7 +295,7 @@ class PostgresAuthMode(StrEnum):
     AWS_IAM = "AWS_IAM"
 
 
-class BasePostgresConfig(BasicSQLAlchemyConfig):
+class BasePostgresConfig(RDSIAMConnectionMixin, BasicSQLAlchemyConfig):
     scheme: str = Field(default="postgresql+psycopg2", description="database scheme")
     schema_pattern: Annotated[
         AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
@@ -315,6 +315,24 @@ class BasePostgresConfig(BasicSQLAlchemyConfig):
         "If not explicitly configured, boto3 will automatically use the default credential chain and region from "
         "environment variables (AWS_DEFAULT_REGION, AWS_REGION), AWS config files (~/.aws/config), or IAM role metadata.",
     )
+
+    def rds_iam_enabled(self) -> bool:
+        return self.auth_mode == PostgresAuthMode.AWS_IAM
+
+    def rds_iam_default_port(self) -> int:
+        return 5432
+
+    def apply_rds_iam_ssl(self, cparams: Dict[str, Any]) -> None:
+        # IAM tokens are bearer credentials, so TLS is required rather than
+        # preferred. An explicitly stronger mode is left alone.
+        if cparams.get("sslmode") not in ("require", "verify-ca", "verify-full"):
+            cparams["sslmode"] = "require"
+
+    def probe_prepare_engine(self, engine: Any) -> None:
+        # Without this, an AWS_IAM recipe cannot be probed at all: the password
+        # is a token injected per connection, so a bare create_engine() has no
+        # credential to connect with.
+        self.install_rds_iam_auth(engine)
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:
@@ -559,27 +577,13 @@ class PostgresSource(SQLAlchemySource):
     def __init__(self, config: PostgresConfig, ctx: PipelineContext):
         super().__init__(config, ctx, self.get_platform())
 
-        self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = None
-        if config.auth_mode == PostgresAuthMode.AWS_IAM:
-            hostname, port = parse_host_port(config.host_port, default_port=5432)
-            if port is None:
-                raise ValueError(
-                    "Port must be specified for RDS IAM authentication. "
-                    "Please provide host_port in the format 'hostname:port' (e.g., 'mydb.rds.amazonaws.com:5432')."
-                )
-
-            if not config.username:
-                raise ValueError(
-                    "username is required for RDS IAM authentication. "
-                    "Please add 'username: <your_db_username>' to your configuration."
-                )
-
-            self._rds_iam_token_manager = RDSIAMTokenManager(
-                endpoint=hostname,
-                username=config.username,
-                port=port,
-                aws_config=config.aws_config,
-            )
+        # Built by the config, not here, so `datahub recipe probe` gets the same
+        # token manager off the same object -- see RDSIAMConnectionMixin. Called
+        # eagerly so a recipe that asks for IAM without a port or username still
+        # fails at construction, as it did when this block lived here.
+        self._rds_iam_token_manager: Optional[RDSIAMTokenManager] = (
+            config.rds_iam_token_manager()
+        )
 
         self.sql_aggregator: Optional[SqlParsingAggregator] = None
         if self.config.include_query_lineage:
@@ -638,25 +642,14 @@ class PostgresSource(SQLAlchemySource):
     def _setup_rds_iam_event_listener(
         self, engine: "Engine", database_name: Optional[str] = None
     ) -> None:
-        """Setup SQLAlchemy event listener to inject RDS IAM tokens."""
-        if not (
-            self.config.auth_mode == PostgresAuthMode.AWS_IAM
-            and self._rds_iam_token_manager
-        ):
-            return
+        """Inject RDS IAM tokens on this engine's connections.
 
-        def do_connect_listener(_dialect, _conn_rec, _cargs, cparams):
-            if not self._rds_iam_token_manager:
-                raise RuntimeError(
-                    "RDS IAM Token Manager is not initialized. "
-                    "This is an internal error. Please check your auth_mode configuration and ensure "
-                    "it is set to 'AWS_IAM' if you intend to use RDS IAM authentication."
-                )
-            cparams["password"] = self._rds_iam_token_manager.get_token()
-            if cparams.get("sslmode") not in ("require", "verify-ca", "verify-full"):
-                cparams["sslmode"] = "require"
-
-        event.listen(engine, "do_connect", do_connect_listener)  # type: ignore[misc]
+        One line, because the implementation is on the config: the probe builds
+        its own engines and can only reach setup that lives there. `database_name`
+        is unused and kept for the call sites -- the token is per host, not per
+        database.
+        """
+        self.config.install_rds_iam_auth(engine)
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # Note: get_sql_alchemy_url will choose `sqlalchemy_uri` over the passed in database
