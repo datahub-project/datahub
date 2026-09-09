@@ -140,13 +140,13 @@ plugins {
 apply from: "gradle/docker/docker-utils.gradle"
 
 // Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
-ext.jacksonVersion = '2.21.5'
+ext.jacksonVersion = '2.22.2'
 // Parquet stack: parquet-jackson shades Jackson under shaded/parquet/.
-// 1.18.0+ bundles jackson-databind 2.22.1 (CVE-2026-54512/54513 and related jackson-databind CVEs
+// 1.18.1 bundles jackson-databind 2.22.2 (CVE-2026-54512/54513 and related jackson-databind CVEs
 // fixed in 2.21.4+; https://github.com/apache/parquet-java/pull/3594).
-// App-classpath jackson-databind remains ext.jacksonVersion (2.21.5); that pin does not replace the shade.
-ext.parquetVersion = '1.18.0'
-// Minor-only annotation line matches jackson-bom (e.g. 2.21 for jackson 2.21.x patch releases).
+// App-classpath jackson-databind remains ext.jacksonVersion (2.22.2); that pin does not replace the shade.
+ext.parquetVersion = '1.18.1'
+// Minor-only annotation line matches jackson-bom (e.g. 2.22 for jackson 2.22.x patch releases).
 ext.jacksonMinorRelease = jacksonVersion.contains('.')
     ? jacksonVersion.substring(0, jacksonVersion.lastIndexOf('.'))
     : jacksonVersion
@@ -623,7 +623,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force rootProject.ext.externalDependency.lz4Java
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast); Pegasus plugin classpath (CVE-2025-52999)
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonMinorRelease}"
-    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"  // CVE-2026-54512/54513/54514/54516/54517/54518/59888 (2.21.4); CVE-2026-54515/59889, GHSA-mhm7-754m-9p8w (2.21.5)
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"  // CVE-2026-54512/54513/54514/54516/54517/54518/59888 (2.21.4+); CVE-2026-54515/59889, GHSA-mhm7-754m-9p8w (2.21.5+)
     resolutionStrategy.force "org.springframework.security:spring-security-oauth2-jose:${rootProject.ext.springSecurityVersion}"  // CVE-2026-22748
     resolutionStrategy.force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.force rootProject.ext.externalDependency.get('parquetJackson')
