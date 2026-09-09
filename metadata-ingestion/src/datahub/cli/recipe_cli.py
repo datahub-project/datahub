@@ -261,6 +261,39 @@ def _ping_probe(command: str, source_type: str, **dims: object) -> None:
     telemetry.telemetry_instance.ping("recipe-probe", props)
 
 
+# Reported when redaction actually changed the payload, because the agent cannot
+# tell "***" from a name otherwise.
+_MASKED_NOTICE = (
+    "something in this result was redacted and now reads '***'. Read it as "
+    "'redacted', never as a name. When a secret happens to equal an identifier -- "
+    "a password the same as a database, schema or table name -- that identifier is "
+    "masked everywhere it occurs, `target` included, so a verdict can name a "
+    "pattern while the thing it matched shows as '***'. The recipe has the real "
+    "name; this output deliberately does not."
+)
+
+
+def _redacted_payload(payload: object, secret_values: Set[str]) -> object:
+    """Redact, and say so when redaction changed what the caller is reading.
+
+    Over-masking is the safe failure and stays (see agent.redact.redact), but
+    silent over-masking is not: `probe filter`'s whole purpose is to report the
+    `target` a pattern was matched against, and a target reading '***' with no
+    explanation is exactly the confidently-unreadable answer this interface
+    exists to avoid. The notice says nothing about *which* secret collided, and
+    nothing that is not already visible in the output -- naming the field would
+    tell a caller who cannot see a ${ENV_VAR} secret that it equals an
+    identifier they can see.
+    """
+    redacted = redact(payload, secret_values)
+    if redacted == payload:
+        return redacted
+    warnings = redacted.get("warnings") if isinstance(redacted, dict) else None
+    if isinstance(warnings, list):
+        warnings.append(_MASKED_NOTICE)
+    return redacted
+
+
 @recipe.command()
 @click.argument("source_type")
 def describe(source_type: str) -> None:
@@ -461,7 +494,7 @@ def probe_filter_cmd(
             try_allow=list(try_allow),
             try_deny=list(try_deny),
         )
-        payload = redact(result.to_dict(), secret_values)
+        payload = _redacted_payload(result.to_dict(), secret_values)
         _write_report(report_to, payload)
         _emit(payload)
 
@@ -500,7 +533,7 @@ def probe_run_cmd(
         # exception/driver object nested in the result cannot smuggle a secret
         # past the redactor (which only inspects str/dict/list values).
         safe = json.loads(json.dumps(result.to_dict(), default=_json_default))
-        payload = redact(safe, secret_values)
+        payload = _redacted_payload(safe, secret_values)
         _write_report(report_to, payload)
         _emit(payload)
         # A failure means the result is not a complete answer, so the command

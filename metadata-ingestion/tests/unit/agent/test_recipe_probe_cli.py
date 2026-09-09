@@ -1,4 +1,5 @@
 import json
+import pathlib
 
 from click.testing import CliRunner
 
@@ -481,3 +482,117 @@ def test_an_internal_failure_with_no_connectivity_report_does_not_exit_zero(
     # And it names the field the reason is in. Pointing at basic_connectivity
     # here sent the caller after a key this report does not carry.
     assert "internal_failure_reason" in res.output
+
+
+# --- when redaction eats the answer ------------------------------------------
+
+
+def _colliding_recipe(tmp_path: pathlib.Path, secret: str) -> str:
+    """A recipe whose password equals its database name."""
+    path = tmp_path / "collide.yml"
+    path.write_text(
+        "source:\n"
+        "  type: mysql\n"
+        "  config:\n"
+        "    host_port: localhost:3306\n"
+        "    username: probe_user\n"
+        f"    password: {secret}\n"
+        f"    database: {secret}\n"
+    )
+    return str(path)
+
+
+def test_a_masked_target_says_it_was_masked(tmp_path):
+    """`probe filter` exists to report the target a pattern was matched against.
+
+    A password equal to a schema or table name masks that name everywhere it
+    occurs -- correctly, since the two are the same string and nothing can tell
+    them apart -- so `target` reads "***.orders". Over-masking is the safe
+    failure and stays. Silently over-masking is not: an unexplained "***" in the
+    one field the command exists to produce is exactly the unreadable answer
+    this interface is meant to avoid.
+    """
+    recipe_path = _colliding_recipe(tmp_path, "shared_name_value")
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            recipe_path,
+            "--kind",
+            "Table",
+            "--parent",
+            "shared_name_value",
+            "--name",
+            "orders",
+        ],
+    )
+    assert res.exit_code == 0, res.output
+    payload = json.loads(res.output)
+
+    # The masking itself is unchanged -- this is not a licence to leak.
+    assert "shared_name_value" not in res.output
+    assert any("***" in v.get("target", "") for v in payload["results"])
+
+    # ...but the caller is told why.
+    assert any("redacted" in w for w in payload["warnings"]), payload["warnings"]
+
+
+def test_no_notice_when_nothing_was_masked(tmp_path):
+    """The notice must not cry wolf: it fires on actual redaction, not on the
+    mere presence of a secret in the recipe."""
+    path = tmp_path / "clean.yml"
+    path.write_text(
+        "source:\n"
+        "  type: mysql\n"
+        "  config:\n"
+        "    host_port: localhost:3306\n"
+        "    username: probe_user\n"
+        "    password: a_distinct_password_value\n"
+        "    database: my_db\n"
+    )
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            str(path),
+            "--kind",
+            "Table",
+            "--parent",
+            "my_db",
+            "--name",
+            "orders",
+        ],
+    )
+    assert res.exit_code == 0, res.output
+    payload = json.loads(res.output)
+    assert payload["results"][0]["target"] == "my_db.orders"
+    assert not any("redacted" in w for w in payload["warnings"]), payload["warnings"]
+
+
+def test_the_notice_does_not_say_which_secret_collided(tmp_path):
+    """Naming the field would tell a caller who cannot see a ${ENV_VAR} secret
+    that it equals an identifier they can see."""
+    recipe_path = _colliding_recipe(tmp_path, "shared_name_value")
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            recipe_path,
+            "--kind",
+            "Table",
+            "--parent",
+            "shared_name_value",
+            "--name",
+            "orders",
+        ],
+    )
+    assert res.exit_code == 0, res.output
+    notice = next(w for w in json.loads(res.output)["warnings"] if "redacted" in w)
+    assert "password" not in notice.split("a password the same as")[0]
+    assert "shared_name_value" not in notice
