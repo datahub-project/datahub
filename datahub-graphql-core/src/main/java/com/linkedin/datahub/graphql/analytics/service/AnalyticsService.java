@@ -14,15 +14,23 @@ import com.linkedin.datahub.graphql.generated.NumericDataPoint;
 import com.linkedin.datahub.graphql.generated.Row;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -56,6 +64,7 @@ public class AnalyticsService {
 
   private final SearchClientShim<?> _elasticClient;
   private final IndexConvention _indexConvention;
+  private final EntityRegistry _entityRegistry;
 
   private static final String FILTERED = "filtered";
   private static final String DATE_HISTOGRAM = "date_histogram";
@@ -68,6 +77,8 @@ public class AnalyticsService {
   private static final String INDEX_FIELD = "_index";
   private static final String REMOVED = "removed";
   private static final String TRUE = "true";
+  private static final Duration BOOLEAN_FIELD_CACHE_TTL = Duration.ofMinutes(5);
+
   public static final String NA = "N/A";
 
   public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
@@ -461,7 +472,7 @@ public class AnalyticsService {
             .toArray(KeyedFilter[]::new);
     KeyedFilter[] facetFilters =
         facetFields.stream()
-            .map(field -> new KeyedFilter(field, QueryBuilders.termsQuery(field, TRUE)))
+            .map(field -> new KeyedFilter(field, termsQuery(field, List.of(TRUE))))
             .toArray(KeyedFilter[]::new);
 
     AggregationBuilder byEntityAgg = AggregationBuilders.filters(BY_ENTITY, entityFilters);
@@ -548,22 +559,20 @@ public class AnalyticsService {
       // extract results, validated against document model as well
       return searchResponse.getAggregations().<Filter>get(FILTERED);
     } catch (Exception e) {
-      log.error(String.format("Search query failed: %s", e.getMessage()));
+      log.error("Search query failed", e);
       throw new RuntimeException("Search query failed:", e);
     }
   }
 
-  // Make dateRangeField as customizable
-  private AggregationBuilder getFilteredAggregation(
+  AggregationBuilder getFilteredAggregation(
       Map<String, List<String>> mustFilters,
       Map<String, List<String>> mustNotFilters,
       Optional<DateRange> dateRange,
       String dateRangeField) {
     BoolQueryBuilder filteredQuery = QueryBuilders.boolQuery();
     filteredQuery.filter(getDefaultFilters());
-    mustFilters.forEach((key, values) -> filteredQuery.must(QueryBuilders.termsQuery(key, values)));
-    mustNotFilters.forEach(
-        (key, values) -> filteredQuery.mustNot(QueryBuilders.termsQuery(key, values)));
+    mustFilters.forEach((key, values) -> filteredQuery.must(termsQuery(key, values)));
+    mustNotFilters.forEach((key, values) -> filteredQuery.mustNot(termsQuery(key, values)));
     dateRange.ifPresent(range -> filteredQuery.must(dateRangeQuery(range, dateRangeField)));
     return AggregationBuilders.filter(FILTERED, filteredQuery);
   }
@@ -572,28 +581,115 @@ public class AnalyticsService {
       Map<String, List<String>> mustFilters,
       Map<String, List<String>> mustNotFilters,
       Optional<DateRange> dateRange) {
-    // Use timestamp as dateRangeField
     return getFilteredAggregation(mustFilters, mustNotFilters, dateRange, "timestamp");
   }
 
-  private QueryBuilder getDefaultFilters() {
+  QueryBuilder getDefaultFilters() {
     return QueryBuilders.boolQuery()
         .mustNot(
             QueryBuilders.termQuery(
-                DataHubUsageEventConstants.USAGE_SOURCE,
+                DataHubUsageEventConstants.USAGE_SOURCE + ".keyword",
                 DataHubUsageEventConstants.BACKEND_SOURCE));
   }
 
-  private QueryBuilder dateRangeQuery(DateRange dateRange) {
-    // Use timestamp as dateRangeField
+  QueryBuilder dateRangeQuery(DateRange dateRange) {
     return dateRangeQuery(dateRange, "timestamp");
   }
 
-  // Make dateRangeField as customizable
-  private QueryBuilder dateRangeQuery(DateRange dateRange, String dateRangeField) {
+  QueryBuilder dateRangeQuery(DateRange dateRange, String dateRangeField) {
     return QueryBuilders.rangeQuery(dateRangeField)
-        .gte(dateRange.getStart())
-        .lt(dateRange.getEnd());
+        .gte(parseEpochMillis(dateRange.getStart(), dateRangeField, "start"))
+        .lt(parseEpochMillis(dateRange.getEnd(), dateRangeField, "end"));
+  }
+
+  QueryBuilder termsQuery(String field, List<String> values) {
+    return QueryBuilders.termsQuery(field, coerceTermValues(field, values));
+  }
+
+  Object[] coerceTermValues(String field, List<String> values) {
+    if (values == null || values.isEmpty()) {
+      return new Object[0];
+    }
+    if (isBooleanSearchField(field)) {
+      return values.stream().map(AnalyticsService::parseBooleanTerm).toArray();
+    }
+    return values.toArray(new String[0]);
+  }
+
+  /**
+   * Plugin patches mutate the live {@link EntityRegistry} in place. Readers keep an immutable field
+   * set and replace the whole snapshot after a TTL so the hot path never iterates the registry map.
+   */
+  private record BooleanFieldSnapshot(Instant expiresAt, Set<String> fields) {
+    boolean isFresh(Instant now) {
+      return now.isBefore(expiresAt);
+    }
+  }
+
+  private final Clock clock = Clock.systemUTC();
+  private volatile BooleanFieldSnapshot booleanFieldSnapshot;
+
+  private boolean isBooleanSearchField(String field) {
+    return booleanSearchFields().contains(field.split("\\.")[0]);
+  }
+
+  private Set<String> booleanSearchFields() {
+    Instant now = clock.instant();
+    BooleanFieldSnapshot snapshot = booleanFieldSnapshot;
+    if (snapshot != null && snapshot.isFresh(now)) {
+      return snapshot.fields();
+    }
+    synchronized (this) {
+      now = clock.instant();
+      snapshot = booleanFieldSnapshot;
+      if (snapshot != null && snapshot.isFresh(now)) {
+        return snapshot.fields();
+      }
+      Set<String> frozen = collectBooleanSearchFields();
+      booleanFieldSnapshot = new BooleanFieldSnapshot(now.plus(BOOLEAN_FIELD_CACHE_TTL), frozen);
+      return frozen;
+    }
+  }
+
+  private Set<String> collectBooleanSearchFields() {
+    Set<String> fields = new HashSet<>();
+    for (EntitySpec entitySpec : _entityRegistry.getEntitySpecs().values()) {
+      for (Map.Entry<String, Set<SearchableAnnotation.FieldType>> entry :
+          entitySpec.getSearchableFieldTypes().entrySet()) {
+        if (entry.getValue().contains(SearchableAnnotation.FieldType.BOOLEAN)) {
+          fields.add(entry.getKey());
+        }
+      }
+    }
+    return Set.copyOf(fields);
+  }
+
+  @VisibleForTesting
+  void expireBooleanFieldCache() {
+    booleanFieldSnapshot = null;
+  }
+
+  private static boolean parseBooleanTerm(String value) {
+    if ("true".equalsIgnoreCase(value)) {
+      return true;
+    }
+    if ("false".equalsIgnoreCase(value)) {
+      return false;
+    }
+    throw new IllegalArgumentException(
+        String.format("Boolean term field expected true/false, got: %s", value));
+  }
+
+  private static long parseEpochMillis(String value, String dateRangeField, String bound) {
+    try {
+      return Long.parseLong(value);
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Analytics DateRange %s for field %s must be epoch millis, got: %s",
+              bound, dateRangeField, value),
+          e);
+    }
   }
 
   private AggregationBuilder getUniqueQuery(String uniqueOn) {

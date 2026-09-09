@@ -42,12 +42,13 @@ interface Props {
     onClose?: (e: any) => void;
     hideLink?: boolean;
     propagationDetails?: AttributionDetails;
+    onClick?: () => void;
 }
 
-export default function ActorPill({ actor, isProposed, onClose, hideLink, propagationDetails }: Props) {
+export default function ActorPill({ actor, isProposed, onClose, hideLink, propagationDetails, onClick }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const name = actor && entityRegistry.getDisplayName(actor.type, actor);
-    const avatarUrl = actor?.editableProperties?.pictureLink || undefined;
+    const avatarUrl = (actor && 'editableProperties' in actor && actor.editableProperties?.pictureLink) || undefined;
     const linkProps = useEmbeddedProfileLinkProps();
 
     if (!actor) return null;
@@ -60,6 +61,7 @@ export default function ActorPill({ actor, isProposed, onClose, hideLink, propag
                 to={hideLink ? null : `${entityRegistry.getEntityUrl(actor.type, actor.urn)}`}
                 data-testid={`owner-${actor.urn}`}
                 {...linkProps}
+                onClick={onClick}
             >
                 <ContentWrapper $isProposed={isProposed} data-testid={`${isProposed ? 'proposed-' : ''}owner-${name}`}>
                     <Avatar name={name || ''} imageUrl={avatarUrl} type={avatarType} />

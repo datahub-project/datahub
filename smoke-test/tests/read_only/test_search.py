@@ -24,6 +24,7 @@ default_headers = {
 }
 
 
+@pytest.mark.p0
 @pytest.mark.read_only
 def test_search_works(auth_session):
     """Test that GraphQL entity queries work for all entity types."""

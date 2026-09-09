@@ -2,7 +2,18 @@ import { act } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { loadIsDarkMode, useIsDarkMode } from '@app/theme/useIsDarkMode';
+import { useFeatureFlag } from '@app/sharedV2/hooks/useFeatureFlag';
+import { THEME_DARK_MODE_FLAG, loadIsDarkMode, useIsDarkMode } from '@app/theme/useIsDarkMode';
+
+vi.mock('@app/sharedV2/hooks/useFeatureFlag', async () => {
+    const actual = await vi.importActual<typeof import('@app/sharedV2/hooks/useFeatureFlag')>(
+        '@app/sharedV2/hooks/useFeatureFlag',
+    );
+    return {
+        ...actual,
+        useFeatureFlag: vi.fn(() => true),
+    };
+});
 
 // Helpers
 
@@ -13,10 +24,10 @@ const DARK_MODE_CHANGE_EVENT = 'datahub-darkmode-change';
 
 beforeEach(() => {
     localStorage.clear();
+    vi.mocked(useFeatureFlag).mockReturnValue(true);
 });
 
 afterEach(() => {
-    vi.restoreAllMocks();
     localStorage.clear();
 });
 
@@ -27,12 +38,19 @@ describe('loadIsDarkMode', () => {
         expect(loadIsDarkMode()).toBe(false);
     });
 
-    it('returns true when localStorage value is "true"', () => {
+    it('returns false when dark mode is preferred but the feature flag is off', () => {
+        localStorage.setItem(DARK_MODE_KEY, 'true');
+        expect(loadIsDarkMode()).toBe(false);
+    });
+
+    it('returns true when localStorage value is "true" and the feature flag is on', () => {
+        localStorage.setItem(THEME_DARK_MODE_FLAG, 'true');
         localStorage.setItem(DARK_MODE_KEY, 'true');
         expect(loadIsDarkMode()).toBe(true);
     });
 
     it('returns false when localStorage value is "false"', () => {
+        localStorage.setItem(THEME_DARK_MODE_FLAG, 'true');
         localStorage.setItem(DARK_MODE_KEY, 'false');
         expect(loadIsDarkMode()).toBe(false);
     });
@@ -157,5 +175,26 @@ describe('useIsDarkMode – cross-instance sync', () => {
         const { unmount } = renderHook(() => useIsDarkMode());
         unmount();
         expect(removeEventListenerSpy).toHaveBeenCalledWith(DARK_MODE_CHANGE_EVENT, expect.any(Function));
+    });
+});
+
+describe('useIsDarkMode – feature flag', () => {
+    it('stays in light mode when the feature flag is off even if preference is dark', () => {
+        vi.mocked(useFeatureFlag).mockReturnValue(false);
+        localStorage.setItem(DARK_MODE_KEY, 'true');
+
+        const { result } = renderHook(() => useIsDarkMode());
+
+        expect(result.current[0]).toBe(false);
+    });
+
+    it('does not persist a toggle when the feature flag is off', () => {
+        vi.mocked(useFeatureFlag).mockReturnValue(false);
+        const { result } = renderHook(() => useIsDarkMode());
+
+        act(() => result.current[1]());
+
+        expect(result.current[0]).toBe(false);
+        expect(localStorage.getItem(DARK_MODE_KEY)).toBeNull();
     });
 });

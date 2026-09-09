@@ -13,6 +13,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
 import org.json.JSONObject;
@@ -56,6 +57,8 @@ public class DailyReportTest {
     // Set up the operation context chain
     when(mockOperationContext.getSearchContext()).thenReturn(mockSearchContext);
     when(mockSearchContext.getIndexConvention()).thenReturn(mockIndexConvention);
+    when(mockOperationContext.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
     // A distinct index per entity name, mirroring the real convention. AnalyticsService
     // de-duplicates the batch's target indices, so stubbing one shared name for every type would
     // collapse the batch to a single index and hide whether it spans all reported types.
@@ -421,7 +424,10 @@ public class DailyReportTest {
     DailyReport dailyReport = createDailyReportForTesting();
     Map<String, Integer> counts =
         dailyReport.collectEntityCounts(
-            new AnalyticsService(mockElasticClient, mockIndexConvention));
+            new AnalyticsService(
+                mockElasticClient,
+                mockIndexConvention,
+                TestOperationContexts.defaultEntityRegistry()));
 
     org.mockito.ArgumentCaptor<SearchRequest> captor =
         org.mockito.ArgumentCaptor.forClass(SearchRequest.class);
@@ -448,7 +454,10 @@ public class DailyReportTest {
     DailyReport dailyReport = createDailyReportForTesting();
     Map<String, Integer> counts =
         dailyReport.collectEntityCounts(
-            new AnalyticsService(mockElasticClient, mockIndexConvention));
+            new AnalyticsService(
+                mockElasticClient,
+                mockIndexConvention,
+                TestOperationContexts.defaultEntityRegistry()));
 
     assertEquals(counts.size(), 1, "only the non-zero type should be reported");
     assertTrue(counts.containsKey("DATASET"));
@@ -475,7 +484,10 @@ public class DailyReportTest {
     DailyReport dailyReport = createDailyReportForTesting();
     Map<String, Integer> counts =
         dailyReport.collectEntityCounts(
-            new AnalyticsService(mockElasticClient, mockIndexConvention));
+            new AnalyticsService(
+                mockElasticClient,
+                mockIndexConvention,
+                TestOperationContexts.defaultEntityRegistry()));
 
     org.mockito.ArgumentCaptor<SearchRequest> captor =
         org.mockito.ArgumentCaptor.forClass(SearchRequest.class);

@@ -2,7 +2,7 @@ import React from 'react';
 
 export type ToastVariant = 'success' | 'error' | 'info' | 'warning' | 'loading';
 
-export interface ToastAction {
+interface ToastAction {
     label: string;
     onClick: () => void;
     /** Pass a React element (e.g. <ArrowCounterClockwise size={16} weight="bold" />) */
