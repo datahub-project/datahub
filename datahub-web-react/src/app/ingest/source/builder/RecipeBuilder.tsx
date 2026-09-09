@@ -9,6 +9,7 @@ import { CSVInfo } from '@app/ingest/source/builder/CSVInfo';
 import { IngestionDocumentationHint } from '@app/ingest/source/builder/IngestionDocumentationHint';
 import { LookerWarning } from '@app/ingest/source/builder/LookerWarning';
 import RecipeForm from '@app/ingest/source/builder/RecipeForm/RecipeForm';
+import { SnowflakePasswordAuthDeprecationWarning } from '@app/ingest/source/builder/SnowflakePasswordAuthDeprecationWarning';
 import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingest/source/builder/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingest/source/builder/types';
@@ -72,6 +73,17 @@ function RecipeBuilder(props: Props) {
     const [isViewingForm, setIsViewingForm] = useState(true);
     const [hideDocsHint, setHideDocsHint] = useState(false);
 
+    // Parse the staged recipe YAML once per render for client-side detection
+    // (e.g. the Snowflake password-auth deprecation banner). Invalid YAML is
+    // ignored here; the form/yaml editor surfaces its own validation errors.
+    const parsedRecipe = React.useMemo(() => {
+        try {
+            return displayRecipe ? YAML.parse(displayRecipe) : null;
+        } catch {
+            return null;
+        }
+    }, [displayRecipe]);
+
     function switchViews(isFormView: boolean) {
         try {
             YAML.parse(displayRecipe);
@@ -91,6 +103,7 @@ function RecipeBuilder(props: Props) {
             ) : null}
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
             {type === CSV && <CSVInfo />}
+            {type === 'snowflake' && <SnowflakePasswordAuthDeprecationWarning recipe={parsedRecipe} />}
             <HeaderContainer>
                 <Title style={{ marginBottom: 0 }} level={5}>
                     {sourceConfigs?.displayName} Details

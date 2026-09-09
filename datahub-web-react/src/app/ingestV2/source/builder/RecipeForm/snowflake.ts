@@ -47,7 +47,7 @@ function setSnowflakeAuthTypeOnRecipe(recipe: any, value: string | undefined): a
  * @param recipe - The recipe configuration to inspect
  * @returns The inferred authentication type
  */
-function getSnowflakeAuthTypeFromRecipe(recipe: any): string {
+export function getSnowflakeAuthTypeFromRecipe(recipe: any): string {
     const hasPassword = !!get(recipe, passwordFieldPath);
     const hasPrivateKey = !!get(recipe, privateKeyFieldPath);
 

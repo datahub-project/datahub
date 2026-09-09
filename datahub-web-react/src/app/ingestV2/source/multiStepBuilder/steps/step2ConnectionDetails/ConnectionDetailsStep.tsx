@@ -8,8 +8,10 @@ import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
 import { CSVInfo } from '@app/ingestV2/source/builder/CSVInfo';
 import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
 import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
+import { SnowflakePasswordAuthDeprecationWarning } from '@app/ingestV2/source/builder/SnowflakePasswordAuthDeprecationWarning';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
+import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
 import {
     INGESTION_TYPE_CHANGED_ERROR,
     INGESTION_TYPE_EMPTY_ERROR,
@@ -173,6 +175,7 @@ export function ConnectionDetailsStep() {
         <>
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
             {type === CSV && <CSVInfo />}
+            {type === SNOWFLAKE && <SnowflakePasswordAuthDeprecationWarning recipe={state.config?.recipe} />}
             <Container>
                 <NameAndOwnersSection
                     source={state.ingestionSource}
