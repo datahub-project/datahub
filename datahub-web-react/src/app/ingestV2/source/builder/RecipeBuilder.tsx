@@ -88,13 +88,16 @@ function RecipeBuilder(props: Props) {
     const [isViewingForm, setIsViewingForm] = useState(true);
     const [hideDocsHint, setHideDocsHint] = useState(false);
 
+    // Only the Snowflake banner consumes parsedRecipe; skip YAML parsing for
+    // other source types so editing a non-Snowflake recipe doesn't pay the cost.
     const parsedRecipe = useMemo(() => {
+        if (type !== SNOWFLAKE || !displayRecipe) return null;
         try {
-            return displayRecipe ? YAML.parse(displayRecipe) : null;
+            return YAML.parse(displayRecipe);
         } catch {
             return null;
         }
-    }, [displayRecipe]);
+    }, [displayRecipe, type]);
 
     function switchViews(isFormView: boolean) {
         try {
