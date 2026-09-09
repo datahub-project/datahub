@@ -53,6 +53,7 @@ from datahub.utilities.config_clean import (
     remove_suffix,
     remove_trailing_slashes,
 )
+from datahub.utilities.global_warning_util import add_global_warning
 
 logger = logging.getLogger(__name__)
 
@@ -210,11 +211,15 @@ class SnowflakeConnectionConfig(ConfigModel):
                     f"Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication"
                 )
 
-        # Hard-error enforcement only. The soft warning is surfaced by each
-        # source's own report (snowflake_v2 / summary / queries) so it isn't
-        # printed twice in the CLI summary. Also matches recipes where
-        # authentication_type is unset but a password is present.
-        check_password_auth_deprecation(self.authentication_type, self.password)
+        # Global warning so every consumer of SnowflakeConnectionConfig
+        # (Snowflake sources, Fivetran destinations, the tag propagator) sees
+        # the deprecation in the CLI summary, not just the Snowflake source
+        # reports. Sources do not re-emit it, avoiding a duplicate print.
+        deprecation_warning = check_password_auth_deprecation(
+            self.authentication_type, self.password
+        )
+        if deprecation_warning is not None:
+            add_global_warning(deprecation_warning)
 
         return self
 

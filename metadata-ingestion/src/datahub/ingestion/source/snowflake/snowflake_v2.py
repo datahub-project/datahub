@@ -180,15 +180,6 @@ class SnowflakeV2Source(
         # The exit stack helps ensure that we close all the resources we open.
         self._exit_stack = contextlib.ExitStack()
 
-        # Before get_connection() so the warning still reaches the report if
-        # Snowflake rejects password auth during the connect call. This is the
-        # single CLI + UI channel for the v2 source (no separate global warning).
-        if self.config.is_using_password_auth():
-            self.report.warning(
-                get_password_auth_deprecation_warning(),
-                title="Snowflake password-auth deprecation",
-            )
-
         self.connection: SnowflakeConnection = self._exit_stack.enter_context(
             self.config.get_connection()
         )
