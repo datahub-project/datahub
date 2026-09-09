@@ -27,13 +27,13 @@ buildscript {
   ext.mavenVersion = '3.9.15'
   ext.versionGradle = '8.14.3'
   // CVE-2026-41842, CVE-2026-41845 (spring-webmvc), CVE-2026-41850 (spring-expression): fixed in 7.0.8+ / 6.2.19+
-  ext.springVersion = '7.0.8'
-  // CVE-2026-40976 / GHSA (spring-boot 4.0.6+); BOM manages spring-security at 7.0.5
-  ext.springBootVersion = '4.0.6'
+  ext.springVersion = '7.0.9'
+  // CVE-2026-40976 / GHSA (spring-boot 4.0.6+); CVE-2026-41001 (Artemis data dir): fixed in 4.0.7+
+  ext.springBootVersion = '4.0.8'
   // CVE-2026-22748 (oauth2-jose), CVE-2026-22751: fixed in 7.0.5+; explicit pins were 7.0.4 — use latest 7.0.x patch
-  ext.springSecurityVersion = '7.0.6'
+  ext.springSecurityVersion = '7.0.7'
   // CVE-2026-41731 (spring-kafka header deserialization): fixed in 4.0.6+ / 3.3.16+
-  ext.springKafkaVersion = '4.0.6'
+  ext.springKafkaVersion = '4.0.7'
   // CVE-2023-50572 (GroovyEngine OOM); GHSA-2r2c-cx56-8933 (remote-telnet NAWS DoS): fixed in 4.2.1+
   ext.jlineVersion = '4.2.1'
   // CVE-2026-45292 (W3C Baggage unbounded memory): fixed in opentelemetry-api / trace-propagators 1.62.0+
@@ -341,7 +341,7 @@ project.ext.externalDependency = [
     'springBeans': "org.springframework:spring-beans:$springVersion",
     'springContext': "org.springframework:spring-context:$springVersion",
     'springCore': "org.springframework:spring-core:$springVersion",
-    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2',
+    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3',
     'springJdbc': "org.springframework:spring-jdbc:$springVersion",
     'springWeb': "org.springframework:spring-web:$springVersion",
     'springWebMVC': "org.springframework:spring-webmvc:$springVersion",
@@ -367,7 +367,7 @@ project.ext.externalDependency = [
     'springBootElasticsearch': "org.springframework.boot:spring-boot-elasticsearch:$springBootVersion",
     // Spring Boot 4.0: WebMvc test slice moved to separate module
     'springBootWebMvcTest': "org.springframework.boot:spring-boot-webmvc-test:$springBootVersion",
-    'springRetry': "org.springframework.retry:spring-retry:2.0.12",
+    'springRetry': "org.springframework.retry:spring-retry:2.0.13",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.30',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
     'swaggerCore': 'io.swagger.core.v3:swagger-core:2.2.30',
