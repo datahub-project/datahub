@@ -1,4 +1,4 @@
-import { Alert } from 'antd';
+import { Alert } from '@components';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
@@ -27,9 +27,9 @@ export const SnowflakePasswordAuthDeprecationWarning = ({ recipe }: Props) => {
     return (
         <Alert
             style={{ marginBottom: '10px' }}
-            type="warning"
-            banner
-            message={
+            variant="warning"
+            data-testid="snowflake-password-auth-deprecation-warning"
+            title={
                 <Trans
                     t={t}
                     i18nKey="snowflake.passwordAuthDeprecation.message"

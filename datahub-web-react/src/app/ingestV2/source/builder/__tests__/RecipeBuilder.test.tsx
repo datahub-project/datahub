@@ -60,7 +60,7 @@ source:
 
         expect(queryByText(/Snowflake is deprecating username \+ password authentication/)).toBeNull();
         // Banner Alert is the only element rendered conditionally; the form stub remains.
-        expect(container.querySelector('.ant-alert')).toBeNull();
+        expect(container.querySelector('[data-testid="snowflake-password-auth-deprecation-warning"]')).toBeNull();
     });
 
     it('does not render the banner for a non-Snowflake recipe', () => {
@@ -74,6 +74,6 @@ source:
         const { queryByText, container } = renderBuilder({ type: 'mysql' }, recipe);
 
         expect(queryByText(/Snowflake is deprecating username \+ password authentication/)).toBeNull();
-        expect(container.querySelector('.ant-alert')).toBeNull();
+        expect(container.querySelector('[data-testid="snowflake-password-auth-deprecation-warning"]')).toBeNull();
     });
 });
