@@ -343,6 +343,163 @@ class TestIngestDatapackFileEntries:
         mock_run.assert_called_once()
         assert mock_run.call_args.args[2]["server"] == "http://gms:8080"
 
+    @patch("datahub.cli.datapack.loader.build_auth_config_from_env", return_value=None)
+    @patch("datahub.cli.datapack.loader.get_skip_config", return_value=False)
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    @patch("datahub.cli.datapack.loader._run_pipeline_for_file")
+    @patch("datahub.cli.datapack.loader._check_referential_integrity")
+    @patch("datahub.cli.datapack.loader._apply_schema_filter")
+    def test_ingest_defaults_localhost_when_client_config_missing(
+        self,
+        mock_filter: MagicMock,
+        mock_ref: MagicMock,
+        mock_run: MagicMock,
+        mock_load_config: MagicMock,
+        mock_skip: MagicMock,
+        mock_auth: MagicMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+
+        mock_filter.side_effect = lambda path, **_: path
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        mock_load_config.side_effect = MissingConfigError("No ~/.datahubenv file found")
+
+        ingest_datapack_file_entries(
+            DataPackInfo(
+                name="bootstrap",
+                description="test",
+                url="https://example.com/bootstrap.json",
+                trust=TrustTier.VERIFIED,
+            ),
+            [IndexFileEntry(data_file)],
+            "run-xyz",
+            log_progress=False,
+        )
+
+        mock_load_config.assert_called_once()
+        mock_run.assert_called_once()
+        sink_config = mock_run.call_args.args[2]
+        assert sink_config["server"] == "http://localhost:8080"
+        assert "token" not in sink_config
+
+    @patch(
+        "datahub.cli.datapack.loader.build_auth_config_from_env", return_value=object()
+    )
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    @patch("datahub.cli.datapack.loader._run_pipeline_for_file")
+    @patch("datahub.cli.datapack.loader._check_referential_integrity")
+    @patch("datahub.cli.datapack.loader._apply_schema_filter")
+    def test_ingest_does_not_fallback_when_oauth_env_is_set(
+        self,
+        mock_filter: MagicMock,
+        mock_ref: MagicMock,
+        mock_run: MagicMock,
+        mock_load_config: MagicMock,
+        mock_auth: MagicMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+
+        mock_filter.side_effect = lambda path, **_: path
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        mock_load_config.side_effect = MissingConfigError(
+            "DATAHUB_AUTH_TYPE is set but no GMS server was provided."
+        )
+
+        with pytest.raises(MissingConfigError, match="DATAHUB_AUTH_TYPE"):
+            ingest_datapack_file_entries(
+                DataPackInfo(
+                    name="bootstrap",
+                    description="test",
+                    url="https://example.com/bootstrap.json",
+                    trust=TrustTier.VERIFIED,
+                ),
+                [IndexFileEntry(data_file)],
+                "run-xyz",
+                log_progress=False,
+            )
+        mock_run.assert_not_called()
+
+    @patch("datahub.cli.datapack.loader.get_skip_config", return_value=True)
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    @patch("datahub.cli.datapack.loader._run_pipeline_for_file")
+    @patch("datahub.cli.datapack.loader._check_referential_integrity")
+    @patch("datahub.cli.datapack.loader._apply_schema_filter")
+    def test_ingest_does_not_fallback_when_skip_config_is_set(
+        self,
+        mock_filter: MagicMock,
+        mock_ref: MagicMock,
+        mock_run: MagicMock,
+        mock_load_config: MagicMock,
+        mock_skip: MagicMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+
+        mock_filter.side_effect = lambda path, **_: path
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        mock_load_config.side_effect = MissingConfigError(
+            "You have set the skip config flag"
+        )
+
+        with pytest.raises(MissingConfigError, match="skip config"):
+            ingest_datapack_file_entries(
+                DataPackInfo(
+                    name="bootstrap",
+                    description="test",
+                    url="https://example.com/bootstrap.json",
+                    trust=TrustTier.VERIFIED,
+                ),
+                [IndexFileEntry(data_file)],
+                "run-xyz",
+                log_progress=False,
+            )
+        mock_run.assert_not_called()
+
+    @patch("datahub.cli.datapack.loader.build_auth_config_from_env", return_value=None)
+    @patch("datahub.cli.datapack.loader.get_skip_config", return_value=False)
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    @patch("datahub.cli.datapack.loader._run_pipeline_for_file")
+    @patch("datahub.cli.datapack.loader._check_referential_integrity")
+    @patch("datahub.cli.datapack.loader._apply_schema_filter")
+    def test_ingest_applies_token_without_server_on_localhost_fallback(
+        self,
+        mock_filter: MagicMock,
+        mock_ref: MagicMock,
+        mock_run: MagicMock,
+        mock_load_config: MagicMock,
+        mock_skip: MagicMock,
+        mock_auth: MagicMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+
+        mock_filter.side_effect = lambda path, **_: path
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        mock_load_config.side_effect = MissingConfigError("No ~/.datahubenv file found")
+
+        ingest_datapack_file_entries(
+            DataPackInfo(
+                name="bootstrap",
+                description="test",
+                url="https://example.com/bootstrap.json",
+                trust=TrustTier.VERIFIED,
+            ),
+            [IndexFileEntry(data_file)],
+            "run-xyz",
+            token="sample-token",
+            log_progress=False,
+        )
+
+        sink_config = mock_run.call_args.args[2]
+        assert sink_config["server"] == "http://localhost:8080"
+        assert sink_config["token"] == "sample-token"
+
 
 class TestLoadPackIntoDatahub:
     @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
