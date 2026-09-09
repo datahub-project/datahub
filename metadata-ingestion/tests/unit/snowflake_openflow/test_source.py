@@ -10,7 +10,7 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow import (
-    _MAX_CONNECTORS_FOR_URL_LOOKUP as _MAX,
+    _MAX_RUNTIMES_FOR_URL_LOOKUP as _MAX,
     SnowflakeOpenflowSource,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_config import (
@@ -596,7 +596,7 @@ def test_url_lookup_is_dropped_on_an_oversized_account() -> None:
     # The DESCRIBE is a second serial round trip per connector. Past the
     # threshold a convenience link is not worth doubling the run.
     source = _make_source()
-    source._decide_url_lookup(snowflake_openflow._MAX_CONNECTORS_FOR_URL_LOOKUP + 1)
+    source._decide_url_lookup(_MAX + 1, _MAX + 1)
     source._query_rows = _never_queried  # type: ignore[method-assign]
 
     assert source._read_connector_url(_addressable_connector()) is None
@@ -607,7 +607,7 @@ def test_url_lookup_survives_at_the_threshold() -> None:
     # Boundary is inclusive: the warning must not fire for an account sitting
     # exactly on the limit, or the message would name a count it permits.
     source = _make_source()
-    source._decide_url_lookup(snowflake_openflow._MAX_CONNECTORS_FOR_URL_LOOKUP)
+    source._decide_url_lookup(_MAX, _MAX)
     assert source._fetch_connector_urls
     assert _warning_titles(source.report) == []
 
@@ -616,7 +616,7 @@ def test_explicitly_requested_urls_are_fetched_at_any_scale() -> None:
     # Auto-degrade applies to the `None` (auto) state only. An operator who
     # asked for true has taken the cost decision.
     source = _make_source(include_connector_external_url=True)
-    source._decide_url_lookup(snowflake_openflow._MAX_CONNECTORS_FOR_URL_LOOKUP * 100)
+    source._decide_url_lookup(_MAX * 100, _MAX * 100)
     assert source._fetch_connector_urls
     assert _warning_titles(source.report) == []
 
@@ -624,7 +624,7 @@ def test_explicitly_requested_urls_are_fetched_at_any_scale() -> None:
 def test_disabled_flag_needs_no_scale_warning() -> None:
     # Nothing was going to be fetched, so there is nothing to announce.
     source = _make_source(include_connector_external_url=False)
-    source._decide_url_lookup(snowflake_openflow._MAX_CONNECTORS_FOR_URL_LOOKUP * 100)
+    source._decide_url_lookup(_MAX * 100, _MAX * 100)
     assert _warning_titles(source.report) == []
 
 
@@ -639,7 +639,7 @@ def test_auto_state_survives_a_recipe_round_trip() -> None:
 
     source = _make_source()
     source.config = round_tripped
-    source._decide_url_lookup(_MAX + 1)
+    source._decide_url_lookup(_MAX + 1, _MAX + 1)
     assert not source._fetch_connector_urls
 
 
@@ -679,3 +679,53 @@ def test_connector_url_emits_the_canvas_not_the_reported_deep_link() -> None:
     assert source._read_connector_url(_addressable_connector()) == (
         "https://h.app/rt-1/nifi/"
     )
+
+
+def test_canvas_url_is_fetched_once_per_runtime_not_once_per_connector() -> None:
+    # The URL is per-runtime -- _canvas_url truncates away everything
+    # connector-specific -- so paying one DESCRIBE per connector was fetching a
+    # parent's value once per child. Cached, three siblings cost one query.
+    source = _make_source()
+    calls: List[str] = []
+
+    def counting(query: str) -> List[Dict[str, Any]]:
+        calls.append(query)
+        return [{"CONNECTOR_URL": "https://h.app:443/rt-1/nifi/#/connectors/x/"}]
+
+    source._query_rows = counting  # type: ignore[method-assign]
+    urls = [
+        source._read_connector_url(
+            OpenflowConnector(
+                name=f"conn{n}",
+                runtime_name="rt",
+                database_name="DB",
+                schema_name="SCH",
+            )
+        )
+        for n in range(3)
+    ]
+
+    assert urls == ["https://h.app/rt-1/nifi/"] * 3
+    assert len(calls) == 1
+
+
+def test_a_failed_lookup_is_not_cached_against_the_runtime() -> None:
+    # Caching a transient failure would deny the link to every sibling
+    # afterwards -- trading an N+1 for a correctness regression.
+    source = _make_source()
+    attempts: List[str] = []
+
+    def flaky(query: str) -> List[Dict[str, Any]]:
+        attempts.append(query)
+        return (
+            []
+            if len(attempts) == 1
+            else [{"CONNECTOR_URL": "https://h.app/rt-1/nifi/#/x"}]
+        )
+
+    source._query_rows = flaky  # type: ignore[method-assign]
+    first = source._read_connector_url(_addressable_connector())
+    second = source._read_connector_url(_addressable_connector())
+
+    assert first is None
+    assert second == "https://h.app/rt-1/nifi/"

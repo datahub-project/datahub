@@ -130,14 +130,13 @@ SCHEMA_STRATEGY_SOURCE_SCHEMA = "SOURCE_SCHEMA"
 # query text, which a GET never does, and that gate is deliberately narrow
 # because it is shared with sources that also issue writes. So the retry lives
 # here, where the caller knows its own statement is a read.
-# Above this many connectors the per-connector DESCRIBE that fetches
-# CONNECTOR_URL stops being a rounding error and starts dominating the run: it
-# is a second serial round trip per connector, on top of the stage GET that
-# lineage already needs. A deep link is a convenience, so at that size it is
-# dropped rather than allowed to double the run. Setting
-# include_connector_external_url explicitly overrides this -- an operator who
-# asks for the links by name gets them at any count.
-_MAX_CONNECTORS_FOR_URL_LOOKUP = 500
+# Above this many DISTINCT RUNTIMES the DESCRIBE that fetches each runtime's
+# canvas URL stops being a rounding error. It is one query per runtime, not per
+# connector, because the URL is per-runtime and cached -- so this bound is only
+# reached by an account with hundreds of separate runtimes, which _PLANNING.md's
+# tenant assumption ("tens of runtimes") calls unusual. Setting
+# include_connector_external_url explicitly overrides it at any size.
+_MAX_RUNTIMES_FOR_URL_LOOKUP = 500
 
 _RETRY_MAX_ATTEMPTS = 3
 # Seconds. Produces waits of ~1s then ~2s. Read at call time rather than baked
@@ -838,7 +837,23 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
     # value is an immutable bool, never mutated through the class.
     _fetch_connector_urls: bool = True
 
-    def _decide_url_lookup(self, connector_count: int) -> None:
+    @property
+    def _canvas_urls(self) -> Dict[str, str]:
+        """Per-runtime canvas cache, created per instance on first use.
+
+        NOT a class-level default like `_fetch_connector_urls`. That one is a
+        bool, so every write rebinds and instances cannot interfere; a dict is
+        mutated in place, so a class-level one would be shared by every source
+        -- and by every test built via object.__new__, which is how this was
+        caught. Lazy so those harnesses need no extra assignment.
+        """
+        cache = self.__dict__.get("_canvas_url_by_runtime")
+        if cache is None:
+            cache = {}
+            self.__dict__["_canvas_url_by_runtime"] = cache
+        return cache
+
+    def _decide_url_lookup(self, connector_count: int, runtime_count: int) -> None:
         """Resolve the tri-state URL option, once per run, into one boolean.
 
         `None` means auto: fetch unless the account is large enough that the
@@ -849,7 +864,12 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         if choice is not None:
             self._fetch_connector_urls = choice
             return
-        if connector_count <= _MAX_CONNECTORS_FOR_URL_LOOKUP:
+        # Gated on RUNTIMES, not connectors: with the per-runtime cache the
+        # DESCRIBE count is one per distinct runtime, so a 5000-connector
+        # account spread over 20 runtimes costs 20 queries and must not be
+        # degraded. Only an account with a pathological number of near-empty
+        # runtimes reaches the bound.
+        if runtime_count <= _MAX_RUNTIMES_FOR_URL_LOOKUP:
             return
         self._fetch_connector_urls = False
         self.report.num_connector_urls_skipped_for_scale = connector_count
@@ -861,8 +881,9 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             "which the per-connector DESCRIBE needed for each external link "
             "would dominate the run, so no external links are emitted. Set "
             "include_connector_external_url: true to fetch them anyway.",
-            context=f"{connector_count} connectors, threshold "
-            f"{_MAX_CONNECTORS_FOR_URL_LOOKUP}",
+            context=f"{runtime_count} distinct runtimes across "
+            f"{connector_count} connectors, threshold "
+            f"{_MAX_RUNTIMES_FOR_URL_LOOKUP} runtimes",
         )
 
     def _retrying(self) -> Retrying:
@@ -886,6 +907,9 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         """
         if not self._fetch_connector_urls:
             return None
+        cached = self._canvas_urls.get(connector.runtime_name)
+        if cached is not None:
+            return cached
         fqn = connector.fqn
         if fqn is None:
             # Only SHOW carries DATABASE_NAME / SCHEMA_NAME, so a connector
@@ -926,6 +950,11 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 "Everything else about it is unaffected.",
                 context=connector.key,
             )
+        if url is not None:
+            # Successes only. Caching a transient DESCRIBE failure against this
+            # runtime would deny the link to every sibling connector processed
+            # afterwards, trading N-plus-one for a correctness regression.
+            self._canvas_urls[connector.runtime_name] = url
         return url
 
     def _read_connector_config(
@@ -1375,7 +1404,10 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.num_owners_emitted += 1
 
         connectors = self._fetch_connectors()
-        self._decide_url_lookup(len(connectors))
+        self._decide_url_lookup(
+            len(connectors),
+            len({connector.runtime_name for connector in connectors}),
+        )
         for connector in connectors:
             self.report.num_connectors += 1
             # A miss leaves the flow un-nested rather than dropped: SHOW OPENFLOW
