@@ -1283,6 +1283,8 @@ class TestVCDataSurvivesFieldUpstreamRefetch:
         # table.name the reference has vc_table_name=None — get_upstream_vc_tables
         # will skip it unless lookup_vc_ids_from_table_ids resolves the name later.
         # The key point: no complete relationship with vc_id is captured inline.
-        assert len(refs) > 0, "Expected at least one incomplete ref to verify broken behavior"
+        assert len(refs) > 0, (
+            "Expected at least one incomplete ref to verify broken behavior"
+        )
         for ref in refs:
             assert ref.get("vc_table_name") is None or ref.get("vc_id") is None
