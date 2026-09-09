@@ -671,7 +671,7 @@ public class DeleteIndexDocumentsFixTest {
         new com.linkedin.metadata.search.elasticsearch.index.entity.v3
                 .Sha256UrnEntityDocumentIdHasher()
             .documentId(opContext, urn);
-    String searchGroup = opContext.getEntityRegistry().getEntitySpec("dataset").getSearchGroup();
+    String searchGroup = "dataset";
 
     fix.deleteFromAllIndices(opContext, urn, "dataset");
 

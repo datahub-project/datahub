@@ -22,6 +22,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntit
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -298,19 +299,12 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
     String docId = entityDocumentIdHasher.documentId(opContext, urn);
     if (hasKeyAspectDeletion) {
-      // Delete the entire document for key aspect deletion
-
-      String searchGroup = events.get(0).getEntitySpec().getSearchGroup();
-      if (searchGroup == null) {
-        log.error("V3 key aspect deletion detected but search group is null for URN: {}", urn);
-        return;
-      }
-
-      elasticSearchService.deleteDocumentBySearchGroup(opContext, searchGroup, docId);
+      String indexKey = v3IndexKey(events.get(0).getEntitySpec());
+      elasticSearchService.deleteDocumentBySearchGroup(opContext, indexKey, docId);
       log.debug(
-          "V3 deleted entire document for URN: {} from search group: {} due to key aspect deletion",
+          "V3 deleted entire document for URN: {} from index key: {} due to key aspect deletion",
           urn,
-          searchGroup);
+          indexKey);
       return;
     }
 
@@ -328,11 +322,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       return;
     }
 
-    String searchGroup = events.get(0).getEntitySpec().getSearchGroup();
-    if (searchGroup == null) {
-      log.error("V3 upsert attempted but search group is null for URN: {}", urn);
-      return;
-    }
+    String indexKey = v3IndexKey(events.get(0).getEntitySpec());
 
     String finalDocument = combinedDocument.toString();
 
@@ -349,11 +339,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             event.getPreviousRecordTemplate());
       }
     }
-    elasticSearchService.upsertDocumentBySearchGroup(opContext, searchGroup, finalDocument, docId);
+    elasticSearchService.upsertDocumentBySearchGroup(opContext, indexKey, finalDocument, docId);
     log.debug(
-        "V3 upserted combined document for URN: {} to search group: {} with {} aspects",
+        "V3 upserted combined document for URN: {} to index key: {} with {} aspects",
         urn,
-        searchGroup,
+        indexKey,
         events.size());
 
     // Append runIds to search document so rollback/list runs can find touched URNs (MAE path)
@@ -364,7 +354,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             .distinct()
             .collect(Collectors.toList());
     for (String runId : distinctRunIds) {
-      elasticSearchService.appendRunIdBySearchGroup(opContext, searchGroup, docId, urn, runId);
+      elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, urn, runId);
     }
   }
 
@@ -601,5 +591,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     } catch (Exception e) {
       log.error("Error processing structured properties for URN {}: {}", urn, e.getMessage(), e);
     }
+  }
+
+  @Nonnull
+  private String v3IndexKey(@Nonnull EntitySpec entitySpec) {
+    return V3IndexKeys.resolve(entitySpec);
   }
 }

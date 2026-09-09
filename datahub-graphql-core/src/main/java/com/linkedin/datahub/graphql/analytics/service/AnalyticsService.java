@@ -13,10 +13,14 @@ import com.linkedin.datahub.graphql.generated.NamedLine;
 import com.linkedin.datahub.graphql.generated.NumericDataPoint;
 import com.linkedin.datahub.graphql.generated.Row;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
@@ -34,6 +38,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
@@ -65,6 +70,7 @@ public class AnalyticsService {
   private final SearchClientShim<?> _elasticClient;
   private final IndexConvention _indexConvention;
   private final EntityRegistry _entityRegistry;
+  @Nullable private final EntityIndexConfiguration entityIndexConfiguration;
 
   private static final String FILTERED = "filtered";
   private static final String DATE_HISTOGRAM = "date_histogram";
@@ -85,12 +91,26 @@ public class AnalyticsService {
 
   @Nonnull
   public String getEntityIndexName(@Nonnull OperationContext opContext, EntityType entityType) {
-    return _indexConvention.getEntityIndexName(opContext, EntityTypeMapper.getName(entityType));
+    return EntitySearchIndexResolver.indexName(
+        opContext, EntityTypeMapper.getName(entityType), entityIndexConfiguration);
   }
 
   @Nonnull
   public String getAllEntityIndexName(@Nonnull OperationContext opContext) {
-    return _indexConvention.getEntityIndexName(opContext, "*");
+    return EntitySearchIndexResolver.allEntityIndexPattern(opContext, entityIndexConfiguration);
+  }
+
+  /**
+   * Drops query entities from cross-entity analytics. V2 matches the query index glob; V3 filters
+   * {@code _entityType} so a shared search-group index still excludes query documents.
+   */
+  @Nonnull
+  public Map<String, List<String>> queryEntityMustNotFilters() {
+    if (EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration)) {
+      return ImmutableMap.of(
+          SearchUtil.INDEX_VIRTUAL_FIELD, ImmutableList.of(Constants.QUERY_ENTITY_NAME));
+    }
+    return ImmutableMap.of(INDEX_FIELD, ImmutableList.of("*queryindex_v2*"));
   }
 
   @Nonnull
@@ -424,8 +444,9 @@ public class AnalyticsService {
    * type, in a single query across all of their indices. Soft-deleted entities are excluded.
    *
    * <p>Buckets are keyed by our own entity-type names rather than derived from a terms aggregation
-   * on {@code _index}, because entity indices are aliases over timestamp-suffixed backing indices
-   * and the index-name-to-entity-name round trip is lossy.
+   * on {@code _index}, because V2 entity indices are aliases over timestamp-suffixed backing
+   * indices and the index-name-to-entity-name round trip is lossy. V3 documents are scoped by
+   * {@code _entityType} so types that share a search-group index still get separate counts.
    */
   @WithSpan
   public Map<EntityType, EntityStats> getEntityStats(
@@ -456,19 +477,19 @@ public class AnalyticsService {
   @VisibleForTesting
   SearchRequest buildEntityStatsRequest(
       @Nonnull OperationContext opContext, List<EntityType> entityTypes, List<String> facetFields) {
-    // Resolve each entity's dynamic index name once, so the _index term filters and the request's
-    // target indices are built from the same resolution (and to avoid duplicate resolver work).
+    // Resolve each entity's dynamic index name once, so the request's target indices and (on V2)
+    // the _index term filters are built from the same resolution.
     final Map<EntityType, String> indexByType = new LinkedHashMap<>();
     for (EntityType entityType : entityTypes) {
       indexByType.computeIfAbsent(entityType, type -> getEntityIndexName(opContext, type));
     }
+    boolean readV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
     KeyedFilter[] entityFilters =
         entityTypes.stream()
             .map(
                 entityType ->
                     new KeyedFilter(
-                        entityType.name(),
-                        QueryBuilders.termQuery(INDEX_FIELD, indexByType.get(entityType))))
+                        entityType.name(), entityStatsScopeQuery(entityType, indexByType, readV3)))
             .toArray(KeyedFilter[]::new);
     KeyedFilter[] facetFilters =
         facetFields.stream()
@@ -491,6 +512,15 @@ public class AnalyticsService {
     // yields its keyed bucket with a zero doc count, so this does not mask a malformed response.
     searchRequest.indicesOptions(IndicesOptions.lenientExpandOpen());
     return searchRequest;
+  }
+
+  private QueryBuilder entityStatsScopeQuery(
+      EntityType entityType, Map<EntityType, String> indexByType, boolean readV3) {
+    if (readV3) {
+      return QueryBuilders.termQuery(
+          SearchUtil.INDEX_VIRTUAL_FIELD, EntityTypeMapper.getName(entityType));
+    }
+    return QueryBuilders.termQuery(INDEX_FIELD, indexByType.get(entityType));
   }
 
   /**
