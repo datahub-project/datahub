@@ -14,7 +14,7 @@ project-scoped and shared by every semantic model in the project.
 
 import logging
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import AbstractSet, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 from datahub.cli.migration_utils import INBOUND_REFERENCE_RELATIONSHIP_TYPES
 from datahub.emitter.aspect import ASPECT_MAP
@@ -83,6 +83,11 @@ class MigrationDirection(StrEnum):
     SM_TO_DATASET = "sm-to-dataset"
 
 
+def describe_exception(e: Exception) -> str:
+    """str(e) alone loses the type -- a KeyError renders as a bare quoted key."""
+    return f"{type(e).__name__}: {e}"
+
+
 @dataclass
 class EntityMigrationResult:
     src_urn: str
@@ -92,6 +97,10 @@ class EntityMigrationResult:
     notes: List[str] = field(default_factory=list)
     inbound_refs: List[RelatedEntity] = field(default_factory=list)
     error: Optional[str] = None
+    # Column tags/terms that could not be migrated. Kept apart from `error`
+    # so the entity-level copy still counts as done, but reported separately
+    # rather than hidden in notes on an otherwise-successful entity.
+    field_errors: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -118,13 +127,20 @@ def collect_governance_aspects(
 def simple_column_name(field_path: str) -> str:
     try:
         simple = get_simple_field_path_from_v2_field_path(field_path)
-    except Exception:
+    except ValueError:
+        # The raw v2 path is the best remaining guess, but it will not join to
+        # a real column, so the governance write lands on an orphan URN.
+        log.warning(
+            f"Could not simplify schema field path {field_path!r}; using it "
+            "as-is, which may not match any column on the destination",
+            exc_info=True,
+        )
         simple = field_path
     return simple.split(".")[-1]
 
 
 def strip_synthetic_subtype_tags(
-    tags: Optional[GlobalTagsClass], synthetic_tag_urns: Set[str]
+    tags: Optional[GlobalTagsClass], synthetic_tag_urns: AbstractSet[str]
 ) -> Optional[GlobalTagsClass]:
     """Drop connector-synthesized classification tags, keeping customer tags.
 
@@ -184,7 +200,7 @@ def merge_field_governance(
     is_metric: bool,
     tags: Optional[GlobalTagsClass],
     terms: Optional[GlossaryTermsClass],
-    synthetic_tag_urns: Set[str],
+    synthetic_tag_urns: AbstractSet[str],
 ) -> None:
     customer_tags = strip_synthetic_subtype_tags(tags, synthetic_tag_urns)
     # Always record METRIC classification even when the only tags were synthetic
@@ -220,15 +236,21 @@ def field_governance_for_emit(
 def collect_dataset_field_governance(
     graph: DataHubGraph,
     dataset_urn: str,
-    synthetic_tag_urns: Set[str],
-    is_metric_column: Callable[[SchemaFieldClass], bool],
-    tags_indicate_metric: Callable[[Optional[GlobalTagsClass]], bool],
+    synthetic_tag_urns: AbstractSet[str] = frozenset(),
+    is_metric_column: Optional[Callable[[SchemaFieldClass], bool]] = None,
+    tags_indicate_metric: Optional[Callable[[Optional[GlobalTagsClass]], bool]] = None,
 ) -> List[FieldGovernance]:
     """Read column tags/terms from schemaMetadata + editableSchemaMetadata.
 
     UI / API edits typically live on ``editableSchemaMetadata`` and are unioned
     with schema-side tags.
+
+    The metric-classification callbacks default to "no column is a metric",
+    which is right for any source that does not fan column governance out onto
+    metric URNs.
     """
+    is_metric = is_metric_column or (lambda schema_field: False)
+    metric_tags = tags_indicate_metric or (lambda tags: False)
     aspects = graph.get_aspects_for_entity(
         entity_urn=dataset_urn,
         aspects=["schemaMetadata", "editableSchemaMetadata"],
@@ -243,7 +265,7 @@ def collect_dataset_field_governance(
             merge_field_governance(
                 by_column,
                 column_name,
-                is_metric=is_metric_column(schema_field),
+                is_metric=is_metric(schema_field),
                 tags=schema_field.globalTags,
                 terms=schema_field.glossaryTerms,
                 synthetic_tag_urns=synthetic_tag_urns,
@@ -259,8 +281,7 @@ def collect_dataset_field_governance(
             merge_field_governance(
                 by_column,
                 column_name,
-                is_metric=existing_is_metric
-                or tags_indicate_metric(field_info.globalTags),
+                is_metric=existing_is_metric or metric_tags(field_info.globalTags),
                 tags=field_info.globalTags,
                 terms=field_info.glossaryTerms,
                 synthetic_tag_urns=synthetic_tag_urns,
@@ -289,6 +310,34 @@ def dataset_schema_field_paths(graph: DataHubGraph, dataset_urn: str) -> Dict[st
         simple = simple_column_name(schema_field.fieldPath)
         paths[simple.casefold()] = schema_field.fieldPath
     return paths
+
+
+def resolve_field_path(
+    column_name: str,
+    schema_paths: Dict[str, str],
+    fallback: str,
+) -> Tuple[str, Optional[str]]:
+    """Pick a fieldPath that joins to the destination dataset's schema.
+
+    Prefers the destination's own schemaMetadata path so mixed-case columns
+    join correctly. ``fallback`` is the source-specific path to write when the
+    destination has no matching field -- which is the migrate-before-ingest
+    case, and returns a note for the report.
+    """
+    matched = schema_paths.get(column_name.casefold())
+    if matched is not None:
+        return matched, None
+    if not schema_paths:
+        note = (
+            f"no schemaMetadata on destination dataset; wrote editable fieldPath "
+            f"'{fallback}' for {column_name} (may not join in UI until re-ingest)"
+        )
+    else:
+        note = (
+            f"column {column_name} not in destination schemaMetadata; "
+            f"wrote editable fieldPath '{fallback}'"
+        )
+    return fallback, note
 
 
 def is_soft_deleted(graph: DataHubGraph, urn: str) -> bool:
@@ -371,8 +420,8 @@ def migrate_entity(
         if report_inbound_refs:
             result.inbound_refs = fetch_inbound_refs(graph, src_urn)
     except Exception as e:
-        log.warning(f"Failed to migrate {src_urn} -> {dst_urn}: {e}")
-        result.error = str(e)
+        log.warning(f"Failed to migrate {src_urn} -> {dst_urn}", exc_info=True)
+        result.error = describe_exception(e)
     return result
 
 
@@ -567,12 +616,17 @@ class MigrationReport:
         prefix = "[Dry Run] " if self.dry_run else ""
         succeeded = [r for r in self.results if r.error is None]
         failed = [r for r in self.results if r.error is not None]
+        field_failed = [r for r in succeeded if r.field_errors]
         lines = [
             f"{prefix}{self.title} ({self.direction.value}):",
             "--------------",
             f"{prefix}Entities migrated = {len(succeeded)}",
             f"{prefix}Entities errored = {len(failed)}",
         ]
+        if field_failed:
+            lines.append(
+                f"{prefix}Entities with field-governance failures = {len(field_failed)}"
+            )
         if self.subtype_skipped:
             lines.append(
                 f"{prefix}Entities skipped (not '{self.legacy_subtype_label}' subtype) = "
@@ -589,6 +643,8 @@ class MigrationReport:
                 lines.append(
                     f"{prefix}    field tags/terms: {', '.join(r.fields_migrated)}"
                 )
+            for field_error in r.field_errors:
+                lines.append(f"{prefix}    field governance FAILED: {field_error}")
             for note in r.notes:
                 lines.append(f"{prefix}    note: {note}")
             if r.inbound_refs:
@@ -620,7 +676,9 @@ def run_migration_loop(
         try:
             result = migrate_one(urn)
         except Exception as e:
-            log.warning(f"Unexpected error migrating {urn}: {e}")
-            result = EntityMigrationResult(src_urn=urn, dst_urn="", error=str(e))
+            log.warning(f"Unexpected error migrating {urn}", exc_info=True)
+            result = EntityMigrationResult(
+                src_urn=urn, dst_urn="", error=describe_exception(e)
+            )
         report.results.append(result)
     return report

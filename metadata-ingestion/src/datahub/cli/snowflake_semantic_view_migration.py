@@ -15,7 +15,7 @@ so the migrate CLI does not require the snowflake connector extra.
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from datahub.cli.semantic_model_migration_common import (
     GOVERNANCE_ASPECTS,
@@ -33,6 +33,7 @@ from datahub.cli.semantic_model_migration_common import (
     merge_field_governance,
     merge_field_governance_into_editable_schema,
     migrate_entity,
+    resolve_field_path,
     run_migration_loop,
     schema_metadata_fields,
     simple_column_name,
@@ -108,10 +109,6 @@ _SYNTHETIC_SUBTYPE_TAG_URNS: Set[str] = {
     make_tag_urn("fact"),
     make_tag_urn("metric"),
 }
-
-
-# Not copied wholesale. schemaMetadata / editableSchemaMetadata are read only
-# to extract column tags/terms for field fan-out (see migrate_field_governance).
 
 
 # --- URN identity: the (db, schema, view) triple shared by a dataset,
@@ -337,26 +334,12 @@ def _resolve_dataset_field_path(
     Unlike semanticModel fieldPaths (always upper-then-identifier), legacy dataset
     schemaMetadata uses snowflake_identifier(col.name) without forcing UPPER, so
     quoted mixed-case columns must keep their schema path when present.
-
-    Returns (field_path, optional_note). When the destination has no matching
-    schemaMetadata field, falls back to snowflake_identifier(column_name)
-    (original case, not forced UPPER) and returns a note for the report.
     """
-    matched = schema_paths.get(column_name.casefold())
-    if matched is not None:
-        return matched, None
-    fallback = snowflake_identifier(column_name, convert_urns_to_lowercase)
-    if not schema_paths:
-        note = (
-            f"no schemaMetadata on destination dataset; wrote editable fieldPath "
-            f"'{fallback}' for {column_name} (may not join in UI until re-ingest)"
-        )
-    else:
-        note = (
-            f"column {column_name} not in destination schemaMetadata; "
-            f"wrote editable fieldPath '{fallback}'"
-        )
-    return fallback, note
+    return resolve_field_path(
+        column_name,
+        schema_paths,
+        snowflake_identifier(column_name, convert_urns_to_lowercase),
+    )
 
 
 def _logical_table_names_from_source(
@@ -903,13 +886,13 @@ def filter_by_semantic_view_subtype(
 # --- Reporting ---
 
 
+# repr=False so the parent's operator-facing __repr__ survives.
+@dataclass(repr=False)
 class SemanticViewMigrationReport(MigrationReport):
     """MigrationReport with the Snowflake title and legacy subtype label."""
 
-    def __init__(self, **kwargs: Any) -> None:
-        kwargs.setdefault("title", _MIGRATION_REPORT_TITLE)
-        kwargs.setdefault("legacy_subtype_label", SEMANTIC_VIEW_SUBTYPE)
-        super().__init__(**kwargs)
+    title: str = _MIGRATION_REPORT_TITLE
+    legacy_subtype_label: str = SEMANTIC_VIEW_SUBTYPE
 
 
 def run_migration(

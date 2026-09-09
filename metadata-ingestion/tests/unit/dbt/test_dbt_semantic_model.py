@@ -236,13 +236,9 @@ def test_one_semantic_model_per_project_and_one_dataset_per_semantic_model():
         DatasetSubTypes.SEMANTIC_MODEL_DATASET in aspect.typeNames
         for _, aspect in _aspects(workunits, SubTypesClass)
     )
+    assert _one(workunits, SemanticModelInfoClass).name == _PROJECT
     assert mapper.report.num_semantic_model_entities_emitted == 1
     assert mapper.report.num_semantic_model_datasets_emitted == 2
-
-
-def test_semantic_model_info_name_is_the_project():
-    workunits = _emit(_mapper(), [_sm_node("orders", _ORDERS)])
-    assert _one(workunits, SemanticModelInfoClass).name == _PROJECT
 
 
 def test_platform_instance_is_folded_into_path_but_not_the_dataset_name():
@@ -1167,3 +1163,147 @@ def test_a_bad_semantic_model_is_a_failure_not_a_warning(monkeypatch):
         f.title == "Failed to emit dbt semantic model entities"
         for f in mapper.report.failures
     )
+
+
+def test_join_column_dropped_as_a_duplicate_skips_the_relationship():
+    """The SDK raises on a join column absent from the schema."""
+    orders = {
+        "entities": [
+            {"name": "order_id", "type": "primary"},
+            # Collides with the dimension below, so one is dropped.
+            {"name": "customer_id", "type": "foreign"},
+        ],
+        "dimensions": [{"name": "customer_id", "type": "categorical"}],
+        "measures": [{"name": "total", "agg": "sum"}],
+    }
+    mapper = _mapper()
+    workunits = _emit(
+        mapper, [_sm_node("orders", orders), _sm_node("customers", _CUSTOMERS)]
+    )
+
+    # The entity wins the dedupe, so the join still resolves.
+    relationships = _relationships(_one(workunits, SemanticModelInfoClass))
+    assert relationships[0].fromColumns == ["customer_id"]
+
+
+def test_semantic_model_whose_only_field_is_unnamed_is_skipped():
+    mapper = _mapper()
+    node = _sm_node("blank", {"entities": [{"name": "  "}]})
+    workunits = _emit(mapper, [node])
+
+    assert workunits == []
+    assert list(mapper.report.semantic_models_skipped) == [node.dbt_name]
+
+
+def test_two_create_metric_measures_sharing_a_name_emit_one_metric():
+    """The twin of the shadow case: measure vs measure, not metric vs measure."""
+    a = {
+        "entities": [{"name": "a_id", "type": "primary"}],
+        "measures": [{"name": "revenue", "agg": "sum", "create_metric": True}],
+    }
+    b = {
+        "entities": [{"name": "b_id", "type": "primary"}],
+        "measures": [{"name": "revenue", "agg": "max", "create_metric": True}],
+    }
+    mapper = _mapper()
+    workunits = _emit(mapper, [_sm_node("a", a), _sm_node("b", b)])
+
+    metrics = _aspects(workunits, MetricInfoClass)
+    assert len(metrics) == 1
+    assert any(w.title == "Duplicate dbt metric name" for w in mapper.report.warnings)
+
+
+def test_metric_without_a_name_is_skipped():
+    mapper = _mapper()
+    workunits = _emit(
+        mapper,
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.unnamed": {
+                    "name": "",
+                    "label": "",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {},
+                }
+            }
+        ),
+    )
+
+    # Only the create_metric measure's metric survives.
+    assert len(_aspects(workunits, MetricInfoClass)) == 1
+    assert any(w.title == "dbt metric has no name" for w in mapper.report.warnings)
+
+
+def test_dbt_1_9_conversion_and_cumulative_measures_resolve_upstreams():
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.conv": {
+                    "name": "conv",
+                    "label": "Conversion",
+                    "description": "",
+                    "type": "conversion",
+                    "type_params": {
+                        "conversion_type_params": {
+                            "base_measure": {"name": "order_count"},
+                            "conversion_measure": {"name": "order_total"},
+                        }
+                    },
+                },
+                "metric.jaffle_shop.cumul": {
+                    "name": "cumul",
+                    "label": "Cumulative",
+                    "description": "",
+                    "type": "cumulative",
+                    "type_params": {
+                        "cumulative_type_params": {"measure": {"name": "order_total"}}
+                    },
+                },
+            }
+        ),
+    )
+
+    upstreams = dict(_aspects(workunits, MetricUpstreamsClass))
+    smd = "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.semantic_layer.orders,PROD)"
+    for name in ("conv", "cumul"):
+        urn = f"urn:li:metric:(urn:li:dataPlatform:dbt,jaffle_shop,{name})"
+        assert _destinations(upstreams[urn].datasetUpstreams) == [smd]
+
+
+def test_upstream_platform_follows_the_dbt_node_not_the_semantic_model():
+    """Explains the mixed dbt/warehouse upstreams in the golden files.
+
+    get_upstreams routes each upstream to the dbt platform or the target
+    platform per node (ephemeral and source nodes stay on dbt), so one
+    project's logical datasets can legitimately point at both. Without this,
+    the mixture in the golden reads as a regression.
+    """
+    ephemeral = _model_node("stg_orders")
+    ephemeral.materialization = "ephemeral"
+    materialized = _model_node("dim_customers")
+
+    workunits = _emit(
+        _mapper(),
+        [
+            _sm_node("orders", _ORDERS, upstreams=[ephemeral.dbt_name]),
+            _sm_node("customers", _CUSTOMERS, upstreams=[materialized.dbt_name]),
+        ],
+        extra_nodes=[ephemeral, materialized],
+    )
+
+    lineage = {
+        urn.rsplit(".", 1)[1].split(",")[0]: [u.dataset for u in aspect.upstreams]
+        for urn, aspect in _aspects(workunits, UpstreamLineageClass)
+    }
+    # An ephemeral node has no warehouse table, so it stays on the dbt platform.
+    assert lineage["orders"] == [
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,db.sc.stg_orders,PROD)"
+    ]
+    # A materialized one resolves to the warehouse table.
+    assert lineage["customers"] == [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,db.sc.dim_customers,PROD)"
+    ]

@@ -882,15 +882,15 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         from `create_metric` measures are unaffected -- those come from the
         semanticModels query, which already selects `createMetric`.
         """
-        if self.config.emit_semantic_model_entities:
-            self.report.info(
-                title="dbt Cloud does not ingest top-level metric definitions",
-                message="Metrics declared in a `metrics:` block are not "
-                "ingested from dbt Cloud, because the Discovery API does not "
-                "expose them. Metrics from measures with `create_metric: true` "
-                "are ingested as normal. Use the dbt Core source if you need "
-                "the `metrics:` block.",
-            )
+        # Only reached from behind the resolved gate, so no config check here:
+        # checking the raw value would also fire when the gate refused.
+        self.report.info(
+            title="dbt Cloud does not ingest top-level metric definitions",
+            message="Metrics declared in a `metrics:` block are not ingested "
+            "from dbt Cloud, because the Discovery API does not expose them. "
+            "Metrics from measures with `create_metric: true` are ingested as "
+            "normal. Use the dbt Core source if you need the `metrics:` block.",
+        )
         return super().load_metrics()
 
     def _parse_into_dbt_node(self, node: Dict) -> DBTNode:

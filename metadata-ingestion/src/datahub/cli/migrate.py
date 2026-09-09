@@ -13,6 +13,7 @@ from datahub.cli import (
     dbt_semantic_model_migration as dbt_migration,
     delete_cli,
     migration_utils,
+    semantic_model_migration_common as semantic_migration_common,
 )
 from datahub.cli.migration_utils import ALL_ENTITY_TYPES
 from datahub.cli.snowflake_semantic_view_migration import (
@@ -1239,6 +1240,30 @@ def snowflake_semantic_views(
         subtype_skipped=subtype_skipped,
     )
     click.echo(f"{report}")
+    _exit_nonzero_on_migration_errors(report, dry_run)
+
+
+def _exit_nonzero_on_migration_errors(
+    report: semantic_migration_common.MigrationReport, dry_run: bool
+) -> None:
+    """Exit non-zero when anything errored, so CI can tell a bad run apart.
+
+    Skipped in --dry-run, where a mapping that cannot resolve is the expected
+    output rather than a failure.
+    """
+    if dry_run:
+        return
+    errored = [r for r in report.results if r.error is not None]
+    field_errored = [r for r in report.results if r.field_errors]
+    if not errored and not field_errored:
+        return
+    click.secho(
+        f"{len(errored)} entit{'y' if len(errored) == 1 else 'ies'} errored and "
+        f"{len(field_errored)} had field-governance failures.",
+        fg="red",
+        err=True,
+    )
+    raise click.exceptions.Exit(1)
 
 
 def _read_urn_pairs_from_file(path: str) -> Dict[str, str]:
@@ -1255,7 +1280,21 @@ def _read_urn_pairs_from_file(path: str) -> Dict[str, str]:
                     f"{path}:{lineno}: expected two whitespace- or tab-separated "
                     f"urns, got {len(parts)}"
                 )
+            if parts[0] in pairs:
+                # Last-write-wins would silently pick one destination for a
+                # source the operator listed twice on purpose.
+                raise click.ClickException(
+                    f"{path}:{lineno}: duplicate source urn {parts[0]}; each "
+                    "source may map to only one destination"
+                )
             pairs[parts[0]] = parts[1]
+    if not pairs:
+        # Returning {} would fall through to inference, quietly ignoring the
+        # explicit mapping the operator asked for.
+        raise click.ClickException(
+            f"{path}: no urn pairs found; remove --mapping-file to infer the "
+            "destinations instead"
+        )
     return pairs
 
 
@@ -1483,9 +1522,11 @@ def dbt_semantic_models(
             f"Found {len(urns_to_process)} entities, but no destination urn could "
             "be resolved for any of them:"
         )
-        for note in mapping.notes[:10]:
-            click.echo(f"  {note}")
-        return
+        for src_urn, reason in list(mapping.unresolved.items())[:10]:
+            click.echo(f"  {src_urn}: {reason}")
+        for candidate, reason in list(mapping.skipped_candidates.items())[:10]:
+            click.echo(f"  {candidate}: {reason}")
+        raise click.exceptions.Exit(1)
 
     click.echo(dbt_migration.semantic_model_not_a_destination_note())
     click.echo(
@@ -1514,3 +1555,4 @@ def dbt_semantic_models(
         subtype_skipped=subtype_skipped,
     )
     click.echo(f"{report}")
+    _exit_nonzero_on_migration_errors(report, dry_run)

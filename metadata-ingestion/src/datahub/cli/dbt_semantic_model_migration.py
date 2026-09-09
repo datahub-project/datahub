@@ -18,18 +18,19 @@ so this CLI does not require the dbt connector extra.
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from datahub.cli.semantic_model_migration_common import (
     EntityMigrationResult,
-    FieldGovernance,
     MigrationDirection,
     MigrationReport,
     collect_dataset_field_governance,
+    describe_exception,
     filter_by_subtype,
     is_soft_deleted,
     merge_field_governance_into_editable_schema,
     migrate_entity,
+    resolve_field_path,
     run_migration_loop,
     status_filter,
 )
@@ -37,7 +38,6 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import SearchFilterRule
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.metadata.schema_classes import GlobalTagsClass, SchemaFieldClass
 from datahub.metadata.urns import DatasetUrn
 
 log = logging.getLogger(__name__)
@@ -51,8 +51,9 @@ _MIGRATION_REPORT_TITLE = "dbt Semantic Model Migration Report"
 # dbt never synthesizes column classification tags -- the entity/dimension/
 # measure kind lives in nativeDataType ("entity:primary", "measure:sum") -- so
 # every column tag on a legacy dbt semantic-model dataset is a customer tag and
-# nothing may be stripped.
-_SYNTHETIC_TAG_URNS: Set[str] = set()
+# nothing is stripped, which is the shared core's default. A create_metric
+# measure also stays a column of the logical dataset, so its tags land via the
+# schema merge and never need fanning out onto a metric URN.
 
 # The description is copied directly rather than folded into a documentation
 # aspect: unlike a semanticModel, the destination is a dataset and owns the
@@ -69,21 +70,6 @@ class DbtSemanticModelIdentity:
     """
 
     name: str
-
-
-def _no_synthetic_metric_tags(tags: Optional[GlobalTagsClass]) -> bool:
-    return False
-
-
-def _never_a_metric_column(schema_field: SchemaFieldClass) -> bool:
-    """dbt column tags always belong on the destination's schema field.
-
-    A ``create_metric`` measure does become a metric entity, but it also stays
-    a column of the logical dataset, so its tags land correctly via the schema
-    merge. Whether a measure set ``create_metric`` is not recoverable from the
-    graph anyway -- nativeDataType only says ``measure:<agg>``.
-    """
-    return False
 
 
 def legacy_dataset_name(dataset_urn: str, platform_instance: Optional[str]) -> str:
@@ -156,47 +142,6 @@ def gen_semantic_model_dataset_urn(
     )
 
 
-def _resolve_field_path(
-    column_name: str,
-    schema_paths: Dict[str, str],
-    convert_column_urns_to_lowercase: bool,
-) -> Tuple[str, Optional[str]]:
-    """Pick a fieldPath that joins to the destination dataset's schema.
-
-    Both sides' schemaMetadata is built from the same flattened
-    entity/dimension/measure names, so the translation is the identity -- but
-    when the destination has not been ingested yet there is no schema to join
-    against, and the path must be synthesized the way ingest will emit it.
-    """
-    matched = schema_paths.get(column_name.casefold())
-    if matched is not None:
-        return matched, None
-    fallback = column_name.lower() if convert_column_urns_to_lowercase else column_name
-    if not schema_paths:
-        note = (
-            f"no schemaMetadata on destination dataset; wrote editable fieldPath "
-            f"'{fallback}' for {column_name} (may not join in UI until re-ingest)"
-        )
-    else:
-        note = (
-            f"column {column_name} not in destination schemaMetadata; "
-            f"wrote editable fieldPath '{fallback}'"
-        )
-    return fallback, note
-
-
-def collect_field_governance(
-    graph: DataHubGraph, dataset_urn: str
-) -> List[FieldGovernance]:
-    return collect_dataset_field_governance(
-        graph,
-        dataset_urn,
-        synthetic_tag_urns=_SYNTHETIC_TAG_URNS,
-        is_metric_column=_never_a_metric_column,
-        tags_indicate_metric=_no_synthetic_metric_tags,
-    )
-
-
 def migrate_field_governance(
     graph: DataHubGraph,
     src_dataset_urn: str,
@@ -209,15 +154,22 @@ def migrate_field_governance(
     Both directions use the same mechanism, since both sides are datasets whose
     field paths agree.
     """
-    fields = collect_field_governance(graph, src_dataset_urn)
+    fields = collect_dataset_field_governance(graph, src_dataset_urn)
+
+    def resolve(
+        column_name: str, schema_paths: Dict[str, str]
+    ) -> Tuple[str, Optional[str]]:
+        # Both sides' schemaMetadata comes from the same flattened
+        # entity/dimension/measure names, so the translation is the identity --
+        # but a not-yet-ingested destination has no schema to join against, and
+        # the path must then be synthesized the way ingest will emit it.
+        fallback = (
+            column_name.lower() if convert_column_urns_to_lowercase else column_name
+        )
+        return resolve_field_path(column_name, schema_paths, fallback)
+
     return merge_field_governance_into_editable_schema(
-        graph,
-        dst_dataset_urn,
-        fields,
-        lambda column_name, schema_paths: _resolve_field_path(
-            column_name, schema_paths, convert_column_urns_to_lowercase
-        ),
-        dry_run,
+        graph, dst_dataset_urn, fields, resolve, dry_run
     )
 
 
@@ -255,9 +207,12 @@ def migrate_one_dataset(
         result.notes.extend(notes)
     except Exception as e:
         log.warning(
-            f"Field governance migration failed for {src_urn} -> {dst_urn}: {e}"
+            f"Field governance migration failed for {src_urn} -> {dst_urn}",
+            exc_info=True,
         )
-        result.notes.append(f"field governance migration failed: {e}")
+        # A field_error, not a note: every column tag and term on this entity
+        # was lost, which must not read as a clean migration.
+        result.field_errors.append(describe_exception(e))
     return result
 
 
@@ -350,7 +305,7 @@ def filter_by_expected_subtype(
 
 @dataclass
 class DbtUrnMapping:
-    """Legacy <-> new URN pairs, plus notes about what could not be paired.
+    """Legacy <-> new URN pairs, plus why any source could not be paired.
 
     The dbt project name is in neither URN, and the legacy
     ``database.schema`` prefix is not in the new one, so the pairing cannot be
@@ -358,7 +313,10 @@ class DbtUrnMapping:
     """
 
     pairs: Dict[str, str] = field(default_factory=dict)
-    notes: List[str] = field(default_factory=list)
+    # Source urn -> why it has no destination.
+    unresolved: Dict[str, str] = field(default_factory=dict)
+    # Candidates on the other side that could not be used, keyed by their urn.
+    skipped_candidates: Dict[str, str] = field(default_factory=dict)
 
 
 def build_mapping(
@@ -374,14 +332,17 @@ def build_mapping(
     convert_urns_to_lowercase: bool = True,
 ) -> DbtUrnMapping:
     """Resolve destination urns, highest-precedence source first."""
-    if explicit_pairs:
-        pairs = {urn: explicit_pairs[urn] for urn in src_urns if urn in explicit_pairs}
-        notes = [
-            f"{urn}: not present in the mapping file"
-            for urn in src_urns
-            if urn not in explicit_pairs
-        ]
-        return DbtUrnMapping(pairs=pairs, notes=notes)
+    if explicit_pairs is not None:
+        return DbtUrnMapping(
+            pairs={
+                urn: explicit_pairs[urn] for urn in src_urns if urn in explicit_pairs
+            },
+            unresolved={
+                urn: "not present in the mapping file"
+                for urn in src_urns
+                if urn not in explicit_pairs
+            },
+        )
 
     if direction == MigrationDirection.DATASET_TO_SM and project_name:
         return _mapping_from_project_name(
@@ -392,11 +353,11 @@ def build_mapping(
         return _mapping_by_name(graph, direction, src_urns, platform_instance, env)
 
     return DbtUrnMapping(
-        notes=[
-            f"{urn}: cannot resolve a destination urn; pass --project-name "
-            "(forward only) or --mapping-file, or leave --pair-by-name enabled"
+        unresolved={
+            urn: "cannot resolve a destination urn; pass --project-name (forward "
+            "only) or --mapping-file, or leave --pair-by-name enabled"
             for urn in src_urns
-        ]
+        }
     )
 
 
@@ -413,7 +374,7 @@ def _mapping_from_project_name(
         try:
             identity = parse_legacy_identity(urn, platform_instance)
         except ValueError as e:
-            mapping.notes.append(f"{urn}: {e}")
+            mapping.unresolved[urn] = str(e)
             continue
         mapping.pairs[urn] = gen_semantic_model_dataset_urn(
             identity, project_name, platform_instance, env, convert_urns_to_lowercase
@@ -434,6 +395,7 @@ def _mapping_by_name(
     flag in its new state. An ambiguous name is reported and skipped rather
     than guessed at.
     """
+    mapping = DbtUrnMapping()
     forward = direction == MigrationDirection.DATASET_TO_SM
     discover = (
         discover_semantic_model_dataset_urns
@@ -457,27 +419,38 @@ def _mapping_by_name(
     ):
         try:
             identity = parse_dst(candidate, platform_instance)
-        except ValueError:
+        except ValueError as e:
+            # Without this the source below reports "no counterpart found",
+            # which is wrong: the counterpart exists, its urn just did not
+            # parse (a stale shape, or a --platform-instance mismatch).
+            mapping.skipped_candidates[candidate] = (
+                f"skipped as a mapping candidate: {e}"
+            )
             continue
         candidates_by_name.setdefault(identity.name.casefold(), []).append(candidate)
 
-    mapping = DbtUrnMapping()
     for urn in src_urns:
         try:
             identity = parse_src(urn, platform_instance)
         except ValueError as e:
-            mapping.notes.append(f"{urn}: {e}")
+            mapping.unresolved[urn] = str(e)
             continue
         matches = sorted(candidates_by_name.get(identity.name.casefold(), []))
         if not matches:
-            mapping.notes.append(
-                f"{urn}: no counterpart named '{identity.name}' found; ingest the "
-                "other side first, or pass --mapping-file"
+            hint = (
+                " Some candidates were skipped as unparseable; check "
+                "--platform-instance."
+                if mapping.skipped_candidates
+                else ""
+            )
+            mapping.unresolved[urn] = (
+                f"no counterpart named '{identity.name}' found; ingest the other "
+                f"side first, or pass --mapping-file.{hint}"
             )
             continue
         if len(matches) > 1:
-            mapping.notes.append(
-                f"{urn}: '{identity.name}' is ambiguous across {matches}; pass "
+            mapping.unresolved[urn] = (
+                f"'{identity.name}' is ambiguous across {matches}; pass "
                 "--mapping-file to disambiguate"
             )
             continue
@@ -488,13 +461,13 @@ def _mapping_by_name(
 # --- Reporting ---
 
 
+# repr=False so the parent's operator-facing __repr__ survives.
+@dataclass(repr=False)
 class DbtMigrationReport(MigrationReport):
     """MigrationReport with the dbt title and legacy subtype label."""
 
-    def __init__(self, **kwargs: Any) -> None:
-        kwargs.setdefault("title", _MIGRATION_REPORT_TITLE)
-        kwargs.setdefault("legacy_subtype_label", LEGACY_SUBTYPE)
-        super().__init__(**kwargs)
+    title: str = _MIGRATION_REPORT_TITLE
+    legacy_subtype_label: str = LEGACY_SUBTYPE
 
 
 def run_migration(
@@ -510,11 +483,13 @@ def run_migration(
     def migrate_one(urn: str) -> EntityMigrationResult:
         dst_urn = mapping.pairs.get(urn)
         if dst_urn is None:
-            note = next(
-                (n for n in mapping.notes if n.startswith(f"{urn}:")),
-                f"{urn}: no destination urn could be resolved",
+            return EntityMigrationResult(
+                src_urn=urn,
+                dst_urn="",
+                error=mapping.unresolved.get(
+                    urn, "no destination urn could be resolved"
+                ),
             )
-            return EntityMigrationResult(src_urn=urn, dst_urn="", error=note)
         return migrate_one_dataset(
             graph,
             urn,

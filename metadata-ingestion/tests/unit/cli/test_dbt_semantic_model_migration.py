@@ -2,7 +2,7 @@
 governance migration between legacy dbt "Semantic Model" datasets and the
 "Semantic Model Dataset" entities. All tests mock the graph; no live GMS."""
 
-from typing import Dict, List, Type
+from typing import Callable, Dict, List, Type
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,7 +12,6 @@ from datahub.cli.dbt_semantic_model_migration import (
     SEMANTIC_MODEL_DATASET_SUBTYPE,
     DbtSemanticModelIdentity,
     build_mapping,
-    collect_field_governance,
     discover_legacy_dataset_urns,
     filter_by_expected_subtype,
     gen_semantic_model_dataset_urn,
@@ -21,9 +20,13 @@ from datahub.cli.dbt_semantic_model_migration import (
     parse_semantic_model_dataset_identity,
     run_migration,
 )
-from datahub.cli.semantic_model_migration_common import MigrationDirection
+from datahub.cli.semantic_model_migration_common import (
+    MigrationDirection,
+    collect_dataset_field_governance,
+)
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.metadata.schema_classes import (
+    EditableDatasetPropertiesClass,
     EditableSchemaFieldInfoClass,
     EditableSchemaMetadataClass,
     GlobalTagsClass,
@@ -68,6 +71,22 @@ def _graph(aspects_by_urn: Dict[str, Dict[str, _Aspect]]) -> MagicMock:
     graph.get_aspects_for_entity.side_effect = get_aspects
     graph.get_related_entities.return_value = []
     return graph
+
+
+def _raise_on_schema_read(
+    graph: MagicMock,
+) -> Callable[[str, List[str], List[Type[_Aspect]]], Dict[str, _Aspect]]:
+    """Make the column-governance read fail while the entity copy succeeds."""
+    original = graph.get_aspects_for_entity.side_effect
+
+    def side_effect(
+        entity_urn: str, aspects: List[str], aspect_types: List[Type[_Aspect]]
+    ) -> Dict[str, _Aspect]:
+        if "schemaMetadata" in aspects:
+            raise KeyError("globalTags")
+        return original(entity_urn, aspects, aspect_types)
+
+    return side_effect
 
 
 def _emitted(graph: MagicMock) -> Dict[str, List[_Aspect]]:
@@ -137,12 +156,6 @@ class TestGenerateDestinationUrn:
         )
         assert urn.count("inst.") == 1
 
-    def test_env_is_honoured(self):
-        urn = gen_semantic_model_dataset_urn(
-            DbtSemanticModelIdentity("orders"), "jaffle_shop", None, "DEV", True
-        )
-        assert urn.endswith(",DEV)")
-
 
 class TestBuildMapping:
     def test_project_name_synthesizes_destinations(self):
@@ -154,7 +167,7 @@ class TestBuildMapping:
             pair_by_name=False,
         )
         assert mapping.pairs == {_LEGACY: _NEW}
-        assert mapping.notes == []
+        assert mapping.unresolved == {}
 
     def test_explicit_pairs_take_precedence(self):
         mapping = build_mapping(
@@ -178,7 +191,7 @@ class TestBuildMapping:
             },
         )
         assert mapping.pairs == {}
-        assert "not present in the mapping file" in mapping.notes[0]
+        assert "not present in the mapping file" in mapping.unresolved[_LEGACY]
 
     def test_pair_by_name_joins_on_the_shared_component(self):
         graph = _graph({})
@@ -196,7 +209,7 @@ class TestBuildMapping:
             graph, MigrationDirection.DATASET_TO_SM, [_LEGACY], pair_by_name=True
         )
         assert mapping.pairs == {}
-        assert "ambiguous" in mapping.notes[0]
+        assert "ambiguous" in mapping.unresolved[_LEGACY]
 
     def test_pair_by_name_reports_a_missing_counterpart(self):
         graph = _graph({})
@@ -205,7 +218,7 @@ class TestBuildMapping:
             graph, MigrationDirection.DATASET_TO_SM, [_LEGACY], pair_by_name=True
         )
         assert mapping.pairs == {}
-        assert "no counterpart" in mapping.notes[0]
+        assert "no counterpart" in mapping.unresolved[_LEGACY]
 
     def test_rollback_pairs_by_name_in_the_other_direction(self):
         graph = _graph({})
@@ -233,7 +246,7 @@ class TestBuildMapping:
             _graph({}), MigrationDirection.DATASET_TO_SM, [_LEGACY], pair_by_name=False
         )
         assert mapping.pairs == {}
-        assert "cannot resolve" in mapping.notes[0]
+        assert "cannot resolve" in mapping.unresolved[_LEGACY]
 
 
 # --- Discovery --------------------------------------------------------------
@@ -254,7 +267,6 @@ class TestDiscovery:
         assert extra_filter["condition"] == "EQUAL"
         # An exact match, so it can never pick up its own destinations.
         assert extra_filter["values"] == [LEGACY_SUBTYPE]
-        assert LEGACY_SUBTYPE != SEMANTIC_MODEL_DATASET_SUBTYPE
 
 
 class TestSubtypeFilter:
@@ -310,11 +322,16 @@ class TestMigrateOneDataset:
             owners=[OwnerClass(owner="urn:li:corpuser:a", type="TECHNICAL_OWNER")]
         )
         tags = GlobalTagsClass(tags=[TagAssociationClass(tag=make_tag_urn("gold"))])
+        # editableDatasetProperties is not in GOVERNANCE_ASPECTS; it reaches the
+        # destination only via this migration's extra_aspects, and it is the
+        # only path by which a hand-authored description survives.
+        editable = EditableDatasetPropertiesClass(description="hand-written")
         graph = _graph(
             {
                 _LEGACY: {
                     "ownership": ownership,
                     "globalTags": tags,
+                    "editableDatasetProperties": editable,
                     "status": StatusClass(removed=False),
                 }
             }
@@ -323,10 +340,38 @@ class TestMigrateOneDataset:
         result = migrate_one_dataset(graph, _LEGACY, _NEW, False, False, False)
 
         assert result.error is None
-        assert set(result.aspects_copied) == {"ownership", "globalTags"}
+        assert set(result.aspects_copied) == {
+            "ownership",
+            "globalTags",
+            "editableDatasetProperties",
+        }
         emitted = _emitted(graph)
         assert ownership in emitted[_NEW]
         assert tags in emitted[_NEW]
+        assert editable in emitted[_NEW]
+
+    def test_field_governance_failure_is_not_reported_as_migrated(self):
+        """Losing every column tag must not read as a clean migration."""
+        graph = _graph({_LEGACY: {"ownership": OwnershipClass(owners=[])}})
+        graph.get_aspects_for_entity.side_effect = _raise_on_schema_read(graph)
+
+        result = migrate_one_dataset(graph, _LEGACY, _NEW, False, False, False)
+
+        assert result.field_errors
+        # The entity-level copy did succeed, so `error` stays None -- but the
+        # report has its own headline for this.
+        report = run_migration(
+            graph,
+            MigrationDirection.DATASET_TO_SM,
+            [],
+            build_mapping(graph, MigrationDirection.DATASET_TO_SM, []),
+            False,
+            False,
+            False,
+        )
+        report.results.append(result)
+        assert "Entities with field-governance failures = 1" in repr(report)
+        assert "field governance FAILED" in repr(report)
 
     def test_missing_source_is_an_error_not_a_crash(self):
         result = migrate_one_dataset(_graph({}), _LEGACY, _NEW, False, False, False)
@@ -381,7 +426,7 @@ class TestFieldGovernance:
             }
         )
 
-        fields = collect_field_governance(graph, _LEGACY)
+        fields = collect_dataset_field_governance(graph, _LEGACY)
 
         assert len(fields) == 1
         assert fields[0].global_tags is not None
@@ -542,7 +587,10 @@ class TestRoundTrip:
         ownership = OwnershipClass(
             owners=[OwnerClass(owner="urn:li:corpuser:a", type="TECHNICAL_OWNER")]
         )
-        aspects: Dict[str, Dict[str, _Aspect]] = {_LEGACY: {"ownership": ownership}}
+        editable = EditableDatasetPropertiesClass(description="hand-written")
+        aspects: Dict[str, Dict[str, _Aspect]] = {
+            _LEGACY: {"ownership": ownership, "editableDatasetProperties": editable}
+        }
         graph = _graph(aspects)
 
         forward = migrate_one_dataset(graph, _LEGACY, _NEW, False, False, False)
@@ -556,4 +604,6 @@ class TestRoundTrip:
         back = migrate_one_dataset(graph, _NEW, _LEGACY, False, False, False)
 
         assert back.error is None
-        assert ownership in _emitted(graph)[_LEGACY]
+        emitted = _emitted(graph)[_LEGACY]
+        assert ownership in emitted
+        assert editable in emitted

@@ -1037,3 +1037,35 @@ class TestDbtCloudSemanticModelEntities:
         assert not any(urn.startswith("urn:li:metric:") for urn in urns)
         assert "urn:li:dataset:(urn:li:dataPlatform:dbt,db.sc.orders,PROD)" in urns
         assert source.report.num_semantic_model_entities_emitted == 0
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_graphql_fetch_failure_is_reported_not_only_logged(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+        mock_graphql_response_with_joined_semantic_models: Dict[str, Any],
+    ) -> None:
+        """A failed node-type fetch silently drops every node of that type."""
+        source = self._source(
+            mock_get_envs,
+            mock_get_jobs,
+            mock_graphql,
+            mock_graphql_response_with_joined_semantic_models,
+            emit_semantic_model_entities=True,
+        )
+
+        def fail_semantic_models(query: str, variables: Dict[str, Any]) -> Any:
+            if "semanticModels" in query:
+                raise ValueError("transport blew up")
+            return mock_graphql_response_with_joined_semantic_models
+
+        mock_graphql.side_effect = fail_semantic_models
+
+        list(source.get_workunits())
+
+        assert any(
+            w.title == "Failed to fetch dbt Cloud nodes" for w in source.report.warnings
+        )

@@ -5,11 +5,15 @@ from typing import Any, Dict, Optional
 import jsonschema
 import pytest
 
+# Resolved from this file, not the working directory: the parametrize below
+# runs at collection time, so a relative path breaks when pytest is invoked
+# from the repository root.
+_TESTS_ROOT = pathlib.Path(__file__).resolve().parents[2]
 _FIXTURE_DIRS = [
-    pathlib.Path("tests/integration/dbt"),
-    pathlib.Path("tests/unit/dbt/artifacts"),
+    _TESTS_ROOT / "integration" / "dbt",
+    _TESTS_ROOT / "unit" / "dbt" / "artifacts",
 ]
-_SCHEMA_DIR = pathlib.Path("tests/integration/dbt/schemas")
+_SCHEMA_DIR = _TESTS_ROOT / "integration" / "dbt" / "schemas"
 
 
 def _manifest_paths() -> list[pathlib.Path]:
@@ -51,7 +55,10 @@ def test_manifest_fixture_matches_the_dbt_schema_it_declares(
     if not schema_path.exists():
         pytest.skip(f"no vendored schema for dbt manifest {version}")
 
-    validator = jsonschema.Draft7Validator(json.loads(schema_path.read_text()))
+    schema = json.loads(schema_path.read_text())
+    # Chosen from the schema's own $schema (dbt's manifests declare 2020-12),
+    # so a newly vendored version is validated under the right draft.
+    validator = jsonschema.validators.validator_for(schema)(schema)
     errors = [
         f"{'/'.join(str(p) for p in e.absolute_path)}: {e.message}"
         for e in validator.iter_errors(manifest)
@@ -62,38 +69,40 @@ def test_manifest_fixture_matches_the_dbt_schema_it_declares(
 
 
 def test_semantic_model_fixture_exercises_the_emission_paths() -> None:
-    """The golden fixture must keep covering the cases the mapper branches on."""
+    """The golden fixture must keep covering the cases the mapper branches on.
+
+    Membership only: asserting exact counts or ids would penalize extending
+    the fixture, which is the opposite of what this guards.
+    """
     manifest = json.loads(
         (
-            pathlib.Path("tests/integration/dbt") / "dbt_manifest_semantic_models.json"
+            _TESTS_ROOT / "integration" / "dbt" / "dbt_manifest_semantic_models.json"
         ).read_text()
     )
 
     semantic_models = manifest["semantic_models"]
-    assert len(semantic_models) == 3
     entity_types = {
         entity["type"]
         for model in semantic_models.values()
         for entity in model["entities"]
     }
     assert {"primary", "foreign", "unique"} <= entity_types
+    assert any(model.get("primary_entity") for model in semantic_models.values())
 
-    payments = semantic_models["semantic_model.sample_dbt.payments"]
-    assert any(measure["create_metric"] for measure in payments["measures"])
-    assert any(not measure["create_metric"] for measure in payments["measures"])
+    measures = [m for model in semantic_models.values() for m in model["measures"]]
+    assert any(m["create_metric"] for m in measures)
+    assert any(not m["create_metric"] for m in measures)
+    assert any(m["expr"] for m in measures)
+
+    dimensions = [d for model in semantic_models.values() for d in model["dimensions"]]
     assert any(
-        dimension["type"] == "time"
-        and dimension["type_params"]["time_granularity"] == "month"
-        for dimension in payments["dimensions"]
-    )
-    assert semantic_models["semantic_model.sample_dbt.regions"]["primary_entity"]
-    assert any(
-        measure["expr"]
-        for model in semantic_models.values()
-        for measure in model["measures"]
+        d["type"] == "time" and (d.get("type_params") or {}).get("time_granularity")
+        for d in dimensions
     )
 
     metric_types = {m["type"] for m in manifest["metrics"].values()}
     assert {"simple", "ratio", "derived"} <= metric_types
     # A top-level metric that collides with a create_metric measure.
-    assert "metric.sample_dbt.payment_amount" in manifest["metrics"]
+    measure_names = {m["name"] for m in measures if m["create_metric"]}
+    metric_names = {m["name"] for m in manifest["metrics"].values()}
+    assert measure_names & metric_names

@@ -48,14 +48,17 @@ class ResolvedEmitDecision:
     metrics_enabled: Optional[bool]
     # Whether the server can accept semanticModel/metric in a
     # structuredPropertyDefinition's entityTypes permission list. Deliberately
-    # recipe- and metricsEnabled-independent (managed server: version only; OSS:
-    # recipe value), so the shared definition is identical across recipes and
-    # feature flips against the same server and never flaps. Consumed by the tag
-    # extractor.
+    # recipe- and metricsEnabled-independent so the definition is identical
+    # across recipes and feature flips against the same server, and never flaps.
+    #
+    # On a managed server this is the version check. On OSS there is nothing to
+    # interrogate, so it degrades to the recipe value -- i.e. "the recipe asked
+    # for it", not an observed server capability. Callers that need a real
+    # capability signal must not rely on it for the OSS case.
     entity_types_capable: bool
     # True when a managed server reported a version string we could not parse, so
     # the capability check failed closed (feature off) rather than crashing the
-    # whole Snowflake source. Lets the caller surface it via report.warning even
+    # whole ingestion run. Lets the caller surface it via report.warning even
     # on the auto-enable path, where recipe_value is None.
     version_unparseable: bool = False
     # True when the metricsEnabled kill-switch probe failed operationally
@@ -160,7 +163,7 @@ def resolve_emit_semantic_model_entities(
             # supports_feature parses service_version, which raises on a non-semver
             # value (git-sha tag, two-part version, unexpected suffix). This resolver
             # runs by default on a managed server, so an unparseable version must not
-            # abort the entire Snowflake source - fail closed (feature off) instead.
+            # abort the whole ingestion run - fail closed (feature off) instead.
             logger.warning(
                 "Could not parse DataHub server version %r for the semanticModel/"
                 "metric capability check; treating the server as unsupported and "
