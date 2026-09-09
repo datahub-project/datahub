@@ -68,6 +68,7 @@ from datahub.ingestion.source.snowflake.snowflake_openflow_models import (
     OpenflowConnector,
     OpenflowDeployment,
     OpenflowRuntime,
+    RowModel,
     get_str,
     merge_show_and_history,
 )
@@ -1383,86 +1384,73 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             self.report.num_history_pages_beyond_first += pages - 1
         return rows
 
-    def _fetch_deployments(self) -> List[OpenflowDeployment]:
-        show = [
-            OpenflowDeployment.from_row(row)
-            for row in self._query_rows(SnowflakeOpenflowQuery.show_deployments())
-        ]
-        history = [
-            OpenflowDeployment.from_row(row)
-            for row in self._paged_history(SnowflakeOpenflowQuery.deployment_history)
-        ]
+    def _fetch_inventory(
+        self,
+        *,
+        model: Type[RowModel],
+        show_query: str,
+        history_query: Callable[[Optional[str]], str],
+        object_type: str,
+        pattern: AllowDenyPattern,
+        on_dropped: Callable[[str], None],
+    ) -> List[RowModel]:
+        """SHOW + paged history, merged, filtered to live, then pattern-filtered.
+
+        One algorithm for all three object types. It was three copies, which is
+        three places for a fix to the deleted_on filter or the mixed-lifecycle
+        accounting to land and two chances to miss one.
+
+        RowModel is a value-constrained TypeVar, so mypy re-checks this body
+        once per member rather than erasing to a common base -- the three
+        models share no base class, only the shape used here.
+        """
+        show = [model.from_row(row) for row in self._query_rows(show_query)]
+        history = [model.from_row(row) for row in self._paged_history(history_query)]
         merged, mixed_keys = merge_show_and_history(
             [row for row in show if row], [row for row in history if row]
         )
         self.report.num_keys_with_mixed_lifecycle_rows += mixed_keys
         live = [row for row in merged if row.deleted_on is None]
         if not live:
-            self.report.report_empty_inventory("deployments")
+            self.report.report_empty_inventory(object_type)
         return [
             row
             for row in live
-            if self._allowed(
-                self.config.deployment_pattern,
-                row.name or row.key,
-                self.report.report_dropped_deployment,
-            )
+            if self._allowed(pattern, row.name or row.key, on_dropped)
         ]
+
+    def _fetch_deployments(self) -> List[OpenflowDeployment]:
+        return self._fetch_inventory(
+            model=OpenflowDeployment,
+            show_query=SnowflakeOpenflowQuery.show_deployments(),
+            history_query=SnowflakeOpenflowQuery.deployment_history,
+            object_type="deployments",
+            pattern=self.config.deployment_pattern,
+            on_dropped=self.report.report_dropped_deployment,
+        )
 
     def _fetch_runtimes(self) -> List[OpenflowRuntime]:
-        show = [
-            OpenflowRuntime.from_row(row)
-            for row in self._query_rows(SnowflakeOpenflowQuery.show_runtimes())
-        ]
-        history = [
-            OpenflowRuntime.from_row(row)
-            for row in self._paged_history(SnowflakeOpenflowQuery.runtime_history)
-        ]
-        merged, mixed_keys = merge_show_and_history(
-            [row for row in show if row], [row for row in history if row]
+        return self._fetch_inventory(
+            model=OpenflowRuntime,
+            show_query=SnowflakeOpenflowQuery.show_runtimes(),
+            history_query=SnowflakeOpenflowQuery.runtime_history,
+            object_type="runtimes",
+            pattern=self.config.runtime_pattern,
+            on_dropped=self.report.report_dropped_runtime,
         )
-        self.report.num_keys_with_mixed_lifecycle_rows += mixed_keys
-        live = [row for row in merged if row.deleted_on is None]
-        if not live:
-            self.report.report_empty_inventory("runtimes")
-        return [
-            row
-            for row in live
-            if self._allowed(
-                self.config.runtime_pattern,
-                row.name or row.key,
-                self.report.report_dropped_runtime,
-            )
-        ]
 
     def _fetch_connectors(self) -> List[OpenflowConnector]:
-        show = [
-            OpenflowConnector.from_row(row)
-            for row in self._query_rows(SnowflakeOpenflowQuery.show_connectors())
-        ]
-        history = [
-            OpenflowConnector.from_row(row)
-            for row in self._paged_history(SnowflakeOpenflowQuery.connector_history)
-        ]
-        merged, mixed_keys = merge_show_and_history(
-            [row for row in show if row], [row for row in history if row]
+        # Gen 1 connectors are not SQL objects at all, so this surface sees only
+        # Gen 2. An account running Gen 1 exclusively looks empty here, and the
+        # count of omitted Gen 1 connectors is not observable.
+        return self._fetch_inventory(
+            model=OpenflowConnector,
+            show_query=SnowflakeOpenflowQuery.show_connectors(),
+            history_query=SnowflakeOpenflowQuery.connector_history,
+            object_type="connectors",
+            pattern=self.config.connector_pattern,
+            on_dropped=self.report.report_dropped_connector,
         )
-        self.report.num_keys_with_mixed_lifecycle_rows += mixed_keys
-        live = [row for row in merged if row.deleted_on is None]
-        if not live:
-            # Gen 1 connectors are not SQL objects at all, so this surface sees
-            # only Gen 2. An account running Gen 1 exclusively looks empty here
-            # and the count of omitted Gen 1 connectors is not observable.
-            self.report.report_empty_inventory("connectors")
-        return [
-            row
-            for row in live
-            if self._allowed(
-                self.config.connector_pattern,
-                row.name or row.key,
-                self.report.report_dropped_connector,
-            )
-        ]
 
     @staticmethod
     def _allowed(
