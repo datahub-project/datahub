@@ -3291,7 +3291,8 @@ class TestEnumerationFailuresBlockStaleDeletion:
             side_effect=requests.exceptions.HTTPError(response=response),
         ):
             api._paginated_raw_entries(
-                "http://x/dataModels", "Unable to fetch data models.",
+                "http://x/dataModels",
+                "Unable to fetch data models.",
                 enumerates_entities=True,
             )
 

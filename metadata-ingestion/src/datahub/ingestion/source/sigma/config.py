@@ -298,6 +298,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # one IS actionable: run the warehouse connector and these become
     # verifiable rather than guessed.
     warehouse_column_table_not_in_datahub: int = 0
+    # The read itself failed -- a bad token, a network fault, GMS down. Counted
+    # apart from the above because the operator response is completely
+    # different, and because a run where EVERY read 401s would otherwise report
+    # a tenant-wide "your warehouse is not ingested" that is simply false.
+    warehouse_column_schema_unreadable: int = 0
     # DataHub HAS the schema and neither the display name nor the derived name
     # matches any field in it. The edge is still emitted at the reduced
     # confidence, but this is the population where the derived name is provably

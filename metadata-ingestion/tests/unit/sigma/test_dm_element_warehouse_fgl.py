@@ -1317,6 +1317,25 @@ class TestWarehouseColumnVerifiedAgainstTheGraph:
         ]
         assert source.reporter.warehouse_schema_lookup_failed == 1
 
+    def test_a_failed_read_is_not_reported_as_a_missing_table(self) -> None:
+        """A read that never got an answer says nothing about what DataHub holds.
+
+        Both cache as "no fields", so the two collapsed into one counter until a
+        local run against an auth-enabled GMS 401'd every read and reported the
+        whole warehouse as un-ingested -- pointing at the wrong system entirely.
+        """
+        source = _make_source()
+        graph = MagicMock()
+        graph.get_aspect.side_effect = RuntimeError("401 Client Error")
+        source.ctx.graph = graph
+
+        self._resolve(source)
+
+        assert source.reporter.warehouse_column_schema_unreadable == 1
+        assert source.reporter.warehouse_column_table_not_in_datahub == 0
+        # Still unverifiable, and the umbrella still counts it.
+        assert source.reporter.warehouse_column_unverifiable_no_schema == 1
+
     def test_the_schema_is_fetched_once_per_table(self) -> None:
         """One graph round-trip per warehouse table, not per column."""
         source = self._source_with_schema(["CUSTOMER_ID"])

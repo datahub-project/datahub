@@ -186,6 +186,12 @@ where the derived name is provably a dangling field reference. The edge is still
 reduced confidence so the information is not lost, but a large value there means the convention
 does not hold on your warehouse.
 
+A read that **fails** — an expired token, GMS unreachable — is counted separately, under
+`warehouse_column_schema_unreadable`, and never as a missing table: the read got no answer, so it
+says nothing about what DataHub holds. If that counter is large, check the credential and GMS
+reachability rather than the warehouse connector; `warehouse_schema_lookup_failed` carries the
+underlying cause.
+
 **Counters to monitor** (visible in the ingestion report):
 
 | Counter                                       | Meaning                                             |

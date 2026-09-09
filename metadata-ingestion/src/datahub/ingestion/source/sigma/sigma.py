@@ -617,6 +617,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # when DataHub holds no schema. Misses are cached too: a table absent
         # from DataHub stays absent for the run.
         self._warehouse_schema_cache: Dict[str, Optional[Dict[str, str]]] = {}
+        # Urns whose schema read RAISED, as opposed to came back empty. Both
+        # cache as None, so without this the two are indistinguishable at the
+        # call site and a run whose every read 401s reports "DataHub has not
+        # ingested this table" for the whole warehouse.
+        self._warehouse_schema_unreadable: Set[str] = set()
         # Intra-DM element ancestry, keyed by dataModelId.
         self._dm_ancestors_cache: Dict[str, Dict[str, Set[str]]] = {}
         # Built once per run, lazily, by _ensure_global_warehouse_index.
@@ -3973,6 +3978,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # A graph read must never fail the ingestion: the guess below
                 # is what the connector did before this check existed.
                 self.reporter.warehouse_schema_lookup_failed += 1
+                self._warehouse_schema_unreadable.add(dataset_urn)
                 logger.debug(
                     "WAREHOUSE SCHEMA lookup failed for %s: %s", dataset_urn, e
                 )
@@ -4018,6 +4024,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # connector and these become verifiable).
             if self.ctx.graph is None:
                 self.reporter.warehouse_column_no_graph_configured += 1
+            elif parent_urn in self._warehouse_schema_unreadable:
+                # Do NOT report this as "not ingested": the read never got an
+                # answer, so this says nothing about what DataHub holds. A
+                # wrong token 401s every read, and attributing that to the
+                # warehouse connector sends the operator to the wrong system.
+                self.reporter.warehouse_column_schema_unreadable += 1
+                logger.debug(
+                    "WAREHOUSE COLUMN %s: the schema read failed, so whether "
+                    "DataHub holds this table is unknown and the derived name "
+                    "%r stands unchecked. See warehouse_schema_lookup_failed "
+                    "for the cause -- check credentials and GMS reachability "
+                    "before assuming the table is missing.",
+                    parent_urn,
+                    guessed,
+                )
             else:
                 self.reporter.warehouse_column_table_not_in_datahub += 1
                 logger.debug(
