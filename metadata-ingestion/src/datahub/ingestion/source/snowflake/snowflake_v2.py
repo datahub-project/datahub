@@ -35,7 +35,7 @@ from datahub.ingestion.source.snowflake.snowflake_assertion import (
     SnowflakeAssertionsHandler,
 )
 from datahub.ingestion.source.snowflake.snowflake_auth_deprecation import (
-    SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL,
+    get_password_auth_deprecation_warning,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import (
@@ -180,25 +180,17 @@ class SnowflakeV2Source(
         # The exit stack helps ensure that we close all the resources we open.
         self._exit_stack = contextlib.ExitStack()
 
+        # Before get_connection() so the warning still reaches the report if
+        # Snowflake rejects password auth during the connect call.
+        if self.config.is_using_password_auth():
+            self.report.warning(
+                get_password_auth_deprecation_warning(),
+                title="Snowflake password-auth deprecation",
+            )
+
         self.connection: SnowflakeConnection = self._exit_stack.enter_context(
             self.config.get_connection()
         )
-
-        # The config validator already emits a global warning for the CLI; mirror it
-        # here so the deprecation also surfaces in the structured ingestion report /
-        # DataHub UI. is_using_password_auth() covers the edge case where
-        # authentication_type is unset but a password is present.
-        if self.config.is_using_password_auth():
-            self.report.warning(
-                "Snowflake is deprecating username + password authentication "
-                "(DEFAULT_AUTHENTICATOR). Switch this recipe to key-pair auth "
-                "(KEY_PAIR_AUTHENTICATOR) before your account's enforcement date.",
-                title="Snowflake password-auth deprecation",
-                context=(
-                    "Snowflake Strong Authentication rollout (Phase 3, Aug-Oct 2026). "
-                    f"Migration guide: {SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL}"
-                ),
-            )
 
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary(
@@ -325,6 +317,10 @@ class SnowflakeV2Source(
             connection_conf = SnowflakeConnectionConfig.parse_obj_allow_extras(
                 config_dict
             )
+
+            # --test-source-connection does not print global warnings; log directly.
+            if connection_conf.is_using_password_auth():
+                logger.warning(get_password_auth_deprecation_warning())
 
             connection: SnowflakeConnection = connection_conf.get_connection()
             assert connection

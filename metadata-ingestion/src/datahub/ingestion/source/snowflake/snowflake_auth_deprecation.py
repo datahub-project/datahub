@@ -3,60 +3,47 @@ Snowflake username+password (``DEFAULT_AUTHENTICATOR``) auth deprecation helpers
 
 Snowflake is deprecating username + password authentication as part of its
 Strong Authentication rollout (Phase 3: Aug-Oct 2026, account-specific
-enforcement dates). This module centralises the detection predicate and the
-deprecation message used by:
-
-* ``SnowflakeConnectionConfig`` validation -> ``add_global_warning`` (surfaces in
-  the CLI ``Global Warnings`` section, ``--strict-warnings``, and telemetry across
-  ``datahub ingest run`` / ``datahub check`` / ``--test-source-connection``).
-* ``SnowflakeV2Source.__init__`` -> ``self.report.warning`` (surfaces in the
-  DataHub UI structured ingestion report).
-
-The warning is **soft** (non-fatal) by default. Set the
-``DATAHUB_SNOWFLAKE_PASSWORD_AUTH_HARD_ERROR`` environment variable to a truthy
-value to escalate to a hard ``ConfigurationError`` once Snowflake's enforcement
-date has passed for a given deployment. This keeps the soft->hard staging
-configurable and gated on the Snowflake timeline without a code change.
+enforcement dates). The warning is **soft** by default; set
+``DATAHUB_SNOWFLAKE_PASSWORD_AUTH_HARD_ERROR`` to escalate to a hard
+``ConfigurationError`` once enforcement has passed for a deployment.
 """
 
-import os
 from typing import Optional
 
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import ConfigurationError
 
-# Stable URL for the customer-facing migration guide. Linked from the CLI
-# warning, the DataHub UI banner, and the structured ingestion report.
+# Stable URL — linked from the CLI warning, UI banner, and ingestion report.
 SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL = "https://docs.datahub.com/docs/quick-ingestion-guides/snowflake/migrate-to-key-pair-auth"
 
-# Env var that flips the deprecation from a soft warning to a hard error.
-# Truthy values: "true", "1", "yes" (case-insensitive). Defaults to unset (soft).
 SNOWFLAKE_PASSWORD_AUTH_HARD_ERROR_ENV = "DATAHUB_SNOWFLAKE_PASSWORD_AUTH_HARD_ERROR"
-
-_TRUTHY = {"true", "1", "yes"}
 
 
 def is_hard_error_enabled() -> bool:
-    return (
-        os.environ.get(SNOWFLAKE_PASSWORD_AUTH_HARD_ERROR_ENV, "").strip().lower()
-        in _TRUTHY
-    )
+    return get_boolean_env_variable(SNOWFLAKE_PASSWORD_AUTH_HARD_ERROR_ENV)
+
+
+def _secret_value(password: Optional[object]) -> Optional[str]:
+    """``bool(SecretStr(""))`` is ``True`` (the wrapper is always truthy), so read ``get_secret_value()`` first."""
+    if password is None:
+        return None
+    getter = getattr(password, "get_secret_value", None)
+    if callable(getter):
+        return getter()
+    return str(password)
 
 
 def is_using_password_auth(
     authentication_type: str, password: Optional[object]
 ) -> bool:
-    """
-    Return True when the recipe is configured for username+password auth.
+    """True when the recipe is configured for username+password auth.
 
-    Catches both the explicit case (``authentication_type == DEFAULT_AUTHENTICATOR``
-    with a password) and the edge case where ``authentication_type`` is left at its
-    default but a password is populated (see CAT-1921: the UI does not always write
-    ``authentication_type`` to the YAML, so it defaults to ``DEFAULT_AUTHENTICATOR``).
-
-    ``password`` is typed as ``object`` so callers can pass a ``SecretStr`` without
-    importing it here; only its truthiness is inspected, never its value.
+    Covers the CAT-1921 edge case where the UI omits ``authentication_type``
+    (defaults to ``DEFAULT_AUTHENTICATOR``) but a password is present.
     """
-    return authentication_type == "DEFAULT_AUTHENTICATOR" and bool(password)
+    return authentication_type == "DEFAULT_AUTHENTICATOR" and bool(
+        _secret_value(password)
+    )
 
 
 def get_password_auth_deprecation_warning() -> str:
@@ -73,12 +60,7 @@ def get_password_auth_deprecation_warning() -> str:
 def check_password_auth_deprecation(
     authentication_type: str, password: Optional[object]
 ) -> Optional[str]:
-    """
-    Inspect the auth config and either return the deprecation warning text (soft)
-    or raise a ``ConfigurationError`` (hard, when the escalation env var is set).
-
-    Returns ``None`` when the recipe is not using password auth.
-    """
+    """Return the deprecation warning (soft) or raise ``ConfigurationError`` (hard)."""
     if not is_using_password_auth(authentication_type, password):
         return None
 

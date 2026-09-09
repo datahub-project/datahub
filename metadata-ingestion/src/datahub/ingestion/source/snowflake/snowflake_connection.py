@@ -210,13 +210,9 @@ class SnowflakeConnectionConfig(ConfigModel):
                     f"Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication"
                 )
 
-        # Snowflake is deprecating username + password (DEFAULT_AUTHENTICATOR) auth.
-        # Surface a global warning at config validation so it reaches every CLI entry
-        # point (datahub ingest run / datahub check / --test-source-connection) plus
-        # --strict-warnings and telemetry. Escalates to a hard error when
-        # DATAHUB_SNOWFLAKE_PASSWORD_AUTH_HARD_ERROR is set. The predicate also covers
-        # the CAT-1921 edge case where authentication_type is unset but a password is
-        # present (defaults to DEFAULT_AUTHENTICATOR).
+        # Global warning so every CLI entry point (ingest / check / test-connection /
+        # --strict-warnings) surfaces the deprecation. Covers CAT-1921 where
+        # authentication_type is unset but a password is present.
         deprecation_warning = check_password_auth_deprecation(
             self.authentication_type, self.password
         )

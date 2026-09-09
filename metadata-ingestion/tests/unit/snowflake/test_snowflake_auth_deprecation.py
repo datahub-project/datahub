@@ -43,18 +43,18 @@ class _SecretStrLike:
     def __init__(self, value: str) -> None:
         self._value = value
 
-    def __bool__(self) -> bool:
-        return bool(self._value)
+    def get_secret_value(self) -> str:
+        return self._value
 
 
 def test_is_using_password_auth_flags_default_authenticator_with_password():
     assert is_using_password_auth("DEFAULT_AUTHENTICATOR", _SecretStrLike("pw"))
 
 
-def test_is_using_password_auth_flags_unset_type_with_password():
-    # CAT-1921 edge case: UI does not always write authentication_type, so it
-    # defaults to DEFAULT_AUTHENTICATOR while a password is still present.
-    assert is_using_password_auth("DEFAULT_AUTHENTICATOR", _SecretStrLike("pw"))
+def test_is_using_password_auth_ignores_empty_secretstr():
+    # bool(SecretStr("")) is True (wrapper is truthy), so the predicate must
+    # extract the value via get_secret_value() to avoid flagging an empty password.
+    assert not is_using_password_auth("DEFAULT_AUTHENTICATOR", _SecretStrLike(""))
 
 
 def test_is_using_password_auth_ignores_other_auth_modes():
