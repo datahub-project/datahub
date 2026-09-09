@@ -19,6 +19,12 @@ public interface ScopedTransactionFactory {
   /**
    * Begin an explicit transaction for the given scope and operation context. Caller manages the
    * transaction lifecycle (commit / rollback / close).
+   *
+   * <p>Currently unused by {@code EbeanRetentionService}, which calls {@code
+   * _server.beginTransaction(...)} directly for its ORM transactions (the per-context and
+   * batch-scope transactions it opens do not go through this seam). Retained because cloud
+   * extension modules route {@code begin} through the tenant seam (see cloud PR
+   * acryldata/datahub-fork#11489); removing it here would break that routing path.
    */
   @Nonnull
   Transaction begin(@Nonnull OperationContext opContext, @Nonnull TxScope txScope);
@@ -37,8 +43,19 @@ public interface ScopedTransactionFactory {
   @Nonnull
   Scope scope(@Nonnull OperationContext opContext);
 
-  /** Closeable scope; {@link #close()} is narrowed to declare no checked exceptions. */
+  /**
+   * Stack-scoped transaction scope. {@link #close()} MUST be called in LIFO order (innermost scope
+   * first). Nesting is supported and expected: an inner scope shadows the outer's tenant on the
+   * same thread; closing the inner scope restores the outer's tenant. All implementations MUST be
+   * re-entrant: an inner scope opened before the outer closes must restore the outer's tenant on
+   * close. Pop-counting / conditional unscope is NOT supported — an extension MUST NOT close a
+   * scope it did not open on the same thread, and MUST NOT skip closing a scope it opened.
+   * Violating LIFO order will silently unscope an outer transaction mid-batch.
+   *
+   * <p>Closeable scope; {@link #close()} is narrowed to declare no checked exceptions.
+   */
   interface Scope extends AutoCloseable {
+    /** Close this scope. Must be the most-recently-opened scope on this thread. */
     @Override
     void close();
   }

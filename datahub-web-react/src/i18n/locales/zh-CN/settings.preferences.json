@@ -1,0 +1,10 @@
+{
+    "appearance.subTitle": "管理你的外观设置。",
+    "appearance.title": "外观",
+    "language.description": "选择你偏好的显示语言",
+    "language.title": "用户界面语言",
+    "noSettings": "未找到外观设置。",
+    "showApplications.description": "应用是另一种组织数据的方式，类似于数据域。默认情况下处于隐藏状态。",
+    "showApplications.successMessage": "设置已更新！",
+    "showApplications.title": "显示应用"
+}

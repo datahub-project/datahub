@@ -24,6 +24,9 @@ test.describe('edit documentation and link to dataset', () => {
   });
 
   test('edit field documentation', async ({ page }) => {
+    // Two edit→save→refetch cycles under CI load; default 60s is tight.
+    test.setTimeout(120_000);
+
     const testId = Math.floor(Math.random() * 100000);
     const documentationEdited = `This is test${testId} documentation EDITED`;
 

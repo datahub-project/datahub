@@ -1,4 +1,5 @@
 import tempfile
+import time
 import types
 import unittest
 from typing import Dict, List, Optional, Type
@@ -30,6 +31,7 @@ from datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_pro
 from datahub.ingestion.source.state_provider.file_ingestion_checkpointing_provider import (
     FileIngestionCheckpointingProvider,
 )
+from datahub.metadata.schema_classes import StatusClass
 from tests.test_helpers.type_helpers import assert_not_null
 
 
@@ -64,6 +66,7 @@ class TestIngestionCheckpointProviders(unittest.TestCase):
         )
         # Tracking for emitted mcps.
         self.mcps_emitted: Dict[str, MetadataChangeProposalWrapper] = {}
+        self.all_mcps_emitted: List[MetadataChangeProposalWrapper] = []
 
     def _create_providers(self) -> None:
         ctx: PipelineContext = PipelineContext(
@@ -91,6 +94,7 @@ class TestIngestionCheckpointProviders(unittest.TestCase):
         # Cache the mcpw against the entityUrn
         assert mcpw.entityUrn is not None
         self.mcps_emitted[mcpw.entityUrn] = mcpw
+        self.all_mcps_emitted.append(mcpw)
 
     def monkey_patch_get_latest_timeseries_value(
         self,
@@ -216,3 +220,35 @@ class TestIngestionCheckpointProviders(unittest.TestCase):
         state_provider = StateProviderWrapper(None, ctx)
         assert not state_provider.stateful_ingestion_config
         assert not state_provider.ingestion_checkpointing_state_provider
+
+    def test_commit_emits_status_with_lifecycle_last_updated(self):
+        """Verify commit() emits a StatusClass with lifecycleLastUpdated set,
+        so the server sees a content change and refreshes createdOn (preventing
+        GC hard-deletion of checkpoint dataJobs)."""
+        provider = DatahubIngestionCheckpointingProvider(self.mock_graph)
+        job_state = BaseSQLAlchemyCheckpointState()
+        checkpoint = Checkpoint(
+            job_name=self.job_names[0],
+            pipeline_name=self.pipeline_name,
+            run_id=self.run_id,
+            state=job_state,
+        )
+        provider.state_to_commit = {
+            self.job_names[0]: assert_not_null(
+                checkpoint.to_checkpoint_aspect(max_allowed_state_size=2**20)
+            ),
+        }
+
+        before_ms = int(time.time() * 1000)
+        provider.commit()
+        after_ms = int(time.time() * 1000)
+
+        status_mcps = [
+            m for m in self.all_mcps_emitted if isinstance(m.aspect, StatusClass)
+        ]
+        assert len(status_mcps) >= 1
+        status_aspect = status_mcps[0].aspect
+        assert isinstance(status_aspect, StatusClass)
+        assert status_aspect.removed is True
+        assert status_aspect.lifecycleLastUpdated is not None
+        assert before_ms <= status_aspect.lifecycleLastUpdated.time <= after_ms

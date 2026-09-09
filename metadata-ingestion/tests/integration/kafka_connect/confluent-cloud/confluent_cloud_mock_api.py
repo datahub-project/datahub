@@ -1,6 +1,7 @@
 import base64
 import logging
 import os
+import re
 from functools import wraps
 from typing import Any, Dict
 
@@ -19,6 +20,26 @@ def log_request_info():
     client_ip = request.environ.get("REMOTE_ADDR", "unknown")
     logger.info(f"Request - {request.method} {request.path} from {client_ip}")
 
+
+OFFSET_ARGUMENT_RE = re.compile(r"offset:\s*(\d+)")
+LIMIT_ARGUMENT_RE = re.compile(r"limit:\s*(\d+)")
+IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+# The live catalog rejects the whole query on a single unknown field, so the stub
+# must too — otherwise a field that 400s in production would pass here.
+CONNECTOR_QUERY_KNOWN_FIELDS = frozenset(
+    {
+        "cn_connector",
+        "name",
+        "qualifiedName",
+        "tags",
+        "business_metadata",
+        "value",
+        "topics",
+        "limit",
+        "offset",
+    }
+)
 
 VALID_AUTH = {
     "DEV_CONFLUENT_AUTH": "YWRtaW46YWRtaW4=",  # admin:admin in base64
@@ -285,6 +306,47 @@ TOPICS_DATA: Dict[str, Any] = {
 }
 
 
+CATALOG_CONNECTORS_DATA = [
+    {
+        "name": "source_postgres_cdc_01",
+        "qualifiedName": "lcc-source01",
+        "tags": ["cdc", "production"],
+        "business_metadata": [
+            {"name": "team", "value": "data-platform"},
+            {"name": "tier", "value": 1},
+        ],
+        "topics": [
+            {
+                "name": "public.customer_profiles",
+                "qualifiedName": "cluster-123:public.customer_profiles",
+                "tags": ["pii"],
+                "business_metadata": [{"name": "retention_days", "value": 30}],
+            },
+            {
+                "name": "analytics.order_events",
+                "qualifiedName": "cluster-123:analytics.order_events",
+                "tags": None,
+                "business_metadata": None,
+            },
+        ],
+    },
+    {
+        "name": "sink_postgres_01",
+        "qualifiedName": "lcc-sink01",
+        "tags": ["production"],
+        "business_metadata": [],
+        "topics": [
+            {
+                "name": "analytics.order_events",
+                "qualifiedName": "cluster-123:analytics.order_events",
+                "tags": None,
+                "business_metadata": None,
+            }
+        ],
+    },
+]
+
+
 def require_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -404,6 +466,44 @@ def get_topic(cluster_id, topic_name):
     return jsonify({"error": "Topic not found"}), 404
 
 
+@app.route("/catalog/graphql", methods=["POST"])
+@require_auth
+def catalog_graphql():
+    """cn_connector stand-in. Variables map → 500, like the live endpoint."""
+    body = request.get_json(silent=True) or {}
+    if "variables" in body:
+        return jsonify({"error": "Internal server error"}), 500
+
+    query = body.get("query") or ""
+    offset_match = OFFSET_ARGUMENT_RE.search(query)
+    limit_match = LIMIT_ARGUMENT_RE.search(query)
+    if not offset_match or not limit_match:
+        # Reject unsubstituted placeholders rather than defaulting the page size.
+        return jsonify(
+            {"errors": [{"message": "Invalid syntax in pagination arguments"}]}
+        ), 400
+
+    unknown = sorted(
+        token
+        for token in set(IDENTIFIER_RE.findall(query))
+        if token not in CONNECTOR_QUERY_KNOWN_FIELDS
+    )
+    if unknown:
+        return jsonify(
+            {
+                "errors": [
+                    {"message": f"Validation error: Field '{unknown[0]}' is undefined"}
+                ]
+            }
+        )
+
+    offset = int(offset_match.group(1))
+    limit = int(limit_match.group(1))
+
+    page = CATALOG_CONNECTORS_DATA[offset : offset + limit]
+    return jsonify({"data": {"cn_connector": page}})
+
+
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint"""
@@ -440,6 +540,7 @@ if __name__ == "__main__":
     )
     print("  GET /kafka/v3/clusters/{cluster}/topics")
     print("  GET /kafka/v3/clusters/{cluster}/topics/{topic}")
+    print("  POST /catalog/graphql")
     print("  GET /health")
     print(f"\nServer will be available at: http://localhost:{port}")
     print("\nAuthentication:")

@@ -24,6 +24,8 @@ query appConfig {
         }
         authConfig {
             tokenAuthEnabled
+            allowNoExpiry
+            allowedAccessTokenDurations
         }
         identityManagementConfig {
             enabled
@@ -94,6 +96,7 @@ query appConfig {
             themeV2Enabled
             themeV2Default
             themeV2Toggleable
+            themeDarkModeEnabled
             showSeparateSiblings
             showManageStructuredProperties
             schemaFieldCLLEnabled

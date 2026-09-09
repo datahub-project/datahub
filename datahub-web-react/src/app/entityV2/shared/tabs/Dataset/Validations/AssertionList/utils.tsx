@@ -566,7 +566,7 @@ const fuse = new Fuse<AssertionWithDescription>([], {
     threshold: 0.4,
 });
 
-/** Return return filter assertion as per selected type status and other things
+/** Return filter assertion as per selected type status and other things
  * it returns transformated into
  * 1. group of assertions as per type , status
  * 2. Transform data into {@link AssertionListTableRow }  data

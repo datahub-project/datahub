@@ -27,6 +27,7 @@ import { toLocalDateString, toRelativeTimeString } from '@src/app/shared/time/ti
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useBatchUpdateSoftDeletedMutation } from '@src/graphql/mutations.generated';
 import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
 import TableIcon from '@src/images/table-icon.svg?react';
 import { Entity, EntityType, StructuredPropertyEntity } from '@src/types.generated';
@@ -80,6 +81,7 @@ const StructuredPropsTable = ({
     const filteredProperties = getFilteredSortedStructuredProperties(structuredProperties, searchQuery);
 
     const [deleteStructuredProperty] = useDeleteStructuredPropertyMutation();
+    const [batchUpdateSoftDeleted] = useBatchUpdateSoftDeletedMutation();
 
     const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
 
@@ -88,13 +90,26 @@ const StructuredPropsTable = ({
     const handleDeleteProperty = (property) => {
         const deleteEntity = property as StructuredPropertyEntity;
         showToastMessage(ToastType.LOADING, t('table.deleting'), 1);
-        deleteStructuredProperty({
+        // Soft-delete first: the backend rejects hard deletion of an active structured property,
+        // since hard deletion can permanently reserve the property's qualified name in the search
+        // index. Only hard-delete once the soft delete has succeeded.
+        batchUpdateSoftDeleted({
             variables: {
                 input: {
-                    urn: deleteEntity.urn,
+                    urns: [deleteEntity.urn],
+                    deleted: true,
                 },
             },
         })
+            .then(() =>
+                deleteStructuredProperty({
+                    variables: {
+                        input: {
+                            urn: deleteEntity.urn,
+                        },
+                    },
+                }),
+            )
             .then(() => {
                 analytics.event({
                     type: EventType.DeleteStructuredPropertyEvent,

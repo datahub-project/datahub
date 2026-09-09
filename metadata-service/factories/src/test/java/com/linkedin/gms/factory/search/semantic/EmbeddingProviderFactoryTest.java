@@ -31,6 +31,7 @@ import java.util.function.Supplier;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 /**
  * Unit tests for the vertex_ai branch in {@link EmbeddingProviderFactory}.
@@ -92,6 +93,16 @@ public class EmbeddingProviderFactoryTest {
     field.setAccessible(true);
     field.set(factory, configProvider);
 
+    return factory;
+  }
+
+  private static TestableFactory factoryWithConfigAndAwsCredentials(
+      EmbeddingProviderConfiguration embeddingConfig) throws Exception {
+    TestableFactory factory = factoryWithConfig(embeddingConfig);
+    Field awsField =
+        EmbeddingProviderFactory.class.getDeclaredField("defaultAwsCredentialsProvider");
+    awsField.setAccessible(true);
+    awsField.set(factory, mock(AwsCredentialsProvider.class));
     return factory;
   }
 
@@ -342,7 +353,7 @@ public class EmbeddingProviderFactoryTest {
     EmbeddingProviderConfiguration config =
         configWithBedrock("us-west-2", "cohere.embed-english-v3");
 
-    TestableFactory factory = factoryWithConfig(config);
+    TestableFactory factory = factoryWithConfigAndAwsCredentials(config);
     EmbeddingProvider provider = factory.getInstance();
 
     assertNotNull(provider);
@@ -357,11 +368,36 @@ public class EmbeddingProviderFactoryTest {
     EmbeddingProviderConfiguration config =
         configWithBedrock("us-east-1", "amazon.titan-embed-text-v2:0");
 
-    TestableFactory factory = factoryWithConfig(config);
+    TestableFactory factory = factoryWithConfigAndAwsCredentials(config);
     EmbeddingProvider provider = factory.getInstance();
 
     assertNotNull(provider);
     assertTrue(provider instanceof AwsBedrockEmbeddingProvider);
+  }
+
+  @Test
+  public void rejectsAwsBedrockWithoutSharedCredentialsProvider() throws Exception {
+    EmbeddingProviderConfiguration config =
+        configWithBedrock("us-west-2", "cohere.embed-english-v3");
+
+    IllegalStateException error =
+        expectThrows(IllegalStateException.class, () -> factoryWithConfig(config).getInstance());
+
+    assertTrue(error.getMessage().contains("DefaultCredentialsProvider"));
+  }
+
+  @Test
+  public void rejectsAwsBedrockWithoutBedrockRegion() throws Exception {
+    EmbeddingProviderConfiguration config =
+        configWithBedrock("us-west-2", "cohere.embed-english-v3");
+    config.getBedrock().setAwsRegion(" ");
+
+    IllegalStateException error =
+        expectThrows(
+            IllegalStateException.class,
+            () -> factoryWithConfigAndAwsCredentials(config).getInstance());
+
+    assertTrue(error.getMessage().contains("bedrock.awsRegion"));
   }
 
   // ------- OpenAI provider tests -------

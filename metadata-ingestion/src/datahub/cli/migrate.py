@@ -194,10 +194,15 @@ def _migrate_containers(
     skipped_count = 0
     try:
         for container in progressbar.progressbar(containers, redirect_stdout=True):
-            subType = container["aspects"]["subTypes"]["value"]["typeNames"][0]
-            customProperties = container["aspects"]["containerProperties"]["value"][
-                "customProperties"
-            ]
+            aspects = container.get("aspects") or {}
+            container_props = (aspects.get("containerProperties") or {}).get("value")
+            if not container_props:
+                log.debug(
+                    f"{container['urn']} missing containerProperties aspect, skipping"
+                )
+                skipped_count += 1
+                continue
+            customProperties = container_props.get("customProperties") or {}
             if not should_migrate(customProperties):
                 log.debug(
                     f"{container['urn']} does not match filter criteria, skipping.. "
@@ -205,6 +210,18 @@ def _migrate_containers(
                 )
                 skipped_count += 1
                 continue
+
+            type_names = ((aspects.get("subTypes") or {}).get("value") or {}).get(
+                "typeNames"
+            ) or []
+            if not type_names:
+                # Showcase / partial containers can lack subTypes; cannot choose a key type.
+                log.warning(
+                    f"{container['urn']} missing subTypes aspect, skipping container migration"
+                )
+                skipped_count += 1
+                continue
+            subType = type_names[0]
 
             try:
                 newKey: Union[SchemaKey, DatabaseKey, ProjectIdKey, BigQueryDatasetKey]

@@ -72,7 +72,8 @@ public class DocumentServiceTest {
                 null,
                 null,
                 null,
-                TEST_USER_URN));
+                TEST_USER_URN,
+                SearchIndexMode.SYNC));
     verifyNoInteractions(mockClient);
   }
 
@@ -104,7 +105,8 @@ public class DocumentServiceTest {
           null,
           null,
           List.of(owner),
-          TEST_USER_URN);
+          TEST_USER_URN,
+          SearchIndexMode.SYNC);
 
       authUtilMock.verify(
           () ->
@@ -154,7 +156,13 @@ public class DocumentServiceTest {
         ServiceAuthorizationException.class,
         () ->
             service.updateDocumentContents(
-                USER_OP_CONTEXT, TEST_DOCUMENT_URN, "Updated content", null, null, TEST_USER_URN));
+                USER_OP_CONTEXT,
+                TEST_DOCUMENT_URN,
+                "Updated content",
+                null,
+                null,
+                TEST_USER_URN,
+                SearchIndexMode.SYNC));
     verifyNoInteractions(mockClient);
   }
 
@@ -165,7 +173,7 @@ public class DocumentServiceTest {
 
     Assert.assertThrows(
         ServiceAuthorizationException.class,
-        () -> service.deleteDocument(USER_OP_CONTEXT, TEST_DOCUMENT_URN));
+        () -> service.deleteDocument(USER_OP_CONTEXT, TEST_DOCUMENT_URN, SearchIndexMode.SYNC));
     verifyNoInteractions(mockClient);
   }
 
@@ -190,7 +198,8 @@ public class DocumentServiceTest {
             null, // no related assets
             null, // no related documents
             null, // showInGlobalContext defaults to true
-            TEST_USER_URN);
+            TEST_USER_URN,
+            SearchIndexMode.SYNC);
 
     // Verify the URN was created
     Assert.assertNotNull(documentUrn);
@@ -222,7 +231,8 @@ public class DocumentServiceTest {
             Arrays.asList(TEST_ASSET_URN),
             Arrays.asList(TEST_DOCUMENT_URN),
             null, // showInGlobalContext defaults to true
-            TEST_USER_URN);
+            TEST_USER_URN,
+            SearchIndexMode.SYNC);
 
     // Verify the URN was created with custom ID
     Assert.assertNotNull(documentUrn);
@@ -254,7 +264,8 @@ public class DocumentServiceTest {
           null,
           null,
           null, // showInGlobalContext
-          TEST_USER_URN);
+          TEST_USER_URN,
+          SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("already exists"));
@@ -304,7 +315,13 @@ public class DocumentServiceTest {
 
     // Test updating document contents
     service.updateDocumentContents(
-        opContext, TEST_DOCUMENT_URN, "New content", "Updated Title", null, TEST_USER_URN);
+        opContext,
+        TEST_DOCUMENT_URN,
+        "New content",
+        "Updated Title",
+        null,
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     // Verify batch ingest was called
     verify(mockClient, times(1))
@@ -317,7 +334,13 @@ public class DocumentServiceTest {
     final DocumentService service = new DocumentService(mockClient);
 
     service.updateDocumentContents(
-        opContext, TEST_DOCUMENT_URN, "New content", null, null, TEST_USER_URN);
+        opContext,
+        TEST_DOCUMENT_URN,
+        "New content",
+        null,
+        null,
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     @SuppressWarnings("unchecked")
     final ArgumentCaptor<List<MetadataChangeProposal>> proposalsCaptor =
@@ -355,7 +378,8 @@ public class DocumentServiceTest {
         "User-owned content",
         null,
         null,
-        TEST_USER_URN);
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     @SuppressWarnings("unchecked")
     final ArgumentCaptor<List<MetadataChangeProposal>> proposalsCaptor =
@@ -389,7 +413,7 @@ public class DocumentServiceTest {
     // Test updating a non-existent document
     try {
       service.updateDocumentContents(
-          opContext, TEST_DOCUMENT_URN, "Content", null, null, TEST_USER_URN);
+          opContext, TEST_DOCUMENT_URN, "Content", null, null, TEST_USER_URN, SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("does not exist"));
@@ -408,7 +432,8 @@ public class DocumentServiceTest {
         "New content",
         "Updated Title",
         Arrays.asList("FAQ"),
-        TEST_USER_URN);
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     // Verify batch ingest was called with 2 proposals (info + subTypes)
     verify(mockClient, times(1))
@@ -422,7 +447,12 @@ public class DocumentServiceTest {
 
     // Test updating related entities
     service.updateDocumentRelatedEntities(
-        opContext, TEST_DOCUMENT_URN, Arrays.asList(TEST_ASSET_URN), null, TEST_USER_URN);
+        opContext,
+        TEST_DOCUMENT_URN,
+        Arrays.asList(TEST_ASSET_URN),
+        null,
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     // Verify ingest was called
     verify(mockClient, times(1)).ingestProposal(any(OperationContext.class), any(), eq(false));
@@ -436,7 +466,8 @@ public class DocumentServiceTest {
     final DocumentService service = new DocumentService(mockClient);
 
     // Test moving document to new parent
-    service.moveDocument(opContext, TEST_DOCUMENT_URN, TEST_PARENT_URN, TEST_USER_URN);
+    service.moveDocument(
+        opContext, TEST_DOCUMENT_URN, TEST_PARENT_URN, TEST_USER_URN, SearchIndexMode.SYNC);
 
     // Verify ingest was called
     verify(mockClient, times(1)).ingestProposal(any(OperationContext.class), any(), eq(false));
@@ -450,7 +481,7 @@ public class DocumentServiceTest {
     final DocumentService service = new DocumentService(mockClient);
 
     // Test moving document to root (no parent)
-    service.moveDocument(opContext, TEST_DOCUMENT_URN, null, TEST_USER_URN);
+    service.moveDocument(opContext, TEST_DOCUMENT_URN, null, TEST_USER_URN, SearchIndexMode.SYNC);
 
     // Verify ingest was called
     verify(mockClient, times(1)).ingestProposal(any(OperationContext.class), any(), eq(false));
@@ -465,7 +496,8 @@ public class DocumentServiceTest {
 
     // Test moving document to itself (should fail)
     try {
-      service.moveDocument(opContext, TEST_DOCUMENT_URN, TEST_DOCUMENT_URN, TEST_USER_URN);
+      service.moveDocument(
+          opContext, TEST_DOCUMENT_URN, TEST_DOCUMENT_URN, TEST_USER_URN, SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("Cannot move"));
@@ -480,7 +512,7 @@ public class DocumentServiceTest {
     final DocumentService service = new DocumentService(mockClient);
 
     // Test soft deleting a document
-    service.deleteDocument(opContext, TEST_DOCUMENT_URN);
+    service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC);
 
     // Verify ingestProposal was called to set Status aspect with removed=true
     verify(mockClient, times(1))
@@ -496,7 +528,7 @@ public class DocumentServiceTest {
 
     // Test deleting a non-existent document
     try {
-      service.deleteDocument(opContext, TEST_DOCUMENT_URN);
+      service.deleteDocument(opContext, TEST_DOCUMENT_URN, SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("does not exist"));
@@ -634,7 +666,8 @@ public class DocumentServiceTest {
         opContext,
         TEST_DOCUMENT_URN,
         com.linkedin.knowledge.DocumentState.PUBLISHED,
-        TEST_USER_URN);
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     // Verify ingest was called to update the info
     verify(mockClient, times(1))
@@ -654,7 +687,8 @@ public class DocumentServiceTest {
           opContext,
           TEST_DOCUMENT_URN,
           com.linkedin.knowledge.DocumentState.PUBLISHED,
-          TEST_USER_URN);
+          TEST_USER_URN,
+          SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("does not exist"));
@@ -679,7 +713,8 @@ public class DocumentServiceTest {
     final List<Owner> owners = Arrays.asList(owner1, owner2);
 
     // Test setting ownership
-    service.setDocumentOwnership(opContext, TEST_DOCUMENT_URN, owners, TEST_USER_URN);
+    service.setDocumentOwnership(
+        opContext, TEST_DOCUMENT_URN, owners, TEST_USER_URN, SearchIndexMode.SYNC);
 
     // Verify that ingestProposal was called once with ownership aspect
     verify(mockClient, times(1))
@@ -693,7 +728,11 @@ public class DocumentServiceTest {
 
     // Test setting ownership with empty list (should still work)
     service.setDocumentOwnership(
-        opContext, TEST_DOCUMENT_URN, java.util.Collections.emptyList(), TEST_USER_URN);
+        opContext,
+        TEST_DOCUMENT_URN,
+        java.util.Collections.emptyList(),
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     // Verify that ingestProposal was called once
     verify(mockClient, times(1))
@@ -706,7 +745,8 @@ public class DocumentServiceTest {
     final DocumentService service = new DocumentService(mockClient);
 
     // Test updating document subType
-    service.updateDocumentSubType(opContext, TEST_DOCUMENT_URN, "faq", TEST_USER_URN);
+    service.updateDocumentSubType(
+        opContext, TEST_DOCUMENT_URN, "faq", TEST_USER_URN, SearchIndexMode.SYNC);
 
     // Verify batch ingest was called (subTypes + info with updated lastModified)
     verify(mockClient, times(1))
@@ -722,7 +762,8 @@ public class DocumentServiceTest {
 
     // Test updating subType for a non-existent document
     try {
-      service.updateDocumentSubType(opContext, TEST_DOCUMENT_URN, "faq", TEST_USER_URN);
+      service.updateDocumentSubType(
+          opContext, TEST_DOCUMENT_URN, "faq", TEST_USER_URN, SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("does not exist"));
@@ -829,7 +870,7 @@ public class DocumentServiceTest {
     // Test moving doc1 to have parent doc2 (which would create a circular reference doc1 -> doc2 ->
     // doc1)
     try {
-      service.moveDocument(opContext, doc1Urn, doc2Urn, TEST_USER_URN);
+      service.moveDocument(opContext, doc1Urn, doc2Urn, TEST_USER_URN, SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException for circular reference");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("circular"));
@@ -884,7 +925,8 @@ public class DocumentServiceTest {
             null, // no related documents
             new com.linkedin.knowledge.DocumentSettings()
                 .setShowInGlobalContext(false), // showInGlobalContext = false
-            TEST_USER_URN);
+            TEST_USER_URN,
+            SearchIndexMode.SYNC);
 
     // Verify the URN was created
     Assert.assertNotNull(documentUrn);
@@ -916,7 +958,8 @@ public class DocumentServiceTest {
             null, // no related assets
             null, // no related documents
             null, // showInGlobalContext defaults to true
-            TEST_USER_URN);
+            TEST_USER_URN,
+            SearchIndexMode.SYNC);
 
     // Verify the URN was created
     Assert.assertNotNull(documentUrn);
@@ -937,7 +980,8 @@ public class DocumentServiceTest {
         opContext,
         TEST_DOCUMENT_URN,
         new com.linkedin.knowledge.DocumentSettings().setShowInGlobalContext(false),
-        TEST_USER_URN);
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
 
     // Verify batch ingest was called (settings + documentInfo for lastModified)
     verify(mockClient, times(1))
@@ -957,10 +1001,103 @@ public class DocumentServiceTest {
           opContext,
           TEST_DOCUMENT_URN,
           new com.linkedin.knowledge.DocumentSettings().setShowInGlobalContext(true),
-          TEST_USER_URN);
+          TEST_USER_URN,
+          SearchIndexMode.SYNC);
       Assert.fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       Assert.assertTrue(e.getMessage().contains("does not exist"));
     }
+  }
+
+  // SYNC and ASYNC must apply uniformly to every proposal a mutation emits. Splitting one
+  // document's writes across the two index writers (GMS pre-process vs MAE consumer) lets a
+  // stale create-time search document overwrite later updates (e.g. relatedAssets, status).
+  @Test
+  public void testSyncIndexModeStampsAllProposals() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.createDocument(
+        opContext,
+        "sync-mode-document",
+        List.of("tutorial"),
+        "Title",
+        null,
+        null,
+        "Content",
+        null,
+        null,
+        null,
+        null,
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
+
+    @SuppressWarnings("unchecked")
+    final ArgumentCaptor<List<MetadataChangeProposal>> proposalsCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(mockClient).batchIngestProposals(eq(opContext), proposalsCaptor.capture(), eq(false));
+    for (MetadataChangeProposal proposal : proposalsCaptor.getValue()) {
+      Assert.assertNotNull(
+          proposal.getSystemMetadata(), proposal.getAspectName() + " missing system metadata");
+      Assert.assertEquals(
+          proposal.getSystemMetadata().getProperties().get(Constants.APP_SOURCE),
+          Constants.UI_SOURCE,
+          proposal.getAspectName() + " not marked for synchronous index update");
+    }
+  }
+
+  @Test
+  public void testSyncIndexModeStampsUpdateProposals() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.updateDocumentStatus(
+        opContext,
+        TEST_DOCUMENT_URN,
+        com.linkedin.knowledge.DocumentState.PUBLISHED,
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
+    service.updateDocumentRelatedEntities(
+        opContext,
+        TEST_DOCUMENT_URN,
+        List.of(TEST_ASSET_URN),
+        null,
+        TEST_USER_URN,
+        SearchIndexMode.SYNC);
+
+    final ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(mockClient, times(2)).ingestProposal(eq(opContext), proposalCaptor.capture(), eq(false));
+    for (MetadataChangeProposal proposal : proposalCaptor.getAllValues()) {
+      Assert.assertNotNull(proposal.getSystemMetadata());
+      Assert.assertEquals(
+          proposal.getSystemMetadata().getProperties().get(Constants.APP_SOURCE),
+          Constants.UI_SOURCE);
+    }
+  }
+
+  @Test
+  public void testAsyncIndexModeLeavesProposalsUnstamped() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClientWithInfo();
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DOCUMENT_URN))).thenReturn(true);
+    final DocumentService service = new DocumentService(mockClient);
+
+    service.updateDocumentStatus(
+        opContext,
+        TEST_DOCUMENT_URN,
+        com.linkedin.knowledge.DocumentState.PUBLISHED,
+        TEST_USER_URN,
+        SearchIndexMode.ASYNC);
+
+    final ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(mockClient).ingestProposal(eq(opContext), proposalCaptor.capture(), eq(false));
+    final MetadataChangeProposal proposal = proposalCaptor.getValue();
+    Assert.assertTrue(
+        proposal.getSystemMetadata() == null
+            || proposal.getSystemMetadata().getProperties() == null
+            || !Constants.UI_SOURCE.equals(
+                proposal.getSystemMetadata().getProperties().get(Constants.APP_SOURCE)));
   }
 }

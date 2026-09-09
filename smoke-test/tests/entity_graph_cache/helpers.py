@@ -17,7 +17,6 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 import requests
-from requests.structures import CaseInsensitiveDict
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
@@ -238,13 +237,9 @@ def execute_graphql_no_sync_wait(
     json_payload: Dict[str, Any] = {"query": query}
     if variables:
         json_payload["variables"] = variables
-    headers = CaseInsensitiveDict(
-        {"Authorization": f"Bearer {auth_session.gms_token()}"}
-    )
-    response = auth_session._upstream.post(
+    response = auth_session.raw_post(
         f"{auth_session.frontend_url()}/api/v2/graphql",
         json=json_payload,
-        headers=headers,
     )
     response.raise_for_status()
     res_data = response.json()

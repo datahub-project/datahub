@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import {
     PARAM_DESCRIPTION,
     PARAM_PREVIOUS_DESCRIPTION,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
-import { colors } from '@src/alchemy-components';
 
 import { ChangeEvent, ChangeOperationType } from '@types';
 
@@ -62,22 +61,23 @@ interface Props {
     inheritedPreviousDescription?: string;
 }
 
-const diffViewerStyles = {
-    diffContainer: {
-        fontSize: '12px',
-    },
-    wordAdded: {
-        background: colors.green[1300],
-        color: colors.green[1000],
-    },
-    wordRemoved: {
-        background: colors.red[100],
-        color: colors.red[1000],
-    },
-};
-
 function DocumentationDiff({ changeEvent, inheritedPreviousDescription }: Props) {
     const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
+
+    const diffViewerStyles = {
+        diffContainer: {
+            fontSize: '12px',
+        },
+        wordAdded: {
+            background: theme.colors.bgSurfaceSuccess,
+            color: theme.colors.textSuccess,
+        },
+        wordRemoved: {
+            background: theme.colors.bgSurfaceError,
+            color: theme.colors.textError,
+        },
+    };
     const [expanded, setExpanded] = useState(false);
 
     const newText = stripCodeFences(getParameter(changeEvent.parameters, PARAM_DESCRIPTION));

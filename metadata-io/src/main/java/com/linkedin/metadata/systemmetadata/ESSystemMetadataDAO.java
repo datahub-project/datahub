@@ -92,7 +92,7 @@ public class ESSystemMetadataDAO {
   public void upsertDocument(
       @Nonnull OperationContext opContext, @Nonnull String docId, @Nonnull String document) {
     final UpdateRequest updateRequest =
-        new UpdateRequest(indexConvention.getIndexName(INDEX_NAME), docId)
+        new UpdateRequest(indexConvention.getIndexName(opContext, INDEX_NAME), docId)
             .detectNoop(false)
             .docAsUpsert(true)
             .doc(document, XContentType.JSON)
@@ -106,7 +106,7 @@ public class ESSystemMetadataDAO {
   public DeleteResponse deleteByDocId(
       @Nonnull OperationContext opContext, @Nonnull final String docId) {
     DeleteRequest deleteRequest =
-        new DeleteRequest(indexConvention.getIndexName(INDEX_NAME), docId);
+        new DeleteRequest(indexConvention.getIndexName(opContext, INDEX_NAME), docId);
 
     try {
       final DeleteResponse deleteResponse =
@@ -126,7 +126,7 @@ public class ESSystemMetadataDAO {
 
     final Optional<BulkByScrollResponse> deleteResponse =
         bulkProcessor.deleteByQuery(
-            opContext, finalQuery, indexConvention.getIndexName(INDEX_NAME));
+            opContext, finalQuery, indexConvention.getIndexName(opContext, INDEX_NAME));
 
     return deleteResponse.orElse(null);
   }
@@ -141,7 +141,7 @@ public class ESSystemMetadataDAO {
 
     final Optional<BulkByScrollResponse> deleteResponse =
         bulkProcessor.deleteByQuery(
-            opContext, finalQuery, indexConvention.getIndexName(INDEX_NAME));
+            opContext, finalQuery, indexConvention.getIndexName(opContext, INDEX_NAME));
 
     return deleteResponse.orElse(null);
   }
@@ -173,7 +173,7 @@ public class ESSystemMetadataDAO {
 
     searchRequest.source(searchSourceBuilder);
 
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
 
     try {
       final SearchResponse searchResponse =
@@ -215,7 +215,7 @@ public class ESSystemMetadataDAO {
 
     searchRequest.source(searchSourceBuilder);
 
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
 
     try {
       final SearchResponse searchResponse =
@@ -255,7 +255,7 @@ public class ESSystemMetadataDAO {
     searchSourceBuilder.sort(FIELD_URN).sort(FIELD_ASPECT);
 
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
 
     try {
       return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
@@ -263,6 +263,47 @@ public class ESSystemMetadataDAO {
       log.error("Error while searching by params.", e);
     }
     return null;
+  }
+
+  /**
+   * Count documents matching the query on the system-metadata index.
+   *
+   * <p>Uses size=0 and track_total_hits. Soft-deleted documents are excluded unless {@code
+   * includeSoftDeleted} is true (same semantics as {@link #scroll}).
+   *
+   * @return total hit count, or empty on search failure
+   */
+  @Nonnull
+  public Optional<Long> count(
+      @Nonnull OperationContext opContext,
+      @Nonnull BoolQueryBuilder queryBuilder,
+      boolean includeSoftDeleted) {
+    BoolQueryBuilder query = QueryBuilders.boolQuery().must(queryBuilder);
+    if (!includeSoftDeleted) {
+      query.mustNot(QueryBuilders.termQuery(FIELD_REMOVED, "true"));
+    }
+
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    searchSourceBuilder.query(query);
+    searchSourceBuilder.size(0);
+    searchSourceBuilder.trackTotalHits(true);
+
+    SearchRequest searchRequest = new SearchRequest();
+    searchRequest.source(searchSourceBuilder);
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
+
+    try {
+      SearchResponse response = client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+      if (response == null
+          || response.getHits() == null
+          || response.getHits().getTotalHits() == null) {
+        return Optional.empty();
+      }
+      return Optional.of(response.getHits().getTotalHits().value);
+    } catch (IOException e) {
+      log.error("Error while counting system-metadata documents.", e);
+      return Optional.empty();
+    }
   }
 
   public SearchResponse findByRegistry(
@@ -318,7 +359,7 @@ public class ESSystemMetadataDAO {
 
     searchRequest.source(searchSourceBuilder);
 
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
 
     try {
       final SearchResponse searchResponse =
@@ -343,7 +384,7 @@ public class ESSystemMetadataDAO {
 
     SearchRequest searchRequest = new SearchRequest();
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
 
     try {
       SearchResponse searchResponse =
@@ -382,7 +423,7 @@ public class ESSystemMetadataDAO {
 
     SearchRequest searchRequest = new SearchRequest();
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
 
     try {
       SearchResponse searchResponse =

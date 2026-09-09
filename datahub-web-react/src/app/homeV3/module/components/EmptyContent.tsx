@@ -36,18 +36,25 @@ const IconWrapper = styled.div`
     border: ${borders['1px']} ${(props) => props.theme.colors.border};
     border-radius: ${radius.full};
     margin-bottom: 8px;
+    color: ${(props) => props.theme.colors.icon};
+`;
+
+const Title = styled(Text).attrs({ size: 'lg', weight: 'bold' })`
+    color: ${(props) => props.theme.colors.text};
+`;
+
+const Description = styled(Text)`
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 export default function EmptyContent({ icon, title, description, linkText, linkIcon, onLinkClick }: Props) {
     return (
         <Container>
             <IconWrapper>
-                <Icon icon={icon} color="gray" />
+                <Icon icon={icon} color="icon" />
             </IconWrapper>
-            <Text size="lg" weight="bold" color="gray" colorLevel={600}>
-                {title}
-            </Text>
-            <Text color="gray">{description}</Text>
+            <Title>{title}</Title>
+            <Description>{description}</Description>
             {linkText && onLinkClick && (
                 <Button variant="text" onClick={onLinkClick}>
                     {linkText} <Icon icon={linkIcon ?? ArrowRight} color="primary" size="md" />

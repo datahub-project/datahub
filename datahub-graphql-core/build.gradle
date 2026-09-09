@@ -40,6 +40,19 @@ dependencies {
 }
 
 graphqlCodegen {
+    // The task type is not annotated @CacheableTask, so Gradle reports "Caching has
+    // not been enabled for the task" and re-runs it on every build. Its output is a
+    // pure function of the schema files and the options below, so opt in explicitly
+    // -- same pattern as :datahub-web-react:yarnGenerateCacheable. The schema files
+    // themselves are already registered as @InputFiles by the plugin's own
+    // getActualSchemaPaths()/getGraphqlSchemaPaths() (graphql-java-codegen 5.10.0),
+    // so no separate inputs.files(...) declaration is needed here -- it would only
+    // re-snapshot the same files under a second property name, and since the
+    // plugin's registration has no @PathSensitive annotation (Gradle defaults
+    // @InputFiles to ABSOLUTE), a RELATIVE-sensitivity duplicate can't make the
+    // task's overall cache key portable across checkouts anyway.
+    outputs.cacheIf { true }
+
     // For options: https://github.com/kobylynskyi/graphql-java-codegen/blob/master/docs/codegen-options.md
     graphqlSchemaPaths = fileTree(dir: "${projectDir}/src/main/resources", include: '**/*.graphql').collect { it.absolutePath }
     outputDir = new File("${projectDir}/src/mainGeneratedGraphQL/java")
@@ -49,9 +62,15 @@ graphqlCodegen {
     generateParameterizedFieldsResolvers = false
     modelValidationAnnotation = "@javax.annotation.Nonnull"
     addGeneratedAnnotation = false  // Skips timestamps in generated files which forces re-compile
+    // GraphQL Float is IEEE-754 double precision. Keep most historical Float mappings,
+    // but force structured-property number inputs to Double so values like 410258.29 are
+    // not silently narrowed to float32 (410258.28125) before PDL double storage.
+    // See https://github.com/datahub-project/datahub/issues/19078
     customTypesMapping = [
         Long: "Long",
-        Float: "Float"
+        Float: "Float",
+        "PropertyValueInput.numberValue": "Double",
+        "AllowedValueInput.numberValue": "Double",
     ]
 }
 
@@ -60,5 +79,4 @@ clean {
 }
 
 compileJava.dependsOn 'graphqlCodegen'
-build.dependsOn ':datahub-web-react:graphqlPrettierCheck'
 sourceSets.main.java.srcDir "$projectDir/src/mainGeneratedGraphQL/java"

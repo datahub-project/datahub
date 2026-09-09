@@ -75,6 +75,11 @@ fragment incidentLinkedAssetPreview on Entity {
             ...platformFields
         }
     }
+    ... on MLFeature {
+        name
+        featureNamespace
+        description
+    }
     ... on MLFeatureTable {
         urn
         type
@@ -267,6 +272,30 @@ query getEntityIncidents(
             }
         }
         ... on Chart {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
+            }
+        }
+        ... on MLModel {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
+            }
+        }
+        ... on MLFeature {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
+            }
+        }
+        ... on MLFeatureTable {
             incidents(start: $start, count: $count, state: $state) {
                 ...incidentResultFields
             }

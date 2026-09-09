@@ -6,7 +6,7 @@ import { useGetGlobalViewsSettingsLazyQuery } from '@graphql/app.generated';
 import { useGetMeLazyQuery } from '@graphql/me.generated';
 import { CorpUser, PlatformPrivileges } from '@types';
 
-// TODO: Migrate all usage of useAuthenticatedUser to using this provider.
+// useGetAuthenticatedUser is a thin wrapper over this provider; prefer useUserContext for new call sites.
 
 /**
  * Key used when writing user state to local browser state.

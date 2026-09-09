@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.semantic;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
@@ -30,106 +31,115 @@ public class SemanticIndexConvention implements IndexConvention {
   }
 
   @Override
-  public Optional<String> getPrefix() {
-    return delegate.getPrefix();
+  public Optional<String> getPrefix(@Nonnull OperationFingerprint operation) {
+    return delegate.getPrefix(operation);
   }
 
   @Override
   @Nonnull
-  public String getIndexName(Class<? extends RecordTemplate> documentClass) {
-    return delegate.getIndexName(documentClass);
+  public String getIndexName(
+      @Nonnull OperationFingerprint operation, Class<? extends RecordTemplate> documentClass) {
+    return delegate.getIndexName(operation, documentClass);
   }
 
   @Override
   @Nonnull
-  public String getIndexName(EntitySpec entitySpec) {
-    return delegate.getIndexName(entitySpec);
+  public String getIndexName(@Nonnull OperationFingerprint operation, EntitySpec entitySpec) {
+    return delegate.getIndexName(operation, entitySpec);
   }
 
   @Override
   @Nonnull
-  public String getIndexName(String baseIndexName) {
-    return delegate.getIndexName(baseIndexName);
+  public String getIndexName(@Nonnull OperationFingerprint operation, String baseIndexName) {
+    return delegate.getIndexName(operation, baseIndexName);
   }
 
   @Override
   @Nonnull
-  public String getEntityIndexName(String entityName) {
+  public String getEntityIndexName(@Nonnull OperationFingerprint operation, String entityName) {
     // This is the key method - append _semantic to entity index names
-    return appendSemanticSuffix(delegate.getEntityIndexName(entityName));
+    return appendSemanticSuffix(delegate.getEntityIndexName(operation, entityName));
   }
 
   @Nonnull
   @Override
-  public String getEntityIndexNameSemantic(String entityName) {
-    return delegate.getEntityIndexNameSemantic(entityName);
+  public String getEntityIndexNameSemantic(
+      @Nonnull OperationFingerprint operation, String entityName) {
+    return delegate.getEntityIndexNameSemantic(operation, entityName);
   }
 
   @Override
   @Nonnull
-  public String getTimeseriesAspectIndexName(String entityName, String aspectName) {
-    return delegate.getTimeseriesAspectIndexName(entityName, aspectName);
+  public String getTimeseriesAspectIndexName(
+      @Nonnull OperationFingerprint operation, String entityName, String aspectName) {
+    return delegate.getTimeseriesAspectIndexName(operation, entityName, aspectName);
   }
 
   @Nonnull
   @Override
-  public String getEntityIndexNameV3(String searchGroup) {
-    return delegate.getEntityIndexNameV3(searchGroup);
+  public String getEntityIndexNameV3(@Nonnull OperationFingerprint operation, String searchGroup) {
+    return delegate.getEntityIndexNameV3(operation, searchGroup);
   }
 
   @Nonnull
   @Override
-  public List<String> getAllEntityIndicesPatterns() {
-    return delegate.getAllEntityIndicesPatterns();
+  public List<String> getAllEntityIndicesPatterns(@Nonnull OperationFingerprint operation) {
+    return delegate.getAllEntityIndicesPatterns(operation);
   }
 
   @Nonnull
   @Override
-  public List<String> getV3EntityIndexPatterns() {
-    return delegate.getV3EntityIndexPatterns();
+  public List<String> getV3EntityIndexPatterns(@Nonnull OperationFingerprint operation) {
+    return delegate.getV3EntityIndexPatterns(operation);
   }
 
   @Nonnull
   @Override
   public List<String> getEntityIndicesCleanupPatterns(
+      @Nonnull OperationFingerprint operation,
       @Nonnull EntityIndexConfiguration entityIndexConfiguration) {
-    return delegate.getEntityIndicesCleanupPatterns(entityIndexConfiguration);
+    return delegate.getEntityIndicesCleanupPatterns(operation, entityIndexConfiguration);
   }
 
   @Override
-  public boolean isV2EntityIndex(@Nonnull String indexName) {
+  public boolean isV2EntityIndex(
+      @Nonnull OperationFingerprint operation, @Nonnull String indexName) {
     return false;
   }
 
   @Override
-  public boolean isV3EntityIndex(@Nonnull String indexName) {
+  public boolean isV3EntityIndex(
+      @Nonnull OperationFingerprint operation, @Nonnull String indexName) {
     return false;
   }
 
   @Override
-  public boolean isSemanticEntityIndex(@Nonnull String indexName) {
-    return delegate.isSemanticEntityIndex(indexName);
+  public boolean isSemanticEntityIndex(
+      @Nonnull OperationFingerprint operation, @Nonnull String indexName) {
+    return delegate.isSemanticEntityIndex(operation, indexName);
   }
 
   @Override
   @Nonnull
-  public String getAllTimeseriesAspectIndicesPattern() {
-    return delegate.getAllTimeseriesAspectIndicesPattern();
+  public String getAllTimeseriesAspectIndicesPattern(@Nonnull OperationFingerprint operation) {
+    return delegate.getAllTimeseriesAspectIndicesPattern(operation);
   }
 
   @Override
-  public Optional<String> getEntityName(String indexName) {
-    return delegate.getEntityName(indexName);
+  public Optional<String> getEntityName(@Nonnull OperationFingerprint operation, String indexName) {
+    return delegate.getEntityName(operation, indexName);
   }
 
   @Override
-  public Optional<String> getEntityNameSemantic(String semanticIndexName) {
-    return delegate.getEntityNameSemantic(semanticIndexName);
+  public Optional<String> getEntityNameSemantic(
+      @Nonnull OperationFingerprint operation, String semanticIndexName) {
+    return delegate.getEntityNameSemantic(operation, semanticIndexName);
   }
 
   @Override
-  public Optional<Pair<String, String>> getEntityAndAspectName(String timeseriesAspectIndexName) {
-    return delegate.getEntityAndAspectName(timeseriesAspectIndexName);
+  public Optional<Pair<String, String>> getEntityAndAspectName(
+      @Nonnull OperationFingerprint operation, String timeseriesAspectIndexName) {
+    return delegate.getEntityAndAspectName(operation, timeseriesAspectIndexName);
   }
 
   @Override

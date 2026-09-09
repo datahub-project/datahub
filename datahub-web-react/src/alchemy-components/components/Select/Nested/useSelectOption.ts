@@ -8,6 +8,7 @@ interface Props<OptionType extends NestedSelectOption> {
     children: OptionType[];
     selectableChildren: OptionType[];
     implicitlySelectChildren: boolean;
+    selectChildrenWithParent: boolean;
     areParentsSelectable: boolean;
     addOptions: (nodes: OptionType[]) => void;
     removeOptions: (nodes: OptionType[]) => void;
@@ -23,6 +24,7 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
     selectableChildren,
     areParentsSelectable,
     implicitlySelectChildren,
+    selectChildrenWithParent,
     addOptions,
     removeOptions,
     setSelectedOptions,
@@ -120,15 +122,24 @@ export default function useNestedOption<OptionType extends NestedSelectOption>({
     const selectOption = () => {
         if (areParentsSelectable && option.isParent && implicitlySelectChildren) {
             selectChildrenImplicitly();
+        } else if (isSelected && option.isParent && !selectChildrenWithParent) {
+            // When selectChildrenWithParent is false, deselect only the parent (children stay selected)
+            removeOptions([option]);
         } else if (isPartialSelected || (!isSelected && !areAnyChildrenSelected)) {
             if (!isMultiSelect) {
                 setSelectedOptions([option]);
             } else {
-                const optionsToAdd =
-                    option.isParent && !areParentsSelectable ? selectableChildren : [option, ...selectableChildren];
+                let optionsToAdd: OptionType[];
+                if (option.isParent && !areParentsSelectable) {
+                    optionsToAdd = selectableChildren;
+                } else if (selectChildrenWithParent) {
+                    optionsToAdd = [option, ...selectableChildren];
+                } else {
+                    optionsToAdd = [option];
+                }
                 addOptions(optionsToAdd);
             }
-        } else if (areAllChildrenSelected) {
+        } else if (selectChildrenWithParent && areAllChildrenSelected) {
             removeOptions([option, ...selectableChildren]);
         } else {
             handleOptionChange(option);

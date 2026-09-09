@@ -14,6 +14,7 @@ on:
       - "build & test"
       - "Check Datahub Jars"
       - "check python dependencies"
+      - "CI Cache Warmup"
       - "Dagster Plugin"
       - "DataHub Actions"
       - "DataHub Agent Context"

@@ -25,7 +25,14 @@ RUN addgroup -g 1000 datahub && \
 ARG PYTHON_VERSION
 RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 
+# Cache-bust the python apk layer. Wolfi is a rolling distro, so a cached build layer
+# can keep shipping a stale, vulnerable package set even after upstream fixes it (a
+# stale cache shipped setuptools 70.3.0 / CVE-2025-47273 at /usr/share/python-wheels/;
+# current Wolfi ships a fixed setuptools). Bump WOLFI_PKG_REFRESH to force a fresh
+# `apk add` whenever base packages need refreshing.
+ARG WOLFI_PKG_REFRESH=2026-08-31
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    echo "wolfi pkg refresh: ${WOLFI_PKG_REFRESH}" && \
     apk add --no-cache --update-cache \
     ca-certificates \
     python-${PYTHON_VERSION} \
@@ -52,6 +59,9 @@ RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 && \
 USER datahub
 WORKDIR $HOME
 RUN uv venv --python "${PYTHON_VERSION}"
+# Pre-create as datahub so BuildKit cache mounts at $HOME/.cache/uv do not leave
+# the parent root-owned (siblings like puccinialin then hit PermissionError).
+RUN mkdir -p $HOME/.cache
 ENV VIRTUAL_ENV=$HOME/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
@@ -305,7 +315,7 @@ ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
 
 USER datahub
 RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
-    echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+    printf -- '-e /metadata-ingestion/\n-e /datahub-actions/[all]\n' | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
@@ -390,7 +400,7 @@ ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
 
 USER datahub
 RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
-    echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+    printf -- '-e /metadata-ingestion/\n-e /datahub-actions/[all]\n' | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
@@ -469,7 +479,7 @@ ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
 USER datahub
 # Install only datahub-actions, NOT metadata-ingestion
 RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
-    echo "-e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+    printf -- '-e /datahub-actions/[all]\n' | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions

@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
+import com.linkedin.datahub.upgrade.system.aliases.BackfillDatasetAliases;
 import com.linkedin.datahub.upgrade.system.assertions.GenerateAssertionEntityField;
 import com.linkedin.datahub.upgrade.system.assertions.GenerateAssertionFieldPath;
 import com.linkedin.datahub.upgrade.system.assertions.MigrateAssertionNoteToAspect;
@@ -10,6 +11,7 @@ import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePath
 import com.linkedin.datahub.upgrade.system.dataplatforminstances.IngestDataPlatformInstances;
 import com.linkedin.datahub.upgrade.system.dataplatforms.IndexDataPlatforms;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
+import com.linkedin.datahub.upgrade.system.dataproducts.ResyncDataProductAssets;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
 import com.linkedin.datahub.upgrade.system.homepagelinks.MigrateHomePageLinks;
@@ -82,6 +84,17 @@ public class NonBlockingConfigs {
   }
 
   @Bean
+  public NonBlockingSystemUpgrade resyncDataProductAssets(
+      final OperationContext opContext,
+      EntityService<?> entityService,
+      SearchService searchService,
+      @Value("${systemUpdate.dataProductAssets.reprocess.enabled}") final boolean reprocessEnabled,
+      @Value("${systemUpdate.dataProductAssets.batchSize}") final Integer batchSize) {
+    return new ResyncDataProductAssets(
+        opContext, entityService, searchService, reprocessEnabled, batchSize);
+  }
+
+  @Bean
   public NonBlockingSystemUpgrade backfillIcebergBrowsePathsV2(
       final OperationContext opContext,
       EntityService<?> entityService,
@@ -144,10 +157,25 @@ public class NonBlockingConfigs {
   }
 
   @Bean
+  public NonBlockingSystemUpgrade backfillDatasetAliases(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      final SearchService searchService,
+      @Value("${systemUpdate.datasetAliases.enabled}") final boolean enabled,
+      @Value("${systemUpdate.datasetAliases.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.datasetAliases.delayMs}") final Integer delayMs,
+      // SYSTEM_UPDATE_DATASET_ALIASES_REPROCESS (not ..._REPROCESS_ENABLED)
+      @Value("${systemUpdate.datasetAliases.reprocess.enabled}") final boolean reprocessEnabled) {
+    return new BackfillDatasetAliases(
+        opContext, entityService, searchService, enabled, batchSize, delayMs, reprocessEnabled);
+  }
+
+  @Bean
   public NonBlockingSystemUpgrade schemaFieldsFromSchemaMetadata(
       @Qualifier("systemOperationContext") final OperationContext opContext,
       final EntityService<?> entityService,
       final AspectDao aspectDao,
+      final ConfigurationProvider configurationProvider,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED
       @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.enabled}") final boolean enabled,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE
@@ -155,9 +183,27 @@ public class NonBlockingConfigs {
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_DELAY_MS
       @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.delayMs}") final Integer delayMs,
       // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_LIMIT
-      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.limit}") final Integer limit) {
+      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.limit}") final Integer limit,
+      // SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_REPROCESS
+      @Value("${systemUpdate.schemaFieldsFromSchemaMetadata.reprocess.enabled}")
+          final boolean reprocessEnabled) {
+    var schemaFieldSideEffects =
+        configurationProvider.getMetadataChangeProposal().getSideEffects().getSchemaField();
+    boolean domainEnabled =
+        schemaFieldSideEffects != null && schemaFieldSideEffects.isDomainEnabled();
+    boolean ownershipEnabled =
+        schemaFieldSideEffects != null && schemaFieldSideEffects.isOwnershipEnabled();
     return new GenerateSchemaFieldsFromSchemaMetadata(
-        opContext, entityService, aspectDao, enabled, batchSize, delayMs, limit);
+        opContext,
+        entityService,
+        aspectDao,
+        enabled,
+        batchSize,
+        delayMs,
+        limit,
+        reprocessEnabled,
+        domainEnabled,
+        ownershipEnabled);
   }
 
   @Bean

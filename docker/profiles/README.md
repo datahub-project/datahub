@@ -20,7 +20,6 @@ Alternatively, you can use the gradle tasks defined in `docker/build.gradle`:
 # Run from the project root
 ./gradlew quickstart          # Uses the 'quickstart' profile
 ./gradlew quickstartDebug     # Uses the 'debug' profile
-./gradlew quickstartCypress   # Uses the 'debug' profile with custom project name 'dh-cypress'
 ```
 
 Use Control-c (`^c`) to terminate the running system. This will automatically stop all running containers.
@@ -31,7 +30,6 @@ To remove the containers and volumes, you can use the gradle nuke tasks:
 # Remove containers and volumes for specific projects
 ./gradlew quickstartNuke          # For default project (datahub)
 ./gradlew quickstartDebugNuke     # For debug project (datahub)
-./gradlew quickstartCypressNuke   # For cypress project (dh-cypress)
 ```
 
 Alternatively, you can use docker compose directly:
@@ -109,18 +107,6 @@ Run everything except for the `frontend` component. Useful for running just a lo
 ### `quickstart-frontend`
 
 Runs everything except for the GMS. Useful for running just a local (non-docker) GMS instance.
-
-### `quickstartCypress`
-
-Runs the same configuration as `debug` but uses a custom project name (`dh-cypress`) instead of the default `datahub` project name. This is useful for Cypress testing scenarios where you need to isolate the docker compose project from other running instances.
-
-To load test data for Cypress testing, you can use the `:smoke-test:cypressData` gradle task:
-
-```bash
-./gradlew :smoke-test:cypressData
-```
-
-This will populate the running DataHub instance with sample data suitable for Cypress testing scenarios.
 
 ### Development Profiles Table
 

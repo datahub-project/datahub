@@ -12,10 +12,11 @@ import com.linkedin.metadata.config.retention.RetentionBufferProperties;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.retention.RetentionContextResolver;
+import com.linkedin.metadata.entity.retention.RetentionKey;
 import com.linkedin.metadata.entity.retention.buffer.CoalesceRetentionBuffer;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
 import com.linkedin.metadata.entity.retention.buffer.RetentionDrainer;
-import com.linkedin.metadata.entity.retention.buffer.RetentionKey;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
@@ -119,8 +120,9 @@ public class RetentionBufferFactory {
       havingValue = "true")
   @Nonnull
   public RetentionBuffer retentionBuffer(
-      CoalesceBuffer<RetentionKey, Long> retentionCoalesceBuffer) {
-    return new CoalesceRetentionBuffer(retentionCoalesceBuffer);
+      CoalesceBuffer<RetentionKey, Long> retentionCoalesceBuffer,
+      RetentionContextResolver retentionContextResolver) {
+    return new CoalesceRetentionBuffer(retentionCoalesceBuffer, retentionContextResolver);
   }
 
   @Bean
@@ -136,6 +138,7 @@ public class RetentionBufferFactory {
       @Qualifier("retentionService") RetentionService<ChangeItemImpl> retentionService,
       ConfigurationProvider configurationProvider,
       @Qualifier("systemOperationContext") @Lazy OperationContext systemOperationContext,
+      RetentionContextResolver retentionContextResolver,
       @Nullable MetricUtils metricUtils) {
     if (!(retentionService instanceof EbeanRetentionService)) {
       // Only EbeanRetentionService overrides applyRetentionBatchWithPolicyDefaults to apply each
@@ -153,6 +156,7 @@ public class RetentionBufferFactory {
         retentionCoalesceBuffer,
         retentionService,
         systemOperationContext,
+        retentionContextResolver,
         props.getDrainBatchSize(),
         props.getDrainLockLeaseMs(),
         true,

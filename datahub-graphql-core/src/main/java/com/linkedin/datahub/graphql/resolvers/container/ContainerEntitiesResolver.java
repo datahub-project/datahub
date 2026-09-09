@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.loaders.ContainerEntityCountsBatchLoader;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.util.SelectionSetUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
@@ -23,8 +24,6 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import graphql.schema.DataFetchingFieldSelectionSet;
-import graphql.schema.SelectedField;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -109,18 +108,16 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
   }
 
   /**
-   * True when the caller reads nothing but the total. Uses the flattened selection set so fragment
-   * spreads are resolved, and treats an empty selection as ineligible rather than as trivially
-   * count-only.
+   * True when the caller reads nothing but the total.
+   *
+   * <p>Read from the query AST rather than {@code environment.getSelectionSet()}, which would
+   * normalize the whole operation and can trip graphql-java's 100k field cap on the production
+   * search query — see {@link SelectionSetUtils}. The check over-approximates what is selected,
+   * which errs toward the direct path; that is the safe direction, since under-approximating would
+   * serve counts to a caller that asked for hits.
    */
   private static boolean isCountOnlySelection(final DataFetchingEnvironment environment) {
-    final DataFetchingFieldSelectionSet selectionSet = environment.getSelectionSet();
-    if (selectionSet == null) {
-      return false;
-    }
-    final List<SelectedField> fields = selectionSet.getImmediateFields();
-    return !fields.isEmpty()
-        && fields.stream().allMatch(field -> COUNT_ONLY_FIELDS.contains(field.getName()));
+    return SelectionSetUtils.selectsOnly(environment, COUNT_ONLY_FIELDS);
   }
 
   private CompletableFuture<SearchResults> resolveCountFromLoader(

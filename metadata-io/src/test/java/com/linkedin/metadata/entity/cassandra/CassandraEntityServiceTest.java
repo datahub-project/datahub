@@ -11,12 +11,14 @@ import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.AspectIngestionUtils;
 import com.linkedin.metadata.CassandraTestUtils;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.EntityServiceTest;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.entity.retention.RetentionTestUtils;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
@@ -24,6 +26,7 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.service.UpdateIndicesService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
@@ -92,10 +95,20 @@ public class CassandraEntityServiceTest
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(_aspectDao, _mockProducer, false, preProcessHooks, true);
+        new EntityServiceImpl(
+            _aspectDao,
+            _mockProducer,
+            preProcessHooks,
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(true),
+            mock(MetricUtils.class));
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     CassandraRetentionService realRetentionService =
-        new CassandraRetentionService(_entityServiceImpl, _currentSession, 1000);
+        new CassandraRetentionService(
+            _entityServiceImpl,
+            _currentSession,
+            1000,
+            RetentionTestUtils.systemEntityClient(
+                _entityServiceImpl, _mockProducer, mock(MetricUtils.class)));
     _retentionService = (CassandraRetentionService) spy(realRetentionService);
     doReturn(20)
         .when(_retentionService)

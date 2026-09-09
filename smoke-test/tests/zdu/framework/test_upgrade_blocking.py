@@ -8,11 +8,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.context import TestContext
 from tests.zdu.framework.phases.upgrade_blocking import (
     UpgradeBlockingPhase,
     parse_indices_state,
 )
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 class TestParseIndicesState:
@@ -102,9 +105,10 @@ def docker() -> MagicMock:
 @pytest.fixture
 def mysql() -> MagicMock:
     m = MagicMock()
-    # New canonical lookup (post-plan-15) — find BuildIndicesIncremental_<version>
-    # row by URN prefix, parse flat-dotted result keys. Default: no row found.
-    m.find_upgrade_result_by_urn_prefix.return_value = (None, None)
+    # Canonical lookup — find the BuildIndicesIncremental_<version> row this
+    # phase's own job wrote, matched on its DATAHUB_REVISION suffix, and parse
+    # the flat-dotted result keys. Default: no row found.
+    m.find_upgrade_result_by_urn_prefix_suffix.return_value = (None, None)
     # Legacy lookup (kept for backward compat; not used by _capture_indices_state).
     m.find_upgrade_result_with_field.return_value = (None, None)
     return m
@@ -136,7 +140,7 @@ class TestUpgradeBlockingPhaseHappyPath:
         )
         # Mock the canonical BuildIndicesIncremental_* row in the new
         # flat-dotted-key shape that `_parse_flat_indices_state` unflattens.
-        mysql.find_upgrade_result_by_urn_prefix.return_value = (
+        mysql.find_upgrade_result_by_urn_prefix_suffix.return_value = (
             "BuildIndicesIncremental_v1.5.0rc1-0",
             {
                 "result": {

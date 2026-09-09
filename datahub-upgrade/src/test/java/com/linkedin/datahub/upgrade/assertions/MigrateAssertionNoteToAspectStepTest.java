@@ -129,7 +129,8 @@ public class MigrateAssertionNoteToAspectStepTest {
 
     step.executable().apply(ctx);
 
-    verify(mockAspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    verify(mockAspectDao)
+        .streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
     RestoreIndicesArgs args = argsCaptor.getValue();
     assertEquals(args.aspectNames().get(0), ASSERTION_INFO_ASPECT_NAME);
     assertEquals(args.batchSize(), 10);
@@ -238,8 +239,12 @@ public class MigrateAssertionNoteToAspectStepTest {
     @SuppressWarnings("unchecked")
     PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
     when(mockAspectDao.streamAspectBatches(
-            any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(mockStream);
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
     when(mockStream.partition(anyInt())).thenReturn(Stream.empty());
   }
 

@@ -64,6 +64,7 @@
     "prop.platformInstanceDesc": "L'istanza specifica della piattaforma in cui si trova l'asset.",
     "prop.softDeleted": "Eliminato temporaneamente",
     "prop.softDeletedDesc": "Indica se l'asset è stato eliminato temporaneamente.",
+    "prop.structuredPropertyGroup": "Proprietà strutturata",
     "prop.subType": "Sottotipo",
     "prop.subTypeDesc": "Il sottotipo dell'asset (ad es. Tabella, Vista, Topic).",
     "publicTab": "Viste pubbliche",

@@ -350,6 +350,12 @@ def main():
             taskName="githubActionsPrettierWriteChanged",
             filePattern="^\\.github/.*\\.(yml|yaml)$"
         ),
+        Project(
+            path="datahub-web-react",
+            type=ProjectType.PRETTIER,
+            taskName="graphqlPrettierWriteChanged",
+            filePattern="^datahub-graphql-core/src/main/resources/.*\\.graphql$",
+        ),
     ]
     projects = [*prettier_projects, *finder.find_all_projects()]
 

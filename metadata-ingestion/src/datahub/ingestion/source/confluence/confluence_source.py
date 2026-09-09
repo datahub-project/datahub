@@ -16,7 +16,6 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -47,10 +46,8 @@ from datahub.ingestion.source.unstructured.document_builder import (
     DocumentEntityBuilder,
 )
 from datahub.metadata.schema_classes import (
-    DataPlatformInfoClass,
     DataPlatformInstanceClass,
     DocumentStateClass,
-    PlatformTypeClass,
 )
 from datahub.sdk.document import Document
 
@@ -68,7 +65,7 @@ FOLDER_SUBTYPE = "Folder"
 
 @platform_name("Confluence")
 @config_class(ConfluenceSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -182,7 +179,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
         # Content filtering
         filtering:
-          min_text_length: 100
+          min_text_length: 100  # optional; default 0 embeds all non-empty pages
           include_empty_docs: false
 
         # Stateful ingestion
@@ -945,14 +942,21 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         # Extract text content
         text = self._extract_text_from_page(page)
 
-        # Check minimum text length
-        if len(text) < self.config.filtering.min_text_length:
-            # Exempt parent pages from text length filter
+        # Drop empty pages, and pages below the optional minimum-length knob.
+        # The empty check is independent of min_text_length so that zeroing the
+        # knob (the default) still drops truly empty pages rather than trying to
+        # embed an empty string.
+        is_empty = self.config.filtering.skip_empty_documents and not text
+        too_short = len(text) < self.config.filtering.min_text_length
+        if is_empty or too_short:
+            # Exempt parent pages: they anchor the hierarchy even when sparse.
             if page_id not in parent_page_ids:
-                self.report.report_page_skipped(
-                    page_id,
-                    f"Text length {len(text)} < minimum {self.config.filtering.min_text_length}",
+                reason = (
+                    "No text content"
+                    if is_empty
+                    else f"Text length {len(text)} < minimum {self.config.filtering.min_text_length}"
                 )
+                self.report.report_page_skipped(page_id, reason)
                 return
 
         # Extract metadata
@@ -1078,10 +1082,24 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         # Get document URN for chunking/embedding
         document_urn = f"urn:li:document:{doc_id}"
 
+        from datahub.ingestion.source.unstructured.chunking_source import (
+            SkipMarkerReadError,
+            compute_source_text_sha256,
+        )
+
         try:
             yield from self.chunking_source.process_elements_inline(
-                document_urn=document_urn, elements=elements
+                document_urn=document_urn,
+                elements=elements,
+                # Hash the exact text placed on DocumentInfo above, so the embeddings'
+                # sourceTextSha256 byte-matches the server-stamped resolvedTextSha256.
+                source_text_sha256=compute_source_text_sha256(text),
             )
+        except SkipMarkerReadError as e:
+            # Do not record this page as processed: the skip marker was not written and
+            # must be retried next run rather than swallowed like an embed failure.
+            logger.warning(f"Skip marker deferred for {document_urn}: {e}")
+            return
         except RuntimeError as e:
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
@@ -1110,20 +1128,6 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         Yields:
             MetadataWorkUnit for all entities
         """
-        # Emit platform metadata with Confluence logo
-        platform_urn = make_data_platform_urn(self.platform)
-        platform_info = DataPlatformInfoClass(
-            name=self.platform,
-            type=PlatformTypeClass.OTHERS,
-            datasetNameDelimiter=".",
-            displayName="Confluence",
-            logoUrl="https://cdn.worldvectorlogo.com/logos/confluence-1.svg",
-        )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=platform_urn,
-            aspect=platform_info,
-        ).as_workunit()
-
         # Track all page IDs being ingested for parent validation
         all_pages: List[Dict[str, Any]] = []
 

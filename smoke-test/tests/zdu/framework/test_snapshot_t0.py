@@ -6,8 +6,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.zdu.framework.context import TestContext
 from tests.zdu.framework.phases.snapshot_t0 import SnapshotT0Phase
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 @pytest.fixture

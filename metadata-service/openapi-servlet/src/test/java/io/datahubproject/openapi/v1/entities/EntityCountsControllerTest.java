@@ -17,6 +17,9 @@ import com.linkedin.metadata.authorization.ApiOperation;
 import com.linkedin.metadata.systemmetadata.KeyAspectEntityCountEntry;
 import com.linkedin.metadata.systemmetadata.KeyAspectEntityCountResult;
 import com.linkedin.metadata.systemmetadata.KeyAspectEntityCountService;
+import com.linkedin.metadata.systemmetadata.PlatformEntityCountEntry;
+import com.linkedin.metadata.systemmetadata.PlatformEntityCountResult;
+import com.linkedin.metadata.systemmetadata.PlatformEntityCounts;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -36,6 +39,7 @@ public class EntityCountsControllerTest {
   private MockMvc mockMvc;
   private AuthorizerChain mockAuthorizerChain;
   private KeyAspectEntityCountService keyAspectEntityCountService;
+  private PlatformEntityCounts platformEntityCounts;
   private OperationContext operationContext;
   private MockedStatic<AuthUtil> authUtilMock;
   private MockedStatic<AuthenticationContext> authContextMock;
@@ -44,6 +48,7 @@ public class EntityCountsControllerTest {
   public void setup() {
     mockAuthorizerChain = mock(AuthorizerChain.class);
     keyAspectEntityCountService = mock(KeyAspectEntityCountService.class);
+    platformEntityCounts = mock(PlatformEntityCounts.class);
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
     Authentication authentication = mock(Authentication.class);
 
@@ -53,7 +58,10 @@ public class EntityCountsControllerTest {
 
     EntityCountsController controller =
         new EntityCountsController(
-            mockAuthorizerChain, operationContext, keyAspectEntityCountService);
+            mockAuthorizerChain,
+            operationContext,
+            keyAspectEntityCountService,
+            platformEntityCounts);
     mockMvc =
         MockMvcBuilders.standaloneSetup(controller)
             .setControllerAdvice(new GlobalControllerExceptionHandler())
@@ -161,6 +169,70 @@ public class EntityCountsControllerTest {
         .andExpect(jsonPath("$.softDeletedTotal").value(2))
         .andExpect(jsonPath("$.totalCount").value(12))
         .andExpect(jsonPath("$.computedAtMillis").exists());
+  }
+
+  @Test
+  public void getEntityCountsGroupByPlatformReturnsPlatformRows() throws Exception {
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorized(
+                    any(OperationContext.class), eq(ApiGroup.COUNTS), eq(ApiOperation.READ)))
+        .thenReturn(true);
+
+    PlatformEntityCountResult result =
+        PlatformEntityCountResult.builder()
+            .counts(
+                List.of(
+                    PlatformEntityCountEntry.builder()
+                        .entityType("dataset")
+                        .platform("snowflake")
+                        .activeCount(10L)
+                        .softDeletedCount(2L)
+                        .build(),
+                    PlatformEntityCountEntry.builder()
+                        .entityType("dataset")
+                        .platform(PlatformEntityCounts.NO_PLATFORM)
+                        .activeCount(1L)
+                        .softDeletedCount(0L)
+                        .build()))
+            .requestedTypes(List.of("dataset"))
+            .computedAt(Instant.parse("2026-07-07T15:00:00Z"))
+            .build();
+    when(platformEntityCounts.getCountsByPlatform(
+            any(OperationContext.class), eq(List.of("dataset"))))
+        .thenReturn(result);
+
+    mockMvc
+        .perform(
+            get("/openapi/v1/entities/counts?types=dataset&groupBy=platform&includeTotal=true")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.counts[0].entityType").value("dataset"))
+        .andExpect(jsonPath("$.counts[0].platform").value("snowflake"))
+        .andExpect(jsonPath("$.counts[0].activeCount").value(10))
+        .andExpect(jsonPath("$.counts[0].softDeletedCount").value(2))
+        .andExpect(jsonPath("$.counts[0].totalCount").value(12))
+        .andExpect(jsonPath("$.counts[1].platform").value(PlatformEntityCounts.NO_PLATFORM))
+        .andExpect(jsonPath("$.activeTotal").value(11))
+        .andExpect(jsonPath("$.softDeletedTotal").value(2))
+        .andExpect(jsonPath("$.totalCount").value(13));
+  }
+
+  @Test
+  public void getEntityCountsUnsupportedGroupByReturnsBadRequest() throws Exception {
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorized(
+                    any(OperationContext.class), eq(ApiGroup.COUNTS), eq(ApiOperation.READ)))
+        .thenReturn(true);
+
+    mockMvc
+        .perform(
+            get("/openapi/v1/entities/counts?types=dataset&groupBy=foo")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
   }
 
   @Test

@@ -10,9 +10,9 @@ import { useAppConfig } from '@src/app/useAppConfig';
 import { GetPresignedUploadUrlDocument } from '@graphql/app.generated';
 import { UploadDownloadScenario } from '@types';
 
-// Mock the resolveRuntimePath utility
+// Pass-through: production resolveRuntimePath only prefixes a deploy base path, not origin.
 vi.mock('@utils/runtimeBasePath', () => ({
-    resolveRuntimePath: vi.fn((path) => `http://example.com${path}`),
+    resolveRuntimePath: vi.fn((path: string) => path),
 }));
 
 // Mock the useAppConfig hook
@@ -108,7 +108,7 @@ describe('useFileUpload', () => {
 
         await waitFor(async () => {
             const url = await uploadPromise;
-            expect(url).toBe('http://example.com/openapi/v1/files/product_assets/file-123');
+            expect(url).toBe(`${window.location.origin}/openapi/v1/files/product_assets/file-123`);
         });
 
         // Verify fetch was called with correct parameters
@@ -121,6 +121,68 @@ describe('useFileUpload', () => {
         });
         expect(mockCreateFile).toHaveBeenCalledTimes(1);
         expect(mockCreateFile).toHaveBeenCalledWith(mockFileId, mockFile);
+    });
+
+    it('should URL-encode spaces in fileId when returning the file URL', async () => {
+        const mockFile = new File(['test content'], 'Adstra Data Specs.pdf', { type: 'application/pdf' });
+        const mockUploadUrl = 'https://s3.example.com/upload-url';
+        const mockFileId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890__Adstra Data Specs.pdf';
+
+        const mocks = [
+            {
+                request: {
+                    query: GetPresignedUploadUrlDocument,
+                    variables: {
+                        input: {
+                            scenario: UploadDownloadScenario.AssetDocumentation,
+                            assetUrn: mockAssetUrn,
+                            contentType: 'application/pdf',
+                            fileName: 'Adstra Data Specs.pdf',
+                        },
+                    },
+                },
+                result: {
+                    data: {
+                        getPresignedUploadUrl: {
+                            url: mockUploadUrl,
+                            fileId: mockFileId,
+                        },
+                    },
+                },
+            },
+        ];
+
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            statusText: 'OK',
+        });
+
+        const { result } = renderHook(
+            () =>
+                useFileUpload({
+                    scenario: UploadDownloadScenario.AssetDocumentation,
+                    assetUrn: mockAssetUrn,
+                }),
+            {
+                wrapper: ({ children }) => (
+                    <MockedProvider mocks={mocks} addTypename={false}>
+                        {children}
+                    </MockedProvider>
+                ),
+            },
+        );
+
+        mockCreateFile.mockResolvedValue(undefined);
+
+        const uploadPromise = result.current.uploadFile?.(mockFile);
+
+        await waitFor(async () => {
+            const url = await uploadPromise;
+            // Literal %20 so the assertion does not share encodeURIComponent with the hook under test.
+            expect(url).toBe(
+                `${window.location.origin}/openapi/v1/files/product_assets/a1b2c3d4-e5f6-7890-abcd-ef1234567890__Adstra%20Data%20Specs.pdf`,
+            );
+        });
     });
 
     it('should throw an error if presigned URL is not returned', async () => {
@@ -286,7 +348,7 @@ describe('useFileUpload', () => {
 
         await waitFor(async () => {
             const url = await uploadPromise;
-            expect(url).toBe('http://example.com/openapi/v1/files/product_assets/file-456');
+            expect(url).toBe(`${window.location.origin}/openapi/v1/files/product_assets/file-456`);
         });
 
         // Verify fetch was called with correct content type
@@ -358,7 +420,7 @@ describe('useFileUpload', () => {
 
         await waitFor(async () => {
             const url = await uploadPromise;
-            expect(url).toBe('http://example.com/openapi/v1/files/product_assets/file-789');
+            expect(url).toBe(`${window.location.origin}/openapi/v1/files/product_assets/file-789`);
         });
         expect(mockCreateFile).toHaveBeenCalledTimes(1);
         expect(mockCreateFile).toHaveBeenCalledWith(mockFileId, mockFile);

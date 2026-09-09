@@ -7,7 +7,7 @@ description: "Local development guide for DataHub contributors, including system
 
 ## Requirements
 
-- [Java 21 JDK](https://openjdk.org/projects/jdk/21/) for building (Docker images run Java 25 LTS at runtime)
+- [java 25 JDK](https://openjdk.org/projects/jdk/21/) for building (Docker images run Java 25 LTS at runtime)
 - [Python 3.11](https://www.python.org/downloads/latest/python3.11/)
 - [Docker](https://www.docker.com/)
 - [Node 22.x](https://nodejs.org/en/about/previous-releases)
@@ -21,7 +21,7 @@ On macOS, these can be installed using [Homebrew](https://brew.sh/).
 
 ```shell
 # Install Java
-brew install openjdk@21
+brew install openjdk@25
 
 # Install Python
 brew install python@3.11  # you may need to add this to your PATH
@@ -474,7 +474,17 @@ export DATAHUB_NETRC_PATH=/path/to/.netrc
 ```
 
 See `docker/snippets/uv/.netrc.example` for the full format
-and examples. The file is mounted into the build via a Docker BuildKit secret — it is **never
+and examples. Validate a file with:
+
+```bash
+python3 docker/snippets/uv/validate_netrc.py docker/snippets/uv/.netrc
+```
+
+Gradle runs the same check automatically when a netrc file is present (Docker image builds
+and local `uv` installs). A common failure mode is a blank line before later `#`-comment
+lines — Python's netrc parser then fails and uv reports opaque "Missing credentials" errors.
+
+The file is mounted into the build via a Docker BuildKit secret — it is **never
 written to any image layer** and will not appear in `docker history` output.
 
 :::warning Credentials in URLs
@@ -603,7 +613,6 @@ To completely remove containers and volumes for a specific project, you can use 
 ```shell
 # Remove containers and volumes for specific projects
 ./gradlew quickstartDebugNuke     # For debug project
-./gradlew quickstartCypressNuke   # For cypress project (dh-cypress)
 ```
 
 > **Note**: These are Gradle nuke tasks. For CLI-based cleanup, see `datahub docker nuke` in the [quickstart guide](quickstart.md).
@@ -703,11 +712,11 @@ You're probably using a Java version that's too new for gradle. Run the followin
 java --version
 ```
 
-While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 21](https://openjdk.org/projects/jdk/21/) (aka Java 21).
+While it may be possible to build and run DataHub using newer versions of Java, we currently only support [java 25](https://openjdk.org/projects/jdk/21/) (aka java 25).
 
 #### Getting `cannot find symbol` error for `javax.annotation.Generated`
 
-Similar to the previous issue, please use Java 21 to build the project.
+Similar to the previous issue, please use java 25 to build the project.
 You can install multiple version of Java on a single machine and switch between them using the `JAVA_HOME` environment variable. See [this document](https://docs.oracle.com/cd/E21454_01/html/821-2531/inst_jdk_javahome_t.html) for more details.
 
 #### `:metadata-models:generateDataTemplate` task fails with `java.nio.file.InvalidPathException: Illegal char <:> at index XX` or `Caused by: java.lang.IllegalArgumentException: 'other' has different root` error

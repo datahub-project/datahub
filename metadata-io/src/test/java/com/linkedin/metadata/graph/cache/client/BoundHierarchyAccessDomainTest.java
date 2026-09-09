@@ -180,6 +180,26 @@ public class BoundHierarchyAccessDomainTest {
   }
 
   @Test
+  public void orderedParentsSkipsCacheWhenKnownGraphUnbound() {
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.DOMAIN))
+        .thenReturn(Optional.empty());
+    when(entityGraphCache.bindingForPolicyField("DOMAIN")).thenReturn(Optional.empty());
+
+    Map<Urn, Urn> parentByDomain = new LinkedHashMap<>();
+    parentByDomain.put(GRANDCHILD, CHILD);
+    parentByDomain.put(CHILD, ROOT);
+    parentByDomain.put(ROOT, null);
+    mockDomainProperties(parentByDomain);
+
+    List<Urn> parents =
+        BoundHierarchyAccess.orderedParents(opContext, domainSpec(opContext), GRANDCHILD, 10);
+    assertEquals(parents, List.of(CHILD, ROOT));
+    verify(entityGraphCache, never())
+        .walkOrderedForwardAncestors(any(), any(), any(), anyInt(), any());
+    verify(entityGraphCache, never()).expand(any(), any(), any(), any(), anyInt(), anyInt(), any());
+  }
+
+  @Test
   public void resolveDirectChildDomainUrnsUsesMaxDepthOneReverseExpand() {
     when(entityGraphCache.expand(
             eq("domain"),

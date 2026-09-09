@@ -14,6 +14,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.metadata.client.SystemJavaEntityClient;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
@@ -186,13 +187,14 @@ public class SystemUpdateConfig {
         new EntityServiceImpl(
             aspectDao,
             eventProducer,
-            featureFlags.isAlwaysEmitChangeLog(),
-            systemUpdateCDCMode, // Use system update CDC mode
             featureFlags.getPreProcessHooks(),
-            ebeanMaxTransactionRetry,
-            enableBrowsePathV2,
-            featureFlags.isPostCommitRetentionEnabled(),
-            null); // metricUtils
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(featureFlags.isAlwaysEmitChangeLog())
+                .setCdcModeChangeLog(systemUpdateCDCMode)
+                .setRetry(ebeanMaxTransactionRetry)
+                .setEnableBrowseV2(enableBrowsePathV2)
+                .setPostCommitRetentionEnabled(featureFlags.isPostCommitRetentionEnabled()),
+            null);
 
     // Usually NO_OP in upgrade (see method javadoc). Attaches if a buffer bean exists.
     entityService.setRetentionBuffer(retentionBufferProvider.getIfAvailable());

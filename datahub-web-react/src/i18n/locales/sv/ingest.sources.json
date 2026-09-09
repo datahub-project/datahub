@@ -60,7 +60,7 @@
     "sources.preset.description": "Importera Charts och Dashboards från Preset.",
     "sources.presto.description": "Importera Tables, Databases, Schemas och statistik från Presto.",
     "sources.qlikSense.description": "Importera Spaces, Apps, Sheets, Charts och Datasets från Qlik Sense.",
-    "sources.rdf.description": "Importera Glossary-termer, termgrupper och relationer från RDF/OWL-ontologier (SKOS, Turtle, RDF/XML).",
+    "sources.rdf.description": "Importera termer, termgrupper och relationer från RDF/OWL-ontologier (SKOS, Turtle, RDF/XML).",
     "sources.redshift.description": "Importera Tables, Views, Databases, Schemas, Lineage, Queries och statistik från Redshift.",
     "sources.s3.description": "Importera Datasets, Folders, S3 Buckets och härledda scheman från S3.",
     "sources.sac.description": "Importera Stories, Applications och Models från SAP Analytics Cloud.",

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Redirect, Route, Switch } from 'react-router-dom';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityPage as EntityPageV2 } from '@app/entityV2/EntityPage';
 import { GlossaryEntityContext } from '@app/entityV2/shared/GlossaryEntityContext';
@@ -13,7 +14,6 @@ import {
 } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseLayout.components';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
 import { Entity } from '@src/types.generated';
@@ -27,8 +27,8 @@ export default function GlossaryRoutes() {
     const [nodeToDeletedUrn, setNodeToDeletedUrn] = useState<Record<string, string>>({});
 
     const appConfig = useAppConfig();
-    const authenticatedUser = useGetAuthenticatedUser();
-    const canManageGlossary = authenticatedUser?.platformPrivileges?.manageGlossaries || false;
+    const { platformPrivileges } = useUserContext();
+    const canManageGlossary = platformPrivileges?.manageGlossaries || false;
     const hideGlossary = !!appConfig?.config?.visualConfig?.hideGlossary;
     const showGlossary = shouldShowGlossary(canManageGlossary, hideGlossary);
     const isShowNavBarRedesign = useShowNavBarRedesign();

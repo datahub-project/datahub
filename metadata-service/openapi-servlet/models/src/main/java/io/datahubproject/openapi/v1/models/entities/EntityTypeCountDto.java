@@ -12,6 +12,10 @@ import lombok.NoArgsConstructor;
 public class EntityTypeCountDto {
   private String entityType;
   private String keyAspect;
+
+  /** Present when {@code groupBy=platform}; absent/null for type-only counts. */
+  private String platform;
+
   private long activeCount;
   private long softDeletedCount;
   private Long totalCount;

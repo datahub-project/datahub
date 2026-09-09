@@ -68,6 +68,9 @@ RUN uv python install ${PYTHON_VERSION}
 USER datahub
 WORKDIR $HOME
 RUN uv venv --python "$PYTHON_VERSION"
+# Pre-create as datahub so BuildKit cache mounts at $HOME/.cache/uv do not leave
+# the parent root-owned (siblings like puccinialin then hit PermissionError).
+RUN mkdir -p $HOME/.cache
 ENV VIRTUAL_ENV=$HOME/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 

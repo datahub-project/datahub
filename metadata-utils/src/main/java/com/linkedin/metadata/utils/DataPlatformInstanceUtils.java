@@ -104,6 +104,15 @@ public class DataPlatformInstanceUtils {
                       EntityKeyUtils.convertUrnToEntityKeyInternal(
                           urn, MLModelGroupKey.dataSchema()))
                   .getPlatform());
+        case "schemaField":
+          // A schema field carries no platform of its own; it takes the one from the entity it is a
+          // field of, which is nested inside its urn
+          return SchemaFieldUtils.parseSchemaFieldUrn(urn)
+              .map(parsed -> getDataPlatform(parsed.getFirst()))
+              .orElseThrow(
+                  () ->
+                      new IllegalArgumentException(
+                          String.format("Unable to read a parent from schema field urn: %s", urn)));
         default:
           log.error(
               String.format(

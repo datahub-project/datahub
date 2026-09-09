@@ -117,7 +117,12 @@ class CubeSourceConfig(
     )
     include_views: bool = Field(
         default=True,
-        description="Whether to ingest views as datasets.",
+        description=(
+            "Whether to ingest views. By default each view is a dataset with "
+            "subtype `Semantic Model`. When `emit_semantic_model_entities` is "
+            "true, views are emitted as `semanticModel` / `metric` entities "
+            "instead of a view dataset."
+        ),
     )
     include_reports: bool = Field(
         default=True,
@@ -226,6 +231,21 @@ class CubeSourceConfig(
             "Whether to tag schema fields with `Measure`/`Dimension` (and `Temporal` "
             "for time dimensions) so the kinds of Cube members can be distinguished "
             "and filtered in DataHub."
+        ),
+    )
+
+    emit_semantic_model_entities: bool = Field(
+        default=False,
+        description=(
+            "If true, emit Cube views as first-class `semanticModel` entities "
+            "(logical datasets with subtype `Semantic Model Dataset`, plus a "
+            "`metric` entity per view measure) instead of a view dataset. Cubes "
+            "stay datasets with subtype `Cube` and remain the physical upstream "
+            "of each logical dataset. Default is false so existing view dataset "
+            "URNs stay stable. Requires a DataHub server that registers "
+            "semanticModel/metric (Cloud >= 2.1.0, or OSS with "
+            "`METRICS_ENABLED=true`). File sinks honor this flag. Re-ingest "
+            "with stateful ingestion so the previous view datasets are removed."
         ),
     )
 
@@ -378,6 +398,9 @@ class CubeSourceReport(StaleEntityRemovalSourceReport):
     sql_parsing_failures: int = 0
     filtered_cubes: LossyList[str] = dataclass_field(default_factory=LossyList)
     filtered_views: LossyList[str] = dataclass_field(default_factory=LossyList)
+    semantic_models_emitted: int = 0
+    semantic_model_datasets_emitted: int = 0
+    metrics_emitted: int = 0
 
     def report_entity_scanned(self, name: str, is_view: bool) -> None:
         if is_view:
