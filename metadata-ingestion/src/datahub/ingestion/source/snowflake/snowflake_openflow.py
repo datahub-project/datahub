@@ -279,6 +279,8 @@ class OpenflowRuntimeKey(OpenflowDeploymentKey):
 @dataclasses.dataclass
 class OpenflowLineage:
     source_database: Optional[str] = None
+    # Kept only so an unparseable URL can be described in a warning.
+    source_url: Optional[str] = None
     source_tables: List[Tuple[str, str]] = dataclasses.field(default_factory=list)
     table_pattern: Optional[str] = None
     destination_database: Optional[str] = None
@@ -334,14 +336,36 @@ def _canvas_url(connector_url: str) -> Optional[str]:
     index = connector_url.find(marker)
     if index == -1:
         return None
-    base = urlparse(connector_url[: index + len(marker)])
-    if not base.scheme or not base.hostname:
+    try:
+        base = urlparse(connector_url[: index + len(marker)])
+        if not base.scheme or not base.hostname:
+            return None
+        host = base.hostname
+        # Snowflake reports the default port explicitly; its own UI omits it.
+        port = base.port
+    except ValueError:
+        # urlparse raises on a malformed authority (an unclosed IPv6 bracket),
+        # and .port raises on a non-numeric port. This value comes from
+        # Snowflake rather than from us, so a surface change must cost this
+        # connector its link, never the whole ingestion run.
         return None
-    # Snowflake reports the default port explicitly; its own UI omits it.
-    host = base.hostname
-    if base.port and not (base.scheme == "https" and base.port == 443):
-        host = f"{host}:{base.port}"
+    if port and not (base.scheme == "https" and port == 443):
+        host = f"{host}:{port}"
     return f"{base.scheme}://{host}{base.path}"
+
+
+def _url_shape(source_url: Optional[str]) -> str:
+    """The subprotocol only -- never the whole URL.
+
+    A JDBC URL routinely carries a host, and can carry a user and password in
+    its properties. The report is operator-visible and persisted, so it gets
+    just enough to tell an unrecognised spelling from a missing database:
+    `jdbc:sqlserver://...`.
+    """
+    if not source_url:
+        return "<absent>"
+    scheme, separator, _ = source_url.partition("://")
+    return f"{scheme}://..." if separator else f"{source_url[:16]}..."
 
 
 def _jdbc_database(source_url: str) -> Optional[str]:
@@ -401,6 +425,7 @@ def parse_connector_config(config_json: Dict[str, Any]) -> OpenflowLineage:
                 if source_url:
                     break
             if source_url:
+                lineage.source_url = source_url
                 lineage.source_database = _jdbc_database(source_url)
             else:
                 lineage.unrecognised_source_url_keys = sorted(properties)
@@ -906,26 +931,11 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         """
         if not self._fetch_connector_urls:
             return None
-        # Keyed on the connector's schema PLUS the runtime name, never the
-        # name alone. This file documents twice that runtime names are scoped
-        # to their deployment rather than the account, so two deployments may
-        # each hold a runtime called `default`; a bare-name key would hand one
-        # deployment's connectors the other's canvas host. The schema is the
-        # same scope the DESCRIBE itself is issued in, so it cannot be less
-        # precise than the query whose answer it caches. A connector missing
-        # either part is not cached at all rather than cached under a partial
-        # key -- it also cannot be DESCRIBEd, so it returns below anyway.
-        # Narrowed to a fully-populated tuple before use, so mypy needs no
-        # suppression: a connector missing any part is simply not cached (it
-        # also cannot be DESCRIBEd, and returns below).
-        database, schema, runtime = (
-            connector.database_name,
-            connector.schema_name,
-            connector.runtime_name,
-        )
-        cache_key = (
-            (database, schema, runtime) if database and schema and runtime else None
-        )
+        # connector.location is the scope this DESCRIBE's answer is valid in:
+        # runtime names are scoped to their deployment, so the schema has to be
+        # part of the key or one deployment's connectors get another's canvas
+        # host. The gate that budgets these queries counts the same thing.
+        cache_key = connector.location
         cached = self._canvas_urls.get(cache_key) if cache_key else None
         if cached is not None:
             return cached
@@ -1103,8 +1113,26 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 context=connector.key,
             )
             return [], []
-        if lineage.table_pattern and not lineage.source_tables:
-            self.report.num_connectors_without_enumerable_tables += 1
+        if not lineage.source_tables:
+            if lineage.table_pattern:
+                # A pattern explains the emptiness: the tables are chosen at
+                # run time and the configuration cannot enumerate them. Counted
+                # silently -- this is the documented steady state, not a fault.
+                self.report.num_connectors_without_enumerable_tables += 1
+            else:
+                # No tables AND no pattern. Nothing in the configuration says
+                # which tables this connector replicates, which is what a
+                # renamed property looks like -- and if the name changed, every
+                # connector in the account loses lineage at once.
+                self.report.num_connectors_without_table_configuration += 1
+                self.report.warning(
+                    title="Connector names no tables to replicate",
+                    message="The connector's configuration listed neither "
+                    "table names nor a table pattern, so no lineage is derived "
+                    "for it. If this affects every connector at once, the "
+                    "property names this source reads have most likely changed.",
+                    context=connector.key,
+                )
             return [], []
 
         identifiers = SnowflakeIdentifierBuilder(
@@ -1199,6 +1227,26 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                             # the fallback keeps that guarantee visible to mypy.
                             env=self.config.source_env or self.config.env,
                         )
+                    )
+                else:
+                    # The upstream half is the reason to connect Openflow to a
+                    # source system at all, so losing it must not look like a
+                    # complete edge. _jdbc_database returns None when the URL is
+                    # not JDBC, names no database, or spells the database in a
+                    # property this does not recognise -- all invisible until now,
+                    # because the old unconditional prefix strip produced a
+                    # wrong-but-present value instead.
+                    self.report.num_upstream_inlets_skipped += 1
+                    self.report.warning(
+                        title="Upstream dataset could not be identified",
+                        message="The connector's source URL did not yield the "
+                        "database name this upstream platform needs, so the edge "
+                        "is emitted with its destination only. If the source URL "
+                        "spells the database in a way this connector does not "
+                        "recognise, the upstream half of every table it "
+                        "replicates is missing.",
+                        context=f"{connector.key}: source URL of the form "
+                        f"{_url_shape(lineage.source_url)!r}",
                     )
             self.report.num_lineage_edges += 1
         return inlets, outlets
@@ -1426,7 +1474,11 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         connectors = self._fetch_connectors()
         self._decide_url_lookup(
             len(connectors),
-            len({connector.runtime_name for connector in connectors}),
+            # The DESCRIBE is issued once per location, so that -- not the
+            # bare runtime name -- is what the budget has to count. Counting
+            # names would under-estimate whenever one runtime name appears in
+            # more than one schema, and could never over-estimate.
+            len({connector.location for connector in connectors if connector.location}),
         )
         for connector in connectors:
             self.report.num_connectors += 1

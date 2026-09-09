@@ -56,6 +56,7 @@ import redshiftLogo from '@images/redshiftlogo.png';
 import sacLogo from '@images/saclogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
 import snaplogicLogo from '@images/snaplogic.svg';
+import openflowLogo from '@images/openflowlogo.png';
 import snowflakeLogo from '@images/snowflakelogo.png';
 import snowplowLogo from '@images/snowplowlogo.png';
 import sqlmeshLogo from '@images/sqlmeshlogo.png';
@@ -159,6 +160,8 @@ const PRESET_URN = `urn:li:dataPlatform:${PRESET}`;
 const REDSHIFT = 'redshift';
 const REDSHIFT_USAGE = 'redshift-usage';
 const REDSHIFT_URN = `urn:li:dataPlatform:${REDSHIFT}`;
+const OPENFLOW = 'openflow';
+const OPENFLOW_URN = `urn:li:dataPlatform:${OPENFLOW}`;
 const SNOWFLAKE = 'snowflake';
 const SNOWFLAKE_BETA = 'snowflake-beta';
 const SNOWFLAKE_USAGE = 'snowflake-usage';
@@ -232,6 +235,7 @@ export const OMNI = 'omni';
 export const OMNI_URN = `urn:li:dataPlatform:${OMNI}`;
 
 export const PLATFORM_URN_TO_LOGO = {
+    [OPENFLOW_URN]: openflowLogo,
     [AEROSPIKE_URN]: aerospikeLogo,
     [AIRBYTE_URN]: airbyteLogo,
     [ATHENA_URN]: athenaLogo,
@@ -307,6 +311,7 @@ export const PLATFORM_URN_TO_LOGO = {
 };
 
 export const SOURCE_TO_PLATFORM_URN = {
+    'snowflake-openflow': OPENFLOW_URN,
     [BIGQUERY_BETA]: BIGQUERY_URN,
     [BIGQUERY_USAGE]: BIGQUERY_URN,
     [CLICKHOUSE_USAGE]: CLICKHOUSE_URN,

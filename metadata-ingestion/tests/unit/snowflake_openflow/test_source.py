@@ -789,3 +789,17 @@ def test_identically_named_runtimes_in_different_scopes_are_not_shared(
     assert first == "https://a.app/rt-a/nifi/"
     assert second == "https://b.app/rt-b/nifi/"
     assert len(calls) == 2
+
+
+@pytest.mark.parametrize(
+    "malformed",
+    [
+        pytest.param("https://[unclosed/nifi/#/x", id="unclosed IPv6 bracket"),
+        pytest.param("https://host:notaport/nifi/#/x", id="non-numeric port"),
+    ],
+)
+def test_canvas_url_never_raises_on_a_malformed_url(malformed: str) -> None:
+    # The value comes from Snowflake, not from us: urlparse raises on a
+    # malformed authority and .port raises on a non-numeric port. A surface
+    # change must cost this connector its link, never the whole run.
+    assert snowflake_openflow._canvas_url(malformed) is None

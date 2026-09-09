@@ -1119,3 +1119,52 @@ def test_missing_destination_database_is_counted_and_warned() -> None:
     assert (inlets, outlets) == ([], [])
     assert source.report.num_connectors_without_destination_database == 1
     assert _warning_titles(source.report) == ["Connector has no destination database"]
+
+
+def test_unparseable_source_url_reports_the_missing_inlet() -> None:
+    # The old unconditional `jdbc:` strip produced a wrong-but-present database;
+    # _jdbc_database correctly returns None instead, which silently dropped the
+    # upstream half of every edge until this counter and warning existed. The
+    # URL shape reaches the report; the URL itself must not, since a JDBC URL
+    # can carry a host and credentials.
+    config: Dict[str, Any] = copy.deepcopy(CONFIG_JSON)
+    for section in config["configuration"]:
+        if section["name"] == snowflake_openflow.SECTION_SOURCE:
+            properties: Dict[str, Any] = section["properties"]
+            for key in list(properties):
+                if "URL" in key.upper():
+                    properties[key] = _wrap("mysql://secretuser:pw@host:3306/db")
+
+    source = _make_source()
+    source._query_rows = _fake_get(json.dumps(config).encode())  # type: ignore[assignment]
+
+    inlets, outlets = source._lineage_for_connector(_connector())
+
+    assert inlets == []
+    assert outlets, "the destination half must survive a missing upstream"
+    assert source.report.num_upstream_inlets_skipped == 1
+    assert _warning_titles(source.report) == [
+        "Upstream dataset could not be identified"
+    ]
+    context = str(source.report.warnings[0].context)
+    assert "mysql://..." in context
+    assert "secretuser" not in context and "pw" not in context
+
+
+def test_no_tables_and_no_pattern_is_warned_not_silent() -> None:
+    # Distinct from the pattern case, which is a documented steady state. This
+    # shape is what a renamed source property looks like, and it used to fall
+    # through the loop and return empty with nothing recorded.
+    config: Dict[str, Any] = copy.deepcopy(CONFIG_JSON)
+    config["configuration"] = [
+        section
+        for section in config["configuration"]
+        if section["name"] != snowflake_openflow.SECTION_REPLICATION
+    ]
+
+    source = _make_source()
+    source._query_rows = _fake_get(json.dumps(config).encode())  # type: ignore[assignment]
+
+    assert source._lineage_for_connector(_connector()) == ([], [])
+    assert source.report.num_connectors_without_table_configuration == 1
+    assert _warning_titles(source.report) == ["Connector names no tables to replicate"]

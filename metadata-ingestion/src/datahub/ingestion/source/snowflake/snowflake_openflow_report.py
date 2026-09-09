@@ -36,6 +36,12 @@ class SnowflakeOpenflowReport(StaleEntityRemovalSourceReport):
 
     num_lineage_edges: int = 0
     num_lineage_edges_skipped: int = 0
+    # Edges emitted with a destination but no upstream, because the
+    # connector's source URL did not yield the database its platform needs.
+    num_upstream_inlets_skipped: int = 0
+    # Connectors whose configuration named neither table names nor a
+    # pattern -- the shape a renamed source property would take.
+    num_connectors_without_table_configuration: int = 0
     # Connectors configured with a table PATTERN rather than explicit names.
     # Their tables cannot be enumerated from config, so they get connector-level
     # lineage only.

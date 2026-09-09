@@ -126,10 +126,11 @@ class SnowflakeOpenflowSourceConfig(
         default=None,
         description=(
             "Emit each connector's NiFi canvas URL as the DataFlow's external "
-            "link. This costs one DESCRIBE OPENFLOW CONNECTOR per connector, "
-            "because SHOW does not return the URL. `null` (the default) fetches "
-            "the links unless the account has more than 500 connectors, where "
-            "that second round trip per connector would dominate the run; "
+            "link. The URL is per-runtime, so it costs one DESCRIBE OPENFLOW "
+            "CONNECTOR per distinct runtime, not per connector -- SHOW does not "
+            "return it. `null` (the default) fetches the links unless the "
+            "account has more than 500 distinct runtimes, where even that "
+            "per-runtime round trip would dominate the run; "
             "`true` always fetches them; `false` never does. Tri-state rather "
             "than a bool whose meaning depends on whether it appears in the "
             "recipe -- that distinction does not survive a recipe round-trip."

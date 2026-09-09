@@ -161,6 +161,18 @@ class OpenflowConnector:
         return f"{self.runtime_name}/{self.name}"
 
     @property
+    def location(self) -> Optional[Tuple[str, str, str]]:
+        """(database, schema, runtime), or None when SHOW did not supply it.
+
+        The scope one DESCRIBE's answer is valid in. Both the canvas-URL cache
+        and the gate that budgets those queries derive from this, so they
+        cannot drift apart the way two hand-built keys did.
+        """
+        if not self.database_name or not self.schema_name or not self.runtime_name:
+            return None
+        return (self.database_name, self.schema_name, self.runtime_name)
+
+    @property
     def fqn(self) -> Optional[str]:
         """Quoted three-part name, or None when SHOW did not supply the parts.
 

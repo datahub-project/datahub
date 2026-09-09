@@ -8,8 +8,9 @@
   the individual connector. `DESCRIBE OPENFLOW CONNECTOR` reports a per-connector URL, but that URL
   does not resolve: its fragment addresses a Snowflake connector id, while the canvas addresses NiFi
   process-group ids, which no Snowflake surface exposes. Only the part both agree on — the runtime
-  canvas — is emitted. It costs a second round trip per connector on top of the one lineage already
-  needs; above 500 connectors the lookup is skipped automatically and the run says so. Set
+  canvas — is emitted. The URL is per-runtime and cached, so it costs one extra round trip per distinct runtime
+  rather than per connector; above 500 distinct runtimes the lookup is skipped automatically and
+  the run says so. Set
   `include_connector_external_url: true` to force it at any size, or `false` to skip it entirely.
 - **Deletion detection** — via stateful ingestion, using `DELETED_ON` from the `ACCOUNT_USAGE`
   views.
