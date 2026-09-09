@@ -1,5 +1,6 @@
 import uuid
 from collections import defaultdict
+from datetime import datetime
 from decimal import Decimal
 from typing import (
     Any,
@@ -12,12 +13,13 @@ from typing import (
     Tuple,
 )
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from botocore.exceptions import ClientError
 from pydantic import ValidationError
 from pyiceberg.catalog import Catalog
+from pyiceberg.conversions import to_bytes
 from pyiceberg.exceptions import (
     NoSuchIcebergTableError,
     NoSuchNamespaceError,
@@ -27,10 +29,11 @@ from pyiceberg.exceptions import (
     ServerError,
 )
 from pyiceberg.io.pyarrow import PyArrowFileIO
+from pyiceberg.manifest import DataFileContent
 from pyiceberg.partitioning import PartitionSpec
 from pyiceberg.schema import Schema
 from pyiceberg.table import Table
-from pyiceberg.table.metadata import TableMetadataV2
+from pyiceberg.table.metadata import TableMetadataV2, TableMetadataV3
 from pyiceberg.types import (
     BinaryType,
     BooleanType,
@@ -48,9 +51,12 @@ from pyiceberg.types import (
     PrimitiveType,
     StringType,
     StructType,
+    TimestampNanoType,
     TimestampType,
+    TimestamptzNanoType,
     TimestamptzType,
     TimeType,
+    UnknownType,
     UUIDType,
 )
 from typing_extensions import Never
@@ -70,6 +76,8 @@ from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
+    DatasetProfileClass,
+    DatasetPropertiesClass,
     DateTypeClass,
     FixedTypeClass,
     NumberTypeClass,
@@ -618,68 +626,192 @@ def test_avro_decimal_bytes_nullable() -> None:
     )
 
 
-def test_visit_timestamp_ns() -> None:
-    """
-    Test the visit_timestamp_ns method for handling nanosecond precision timestamps.
-    This method was added in pyiceberg 0.10.0 to support nanosecond precision timestamps.
-    """
-    visitor = ToAvroSchemaIcebergVisitor()
-
-    # Create a mock type object that behaves like TimestampNsType from pyiceberg 0.10.0+
-    # The string representation follows pyiceberg's pattern: "timestampns"
-    class MockTimestampNsType:
-        def __str__(self) -> str:
-            return "timestampns"
-
-    mock_type = MockTimestampNsType()
-    result = visitor.visit_timestamp_ns(mock_type)
-
-    # Verify the Avro schema structure
-    assert result["type"] == "long"
-    assert result["logicalType"] == "timestamp-micros"
-    assert result["native_data_type"] == "timestampns"
-
-
-def test_visit_timestamptz_ns() -> None:
-    """
-    Test the visit_timestamptz_ns method for handling nanosecond precision timestamps with timezone.
-    This method was added in pyiceberg 0.10.0 to support nanosecond precision timestamps with timezone.
-    """
-    visitor = ToAvroSchemaIcebergVisitor()
-
-    # Create a mock type object that behaves like TimestamptzNsType from pyiceberg 0.10.0+
-    # The string representation follows pyiceberg's pattern: "timestamptzns"
-    class MockTimestamptzNsType:
-        def __str__(self) -> str:
-            return "timestamptzns"
-
-    mock_type = MockTimestamptzNsType()
-    result = visitor.visit_timestamptz_ns(mock_type)
-
-    # Verify the Avro schema structure
-    assert result["type"] == "long"
-    assert result["logicalType"] == "timestamp-micros"
-    assert result["native_data_type"] == "timestamptzns"
+@pytest.mark.parametrize(
+    "field_type, native_type",
+    [(TimestampNanoType(), "timestamp_ns"), (TimestamptzNanoType(), "timestamptz_ns")],
+)
+def test_visit_nanosecond_timestamp(
+    field_type: PrimitiveType, native_type: str
+) -> None:
+    fields = with_iceberg_source()._get_schema_fields_for_schema(
+        Schema(NestedField(1, "event_time", field_type))
+    )
+    assert isinstance(fields[0].type.type, TimeTypeClass)
+    assert fields[0].nativeDataType == native_type
 
 
 def test_visit_unknown() -> None:
-    """
-    Test the visit_unknown method for handling unknown/unsupported types.
-    This is a fallback method for types that don't have specific visitor implementations.
-    """
-    visitor = ToAvroSchemaIcebergVisitor()
-
-    # Create a mock type object representing an unknown type
-    class MockUnknownType:
-        def __str__(self) -> str:
-            return "unknown_custom_type"
-
-    mock_type = MockUnknownType()
-    result = visitor.visit_unknown(mock_type)
-
-    # Verify the Avro schema structure - unknown types are mapped to string
+    result = ToAvroSchemaIcebergVisitor().visit_unknown(UnknownType())
     assert result["type"] == "string"
-    assert result["native_data_type"] == "unknown_custom_type"
+    assert result["native_data_type"] == "unknown"
+
+
+@pytest.mark.parametrize("field_type", [TimestampNanoType(), TimestamptzNanoType()])
+@pytest.mark.parametrize(
+    "aggregator, values", [(min, [0, 10, -10]), (max, [0, -10, 10])]
+)
+def test_iceberg_profiler_zero_bounds(
+    field_type: PrimitiveType, aggregator: Callable[[int, int], int], values: List[int]
+) -> None:
+    profiler = with_iceberg_profiler()
+    schema = Schema(NestedField(1, "event_time", field_type))
+    bounds: Dict[int, int] = {}
+    expected = values[0]
+    for value in values:
+        profiler._aggregate_bounds(
+            schema, aggregator, bounds, {1: to_bytes(field_type, value)}
+        )
+        expected = aggregator(expected, value)
+        assert bounds == {1: expected}
+
+
+@pytest.mark.parametrize("total_records, expected_count", [("100", 100), (None, 0)])
+def test_iceberg_profiler_data_file_statistics(
+    total_records: Optional[str], expected_count: int
+) -> None:
+    table = MagicMock()
+    table.schema.return_value = Schema(NestedField(1, "col", LongType()))
+    snapshot = table.current_snapshot.return_value
+    summary = {"deleted-records": "40", "total-position-deletes": "40"}
+    if total_records is not None:
+        summary["total-records"] = total_records
+    snapshot.summary.additional_properties = summary
+    entries = []
+    for content, count, lower, upper in [
+        (DataFileContent.DATA, 2, 10, 20),
+        (DataFileContent.POSITION_DELETES, 50, -100, 100),
+        (DataFileContent.EQUALITY_DELETES, 50, -100, 100),
+    ]:
+        entry = MagicMock()
+        entry.data_file.content = content
+        entry.data_file.null_value_counts = {1: count}
+        entry.data_file.lower_bounds = {1: to_bytes(LongType(), lower)}
+        entry.data_file.upper_bounds = {1: to_bytes(LongType(), upper)}
+        entries.append(entry)
+    manifest = MagicMock()
+    manifest.fetch_manifest_entry.return_value = entries
+    snapshot.manifests.return_value = [manifest]
+    profile = next(iter(with_iceberg_profiler().profile_table("test.table", table)))
+    assert isinstance(profile, DatasetProfileClass)
+    assert profile.rowCount == expected_count
+    assert profile.fieldProfiles is not None
+    if total_records is None:
+        assert profile.fieldProfiles == []
+        return
+    assert len(profile.fieldProfiles) == 1
+    assert profile.fieldProfiles[0].nullCount == 2
+    assert profile.fieldProfiles[0].min == "10"
+    assert profile.fieldProfiles[0].max == "20"
+
+
+def test_iceberg_column_write_default_in_description() -> None:
+    """
+    Test that an Iceberg V3 column write default is surfaced in the field description.
+    """
+    iceberg_source_instance = with_iceberg_source()
+    column = NestedField(
+        1,
+        "field_with_default",
+        LongType(),
+        True,
+        "field documentation",
+        write_default=42,
+    )
+    schema_fields = iceberg_source_instance._get_schema_fields_for_schema(
+        Schema(column)
+    )
+    assert len(schema_fields) == 1
+    assert (
+        schema_fields[0].description == "field documentation\nField default value: 42"
+    )
+
+
+def test_iceberg_column_timestamp_default_in_description() -> None:
+    """
+    Test that a timestamp column default supplied as a datetime
+    is rendered in a JSON-safe way in the field description.
+    """
+    iceberg_source_instance = with_iceberg_source()
+    column = NestedField(
+        1,
+        "ts_with_default",
+        TimestampType(),
+        True,
+        "field documentation",
+        write_default=datetime(2023, 7, 5, 12, 18, 8, 157000),
+    )
+    schema_fields = iceberg_source_instance._get_schema_fields_for_schema(
+        Schema(column)
+    )
+    assert len(schema_fields) == 1
+    assert schema_fields[0].description == (
+        "field documentation\nField default value: 2023-07-05T12:18:08.157000"
+    )
+
+
+def test_iceberg_column_initial_and_write_default_in_description() -> None:
+    """
+    Test that when both an initial default and a write default are present and differ,
+    both are surfaced in the field description.
+    """
+    iceberg_source_instance = with_iceberg_source()
+    column = NestedField(
+        1,
+        "field_with_defaults",
+        LongType(),
+        True,
+        "field documentation",
+        initial_default=1,
+        write_default=2,
+    )
+    schema_fields = iceberg_source_instance._get_schema_fields_for_schema(
+        Schema(column)
+    )
+    assert len(schema_fields) == 1
+    assert schema_fields[0].description == (
+        "field documentation\nInitial default value: 1\nField default value: 2"
+    )
+
+
+def test_iceberg_v3_table_format_version_property() -> None:
+    """
+    Test that a table with V3 metadata is ingested and its format version surfaced as a dataset property.
+    """
+    source = with_iceberg_source()
+    mock_catalog = MockCatalog(
+        {
+            "namespaceA": {
+                "table_v3": lambda catalog: Table(
+                    identifier=("namespaceA", "table_v3"),
+                    metadata=TableMetadataV3(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table_v3",
+                        last_column_id=1,
+                        schemas=[
+                            Schema(NestedField(1, "col", LongType(), True, "doc"))
+                        ],
+                        current_schema_id=0,
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table_v3/metadata/00001.metadata.json",
+                    io=PyArrowFileIO(),
+                    catalog=catalog,
+                )
+            }
+        }
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wus = [*source.get_workunits_internal()]
+        dataset_properties = [
+            wu.metadata.aspect
+            for wu in wus
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, DatasetPropertiesClass)
+        ]
+        assert len(dataset_properties) == 1
+        assert dataset_properties[0].customProperties["format-version"] == "3"
 
 
 class MockCatalog:
