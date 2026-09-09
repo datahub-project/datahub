@@ -1945,7 +1945,8 @@ def _union_spec_source(source: SigmaSource, source_columns: List[str]) -> None:
 
 
 def _build_union(source: SigmaSource, source_columns: List[str]) -> list:
-    _union_spec_source(source, source_columns)
+    # Sigma sends each branch column as a FORMULA, not a bare name.
+    _union_spec_source(source, [f"[{c}]" if c else c for c in source_columns])
     a_urn, c_urn, u_urn = _urn("a"), _urn("c"), _urn("u")
     # The output column's formula names ONE branch, which is the whole problem:
     # without /spec, branch C is invisible no matter how many branches stack.

@@ -283,6 +283,31 @@ def _union_spec(source: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def test_union_branch_columns_are_formulas_not_bare_names() -> None:
+    """The shape that made this read 1,077 output columns and emit 0 edges.
+
+    ``sourceColumns`` entries are Sigma formulas -- a live tenant sent ``[Id]``
+    and ``[ID]`` -- exactly like join predicate sides. Passing them through
+    verbatim carried the brackets into every column lookup, so nothing matched.
+    """
+    index = parse_data_model_spec(
+        _union_spec(
+            {
+                "kind": "union",
+                "sources": [
+                    {"elementId": "el-a", "kind": "table"},
+                    {"elementId": "el-b", "kind": "table"},
+                ],
+                "matches": [
+                    {"outputColumnName": "OUT", "sourceColumns": ["[c-a]", "[c-b]"]}
+                ],
+            }
+        ),
+        data_model_id="dm-1",
+    )
+    assert index.unions[0].branches == (("el-a", "c-a"), ("el-b", "c-b"))
+
+
 def test_union_output_column_pairs_each_branch_positionally() -> None:
     index = parse_data_model_spec(
         _union_spec(
@@ -293,7 +318,7 @@ def test_union_output_column_pairs_each_branch_positionally() -> None:
                     {"elementId": "el-b", "groupingId": "g2", "kind": "table"},
                 ],
                 "matches": [
-                    {"outputColumnName": "OUT", "sourceColumns": ["c-a", "c-b"]}
+                    {"outputColumnName": "OUT", "sourceColumns": ["[c-a]", "[c-b]"]}
                 ],
             }
         ),
@@ -321,7 +346,7 @@ def test_union_branch_beyond_the_sources_list_is_counted_not_reassigned() -> Non
                 "kind": "union",
                 "sources": [{"elementId": "el-a", "kind": "table"}],
                 "matches": [
-                    {"outputColumnName": "OUT", "sourceColumns": ["c-a", "c-b"]}
+                    {"outputColumnName": "OUT", "sourceColumns": ["[c-a]", "[c-b]"]}
                 ],
             }
         ),
@@ -341,7 +366,9 @@ def test_union_branch_contributing_no_column_is_skipped_silently() -> None:
                     {"elementId": "el-a", "kind": "table"},
                     {"elementId": "el-b", "kind": "table"},
                 ],
-                "matches": [{"outputColumnName": "OUT", "sourceColumns": ["c-a", ""]}],
+                "matches": [
+                    {"outputColumnName": "OUT", "sourceColumns": ["[c-a]", ""]}
+                ],
             }
         ),
         data_model_id="dm-1",

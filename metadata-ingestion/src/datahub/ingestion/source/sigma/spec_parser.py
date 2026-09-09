@@ -341,7 +341,12 @@ def _union_output_columns(
                 index.union_branch_index_out_of_range += 1
                 continue
             element_id = branch_element_ids[position]
-            column_name = str(column or "")
+            # A branch column is a FORMULA, like a join predicate side --
+            # confirmed on a live tenant (2026-09) where the entries read
+            # ``[Id]`` and ``[ID]``. Passing them through verbatim matched
+            # nothing: 1,077 output columns read, 0 edges emitted, because
+            # every lookup carried the brackets. Same mistake, same fix.
+            column_name = _column_from_expression(str(column or ""))
             # A branch that contributes nothing to this output column is a
             # normal union, not a defect: Sigma sends an empty slot for it.
             if element_id and column_name:
