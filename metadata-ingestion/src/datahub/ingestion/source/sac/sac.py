@@ -573,15 +573,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     env=env,
                 )
 
-                if upstream_dataset_urn not in self.ingested_upstream_dataset_keys:
-                    mcp = MetadataChangeProposalWrapper(
-                        entityUrn=upstream_dataset_urn,
-                        aspect=dataset_urn_to_key(upstream_dataset_urn),
-                    )
-
-                    yield mcp.as_workunit(is_primary_source=False)
-
-                    self.ingested_upstream_dataset_keys.add(upstream_dataset_urn)
+                yield from self._emit_upstream_dataset_key(upstream_dataset_urn)
 
                 mcp = MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
@@ -613,16 +605,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     # Materialize the upstream key so the Datasphere node exists even when
                     # that connector hasn't run yet, matching the BW/HANA path above and
                     # keeping this lineage order-independent.
-                    if (
-                        datasphere_upstream_urn
-                        not in self.ingested_upstream_dataset_keys
-                    ):
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=datasphere_upstream_urn,
-                            aspect=dataset_urn_to_key(datasphere_upstream_urn),
-                        ).as_workunit(is_primary_source=False)
-
-                        self.ingested_upstream_dataset_keys.add(datasphere_upstream_urn)
+                    yield from self._emit_upstream_dataset_key(datasphere_upstream_urn)
 
                     yield MetadataChangeProposalWrapper(
                         entityUrn=dataset_urn,
@@ -1006,6 +989,21 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             return f"{schema}.{namespace}::{view}"
 
         return f"{schema}.{view}"
+
+    def _emit_upstream_dataset_key(
+        self, upstream_dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        # Emit the upstream key once so the node exists even if that source was never
+        # ingested; deduped across models so a shared upstream yields a single key.
+        if upstream_dataset_urn in self.ingested_upstream_dataset_keys:
+            return
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=upstream_dataset_urn,
+            aspect=dataset_urn_to_key(upstream_dataset_urn),
+        ).as_workunit(is_primary_source=False)
+
+        self.ingested_upstream_dataset_keys.add(upstream_dataset_urn)
 
     def _resolve_datasphere_upstream(self, model: ResourceModel) -> Optional[str]:
         # SAC exposes the Datasphere object's technical name (the model name) but not its
