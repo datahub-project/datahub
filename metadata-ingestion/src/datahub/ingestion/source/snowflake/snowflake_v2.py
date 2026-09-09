@@ -193,7 +193,7 @@ class SnowflakeV2Source(
             self.config.get_connection()
         )
 
-        # Connection-backed metadata reader for the extractors below.
+        # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary(
             connection=self.connection,
             report=self.report,
@@ -478,7 +478,7 @@ class SnowflakeV2Source(
         }
 
         for c in capabilities:  # type:ignore
-            # Require a running warehouse; skip otherwise.
+            # These capabilities do not work without active warehouse
             if current_warehouse is None and c in (
                 SourceCapability.SCHEMA_METADATA,
                 SourceCapability.DESCRIPTIONS,
@@ -517,8 +517,10 @@ class SnowflakeV2Source(
         ):
             return True
 
-        # Also a temp table when it matches the dataset patterns but wasn't discovered —
-        # a transient staging table the run never saw.
+        # This is also a temp table if
+        #   1. this name would be allowed by the dataset patterns, and
+        #   2. we have a list of discovered tables, and
+        #   3. it's not in the discovered tables list
         if (
             self.filters.is_dataset_pattern_allowed(name, SnowflakeObjectDomain.TABLE)
             and self.discovered_datasets
@@ -732,8 +734,11 @@ class SnowflakeV2Source(
                     "No tables/views/streams found. Verify dataset permissions in Snowflake.",
                 )
 
-        # Drop semantic views here: they emit as a separate entity type below.
-        # Legacy mode keeps them in.
+        # When emit_semantic_model_entities is enabled, semantic views are emitted
+        # as semanticModel entities (not datasets), so they are deliberately
+        # excluded from discovered_datasets, which feeds dataset-level
+        # usage/lineage/assertion extraction. In legacy dataset mode they are
+        # datasets like any other and must be included.
         self.discovered_datasets = (
             discovered_tables
             + discovered_views
@@ -1006,7 +1011,8 @@ class SnowflakeV2Source(
             return SnowsightUrlBuilder(
                 account_locator,
                 region,
-                # Privatelink accounts use a distinct Snowsight URL.
+                # For privatelink, account identifier ends with .privatelink
+                # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
                 privatelink=self.config.account_id.endswith(".privatelink"),
                 snowflake_domain=self.config.snowflake_domain,
                 base_url_override=self.config.snowsight_base_url,
