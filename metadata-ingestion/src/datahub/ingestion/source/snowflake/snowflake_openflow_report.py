@@ -21,17 +21,31 @@ EMPTY_INVENTORY_MESSAGE = (
 @dataclasses.dataclass
 class SnowflakeOpenflowReport(StaleEntityRemovalSourceReport):
     num_deployments: int = 0
+    # No version_location_uri, so the configuration -- and therefore the
+    # lineage derived from it -- could not be read.
     num_connectors_without_config_uri: int = 0
+    # Not addressable by DESCRIBE, so no external link. Counted, not warned:
+    # for a connector visible only in history this is the steady state.
     num_connectors_without_fqn: int = 0
     num_connectors_without_destination_database: int = 0
+    # DESCRIBE answered but not with a usable canvas URL.
     num_connector_urls_failed: int = 0
+    # Connectors left without a link because the account crossed the
+    # distinct-runtime threshold. A count of connectors, not of runtimes:
+    # it reports the impact, while the gate keys on the cause.
     num_connector_urls_skipped_for_scale: int = 0
+    # Two runtimes share a name, so the connector's parent is a guess. Left
+    # un-nested rather than nested wrongly.
     num_connectors_with_ambiguous_runtime: int = 0
     num_keys_with_mixed_lifecycle_rows: int = 0
+    # The history views paged. Expected on a churning account; the signal is
+    # that a single page is NOT the norm there.
     num_history_pages_beyond_first: int = 0
     num_runtimes: int = 0
     num_connectors: int = 0
 
+    # Ownership ASPECTS, not owners: one per container, flow, anchor job and
+    # per-table job that carries the connector's OWNER.
     num_owners_emitted: int = 0
 
     num_lineage_edges: int = 0

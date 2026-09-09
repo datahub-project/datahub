@@ -1,5 +1,7 @@
 from datahub.ingestion.source.common.subtypes import DataFlowSubTypes, DataJobSubTypes
 from datahub.ingestion.source.snowflake.snowflake_openflow import (
+    ConnectorTableLineage,
+    _table_job_name,
     build_connector_flow,
     build_connector_job,
 )
@@ -82,3 +84,30 @@ def test_display_name_prefers_the_human_label():
     # The URN stays keyed on the composite runtime/name; only the label changes.
     assert str(flow.urn) == "urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD)"
     assert flow.display_name == "Postgres CDC"
+
+
+def test_a_long_table_name_falls_back_to_a_stable_digest() -> None:
+    # The readable id would blow the urn-length budget, so it degrades to a
+    # hash. hashlib rather than the builtin salted hash() specifically so the
+    # id is the SAME on the next run -- a per-process salt would rename the
+    # entity every ingest and orphan the previous one.
+    connector = OpenflowConnector(name="c" * 120, runtime_name="r" * 120)
+    pair = ConnectorTableLineage(
+        source_schema="public", source_table="t", outlet="urn:li:dataset:(x,y,PROD)"
+    )
+
+    first = _table_job_name(connector, pair)
+    second = _table_job_name(connector, pair)
+
+    assert first == second, "the fallback id must be stable across runs"
+    assert first.startswith(f"{connector.key}/")
+    digest = first.rsplit("/", 1)[1]
+    assert len(digest) == 16 and digest != "public.t"
+
+
+def test_a_short_table_name_stays_readable() -> None:
+    connector = OpenflowConnector(name="conn", runtime_name="rt")
+    pair = ConnectorTableLineage(
+        source_schema="public", source_table="t", outlet="urn:li:dataset:(x,y,PROD)"
+    )
+    assert _table_job_name(connector, pair) == "rt/conn/public.t"

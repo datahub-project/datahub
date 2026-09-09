@@ -1617,6 +1617,11 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                         connector, flow, pair
                     ).as_workunits()
                     self.report.num_table_jobs += 1
+                    if connector.owner:
+                        # Per-table jobs carry the connector's owner too, so
+                        # the counter has to see them or it under-reports the
+                        # aspects its name promises.
+                        self.report.num_owners_emitted += 1
 
     def _report_connector_without_runtime_parent(
         self, connector: OpenflowConnector
