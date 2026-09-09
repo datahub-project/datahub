@@ -88,7 +88,6 @@ from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
     AutoLowercaseUrnsProcessor,
 )
 from datahub.metadata.schema_classes import (
-    DataJobInputOutputClass,
     OwnerClass,
     OwnershipTypeClass,
 )
@@ -575,29 +574,6 @@ def build_connector_flow(
     )
 
 
-def build_connector_job(connector: OpenflowConnector, flow: DataFlow) -> DataJob:
-    """The connector-level anchor: stable identity, ownership, properties.
-
-    It carries NO lineage. Every replicated table gets its own DataJob so the
-    1:1 pairing survives; putting all inlets and outlets here instead would
-    assert that every source feeds every destination.
-
-    The empty DataJobInputOutput is emitted deliberately rather than omitted:
-    an earlier release DID attach the flattened edges to this urn, and only an
-    explicit empty aspect clears them on upgrade. Omitting it would leave the
-    stale fan-out in place forever.
-    """
-    return DataJob(
-        name=connector.key,
-        flow=flow,
-        display_name=connector.display_name or connector.name,
-        subtype=DataJobSubTypes.OPENFLOW_CONNECTOR_SYNC,
-        custom_properties=_connector_properties(connector),
-        owners=_owner_classes(connector.owner),
-        extra_aspects=[DataJobInputOutputClass(inputDatasets=[], outputDatasets=[])],
-    )
-
-
 def _table_job_name(connector: OpenflowConnector, pair: ConnectorTableLineage) -> str:
     """Stable id for one replicated table.
 
@@ -608,8 +584,15 @@ def _table_job_name(connector: OpenflowConnector, pair: ConnectorTableLineage) -
     readable = f"{connector.key}/{table}"
     if len(readable) <= _MAX_READABLE_JOB_NAME:
         return readable
-    digest = hashlib.md5(table.encode("utf-8")).hexdigest()[:16]
-    return f"{connector.key}/{digest}"
+    # Hash the WHOLE readable name, and truncate the key prefix so the result
+    # actually fits. An earlier revision hashed only the table half and carried
+    # connector.key verbatim -- but that is two Snowflake identifiers of up to
+    # 255 characters each, so the "budget" produced a 258-character id against
+    # a 200-character limit. A guard that does not bound its own output is
+    # worse than none, because it reads as if the case were handled.
+    digest = hashlib.md5(readable.encode("utf-8")).hexdigest()[:16]
+    prefix = connector.key[: _MAX_READABLE_JOB_NAME - len(digest) - 1]
+    return f"{prefix}/{digest}"
 
 
 def build_connector_table_job(
@@ -1603,12 +1586,12 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             yield from flow.as_workunits()
             if connector.owner:
                 self.report.num_owners_emitted += 1
-            # The anchor is emitted regardless of whether lineage was found, so
-            # connector metadata and ownership have a stable home.
-            anchor = build_connector_job(connector, flow)
-            yield from anchor.as_workunits()
-            if connector.owner:
-                self.report.num_owners_emitted += 1
+            # No connector-level DataJob. The DataFlow above already IS the
+            # connector -- identical name, properties, ownership and external
+            # link -- so an anchor job duplicated it as a task inside its own
+            # pipeline, edgeless and sharing the per-table jobs' subtype.
+            # fivetran keeps one because it hangs run history (DPIs) on it;
+            # this source emits none, so the anchor carried nothing.
             if self.config.include_openflow_lineage:
                 for pair in self._lineage_for_connector(connector):
                     # One job per replicated table, so each edge keeps the 1:1

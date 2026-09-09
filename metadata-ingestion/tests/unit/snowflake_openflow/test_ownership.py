@@ -2,9 +2,10 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_openflow import (
+    ConnectorTableLineage,
     SnowflakeOpenflowSource,
     build_connector_flow,
-    build_connector_job,
+    build_connector_table_job,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_config import (
     SnowflakeOpenflowSourceConfig,
@@ -156,12 +157,19 @@ def test_connector_flow_owner_is_a_technical_corp_group_owner():
     assert owners[0].type == OwnershipTypeClass.TECHNICAL_OWNER
 
 
+_PAIR = ConnectorTableLineage(
+    source_schema="public",
+    source_table="t",
+    outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)",
+)
+
+
 def test_connector_job_owner_is_a_technical_corp_group_owner():
     connector = OpenflowConnector(
         name="pg_cdc", runtime_name="my_runtime", owner=OWNER_ROLE
     )
     flow = build_connector_flow(connector, platform_instance=None, env="PROD")
-    job = build_connector_job(connector, flow)
+    job = build_connector_table_job(connector, flow, _PAIR)
 
     ownership = _ownership_aspects(job.as_workunits())
 
@@ -176,7 +184,7 @@ def test_connector_job_owner_is_a_technical_corp_group_owner():
 def test_connector_emits_no_ownership_aspect_when_owner_is_absent():
     connector = OpenflowConnector(name="pg_cdc", runtime_name="my_runtime")
     flow = build_connector_flow(connector, platform_instance=None, env="PROD")
-    job = build_connector_job(connector, flow)
+    job = build_connector_table_job(connector, flow, _PAIR)
 
     assert _ownership_aspects(flow.as_workunits()) == []
     assert _ownership_aspects(job.as_workunits()) == []
@@ -198,5 +206,8 @@ def test_connector_owner_is_counted_on_the_report():
 
     list(source.get_workunits_internal())
 
-    # One owner on the DataFlow and one on the DataJob.
-    assert source.report.num_owners_emitted == 2
+    # One, on the DataFlow. There is no connector-level DataJob any more -- it
+    # duplicated the DataFlow -- and this connector replicates no tables, so no
+    # per-table job carries an owner either. A connector WITH tables is covered
+    # by the integration golden, which asserts ownership on each table job.
+    assert source.report.num_owners_emitted == 1

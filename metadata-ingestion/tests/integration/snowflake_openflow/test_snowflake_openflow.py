@@ -370,7 +370,6 @@ def test_snowflake_openflow_golden(pytestconfig, tmp_path):
         DEPLOYMENT_URN,
         RUNTIME_URN,
         FLOW_URN,
-        JOB_URN,
         *TABLE_JOB_URNS,
     }
 
@@ -378,19 +377,17 @@ def test_snowflake_openflow_golden(pytestconfig, tmp_path):
     assert _aspect(records, RUNTIME_URN, "container")["container"] == DEPLOYMENT_URN
     assert _aspect(records, FLOW_URN, "container")["container"] == RUNTIME_URN
 
-    # Ownership: the Snowflake OWNER is a role, so a corpGroup, on every entity.
-    for urn in (DEPLOYMENT_URN, RUNTIME_URN, FLOW_URN, JOB_URN):
+    # Ownership: the Snowflake OWNER is a role, so a corpGroup, on every entity
+    # -- including each per-table job, which is what num_owners_emitted counts.
+    for urn in (DEPLOYMENT_URN, RUNTIME_URN, FLOW_URN, *TABLE_JOB_URNS):
         assert _aspect(records, urn, "ownership")["owners"] == [
             {"owner": f"urn:li:corpGroup:{OWNER_ROLE}", "type": "TECHNICAL_OWNER"}
         ]
 
-    # The connector-level anchor carries NO lineage, and says so explicitly
-    # rather than omitting the aspect -- an empty aspect is what clears a
-    # flattened fan-out written by an earlier release.
-    assert _aspect(records, JOB_URN, "dataJobInputOutput") == {
-        "inputDatasets": [],
-        "outputDatasets": [],
-    }
+    # There is no connector-level DataJob: the DataFlow above IS the connector.
+    assert not [record for record in records if record["entityUrn"] == JOB_URN], (
+        "the anchor DataJob duplicated the DataFlow and should no longer be emitted"
+    )
 
     # One job per replicated table, each carrying its own 1:1 edge. Flattened
     # onto a single job these two pairs would assert four edges.

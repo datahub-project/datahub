@@ -1,4 +1,5 @@
 import dataclasses
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar
 
@@ -38,6 +39,24 @@ def get_col(row: Dict[str, Any], *names: str) -> Optional[Any]:
     return None
 
 
+# Snowflake's default TIMESTAMP_OUTPUT_FORMAT is "YYYY-MM-DD HH24:MI:SS.FF3
+# TZHTZM", which renders as `2024-01-01 12:00:00.000 -0800` -- a SPACE before the
+# offset and no colon inside it. fromisoformat rejects both. An earlier revision
+# only swapped the date/time separator, so the platform's own default rendering
+# did not parse, and every such row then sorted at the same sentinel; ties there
+# resolve CLOSED-over-OPEN, so a whole account could have been reported deleted.
+_TZ_SUFFIX = re.compile(r"\s*([+-]\d{2}):?(\d{2})$")
+
+
+def _parse_timestamp(value: str) -> Optional[datetime]:
+    """A Snowflake timestamp rendering as a datetime, or None if unrecognised."""
+    normalised = _TZ_SUFFIX.sub(r"\1:\2", value.strip()).replace(" ", "T", 1)
+    try:
+        return datetime.fromisoformat(normalised)
+    except ValueError:
+        return None
+
+
 def get_datetime(row: Dict[str, Any], *names: str) -> Optional[datetime]:
     """The column as an aware datetime, however the driver rendered it.
 
@@ -55,13 +74,9 @@ def get_datetime(row: Dict[str, Any], *names: str) -> Optional[datetime]:
     value = get_col(row, *names)
     if value is None:
         return None
-    if isinstance(value, datetime):
-        parsed = value
-    else:
-        try:
-            parsed = datetime.fromisoformat(str(value).replace(" ", "T", 1))
-        except ValueError:
-            return None
+    parsed = value if isinstance(value, datetime) else _parse_timestamp(str(value))
+    if parsed is None:
+        return None
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 

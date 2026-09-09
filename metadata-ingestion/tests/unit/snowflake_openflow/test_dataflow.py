@@ -1,9 +1,10 @@
 from datahub.ingestion.source.common.subtypes import DataFlowSubTypes, DataJobSubTypes
 from datahub.ingestion.source.snowflake.snowflake_openflow import (
+    _MAX_READABLE_JOB_NAME,
     ConnectorTableLineage,
     _table_job_name,
     build_connector_flow,
-    build_connector_job,
+    build_connector_table_job,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_models import (
     OpenflowConnector,
@@ -52,25 +53,38 @@ def test_flow_carries_the_connector_subtype_and_definition():
     assert flow.custom_properties["default_version"] == "3"
 
 
-def test_job_is_nested_in_its_flow():
-    # The job is keyed on the same composite connector.key as the flow, so its
-    # URN nests inside the flow URN with a matching job_id — not CONNECTOR_ID,
-    # for the identical reasons the flow isn't.
+def test_table_job_is_nested_in_its_flow():
+    # A job is keyed on the flow's composite connector.key plus the table, so
+    # its URN nests inside the flow URN -- not on CONNECTOR_ID, for the
+    # identical reasons the flow isn't.
     flow = build_connector_flow(CONNECTOR, platform_instance=None, env="PROD")
-    job = build_connector_job(CONNECTOR, flow)
+    pair = ConnectorTableLineage(
+        source_schema="public",
+        source_table="t",
+        outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)",
+    )
+    job = build_connector_table_job(CONNECTOR, flow, pair)
     assert str(job.urn) == (
         "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),"
-        "MyRuntime/pg_cdc)"
+        "MyRuntime/pg_cdc/public.t)"
     )
     assert job.subtype == DataJobSubTypes.OPENFLOW_CONNECTOR_SYNC
 
 
-def test_job_is_emitted_even_with_no_lineage():
-    # An empty dataJobInputOutput is deliberate: dropping the job would orphan
-    # lineage emitted on a previous run and lose the run-history anchor.
+def test_a_table_job_with_no_upstream_still_carries_its_outlet():
+    # Losing the upstream half must not lose the edge: the destination is what
+    # the connector definitely did, and is emitted either way.
     flow = build_connector_flow(CONNECTOR, platform_instance=None, env="PROD")
-    job = build_connector_job(CONNECTOR, flow)
-    assert job.as_workunits()
+    pair = ConnectorTableLineage(
+        source_schema="public",
+        source_table="t",
+        outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)",
+    )
+    job = build_connector_table_job(CONNECTOR, flow, pair)
+    assert job.inlets == []
+    assert [str(outlet) for outlet in job.outlets] == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)"
+    ]
 
 
 def test_display_name_prefers_the_human_label():
@@ -93,21 +107,29 @@ def test_a_long_table_name_falls_back_to_a_stable_digest() -> None:
     # entity every ingest and orphan the previous one.
     connector = OpenflowConnector(name="c" * 120, runtime_name="r" * 120)
     pair = ConnectorTableLineage(
-        source_schema="public", source_table="t", outlet="urn:li:dataset:(x,y,PROD)"
+        source_schema="public",
+        source_table="t",
+        outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)",
     )
 
     first = _table_job_name(connector, pair)
     second = _table_job_name(connector, pair)
 
     assert first == second, "the fallback id must be stable across runs"
-    assert first.startswith(f"{connector.key}/")
-    digest = first.rsplit("/", 1)[1]
+    # The point of the budget: the result must actually fit inside it.
+    assert len(first) <= _MAX_READABLE_JOB_NAME
+    # The key prefix is truncated, not carried whole -- that is what keeps the
+    # result inside the budget when the key alone would exceed it.
+    prefix, digest = first.rsplit("/", 1)
+    assert connector.key.startswith(prefix)
     assert len(digest) == 16 and digest != "public.t"
 
 
 def test_a_short_table_name_stays_readable() -> None:
     connector = OpenflowConnector(name="conn", runtime_name="rt")
     pair = ConnectorTableLineage(
-        source_schema="public", source_table="t", outlet="urn:li:dataset:(x,y,PROD)"
+        source_schema="public",
+        source_table="t",
+        outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)",
     )
     assert _table_job_name(connector, pair) == "rt/conn/public.t"

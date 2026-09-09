@@ -884,7 +884,9 @@ def test_excluding_a_deployment_produces_no_grant_monitor_warnings() -> None:
     assert "Runtime with no visible parent deployment" not in _warning_titles(
         source.report
     )
-    assert "Connector with no visible runtime" not in _warning_titles(source.report)
+    assert "Connector with no visible parent runtime" not in _warning_titles(
+        source.report
+    )
     # Still counted, so the total stays visible even though it is not warned.
     assert source.report.num_connectors_without_runtime_parent == 1
 

@@ -1,10 +1,13 @@
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from datahub.ingestion.source.snowflake.snowflake_openflow_models import (
     OpenflowConnector,
     OpenflowDeployment,
     OpenflowRuntime,
     _resolve_per_key,
+    get_datetime,
     merge_show_and_history,
 )
 
@@ -513,3 +516,51 @@ def test_an_unparseable_created_on_never_displaces_a_usable_one() -> None:
 
     assert len(resolved) == 1
     assert resolved[0].created_on == "2024-01-01 00:00:00"
+
+
+@pytest.mark.parametrize(
+    ("rendering", "expected_utc_hour"),
+    [
+        # Snowflake's DEFAULT TIMESTAMP_OUTPUT_FORMAT: a space before the offset
+        # and no colon inside it. An earlier revision only swapped the date/time
+        # separator, so the platform's own default did not parse -- see below
+        # for why that was not merely cosmetic.
+        pytest.param("2024-01-01 12:00:00.000 -0800", 20, id="snowflake default"),
+        pytest.param("2024-01-01 12:00:00.000000-08:00", 20, id="offset with colon"),
+        pytest.param("2024-01-01T12:00:00Z", 12, id="iso with Z"),
+        pytest.param("2024-01-01 12:00:00", 12, id="naive, read as UTC"),
+    ],
+)
+def test_snowflake_timestamp_renderings_all_parse(
+    rendering: str, expected_utc_hour: int
+) -> None:
+    parsed = get_datetime({"CREATED_ON": rendering}, "CREATED_ON")
+    assert parsed is not None, f"{rendering!r} must parse"
+    assert parsed.astimezone(timezone.utc).hour == expected_utc_hour
+
+
+def test_an_unparsed_timestamp_cannot_fabricate_a_deletion() -> None:
+    # Why the parser mattering is not cosmetic. Unparsed rows all sort at the
+    # same sentinel, so they TIE -- and a tie resolves CLOSED over OPEN. If the
+    # account's rendering stopped parsing, every key holding any closed row
+    # would resolve to that row and be filtered out as deleted. This pins the
+    # live-wins outcome for the rendering Snowflake actually emits.
+    live = {
+        "NAME": "c",
+        "RUNTIME_NAME": "rt",
+        "CREATED_ON": "2024-06-01 12:00:00.000 -0800",
+    }
+    closed = {
+        "NAME": "c",
+        "RUNTIME_NAME": "rt",
+        "CREATED_ON": "2024-01-01 12:00:00.000 -0800",
+        "DELETED_ON": "2024-01-02 12:00:00.000 -0800",
+    }
+    rows = [OpenflowConnector.from_row(live), OpenflowConnector.from_row(closed)]
+    resolved, _ = _resolve_per_key([row for row in rows if row])
+
+    assert len(resolved) == 1
+    assert resolved[0].deleted_on is None, (
+        "the later row is live; only an unparsed timestamp would tie and let "
+        "the older closed row win"
+    )
