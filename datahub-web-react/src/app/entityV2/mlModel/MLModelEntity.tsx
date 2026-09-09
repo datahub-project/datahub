@@ -13,6 +13,7 @@ import MLModelSummary from '@app/entityV2/mlModel/profile/MLModelSummary';
 import MlModelFeaturesTab from '@app/entityV2/mlModel/profile/MlModelFeaturesTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { DOCUMENTATION_TAB_ID, INCIDENTS_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
@@ -100,6 +101,7 @@ export class MLModelEntity implements Entity<MlModel> {
                     component: MLModelSummary,
                 },
                 {
+                    id: DOCUMENTATION_TAB_ID,
                     name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                 },
@@ -122,6 +124,7 @@ export class MLModelEntity implements Entity<MlModel> {
                     component: MlModelFeaturesTab,
                 },
                 {
+                    id: INCIDENTS_TAB_ID,
                     name: i18next.t('entity.types:tab.incidents'),
                     icon: WarningOutlined,
                     component: IncidentTab,

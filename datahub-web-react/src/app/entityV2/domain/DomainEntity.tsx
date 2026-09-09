@@ -11,7 +11,7 @@ import { Preview } from '@app/entityV2/domain/preview/Preview';
 import { DomainSummaryTab } from '@app/entityV2/domain/summary/DomainSummaryTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfileTab } from '@app/entityV2/shared/constants';
+import { DOCUMENTATION_TAB_ID, EntityProfileTab } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import SidebarEntitiesSection from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarEntitiesSection';
@@ -159,7 +159,7 @@ export class DomainEntity implements Entity<Domain> {
             ...(!showSummaryTab
                 ? [
                       {
-                          id: EntityProfileTab.DOCUMENTATION_TAB,
+                          id: DOCUMENTATION_TAB_ID,
                           name: i18next.t('entity.types:tab.documentation'),
                           component: DocumentationTab,
                           icon: FileOutlined,

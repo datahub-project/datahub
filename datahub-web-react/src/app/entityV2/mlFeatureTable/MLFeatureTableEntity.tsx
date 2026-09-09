@@ -14,6 +14,7 @@ import Sources from '@app/entityV2/mlFeatureTable/profile/Sources';
 import MlFeatureTableFeatures from '@app/entityV2/mlFeatureTable/profile/features/MlFeatureTableFeatures';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { DOCUMENTATION_TAB_ID, INCIDENTS_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
@@ -101,6 +102,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                     icon: Database,
                 },
                 {
+                    id: DOCUMENTATION_TAB_ID,
                     name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileText,
@@ -111,6 +113,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                     icon: ListBullets,
                 },
                 {
+                    id: INCIDENTS_TAB_ID,
                     name: i18next.t('entity.types:tab.incidents'),
                     icon: WarningCircle,
                     component: IncidentTab,

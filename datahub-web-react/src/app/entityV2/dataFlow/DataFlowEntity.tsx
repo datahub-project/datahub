@@ -14,6 +14,7 @@ import { Preview } from '@app/entityV2/dataFlow/preview/Preview';
 import { RunsTab } from '@app/entityV2/dataJob/tabs/RunsTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { DOCUMENTATION_TAB_ID, INCIDENTS_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
@@ -89,6 +90,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
+                    id: DOCUMENTATION_TAB_ID,
                     name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileText,
@@ -108,6 +110,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     },
                 },
                 {
+                    id: INCIDENTS_TAB_ID,
                     name: i18next.t('entity.types:tab.incidents'),
                     icon: WarningCircle,
                     component: IncidentTab,

@@ -8,6 +8,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { Preview } from '@app/entityV2/mlPrimaryKey/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { DOCUMENTATION_TAB_ID } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
@@ -90,6 +91,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                     component: FeatureTableTab,
                 },
                 {
+                    id: DOCUMENTATION_TAB_ID,
                     name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                 },
