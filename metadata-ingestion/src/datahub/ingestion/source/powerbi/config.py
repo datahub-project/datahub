@@ -616,7 +616,7 @@ class PowerBiDashboardSourceConfig(
         "must be a recognized DataHub platform such as `postgres` or `mysql`, and its "
         "PowerBI name must remain in `dataset_type_mapping` if you narrow that mapping) "
         "plus optional `platform_instance`, `env`, `default_database`, and "
-        "`default_schema`. Requires `native_query_parsing` and "
+        "`default_schema`. Requires `extract_lineage`, `native_query_parsing`, and "
         "`enable_advance_lineage_sql_construct`.",
     )
     # deprecated warning
