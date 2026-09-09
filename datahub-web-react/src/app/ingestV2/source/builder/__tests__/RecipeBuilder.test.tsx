@@ -15,7 +15,13 @@ vi.mock('@app/ingestV2/source/builder/RecipeForm/RecipeForm', () => ({
     default: () => <div data-testid="recipe-form" />,
 }));
 
-const sourceConfigs = [{ name: 'snowflake', displayName: 'Snowflake' }] as SourceConfig[];
+const sourceConfig = {
+    urn: 'urn:li:dataPlatform:snowflake',
+    name: 'snowflake',
+    displayName: 'Snowflake',
+    docsUrl: '',
+    recipe: '',
+} as SourceConfig;
 
 function renderBuilder(state: SourceBuilderState, displayRecipe: string) {
     return render(
@@ -24,7 +30,7 @@ function renderBuilder(state: SourceBuilderState, displayRecipe: string) {
                 state={state}
                 isEditing={false}
                 displayRecipe={displayRecipe}
-                sourceConfigs={sourceConfigs}
+                sourceConfigs={sourceConfig}
                 setStagedRecipe={() => {}}
                 onClickNext={() => {}}
                 goToPrevious={() => {}}
@@ -41,10 +47,10 @@ source:
     authentication_type: DEFAULT_AUTHENTICATOR
     password: secret
 `;
-        const { getByText, getByRole } = renderBuilder({ type: 'snowflake' }, recipe);
+        const { getByText, container } = renderBuilder({ type: 'snowflake' }, recipe);
 
         expect(getByText(/Snowflake is deprecating username \+ password authentication/)).toBeInTheDocument();
-        expect(getByRole('link').getAttribute('href')).toBe(
+        expect(container.querySelector('a[href$="migrate-to-key-pair-auth"]')?.getAttribute('href')).toBe(
             'https://docs.datahub.com/docs/quick-ingestion-guides/snowflake/migrate-to-key-pair-auth',
         );
     });
