@@ -3232,7 +3232,9 @@ class TestFailedCallsCarryTheServersExplanation:
     nothing in the log saying why.
     """
 
-    def _fail_with(self, status: int, body: str, headers: Optional[Dict] = None):
+    def _fail_with(
+        self, status: int, body: str, headers: Optional[Dict] = None
+    ) -> requests.exceptions.HTTPError:
         response = requests.Response()
         response.status_code = status
         response._content = body.encode()

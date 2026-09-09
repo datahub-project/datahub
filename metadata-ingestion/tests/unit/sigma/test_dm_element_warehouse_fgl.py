@@ -1326,3 +1326,23 @@ class TestWarehouseColumnVerifiedAgainstTheGraph:
         self._resolve(source)
 
         assert graph.get_aspect.call_count == 1
+
+    def test_no_graph_is_distinguished_from_a_table_datahub_never_saw(self) -> None:
+        """One number for both would be unactionable.
+
+        No graph at all -- a file sink or a dry run -- is nothing an operator
+        can respond to. DataHub being reachable but never having ingested the
+        table IS actionable: run the warehouse connector.
+        """
+        no_graph = _make_source()
+        no_graph.ctx.graph = None
+        self._resolve(no_graph)
+        assert no_graph.reporter.warehouse_column_no_graph_configured == 1
+        assert no_graph.reporter.warehouse_column_table_not_in_datahub == 0
+
+        reachable = self._source_with_schema(None)
+        self._resolve(reachable)
+        assert reachable.reporter.warehouse_column_table_not_in_datahub == 1
+        assert reachable.reporter.warehouse_column_no_graph_configured == 0
+        # The umbrella still counts both, so existing reads of it are unchanged.
+        assert reachable.reporter.warehouse_column_unverifiable_no_schema == 1

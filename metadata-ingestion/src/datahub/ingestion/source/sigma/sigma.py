@@ -4011,6 +4011,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         fields = self._warehouse_schema_fields(parent_urn)
         if fields is None:
+            # Two very different situations, and collapsing them would make a
+            # large count unactionable: no DataHub to ask at all (a file sink
+            # or a dry run -- nothing an operator can do), versus DataHub is
+            # there but has never ingested this table (run the warehouse
+            # connector and these become verifiable).
+            if self.ctx.graph is None:
+                self.reporter.warehouse_column_no_graph_configured += 1
+            else:
+                self.reporter.warehouse_column_table_not_in_datahub += 1
+                logger.debug(
+                    "WAREHOUSE COLUMN %s: DataHub is reachable but holds no "
+                    "schema for this table, so the derived name %r cannot be "
+                    "checked. Ingest this warehouse table to make these "
+                    "verifiable.",
+                    parent_urn,
+                    guessed,
+                )
             self.reporter.warehouse_column_unverifiable_no_schema += 1
             return guessed, False
         wanted = _normalize_element_name(display_name)

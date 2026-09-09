@@ -291,6 +291,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # connector has not ingested it. The derived name stands: the dataset is an
     # un-ingested stub, so there is no schema for a wrong name to contradict.
     warehouse_column_unverifiable_no_schema: int = 0
+    # Split of the above, because the two need different responses. No graph at
+    # all -- a file sink or a dry run -- is nothing an operator can act on.
+    warehouse_column_no_graph_configured: int = 0
+    # DataHub is reachable but has never ingested that warehouse table. This
+    # one IS actionable: run the warehouse connector and these become
+    # verifiable rather than guessed.
+    warehouse_column_table_not_in_datahub: int = 0
     # DataHub HAS the schema and neither the display name nor the derived name
     # matches any field in it. The edge is still emitted at the reduced
     # confidence, but this is the population where the derived name is provably
