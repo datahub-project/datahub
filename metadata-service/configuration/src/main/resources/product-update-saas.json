@@ -8,7 +8,7 @@
   "description": "Context Platform is now in Public Beta + Custom Agents",
   "image": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/in-product-release-sep2026.png",
   "ctaText": "Explore DataHub Cloud 2.2",
-  "ctaLink": "https://datahub.com/blog/datahub-cloud-2-2",
+  "ctaLink": "https://docs.datahub.com/docs/managed-datahub/release-notes/v_2_2_0",
   "secondaryCtaText": null,
   "secondaryCtaLink": null,
   "features": [],
