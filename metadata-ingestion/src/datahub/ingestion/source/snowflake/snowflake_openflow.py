@@ -915,16 +915,18 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         # precise than the query whose answer it caches. A connector missing
         # either part is not cached at all rather than cached under a partial
         # key -- it also cannot be DESCRIBEd, so it returns below anyway.
-        cache_key = (
+        # Narrowed to a fully-populated tuple before use, so mypy needs no
+        # suppression: a connector missing any part is simply not cached (it
+        # also cannot be DESCRIBEd, and returns below).
+        database, schema, runtime = (
             connector.database_name,
             connector.schema_name,
             connector.runtime_name,
         )
-        cached = (
-            self._canvas_urls.get(cache_key)  # type: ignore[arg-type]
-            if all(cache_key)
-            else None
+        cache_key = (
+            (database, schema, runtime) if database and schema and runtime else None
         )
+        cached = self._canvas_urls.get(cache_key) if cache_key else None
         if cached is not None:
             return cached
         fqn = connector.fqn
@@ -971,8 +973,8 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             # Successes only. Caching a transient DESCRIBE failure against this
             # runtime would deny the link to every sibling connector processed
             # afterwards, trading N-plus-one for a correctness regression.
-            if all(cache_key):
-                self._canvas_urls[cache_key] = url  # type: ignore[index]
+            if cache_key is not None:
+                self._canvas_urls[cache_key] = url
         return url
 
     def _read_connector_config(

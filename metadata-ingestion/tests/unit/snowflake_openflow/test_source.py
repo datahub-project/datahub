@@ -750,7 +750,16 @@ def test_gate_fires_on_runtime_count_even_with_few_connectors() -> None:
     assert _warning_titles(source.report) == ["Connector external links skipped"]
 
 
-def test_identically_named_runtimes_in_different_schemas_are_not_shared() -> None:
+@pytest.mark.parametrize(
+    ("differing_field"),
+    [
+        pytest.param("database_name", id="database"),
+        pytest.param("schema_name", id="schema"),
+    ],
+)
+def test_identically_named_runtimes_in_different_scopes_are_not_shared(
+    differing_field: str,
+) -> None:
     # Runtime names are scoped to their deployment, not the account, so two
     # deployments can each hold a runtime called the same thing. Keying the
     # cache on the bare name would hand one deployment's connectors the other's
@@ -769,15 +778,12 @@ def test_identically_named_runtimes_in_different_schemas_are_not_shared() -> Non
         return next(urls)
 
     source._query_rows = per_call  # type: ignore[method-assign]
+    base = {"runtime_name": "default", "database_name": "DB", "schema_name": "S"}
     first = source._read_connector_url(
-        OpenflowConnector(
-            name="c1", runtime_name="default", database_name="DB_A", schema_name="S"
-        )
+        OpenflowConnector(name="c1", **{**base, differing_field: "one"})  # type: ignore[arg-type]
     )
     second = source._read_connector_url(
-        OpenflowConnector(
-            name="c2", runtime_name="default", database_name="DB_B", schema_name="S"
-        )
+        OpenflowConnector(name="c2", **{**base, differing_field: "two"})  # type: ignore[arg-type]
     )
 
     assert first == "https://a.app/rt-a/nifi/"
