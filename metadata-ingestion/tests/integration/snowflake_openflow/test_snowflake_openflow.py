@@ -16,6 +16,7 @@ one dispatch table over the cursor covers all of them.
 import copy
 import json
 import pathlib
+import sys
 from functools import partial
 from typing import Any, Dict, List, Optional, cast
 from unittest import mock
@@ -35,6 +36,9 @@ from datahub.ingestion.source.snowflake.snowflake_openflow_report import (
 )
 from datahub.testing import mce_helpers
 from tests.integration.snowflake.common import RowCountList
+from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
+)
 
 # --- Fixture inventory ------------------------------------------------------
 #
@@ -102,7 +106,7 @@ CONNECTOR_URL = (
 # What the connector emits: the runtime canvas, which is the part that resolves.
 CANVAS_URL = f"https://openflow.example.snowflakecomputing.app/{RUNTIME_KEY}/nifi/"
 
-CONNECTOR_SHOW_ROWS = [
+CONNECTOR_SHOW_ROWS: List[Dict[str, Any]] = [
     {
         "name": CONNECTOR_NAME,
         "runtime": RUNTIME_NAME,
@@ -143,7 +147,7 @@ RUNTIME_HISTORY_ROWS = [
     }
 ]
 
-CONNECTOR_HISTORY_ROWS = [
+CONNECTOR_HISTORY_ROWS: List[Dict[str, Any]] = [
     {
         "NAME": CONNECTOR_NAME,
         "RUNTIME_NAME": RUNTIME_NAME,
@@ -272,6 +276,10 @@ def _source_config(stateful: bool, lowercase_urns: bool = True) -> Dict[str, Any
             },
         }
     return config
+
+
+# Self-reference, so a test can swap the module-level fixture rows for one run.
+module = sys.modules[__name__]
 
 
 def _pipeline_config(
@@ -496,3 +504,66 @@ def test_upstream_urns_keep_their_case(tmp_path):
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.mytable,PROD)"
         ],
     }
+
+
+def test_a_dropped_connector_is_soft_deleted_on_the_next_run(
+    tmp_path, mock_datahub_graph
+):
+    """DELETION_DETECTION is a declared capability with, until now, no test.
+
+    Everything about deletion was exercised on the INPUT side -- merge_show_and
+    _history marks a row dead, _fetch_* filters it, the golden proves a deleted
+    connector never appears. Nothing watched the OUTPUT side: that a connector
+    present in run 1 and gone in run 2 actually leaves the checkpoint, which is
+    what makes DataHub soft-delete it. A regression in the checkpoint urn set,
+    or in the handler enabling itself from the state provider, would silently
+    downgrade this source to append-only and every report would still be clean.
+    """
+    run_one = tmp_path / "run1.json"
+    run_two = tmp_path / "run2.json"
+
+    def _stateful(output: pathlib.Path) -> PipelineConfig:
+        return _pipeline_config(
+            output, stateful=True, pipeline_name="test_openflow_deletion"
+        )
+
+    with mock.patch(
+        "datahub.ingestion.source.state_provider."
+        "datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+        first = _run_pipeline(_stateful(run_one))
+
+        # Run 2 sees the account after the connector was dropped: gone from
+        # SHOW, and its history row now carries DELETED_ON. That pair is the
+        # only deletion signal this source has.
+        deleted_history: List[Dict[str, Any]] = [
+            dict(row, DELETED_ON="2024-06-01 00:00:00.000")
+            for row in CONNECTOR_HISTORY_ROWS
+        ]
+        with (
+            mock.patch.object(module, "CONNECTOR_SHOW_ROWS", []),
+            mock.patch.object(module, "CONNECTOR_HISTORY_ROWS", deleted_history),
+        ):
+            second = _run_pipeline(_stateful(run_two))
+
+    checkpoint_one = get_current_checkpoint_from_pipeline(first)
+    checkpoint_two = get_current_checkpoint_from_pipeline(second)
+    assert checkpoint_one and checkpoint_one.state
+    assert checkpoint_two and checkpoint_two.state
+
+    # The connector's DataFlow leaves the state, so stale-entity removal will
+    # soft-delete it. The containers stay: the deployment and runtime are still
+    # there, and only the connector was dropped.
+    gone = set(
+        checkpoint_one.state.get_urns_not_in(
+            type="dataFlow", other_checkpoint_state=checkpoint_two.state
+        )
+    )
+    assert FLOW_URN in gone
+    assert not set(
+        checkpoint_one.state.get_urns_not_in(
+            type="container", other_checkpoint_state=checkpoint_two.state
+        )
+    )
