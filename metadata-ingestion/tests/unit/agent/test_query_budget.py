@@ -223,8 +223,10 @@ def test_the_engine_keeps_the_connector_s_own_options():
     """The budget is additive. A connector's ssl/connect_args must survive it."""
 
     class _Config:
-        def get_options(self):
-            return {"connect_args": {"sslmode": "require"}, "pool_size": 3}
+        # `options`, like every config in this family -- a fake defining only
+        # get_options() modelled the probe's old behaviour rather than any real
+        # connector, so it passed while the probe read the wrong dict.
+        options = {"connect_args": {"sslmode": "require"}, "pool_size": 3}
 
         def get_sql_alchemy_url(self) -> str:
             return "postgresql://u:p@h/db"
@@ -251,3 +253,67 @@ def test_a_non_positive_ceiling_is_refused_at_construction():
 
     # None stays the one representation of unbounded, and describe() says so.
     assert QueryBudget(timeout_seconds=None).describe() == "no server-side ceiling"
+
+
+def test_the_probe_reads_the_option_dict_ingestion_reads():
+    """engine_options preferred get_options() over `options`.
+
+    Every SQLAlchemy engine ingestion builds passes `**config.options` --
+    sql_common.get_inspectors, the profilers, athena, oracle, clickhouse, mysql,
+    teradata, and unity's hive_metastore_proxy. Nothing on that path calls
+    get_options(). unity-catalog is the one config in the probe's SQL family
+    defining both, and its two dicts are genuinely different: get_options()
+    returns extra_client_options, while unity/source.py hands self.config.options
+    to the metastore proxy. So the probe was connecting with options ingestion
+    never uses.
+    """
+    from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "workspace_url": "https://dbc-test.cloud.databricks.com",
+            "token": "dapi-fake",
+            "options": {"pool_size": 7},
+            "extra_client_options": {"pool_size": 99},
+        }
+    )
+    assert config.get_options() == {"pool_size": 99}
+    assert engine_options(config) == {"pool_size": 7} == config.options
+
+
+def test_no_config_in_the_sql_probe_family_diverges_on_its_option_source():
+    """The generalisable form of the bug above.
+
+    A future config gaining a get_options() would silently re-open it, so this
+    walks the registry rather than naming unity-catalog.
+    """
+    from datahub.ingestion.source.source_registry import source_registry
+    from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
+
+    checked = 0
+    for name in sorted(source_registry.mapping.keys()):
+        try:
+            # Not on the Source base, so mypy cannot see it; every registered
+            # source that reaches the probe has it.
+            get_config_class = getattr(source_registry.get(name), "get_config_class")  # noqa: B009
+            config_cls = get_config_class()
+        except Exception:
+            # An uninstalled extra is not this test's business.
+            continue
+        provider = getattr(config_cls, "probe_provider_class", None)
+        if provider is None:
+            continue
+        try:
+            if provider() is not SqlAlchemyMetadataProbe:
+                continue
+        except Exception:
+            continue
+        checked += 1
+        assert "options" in config_cls.model_fields, (
+            f"{name}: in the SQL probe family but has no `options` field, so "
+            f"engine_options cannot read what ingestion reads"
+        )
+
+    # Guards the walk itself: a registry that stopped resolving would otherwise
+    # pass this vacuously.
+    assert checked > 10, f"only {checked} configs reached -- the walk is broken"

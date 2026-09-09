@@ -164,19 +164,25 @@ def engine_options(
     config: object, budget: Optional[QueryBudget] = None
 ) -> Dict[str, Any]:
     # SQLAlchemy engine kwargs are heterogeneous (connect_args dict, pool ints,
-    # bools, ...), so values are genuinely Any. Prefer get_options() when a config
-    # defines it; otherwise fall back to the plain `options` dict. Mirrors the real
-    # ingestion path, which passes these to create_engine (e.g. connect_args ssl).
+    # bools, ...), so values are genuinely Any.
+    #
+    # `options`, and deliberately not get_options(). Every SQLAlchemy engine
+    # ingestion builds passes `**config.options` -- sql_common.get_inspectors,
+    # the generic and unity profilers, athena, oracle, clickhouse, mysql,
+    # teradata, and unity's hive_metastore_proxy. Nothing in that path calls
+    # get_options(); its callers are Snowflake's own connector and Fivetran's
+    # destination readers, neither of which builds an engine through here.
+    #
+    # Preferring it therefore made the probe read a *different* dict from
+    # ingestion on any config that has both -- unity-catalog is the one such
+    # config in this family (get_options() returns extra_client_options, while
+    # unity/source.py hands self.config.options to the metastore proxy). A probe
+    # that connects with different options than ingestion is wrong about the one
+    # thing it exists to be right about.
     options: Dict[str, Any] = {}
-    get_options = getattr(config, "get_options", None)
-    if callable(get_options):
-        opts = get_options()
-        if isinstance(opts, dict):
-            options = dict(opts)
-    if not options:
-        plain = getattr(config, "options", None)
-        if isinstance(plain, dict):
-            options = dict(plain)
+    plain = getattr(config, "options", None)
+    if isinstance(plain, dict):
+        options = dict(plain)
 
     if budget is None:
         return options
