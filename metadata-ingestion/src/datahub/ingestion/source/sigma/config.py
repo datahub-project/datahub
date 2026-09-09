@@ -547,6 +547,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     chart_input_fields_skipped_parameter: int = 0
     # Column whose formula refs are exclusively bare sibling refs (e.g. [col]).
     chart_input_fields_skipped_sibling: int = 0
+    # Column mixing the two above and containing nothing else. Neither kind can
+    # ever name an upstream and neither records a miss reason, so these used to
+    # land in chart_input_fields_self_ref_unresolved_refs with no entry at all in
+    # chart_ref_miss_reasons -- inflating the one bucket that is meant to mean "a
+    # real ref failed to resolve, look here for a defect". Kept out of the two
+    # pure counters above so each keeps answering its own question.
+    chart_input_fields_skipped_param_and_sibling: int = 0
     # Extra InputFields emitted for columns whose formula resolves to more than
     # one distinct (upstream_urn, upstream_field) pair. The first resolved pair
     # is counted in chart_input_fields_resolved; each additional pair increments

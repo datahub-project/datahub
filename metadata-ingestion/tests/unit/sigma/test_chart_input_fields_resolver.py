@@ -1282,6 +1282,7 @@ class TestFetchFailureIsNotReportedAsMissingFormula:
             refs=[],
             all_param=False,
             all_sibling=False,
+            all_unresolvable_mixed=False,
             formulas_incomplete=formulas_incomplete,
         )
 

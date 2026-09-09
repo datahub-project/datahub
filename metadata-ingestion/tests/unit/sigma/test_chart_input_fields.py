@@ -258,6 +258,38 @@ class TestParamSiblingOnlyFormulas:
         assert fields[0].schemaFieldUrn == _schema_field_urn(chart_urn, "derived")
         assert source.reporter.chart_input_fields_skipped_sibling == 1
 
+    def test_a_param_and_sibling_mix_is_not_an_unresolved_ref(self) -> None:
+        """Neither kind can name an upstream, so this is not a resolver failure.
+
+        The two pure cases were each short-circuited, but a formula mixing them
+        satisfied neither test and fell through to
+        ``chart_input_fields_self_ref_unresolved_refs`` -- while contributing
+        NOTHING to ``chart_ref_miss_reasons``, because a parameter ref and a bare
+        sibling ref both return before any reason is recorded. That made the one
+        bucket meaning "a real ref failed, look for a defect here" unusable as
+        evidence, since some of its members had no cause at all.
+        """
+        source = _make_source()
+        elem = _make_element(
+            element_id="mixElem01",
+            name="Mix Element",
+            columns=["derived"],
+            column_formulas={"derived": "[P_Monthly_Target] - [target]"},
+        )
+        workbook = _make_workbook([elem])
+        result = _collect_input_fields(source, [elem], workbook)
+
+        chart_urn = _chart_urn("mixElem01")
+        assert result[chart_urn].fields[0].schemaFieldUrn == _schema_field_urn(
+            chart_urn, "derived"
+        )
+        assert source.reporter.chart_input_fields_skipped_param_and_sibling == 1
+        assert source.reporter.chart_input_fields_self_ref_unresolved_refs == 0
+        assert source.reporter.chart_ref_miss_reasons == {}
+        # The pure counters keep meaning exactly what they did.
+        assert source.reporter.chart_input_fields_skipped_parameter == 0
+        assert source.reporter.chart_input_fields_skipped_sibling == 0
+
 
 # ---------------------------------------------------------------------------
 # Test 4: DataModelElementUpstream resolves to Dataset URN
@@ -436,11 +468,13 @@ class TestCounterInvariant:
             + r.chart_input_fields_self_ref_fallback
             + r.chart_input_fields_skipped_parameter
             + r.chart_input_fields_skipped_sibling
+            + r.chart_input_fields_skipped_param_and_sibling
         )
         assert counter_sum == total_chart_columns, (
             f"Counter invariant broken: {r.chart_input_fields_resolved} resolved "
             f"+ {r.chart_input_fields_self_ref_fallback} self_ref_fallback "
             f"+ {r.chart_input_fields_skipped_parameter} skipped_param "
             f"+ {r.chart_input_fields_skipped_sibling} skipped_sibling "
+            f"+ {r.chart_input_fields_skipped_param_and_sibling} skipped_mixed "
             f"= {counter_sum} != {total_chart_columns} total chart columns"
         )

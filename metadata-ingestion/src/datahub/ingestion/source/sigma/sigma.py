@@ -6493,6 +6493,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         refs: List[BracketRef],
         all_param: bool,
         all_sibling: bool,
+        all_unresolvable_mixed: bool,
         formulas_incomplete: bool,
     ) -> None:
         """File one self-referential column under the reason it got there.
@@ -6509,6 +6510,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return
         if all_sibling:
             self.reporter.chart_input_fields_skipped_sibling += 1
+            return
+        if all_unresolvable_mixed:
+            self.reporter.chart_input_fields_skipped_param_and_sibling += 1
             return
         self.reporter.chart_input_fields_self_ref_fallback += 1
         if refs:
@@ -6578,6 +6582,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             seen: Set[Tuple[str, str]] = set()
             all_param = False
             all_sibling = False
+            all_unresolvable_mixed = False
 
             if formula is not None:
                 refs = extract_bracket_refs(formula)
@@ -6621,6 +6626,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             all_param = True
                         elif sibling_count == total:
                             all_sibling = True
+                        elif param_count + sibling_count == total:
+                            # A MIX of the two. Neither kind is ever resolvable
+                            # and neither records a miss reason, so without this
+                            # the column landed in
+                            # chart_input_fields_self_ref_unresolved_refs with
+                            # nothing at all in chart_ref_miss_reasons -- the one
+                            # bucket that is supposed to mean "a real ref failed,
+                            # look here for a resolver defect". Kept separate from
+                            # the two pure cases, which answer different questions.
+                            all_unresolvable_mixed = True
 
             multi_segment = self._multi_segment_refs(refs)
             if multi_segment:
@@ -6677,6 +6692,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     refs=refs,
                     all_param=all_param,
                     all_sibling=all_sibling,
+                    all_unresolvable_mixed=all_unresolvable_mixed,
                     formulas_incomplete=formulas_incomplete,
                 )
                 fields.append(
