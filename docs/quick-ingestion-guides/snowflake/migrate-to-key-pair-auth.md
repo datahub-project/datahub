@@ -188,11 +188,15 @@ You can apply the recipe change in place — edit the existing source in the Dat
 
 ## Step 4 — Validate before retiring the old credentials
 
-1. **Test the connection** before running a full ingestion, using the same recipe file you just updated:
+1. **Test the connection** before running a full ingestion. You can do this from either the CLI or the UI:
 
-   ```bash
-   datahub ingest -c <path-to-your-recipe>.yml --test-source-connection
-   ```
+   - **CLI** — using the same recipe file you just updated:
+
+     ```bash
+     datahub ingest -c <path-to-your-recipe>.yml --test-source-connection
+     ```
+
+   - **UI** — in the DataHub source builder, open the Snowflake source you just edited and click **Test Connection** (in the connection-details step). This runs the same check against the saved recipe without leaving the page.
 
    A successful connection test confirms the key-pair is wired correctly.
 
