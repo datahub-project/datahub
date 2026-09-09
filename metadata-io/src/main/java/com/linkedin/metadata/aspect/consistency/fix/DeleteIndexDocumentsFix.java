@@ -8,6 +8,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
@@ -166,13 +167,13 @@ public class DeleteIndexDocumentsFix implements ConsistencyFix {
     }
     try {
       EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityType);
-      String searchGroup = entitySpec.getSearchGroup();
+      String indexKey = V3IndexKeys.resolve(entitySpec);
       String v3DocId = entityDocumentIdHasher.documentId(opContext, urn);
-      entitySearchService.deleteDocumentBySearchGroup(opContext, searchGroup, v3DocId);
+      entitySearchService.deleteDocumentBySearchGroup(opContext, indexKey, v3DocId);
       log.debug(
-          "Deleted from V3 entity search index: {} (searchGroup={}, docId={})",
+          "Deleted from V3 entity search index: {} (indexKey={}, docId={})",
           urnStr,
-          searchGroup,
+          indexKey,
           v3DocId);
       // V3 delete is additive cleanup. EntitySearchService's default is a no-op, so a
       // non-throwing call is not evidence that a document was removed.

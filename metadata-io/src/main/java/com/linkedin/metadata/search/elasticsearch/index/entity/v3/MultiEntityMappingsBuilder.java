@@ -26,6 +26,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -186,19 +187,18 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @Nonnull OperationContext opContext,
       @Nonnull Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
     if (entityIndexConfiguration.getV3().isEnabled()) {
-      // Generate Index Mapping per group
-      return opContext.getEntityRegistry().getSearchGroups().stream()
+      return V3IndexKeys.groupEntitySpecs(opContext.getEntityRegistry()).keySet().stream()
           .map(
-              searchGroup -> {
+              indexKey -> {
                 Map<String, Object> mappings =
                     getMappingsForMultipleEntities(
-                        opContext.getEntityRegistry(), searchGroup, structuredProperties);
+                        opContext.getEntityRegistry(), indexKey, structuredProperties);
                 return IndexMapping.builder()
                     .indexName(
                         opContext
                             .getSearchContext()
                             .getIndexConvention()
-                            .getEntityIndexNameV3(opContext, searchGroup))
+                            .getEntityIndexNameV3(opContext, indexKey))
                     .mappings(mappings)
                     .build();
               })
@@ -238,7 +238,6 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       return result;
     }
 
-    // Group entity types by search group to build mappings per index
     Map<String, List<EntitySpec>> searchGroupToEntitySpecs = new HashMap<>();
 
     for (Urn entityTypeUrn : property.getEntityTypes()) {
@@ -253,13 +252,11 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
       EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityTypeName);
 
-      if (entitySpec != null && entitySpec.getSearchGroup() != null) {
-        String searchGroup = entitySpec.getSearchGroup();
-        searchGroupToEntitySpecs
-            .computeIfAbsent(searchGroup, k -> new ArrayList<>())
-            .add(entitySpec);
+      if (entitySpec != null) {
+        String indexKey = V3IndexKeys.resolve(entitySpec);
+        searchGroupToEntitySpecs.computeIfAbsent(indexKey, k -> new ArrayList<>()).add(entitySpec);
       } else {
-        log.warn("Missing entitySpec with searchGroup for entity type: {}", entityTypeName);
+        log.warn("Missing entitySpec for entity type: {}", entityTypeName);
       }
     }
 
@@ -364,8 +361,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
 
     // Extract entity specs from the registry based on searchGroup
-    Collection<EntitySpec> entitySpecs =
-        entityRegistry.getEntitySpecsBySearchGroup(searchGroup).values();
+    Collection<EntitySpec> entitySpecs = V3IndexKeys.entitySpecsForKey(entityRegistry, searchGroup);
 
     if (entitySpecs.isEmpty()) {
       log.warn("No entities found for search group '{}'", searchGroup);

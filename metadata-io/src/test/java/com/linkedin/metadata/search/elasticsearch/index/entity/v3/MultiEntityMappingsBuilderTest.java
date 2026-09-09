@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -33,6 +32,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -57,6 +57,7 @@ public class MultiEntityMappingsBuilderTest {
     // Setup mock entity registry and specs
     mockEntityRegistry = mock(EntityRegistry.class);
     mockEntitySpec = createMockEntitySpec();
+    stubEntitySpecs(mockEntitySpec);
 
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
     // Note: operationContext is a real object, not a mock, so we can't mock its methods
@@ -85,17 +86,12 @@ public class MultiEntityMappingsBuilderTest {
   @Test
   public void testGetIndexMappingsWithV3Enabled() {
     // Setup: V3 enabled with valid entity specs
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
-
     Collection<IndexMapping> mappings = mappingsBuilder.getIndexMappings(operationContext);
 
     assertNotNull(mappings, "Mappings should not be null");
     assertFalse(mappings.isEmpty(), "Mappings should not be empty when v3 is enabled");
 
-    // Verify we get one mapping per search group
-    assertEquals(mappings.size(), 1, "Should have one mapping for the default search group");
+    assertEquals(mappings.size(), 1, "Should have one mapping for the entity-named V3 key");
 
     IndexMapping mapping = mappings.iterator().next();
     assertNotNull(mapping.getIndexName(), "Index name should not be null");
@@ -107,9 +103,6 @@ public class MultiEntityMappingsBuilderTest {
     V3MappingContributor contributor =
         () -> Collections.singletonMap("_ext", FieldTypeMapper.getMappingsForKeyword());
     mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(contributor));
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
 
     IndexMapping mapping = mappingsBuilder.getIndexMappings(operationContext).iterator().next();
     @SuppressWarnings("unchecked")
@@ -125,9 +118,6 @@ public class MultiEntityMappingsBuilderTest {
     V3MappingContributor second =
         () -> Collections.singletonMap("_ext", FieldTypeMapper.getMappingsForKeyword());
     mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(first, second));
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
 
     expectThrows(
         IllegalArgumentException.class, () -> mappingsBuilder.getIndexMappings(operationContext));
@@ -138,9 +128,6 @@ public class MultiEntityMappingsBuilderTest {
     V3MappingContributor contributor =
         () -> Collections.singletonMap("_search", FieldTypeMapper.getMappingsForKeyword());
     mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(contributor));
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
 
     expectThrows(
         IllegalArgumentException.class, () -> mappingsBuilder.getIndexMappings(operationContext));
@@ -162,11 +149,6 @@ public class MultiEntityMappingsBuilderTest {
 
   @Test
   public void testGetIndexMappingsWithStructuredProperties() {
-    // Setup: V3 enabled with structured properties
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
-
     // Create structured property
     StructuredPropertyDefinition property = createMockStructuredProperty();
     Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test:property");
@@ -318,12 +300,6 @@ public class MultiEntityMappingsBuilderTest {
 
   @Test
   public void testGetIndexMappingsWithNewStructuredProperty() {
-    // Setup: V3 enabled with entity spec
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
-    when(mockEntityRegistry.getEntitySpec("testEntity")).thenReturn(mockEntitySpec);
-
     // Create structured property
     StructuredPropertyDefinition property = createMockStructuredProperty();
     Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test:property");
@@ -342,10 +318,9 @@ public class MultiEntityMappingsBuilderTest {
     // Setup: Two entities with conflicting field names
     EntitySpec entitySpec1 = createMockEntitySpec("entity1", "conflictingField");
     EntitySpec entitySpec2 = createMockEntitySpec("entity2", "conflictingField");
-
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(ImmutableMap.of("entity1", entitySpec1, "entity2", entitySpec2));
+    when(entitySpec1.getSearchGroup()).thenReturn("primary");
+    when(entitySpec2.getSearchGroup()).thenReturn("primary");
+    stubEntitySpecs(entitySpec1, entitySpec2);
 
     Collection<IndexMapping> mappings = mappingsBuilder.getIndexMappings(operationContext);
 
@@ -376,10 +351,9 @@ public class MultiEntityMappingsBuilderTest {
     EntitySpec entitySpec2 =
         createMockEntitySpecWithAliasAndAspect(
             "entity2", "objectField", FieldType.OBJECT, "objectAlias", "otherProperties");
-
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(ImmutableMap.of("entity1", entitySpec1, "entity2", entitySpec2));
+    when(entitySpec1.getSearchGroup()).thenReturn("primary");
+    when(entitySpec2.getSearchGroup()).thenReturn("primary");
+    stubEntitySpecs(entitySpec1, entitySpec2);
 
     Collection<IndexMapping> mappings = mappingsBuilder.getIndexMappings(operationContext);
 
@@ -405,11 +379,6 @@ public class MultiEntityMappingsBuilderTest {
 
   @Test
   public void testMappingsConsistency() {
-    // Setup: V3 enabled
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
-
     // Call multiple times to verify idempotency
     Collection<IndexMapping> mappings1 = mappingsBuilder.getIndexMappings(operationContext);
     Collection<IndexMapping> mappings2 = mappingsBuilder.getIndexMappings(operationContext);
@@ -456,34 +425,55 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   @Test
-  public void testGetIndexMappingsWithEmptySearchGroups() {
-    // Setup: No search groups
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.emptySet());
+  public void testGetIndexMappingsWithEmptyEntitySpecs() {
+    when(mockEntityRegistry.getEntitySpecs()).thenReturn(Collections.emptyMap());
 
     Collection<IndexMapping> mappings = mappingsBuilder.getIndexMappings(operationContext);
 
     assertNotNull(mappings, "Mappings should not be null");
-    assertTrue(mappings.isEmpty(), "Should return empty mappings when no search groups");
+    assertTrue(mappings.isEmpty(), "Should return empty mappings when no entity specs");
   }
 
   @Test
-  public void testGetIndexMappingsWithEmptyEntitySpecs() {
-    // Setup: Search group exists but has no entity specs
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(Collections.emptyMap());
+  public void testGetIndexMappingsEmitsOneIndexPerUnsetSearchGroup() {
+    EntitySpec dataset = createMockEntitySpec("dataset", "fieldA");
+    EntitySpec chart = createMockEntitySpec("chart", "fieldB");
+    stubEntitySpecs(dataset, chart);
 
     Collection<IndexMapping> mappings = mappingsBuilder.getIndexMappings(operationContext);
 
-    assertNotNull(mappings, "Mappings should not be null");
-    assertEquals(1, mappings.size(), "Should have one index mapping for the search group");
+    assertEquals(mappings.size(), 2, "Unset searchGroup must not share defaultindex_v3");
+    Set<String> names =
+        mappings.stream().map(IndexMapping::getIndexName).collect(Collectors.toSet());
+    assertTrue(names.stream().anyMatch(n -> n.contains("dataset")));
+    assertTrue(names.stream().anyMatch(n -> n.contains("chart")));
+    assertFalse(names.stream().anyMatch(n -> n.contains("default")));
+  }
 
-    IndexMapping mapping = mappings.iterator().next();
-    assertNotNull(mapping.getIndexName(), "Index name should not be null");
-    assertTrue(mapping.getMappings().isEmpty(), "Mappings should be empty when no entity specs");
+  @Test
+  public void testGetIndexMappingsCollapsesExplicitSearchGroup() {
+    EntitySpec dataset = createMockEntitySpec("dataset", "fieldA");
+    EntitySpec chart = createMockEntitySpec("chart", "fieldB");
+    when(dataset.getSearchGroup()).thenReturn("primary");
+    when(chart.getSearchGroup()).thenReturn("primary");
+    stubEntitySpecs(dataset, chart);
+
+    Collection<IndexMapping> mappings = mappingsBuilder.getIndexMappings(operationContext);
+
+    assertEquals(mappings.size(), 1);
+    assertTrue(mappings.iterator().next().getIndexName().contains("primary"));
   }
 
   // Helper methods
+
+  private void stubEntitySpecs(EntitySpec... specs) {
+    Map<String, EntitySpec> map = new java.util.LinkedHashMap<>();
+    for (EntitySpec spec : specs) {
+      map.put(spec.getName(), spec);
+      when(mockEntityRegistry.getEntitySpec(spec.getName())).thenReturn(spec);
+    }
+    when(mockEntityRegistry.getEntitySpecs()).thenReturn(map);
+  }
 
   private EntitySpec createMockEntitySpec() {
     return createMockEntitySpec("testEntity", "testField");
@@ -512,7 +502,7 @@ public class MultiEntityMappingsBuilderTest {
       String aspectName) {
     EntitySpec entitySpec = mock(EntitySpec.class);
     when(entitySpec.getName()).thenReturn(entityName);
-    when(entitySpec.getSearchGroup()).thenReturn("default");
+    when(entitySpec.getSearchGroup()).thenReturn(null);
 
     // Create entity annotation
     EntityAnnotation entityAnnotation = mock(EntityAnnotation.class);

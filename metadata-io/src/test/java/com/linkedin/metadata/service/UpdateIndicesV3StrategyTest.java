@@ -712,12 +712,11 @@ public class UpdateIndicesV3StrategyTest {
           .thenReturn(Pair.of(mockEntitySpec, mockAspectSpec));
       mockedStatic.when(() -> UpdateIndicesUtil.isDeletingKey(any(Pair.class))).thenReturn(true);
 
-      // Execute - should handle null search group gracefully
       strategy.processBatch(operationContext, groupedEvents, true);
 
-      // Verify that no delete operation was performed due to null search group
-      verify(elasticSearchService, never())
-          .deleteDocumentBySearchGroup(any(), anyString(), anyString());
+      // Unset searchGroup uses the entity type as the V3 index key
+      verify(elasticSearchService)
+          .deleteDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString());
     }
   }
 
@@ -765,9 +764,8 @@ public class UpdateIndicesV3StrategyTest {
     // Execute - should handle null search group gracefully
     strategy.processBatch(operationContext, groupedEvents, true);
 
-    // Verify that no upsert operation was performed due to null search group
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString(), anyString());
   }
 
   @Test
