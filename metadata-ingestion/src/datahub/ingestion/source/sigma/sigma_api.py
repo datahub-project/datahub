@@ -117,6 +117,28 @@ def _error_body(response: Optional[requests.Response]) -> Optional[str]:
     return text[:_MAX_ERROR_BODY_CHARS].replace("\n", " ")
 
 
+def _error_code(response: Optional[requests.Response]) -> Optional[str]:
+    """Sigma's own machine-readable classifier for a failed call.
+
+    The HTTP status is too coarse to act on: one tenant's nine 400s were three
+    unrelated problems (``unable_to_produce_query``, ``invalid_request`` for a
+    dependency cycle, ``warehouse_query_failed_user_error`` for a SQL error in
+    the customer's own model), each needing a different person to fix it. The
+    ``code`` field separates them and is stable enough to aggregate on, where
+    ``message`` embeds object names and would never group.
+    """
+    if response is None:
+        return None
+    try:
+        payload = response.json()
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    code = payload.get("code")
+    return code if isinstance(code, str) and code else None
+
+
 class SigmaAPI:
     def __init__(self, config: SigmaSourceConfig, report: SigmaSourceReport) -> None:
         self.config = config
@@ -238,6 +260,11 @@ class SigmaAPI:
         self.report.api_call_failures_by_status[key] = (
             self.report.api_call_failures_by_status.get(key, 0) + 1
         )
+        sigma_code = _error_code(response)
+        if sigma_code:
+            self.report.api_call_failures_by_sigma_code[sigma_code] = (
+                self.report.api_call_failures_by_sigma_code.get(sigma_code, 0) + 1
+            )
         if not report_warning:
             # The caller emits its own, better-scoped warning for this failure
             # (pagination aborts name the endpoint, the URL and how many rows

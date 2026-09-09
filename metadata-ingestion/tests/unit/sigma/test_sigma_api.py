@@ -1,4 +1,5 @@
 import datetime as _dt
+import json
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
@@ -3184,6 +3185,49 @@ class TestApiFailuresReachTheReport:
 
         assert api.report.api_call_failures_by_status == {"500": 1}
         assert api.report.warnings == []
+
+    def test_sigma_error_codes_are_bucketed_separately_from_status(self) -> None:
+        """The status is too coarse to act on; Sigma's ``code`` is not.
+
+        On one tenant the nine 400s were three unrelated problems needing three
+        different fixes, and a single ``400: 9`` said none of that.
+        """
+        api = _create_sigma_api()
+        for code in ("inode_archived", "unable_to_produce_query", "inode_archived"):
+            response = requests.Response()
+            response.status_code = 409
+            response._content = json.dumps(
+                {"message": "whatever", "code": code}
+            ).encode()
+            try:
+                raise requests.exceptions.HTTPError(response=response)
+            except requests.exceptions.HTTPError:
+                api._log_http_error(message="ctx", report_warning=False)
+
+        assert api.report.api_call_failures_by_sigma_code == {
+            "inode_archived": 2,
+            "unable_to_produce_query": 1,
+        }
+        # The status bucket is unchanged, so existing reads of it still work.
+        assert api.report.api_call_failures_by_status == {"409": 3}
+
+    def test_a_non_json_body_leaves_the_code_bucket_empty(self) -> None:
+        """Reading the body must never raise: the call has already failed.
+
+        An HTML error page from a proxy in front of Sigma is the realistic
+        case, and it must count under the status like any other failure.
+        """
+        api = _create_sigma_api()
+        response = requests.Response()
+        response.status_code = 502
+        response._content = b"<html>Bad Gateway</html>"
+        try:
+            raise requests.exceptions.HTTPError(response=response)
+        except requests.exceptions.HTTPError:
+            api._log_http_error(message="ctx", report_warning=False)
+
+        assert api.report.api_call_failures_by_sigma_code == {}
+        assert api.report.api_call_failures_by_status == {"502": 1}
 
 
 class TestPivotAndInputTableOptOut:

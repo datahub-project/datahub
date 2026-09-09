@@ -329,6 +329,24 @@ a run with hundreds of 404s or 409s is missing input, not mis-resolving it. Fail
 calling code already reports in more detail — a pagination abort, for instance — are counted
 here but not warned about twice.
 
+`api_call_failures_by_sigma_code` counts the same failures by Sigma's own `code`, which is what
+you can act on — the HTTP status is too coarse. On one tenant a single `400: 9` turned out to be
+three unrelated problems needing three different fixes. The codes seen in practice, none of which
+a retry or a connector change can recover:
+
+| `code`                              | What it means                                                        | Who fixes it                             |
+| ----------------------------------- | -------------------------------------------------------------------- | ---------------------------------------- |
+| `inode_archived`                    | the object reads a warehouse table or dataset that has been archived | repoint or archive the workbook in Sigma |
+| `inode_not_exists`                  | the referenced object was deleted                                    | same                                     |
+| `unable_to_produce_query`           | Sigma cannot compile the object (e.g. "Missing source")              | repair the model in Sigma                |
+| `invalid_request`                   | the object is malformed, e.g. a dependency cycle                     | repair the model in Sigma                |
+| `warehouse_query_failed_user_error` | the model's own SQL fails against the warehouse                      | fix the SQL                              |
+
+Sigma cannot return columns for any of these, so the affected columns fall back to
+self-references and are counted under `chart_input_fields_formulas_not_fetched`. **A large value
+there is a content problem in Sigma, not a connector defect** — pair the two counters before
+raising a bug.
+
 #### Reading the chart InputFields counters
 
 Every chart column lands in exactly one bucket, and the fallback bucket is split by cause —

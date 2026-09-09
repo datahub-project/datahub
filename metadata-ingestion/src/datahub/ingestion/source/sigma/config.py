@@ -450,6 +450,16 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # and touched the report not at all -- so these failures were invisible
     # unless the run was in debug. On one tenant (2026-09): 11x404, 9x400, 6x409.
     api_call_failures_by_status: Dict[str, int] = field(default_factory=dict)
+    # The same failures keyed by Sigma's own ``code``, which is what an operator
+    # can actually act on. The status is too coarse: one tenant's nine 400s were
+    # three unrelated problems needing three different fixes, and NONE of them
+    # was a connector defect -- ``inode_archived`` (the model reads a warehouse
+    # table or dataset that has been deleted), ``unable_to_produce_query`` and
+    # ``invalid_request`` (the model is broken in Sigma, e.g. a dependency
+    # cycle), ``warehouse_query_failed_user_error`` (a SQL error in the
+    # customer's own model). Sigma cannot serve columns for any of them, so the
+    # gap is closed by repairing or archiving the object, not by retrying.
+    api_call_failures_by_sigma_code: Dict[str, int] = field(default_factory=dict)
     # Calls that ENUMERATE entities and failed, so entities are missing from
     # this run entirely. Reported as a failure, not a warning, because
     # stale-entity removal soft-deletes anything a previous run emitted and
