@@ -69,6 +69,9 @@ class GenericContainerSubTypes(StrEnum):
     FABRIC_WORKSPACE = "Fabric Workspace"
     # AWS Kinesis
     KINESIS_REGION = "Region"
+    # Snowflake Openflow
+    OPENFLOW_DEPLOYMENT = "Openflow Deployment"
+    OPENFLOW_RUNTIME = "Openflow Runtime"
 
 
 class DatasetContainerSubTypes(StrEnum):
@@ -228,6 +231,8 @@ class DataFlowSubTypes(StrEnum):
     SAP_TASK_CHAIN = "Task Chain"
     # Amazon Data Firehose — each Firehose stream is its own pipeline (DataFlow).
     KINESIS_FIREHOSE_STREAM = "Firehose Stream"
+    # Snowflake Openflow — each connector is its own pipeline.
+    OPENFLOW_CONNECTOR = "Openflow Connector"
 
 
 class DataJobSubTypes(StrEnum):
@@ -298,6 +303,11 @@ class DataJobSubTypes(StrEnum):
 
     # dlt
     DLT_RESOURCE = "dlt Resource"
+
+    # Snowflake Openflow — the single sync step within a connector. Named
+    # distinctly from the DataFlow subtype because create_source_capability_modifier_enum
+    # keeps the first member for a repeated NAME and drops later ones.
+    OPENFLOW_CONNECTOR_SYNC = "Openflow Connector Sync"
 
 
 def create_source_capability_modifier_enum():

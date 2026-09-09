@@ -4467,6 +4467,89 @@
       "platform_name": "Snowflake",
       "support_status": "GA"
     },
+    "snowflake-openflow": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Openflow Deployment",
+            "Openflow Runtime"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Not supported: Openflow publishes no column-level mapping. Neither the connector's configuration nor the OPENFLOW_* ACCOUNT_USAGE views carry a column-to-column relation, and the configuration selects source tables by name or pattern, so lineage is derivable only at table grain.",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Not applicable: Openflow moves data and holds no catalog of its own. Use the `snowflake` source for the destination tables.",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Not supported: OPENFLOW_USAGE_HISTORY reports credit consumption, not dataset usage.",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion, using DELETED_ON from the ACCOUNT_USAGE views",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Not supported: domains are assigned in DataHub rather than sourced from Openflow.",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Extracted from each object's OWNER",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Not supported: the Openflow object views expose no tag column.",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Not applicable: Openflow moves data and holds no catalog of its own. Use the `snowflake` source for the destination tables.",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Derived from each connector's own configuration; disable with `include_openflow_lineage: false`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.snowflake.snowflake_openflow.SnowflakeOpenflowSource",
+      "platform_id": "snowflake-openflow",
+      "platform_name": "Snowflake Openflow",
+      "support_status": "ALPHA"
+    },
     "snowplow": {
       "capabilities": [
         {

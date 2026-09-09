@@ -802,6 +802,7 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-slim": snowflake_common,
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
+    "snowflake-openflow": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowplow": snowplow,
     # Floor at 0.235.2: first release pinning sqlglot~=30.8.0. Cap at <0.237 after
     # vetting 0.236. Excluded from the pyproject/uv lock and from the "all" extra
@@ -1223,6 +1224,7 @@ entry_points = {
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "snowflake-summary = datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource",
         "snowflake-queries = datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource",
+        "snowflake-openflow = datahub.ingestion.source.snowflake.snowflake_openflow:SnowflakeOpenflowSource",
         "snowplow = datahub.ingestion.source.snowplow.snowplow:SnowplowSource",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "preset = datahub.ingestion.source.preset:PresetSource",

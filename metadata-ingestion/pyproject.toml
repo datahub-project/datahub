@@ -982,6 +982,20 @@ snowflake = [
     "tenacity>=8.0.1,<9.0.0",
 ]
 
+snowflake-openflow = [
+    "cachetools<6.0.0",
+    "cryptography>=50.0.0,<51.0.0",
+    "greenlet<4.0.0",
+    "msal<2.0.0",
+    "pandas<3.0.0",
+    "snowflake-connector-python>=4.4.0,<5.0.0",
+    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "sqlalchemy>=1.4.39,<2",
+    "sqlglot[c]==30.12.0",
+    "sqlparse>=0.6.0,<1.0.0",
+    "tenacity>=8.0.1,<9.0.0",
+]
+
 snowflake-queries = [
     "cachetools<6.0.0",
     "cryptography>=50.0.0,<51.0.0",
@@ -1847,6 +1861,7 @@ sqlmesh = "datahub.ingestion.source.sqlmesh.sqlmesh_source:SqlmeshSource"
 snowflake = "datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source"
 snowflake-summary = "datahub.ingestion.source.snowflake.snowflake_summary:SnowflakeSummarySource"
 snowflake-queries = "datahub.ingestion.source.snowflake.snowflake_queries:SnowflakeQueriesSource"
+snowflake-openflow = "datahub.ingestion.source.snowflake.snowflake_openflow:SnowflakeOpenflowSource"
 snowplow = "datahub.ingestion.source.snowplow.snowplow:SnowplowSource"
 superset = "datahub.ingestion.source.superset:SupersetSource"
 preset = "datahub.ingestion.source.preset:PresetSource"
