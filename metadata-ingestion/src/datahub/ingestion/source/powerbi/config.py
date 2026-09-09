@@ -617,7 +617,9 @@ class PowerBiDashboardSourceConfig(
         "PowerBI name must remain in `dataset_type_mapping` if you narrow that mapping) "
         "plus optional `platform_instance`, `env`, `default_database`, and "
         "`default_schema`. Requires `extract_lineage`, `native_query_parsing`, and "
-        "`enable_advance_lineage_sql_construct`.",
+        "`enable_advance_lineage_sql_construct`. If the outer native query cannot be "
+        "parsed, lineage is skipped for the whole table (native upstreams included), "
+        "not just the federated part.",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(

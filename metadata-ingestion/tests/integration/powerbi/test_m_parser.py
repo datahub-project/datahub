@@ -1379,6 +1379,57 @@ def test_bigquery_external_query_respects_dataset_type_mapping():
 
 
 @pytest.mark.integration
+def test_bigquery_external_query_tsql_preamble_recovered_after_cleanup():
+    # A cleanup-recoverable T-SQL preamble (USE/GO ahead of the SELECT) fails the initial
+    # extraction parse, which runs before remove_drop_statement. Rather than discard the
+    # whole table's lineage, _resolve_external_query_upstreams retries extraction on the
+    # T-SQL-cleaned query and recovers the federation. The retry runs only after the raw
+    # parse already failed, so it never reports a spurious failure for a query it recovers.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "USE mydb#(lf)GO#(lf)select account_name from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
+    )
+    assert reporter.m_query_external_query_connections_resolved == 1
+    # The recovered query must not leave a spurious failure behind.
+    assert reporter.m_query_external_query_failures == 0
+
+
+@pytest.mark.integration
 def test_bigquery_external_query_raw_string_args_resolve():
     # BigQuery raw-string literals (r'...') for the EXTERNAL_QUERY connection and inner
     # SQL parse as exp.RawString, not exp.Literal. Extraction must still treat them as

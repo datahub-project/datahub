@@ -519,6 +519,26 @@ class AbstractLineage(ABC):
             query, _BIGQUERY_PLATFORM_NAME
         )
 
+        if extraction.parse_failed:
+            # A cleanup-recoverable T-SQL preamble (USE/GO/SET/DROP ahead of the SELECT)
+            # fails the raw parse and would otherwise discard the whole table's lineage,
+            # native tables included. remove_drop_statement strips those statements, so
+            # retry extraction on the cleaned query. This runs only after the first parse
+            # has already failed, so — unlike running cleanup up front — it cannot corrupt
+            # a federation string literal that a successful first parse would have
+            # preserved. The rewritten_query from this retry is already cleaned, so the
+            # caller's later remove_drop_statement pass is a no-op.
+            cleaned_query = native_sql_parser.remove_drop_statement(query)
+            if (
+                cleaned_query != query
+                and native_sql_parser.contains_external_query_call(
+                    cleaned_query, _BIGQUERY_PLATFORM_NAME
+                )
+            ):
+                extraction = native_sql_parser.extract_external_queries(
+                    cleaned_query, _BIGQUERY_PLATFORM_NAME
+                )
+
         upstreams: List[DataPlatformTable] = []
 
         if extraction.parse_failed:
@@ -678,11 +698,12 @@ class AbstractLineage(ABC):
         ):
             resolution = self._resolve_external_query_upstreams(query)
             if resolution.outer_parse_failed:
-                # Extraction could not parse the query, so the EXTERNAL_QUERY calls were
-                # left in place (not rewritten to placeholders). Feeding that raw
-                # federation syntax to the native parser cannot isolate the BigQuery
-                # tables and only re-triggers the empty-URN failure this handling exists
-                # to avoid. The failure was already reported in
+                # Extraction could not parse the query even after retrying on the
+                # T-SQL-cleaned form (see _resolve_external_query_upstreams), so the
+                # EXTERNAL_QUERY calls were left in place (not rewritten to placeholders).
+                # Feeding that raw federation syntax to the native parser cannot isolate
+                # the BigQuery tables and only re-triggers the empty-URN failure this
+                # handling exists to avoid. The failure was already reported in
                 # _resolve_external_query_upstreams, so skip lineage here.
                 return Lineage.empty()
             external_upstreams = resolution.upstreams
