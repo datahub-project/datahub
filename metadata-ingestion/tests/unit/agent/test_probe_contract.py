@@ -327,3 +327,172 @@ def test_overriding_an_inherited_command_is_still_allowed():
     specs = dict(_iter_specs(_Sub))
     assert sorted(specs) == ["thing"]
     assert specs["thing"].row_limit_param == "limit"
+
+
+# --- every kind an agent can ask about must resolve, and both commands must
+# --- agree about it ------------------------------------------------------------
+
+
+def _probe_capable_configs():
+    """(source_type, config_cls) for every source that declares any probe kind."""
+    from datahub.ingestion.agent.introspect import declared_kinds_for_class
+
+    out = []
+    for source_type in sorted(source_registry.mapping):
+        try:
+            source_cls = source_registry.get(source_type)
+            get_config_class = getattr(source_cls, "get_config_class", None)
+            if get_config_class is None:
+                continue
+            config_cls = get_config_class()
+        except Exception:
+            # An uninstalled extra is not this test's business.
+            continue
+        if not getattr(config_cls, "model_fields", None):
+            continue
+        try:
+            if declared_kinds_for_class(source_type, config_cls):
+                out.append((source_type, config_cls))
+        except Exception:
+            continue
+    return out
+
+
+def test_which_declared_kinds_resolve_to_no_filter_field():
+    """A kind an agent can ask about that resolves to no pattern field.
+
+    `probe filter --kind X` then answers "everything included" for X. That is
+    correct when the source genuinely filters nothing at that level -- Mode has
+    no dataset or query filter -- and a confidently wrong verdict when the
+    annotation merely rotted away, which is what happened to Teradata's
+    database_pattern. **The two are indistinguishable from here**: UNFILTERED is
+    a framework sentinel and no connector can declare it, so "deliberately
+    unfiltered" and "the annotation evaporated" produce the same silence.
+
+    Until a connector can say which it means, this list is the difference. Every
+    entry has been looked at once; a new one cannot appear without someone
+    adding it here and deciding which case it is.
+    """
+    from datahub.ingestion.agent.introspect import (
+        _pattern_field_for_config_class,
+        declared_kinds_for_class,
+    )
+
+    # Mode filters spaces and reports, and nothing below them -- there is no
+    # dataset or query pattern to resolve to, deliberately.
+    known_unfiltered = {"mode": ["Dataset", "Query"]}
+
+    unresolved: Dict[str, List[str]] = {}
+    checked = 0
+    for source_type, config_cls in _probe_capable_configs():
+        for kind in sorted(declared_kinds_for_class(source_type, config_cls)):
+            checked += 1
+            if _pattern_field_for_config_class(config_cls, kind) is None:
+                unresolved.setdefault(source_type, []).append(kind)
+
+    assert unresolved == known_unfiltered, (
+        "the set of declared kinds with no filter field changed.\n"
+        f"  now:      {unresolved}\n"
+        f"  expected: {known_unfiltered}\n"
+        "A new entry is either a level the source really does not filter (add it "
+        "here) or an annotation that got dropped -- pydantic v2 replaces the "
+        "annotation when a subclass redeclares an inherited field, which is how "
+        "Teradata lost Filters(Database) without anything failing."
+    )
+    assert checked > 20, f"only {checked} (source, kind) pairs reached"
+
+
+def test_describe_and_probe_filter_agree_about_every_field():
+    """The two halves of the same feature must not contradict each other.
+
+    They did: `describe` read only the explicit Filters(...) annotation while
+    `probe filter` resolved through the annotation *and then* the name
+    convention. Teradata redeclares database_pattern, pydantic v2 drops the
+    inherited annotation, and the two commands then gave opposite answers about
+    the same field -- describe reporting no filter, probe filter excluding DBC
+    by it. From outside there is no way to tell which is lying.
+    """
+    from datahub.ingestion.agent.introspect import (
+        _filter_kinds_by_field,
+        _pattern_field_for_config_class,
+        describe_source,
+    )
+
+    disagreements = []
+    checked = 0
+    for source_type, config_cls in _probe_capable_configs():
+        try:
+            spec = describe_source(source_type)
+        except Exception:
+            continue
+        described = {f.name: f.filters for f in spec.fields if f.filters}
+        for field, kind in _filter_kinds_by_field(source_type, config_cls).items():
+            checked += 1
+            if described.get(field) != kind:
+                disagreements.append(
+                    f"{source_type}.{field}: probe filter resolves kind {kind!r}, "
+                    f"describe reports {described.get(field)!r}"
+                )
+        # And the reverse direction: nothing described as filtering a kind that
+        # probe filter would resolve to a different field.
+        for field, kind in described.items():
+            resolved = _pattern_field_for_config_class(config_cls, kind)
+            if resolved is not None and resolved != field:
+                disagreements.append(
+                    f"{source_type}: describe says {field} filters {kind!r}, "
+                    f"but probe filter would use {resolved}"
+                )
+
+    assert not disagreements, "describe and probe filter disagree:\n  " + "\n  ".join(
+        disagreements
+    )
+    assert checked > 20, f"only {checked} fields reached"
+
+
+def test_which_connectors_still_lean_on_the_name_convention():
+    """Tracks the gap the annotation was meant to close, so it cannot widen unseen.
+
+    `Filters(...)` looks like the mechanism; for these fields the `<kind>_pattern`
+    name convention is the mechanism. Every entry is a config that redeclares an
+    inherited annotated field -- pydantic v2 replaces the annotation wholesale,
+    so restating the field drops it silently.
+
+    This is a ratchet, not an approval: a new connector may not join the list
+    without someone editing it, and the list should shrink. It is deliberately
+    not a requirement that the list be empty, because emptying it means editing
+    a dozen connectors and that is its own change.
+    """
+    from datahub.ingestion.agent.introspect import (
+        _declared_filter_kind,
+        _filter_kinds_by_field,
+    )
+
+    known = {
+        "bigquery": ["schema_pattern"],
+        "cockroachdb": ["schema_pattern"],
+        "druid": ["schema_pattern"],
+        "hana": ["schema_pattern"],
+        "starrocks": ["schema_pattern"],
+        "unity-catalog": ["schema_pattern", "table_pattern"],
+    }
+
+    actual = {}
+    for source_type, config_cls in _probe_capable_configs():
+        explicit = {
+            name
+            for name, info in config_cls.model_fields.items()
+            if _declared_filter_kind(info) is not None
+        }
+        by_convention = sorted(
+            set(_filter_kinds_by_field(source_type, config_cls)) - explicit
+        )
+        if by_convention:
+            actual[source_type] = by_convention
+
+    assert actual == known, (
+        "the set of fields resolved by name convention changed.\n"
+        f"  now:      {actual}\n"
+        f"  expected: {known}\n"
+        "If you added one, annotate the field with Filters(...) instead. If you "
+        "removed one, delete it from `known` here."
+    )
