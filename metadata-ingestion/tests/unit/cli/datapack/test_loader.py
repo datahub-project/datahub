@@ -532,6 +532,41 @@ class TestLoadPackIntoDatahub:
         output = capsys.readouterr().out
         assert "Dry run" in output
         assert "data.json" in output
+        assert "Would ingest to http://localhost:8080." in output
+
+    @patch("datahub.cli.datapack.loader.build_auth_config_from_env", return_value=None)
+    @patch("datahub.cli.datapack.loader.get_skip_config", return_value=False)
+    @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
+    @patch("datahub.cli.datapack.loader._generate_run_id", return_value="generated-run")
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    def test_dry_run_defaults_localhost_when_client_config_missing(
+        self,
+        mock_load_config: MagicMock,
+        mock_run_id: MagicMock,
+        mock_ingest: MagicMock,
+        mock_skip: MagicMock,
+        mock_auth: MagicMock,
+        tmp_path: pathlib.Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        pack = DataPackInfo(
+            name="bootstrap",
+            description="test",
+            url="https://example.com/bootstrap.json",
+            trust=TrustTier.VERIFIED,
+        )
+        mock_load_config.side_effect = MissingConfigError("No ~/.datahubenv file found")
+
+        run_id = load_pack_into_datahub(pack, [IndexFileEntry(data_file)], dry_run=True)
+
+        assert run_id == "generated-run"
+        mock_ingest.assert_not_called()
+        output = capsys.readouterr().out
+        assert "Would ingest to http://localhost:8080." in output
 
     @patch("datahub.cli.datapack.loader.save_load_record")
     @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
@@ -571,6 +606,42 @@ class TestLoadPackIntoDatahub:
         )
         mock_save.assert_called_once_with(pack, "generated-run")
         assert "loaded successfully" in capsys.readouterr().out
+
+    @patch("datahub.cli.datapack.loader.build_auth_config_from_env", return_value=None)
+    @patch("datahub.cli.datapack.loader.get_skip_config", return_value=False)
+    @patch("datahub.cli.datapack.loader.save_load_record")
+    @patch("datahub.cli.datapack.loader.ingest_datapack_file_entries")
+    @patch("datahub.cli.datapack.loader._generate_run_id", return_value="generated-run")
+    @patch("datahub.cli.datapack.loader.load_client_config")
+    def test_load_pack_defaults_localhost_when_client_config_missing(
+        self,
+        mock_load_config: MagicMock,
+        mock_run_id: MagicMock,
+        mock_ingest: MagicMock,
+        mock_save: MagicMock,
+        mock_skip: MagicMock,
+        mock_auth: MagicMock,
+        tmp_path: pathlib.Path,
+    ) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+
+        data_file = tmp_path / "data.json"
+        data_file.write_text("[]")
+        pack = DataPackInfo(
+            name="bootstrap",
+            description="test",
+            url="https://example.com/bootstrap.json",
+            trust=TrustTier.VERIFIED,
+        )
+        mock_load_config.side_effect = MissingConfigError("No ~/.datahubenv file found")
+        entries = [IndexFileEntry(data_file)]
+
+        run_id = load_pack_into_datahub(pack, entries)
+
+        assert run_id == "generated-run"
+        client_config = mock_ingest.call_args.kwargs["client_config"]
+        assert client_config.server == "http://localhost:8080"
+        assert client_config.token is None
 
 
 class TestIsCached:
@@ -1116,6 +1187,37 @@ class TestCheckVersionCompatibility:
             side_effect=Exception("no config"),
         ):
             check_version_compatibility(pack, force=True)  # Should not raise
+
+    def test_missing_config_uses_quickstart_fallback(self) -> None:
+        from datahub.cli.config_utils import MissingConfigError
+        from datahub.cli.datapack.loader import check_version_compatibility
+
+        pack = DataPackInfo(
+            name="t", description="t", url="https://x.com", min_server_version="0.14.0"
+        )
+        mock_graph = MagicMock()
+        mock_graph.server_config.is_datahub_cloud = False
+        mock_graph.server_config.is_version_at_least.return_value = True
+
+        with (
+            patch(
+                "datahub.cli.datapack.loader.build_auth_config_from_env",
+                return_value=None,
+            ),
+            patch("datahub.cli.datapack.loader.get_skip_config", return_value=False),
+            patch(
+                "datahub.cli.datapack.loader.load_client_config",
+                side_effect=MissingConfigError("No ~/.datahubenv file found"),
+            ),
+            patch(
+                "datahub.ingestion.graph.client.DataHubGraph", return_value=mock_graph
+            ) as mock_graph_cls,
+        ):
+            check_version_compatibility(pack)
+
+        client_config = mock_graph_cls.call_args.args[0]
+        assert client_config.server == "http://localhost:8080"
+        assert client_config.token is None
 
 
 class TestReferentialIntegrity:
