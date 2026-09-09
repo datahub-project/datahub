@@ -104,7 +104,7 @@ The portion of the tag after the matched tag pattern will be converted into an o
 | --------------------- | -------- | ------------ | ------- | ----------------------------------------------------- |
 | `pattern_for_cleanup` | ✅       | list[string] |         | List of suffix/prefix to remove from the Owner URN(s) |
 
-Matches against an Owner URN and remove the matching part from the Owner URN
+Matches against an Owner URN and removes the matching part from the Owner URN
 
 ```yaml
 transformers:
