@@ -564,3 +564,89 @@ def test_an_unparsed_timestamp_cannot_fabricate_a_deletion() -> None:
         "the later row is live; only an unparsed timestamp would tie and let "
         "the older closed row win"
     )
+
+
+# The exact column sets the three ACCOUNT_USAGE views return, captured from a
+# live account. The point of writing them out is that the two surfaces disagree:
+# SHOW calls an object's own fields `name` and `status`, while every view
+# prefixes them with the object type and has NO bare NAME or STATUS column at
+# all. Fixtures written from the SHOW spelling parse fine against code that
+# makes the same assumption, so nothing in the suite disagreed with reality
+# until these rows were taken from the system itself.
+_DEPLOYMENT_HISTORY_ROW = {
+    "DEPLOYMENT_ID": "1",
+    "DEPLOYMENT_NAME": "prod_deployment",
+    "DEPLOYMENT_KEY": "prod-deployment-1",
+    "DEPLOYMENT_STATUS": "ACTIVE",
+    "DISPLAY_NAME": "Prod Deployment",
+    "OWNER": "ACCOUNTADMIN",
+    "CREATED_ON": "2024-01-01 00:00:00.000 -0800",
+    "DELETED_ON": None,
+}
+_RUNTIME_HISTORY_ROW = {
+    "RUNTIME_ID": "1",
+    "RUNTIME_NAME": "prod_runtime",
+    "RUNTIME_KEY": "prod-runtime-1",
+    "RUNTIME_STATUS": "ACTIVE",
+    "DEPLOYMENT_NAME": "prod_deployment",
+    "EXECUTE_AS_ROLE_NAME": "OPENFLOW_ROLE",
+    "DATABASE_NAME": "MY_DB",
+    "SCHEMA_NAME": "MY_SCHEMA",
+    "OWNER": "ACCOUNTADMIN",
+    "CREATED_ON": "2024-01-01 00:00:00.000 -0800",
+    "DELETED_ON": None,
+}
+_CONNECTOR_HISTORY_ROW = {
+    "CONNECTOR_ID": "1",
+    "CONNECTOR_NAME": "pg_cdc",
+    "RUNTIME_NAME": "prod_runtime",
+    "CONNECTOR_DEFINITION": "OPENFLOW_POSTGRES_CDC",
+    "DATABASE_NAME": "MY_DB",
+    "SCHEMA_NAME": "MY_SCHEMA",
+    "OWNER": "ACCOUNTADMIN",
+    "CREATED_ON": "2024-01-01 00:00:00.000 -0800",
+    "DELETED_ON": None,
+}
+
+
+def test_a_real_deployment_history_row_keeps_its_name_and_status() -> None:
+    parsed = OpenflowDeployment.from_row(_DEPLOYMENT_HISTORY_ROW)
+    assert parsed is not None
+    assert parsed.key == "prod-deployment-1"
+    assert parsed.name == "prod_deployment"
+    assert parsed.status == "ACTIVE"
+
+
+def test_a_real_runtime_history_row_keeps_its_name_and_status() -> None:
+    parsed = OpenflowRuntime.from_row(_RUNTIME_HISTORY_ROW)
+    assert parsed is not None
+    assert parsed.key == "prod-runtime-1"
+    assert parsed.name == "prod_runtime"
+    assert parsed.status == "ACTIVE"
+    # The cross-reference already worked; asserted here so the row is pinned whole.
+    assert parsed.deployment_name == "prod_deployment"
+
+
+def test_a_real_connector_history_row_parses_at_all() -> None:
+    # The regression this guards is total, not partial: the connector's name is
+    # half its identity, so looking for a bare NAME column meant from_row
+    # returned None for EVERY history row and the view contributed nothing --
+    # no surrogate ids, no timestamps, no DELETED_ON.
+    parsed = OpenflowConnector.from_row(_CONNECTOR_HISTORY_ROW)
+    assert parsed is not None
+    assert parsed.name == "pg_cdc"
+    assert parsed.runtime_name == "prod_runtime"
+    assert parsed.connector_id == "1"
+
+
+def test_no_history_view_row_relies_on_a_bare_name_column() -> None:
+    # Pins the asymmetry itself, so a future fixture written in the SHOW
+    # spelling cannot quietly reintroduce the assumption.
+    for row in (
+        _DEPLOYMENT_HISTORY_ROW,
+        _RUNTIME_HISTORY_ROW,
+        _CONNECTOR_HISTORY_ROW,
+    ):
+        assert "NAME" not in row
+        assert "STATUS" not in row
+        assert "KEY" not in row

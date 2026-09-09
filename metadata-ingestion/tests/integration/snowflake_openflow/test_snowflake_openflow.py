@@ -127,7 +127,8 @@ CONNECTOR_DESCRIBE_ROWS = [{"CONNECTOR_URL": CONNECTOR_URL}]
 DEPLOYMENT_HISTORY_ROWS = [
     {
         "DEPLOYMENT_KEY": DEPLOYMENT_KEY,
-        "NAME": DEPLOYMENT_NAME,
+        # The view prefixes the object's own name; there is no bare NAME column.
+        "DEPLOYMENT_NAME": DEPLOYMENT_NAME,
         "CREATED_ON": "2024-01-01 00:00:00.000",
         "DELETED_ON": None,
     }
@@ -136,7 +137,7 @@ DEPLOYMENT_HISTORY_ROWS = [
 RUNTIME_HISTORY_ROWS = [
     {
         "RUNTIME_KEY": RUNTIME_KEY,
-        "NAME": RUNTIME_NAME,
+        "RUNTIME_NAME": RUNTIME_NAME,
         "DEPLOYMENT_NAME": DEPLOYMENT_NAME,
         # Carried only by the view. SHOW has no such column, so this row is what
         # puts execute_as_role into the runtime container's properties -- i.e. the
@@ -149,7 +150,7 @@ RUNTIME_HISTORY_ROWS = [
 
 CONNECTOR_HISTORY_ROWS: List[Dict[str, Any]] = [
     {
-        "NAME": CONNECTOR_NAME,
+        "CONNECTOR_NAME": CONNECTOR_NAME,
         "RUNTIME_NAME": RUNTIME_NAME,
         # SHOW OPENFLOW CONNECTORS has no id column at all, so connector_id in the
         # golden file's custom properties can only have come from this row.
@@ -160,7 +161,7 @@ CONNECTOR_HISTORY_ROWS: List[Dict[str, Any]] = [
     {
         # View-only and deleted: absent from SHOW, DELETED_ON set. Must not reach
         # the golden file at all.
-        "NAME": "retired_cdc",
+        "CONNECTOR_NAME": "retired_cdc",
         "RUNTIME_NAME": RUNTIME_NAME,
         "CONNECTOR_ID": "abc12345-0000-0000-0000-000000000002",
         "CREATED_ON": "2024-01-01 00:00:00.000",

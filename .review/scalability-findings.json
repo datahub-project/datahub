@@ -1,0 +1,72 @@
+{
+  "reviewer": "scalability-reviewer",
+  "connector_path": "metadata-ingestion/src/datahub/ingestion/source/snowflake/ (snowflake_openflow.py, snowflake_openflow_{config,models,query,report}.py only)",
+  "resolved_since_last_round": [
+    {
+      "id": "scal-005",
+      "rule": "nested-retry-amplification",
+      "status": "resolved",
+      "verification": "Retry now lives in exactly one layer per call site: _query_rows_with_retry (line 949) wraps the bare _query_rows for SHOW/paged-history callers (lines 1373, 1477); _read_connector_url wraps its own DESCRIBE call in _retrying() (line 1054); _read_connector_config wraps _download_connector_config in _retrying() (line 1118), which internally calls the bare _query_rows (line 1159) with no further retry. grep for `_retrying()|_query_rows_with_retry|_query_rows(` confirms no call site wraps an already-retrying method. test_a_persistent_failure_is_not_retried_twice_over asserts attempts == _RETRY_MAX_ATTEMPTS (not squared); test suite passes (226/226 unit tests in this scope)."
+    },
+    {
+      "id": "scal-001",
+      "rule": "unbounded-list-materialization-no-truncation-detection",
+      "status": "resolved",
+      "verification": "_warn_if_show_truncated (line 904) compares len(rows) to _SHOW_ROW_CAP (10_000) after every SHOW call in _fetch_inventory (line 1478) and increments report.num_show_results_at_row_cap plus a warning naming the object type on equality. Boundary tests test_an_inventory_at_the_row_cap_is_reported_as_possibly_truncated and test_an_inventory_below_the_row_cap_is_not_flagged both pass. Residual gap tracked separately as scal-003 below: this is detection, not a pagination fix, since SHOW OPENFLOW ... has no cursor mechanism to page past the cap."
+    }
+  ],
+  "findings": [
+    {
+      "id": "scal-003",
+      "severity": "low",
+      "rule": "unbounded-list-endpoint-no-cursor-pagination",
+      "file": "metadata-ingestion/src/datahub/ingestion/source/snowflake/snowflake_openflow.py",
+      "line": 145,
+      "snippet": "_SHOW_ROW_CAP = 10_000  # Snowflake caps SHOW output at this many rows and does not flag the truncation.",
+      "standard_ref": "standards/performance.md#api-pagination; standards/api.md (pagination)",
+      "fix_hint": "No true fix is available: SHOW OPENFLOW DEPLOYMENTS/RUNTIMES/CONNECTORS is a Snowflake-side command with no cursor or LIMIT/OFFSET parameter, so this source cannot page past the row cap the way the ACCOUNT_USAGE history queries do. The scal-001 fix (_warn_if_show_truncated) converts a silent truncation into a detected, counted, warned one, which is the correct mitigation given the platform constraint. Left open only because the underlying platform limitation is not something this connector's code can close; re-evaluate if Snowflake ever adds a cursor to the OPENFLOW SHOW commands.",
+      "projected_impact": {
+        "tenant_size": "documented assumption: tens of deployments, tens of runtimes, low hundreds of connectors per account (_PLANNING.md performance.tenant_size_assumption)",
+        "current_estimate": "three orders of magnitude below the 10,000-row cap at the documented tenant size; truncation is detected (not silent) if an account ever approaches it",
+        "after_fix_estimate": "no further code-side fix exists; the gap is the platform's SHOW command having no pagination primitive, not a defect in this source"
+      }
+    },
+    {
+      "id": "scal-004",
+      "severity": "low",
+      "rule": "n-plus-one-per-connector-network-io",
+      "file": "metadata-ingestion/src/datahub/ingestion/source/snowflake/snowflake_openflow.py",
+      "line": 1668,
+      "snippet": "flow = build_connector_flow(connector, ..., external_url=self._read_connector_url(connector)) ... for pair in self._lineage_for_connector(connector): ...",
+      "standard_ref": "standards/sql.md#n1 (Row 10, API form); standards/performance.md#the-n1-query-problem",
+      "fix_hint": "Already accepted as an architectural decision per rubric guidance (\"accept N+1 as an architectural decision documented in _PLANNING.md with an explicit tenant-size cap\"): _PLANNING.md's performance.concurrency section states the per-connector stage GET is unconditional and O(connectors), documents why a batched read is not possible (SELECT $1 truncates config.json at the first comma under the default CSV file format; an inline FILE_FORMAT argument is rejected as non-constant; a named file format is DDL the read-only role cannot create), declines a bounded worker pool for v1 with a stated rationale, and names the exact crossover point (roughly 10x the documented tenant ceiling, ~30 minutes) at which the declined max_workers decision should be revisited. The per-runtime DESCRIBE half already self-limits at _MAX_RUNTIMES_FOR_URL_LOOKUP (500) via _decide_url_lookup. Since the last round, this cap and its rationale are now also surfaced to operators in metadata-ingestion/docs/sources/openflow/snowflake-openflow_post.md (the \"scales with replicated tables, not connectors\" and \"above 500 distinct runtimes\" notes), which is the fix that was open last round.",
+      "projected_impact": {
+        "tenant_size": "documented assumption: low hundreds of connectors per account; entity volume actually scales with total replicated TABLES across those connectors (_PLANNING.md: e.g. 500 connectors x 100 tables = ~50,000 DataJobs)",
+        "current_estimate": "at the documented ceiling, per-connector phase is roughly 1-5 minutes (stage GET dominates); crosses the 30-minute signpost in standards/performance.md at roughly 10x that ceiling",
+        "after_fix_estimate": "a bounded worker pool over _read_connector_config and _read_connector_url (both already isolated per-connector methods for this reason) would cut wall time roughly linearly with max_workers; declined for v1 ALPHA release per _PLANNING.md rationale"
+      }
+    }
+  ],
+  "summary": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 2,
+    "source_type_classification": "sql_warehouse",
+    "notes": [
+      "Full 10-row rubric re-run from scratch against snowflake_openflow.py + snowflake_openflow_{config,models,query,report}.py only, per scope restriction.",
+      "Row 1 (cursor pagination): ACCOUNT_USAGE history queries (deployment/runtime/connector_history) use manual CREATED_ON cursor with LIMIT, inclusive `>=` boundary, and stall/NULL-cursor guards (_paged_history) -- compliant. SHOW OPENFLOW ... has no pagination primitive at all (platform limitation, not a code defect) -- residual gap tracked as scal-003 (Low).",
+      "Row 2 (workunit streaming): get_workunits_internal is a generator yielding per-deployment/runtime/connector/table-job. The three _fetch_* methods and the paged-history accumulator materialize bounded lists, which _PLANNING.md's performance section explicitly documents and justifies as deliberate (merge_show_and_history needs both SHOW and history sides in hand; the runtime-key map must reflect only containers actually emitted this run). No hidden or surprise materialization found.",
+      "Row 3 (SQL query-log LIMIT+cursor): N/A -- USAGE_STATS is declined (capability_matrix.USAGE_STATS = no); OPENFLOW_USAGE_HISTORY reports Snowflake credit consumption, not dataset usage, and is not queried by this connector at all.",
+      "Row 4 (SqlParsingAggregator): N/A -- lineage_strategy.approach = custom-upstream. No SQL is parsed; edges are built directly from connector configuration key-value pairs (parse_connector_config). Explicitly justified in _PLANNING.md: 'SqlParsingAggregator would have nothing to consume.'",
+      "Row 5 (memory profile vs planning): _PLANNING.md performance.memory_profile explicitly documents three bounded accumulators (paged history rows, merged object sets, and get_workunits_internal's deployments/runtimes/by_deployment_name/runtime_keys_by_name). Verified these are the only such accumulators in get_workunits_internal and _fetch_inventory; no undocumented dict[urn, full_schema]-style accumulator found. Compliant with the documented intent.",
+      "Row 6 (bounded concurrency): N/A -- no ThreadPoolExecutor or asyncio usage anywhere in scope (grep confirmed zero hits). Concurrency is declared sequential by design in _PLANNING.md, with a stated future trigger (see scal-004) for revisiting.",
+      "Row 7 (connection pooling): Compliant -- a single SnowflakeConnection is created once in __init__ (self.connection = config.connection.get_connection()) and reused for every query and every stage GET; closed once in close(). No per-call connection or engine creation found (grep for requests.get/post and create_engine returned zero hits, as expected for a Snowflake-connector-based source).",
+      "Row 8 (retry policy): Compliant and verified fixed this round -- see scal-005 resolution above. Retries are exponential-backoff (tenacity Retrying, multiplier configurable for tests, max 4s cap, 3 attempts), gated to a narrow set of transient/connection-class exceptions, applied at exactly one layer per call site. The SDK-client retry/endpoint-override sub-checks under Row 8 are N/A: this connector does not wrap a shared vendor SDK client/session factory (no .client(/.stub(/.channel( construction sites); it uses the family's existing SnowflakeConnection directly.",
+      "Row 9 (per-entity-type counts): Compliant -- SnowflakeOpenflowReport tracks num_deployments, num_runtimes, num_connectors, num_table_jobs, num_lineage_edges, num_owners_emitted, plus numerous skip/drop/failure counters per category, giving operators granular progress and failure visibility.",
+      "Row 10 (N+1): No SQL-form N+1 (not a SQLAlchemy/inspector-based source). API-form N+1 exists (one stage GET per connector for config-derived lineage, one DESCRIBE per distinct runtime for the external URL) and is already an accepted, documented, capped architectural decision -- see scal-004 (Low, carried forward, now additionally surfaced in operator-facing docs).",
+      "source_type_classification rationale: this connector queries Snowflake via SnowflakeConnection with hand-written SQL/SHOW/DESCRIBE/GET statements against ACCOUNT_USAGE views and stage files -- closest to the sql_warehouse classification even though it is not a SQLAlchemy table/column extractor. Rows 2, 5 and 9 (the embedded/API-agnostic rows) were evaluated as first-class regardless of classification.",
+      "No new Critical, High, or Medium findings identified in this fresh full-rubric pass. Both findings carried forward from the previous round (scal-003, scal-004) are Low and represent platform limitations / already-documented, capped architectural trade-offs rather than code defects."
+    ]
+  }
+}

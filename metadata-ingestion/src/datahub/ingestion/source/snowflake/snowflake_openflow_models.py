@@ -16,6 +16,16 @@ COL_DEPLOYMENT = "DEPLOYMENT"
 COL_DEPLOYMENT_NAME = "DEPLOYMENT_NAME"
 COL_RUNTIME = "RUNTIME"
 COL_RUNTIME_NAME = "RUNTIME_NAME"
+COL_CONNECTOR_NAME = "CONNECTOR_NAME"
+# The ACCOUNT_USAGE views prefix an object's OWN name and status with its type
+# (DEPLOYMENT_NAME / DEPLOYMENT_STATUS ...), where SHOW calls them plainly `name`
+# and `status`. Verified against a live account: NO history view has a bare NAME
+# or STATUS column. The prefixed-fallback pattern was already applied to
+# CROSS-references (a runtime's deployment, a connector's runtime) but not to the
+# object's own fields, so every history row lost its name and status -- and for
+# connectors, where name is half the identity, the entire row was discarded.
+COL_DEPLOYMENT_STATUS = "DEPLOYMENT_STATUS"
+COL_RUNTIME_STATUS = "RUNTIME_STATUS"
 COL_DATABASE_NAME = "DATABASE_NAME"
 COL_SCHEMA_NAME = "SCHEMA_NAME"
 COL_EXECUTE_AS_ROLE = "EXECUTE_AS_ROLE"
@@ -110,8 +120,8 @@ class OpenflowDeployment:
             return None
         return cls(
             key=key,
-            name=get_str(row, COL_NAME),
-            status=get_str(row, COL_STATUS),
+            name=get_str(row, COL_NAME, COL_DEPLOYMENT_NAME),
+            status=get_str(row, COL_STATUS, COL_DEPLOYMENT_STATUS),
             owner=get_str(row, COL_OWNER),
             display_name=get_str(row, COL_DISPLAY_NAME),
             created_on=get_str(row, COL_CREATED_ON),
@@ -144,9 +154,9 @@ class OpenflowRuntime:
             return None
         return cls(
             key=key,
-            name=get_str(row, COL_NAME),
+            name=get_str(row, COL_NAME, COL_RUNTIME_NAME),
             deployment_name=get_str(row, COL_DEPLOYMENT, COL_DEPLOYMENT_NAME),
-            status=get_str(row, COL_STATUS),
+            status=get_str(row, COL_STATUS, COL_RUNTIME_STATUS),
             owner=get_str(row, COL_OWNER),
             display_name=get_str(row, COL_DISPLAY_NAME),
             object_database=get_str(row, COL_DATABASE_NAME),
@@ -188,7 +198,7 @@ class OpenflowConnector:
 
     @classmethod
     def from_row(cls, row: Dict[str, Any]) -> Optional["OpenflowConnector"]:
-        name = get_str(row, COL_NAME)
+        name = get_str(row, COL_NAME, COL_CONNECTOR_NAME)
         runtime_name = get_str(row, COL_RUNTIME, COL_RUNTIME_NAME)
         # Both halves of the composite identity are required. Both surfaces
         # carry the runtime association (SHOW as `runtime`, the view as
