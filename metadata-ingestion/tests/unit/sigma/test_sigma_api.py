@@ -3269,3 +3269,55 @@ class TestFailedCallsCarryTheServersExplanation:
             lambda self: (_ for _ in ()).throw(ValueError("undecodable"))
         )
         assert _error_body(response) is None
+
+
+class TestEnumerationFailuresBlockStaleDeletion:
+    """A dead listing call must be a failure, not a warning.
+
+    Stale-entity removal soft-deletes whatever a previous run emitted and this
+    one did not, and the framework's protection is to skip that pass when the
+    source reported a FAILURE. This connector reported everything as a warning
+    (71 call sites, zero failures), so the guard could never fire for it -- one
+    failed /dataModels call would have looked like every Data Model was deleted.
+    """
+
+    def test_a_failed_entity_listing_reports_a_failure(self) -> None:
+        api = _create_sigma_api()
+        response = requests.Response()
+        response.status_code = 500
+        with patch.object(
+            api,
+            "_get_api_call",
+            side_effect=requests.exceptions.HTTPError(response=response),
+        ):
+            api._paginated_raw_entries(
+                "http://x/dataModels", "Unable to fetch data models.",
+                enumerates_entities=True,
+            )
+
+        assert api.report.entity_enumeration_failed == 1
+        assert len(api.report.failures) == 1
+
+    def test_a_failed_detail_call_stays_a_warning(self) -> None:
+        """A workbook whose /columns dies is thinner, not missing.
+
+        Escalating this would suppress stale-entity removal for the whole run
+        over something that costs no entities -- on one tenant 15 such aborts
+        happened while every workbook was still emitted.
+        """
+        api = _create_sigma_api()
+        response = requests.Response()
+        response.status_code = 409
+        with patch.object(
+            api,
+            "_get_api_call",
+            side_effect=requests.exceptions.HTTPError(response=response),
+        ):
+            api._paginated_raw_entries(
+                "http://x/workbooks/wb-1/columns",
+                "Unable to fetch column formulas for workbook 'wb-1'.",
+            )
+
+        assert api.report.entity_enumeration_failed == 0
+        assert api.report.failures == []
+        assert len(api.report.warnings) == 1

@@ -445,6 +445,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # and touched the report not at all -- so these failures were invisible
     # unless the run was in debug. On one tenant (2026-09): 11x404, 9x400, 6x409.
     api_call_failures_by_status: Dict[str, int] = field(default_factory=dict)
+    # Calls that ENUMERATE entities and failed, so entities are missing from
+    # this run entirely. Reported as a failure, not a warning, because
+    # stale-entity removal soft-deletes anything a previous run emitted and
+    # this one did not -- a dead listing call makes live objects look deleted.
+    # The framework skips soft-deletion when a source reports a failure; this
+    # connector reported everything as a warning, so that guard never fired.
+    entity_enumeration_failed: int = 0
     # Endpoints whose own ``total`` exceeded the rows pagination returned, and
     # by how many. Replaces a round-number guess that missed a 5,000 cap and
     # fired falsely on a tenant with exactly 10,000 rows.

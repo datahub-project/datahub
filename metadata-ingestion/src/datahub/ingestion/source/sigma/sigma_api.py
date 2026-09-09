@@ -182,6 +182,31 @@ class SigmaAPI:
             }
         )
 
+    def _record_enumeration_failure(self, *, what: str, context: str) -> None:
+        """A call that ENUMERATES entities failed, so entities are missing.
+
+        This is the one class of failure that must be a failure rather than a
+        warning. Stale-entity removal soft-deletes anything the previous run
+        emitted and this one did not; when a listing call dies, the entities it
+        would have returned look deleted. The framework already guards against
+        that -- ``StaleEntityRemovalHandler`` skips soft-deletion when the
+        source reported a failure -- but this connector reported everything as
+        a warning, so the guard could never fire for it.
+
+        Detail failures stay warnings: a workbook whose /columns call dies is
+        still emitted, just with fewer formulas, and nothing about it looks
+        deleted.
+        """
+        self.report.entity_enumeration_failed += 1
+        self.report.failure(
+            title="Sigma entity listing failed",
+            message=f"Could not list {what}. Entities that call would have "
+            "returned are missing from this run, so stale-entity removal is "
+            "suppressed to avoid soft-deleting objects that still exist. "
+            "Re-run once the cause is resolved.",
+            context=context,
+        )
+
     def _log_http_error(self, message: str, *, report_warning: bool = True) -> Any:
         """Record a failed Sigma API call.
 
@@ -320,6 +345,9 @@ class SigmaAPI:
                     break
         except Exception as e:
             self._log_http_error(message=f"Unable to fetch workspaces. Exception: {e}")
+            self._record_enumeration_failure(
+                what="workspaces", context=f"exception={e}"
+            )
 
     @functools.lru_cache()
     def _get_users(self) -> Dict[str, str]:
@@ -483,6 +511,9 @@ class SigmaAPI:
         except Exception as e:
             self._log_http_error(
                 message=f"Unable to fetch sigma datasets. Exception: {e}"
+            )
+            self._record_enumeration_failure(
+                what="Sigma datasets", context=f"exception={e}"
             )
             return []
 
@@ -1098,6 +1129,10 @@ class SigmaAPI:
             self._log_http_error(
                 message=f"Unable to fetch elements of page '{page.name}', workbook '{workbook.name}'. Exception: {e}"
             )
+            self._record_enumeration_failure(
+                what="the elements of a page",
+                context=f"page={page.name}, workbook={workbook.name}, exception={e}",
+            )
             return []
 
     def get_workbook_pages(self, workbook: Workbook) -> List[Page]:
@@ -1132,6 +1167,10 @@ class SigmaAPI:
             self._log_http_error(
                 message=f"Unable to fetch pages of workbook '{workbook.name}'. Exception: {e}"
             )
+            self._record_enumeration_failure(
+                what="the pages of a workbook",
+                context=f"workbook={workbook.name}, exception={e}",
+            )
             return []
 
     def _paginated_raw_entries(
@@ -1139,6 +1178,7 @@ class SigmaAPI:
         base_url: str,
         error_ctx: str,
         silent_statuses: Tuple[int, ...] = (),
+        enumerates_entities: bool = False,
     ) -> List[Dict[str, Any]]:
         """Page through a Sigma list endpoint and return raw ``entries``
         dicts. Handles both pagination shapes (``nextPage`` and
@@ -1266,6 +1306,13 @@ class SigmaAPI:
             self._log_http_error(
                 message=f"{error_ctx} Exception: {e}", report_warning=False
             )
+            if enumerates_entities:
+                # The rows this call would have returned ARE the entities. A
+                # detail call dying leaves an entity thinner; this leaves it
+                # missing, which stale-entity removal reads as deleted.
+                self._record_enumeration_failure(
+                    what=error_ctx, context=f"url={url}, exception={e}"
+                )
             return raw_entries
 
     # Cap per-endpoint malformed-entry warnings so a vendor regression
@@ -1280,6 +1327,7 @@ class SigmaAPI:
         model_cls: Type[T],
         error_ctx: str,
         dedup_key: Optional[Callable[[T], Hashable]] = None,
+        enumerates_entities: bool = False,
     ) -> List[T]:
         """Page through a Sigma list endpoint, parsing each entry into
         ``model_cls``. Shares pagination / cycle-protection logic with
@@ -1295,7 +1343,9 @@ class SigmaAPI:
         results: List[T] = []
         seen_keys: Set[Hashable] = set()
         malformed_warned = 0
-        for entry in self._paginated_raw_entries(base_url, error_ctx):
+        for entry in self._paginated_raw_entries(
+            base_url, error_ctx, enumerates_entities=enumerates_entities
+        ):
             try:
                 parsed = model_cls.model_validate(entry)
             except ValidationError as ve:
@@ -1342,6 +1392,7 @@ class SigmaAPI:
             SigmaDataModelElement,
             f"Unable to fetch elements for data model '{data_model_id}'.",
             dedup_key=lambda element: element.elementId,
+            enumerates_entities=True,
         )
 
     def _get_data_model_columns(self, data_model_id: str) -> List[SigmaDataModelColumn]:
@@ -2122,6 +2173,7 @@ class SigmaAPI:
             SigmaDataModel,
             "Unable to fetch sigma data models.",
             dedup_key=lambda dm: dm.dataModelId,
+            enumerates_entities=True,
         )
         data_models: List[SigmaDataModel] = []
         for data_model in raw_data_models:
