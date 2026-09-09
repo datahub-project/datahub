@@ -475,30 +475,6 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # the run: it does => our lookup scope is too narrow; it does not => the run
     # never saw that element (filtered, 409-ing, or outside the ingest).
     chart_ref_miss_reasons: Dict[str, int] = field(default_factory=dict)
-    # Chart formula refs resolved to an element of the SAME workbook that
-    # Sigma's per-element /lineage did not declare as an upstream. Guarded the
-    # same way as the scoped-name step: unique name in the workbook, and the
-    # element must have the column.
-    chart_ref_workbook_name_resolved: int = 0
-    chart_ref_workbook_name_ambiguous: int = 0
-    chart_ref_workbook_name_column_absent: int = 0
-    # Chart formula refs resolved by the last-resort element-name lookup: the
-    # name identifies exactly one element among the Data Models THIS WORKBOOK
-    # loads, and that element owns the referenced column. Gated behind
-    # ``resolve_chart_refs_by_element_name`` because it infers from a name
-    # rather than from lineage Sigma stated. On one tenant (2026-09) an
-    # unscoped version of this reached the largest share of the unresolved
-    # bucket; the scoped version trades some of that for precision.
-    chart_ref_scoped_name_resolved: int = 0
-    # Refused because the name identifies more than one element among the
-    # workbook's models. Sigma element names repeat, and picking one would
-    # attach a real column to the wrong dataset -- InputFields carry no
-    # confidenceScore, so a wrong edge is indistinguishable from a right one.
-    chart_ref_scoped_name_ambiguous: int = 0
-    # The uniquely-named element does not have the referenced column, so the
-    # name match is a coincidence rather than the upstream. This check is what
-    # makes widening the scope safe.
-    chart_ref_scoped_name_column_absent: int = 0
     # 'datasheet' nodes whose nodeId is a bare element id, admitted as sheet
     # upstreams. The emit-time element lookup drops any that do not match a
     # real element, so this is an attempt count, not an emitted-edge count.
@@ -1014,21 +990,6 @@ class SigmaSourceConfig(
         "a union stacks rows, so the output column IS each branch's column.\n\n"
         "Costs one extra API call per Data Model. Requires ``ingest_data_models`` "
         "and ``extract_lineage``.",
-    )
-    resolve_chart_refs_by_element_name: bool = pydantic.Field(
-        default=False,
-        description="Whether a chart formula reference that no other step "
-        "resolves may be matched BY NAME, as a last resort, against the other "
-        "elements of its own workbook and against the Data Models that workbook "
-        "loads. Sigma's per-element ``/lineage`` does not declare every element "
-        "a formula reaches, so without this those columns fall back to a "
-        "self-reference. Unlike every other resolution step this infers from a "
-        "name rather than from lineage Sigma stated, and ``InputFields`` carry "
-        "no ``confidenceScore`` with which to mark an edge as inferred — so it "
-        "is off by default. Where it does run, a name matching more than one "
-        "element is refused and the element must have the referenced column; "
-        "see ``chart_ref_workbook_name_*`` and ``chart_ref_scoped_name_*`` in "
-        "the report for how often each condition applies.",
     )
     ingest_pivot_and_input_tables: bool = pydantic.Field(
         default=True,

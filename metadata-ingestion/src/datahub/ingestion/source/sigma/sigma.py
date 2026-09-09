@@ -5923,125 +5923,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._known_dm_element_index = (key, index)
         return index
 
-    def _resolve_ref_by_workbook_element_name(
-        self,
-        ref: BracketRef,
-        *,
-        candidates: List[Element],
-        chart_element_id: str,
-        elementId_to_chart_urn: Dict[str, str],
-        workbook_dm_url_ids: AbstractSet[str] = frozenset(),
-        count: bool,
-    ) -> Optional[Tuple[str, str]]:
-        """The ref names an element of THIS workbook that /lineage did not list.
-
-        Sigma's per-element ``/lineage`` does not declare every element a
-        formula reaches, so a ref can name a sibling chart on the same page and
-        still fail Step 3a. On one tenant (2026-09) 8,814 refs across 62 names
-        ended here.
-
-        The same two guards as the Data-Model-scoped step, for the same reason
-        (InputFields carry no confidenceScore): the name must identify exactly
-        one element in this workbook, and that element must actually have the
-        column. A name collision or a missing column means no edge.
-
-        Shares ``resolve_chart_refs_by_element_name`` with that step -- both
-        infer from a name rather than from lineage Sigma stated, so they are
-        one decision for an operator to make, not two.
-        """
-        if ref.column is None or not self.config.resolve_chart_refs_by_element_name:
-            return None
-        emitted = [
-            elem
-            for elem in candidates
-            if elem.elementId != chart_element_id
-            and elementId_to_chart_urn.get(elem.elementId)
-        ]
-        if len(emitted) != 1:
-            if emitted and count:
-                self.reporter.chart_ref_workbook_name_ambiguous += 1
-            return None
-        target = emitted[0]
-        wanted = ref.column.strip().lower()
-        canonical = next(
-            (c for c in target.columns if c.strip().lower() == wanted), None
-        )
-        if canonical is None:
-            if count:
-                self.reporter.chart_ref_workbook_name_column_absent += 1
-            return None
-        if count:
-            self.reporter.chart_ref_workbook_name_resolved += 1
-            logger.debug(
-                "CHART REF WORKBOOK NAME element %s ref=%r: %r is the only "
-                "emitted element of this workbook with that name and it has "
-                "column %r, though /lineage did not list it as an upstream",
-                chart_element_id,
-                ref.raw,
-                ref.source,
-                canonical,
-            )
-        return (elementId_to_chart_urn[target.elementId], canonical)
-
-    def _resolve_ref_by_scoped_element_name(
-        self,
-        ref: BracketRef,
-        *,
-        chart_element_id: str,
-        workbook_dm_url_ids: AbstractSet[str],
-        count: bool,
-    ) -> Optional[Tuple[str, str]]:
-        """Last resort: the ref names one element of a model this workbook loads.
-
-        InputFields carry no confidenceScore, so a wrong edge here would be
-        indistinguishable from a right one. Three conditions all have to hold,
-        and any failing means no edge rather than a guess:
-
-        * the model is one THIS WORKBOOK loads. Searching every model in the
-          run made the answer depend on how many unrelated models a tenant
-          happens to own, and a formula naming a model its workbook never loads
-          is a coincidence, not a reference;
-        * the name identifies exactly ONE element among those models -- Sigma
-          element names repeat, and a collision resolved by picking one would
-          attach a real column to the wrong dataset;
-        * that element actually OWNS the referenced column. A same-named
-          element without it is a coincidence, not the upstream.
-
-        Opt-in via ``resolve_chart_refs_by_element_name``. Unlike every other
-        step this infers from a NAME rather than from lineage Sigma stated, so
-        a tenant whose elements carry generic names can decline it.
-        """
-        if ref.column is None or not self.config.resolve_chart_refs_by_element_name:
-            return None
-        candidates = self._dm_element_index_for(workbook_dm_url_ids).get(
-            ref.source.strip().lower()
-        )
-        if not candidates:
-            return None
-        if len(candidates) > 1:
-            if count:
-                self.reporter.chart_ref_scoped_name_ambiguous += 1
-            return None
-        urn = candidates[0]
-        cols = self.dm_element_urn_to_cols.get(urn) or {}
-        canonical = cols.get(ref.column.strip().lower())
-        if canonical is None:
-            if count:
-                self.reporter.chart_ref_scoped_name_column_absent += 1
-            return None
-        if count:
-            self.reporter.chart_ref_scoped_name_resolved += 1
-            logger.debug(
-                "CHART REF GLOBAL NAME element %s ref=%r: %r names exactly one "
-                "Data Model element in this run and it owns column %r -> %s",
-                chart_element_id,
-                ref.raw,
-                ref.source,
-                canonical,
-                urn,
-            )
-        return (urn, canonical)
-
     def _note_chart_ref_miss(
         self,
         reason: str,
@@ -6248,34 +6129,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
 
-        # Step 5: the ref names a Data Model element that this chart's own
-        # upstream list does not offer. Accepted only when the name is unique
-        # run-wide AND that element owns the column -- see the helper.
-        #
-        # Only on a REAL attempt. A join-chain ref tries up to 2N-3 candidate
-        # splits through here, and this step is deliberately the most permissive
-        # one: letting it judge a speculative split would let a wrong split
-        # validate and be accepted ahead of the right one, which is the failure
-        # the split search exists to avoid.
-        if count:
-            workbook_match = self._resolve_ref_by_workbook_element_name(
-                ref,
-                candidates=candidates,
-                chart_element_id=chart_element_id,
-                elementId_to_chart_urn=elementId_to_chart_urn,
-                workbook_dm_url_ids=workbook_dm_url_ids,
-                count=count,
-            )
-            if workbook_match is not None:
-                return workbook_match
-            scoped_match = self._resolve_ref_by_scoped_element_name(
-                ref,
-                chart_element_id=chart_element_id,
-                workbook_dm_url_ids=workbook_dm_url_ids,
-                count=count,
-            )
-            if scoped_match is not None:
-                return scoped_match
+        # There is deliberately no name-matching step here. A ref whose source
+        # Sigma never declared as an upstream could be guessed at by finding the
+        # one element of this workbook -- or of the models it loads -- carrying
+        # that name. Measured on one tenant (2026-09) that guess produced 1,106
+        # edges out of 440,069, and it was removed rather than kept: InputFields
+        # carry no confidenceScore, so a wrongly-guessed edge is byte-identical
+        # to one Sigma stated, and nothing downstream can audit or filter it.
+        # The warehouse path guesses too, but there ctx.graph can check the
+        # guess against the real schema; here there is nothing to check against.
 
         # Nothing matched at any step. ``candidates`` distinguishes the two
         # shapes of this: a workbook element WAS named ref.source but is neither

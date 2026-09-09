@@ -347,16 +347,20 @@ class TestDmElementUpstreamResolvesToDatasetUrn:
         # dm_page_elem.col has no formula → self-ref fallback.
         assert source.reporter.chart_input_fields_self_ref_fallback == 1
 
-    def test_ref_to_an_undeclared_workbook_element_still_resolves(self) -> None:
-        """Sigma's /lineage does not declare every element a formula reaches.
+    def test_a_ref_to_an_undeclared_element_stays_a_self_ref(self) -> None:
+        """A name match is never enough to emit an edge.
 
-        The chart names a workbook element that carries no upstream
-        declaration. That used to fall back to a self-reference; on one tenant
-        (2026-09) 8,814 refs across 62 names ended there. The formula itself is
-        Sigma stating the chart reads that column, and the element is uniquely
-        named in this workbook and has the column, so the edge is emitted.
+        The chart's formula names a workbook element that /lineage does not
+        declare as an upstream, and that element is uniquely named here and does
+        have the column -- the most favourable case a name match can present.
+        It still resolves to nothing.
+
+        Matching on the name was tried and removed: it produced 1,106 of
+        440,069 chart links on one tenant (2026-09), and because InputFields
+        carry no confidenceScore, a wrong one is byte-identical to an edge Sigma
+        actually stated, so nothing downstream could audit or filter it.
         """
-        source = self._build_source_with_dm(resolve_chart_refs_by_element_name=True)
+        source = self._build_source_with_dm()
 
         dm_page_elem = _make_element("elem01", "My DM Element", ["col"], {}, {})
         chart_elem = _make_element(
@@ -369,64 +373,10 @@ class TestDmElementUpstreamResolvesToDatasetUrn:
         workbook = _make_workbook([dm_page_elem, chart_elem])
         result = _collect_input_fields(source, [dm_page_elem, chart_elem], workbook)
 
-        fields = result[_chart_urn("chartElem01")].fields
-        assert len(fields) == 1
-        assert fields[0].schemaFieldUrn == _schema_field_urn(
-            _chart_urn("elem01"), "col"
-        )
-        assert source.reporter.chart_ref_workbook_name_resolved == 1
-        assert source.reporter.chart_input_fields_resolved == 1
-
-    def test_name_inference_is_off_by_default(self) -> None:
-        """The default must not emit an edge Sigma never stated.
-
-        Same shape as the test above, but without the opt-in: the column falls
-        back to a self-reference, which is the pre-existing behaviour.
-        """
-        source = self._build_source_with_dm()
-        assert source.config.resolve_chart_refs_by_element_name is False
-
-        dm_page_elem = _make_element("elem01", "My DM Element", ["col"], {}, {})
-        chart_elem = _make_element(
-            element_id="chartElem01",
-            name="My Chart",
-            columns=["chart_col"],
-            column_formulas={"chart_col": "[My DM Element/col]"},
-            upstream_sources={},
-        )
-        workbook = _make_workbook([dm_page_elem, chart_elem])
-        result = _collect_input_fields(source, [dm_page_elem, chart_elem], workbook)
-
-        chart_urn = _chart_urn("chartElem01")
-        assert result[chart_urn].fields[0].schemaFieldUrn == _schema_field_urn(
-            chart_urn, "chart_col"
-        )
-        assert source.reporter.chart_ref_workbook_name_resolved == 0
-
-    def test_an_undeclared_element_without_the_column_stays_a_self_ref(self) -> None:
-        """The column check is what keeps the widened scope honest.
-
-        Same shape as above, but the named element does not have the column, so
-        the name match is a coincidence and no edge is emitted.
-        """
-        source = self._build_source_with_dm(resolve_chart_refs_by_element_name=True)
-
-        dm_page_elem = _make_element("elem01", "My DM Element", ["other"], {}, {})
-        chart_elem = _make_element(
-            element_id="chartElem01",
-            name="My Chart",
-            columns=["chart_col"],
-            column_formulas={"chart_col": "[My DM Element/col]"},
-            upstream_sources={},
-        )
-        workbook = _make_workbook([dm_page_elem, chart_elem])
-        result = _collect_input_fields(source, [dm_page_elem, chart_elem], workbook)
-
         chart_urn = _chart_urn("chartElem01")
         fields = result[chart_urn].fields
         assert len(fields) == 1
         assert fields[0].schemaFieldUrn == _schema_field_urn(chart_urn, "chart_col")
-        assert source.reporter.chart_ref_workbook_name_column_absent == 1
         assert source.reporter.chart_input_fields_resolved == 0
 
 
