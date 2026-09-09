@@ -315,6 +315,35 @@ def property_value(properties: Dict[str, Any], key: str) -> Optional[str]:
     return None
 
 
+def _canvas_url(connector_url: str) -> Optional[str]:
+    """The runtime's Openflow canvas, derived from the connector URL.
+
+    CONNECTOR_URL's own fragment does not resolve: it points at
+    `#/connectors/<snowflake-connector-id>/`, and the canvas app has no such
+    route -- it uses `#/process-groups/<nifi-process-group-id>`, whose id is a
+    NiFi-generated one that appears in no Snowflake surface (measured: the
+    ids differ entirely, and only the NiFi REST API would supply the real one).
+    So the fragment is dropped rather than rewritten, since a guessed id would
+    404 exactly as the reported one does.
+
+    Everything up to and including `/nifi/` IS correct -- the broken URL and a
+    working canvas URL agree on origin and path -- so that prefix is kept. The
+    result opens the runtime's canvas rather than the individual connector.
+    """
+    marker = "/nifi/"
+    index = connector_url.find(marker)
+    if index == -1:
+        return None
+    base = urlparse(connector_url[: index + len(marker)])
+    if not base.scheme or not base.hostname:
+        return None
+    # Snowflake reports the default port explicitly; its own UI omits it.
+    host = base.hostname
+    if base.port and not (base.scheme == "https" and base.port == 443):
+        host = f"{host}:{base.port}"
+    return f"{base.scheme}://{host}{base.path}"
+
+
 def _jdbc_database(source_url: str) -> Optional[str]:
     """The database named by a JDBC URL, or None if it does not carry one.
 
@@ -886,7 +915,8 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         # shape a Snowflake-side surface change would take, and a silently
         # absent link is indistinguishable from a connector that simply has
         # none.
-        url = get_str(rows[0], COL_CONNECTOR_URL) if rows else None
+        reported = get_str(rows[0], COL_CONNECTOR_URL) if rows else None
+        url = _canvas_url(reported) if reported else None
         if url is None:
             self.report.num_connector_urls_failed += 1
             self.report.warning(

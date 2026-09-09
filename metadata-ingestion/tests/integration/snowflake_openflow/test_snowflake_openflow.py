@@ -88,10 +88,14 @@ RUNTIME_SHOW_ROWS = [
 
 # The NiFi canvas deep link DESCRIBE returns. Only DESCRIBE carries it -- SHOW
 # returns 16 columns, DESCRIBE 20 (measured against a live account).
+# What DESCRIBE actually reports -- including the fragment that does not
+# resolve, so the fixture exercises the derivation rather than assuming it.
 CONNECTOR_URL = (
     "https://openflow.example.snowflakecomputing.app:443/"
     f"{RUNTIME_KEY}/nifi/#/connectors/00000000-0000-0000-0000-000000000001/"
 )
+# What the connector emits: the runtime canvas, which is the part that resolves.
+CANVAS_URL = f"https://openflow.example.snowflakecomputing.app/{RUNTIME_KEY}/nifi/"
 
 CONNECTOR_SHOW_ROWS = [
     {

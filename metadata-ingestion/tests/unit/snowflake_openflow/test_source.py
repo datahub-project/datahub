@@ -480,9 +480,9 @@ def test_connector_url_is_read_from_describe():
         return [{"CONNECTOR_URL": "https://host/rt/nifi/#/connectors/abc/"}]
 
     source._query_rows = fake  # type: ignore[method-assign]
-    assert (
-        source._read_connector_url(_addressable_connector())
-        == "https://host/rt/nifi/#/connectors/abc/"
+    # The canvas root, not the reported deep link -- see _canvas_url.
+    assert source._read_connector_url(_addressable_connector()) == (
+        "https://host/rt/nifi/"
     )
     assert seen == [SnowflakeOpenflowQuery.describe_connector('"DB"."SCH"."conn"')]
 
@@ -547,9 +547,9 @@ def test_connector_url_retries_a_transient_connection_error(
         return [{"CONNECTOR_URL": "https://host/rt/nifi/#/connectors/abc/"}]
 
     source._query_rows = flaky  # type: ignore[method-assign]
-    assert (
-        source._read_connector_url(_addressable_connector())
-        == "https://host/rt/nifi/#/connectors/abc/"
+    # The canvas root, not the reported deep link -- see _canvas_url.
+    assert source._read_connector_url(_addressable_connector()) == (
+        "https://host/rt/nifi/"
     )
     assert len(attempts) == 3
     assert source.report.num_connector_urls_failed == 0
@@ -641,3 +641,41 @@ def test_auto_state_survives_a_recipe_round_trip() -> None:
     source.config = round_tripped
     source._decide_url_lookup(_MAX + 1)
     assert not source._fetch_connector_urls
+
+
+@pytest.mark.parametrize(
+    ("reported", "expected"),
+    [
+        # What DESCRIBE actually returns. Its fragment 404s -- the canvas app
+        # has no #/connectors route -- so only the prefix both the broken and a
+        # working canvas URL agree on is kept.
+        (
+            "https://h.snowflakecomputing.app:443/rt-100/nifi/#/connectors/0000-0f10/",
+            "https://h.snowflakecomputing.app/rt-100/nifi/",
+        ),
+        # Snowflake reports the default port; its own UI omits it.
+        ("https://h.app:443/rt/nifi/#/x", "https://h.app/rt/nifi/"),
+        # A non-default port is meaningful and kept.
+        ("https://h.app:8443/rt/nifi/#/x", "https://h.app:8443/rt/nifi/"),
+        # No canvas marker: nothing derivable, so emit nothing rather than a guess.
+        ("https://h.app/rt/somewhere-else", None),
+        ("", None),
+    ],
+)
+def test_canvas_url_keeps_only_the_part_that_resolves(
+    reported: str, expected: Optional[str]
+) -> None:
+    assert snowflake_openflow._canvas_url(reported) == expected
+
+
+def test_connector_url_emits_the_canvas_not_the_reported_deep_link() -> None:
+    # Regression: the reported CONNECTOR_URL was emitted verbatim and returned
+    # "Route not found" for every connector, because its uuid is a Snowflake
+    # connector id and the canvas addresses NiFi process-group ids instead.
+    source = _make_source()
+    source._query_rows = lambda query: [  # type: ignore[method-assign]
+        {"CONNECTOR_URL": "https://h.app:443/rt-1/nifi/#/connectors/0000-0f10/"}
+    ]
+    assert source._read_connector_url(_addressable_connector()) == (
+        "https://h.app/rt-1/nifi/"
+    )
