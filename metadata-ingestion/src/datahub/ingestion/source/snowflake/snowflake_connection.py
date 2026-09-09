@@ -144,7 +144,7 @@ class SnowflakeConnectionConfig(ConfigModel):
     def validate_account_id(cls, account_id: str, info: pydantic.ValidationInfo) -> str:
         account_id = remove_protocol(account_id)
         account_id = remove_trailing_slashes(account_id)
-        # Get the domain from config, fallback to default
+        # Per-recipe domain override; fall back to the cloud default.
         domain = info.data.get("snowflake_domain", DEFAULT_SNOWFLAKE_DOMAIN)
         snowflake_host_suffix = f".{domain}"
         account_id = remove_suffix(account_id, snowflake_host_suffix)
@@ -197,12 +197,11 @@ class SnowflakeConnectionConfig(ConfigModel):
     @model_validator(mode="after")
     def validate_authentication_config(self):
         """Validate authentication configuration consistency."""
-        # Check token requirement for OAUTH_AUTHENTICATOR_TOKEN
         if self.authentication_type == "OAUTH_AUTHENTICATOR_TOKEN":
             if not self.token:
                 raise ValueError("Token required for OAUTH_AUTHENTICATOR_TOKEN.")
 
-        # Check private key authentication consistency
+        # Key-pair credentials must not be paired with a different auth type.
         if self.private_key is not None or self.private_key_path is not None:
             if self.authentication_type != "KEY_PAIR_AUTHENTICATOR":
                 raise ValueError(
@@ -212,7 +211,7 @@ class SnowflakeConnectionConfig(ConfigModel):
 
         # Hard-error enforcement only. The soft warning is surfaced by each
         # source's own report (snowflake_v2 / summary / queries) so it isn't
-        # printed twice in the CLI summary. Covers CAT-1921 where
+        # printed twice in the CLI summary. Also matches recipes where
         # authentication_type is unset but a password is present.
         check_password_auth_deprecation(self.authentication_type, self.password)
 

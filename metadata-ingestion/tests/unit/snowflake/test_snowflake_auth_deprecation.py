@@ -2,7 +2,7 @@
 Unit tests for the Snowflake username+password auth deprecation warning.
 
 Covers the detection predicate, the soft/hard-error escalation, and the wiring
-into SnowflakeConnectionConfig validation (hard-error raise) — see ING-3479.
+into SnowflakeConnectionConfig validation (hard-error raise).
 """
 
 import pytest

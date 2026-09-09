@@ -38,8 +38,8 @@ def is_using_password_auth(
 ) -> bool:
     """True when the recipe is configured for username+password auth.
 
-    Covers the CAT-1921 edge case where the UI omits ``authentication_type``
-    (defaults to ``DEFAULT_AUTHENTICATOR``) but a password is present.
+    Also matches recipes where the UI omits ``authentication_type``
+    (it defaults to ``DEFAULT_AUTHENTICATOR``) but a password is present.
     """
     return authentication_type == "DEFAULT_AUTHENTICATOR" and bool(
         _secret_value(password)

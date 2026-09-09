@@ -116,7 +116,6 @@ class SnowflakeSummarySource(Source):
             self.report.schema_counters[database.name] = len(database.schemas)
 
             for schema in database.schemas:
-                # Tables/views.
                 tables = schema_generator.fetch_tables_for_schema(
                     schema, database.name, schema.name
                 )
