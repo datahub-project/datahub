@@ -1135,4 +1135,50 @@ public class SearchDocumentTransformerTest {
         "Base64 image should NOT be sanitized for fields without sanitizeRichText annotation");
     assertTrue(indexedName.contains("Dataset Name"), "Original text should be preserved");
   }
+
+  @Test
+  public void testSetSemanticContentSearchValue_EmptyEmbeddingsProjectsExplicitNull() {
+    SearchDocumentTransformer transformer = new SearchDocumentTransformer(1000, 1000, 1000);
+    com.linkedin.common.SemanticContent aspect =
+        new com.linkedin.common.SemanticContent()
+            .setEmbeddings(new com.linkedin.common.EmbeddingModelDataMap())
+            .setSkipReason("EMPTY_TEXT")
+            .setSkippedAt(123L);
+    ObjectNode doc = JsonNodeFactory.instance.objectNode();
+
+    transformer.setSemanticContentSearchValue(aspect, doc, false);
+
+    // Under doc_as_upsert an empty object is a merge no-op: a skip marker's empty
+    // embeddings map must project as explicit null so it clears a previous model entry
+    // even when the diff-mode removal pass is unavailable (e.g. FORCE_INDEXING).
+    assertTrue(doc.get("embeddings").isNull(), "Empty embeddings map must project as null");
+    assertEquals(doc.get("skipReason").asText(), "EMPTY_TEXT");
+    assertEquals(doc.get("skippedAt").asLong(), 123L);
+  }
+
+  @Test
+  public void testSetSemanticContentSearchValue_EmbedClearsSkipMarkerFields() {
+    SearchDocumentTransformer transformer = new SearchDocumentTransformer(1000, 1000, 1000);
+    com.linkedin.common.EmbeddingModelDataMap embeddings =
+        new com.linkedin.common.EmbeddingModelDataMap();
+    embeddings.put(
+        "cohere_embed_v3",
+        new com.linkedin.common.EmbeddingModelData()
+            .setModelVersion("bedrock/cohere.embed-english-v3")
+            .setGeneratedAt(456L)
+            .setTotalChunks(0)
+            .setChunks(new com.linkedin.common.EmbeddingChunkArray()));
+    com.linkedin.common.SemanticContent aspect =
+        new com.linkedin.common.SemanticContent().setEmbeddings(embeddings);
+    ObjectNode doc = JsonNodeFactory.instance.objectNode();
+
+    transformer.setSemanticContentSearchValue(aspect, doc, false);
+
+    assertTrue(doc.get("embeddings").isObject(), "Real embeddings must pass through");
+    assertTrue(doc.get("embeddings").has("cohere_embed_v3"));
+    // Marker fields are ALWAYS set (explicit null on embed) so a re-embed clears a
+    // previous skip marker under doc_as_upsert merging.
+    assertTrue(doc.get("skipReason").isNull(), "Embed must clear skipReason");
+    assertTrue(doc.get("skippedAt").isNull(), "Embed must clear skippedAt");
+  }
 }

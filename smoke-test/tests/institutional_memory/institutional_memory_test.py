@@ -65,6 +65,7 @@ mutation upsertLink($input: UpsertLinkInput!) {\n
 ADMIN_USERNAME = get_admin_username()
 
 
+@pytest.mark.p0
 def test_get_institutional_memory(auth_session):
     res_data = execute_graphql(auth_session, QUERY_LIST, {"urn": TEST_DATASET_URN})
 

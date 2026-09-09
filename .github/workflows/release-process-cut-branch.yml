@@ -1,0 +1,177 @@
+name: Release Process - Cut Branch
+
+run-name: "Cut ${{ inputs.branch_type }} branch · v${{ inputs.version }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch_type:
+        description: "'release' creates releases/v{version} from the default branch. 'hotfix' creates hotfixes/v{version} from releases/v{version}."
+        required: true
+        type: choice
+        options:
+          - release
+          - hotfix
+      version:
+        description: "Version without 'v' prefix (e.g. 1.0.0)"
+        required: true
+      sha:
+        description: "Full 40-character commit SHA to cut from. Leave empty to use the tip of the source branch."
+        required: false
+        type: string
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: cut-branch-${{ inputs.branch_type }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  cut_branch:
+    name: Cut Branch
+    runs-on: depot-ubuntu-22.04
+    permissions:
+      contents: write
+    outputs:
+      target: ${{ steps.branches.outputs.target }}
+      commit_sha: ${{ steps.create_branch.outputs.commit_sha }}
+    steps:
+      - name: Check out release scripts
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: true
+          fetch-depth: 1
+
+      - name: Resolve source and target branches
+        id: branches
+        env:
+          BRANCH_TYPE: ${{ inputs.branch_type }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$BRANCH_TYPE" == "release" ]; then
+            SOURCE=$(PYTHONPATH=.github/scripts:.github/scripts/release python3 -c "from release_variables import DEFAULT_BRANCH; print(DEFAULT_BRANCH)")
+            echo "source=${SOURCE}" >> "$GITHUB_OUTPUT"
+            echo "target=releases/v${VERSION}" >> "$GITHUB_OUTPUT"
+          else
+            echo "source=releases/v${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "target=hotfixes/v${VERSION}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          BRANCH_TYPE: ${{ inputs.branch_type }}
+          SHA: ${{ inputs.sha }}
+          SOURCE: ${{ steps.branches.outputs.source }}
+        run: |
+          python3 .github/scripts/release/validate_inputs.py cut-branch \
+            --version "$VERSION" \
+            --branch-type "$BRANCH_TYPE" \
+            --sha "$SHA" \
+            --source "$SOURCE"
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ vars.RELEASE_TEAM_GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_TEAM_GH_APP_PRIVATE_KEY }}
+
+      - name: Check out source commit
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ inputs.sha != '' && inputs.sha || steps.branches.outputs.source }}
+          # PAT required: GITHUB_TOKEN pushes do not trigger push-event workflows
+          # (e.g. docker-unified.yml on releases/** and hotfixes/**).
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 1
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Validate target branch does not already exist
+        run: |
+          TARGET="${{ steps.branches.outputs.target }}"
+          if git ls-remote --exit-code --heads origin "$TARGET" > /dev/null 2>&1; then
+            echo "Error: branch '$TARGET' already exists."
+            if [ "${{ inputs.branch_type }}" == "release" ]; then
+              echo "To cut an RC or final release on this branch, use the 'Cut Tag' workflow instead."
+            else
+              echo "To cut a hotfix on this branch, use the 'Cut Tag' workflow instead."
+            fi
+            exit 1
+          fi
+
+      - name: Create and push branch
+        id: create_branch
+        run: |
+          TARGET="${{ steps.branches.outputs.target }}"
+          git checkout -b "$TARGET"
+          git push origin "$TARGET"
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Created branch: $TARGET"
+
+      - name: Write job summary
+        env:
+          SOURCE: ${{ steps.branches.outputs.source }}
+          TARGET: ${{ steps.branches.outputs.target }}
+          COMMIT_SHA: ${{ steps.create_branch.outputs.commit_sha }}
+          SHA: ${{ inputs.sha }}
+        run: |
+          REQUESTED="${SHA:-"(source tip)"}"
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+          ## Branch Cut Summary
+
+          | Field         | Value                                        |
+          |---------------|----------------------------------------------|
+          | Source branch | \`${SOURCE}\`                                |
+          | Requested SHA | \`${REQUESTED}\`                             |
+          | Target branch | \`${TARGET}\`                                |
+          | Commit SHA    | \`${COMMIT_SHA}\`                            |
+          EOF
+
+  notify_release_channel:
+    name: Notify Release Channel
+    needs: cut_branch
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out release scripts
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout: |
+            .github/scripts
+            .github/actions/notify-release-channel
+          sparse-checkout-cone-mode: true
+          fetch-depth: 1
+
+      - name: Build Slack message
+        id: slack_message
+        env:
+          TARGET: ${{ needs.cut_branch.outputs.target }}
+          COMMIT_SHA: ${{ needs.cut_branch.outputs.commit_sha }}
+          BRANCH_TYPE: ${{ inputs.branch_type }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          BRANCH_URL="${{ github.server_url }}/${{ github.repository }}/tree/${TARGET}"
+          {
+            echo "message<<EOF"
+            echo "*${BRANCH_TYPE} branch cut* for \`v${VERSION}\` — <${BRANCH_URL}|${TARGET}> (commit \`${SHORT_SHA}\`)"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Notify release channel of branch cut
+        continue-on-error: true
+        uses: ./.github/actions/notify-release-channel
+        with:
+          version: ${{ inputs.version }}
+          emoji: ":scissors:"
+          message: ${{ steps.slack_message.outputs.message }}
+          slack-bot-token: ${{ secrets.CI_NOTIFIER_SLACK_BOT_TOKEN }}

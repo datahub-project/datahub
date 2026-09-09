@@ -91,6 +91,7 @@ def run_cli_command(cmd, auth_session):
     return result
 
 
+@pytest.mark.p0
 def test_dataset_sync_to_datahub(
     setup_teardown_dataset, graph_client: DataHubGraph, auth_session
 ):

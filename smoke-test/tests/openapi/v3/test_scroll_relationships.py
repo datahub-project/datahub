@@ -12,7 +12,7 @@ from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = [pytest.mark.domain(Domain.PLATFORM), pytest.mark.p0]
 
 ALPHA = "urn:li:dataset:(urn:li:dataPlatform:scrolltest,alpha,PROD)"
 ZETA = "urn:li:dataset:(urn:li:dataPlatform:scrolltest,zeta,PROD)"

@@ -38,3 +38,11 @@ source:
                 platform: hana
                 platform_instance: PROD_HANA
                 env: PROD
+            # SAP Datasphere (DWC) connection: SAC does not expose the Datasphere space,
+            # so set it here to build the upstream sap-datasphere lineage (<space>.<model_name>).
+            MY_DATASPHERE_CONNECTION:
+                datasphere_space: my_space
+                # platform_instance / env / convert_urns_to_lowercase must match how the
+                # SAP Datasphere connector ingested the assets so the urns stitch.
+                env: PROD
+                convert_urns_to_lowercase: true
