@@ -25,6 +25,7 @@ from datahub.cli.semantic_model_migration_common import (
     collect_dataset_field_governance,
 )
 from datahub.emitter.mce_builder import make_tag_urn
+from datahub.ingestion.source.dbt.dbt_common import DBTCommonConfig, DBTSourceReport
 from datahub.metadata.schema_classes import (
     EditableDatasetPropertiesClass,
     EditableSchemaFieldInfoClass,
@@ -43,9 +44,10 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     _Aspect,
 )
+from datahub.metadata.urns import DatasetUrn
 
 _LEGACY = "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.orders,PROD)"
-_NEW = "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.orders,PROD)"
+_NEW = "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.semantic_layer.orders,PROD)"
 
 
 def _schema_field(name: str, **kwargs: object) -> SchemaFieldClass:
@@ -124,11 +126,12 @@ class TestUrnParsing:
         with pytest.raises(ValueError, match="platform instance prefix"):
             parse_legacy_identity(_LEGACY, "inst")
 
-    def test_new_side_requires_exactly_two_parts(self):
+    def test_new_side_requires_the_semantic_layer_segment(self):
+        """A legacy three-part name must not parse as a new-side name."""
         assert parse_semantic_model_dataset_identity(
             _NEW, None
         ) == DbtSemanticModelIdentity("orders")
-        with pytest.raises(ValueError, match="exactly 2"):
+        with pytest.raises(ValueError, match="Semantic Model Dataset name"):
             parse_semantic_model_dataset_identity(_LEGACY, None)
 
 
@@ -144,7 +147,10 @@ class TestGenerateDestinationUrn:
     def test_case_preserved_when_disabled(self):
         assert gen_semantic_model_dataset_urn(
             DbtSemanticModelIdentity("Orders"), "Jaffle_Shop", None, "PROD", False
-        ) == ("urn:li:dataset:(urn:li:dataPlatform:dbt,Jaffle_Shop.Orders,PROD)")
+        ) == (
+            "urn:li:dataset:"
+            "(urn:li:dataPlatform:dbt,Jaffle_Shop.semantic_layer.Orders,PROD)"
+        )
 
     def test_platform_instance_appears_exactly_once(self):
         """The urn builder prefixes it; it must not also be in the name."""
@@ -152,7 +158,8 @@ class TestGenerateDestinationUrn:
             DbtSemanticModelIdentity("orders"), "jaffle_shop", "inst", "PROD", True
         )
         assert urn == (
-            "urn:li:dataset:(urn:li:dataPlatform:dbt,inst.jaffle_shop.orders,PROD)"
+            "urn:li:dataset:"
+            "(urn:li:dataPlatform:dbt,inst.jaffle_shop.semantic_layer.orders,PROD)"
         )
         assert urn.count("inst.") == 1
 
@@ -202,7 +209,10 @@ class TestBuildMapping:
         assert mapping.pairs == {_LEGACY: _NEW}
 
     def test_pair_by_name_reports_an_ambiguous_name(self):
-        other = "urn:li:dataset:(urn:li:dataPlatform:dbt,other_project.orders,PROD)"
+        other = (
+            "urn:li:dataset:"
+            "(urn:li:dataPlatform:dbt,other_project.semantic_layer.orders,PROD)"
+        )
         graph = _graph({})
         graph.get_urns_by_filter.return_value = [_NEW, other]
         mapping = build_mapping(
@@ -683,3 +693,28 @@ class TestBatchIsolation:
 
 def _raise_boom() -> bool:
     raise RuntimeError("boom")
+
+
+def test_migration_destination_urn_matches_what_ingest_emits() -> None:
+    """The two must not drift: governance would land on an unused URN.
+
+    Built from the mapper's own naming so a change to either side fails here
+    rather than silently writing to a URN nothing else uses.
+    """
+    from datahub.ingestion.source.dbt.dbt_semantic_model import DbtSemanticModelMapper
+
+    config = DBTCommonConfig.model_validate({"target_platform": "postgres"})
+    mapper = DbtSemanticModelMapper(
+        config=config, report=DBTSourceReport(), project_name="jaffle_shop"
+    )
+    ingest_name = mapper._logical_dataset_name("orders")
+
+    migration_urn = gen_semantic_model_dataset_urn(
+        DbtSemanticModelIdentity("orders"), "jaffle_shop", None, "PROD", True
+    )
+
+    assert DatasetUrn.from_string(migration_urn).name == ingest_name
+    # And the parse round-trips what the generator produced.
+    assert parse_semantic_model_dataset_identity(
+        migration_urn, None
+    ) == DbtSemanticModelIdentity("orders")

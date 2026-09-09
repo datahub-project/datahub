@@ -43,6 +43,9 @@ from datahub.metadata.urns import DatasetUrn
 log = logging.getLogger(__name__)
 
 DBT_PLATFORM = "dbt"
+# Mirrors DbtSemanticModelMapper.SEMANTIC_MODEL_ID: the constant segment that
+# keeps a logical dataset name from colliding with a two-part dbt node name.
+SEMANTIC_MODEL_SEGMENT = "semantic_layer"
 LEGACY_SUBTYPE = DatasetSubTypes.SEMANTIC_MODEL
 SEMANTIC_MODEL_DATASET_SUBTYPE = DatasetSubTypes.SEMANTIC_MODEL_DATASET
 
@@ -108,13 +111,17 @@ def parse_legacy_identity(
 def parse_semantic_model_dataset_identity(
     dataset_urn: str, platform_instance: Optional[str]
 ) -> DbtSemanticModelIdentity:
-    """Recover the semantic model name from a Semantic Model Dataset urn."""
+    """Recover the semantic model name from a Semantic Model Dataset urn.
+
+    The shape is ``<project>.semantic_layer.<name>``, matching what
+    ``DbtSemanticModelMapper`` emits.
+    """
     name = legacy_dataset_name(dataset_urn, platform_instance)
     parts = [part for part in name.split(".") if part]
-    if len(parts) != 2:
+    if len(parts) != 3 or parts[1] != SEMANTIC_MODEL_SEGMENT:
         raise ValueError(
-            f"Dataset name '{name}' (from {dataset_urn}) does not resolve to "
-            "exactly 2 project.name parts"
+            f"Dataset name '{name}' (from {dataset_urn}) is not a Semantic Model "
+            f"Dataset name of the form <project>.{SEMANTIC_MODEL_SEGMENT}.<name>"
         )
     return DbtSemanticModelIdentity(name=parts[-1])
 
@@ -131,7 +138,7 @@ def gen_semantic_model_dataset_urn(
     ``platform_instance`` is applied by
     ``make_dataset_urn_with_platform_instance``, not baked into the identifier.
     """
-    name = f"{project_name}.{identity.name}"
+    name = f"{project_name}.{SEMANTIC_MODEL_SEGMENT}.{identity.name}"
     if convert_urns_to_lowercase:
         name = name.lower()
     return make_dataset_urn_with_platform_instance(

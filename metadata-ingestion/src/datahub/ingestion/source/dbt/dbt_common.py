@@ -2388,10 +2388,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.report.warning(
                 title="Cannot emit dbt semanticModel/metric entities",
                 message="emit_semantic_model_entities was requested, but this "
-                "DataHub Cloud server is too old to accept semanticModel and "
-                "metric entities. Emitting semantic models as datasets with "
-                "subtype 'Semantic Model' instead. Requires DataHub Cloud "
-                "2.1.0 or later.",
+                "DataHub Cloud server will not accept semanticModel and metric "
+                "entities -- see the reason in the context. Emitting semantic "
+                "models as datasets with subtype 'Semantic Model' instead. "
+                "Requires DataHub Cloud 2.1.0 or later with the Metrics feature "
+                "enabled.",
                 context=decision.reason,
             )
         self._emit_semantic_models = decision.enabled
