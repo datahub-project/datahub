@@ -277,7 +277,8 @@ public class GraphQLEngineFactory {
             configProvider.getCache().getClient().getUsageClient(),
             metricUtils));
     if (isAnalyticsEnabled) {
-      args.setAnalyticsService(new AnalyticsService(elasticClient, indexConvention));
+      args.setAnalyticsService(
+          new AnalyticsService(elasticClient, indexConvention, entityRegistry));
     }
     args.setEntityService(entityService);
     args.setRecommendationsService(recommendationsService);
