@@ -1491,7 +1491,9 @@ def dbt_semantic_models(
             click.echo(f"  {src_urn}: {reason}")
         for candidate, reason in list(mapping.skipped_candidates.items())[:10]:
             click.echo(f"  {candidate}: {reason}")
-        raise click.exceptions.Exit(1)
+        if not dry_run:
+            raise click.exceptions.Exit(1)
+        return
 
     click.echo(dbt_migration.semantic_model_not_a_destination_note())
     click.echo(

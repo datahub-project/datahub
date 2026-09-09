@@ -14,6 +14,7 @@ from datahub.ingestion.source.dbt import dbt_cloud
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
+    DBTCommonConfig,
     DBTEntitiesEnabled,
     DBTExposure,
     DBTNode,
@@ -30,6 +31,7 @@ from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreSource,
     extract_dbt_entities,
     extract_dbt_exposures,
+    extract_dbt_metrics,
     extract_semantic_models,
     load_run_results,
     parse_dbt_timestamp,
@@ -4803,3 +4805,67 @@ def test_a_semantic_model_field_without_a_name_does_not_abort_the_run():
 
     assert definition.entities[0].name == ""
     assert definition.discarded == ["entities[0] has no usable name"]
+
+
+def test_manifest_load_wires_the_report_into_semantic_model_extraction():
+    """The report kwarg was added to the function but not to the call site.
+
+    Asserting through loadManifestAndCatalog rather than by calling
+    extract_semantic_models directly, which is what let the dead wiring pass.
+    """
+    import inspect
+
+    source_lines = inspect.getsource(DBTCoreSource.loadManifestAndCatalog)
+    call = source_lines.split("extract_semantic_models(")[1].split(")")[0]
+    assert "report=self.report" in call
+
+
+def test_two_top_level_metrics_sharing_a_name_emit_one_metric():
+    """Distinct from the measure-shadowing case, which has its own warning."""
+    from datahub.ingestion.source.dbt.dbt_semantic_model import DbtSemanticModelMapper
+
+    node = _make_semantic_model_node("orders", package_name="p")
+    mapper = DbtSemanticModelMapper(
+        config=DBTCommonConfig.model_validate({"target_platform": "postgres"}),
+        report=DBTSourceReport(),
+        project_name="p",
+    )
+    metrics = extract_dbt_metrics(
+        {
+            "metric.p.a_revenue": {
+                "name": "Revenue",
+                "label": "A",
+                "description": "",
+                "type": "simple",
+                "type_params": {},
+            },
+            "metric.p.b_revenue": {
+                "name": "revenue",
+                "label": "B",
+                "description": "",
+                "type": "simple",
+                "type_params": {},
+            },
+        },
+        "dbt:",
+    )
+
+    workunits = list(
+        mapper.emit(
+            semantic_model_nodes=[node],
+            metric_definitions=metrics,
+            all_nodes_map={node.dbt_name: node},
+        )
+    )
+
+    metric_urns = set()
+    for wu in workunits:
+        urn = getattr(wu.metadata, "entityUrn", None)
+        if isinstance(urn, str) and urn.startswith("urn:li:metric:"):
+            metric_urns.add(urn)
+    assert len(metric_urns) == 1
+    assert any(w.title == "Duplicate dbt metric name" for w in mapper.report.warnings)
+    # Counted once, and not against the measure bucket.
+    assert mapper.report.num_metrics_from_manifest == 1
+    assert mapper.report.num_metrics_from_measures == 0
+    assert mapper.report.num_metrics_emitted == 1

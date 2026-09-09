@@ -14,7 +14,17 @@ project-scoped and shared by every semantic model in the project.
 
 import logging
 from dataclasses import dataclass, field
-from typing import AbstractSet, Callable, Dict, List, Optional, Sequence, Set, Tuple
+from typing import (
+    AbstractSet,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    Sequence,
+    Set,
+    Tuple,
+)
 
 from datahub.cli.migration_utils import INBOUND_REFERENCE_RELATIONSHIP_TYPES
 from datahub.emitter.aspect import ASPECT_MAP
@@ -127,9 +137,11 @@ def collect_governance_aspects(
 def simple_column_name(field_path: str) -> str:
     try:
         simple = get_simple_field_path_from_v2_field_path(field_path)
-    except ValueError:
-        # The raw v2 path is the best remaining guess, but it will not join to
-        # a real column, so the governance write lands on an orphan URN.
+    except (AttributeError, TypeError):
+        # The helper indexes the path as a string, so a non-string stored path
+        # is the realistic failure. The raw value is the best remaining guess,
+        # but it will not join to a real column, so the governance write lands
+        # on an orphan URN.
         log.warning(
             f"Could not simplify schema field path {field_path!r}; using it "
             "as-is, which may not match any column on the destination",
@@ -568,6 +580,16 @@ def maybe_fold_documentation_to_editable_dataset(
     return "folded documentation into editableDatasetProperties.description"
 
 
+class DiscoverSources(Protocol):
+    """Discovery callback contract for resolve_migration_sources.
+
+    A Protocol rather than ``Callable[..., List[str]]``, which would disable
+    checking that the callback accepts the keyword this helper passes.
+    """
+
+    def __call__(self, only_soft_deleted: bool) -> List[str]: ...
+
+
 @dataclass
 class ResolvedSources:
     """The source urns to migrate, or a terminal message explaining why none.
@@ -586,7 +608,7 @@ class ResolvedSources:
 def resolve_migration_sources(
     *,
     explicit_urns: Sequence[str],
-    discover: Callable[..., List[str]],
+    discover: DiscoverSources,
     expected_subtype: str,
     soft_deleted_label: str,
     include_soft_deleted: bool,
@@ -596,8 +618,8 @@ def resolve_migration_sources(
 ) -> ResolvedSources:
     """Resolve which urns to migrate from explicit input or discovery.
 
-    ``discover`` takes ``only_soft_deleted`` as a keyword. ``filter_subtype``
-    is None for directions that do not validate the source's subtype.
+    ``filter_subtype`` is None for directions that do not validate the
+    source's subtype.
     """
     urns = list(dict.fromkeys(explicit_urns))
     used_discovery = not urns

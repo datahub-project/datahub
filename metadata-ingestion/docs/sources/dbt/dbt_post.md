@@ -578,14 +578,15 @@ source:
 This requires a DataHub server new enough to have `semanticModel` and `metric` in its entity
 registry: DataHub Cloud 2.1.0 or later, or DataHub Core v1.7.0 or later.
 
-- **On DataHub Cloud**, the server version is checked before emitting. If it is too old, ingestion
-  falls back to the default mode and says so in the report rather than failing.
-- **On OSS**, there is no server interrogation, so the recipe is taken at face value and there is no
-  fallback — confirm you are running a compatible server before setting this to `true`.
-
-Setting `METRICS_ENABLED=true` on the server is a separate, **visibility** concern: it enables the
-Metrics page, the `/metrics` route, and search. Ingestion succeeds without it; the entities are
-stored but not discoverable in the UI.
+- **On DataHub Cloud**, the server is interrogated before emitting: both the version and the
+  Metrics feature flag. If the version is too old, or the flag is off, ingestion falls back to the
+  default mode and says so in the report rather than failing. So on Cloud the flag gates emission,
+  not just visibility.
+- **On OSS**, there is no server interrogation at all, so the recipe is taken at face value and
+  there is no fallback — confirm you are running a compatible server before setting this to `true`.
+  Here `METRICS_ENABLED` is purely a **visibility** concern: it enables the Metrics page, the
+  `/metrics` route, and search. Ingestion succeeds without it and the entities are stored; they are
+  simply not discoverable in the UI.
 
 ##### Why one Semantic Model per project
 

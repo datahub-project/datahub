@@ -1119,6 +1119,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 manifest_nodes=manifest_nodes,
                 manifest_adapter=manifest_adapter,
                 tag_prefix=self.config.tag_prefix,
+                report=self.report,
             )
             nodes.extend(semantic_model_nodes)
             self.report.num_semantic_models_emitted = len(semantic_model_nodes)

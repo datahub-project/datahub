@@ -1116,10 +1116,13 @@ def test_metric_counters_reconcile_with_the_emitted_total():
     )
 
     report = mapper.report
+    # The source buckets count what dbt declared; emission can still drop an
+    # entity the SDK cannot represent, so drops are counted too.
     assert (
         report.num_metrics_from_measures + report.num_metrics_from_manifest
-        == report.num_metrics_emitted
+        == report.num_metrics_emitted + report.num_metrics_dropped
     )
+    assert report.num_metrics_dropped == 0
 
 
 # --- emission failure isolation ---------------------------------------------
@@ -1145,6 +1148,8 @@ def test_one_unrepresentable_dataset_does_not_lose_the_project(monkeypatch):
         w.title == "Failed to emit a dbt semantic model entity"
         for w in mapper.report.warnings
     )
+    # The drop is counted, so the report still reconciles.
+    assert mapper.report.num_semantic_model_datasets_dropped == 1
 
 
 def test_a_bad_semantic_model_is_a_failure_not_a_warning(monkeypatch):

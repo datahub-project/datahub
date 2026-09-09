@@ -384,6 +384,11 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     num_metrics_from_measures: int = 0
     num_metrics_from_manifest: int = 0
     num_metrics_without_upstreams: int = 0
+    # Built but not emitted, because the SDK could not represent the entity.
+    # num_metrics_from_measures + num_metrics_from_manifest ==
+    #   num_metrics_emitted + num_metrics_dropped.
+    num_metrics_dropped: int = 0
+    num_semantic_model_datasets_dropped: int = 0
     semantic_models_skipped: LossyList[str] = field(default_factory=LossyList)
     semantic_model_relationships_unresolved: LossyList[str] = field(
         default_factory=LossyList
@@ -1112,7 +1117,9 @@ def convert_semantic_model_fields_to_columns(
     columns: List[DBTColumn] = []
     index = 0
 
-    for entity in definition.entities:
+    # An unnamed entry cannot become a schema field on either path; it is
+    # already recorded in definition.discarded and reported by the caller.
+    for entity in (e for e in definition.entities if e.name):
         columns.append(
             DBTColumn(
                 name=entity.name,
@@ -1124,7 +1131,7 @@ def convert_semantic_model_fields_to_columns(
         )
         index += 1
 
-    for dimension in definition.dimensions:
+    for dimension in (d for d in definition.dimensions if d.name):
         columns.append(
             DBTColumn(
                 name=dimension.name,
@@ -1136,7 +1143,7 @@ def convert_semantic_model_fields_to_columns(
         )
         index += 1
 
-    for measure in definition.measures:
+    for measure in (m for m in definition.measures if m.name):
         columns.append(
             DBTColumn(
                 name=measure.name,

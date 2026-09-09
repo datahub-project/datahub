@@ -219,6 +219,7 @@ class DbtSemanticModelMapper:
                 prepared.dataset, f"semantic model {prepared.node.dbt_name}"
             )
             if entity_workunits is None:
+                self.report.num_semantic_model_datasets_dropped += 1
                 continue
             workunits.extend(entity_workunits)
             emitted_datasets += 1
@@ -227,6 +228,7 @@ class DbtSemanticModelMapper:
         for metric in metrics:
             entity_workunits = self._entity_workunits(metric, f"metric {metric.urn}")
             if entity_workunits is None:
+                self.report.num_metrics_dropped += 1
                 continue
             workunits.extend(entity_workunits)
             emitted_metrics += 1
@@ -691,6 +693,9 @@ class DbtSemanticModelMapper:
         index = self._index_measures(models)
         metrics = self._metrics_from_measures(models)
         self.report.num_metrics_from_measures += len(metrics)
+        # unique_id of the definition that claimed each name, for collision
+        # reporting.
+        from_manifest: Dict[str, str] = {}
 
         # Canonical id per folded name, so a derivedFrom edge is built from the
         # case the metric was actually emitted with rather than the case the
@@ -713,6 +718,17 @@ class DbtSemanticModelMapper:
                 )
                 continue
             key = metric_definition.name.casefold()
+            if key in from_manifest:
+                # Two top-level definitions, not a measure collision: the
+                # earlier one would be silently replaced.
+                self.report.warning(
+                    title="Duplicate dbt metric name",
+                    message="Two top-level metrics resolve to the same name, so "
+                    "they would collide on one metric URN. Only the first is "
+                    "emitted.",
+                    context=f"{from_manifest[key]} and {metric_definition.unique_id}",
+                )
+                continue
             if key in metrics:
                 self.report.warning(
                     title="dbt metric shadows a create_metric measure",
@@ -722,9 +738,9 @@ class DbtSemanticModelMapper:
                     context=metric_definition.unique_id,
                 )
                 # It is a manifest metric now, not a measure one, so move the
-                # count rather than dropping it: the two buckets must sum to
-                # num_metrics_emitted for the report to reconcile.
+                # count rather than dropping it.
                 self.report.num_metrics_from_measures -= 1
+            from_manifest[key] = metric_definition.unique_id
             self.report.num_metrics_from_manifest += 1
             metrics[key] = self._metric_from_definition(
                 metric_definition=metric_definition,
