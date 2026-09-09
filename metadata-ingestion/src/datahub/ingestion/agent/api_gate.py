@@ -2,6 +2,8 @@ import re
 from typing import Iterable, List, Optional, Pattern
 from urllib.parse import unquote, urlsplit
 
+import requests
+
 # Only reads. Unlike the SQL gate's "is this a SELECT", which needed CTE and
 # subquery analysis to mean anything, this one is exact.
 #
@@ -45,6 +47,20 @@ def _allowed_paths(allowlist: Iterable[str]) -> List[Pattern[str]]:
     return [_compile(e) for e in allowlist if e.split(" ", 1)[0].upper() == READ_METHOD]
 
 
+def probe_api_url(base_url: str, path: str) -> str:
+    """The URL a probe API call actually requests. Used by BOTH the gate and the
+    passthrough that sends it, so the two cannot disagree.
+
+    Exactly one separator. `f"{base}{path}"` gives "//projects" when the base
+    ends in "/" and the path begins with one, and Hex's base is user-supplied
+    and unnormalised. Normalising in the gate alone was worse than not
+    normalising at all: the gate then approved "/projects" while the passthrough
+    still sent the double-slash URL -- one path validated, another issued, which
+    is the whole class this check exists to close.
+    """
+    return f"{base_url.rstrip('/')}/{path.lstrip('/')}"
+
+
 def _effective_path(base_url: str, path: str) -> str:
     """The path the client will actually request, resolved as the client resolves it.
 
@@ -58,15 +74,7 @@ def _effective_path(base_url: str, path: str) -> str:
     scopes these credentials to one workspace, and escaping it aims them
     somewhere the allowlist never described.
     """
-    import requests
-
-    # Joined with exactly one separator. `f"{base}{path}"` gives "//projects"
-    # when the base ends in "/" and the path begins with one -- and Hex's base
-    # is user-supplied and not normalised -- so the stripped result was
-    # "//projects" and a listed "/projects" failed to match. Fail-closed, but a
-    # legitimate endpoint refused for a stray slash is still a bug.
-    joined = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
-    prepared = requests.Request(READ_METHOD, joined).prepare()
+    prepared = requests.Request(READ_METHOD, probe_api_url(base_url, path)).prepare()
     # Decoded before matching. An encoded separator is invisible to a
     # single-segment placeholder -- "/spaces/a%2Fb/reports" satisfies
     # "/spaces/{token}/reports" because "a%2Fb" holds no literal "/" -- while an

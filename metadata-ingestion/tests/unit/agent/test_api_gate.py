@@ -181,3 +181,31 @@ def test_a_provider_with_no_base_gets_the_same_resolution():
     with pytest.raises(ApiScopeError):
         check_api_request("GET", "/spaces/a%2Fb/reports", ALLOWLIST)
     check_api_request("GET", "/spaces", ALLOWLIST)
+
+
+def test_the_gate_and_the_sender_agree_on_the_url():
+    """The gate normalised the join and the passthrough did not.
+
+    With a base ending in "/" and a path beginning with one, the gate resolved
+    and approved "/projects" while RestApiPassthrough.api still sent
+    f"{base}{path}" -- "https://app.hex.tech/api/v1//projects". One path
+    validated, a different one issued, which is the class of bug this gate
+    exists to close. Both now build the URL through probe_api_url.
+    """
+    from datahub.ingestion.agent.api_gate import probe_api_url
+    from datahub.ingestion.agent.rest_passthrough import RestApiPassthrough
+
+    base = "https://api.example.com/v1/"
+    sent = []
+
+    class _Provider(RestApiPassthrough):
+        api_allowlist = ["GET /projects"]
+        api_base_url = base
+
+        def api_fetch_json(self, url: str) -> object:
+            sent.append(url)
+            return {}
+
+    _Provider().api("/projects")
+    assert sent == [probe_api_url(base, "/projects")]
+    assert "//projects" not in sent[0]

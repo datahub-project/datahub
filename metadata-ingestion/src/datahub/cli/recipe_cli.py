@@ -304,9 +304,17 @@ def test_connection(recipe_path: str) -> None:
         # which case capable stays None and only internal_failure is set --
         # which exited 0, the very thing this branch exists to stop.
         if capable is False or internal is True:
+            # Names the field the reason is actually in. When internal_failure
+            # fires, basic_connectivity is absent -- so pointing there sent an
+            # agent looking for a key the report does not carry.
+            where = (
+                "internal_failure_reason"
+                if capable is not False
+                else "basic_connectivity.failure_reason"
+            )
             _fail(
                 f"connection test failed for source '{source_type}'; "
-                f"see basic_connectivity in the emitted report",
+                f"see {where} in the emitted report",
                 EXIT_CONNECTION,
             )
 

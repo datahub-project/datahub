@@ -478,3 +478,6 @@ def test_an_internal_failure_with_no_connectivity_report_does_not_exit_zero(
         recipe, ["test-connection", "--recipe", _recipe_file(tmp_path)]
     )
     assert res.exit_code == 3, res.output
+    # And it names the field the reason is in. Pointing at basic_connectivity
+    # here sent the caller after a key this report does not carry.
+    assert "internal_failure_reason" in res.output

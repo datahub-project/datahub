@@ -2,6 +2,7 @@ from typing import Dict, Optional, Sequence
 
 import requests
 
+from datahub.ingestion.agent.api_gate import probe_api_url
 from datahub.ingestion.agent.probe_methods import probe_method
 
 # Long enough for a slow listing endpoint, short enough that a hung probe fails
@@ -78,4 +79,7 @@ class RestApiPassthrough:
         called. Prefer a typed command where one exists: it returns the name a
         pattern is matched against, whereas a raw record leaves you guessing which
         field that is."""
-        return self.api_fetch_json(f"{self.api_base_url}{path}")
+        # The same join the gate validated -- see probe_api_url. Building the
+        # URL differently here is how the gate came to approve one path while
+        # this line sent another.
+        return self.api_fetch_json(probe_api_url(self.api_base_url, path))

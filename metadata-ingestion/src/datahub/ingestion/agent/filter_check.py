@@ -99,9 +99,12 @@ def _match_target(config: Any, kind: str, ctx: ClassifyContext) -> str:
         # Postgres table on its bare name when ingestion matches
         # db.schema.table gives the wrong verdict, and a wrong verdict with
         # nothing marking it is indistinguishable from a right one.
-        # Deliberately does not name the object, like the two branches around
-        # it: check_filters' warn closure dedupes on the message string, so
+        # Deliberately does not name the object, like the no-parent branch
+        # above: check_filters' warn closure dedupes on the message string, so
         # embedding ctx.name emits one near-identical warning per table judged.
+        # The branch below is the exception and keeps both name and target on
+        # purpose -- it reports the malformed identifier it built, which is
+        # per-object by nature and useless without them.
         ctx.warn(
             "the connector's identifier resolver returned nothing usable, so "
             "these were judged on their bare names; the verdict may not be the "

@@ -405,3 +405,43 @@ def test_a_failure_recorded_before_a_raise_is_not_discarded(monkeypatch):
         pm.run_probe_method("hex", {}, "projects", {})
     # Not a ValueError, so it maps to exit 3 rather than blaming the argument.
     assert not isinstance(exc_info.value, ValueError)
+
+
+def test_a_plain_failures_list_recorded_before_a_raise_is_not_discarded(monkeypatch):
+    """The raise path read only probe_report.
+
+    Both shapes are supported -- the success path merges `provider.failures`
+    and `provider.probe_report.failures` -- so a provider using the plain list
+    and then raising had its reason dropped and reached the CLI as a user
+    error (exit 2, "fix your argument") rather than an unreachable source.
+    """
+    from datahub.ingestion.agent.verdicts import ProbeReadFailed, ProbeSoftError
+
+    class _Prov:
+        def __init__(self) -> None:
+            self.failures = ["Listing projects failed: 403 Forbidden"]
+            self.warnings: List[str] = []
+
+        def __enter__(self) -> "_Prov":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        @classmethod
+        def for_config(cls, config: object) -> "_Prov":
+            return cls()
+
+        @probe_method(name="projects")
+        def projects(self) -> object:
+            """Records a failure on the plain list, then raises."""
+            raise ProbeSoftError("no project titled 'x' found in this workspace")
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _Prov)
+    monkeypatch.setattr(
+        pm,
+        "config_class_for",
+        lambda st: type("C", (), {"model_validate": staticmethod(lambda d: None)}),
+    )
+    with pytest.raises(ProbeReadFailed, match="403 Forbidden"):
+        pm.run_probe_method("hex", {}, "projects", {})
