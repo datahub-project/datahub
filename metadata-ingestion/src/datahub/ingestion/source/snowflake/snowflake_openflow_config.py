@@ -122,16 +122,17 @@ class SnowflakeOpenflowSourceConfig(
         "the Snowflake tables it writes.",
     )
 
-    include_connector_external_url: bool = Field(
-        default=True,
+    include_connector_external_url: Optional[bool] = Field(
+        default=None,
         description=(
             "Emit each connector's NiFi canvas URL as the DataFlow's external "
             "link. This costs one DESCRIBE OPENFLOW CONNECTOR per connector, "
-            "because SHOW does not return the URL. Left at its default, the "
-            "lookup is skipped (with a warning) on accounts with more than 500 "
-            "connectors, where that second round trip per connector would "
-            "dominate the run. Setting this to true explicitly overrides that "
-            "and fetches the links at any size; false skips them entirely."
+            "because SHOW does not return the URL. `null` (the default) fetches "
+            "the links unless the account has more than 500 connectors, where "
+            "that second round trip per connector would dominate the run; "
+            "`true` always fetches them; `false` never does. Tri-state rather "
+            "than a bool whose meaning depends on whether it appears in the "
+            "recipe -- that distinction does not survive a recipe round-trip."
         ),
     )
 

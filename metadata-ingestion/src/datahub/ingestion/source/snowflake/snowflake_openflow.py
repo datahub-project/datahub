@@ -103,6 +103,9 @@ SNOWFLAKE_SOURCE_HINT = (
 
 CONFIG_FILENAME = "config.json"
 SECTION_SOURCE = "Source"
+JDBC_PREFIX = "jdbc:"
+# The SQL Server driver spells it databaseName; some tools emit `database`.
+JDBC_DATABASE_PROPERTIES = frozenset({"databasename", "database"})
 SECTION_REPLICATION = "Replication table schema"
 SECTION_DESTINATION = "Destination details"
 # The observed property name is "Source Database Connection URL" (probe Result 37,
@@ -312,6 +315,29 @@ def property_value(properties: Dict[str, Any], key: str) -> Optional[str]:
     return None
 
 
+def _jdbc_database(source_url: str) -> Optional[str]:
+    """The database named by a JDBC URL, or None if it does not carry one.
+
+    Two shapes, because SQL Server does not use the other one. Postgres and
+    MySQL put the database in the path (`jdbc:postgresql://h:5432/mydb`), while
+    the SQL Server driver takes it as a semicolon property
+    (`jdbc:sqlserver://h:1433;databaseName=mydb`) and leaves the path empty --
+    so parsing only the path silently drops every OPENFLOW_SQLSERVER_CDC
+    upstream, which is a supported connector type.
+    """
+    if not source_url.startswith(JDBC_PREFIX):
+        # Not a JDBC URL at all. Stripping a prefix that is not there would
+        # eat five characters and yield a plausible but wrong database name.
+        return None
+    remainder = source_url[len(JDBC_PREFIX) :]
+    head, _, properties = remainder.partition(";")
+    for prop in properties.split(";"):
+        key, sep, value = prop.partition("=")
+        if sep and key.strip().lower() in JDBC_DATABASE_PROPERTIES:
+            return value.strip() or None
+    return urlparse(head).path.lstrip("/") or None
+
+
 def _parse_table_names(raw: str) -> Tuple[List[Tuple[str, str]], List[str]]:
     # Returns (parsed, unparseable). The second element exists so the caller can
     # report dropped entries: an entry with no schema qualifier silently vanishing
@@ -346,9 +372,7 @@ def parse_connector_config(config_json: Dict[str, Any]) -> OpenflowLineage:
                 if source_url:
                     break
             if source_url:
-                # jdbc:postgresql://host:5432/mydb -> mydb
-                path = urlparse(source_url[len("jdbc:") :]).path
-                lineage.source_database = path.lstrip("/") or None
+                lineage.source_database = _jdbc_database(source_url)
             else:
                 lineage.unrecognised_source_url_keys = sorted(properties)
         elif name == SECTION_REPLICATION:
@@ -491,7 +515,10 @@ def build_connector_job(
 # --- Source -----------------------------------------------------------------
 
 
-@platform_name("Snowflake Openflow", id="snowflake-openflow")
+# id is the PLATFORM id, not the recipe type: entities are emitted on
+# urn:li:dataPlatform:openflow (PLATFORM above), and data-platforms.yaml seeds
+# that same name. The recipe type stays "snowflake-openflow" via the entry point.
+@platform_name("Snowflake Openflow", id="openflow")
 @config_class(SnowflakeOpenflowSourceConfig)
 @support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -569,7 +596,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.platform = PLATFORM
         # Set once per run by _decide_url_lookup, before the connector loop.
-        self._url_lookup_suppressed = False
+        self._fetch_connector_urls = True
         self.report: SnowflakeOpenflowReport = SnowflakeOpenflowReport()
         self.connection: SnowflakeConnection = config.connection.get_connection()
 
@@ -698,8 +725,16 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         return self.report
 
     def close(self) -> None:
-        self.connection.close()
-        super().close()
+        # finally, not sequence: StatefulIngestionSourceBase.close() is what
+        # prepares the checkpoint commit. If the connection teardown raises,
+        # skipping it would leave the next run reconciling against a stale
+        # checkpoint -- and this source declares DELETION_DETECTION, so that
+        # soft-deletes or resurrects entities. The sibling snowflake_v2 closes
+        # the base first for the same reason.
+        try:
+            self.connection.close()
+        finally:
+            super().close()
 
     @staticmethod
     def test_connection(config_dict: Dict[str, Any]) -> TestConnectionReport:
@@ -772,19 +807,22 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
     # so __init__ never runs for them. Removing it costs an identical
     # assignment in five separate test helpers and buys no behaviour: the
     # value is an immutable bool, never mutated through the class.
-    _url_lookup_suppressed: bool = False
+    _fetch_connector_urls: bool = True
 
     def _decide_url_lookup(self, connector_count: int) -> None:
-        """Drop the URL pass, once per run, when the account is too large."""
-        if not self.config.include_connector_external_url:
-            return
-        if "include_connector_external_url" in self.config.model_fields_set:
-            # Asked for by name. Honour it whatever the count -- the operator
-            # has taken the cost decision.
+        """Resolve the tri-state URL option, once per run, into one boolean.
+
+        `None` means auto: fetch unless the account is large enough that the
+        extra round trip per connector would dominate. `True`/`False` are the
+        operator's explicit choice and are honoured at any size.
+        """
+        choice = self.config.include_connector_external_url
+        if choice is not None:
+            self._fetch_connector_urls = choice
             return
         if connector_count <= _MAX_CONNECTORS_FOR_URL_LOOKUP:
             return
-        self._url_lookup_suppressed = True
+        self._fetch_connector_urls = False
         self.report.num_connector_urls_skipped_for_scale = connector_count
         # message stays a literal so warnings aggregate; the varying counts go
         # in context, which is what every other warning in this file does.
@@ -793,8 +831,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             message="This account has more connectors than the threshold at "
             "which the per-connector DESCRIBE needed for each external link "
             "would dominate the run, so no external links are emitted. Set "
-            "include_connector_external_url: true explicitly to fetch them "
-            "anyway.",
+            "include_connector_external_url: true to fetch them anyway.",
             context=f"{connector_count} connectors, threshold "
             f"{_MAX_CONNECTORS_FOR_URL_LOOKUP}",
         )
@@ -818,9 +855,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         lineage. So every failure here is counted and, at worst, warned -- it
         must not abort the connector the way a lineage failure would.
         """
-        if not self.config.include_connector_external_url:
-            return None
-        if self._url_lookup_suppressed:
+        if not self._fetch_connector_urls:
             return None
         fqn = connector.fqn
         if fqn is None:
@@ -973,6 +1008,21 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"{connector.key}: {lineage.unrecognised_source_url_keys}",
             )
         if not lineage.destination_database:
+            # The only branch here that used to return empty-handed in silence,
+            # while every sibling counts or warns. It also fires BEFORE the
+            # table-pattern check, so it shadowed that counter. If Snowflake
+            # renames the destination section or the property becomes a secret
+            # reference, every connector in the account loses lineage at once --
+            # this is what makes that visible rather than a clean empty report.
+            self.report.num_connectors_without_destination_database += 1
+            self.report.warning(
+                title="Connector has no destination database",
+                message="The connector's configuration did not name a "
+                "destination Snowflake database, so no lineage is derived for "
+                "it. If this affects every connector at once, the property "
+                "names this source reads have most likely changed.",
+                context=connector.key,
+            )
             return [], []
         if lineage.table_pattern and not lineage.source_tables:
             self.report.num_connectors_without_enumerable_tables += 1
@@ -1222,7 +1272,13 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         deployments = self._fetch_deployments()
         runtimes = self._fetch_runtimes()
-        by_deployment_name = {deployment.name: deployment for deployment in deployments}
+        # Keyed on the name only when there IS one: an unnamed deployment would
+        # otherwise occupy the None key, and a runtime whose deployment_name is
+        # also None would match it and nest under an unrelated parent. The
+        # runtime map below guards the same way, for the same reason.
+        by_deployment_name = {
+            deployment.name: deployment for deployment in deployments if deployment.name
+        }
 
         # Parents before children so auto_browse_path_v2 can build browse paths.
         for deployment in deployments:
@@ -1254,7 +1310,11 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         ambiguous_runtime_names: Set[str] = set()
 
         for runtime in runtimes:
-            parent_deployment = by_deployment_name.get(runtime.deployment_name)
+            parent_deployment = (
+                by_deployment_name.get(runtime.deployment_name)
+                if runtime.deployment_name
+                else None
+            )
             if parent_deployment is None:
                 self.report.warning(
                     title="Runtime with no visible parent deployment",

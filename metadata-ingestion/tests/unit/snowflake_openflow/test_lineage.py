@@ -1075,3 +1075,47 @@ def test_upstream_instance_prefix_kept_verbatim_when_not_folding():
     ) == [
         "urn:li:dataset:(urn:li:dataPlatform:postgres,PG_Prod.mysourcedb.Public.MyTable,PROD)"
     ]
+
+
+@pytest.mark.parametrize(
+    ("source_url", "expected"),
+    [
+        # SQL Server does not put the database in the path. Parsing only the
+        # path dropped every OPENFLOW_SQLSERVER_CDC upstream silently.
+        ("jdbc:sqlserver://h:1433;databaseName=mydb", "mydb"),
+        ("jdbc:sqlserver://h:1433;encrypt=true;databaseName=mydb", "mydb"),
+        ("jdbc:postgresql://h:5432/mydb", "mydb"),
+        ("jdbc:mysql://h:3306/mydb", "mydb"),
+        # No database named at all -- better None than a guess, since a
+        # wrong-tier URN is well-formed and points at nothing.
+        ("jdbc:sqlserver://h:1433", None),
+        # Not a JDBC URL: stripping the prefix that is not there would eat five
+        # characters and yield a plausible but wrong database.
+        ("notjdbc://h/mydb", None),
+    ],
+)
+def test_jdbc_database_handles_both_url_shapes(
+    source_url: str, expected: Optional[str]
+) -> None:
+    assert snowflake_openflow._jdbc_database(source_url) == expected
+
+
+def test_missing_destination_database_is_counted_and_warned() -> None:
+    # This branch returned empty-handed in silence while every sibling branch
+    # counted or warned. The failure it hides is not one connector without
+    # lineage -- it is a Snowflake-side property rename taking out every
+    # connector at once behind a clean report.
+    config: Dict[str, Any] = copy.deepcopy(CONFIG_JSON)
+    for section in config["configuration"]:
+        if section["name"] == snowflake_openflow.SECTION_DESTINATION:
+            properties: Dict[str, Any] = section["properties"]
+            properties.pop(snowflake_openflow.PROP_DESTINATION_DATABASE, None)
+
+    source = _make_source()
+    source._query_rows = _fake_get(json.dumps(config).encode())  # type: ignore[assignment]
+
+    inlets, outlets = source._lineage_for_connector(_connector())
+
+    assert (inlets, outlets) == ([], [])
+    assert source.report.num_connectors_without_destination_database == 1
+    assert _warning_titles(source.report) == ["Connector has no destination database"]

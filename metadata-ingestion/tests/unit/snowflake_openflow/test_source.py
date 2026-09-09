@@ -10,6 +10,7 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow import (
+    _MAX_CONNECTORS_FOR_URL_LOOKUP as _MAX,
     SnowflakeOpenflowSource,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_config import (
@@ -607,17 +608,16 @@ def test_url_lookup_survives_at_the_threshold() -> None:
     # exactly on the limit, or the message would name a count it permits.
     source = _make_source()
     source._decide_url_lookup(snowflake_openflow._MAX_CONNECTORS_FOR_URL_LOOKUP)
-    assert not source._url_lookup_suppressed
+    assert source._fetch_connector_urls
     assert _warning_titles(source.report) == []
 
 
 def test_explicitly_requested_urls_are_fetched_at_any_scale() -> None:
-    # Auto-degrade applies to the DEFAULT only. An operator who named the flag
-    # has taken the cost decision, and silently ignoring them would be worse
-    # than the cost.
+    # Auto-degrade applies to the `None` (auto) state only. An operator who
+    # asked for true has taken the cost decision.
     source = _make_source(include_connector_external_url=True)
     source._decide_url_lookup(snowflake_openflow._MAX_CONNECTORS_FOR_URL_LOOKUP * 100)
-    assert not source._url_lookup_suppressed
+    assert source._fetch_connector_urls
     assert _warning_titles(source.report) == []
 
 
@@ -626,3 +626,18 @@ def test_disabled_flag_needs_no_scale_warning() -> None:
     source = _make_source(include_connector_external_url=False)
     source._decide_url_lookup(snowflake_openflow._MAX_CONNECTORS_FOR_URL_LOOKUP * 100)
     assert _warning_titles(source.report) == []
+
+
+def test_auto_state_survives_a_recipe_round_trip() -> None:
+    # The bool + model_fields_set version failed exactly here: model_dump ->
+    # model_validate marks every field explicit, so the scale guard silently
+    # vanished for any path that re-serialises a recipe (a UI edit-and-save,
+    # recipe templating). The tri-state carries the choice in the value.
+    config = SnowflakeOpenflowSourceConfig.model_validate(MINIMAL_CONNECTION)
+    round_tripped = SnowflakeOpenflowSourceConfig.model_validate(config.model_dump())
+    assert round_tripped.include_connector_external_url is None
+
+    source = _make_source()
+    source.config = round_tripped
+    source._decide_url_lookup(_MAX + 1)
+    assert not source._fetch_connector_urls

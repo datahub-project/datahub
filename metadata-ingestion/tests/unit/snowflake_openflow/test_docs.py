@@ -11,7 +11,10 @@ from datahub.ingestion.source.snowflake.snowflake_openflow_config import (
     SnowflakeOpenflowSourceConfig,
 )
 
-DOC_DIR = pathlib.Path("docs/sources/snowflake-openflow")
+# The docs directory is keyed on the PLATFORM id ("openflow"), while the file
+# prefixes are the plugin/recipe type ("snowflake-openflow"). docgen matches
+# docs/sources/<platform>/<plugin>_pre.md.
+DOC_DIR = pathlib.Path("docs/sources/openflow")
 PRE = DOC_DIR / "snowflake-openflow_pre.md"
 POST = DOC_DIR / "snowflake-openflow_post.md"
 README = DOC_DIR / "README.md"

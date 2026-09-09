@@ -23,6 +23,7 @@ class SnowflakeOpenflowReport(StaleEntityRemovalSourceReport):
     num_deployments: int = 0
     num_connectors_without_config_uri: int = 0
     num_connectors_without_fqn: int = 0
+    num_connectors_without_destination_database: int = 0
     num_connector_urls_failed: int = 0
     num_connector_urls_skipped_for_scale: int = 0
     num_connectors_with_ambiguous_runtime: int = 0

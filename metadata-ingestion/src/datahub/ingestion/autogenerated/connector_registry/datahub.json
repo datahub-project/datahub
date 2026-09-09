@@ -4546,7 +4546,7 @@
         }
       ],
       "classname": "datahub.ingestion.source.snowflake.snowflake_openflow.SnowflakeOpenflowSource",
-      "platform_id": "snowflake-openflow",
+      "platform_id": "openflow",
       "platform_name": "Snowflake Openflow",
       "support_status": "ALPHA"
     },
