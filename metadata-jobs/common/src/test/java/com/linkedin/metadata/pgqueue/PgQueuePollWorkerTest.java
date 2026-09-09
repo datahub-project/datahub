@@ -19,6 +19,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import org.mockito.stubbing.Answer;
 import org.testng.annotations.Test;
 
@@ -389,6 +390,67 @@ public class PgQueuePollWorkerTest {
 
     verify(flushHandler, timeout(3000))
         .flush(eq(TOPIC), argThat(batch -> batch.size() == 1), any());
+  }
+
+  @Test
+  public void accumulationModeLingerFlushSkipsIdleBackoff() throws Exception {
+    PgQueueSetupOptions opts = mockSetupOptions();
+    MetadataQueueStore store = mock(MetadataQueueStore.class);
+    when(store.fetchTopic(TOPIC)).thenReturn(Optional.of(TOPIC_META));
+
+    PgQueueBatchFlushHandler flushHandler = mock(PgQueueBatchFlushHandler.class);
+    PgQueueBatchPolicy policy = new PgQueueBatchPolicy(100, Long.MAX_VALUE, 10);
+
+    QueueReceivedMessage msg = stubMessage();
+
+    PgQueuePollerRegistration reg =
+        new PgQueuePollerRegistration(
+            GROUP,
+            List.of(TOPIC),
+            10,
+            "thread-0",
+            1000,
+            5000,
+            50,
+            100,
+            (topic, msgs, ctx) -> {},
+            policy,
+            flushHandler);
+
+    PgQueuePollWorker worker =
+        new PgQueuePollWorker(
+            reg, store, mockPostgresProps(opts), mockConfigProvider(), opts, 0, 1, null);
+
+    AtomicInteger receiveCalls = new AtomicInteger(0);
+    AtomicLong lingerEmptyPollAt = new AtomicLong();
+    AtomicLong nextPollAt = new AtomicLong();
+    when(store.receiveBatchForGroup(
+            anyString(), anyLong(), anyList(), anyString(), any(), anyInt()))
+        .thenAnswer(
+            (Answer<List<QueueReceivedMessage>>)
+                inv -> {
+                  int call = receiveCalls.incrementAndGet();
+                  if (call == 1) {
+                    return List.of(msg);
+                  }
+                  if (call == 2) {
+                    Thread.sleep(20);
+                    lingerEmptyPollAt.set(System.currentTimeMillis());
+                    return List.of();
+                  }
+                  nextPollAt.set(System.currentTimeMillis());
+                  worker.stop();
+                  return List.of();
+                });
+
+    runWorkerAndJoin(worker, 5000);
+
+    verify(flushHandler, timeout(3000))
+        .flush(eq(TOPIC), argThat(batch -> batch.size() == 1), any());
+    assertTrue(nextPollAt.get() > 0, "Worker should poll again after linger flush");
+    assertTrue(
+        nextPollAt.get() - lingerEmptyPollAt.get() < 200,
+        "Linger flush on an empty poll should reset backoff instead of sleeping emptyPollSleepMinMillis");
   }
 
   // --- 8. Error recovery sleep ---

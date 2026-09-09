@@ -182,6 +182,7 @@ public final class PgQueuePollWorker implements Runnable {
                 store, registration.consumerGroupId(), visibility, avroDeserializer);
 
         boolean anyMessages = false;
+        boolean flushedBatch = false;
         for (String logicalTopic : registration.topicNames()) {
           Optional<QueueTopicMetadata> meta = store.fetchTopic(logicalTopic);
           if (meta.isEmpty()) {
@@ -225,12 +226,13 @@ public final class PgQueuePollWorker implements Runnable {
 
           if (accumulator.shouldFlush()) {
             flushAccumulator(logicalTopic, accumulator, flushHandler, ctx);
+            flushedBatch = true;
           }
         }
 
         // On empty poll, check for expired accumulators (linger timeout)
         if (!anyMessages) {
-          boolean flushedLinger = false;
+          boolean flushedLinger = flushedBatch;
           for (Map.Entry<String, PgQueueBatchAccumulator> entry : accumulators.entrySet()) {
             if (entry.getValue().isExpired()) {
               Duration vis = visibilityTimeout();
