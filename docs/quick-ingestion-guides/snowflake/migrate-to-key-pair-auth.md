@@ -188,13 +188,13 @@ You can apply the recipe change in place — edit the existing source in the Dat
 
 ## Step 4 — Validate before retiring the old credentials
 
-1. **Test the connection** before running a full ingestion:
+1. **Test the connection** before running a full ingestion, using the same recipe file you just updated:
 
    ```bash
-   datahub check --test-source-connection
+   datahub ingest -c <path-to-your-recipe>.yml --test-source-connection
    ```
 
-   Use the same recipe file you just updated. A successful connection test confirms the key-pair is wired correctly.
+   A successful connection test confirms the key-pair is wired correctly.
 
 2. **Run one ingestion** and confirm the run reports `SUCCESS` in the DataHub UI.
 
