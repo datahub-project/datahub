@@ -176,3 +176,6 @@ test-models/bin/
 # Generated per-page markdown mirror for AI tools (emitted by
 # docs-website/generateDocsDir.ts, served at /docs/<slug>.md)
 docs-website/static/docs/
+
+# connector-dev review artefacts (flow output, never shipped)
+.review/
