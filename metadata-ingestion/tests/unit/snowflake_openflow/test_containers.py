@@ -2,9 +2,11 @@ from typing import Any, Dict, Iterable, List, Optional
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_openflow import (
+    OpenflowConnector,
     OpenflowDeploymentKey,
     OpenflowRuntimeKey,
     SnowflakeOpenflowSource,
+    build_connector_flow,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_config import (
     SnowflakeOpenflowSourceConfig,
@@ -187,6 +189,29 @@ def test_connector_flow_has_no_container_when_its_runtime_is_not_visible():
     assert _container_aspects(workunits, DATAFLOW_URN_PREFIX) == []
     assert any(
         workunit.get_urn().startswith(DATAFLOW_URN_PREFIX) for workunit in workunits
+    )
+
+
+def test_an_unnested_flow_still_gets_a_browse_path() -> None:
+    # parent_container is passed as `unset`, not None, when the runtime is not
+    # visible. None makes the SDK write an EMPTY browsePathsV2, which then
+    # suppresses the one auto_browse_path_v2 would derive -- a bug already hit
+    # once. Asserting only "no container aspect" cannot tell the two apart, so
+    # reverting `unset` to None passed the whole suite.
+    flow = build_connector_flow(
+        OpenflowConnector(name="conn", runtime_name="rt"),
+        platform_instance=None,
+        env="PROD",
+        parent_container=None,
+    )
+    aspects = [
+        wu.metadata.aspectName
+        for wu in flow.as_workunits()
+        if hasattr(wu.metadata, "aspectName")
+    ]
+    assert "browsePathsV2" not in aspects, (
+        "an un-nested flow must leave browsePathsV2 off entirely so "
+        "auto_browse_path_v2 can derive one; an empty aspect suppresses it"
     )
 
 

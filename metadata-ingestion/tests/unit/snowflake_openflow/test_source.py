@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import pytest
 from snowflake.connector.errors import OperationalError
@@ -755,6 +755,10 @@ def test_gate_fires_on_runtime_count_even_with_few_connectors() -> None:
     [
         pytest.param("database_name", id="database"),
         pytest.param("schema_name", id="schema"),
+        # The ordinary shape: one account keeps all Openflow objects in one
+        # schema, so two runtimes there would share a canvas URL if the runtime
+        # component were ever dropped from the key.
+        pytest.param("runtime_name", id="runtime"),
     ],
 )
 def test_identically_named_runtimes_in_different_scopes_are_not_shared(
@@ -803,3 +807,52 @@ def test_canvas_url_never_raises_on_a_malformed_url(malformed: str) -> None:
     # malformed authority and .port raises on a non-numeric port. A surface
     # change must cost this connector its link, never the whole run.
     assert snowflake_openflow._canvas_url(malformed) is None
+
+
+def test_fetch_connectors_filters_by_pattern() -> None:
+    # connector_pattern had no test at all, while its two siblings had two each.
+    # Swapping it for allow_all() passed the whole suite.
+    source = _make_source(connector_pattern=AllowDenyPattern(deny=["excluded"]))
+    show_rows = [
+        {"name": "kept", "runtime": "rt"},
+        {"name": "excluded", "runtime": "rt"},
+    ]
+    source._query_rows = _fake_query_rows(  # type: ignore[assignment]
+        SnowflakeOpenflowQuery.show_connectors(), CONNECTOR_HISTORY, show_rows, []
+    )
+
+    assert [c.name for c in source._fetch_connectors()] == ["kept"]
+    assert "excluded" in source.report.filtered_connectors
+
+
+def test_gate_is_decided_from_the_connectors_actually_fetched(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # test_gate_counts_runtimes_not_connectors calls _decide_url_lookup directly, so
+    # the call site itself was unpinned: replacing the runtime set with
+    # len(connectors) there passed every test.
+    source = _make_source()
+    seen: List[Tuple[int, int]] = []
+    monkeypatch.setattr(
+        source,
+        "_decide_url_lookup",
+        lambda connector_count, runtime_count: seen.append(
+            (connector_count, runtime_count)
+        ),
+    )
+    monkeypatch.setattr(source, "_fetch_deployments", lambda: [])
+    monkeypatch.setattr(source, "_fetch_runtimes", lambda: [])
+    monkeypatch.setattr(
+        source,
+        "_fetch_connectors",
+        lambda: [
+            OpenflowConnector(
+                name=f"c{n}", runtime_name=rt, database_name="DB", schema_name="S"
+            )
+            for n, rt in enumerate(["rt_a", "rt_a", "rt_b"])
+        ],
+    )
+    list(source.get_workunits_internal())
+
+    # Three connectors, two distinct locations -- not three, and not one.
+    assert seen == [(3, 2)]

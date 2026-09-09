@@ -249,7 +249,11 @@ def default_query_results(
     raise AssertionError(f"unexpected query: {query!r}")
 
 
-def _source_config(stateful: bool, lowercase_urns: bool = True) -> Dict[str, Any]:
+def _source_config(
+    stateful: bool,
+    lowercase_urns: bool = True,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     config: Dict[str, Any] = {
         "connection": {
             "account_id": "abc12345",
@@ -275,6 +279,8 @@ def _source_config(stateful: bool, lowercase_urns: bool = True) -> Dict[str, Any
                 "config": {"datahub_api": {"server": "http://localhost:8080"}},
             },
         }
+    if extra:
+        config.update(extra)
     return config
 
 
@@ -287,12 +293,15 @@ def _pipeline_config(
     stateful: bool = False,
     pipeline_name: Optional[str] = None,
     lowercase_urns: bool = True,
+    extra: Optional[Dict[str, Any]] = None,
 ) -> PipelineConfig:
     return PipelineConfig(
         pipeline_name=pipeline_name,
         source=SourceConfig(
             type="snowflake-openflow",
-            config=_source_config(stateful=stateful, lowercase_urns=lowercase_urns),
+            config=_source_config(
+                stateful=stateful, lowercase_urns=lowercase_urns, extra=extra
+            ),
         ),
         sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
     )
@@ -567,3 +576,37 @@ def test_a_dropped_connector_is_soft_deleted_on_the_next_run(
             type="container", other_checkpoint_state=checkpoint_two.state
         )
     )
+
+
+def test_destination_coordinates_reach_the_outlet_urn(tmp_path):
+    """The destination half of the two-recipe contract, pinned at the URN.
+
+    The upstream half is pinned three ways in test_lineage. This half was not
+    pinned at all: every asserted outlet in the suite used the defaults, where
+    env, snowflake_env and PROD all coincide, so the URN could not distinguish
+    them. Replacing get_snowflake_identifier_config()'s platform_instance with
+    None -- the exact leak its own docstring warns about -- passed everything.
+    """
+    output_file = tmp_path / "coords.json"
+    _run_pipeline(
+        _pipeline_config(
+            output_file,
+            # Deliberately different from the Openflow env above, because the
+            # whole point is that these name ANOTHER recipe's coordinates.
+            extra={
+                "snowflake_platform_instance": "warehouse_prod",
+                "snowflake_env": "DEV",
+            },
+        )
+    )
+
+    table_job = (
+        f"urn:li:dataJob:({FLOW_URN},{RUNTIME_NAME}/{CONNECTOR_NAME}/public.mytable)"
+    )
+    outlets = _aspect(_records(output_file), table_job, "dataJobInputOutput")[
+        "outputDatasets"
+    ]
+    assert outlets == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "warehouse_prod.my_db.public.mytable,DEV)"
+    ]
