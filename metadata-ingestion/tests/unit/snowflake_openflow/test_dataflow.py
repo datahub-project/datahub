@@ -55,7 +55,7 @@ def test_job_is_nested_in_its_flow():
     # URN nests inside the flow URN with a matching job_id — not CONNECTOR_ID,
     # for the identical reasons the flow isn't.
     flow = build_connector_flow(CONNECTOR, platform_instance=None, env="PROD")
-    job = build_connector_job(CONNECTOR, flow, inlets=[], outlets=[])
+    job = build_connector_job(CONNECTOR, flow)
     assert str(job.urn) == (
         "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),"
         "MyRuntime/pg_cdc)"
@@ -67,7 +67,7 @@ def test_job_is_emitted_even_with_no_lineage():
     # An empty dataJobInputOutput is deliberate: dropping the job would orphan
     # lineage emitted on a previous run and lose the run-history anchor.
     flow = build_connector_flow(CONNECTOR, platform_instance=None, env="PROD")
-    job = build_connector_job(CONNECTOR, flow, inlets=[], outlets=[])
+    job = build_connector_job(CONNECTOR, flow)
     assert job.as_workunits()
 
 

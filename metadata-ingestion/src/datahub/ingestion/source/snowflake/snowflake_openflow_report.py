@@ -35,6 +35,8 @@ class SnowflakeOpenflowReport(StaleEntityRemovalSourceReport):
     num_owners_emitted: int = 0
 
     num_lineage_edges: int = 0
+    # One DataJob per replicated table, beside the connector-level anchor.
+    num_table_jobs: int = 0
     num_lineage_edges_skipped: int = 0
     # Edges emitted with a destination but no upstream, because the
     # connector's source URL did not yield the database its platform needs.

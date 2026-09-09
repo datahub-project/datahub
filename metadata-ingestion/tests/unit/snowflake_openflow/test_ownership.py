@@ -161,7 +161,7 @@ def test_connector_job_owner_is_a_technical_corp_group_owner():
         name="pg_cdc", runtime_name="my_runtime", owner=OWNER_ROLE
     )
     flow = build_connector_flow(connector, platform_instance=None, env="PROD")
-    job = build_connector_job(connector, flow, inlets=[], outlets=[])
+    job = build_connector_job(connector, flow)
 
     ownership = _ownership_aspects(job.as_workunits())
 
@@ -176,7 +176,7 @@ def test_connector_job_owner_is_a_technical_corp_group_owner():
 def test_connector_emits_no_ownership_aspect_when_owner_is_absent():
     connector = OpenflowConnector(name="pg_cdc", runtime_name="my_runtime")
     flow = build_connector_flow(connector, platform_instance=None, env="PROD")
-    job = build_connector_job(connector, flow, inlets=[], outlets=[])
+    job = build_connector_job(connector, flow)
 
     assert _ownership_aspects(flow.as_workunits()) == []
     assert _ownership_aspects(job.as_workunits()) == []

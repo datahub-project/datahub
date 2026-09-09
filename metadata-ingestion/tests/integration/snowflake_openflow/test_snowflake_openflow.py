@@ -59,6 +59,11 @@ DEPLOYMENT_URN = "urn:li:container:1a0e6286b2b666d963c21e6360d532a0"
 RUNTIME_URN = "urn:li:container:d638d9f8db756f7c21271bf68113e7e8"
 FLOW_URN = f"urn:li:dataFlow:(openflow,{RUNTIME_NAME}/{CONNECTOR_NAME},PROD)"
 JOB_URN = f"urn:li:dataJob:({FLOW_URN},{RUNTIME_NAME}/{CONNECTOR_NAME})"
+# One job per replicated table, beside the connector-level anchor above.
+TABLE_JOB_URNS = {
+    f"urn:li:dataJob:({FLOW_URN},{RUNTIME_NAME}/{CONNECTOR_NAME}/public.{table})"
+    for table in ("mytable", "othertable")
+}
 
 # SHOW returns lowercase column names; the ACCOUNT_USAGE views return uppercase.
 # The fixtures below preserve that difference rather than normalising it, since
@@ -179,8 +184,12 @@ CONNECTOR_CONFIG_JSON: Dict[str, Any] = {
         {
             "name": "Replication table schema",
             "properties": {
+                # TWO tables deliberately: with one, a flattened
+                # inlets/outlets DataJob and per-table DataJobs are
+                # indistinguishable, so the fan-out defect this fixture guards
+                # against could not appear in the golden at all.
                 "Included Comma Separated Source Table Names": _wrap(
-                    '"public"."mytable"'
+                    '"public"."mytable","public"."othertable"'
                 ),
             },
         },
@@ -331,7 +340,10 @@ def test_snowflake_openflow_golden(pytestconfig, tmp_path):
     assert report.num_runtimes == 1
     # The deleted, view-only connector is filtered before it is ever counted.
     assert report.num_connectors == 1
-    assert report.num_lineage_edges == 1
+    # Two, because the fixture replicates two tables -- see the comment on
+    # the table-names property for why one would hide the fan-out defect.
+    assert report.num_lineage_edges == 2
+    assert report.num_table_jobs == 2
 
     # Asserted here as well as frozen in the golden file, so that re-blessing the
     # golden without reading it cannot quietly accept a regression in the parts
@@ -342,6 +354,7 @@ def test_snowflake_openflow_golden(pytestconfig, tmp_path):
         RUNTIME_URN,
         FLOW_URN,
         JOB_URN,
+        *TABLE_JOB_URNS,
     }
 
     # Container nesting: runtime under deployment, connector DataFlow under runtime.
@@ -354,16 +367,28 @@ def test_snowflake_openflow_golden(pytestconfig, tmp_path):
             {"owner": f"urn:li:corpGroup:{OWNER_ROLE}", "type": "TECHNICAL_OWNER"}
         ]
 
-    # Config-derived lineage: upstream Postgres table -> Snowflake destination,
-    # the destination folded to lowercase by convert_urns_to_lowercase.
+    # The connector-level anchor carries NO lineage, and says so explicitly
+    # rather than omitting the aspect -- an empty aspect is what clears a
+    # flattened fan-out written by an earlier release.
     assert _aspect(records, JOB_URN, "dataJobInputOutput") == {
-        "inputDatasets": [
-            "urn:li:dataset:(urn:li:dataPlatform:postgres,mysourcedb.public.mytable,PROD)"
-        ],
-        "outputDatasets": [
-            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.mytable,PROD)"
-        ],
+        "inputDatasets": [],
+        "outputDatasets": [],
     }
+
+    # One job per replicated table, each carrying its own 1:1 edge. Flattened
+    # onto a single job these two pairs would assert four edges.
+    for table in ("mytable", "othertable"):
+        table_job = f"{JOB_URN[:-1]}/public.{table})"
+        assert _aspect(records, table_job, "dataJobInputOutput") == {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,"
+                f"mysourcedb.public.{table},PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+                f"my_db.public.{table},PROD)"
+            ],
+        }
 
     # CONNECTOR_ID exists only in CONNECTOR_HISTORY, never in SHOW OPENFLOW
     # CONNECTORS -- so its presence proves merge_show_and_history ran.
@@ -459,7 +484,11 @@ def test_upstream_urns_keep_their_case(tmp_path):
 
     _run_pipeline(_pipeline_config(output_file), connector_config=mixed_case_config)
 
-    assert _aspect(_records(output_file), JOB_URN, "dataJobInputOutput") == {
+    # The edge now lives on that table's own job, not on the connector anchor.
+    table_job = (
+        f"urn:li:dataJob:({FLOW_URN},{RUNTIME_NAME}/{CONNECTOR_NAME}/Public.MyTable)"
+    )
+    assert _aspect(_records(output_file), table_job, "dataJobInputOutput") == {
         "inputDatasets": [
             "urn:li:dataset:(urn:li:dataPlatform:postgres,mysourcedb.Public.MyTable,PROD)"
         ],

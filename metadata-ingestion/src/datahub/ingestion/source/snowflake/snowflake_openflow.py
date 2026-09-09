@@ -1,6 +1,7 @@
 import dataclasses
 import enum
 import gzip
+import hashlib
 import json
 import logging
 import pathlib
@@ -13,7 +14,6 @@ from typing import (
     Iterable,
     List,
     Optional,
-    Sequence,
     Set,
     Tuple,
     Type,
@@ -86,7 +86,11 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.workunit_processors.auto_lowercase_urns import (
     AutoLowercaseUrnsProcessor,
 )
-from datahub.metadata.schema_classes import OwnerClass, OwnershipTypeClass
+from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
+    OwnerClass,
+    OwnershipTypeClass,
+)
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.utilities.sentinels import unset
@@ -138,6 +142,10 @@ SCHEMA_STRATEGY_SOURCE_SCHEMA = "SOURCE_SCHEMA"
 # tenant assumption ("tens of runtimes") calls unusual. Setting
 # include_connector_external_url explicitly overrides it at any size.
 _MAX_RUNTIMES_FOR_URL_LOOKUP = 500
+
+# Beyond this the readable per-table job id is replaced by a content hash, so
+# the DataJob urn cannot outgrow what DataHub accepts.
+_MAX_READABLE_JOB_NAME = 200
 
 _RETRY_MAX_ATTEMPTS = 3
 # Seconds. Produces waits of ~1s then ~2s. Read at call time rather than baked
@@ -368,6 +376,24 @@ def _url_shape(source_url: Optional[str]) -> str:
     return f"{scheme}://..." if separator else f"{source_url[:16]}..."
 
 
+@dataclasses.dataclass
+class ConnectorTableLineage:
+    """One replicated table: where it comes from and where it lands.
+
+    The pairing is what makes this a type rather than two parallel lists. A
+    connector replicating N tables produces N independent 1:1 edges; flattening
+    them onto one DataJob's inlets/outlets says instead that every source feeds
+    every destination, which is N*N edges DataHub will happily render.
+    """
+
+    source_schema: str
+    source_table: str
+    outlet: str
+    # None when the upstream platform's identifier could not be composed --
+    # counted and warned at the call site. The destination half still stands.
+    inlet: Optional[str] = None
+
+
 def _jdbc_database(source_url: str) -> Optional[str]:
     """The database named by a JDBC URL, or None if it does not carry one.
 
@@ -548,20 +574,54 @@ def build_connector_flow(
     )
 
 
-def build_connector_job(
-    connector: OpenflowConnector,
-    flow: DataFlow,
-    inlets: Sequence[str],
-    outlets: Sequence[str],
-) -> DataJob:
+def build_connector_job(connector: OpenflowConnector, flow: DataFlow) -> DataJob:
+    """The connector-level anchor: stable identity, ownership, properties.
+
+    It carries NO lineage. Every replicated table gets its own DataJob so the
+    1:1 pairing survives; putting all inlets and outlets here instead would
+    assert that every source feeds every destination.
+
+    The empty DataJobInputOutput is emitted deliberately rather than omitted:
+    an earlier release DID attach the flattened edges to this urn, and only an
+    explicit empty aspect clears them on upgrade. Omitting it would leave the
+    stale fan-out in place forever.
+    """
     return DataJob(
         name=connector.key,
         flow=flow,
         display_name=connector.display_name or connector.name,
         subtype=DataJobSubTypes.OPENFLOW_CONNECTOR_SYNC,
         custom_properties=_connector_properties(connector),
-        inlets=list(inlets),
-        outlets=list(outlets),
+        owners=_owner_classes(connector.owner),
+        extra_aspects=[DataJobInputOutputClass(inputDatasets=[], outputDatasets=[])],
+    )
+
+
+def _table_job_name(connector: OpenflowConnector, pair: ConnectorTableLineage) -> str:
+    """Stable id for one replicated table.
+
+    hashlib rather than the builtin hash: the builtin is salted per process, so
+    a fallback id built from it would name a different entity on every run.
+    """
+    table = f"{pair.source_schema}.{pair.source_table}"
+    readable = f"{connector.key}/{table}"
+    if len(readable) <= _MAX_READABLE_JOB_NAME:
+        return readable
+    digest = hashlib.md5(table.encode("utf-8")).hexdigest()[:16]
+    return f"{connector.key}/{digest}"
+
+
+def build_connector_table_job(
+    connector: OpenflowConnector, flow: DataFlow, pair: ConnectorTableLineage
+) -> DataJob:
+    """One DataJob per replicated table, carrying that table's edge alone."""
+    return DataJob(
+        name=_table_job_name(connector, pair),
+        flow=flow,
+        display_name=f"{pair.source_schema}.{pair.source_table}",
+        subtype=DataJobSubTypes.OPENFLOW_CONNECTOR_SYNC,
+        inlets=[pair.inlet] if pair.inlet else [],
+        outlets=[pair.outlet],
         owners=_owner_classes(connector.owner),
     )
 
@@ -1073,10 +1133,10 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
 
     def _lineage_for_connector(
         self, connector: OpenflowConnector
-    ) -> Tuple[List[str], List[str]]:
+    ) -> List[ConnectorTableLineage]:
         config_json = self._read_connector_config(connector)
         if config_json is None:
-            return [], []
+            return []
         lineage = parse_connector_config(config_json)
         if lineage.unparseable_tables:
             # Reuse num_lineage_edges_skipped rather than adding a counter: the
@@ -1112,7 +1172,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 "names this source reads have most likely changed.",
                 context=connector.key,
             )
-            return [], []
+            return []
         if not lineage.source_tables:
             if lineage.table_pattern:
                 # A pattern explains the emptiness: the tables are chosen at
@@ -1133,7 +1193,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                     "property names this source reads have most likely changed.",
                     context=connector.key,
                 )
-            return [], []
+            return []
 
         identifiers = SnowflakeIdentifierBuilder(
             identifier_config=self.config.get_snowflake_identifier_config(),
@@ -1153,8 +1213,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 "Downstream lineage is still emitted.",
                 context=f"{connector.key}: {connector.connector_definition!r}",
             )
-        inlets: List[str] = []
-        outlets: List[str] = []
+        pairs: List[ConnectorTableLineage] = []
         for source_schema, source_table in lineage.source_tables:
             destination = destination_identifier(
                 lineage.destination_database,
@@ -1178,10 +1237,11 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             # get_dataset_identifier's own db/schema/table formula, so that
             # adding a Prefix/Suffix strategy later only ever needs a change
             # in one place.
-            outlets.append(
-                identifiers.gen_dataset_urn(
-                    identifiers.snowflake_identifier(destination)
-                )
+            # Bound before the upstream branch, which is skipped entirely for an
+            # unmapped connector definition -- the destination half still stands.
+            inlet: Optional[str] = None
+            outlet = identifiers.gen_dataset_urn(
+                identifiers.snowflake_identifier(destination)
             )
             if upstream is not None:
                 # `upstream_identifier` is the single formula for the upstream's
@@ -1218,15 +1278,13 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                         upstream_name = upstream_name.lower()
                         if source_instance:
                             source_instance = source_instance.lower()
-                    inlets.append(
-                        make_dataset_urn_with_platform_instance(
-                            platform=upstream.platform,
-                            name=upstream_name,
-                            platform_instance=source_instance,
-                            # default_source_env_to_env guarantees source_env is set;
-                            # the fallback keeps that guarantee visible to mypy.
-                            env=self.config.source_env or self.config.env,
-                        )
+                    inlet = make_dataset_urn_with_platform_instance(
+                        platform=upstream.platform,
+                        name=upstream_name,
+                        platform_instance=source_instance,
+                        # default_source_env_to_env guarantees source_env is set;
+                        # the fallback keeps that guarantee visible to mypy.
+                        env=self.config.source_env or self.config.env,
                     )
                 else:
                     # The upstream half is the reason to connect Openflow to a
@@ -1236,6 +1294,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                     # property this does not recognise -- all invisible until now,
                     # because the old unconditional prefix strip produced a
                     # wrong-but-present value instead.
+                    inlet = None
                     self.report.num_upstream_inlets_skipped += 1
                     self.report.warning(
                         title="Upstream dataset could not be identified",
@@ -1248,8 +1307,16 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                         context=f"{connector.key}: source URL of the form "
                         f"{_url_shape(lineage.source_url)!r}",
                     )
+            pairs.append(
+                ConnectorTableLineage(
+                    source_schema=source_schema,
+                    source_table=source_table,
+                    outlet=outlet,
+                    inlet=inlet,
+                )
+            )
             self.report.num_lineage_edges += 1
-        return inlets, outlets
+        return pairs
 
     def _paged_history(
         self, builder: Callable[[Optional[str]], str]
@@ -1523,16 +1590,20 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             yield from flow.as_workunits()
             if connector.owner:
                 self.report.num_owners_emitted += 1
-            inlets: List[str] = []
-            outlets: List[str] = []
-            if self.config.include_openflow_lineage:
-                inlets, outlets = self._lineage_for_connector(connector)
-            # The job is emitted regardless of whether lineage was found, so run
-            # history and connector metadata have a stable anchor.
-            job = build_connector_job(connector, flow, inlets=inlets, outlets=outlets)
-            yield from job.as_workunits()
+            # The anchor is emitted regardless of whether lineage was found, so
+            # connector metadata and ownership have a stable home.
+            anchor = build_connector_job(connector, flow)
+            yield from anchor.as_workunits()
             if connector.owner:
                 self.report.num_owners_emitted += 1
+            if self.config.include_openflow_lineage:
+                for pair in self._lineage_for_connector(connector):
+                    # One job per replicated table, so each edge keeps the 1:1
+                    # pairing this connector's configuration actually states.
+                    yield from build_connector_table_job(
+                        connector, flow, pair
+                    ).as_workunits()
+                    self.report.num_table_jobs += 1
 
     def _report_connector_without_runtime_parent(
         self, connector: OpenflowConnector

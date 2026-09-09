@@ -476,17 +476,13 @@
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,mysourcedb.public.mytable,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.mytable,PROD)"
-            ]
+            "inputDatasets": [],
+            "outputDatasets": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1788814686803,
-        "runId": "snowflake-openflow-2026_09_07-20_58_06-vte4w6",
+        "lastObserved": 1788974493141,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -520,6 +516,44 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),MyRuntime/pg_cdc/public.mytable)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:openflow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1788974493142,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),MyRuntime/pg_cdc/public.mytable)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "public.mytable",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1788974493143,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD)",
     "changeType": "UPSERT",
@@ -548,6 +582,264 @@
     "systemMetadata": {
         "lastObserved": 1788814686804,
         "runId": "snowflake-openflow-2026_09_07-20_58_06-vte4w6",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),MyRuntime/pg_cdc/public.mytable)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,mysourcedb.public.mytable,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.mytable,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1788974493143,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),MyRuntime/pg_cdc/public.mytable)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Openflow Connector Sync"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1788974493143,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),MyRuntime/pg_cdc/public.othertable)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpGroup:MY_OPENFLOW_ROLE",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1788974493144,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),MyRuntime/pg_cdc/public.mytable)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpGroup:MY_OPENFLOW_ROLE",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1788974493143,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),MyRuntime/pg_cdc/public.mytable)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1a0e6286b2b666d963c21e6360d532a0",
+                    "urn": "urn:li:container:1a0e6286b2b666d963c21e6360d532a0"
+                },
+                {
+                    "id": "urn:li:container:d638d9f8db756f7c21271bf68113e7e8",
+                    "urn": "urn:li:container:d638d9f8db756f7c21271bf68113e7e8"
+                },
+                {
+                    "id": "MyRuntime/pg_cdc",
+                    "urn": "urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1788974493143,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),MyRuntime/pg_cdc/public.othertable)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Openflow Connector Sync"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1788974493144,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),MyRuntime/pg_cdc/public.othertable)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1a0e6286b2b666d963c21e6360d532a0",
+                    "urn": "urn:li:container:1a0e6286b2b666d963c21e6360d532a0"
+                },
+                {
+                    "id": "urn:li:container:d638d9f8db756f7c21271bf68113e7e8",
+                    "urn": "urn:li:container:d638d9f8db756f7c21271bf68113e7e8"
+                },
+                {
+                    "id": "MyRuntime/pg_cdc",
+                    "urn": "urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1788974493144,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),MyRuntime/pg_cdc/public.othertable)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:openflow"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1788974493143,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),MyRuntime/pg_cdc/public.othertable)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "public.othertable",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1788974493143,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),MyRuntime/pg_cdc/public.othertable)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1788974493145,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),MyRuntime/pg_cdc/public.othertable)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,mysourcedb.public.othertable,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.othertable,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1788974493144,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),MyRuntime/pg_cdc/public.mytable)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1788974493145,
+        "runId": "snowflake-openflow-2026_09_09-17_21_31-wlstqt",
         "lastRunId": "no-run-id-provided"
     }
 }

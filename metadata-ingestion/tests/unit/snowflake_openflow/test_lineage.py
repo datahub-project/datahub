@@ -369,12 +369,29 @@ def _warning_titles(report: SnowflakeOpenflowReport) -> List[Optional[str]]:
     return [entry.title for entry in report.warnings]
 
 
+def _flat(
+    source: SnowflakeOpenflowSource, connector: OpenflowConnector
+) -> Tuple[List[str], List[str]]:
+    """(inlets, outlets) across every table, for tests that assert URN shape.
+
+    Lineage is now per-table, so the pairing is the interesting part and is
+    asserted directly in test_each_replicated_table_gets_its_own_job. These
+    tests predate that and are about how a single URN is composed, which the
+    flattened view states just as well.
+    """
+    pairs = source._lineage_for_connector(connector)
+    return (
+        [pair.inlet for pair in pairs if pair.inlet],
+        [pair.outlet for pair in pairs],
+    )
+
+
 def test_lineage_for_connector_happy_path_returns_inlets_and_outlets():
     source = _make_source()
     connector = _connector()
     source._query_rows = _fake_get(json.dumps(CONFIG_JSON).encode())  # type: ignore[assignment]
 
-    inlets, outlets = source._lineage_for_connector(connector)
+    inlets, outlets = _flat(source, connector)
 
     assert outlets == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.mytable,PROD)"
@@ -399,7 +416,7 @@ def test_lineage_for_connector_keeps_upstream_case_while_folding_destination():
     ] = _wrap('"Public"."MyTable"')
     source._query_rows = _fake_get(json.dumps(config).encode())  # type: ignore[assignment]
 
-    inlets, outlets = source._lineage_for_connector(connector)
+    inlets, outlets = _flat(source, connector)
 
     assert inlets == [
         "urn:li:dataset:(urn:li:dataPlatform:postgres,mysourcedb.Public.MyTable,PROD)"
@@ -429,7 +446,7 @@ def test_lineage_for_connector_handles_gzip_compressed_config():
     compressed = gzip.compress(json.dumps(CONFIG_JSON).encode())
     source._query_rows = _fake_get(compressed)  # type: ignore[assignment]
 
-    inlets, outlets = source._lineage_for_connector(connector)
+    inlets, outlets = _flat(source, connector)
 
     assert outlets == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.mytable,PROD)"
@@ -450,7 +467,7 @@ def test_lineage_for_connector_reports_config_read_failure():
 
     source._query_rows = raise_error  # type: ignore[method-assign]
 
-    inlets, outlets = source._lineage_for_connector(connector)
+    inlets, outlets = _flat(source, connector)
 
     assert inlets == []
     assert outlets == []
@@ -472,7 +489,7 @@ def test_lineage_for_connector_reports_malformed_json_as_config_read_failure():
     truncated = b'{"configFormatVersion":1'
     source._query_rows = _fake_get(truncated)  # type: ignore[assignment]
 
-    inlets, outlets = source._lineage_for_connector(connector)
+    inlets, outlets = _flat(source, connector)
 
     assert inlets == []
     assert outlets == []
@@ -490,7 +507,7 @@ def test_lineage_for_connector_reports_missing_download_as_config_read_failure()
     connector = _connector()
     source._query_rows = _fake_get(None)  # type: ignore[assignment]
 
-    inlets, outlets = source._lineage_for_connector(connector)
+    inlets, outlets = _flat(source, connector)
 
     assert inlets == []
     assert outlets == []
@@ -526,7 +543,7 @@ def test_lineage_for_connector_warns_on_unparseable_source_table_name():
     }
     source._query_rows = _fake_get(json.dumps(config).encode())  # type: ignore[assignment]
 
-    _, outlets = source._lineage_for_connector(connector)
+    _, outlets = _flat(source, connector)
 
     assert "Unparseable source table name" in _warning_titles(source.report)
     assert source.report.num_lineage_edges_skipped == 1
@@ -569,7 +586,7 @@ def test_lineage_for_connector_warns_on_unrecognised_source_url_property():
     }
     source._query_rows = _fake_get(json.dumps(config).encode())  # type: ignore[assignment]
 
-    inlets, outlets = source._lineage_for_connector(connector)
+    inlets, outlets = _flat(source, connector)
 
     assert "Source connection URL property not recognised" in _warning_titles(
         source.report
@@ -604,7 +621,7 @@ def test_lineage_for_connector_skips_unrecognised_schema_strategy():
     }
     source._query_rows = _fake_get(json.dumps(config).encode())  # type: ignore[assignment]
 
-    inlets, outlets = source._lineage_for_connector(connector)
+    inlets, outlets = _flat(source, connector)
 
     assert inlets == []
     assert outlets == []
@@ -632,7 +649,7 @@ def test_lineage_for_connector_counts_pattern_configured_connector():
     }
     source._query_rows = _fake_get(json.dumps(config).encode())  # type: ignore[assignment]
 
-    inlets, outlets = source._lineage_for_connector(connector)
+    inlets, outlets = _flat(source, connector)
 
     assert inlets == []
     assert outlets == []
@@ -692,7 +709,7 @@ def test_lineage_inlet_uses_configured_source_platform_instance():
     connector = _connector()
     source._query_rows = _fake_get(json.dumps(CONFIG_JSON).encode())  # type: ignore[assignment]
 
-    inlets, outlets = source._lineage_for_connector(connector)
+    inlets, outlets = _flat(source, connector)
 
     assert inlets == [
         "urn:li:dataset:(urn:li:dataPlatform:postgres,pg_prod.mysourcedb.public.mytable,DEV)"
@@ -713,7 +730,7 @@ def test_lineage_inlet_urn_unchanged_when_source_coordinates_unset():
     connector = _connector()
     source._query_rows = _fake_get(json.dumps(CONFIG_JSON).encode())  # type: ignore[assignment]
 
-    inlets, _ = source._lineage_for_connector(connector)
+    inlets, _ = _flat(source, connector)
 
     assert inlets == [
         "urn:li:dataset:(urn:li:dataPlatform:postgres,mysourcedb.public.mytable,PROD)"
@@ -725,7 +742,7 @@ def test_lineage_inlet_env_follows_openflow_env_when_source_env_unset():
     connector = _connector()
     source._query_rows = _fake_get(json.dumps(CONFIG_JSON).encode())  # type: ignore[assignment]
 
-    inlets, _ = source._lineage_for_connector(connector)
+    inlets, _ = _flat(source, connector)
 
     assert inlets == [
         "urn:li:dataset:(urn:li:dataPlatform:postgres,mysourcedb.public.mytable,DEV)"
@@ -781,7 +798,7 @@ def _inlets_for(
         version_location_uri="@stage/v1/",
     )
     source._query_rows = _fake_get(json.dumps(config_json).encode())  # type: ignore[assignment]
-    inlets, outlets = source._lineage_for_connector(connector)
+    inlets, outlets = _flat(source, connector)
     return inlets, outlets, source.report
 
 
@@ -940,7 +957,7 @@ def test_stage_get_retries_a_transient_connection_error(
     )
     source._query_rows = flaky  # type: ignore[assignment]
 
-    _, outlets = source._lineage_for_connector(_connector())
+    _, outlets = _flat(source, _connector())
 
     assert outlets == EXPECTED_OUTLETS
     assert flaky.calls == 3
@@ -959,7 +976,7 @@ def test_stage_get_gives_up_after_a_bounded_number_of_attempts(
     flaky = _FlakyGet(failures=99, error=OperationalError(msg="connection reset"))
     source._query_rows = flaky  # type: ignore[assignment]
 
-    inlets, outlets = source._lineage_for_connector(_connector())
+    inlets, outlets = _flat(source, _connector())
 
     assert (inlets, outlets) == ([], [])
     assert flaky.calls == 3
@@ -978,7 +995,7 @@ def test_stage_get_does_not_retry_a_deterministic_error() -> None:
     )
     source._query_rows = flaky  # type: ignore[assignment]
 
-    inlets, outlets = source._lineage_for_connector(_connector())
+    inlets, outlets = _flat(source, _connector())
 
     assert (inlets, outlets) == ([], [])
     assert flaky.calls == 1
@@ -1000,7 +1017,7 @@ def _inlets_with_config_overrides(**overrides):
         "jdbc:postgresql://host:5432/mysourcedb", '"Public"."MyTable"'
     )
     source._query_rows = _fake_get(json.dumps(config_json).encode())  # type: ignore[assignment]
-    inlets, _ = source._lineage_for_connector(connector)
+    inlets, _ = _flat(source, connector)
     return inlets
 
 
@@ -1038,7 +1055,7 @@ def test_connector_without_a_config_uri_is_counted_and_warned():
         version_location_uri=None,
     )
 
-    inlets, outlets = source._lineage_for_connector(connector)
+    inlets, outlets = _flat(source, connector)
 
     assert inlets == [] and outlets == []
     assert source.report.num_connectors_without_config_uri == 1
@@ -1114,7 +1131,7 @@ def test_missing_destination_database_is_counted_and_warned() -> None:
     source = _make_source()
     source._query_rows = _fake_get(json.dumps(config).encode())  # type: ignore[assignment]
 
-    inlets, outlets = source._lineage_for_connector(_connector())
+    inlets, outlets = _flat(source, _connector())
 
     assert (inlets, outlets) == ([], [])
     assert source.report.num_connectors_without_destination_database == 1
@@ -1138,7 +1155,7 @@ def test_unparseable_source_url_reports_the_missing_inlet() -> None:
     source = _make_source()
     source._query_rows = _fake_get(json.dumps(config).encode())  # type: ignore[assignment]
 
-    inlets, outlets = source._lineage_for_connector(_connector())
+    inlets, outlets = _flat(source, _connector())
 
     assert inlets == []
     assert outlets, "the destination half must survive a missing upstream"
@@ -1165,6 +1182,31 @@ def test_no_tables_and_no_pattern_is_warned_not_silent() -> None:
     source = _make_source()
     source._query_rows = _fake_get(json.dumps(config).encode())  # type: ignore[assignment]
 
-    assert source._lineage_for_connector(_connector()) == ([], [])
+    assert _flat(source, _connector()) == ([], [])
     assert source.report.num_connectors_without_table_configuration == 1
     assert _warning_titles(source.report) == ["Connector names no tables to replicate"]
+
+
+def test_each_replicated_table_gets_its_own_job() -> None:
+    # The reason this connector emits per-table jobs at all. Flattening three
+    # tables onto one job's inlets/outlets asserts 3x3 = 9 edges, of which 6 are
+    # fabricated; DataHub renders them identically to the 3 real ones.
+    config: Dict[str, Any] = copy.deepcopy(CONFIG_JSON)
+    for section in config["configuration"]:
+        if section["name"] == snowflake_openflow.SECTION_REPLICATION:
+            properties: Dict[str, Any] = section["properties"]
+            properties[snowflake_openflow.PROP_INCLUDED_TABLE_NAMES] = _wrap(
+                '"public"."a","public"."b","public"."c"'
+            )
+
+    source = _make_source()
+    source._query_rows = _fake_get(json.dumps(config).encode())  # type: ignore[assignment]
+    pairs = source._lineage_for_connector(_connector())
+
+    assert [pair.source_table for pair in pairs] == ["a", "b", "c"]
+    for pair in pairs:
+        # Each pair keeps its own 1:1 edge: the inlet and the outlet name the
+        # SAME table, which is the invariant a flattened list cannot express.
+        assert pair.inlet is not None
+        assert f".{pair.source_table}," in pair.inlet
+        assert f".{pair.source_table}," in pair.outlet
