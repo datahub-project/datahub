@@ -783,7 +783,10 @@ class SnowflakeV2Source(
                     graph=self.ctx.graph,
                 )
                 # The extractor borrows the source's schema resolver and must not
-                # outlive it; report_exc closes it without masking the real error.
+                # outlive it. Deliberately not `with queries_extractor:` the way
+                # BigQuery does: __exit__ would let a close() failure replace the
+                # stage's real exception, and a full disk fails both. report_exc
+                # downgrades the cleanup failure to a warning instead.
                 try:
                     # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
                     # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
@@ -796,7 +799,8 @@ class SnowflakeV2Source(
                         title="Failed to clean up after query extraction",
                         message="Cleaning up after the query-history stage failed; "
                         "temporary files may have been left behind.",
-                        context=queries_extractor.report.audit_log_path,
+                        context=queries_extractor.report.audit_log_path
+                        or "audit log path not recorded",
                         level=StructuredLogLevel.WARN,
                     ):
                         queries_extractor.close()

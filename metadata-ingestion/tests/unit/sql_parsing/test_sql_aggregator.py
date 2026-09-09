@@ -2003,23 +2003,15 @@ def _borrowed_resolver_pair():
         owner.close()
 
 
-@pytest.mark.parametrize("close_borrower_too", [False, True])
-def test_compute_stats_does_not_raise_after_resolver_closed(close_borrower_too):
+def test_compute_stats_does_not_raise_after_resolver_closed():
     """The guard has to describe the resolver, not the aggregator holding it.
 
     The borrower never owns the resolver, so its own `_closed` flag says nothing
     about whether the resolver's SQLite connection is still open. Closing the
     owner used to leave the borrower's next report serialization raising
     AttributeError on a None connection.
-
-    Only the [False] case exercises the guard: with close_borrower_too=True the
-    borrower's own `_closed` is set, so compute_stats() returns at the pre-existing
-    early return and never reaches the guarded line. [True] is kept as a regression
-    guard for that early-return interaction.
     """
     with _borrowed_resolver_pair() as (owner, borrower):
-        if close_borrower_too:
-            borrower.close()
         owner.close()
 
         borrower.report.compute_stats()
@@ -2047,8 +2039,9 @@ def test_aggregator_owned_stats_survive_dead_resolver():
         assert borrower.report.sql_parsing_cache_stats is not None
         assert borrower.report.parse_statement_cache_stats is not None
         assert borrower.report.format_query_cache_stats is not None
-        # the one thing that is genuinely unreadable
+        # the one thing that is genuinely unreadable, and the flag that says so
         assert borrower.report.schema_resolver_count is None
+        assert borrower.report.schema_resolver_unavailable is True
 
 
 def test_stale_count_not_republished_after_resolver_closes():

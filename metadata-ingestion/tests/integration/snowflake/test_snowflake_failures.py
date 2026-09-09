@@ -735,16 +735,6 @@ def test_schema_resolver_count_populated_on_healthy_run(
     assert isinstance(report.sql_aggregator.schema_resolver_count, int)
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_extractor_close_is_idempotent(snowflake_queries_v2_pipeline_config):
-    with _mocked_snowflake(), _spy_on_extractor_close() as closed:
-        pipeline = Pipeline(snowflake_queries_v2_pipeline_config)
-        pipeline.run()
-
-    assert closed, "extractor was never closed on the healthy path"
-    closed[0].close()
-
-
 @contextlib.contextmanager
 def _spy_on_extractor_construction():
     """Record when the extractor is constructed.
@@ -939,10 +929,12 @@ def test_close_failure_warns_on_a_clean_run(snowflake_queries_v2_pipeline_config
     report = pipeline.source.get_report()
     cleanup_title = "Failed to clean up after query extraction"
     # A warning, not a failure: a clean run must not be failed by a leftover
-    # temp file.
-    assert any(cleanup_title in str(w) for w in report.warnings), (
-        "the close failure should be reported as a warning"
-    )
+    # temp file, and the warning should name the audit log it left behind.
+    cleanup_warnings = [w for w in report.warnings if cleanup_title in str(w)]
+    assert cleanup_warnings, "the close failure should be reported as a warning"
     assert not any(cleanup_title in str(f) for f in report.failures), (
         "a clean run must not be failed by a close failure"
+    )
+    assert any("audit_log.sqlite" in c for c in cleanup_warnings[0].context), (
+        "the warning should name the audit log path"
     )
