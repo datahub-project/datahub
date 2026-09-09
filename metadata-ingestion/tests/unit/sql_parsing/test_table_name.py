@@ -816,6 +816,30 @@ class TestSnowflakeIdentifierTableNames:
         with pytest.raises(SqlUnderstandingError):
             _table_name_from_sqlglot_table(table, self._get_snowflake_dialect())
 
+    def test_quoted_three_part_with_dotted_name(self):
+        table = self._get_table(
+            'SELECT * FROM IDENTIFIER(\'"db"."schema"."tbl.with.dots"\')'
+        )
+        result = _table_name_from_sqlglot_table(table, self._get_snowflake_dialect())
+        assert result.database == "db"
+        assert result.db_schema == "schema"
+        assert result.table == "tbl.with.dots"
+
+    def test_quoted_three_part_strips_quote_chars(self):
+        table = self._get_table(
+            'SELECT * FROM IDENTIFIER(\'"MyDb"."MySchema"."MyTable"\')'
+        )
+        result = _table_name_from_sqlglot_table(table, self._get_snowflake_dialect())
+        assert result.database == "MyDb"
+        assert result.db_schema == "MySchema"
+        assert result.table == "MyTable"
+
+    def test_malformed_literal_raises(self):
+        """An IDENTIFIER literal that isn't a parseable table name can't be resolved."""
+        table = self._get_table("SELECT * FROM IDENTIFIER('')")
+        with pytest.raises(SqlUnderstandingError):
+            _table_name_from_sqlglot_table(table, self._get_snowflake_dialect())
+
 
 class TestTableNameEquality:
     """Tests for _TableName equality and hashing."""

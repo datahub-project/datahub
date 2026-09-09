@@ -2194,6 +2194,69 @@ def test_view_definition_self_reference_is_excluded() -> None:
     assert aggregator.report.num_views_self_reference_dropped == 1
 
 
+def test_view_definition_self_only_with_view_in_fallback_counts_once() -> None:
+    """Parse resolves to only the view, and the caller's fallback list also contains the view:
+    the self-reference drop must be counted once, not once per path."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    v = DatasetUrn("snowflake", "db.schema.v").urn()
+    fb = DatasetUrn("snowflake", "db.schema.src").urn()
+    parsed = SqlParsingResult(
+        in_tables=[v],
+        out_tables=[v],
+        column_lineage=None,
+        debug_info=SqlParsingDebugInfo(confidence=1.0),
+    )
+    aggregator.add_view_definition(
+        view_urn=v,
+        view_definition="create view v as select a from db.schema.v",
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[v, fb],  # includes the view itself
+    )
+    with patch.object(aggregator, "_run_sql_parser", return_value=parsed):
+        mcps = list(aggregator.gen_metadata())
+
+    aspect = _upstream_lineage_aspect(mcps, v)
+    assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [fb]
+    assert aggregator.report.num_views_self_reference_dropped == 1
+
+
+def test_view_definition_fallback_only_self_still_counts() -> None:
+    """Parse finds no self-reference but the caller's fallback list is only the view: the
+    fallback strip is the only place the self-loop is caught, so it must still count once."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    v = DatasetUrn("snowflake", "db.schema.v").urn()
+    parsed = SqlParsingResult(
+        in_tables=[],
+        out_tables=[v],
+        column_lineage=None,
+        debug_info=SqlParsingDebugInfo(confidence=1.0),
+    )
+    aggregator.add_view_definition(
+        view_urn=v,
+        view_definition="create view v as select 1",
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[v],  # only the view itself
+    )
+    with patch.object(aggregator, "_run_sql_parser", return_value=parsed):
+        mcps = list(aggregator.gen_metadata())
+
+    assert _upstream_lineage_aspect(mcps, v) is None  # stripped to empty
+    assert aggregator.report.num_views_self_reference_dropped == 1
+
+
 def test_view_definition_parses_to_only_self_falls_back() -> None:
     """A definition that parses but resolves to only the view itself uses the table-level fallback
     instead of emitting empty lineage; the fallback must not depend on the definition hard-failing

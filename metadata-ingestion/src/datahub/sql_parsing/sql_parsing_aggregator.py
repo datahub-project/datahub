@@ -1322,11 +1322,12 @@ class SqlParsingAggregator(Closeable):
         column_lineage = self._exclude_self_column_lineage(
             view_urn, parsed.column_lineage
         )
-        if view_urn in parsed.in_tables or any(
+        self_ref_in_parse = view_urn in parsed.in_tables or any(
             uc.table == view_urn
             for cl in (parsed.column_lineage or [])
             for uc in cl.upstreams
-        ):
+        )
+        if self_ref_in_parse:
             self.report.num_views_self_reference_dropped += 1
 
         # Fall back only when nothing usable was derived (no upstreams, no real column
@@ -1336,7 +1337,9 @@ class SqlParsingAggregator(Closeable):
         )
         if derived_nothing and view_definition.table_level_fallback_upstreams:
             self._add_table_level_fallback_lineage(
-                view_urn, view_definition.table_level_fallback_upstreams
+                view_urn,
+                view_definition.table_level_fallback_upstreams,
+                count_self_drop=not self_ref_in_parse,
             )
             return
 
@@ -1361,11 +1364,11 @@ class SqlParsingAggregator(Closeable):
         self._lineage_map.for_mutation(view_urn, OrderedSet()).add(query_fingerprint)
 
     def _add_table_level_fallback_lineage(
-        self, view_urn: UrnStr, upstreams: List[UrnStr]
+        self, view_urn: UrnStr, upstreams: List[UrnStr], count_self_drop: bool = True
     ) -> None:
         self.report.num_views_table_level_fallback += 1
-        # Guarded so a pre-stripped caller isn't miscounted; covers the fallback path too.
-        if view_urn in upstreams:
+        # Skip when the parse path already counted this view's self-loop.
+        if count_self_drop and view_urn in upstreams:
             self.report.num_views_self_reference_dropped += 1
         upstreams = self._exclude_self_upstreams(view_urn, upstreams)
         query_fingerprint = self._view_fallback_query_id(view_urn)
