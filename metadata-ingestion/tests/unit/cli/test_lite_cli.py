@@ -66,3 +66,18 @@ def test_init_persists_default_config_when_missing(
     assert config_path.exists()
     config = yaml.safe_load(config_path.read_text())
     assert config["lite"]["type"] == "duckdb"
+
+
+def test_init_does_not_overwrite_malformed_config(
+    config_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(telemetry, "telemetry_instance", MagicMock())
+    malformed_config = "lite: [\n"
+    config_path.write_text(malformed_config)
+
+    result = CliRunner().invoke(lite_cli.lite, ["init"])
+
+    assert result.exit_code != 0
+    assert "Refusing to overwrite malformed" in result.output
+    assert config_path.read_text() == malformed_config

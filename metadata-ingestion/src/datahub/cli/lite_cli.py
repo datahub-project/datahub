@@ -8,7 +8,9 @@ from typing import List, Optional
 import click
 from click.shell_completion import CompletionItem
 from click_default_group import DefaultGroup
+from pydantic import Field
 
+from datahub.cli import config_utils
 from datahub.cli.config_utils import (
     DATAHUB_ROOT_FOLDER,
     DatahubConfig,
@@ -38,12 +40,6 @@ class DuckDBLiteConfigWrapper(DuckDBLiteConfig):
     file: str = os.path.expanduser(f"{DATAHUB_ROOT_FOLDER}/lite/datahub.duckdb")
 
 
-class LiteCliConfig(DatahubConfig):
-    lite: LiteLocalConfig = LiteLocalConfig(
-        type="duckdb", config=DuckDBLiteConfigWrapper().model_dump()
-    )
-
-
 def _get_default_lite_config() -> LiteLocalConfig:
     return LiteLocalConfig(
         type=DEFAULT_LITE_IMPL,
@@ -51,6 +47,10 @@ def _get_default_lite_config() -> LiteLocalConfig:
             file=os.path.expanduser(f"{DATAHUB_ROOT_FOLDER}/lite/datahub.duckdb")
         ).model_dump(),
     )
+
+
+class LiteCliConfig(DatahubConfig):
+    lite: LiteLocalConfig = Field(default_factory=_get_default_lite_config)
 
 
 def get_lite_config() -> LiteLocalConfig:
@@ -349,6 +349,10 @@ def write_lite_config(lite_config: LiteLocalConfig) -> None:
 @telemetry.with_telemetry()
 def init(ctx: click.Context, type: Optional[str], file: Optional[str]) -> None:
     raw_config = get_raw_client_config()
+    if raw_config is None and os.path.exists(config_utils.DATAHUB_CONFIG_PATH):
+        raise click.ClickException(
+            f"Refusing to overwrite malformed {config_utils.CONDENSED_DATAHUB_CONFIG_PATH}."
+        )
     lite_config = get_lite_config()
     new_lite_config_dict = lite_config.model_dump()
     # Update the type and config sections only
