@@ -8,6 +8,9 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import SupportStatus, config_class, support_status
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.snowflake.snowflake_auth_deprecation import (
+    get_password_auth_deprecation_warning,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeFilterConfig,
     SnowflakeIdentifierConfig,
@@ -65,6 +68,14 @@ class SnowflakeSummarySource(Source):
         super().__init__(ctx)
         self.config: SnowflakeSummaryConfig = config
         self.report: SnowflakeSummaryReport = SnowflakeSummaryReport()
+
+        # Before get_connection() so the warning still reaches the report if
+        # Snowflake rejects password auth during the connect call.
+        if self.config.is_using_password_auth():
+            self.report.warning(
+                get_password_auth_deprecation_warning(),
+                title="Snowflake password-auth deprecation",
+            )
 
         self.connection = self.config.get_connection()
 

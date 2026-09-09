@@ -29,6 +29,9 @@ from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+from datahub.ingestion.source.snowflake.snowflake_auth_deprecation import (
+    get_password_auth_deprecation_warning,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
     QueryDedupStrategyType,
@@ -1076,6 +1079,14 @@ class SnowflakeQueriesSource(Source):
         self.ctx = ctx
         self.config = config
         self.report = SnowflakeQueriesSourceReport()
+
+        # Before get_connection() so the warning still reaches the report if
+        # Snowflake rejects password auth during the connect call.
+        if self.config.connection.is_using_password_auth():
+            self.report.warning(
+                get_password_auth_deprecation_warning(),
+                title="Snowflake password-auth deprecation",
+            )
 
         self.filters = SnowflakeFilter(
             filter_config=self.config,

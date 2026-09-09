@@ -181,7 +181,8 @@ class SnowflakeV2Source(
         self._exit_stack = contextlib.ExitStack()
 
         # Before get_connection() so the warning still reaches the report if
-        # Snowflake rejects password auth during the connect call.
+        # Snowflake rejects password auth during the connect call. This is the
+        # single CLI + UI channel for the v2 source (no separate global warning).
         if self.config.is_using_password_auth():
             self.report.warning(
                 get_password_auth_deprecation_warning(),
@@ -318,7 +319,8 @@ class SnowflakeV2Source(
                 config_dict
             )
 
-            # --test-source-connection does not print global warnings; log directly.
+            # --test-source-connection neither prints the source report nor runs
+            # pretty_print_summary, so log the deprecation directly here.
             if connection_conf.is_using_password_auth():
                 logger.warning(get_password_auth_deprecation_warning())
 

@@ -45,6 +45,7 @@ from datahub.ingestion.source.snowflake.oauth_config import (
 from datahub.ingestion.source.snowflake.oauth_generator import OAuthTokenGenerator
 from datahub.ingestion.source.snowflake.snowflake_auth_deprecation import (
     check_password_auth_deprecation,
+    is_using_password_auth,
 )
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.utilities.config_clean import (
@@ -52,7 +53,6 @@ from datahub.utilities.config_clean import (
     remove_suffix,
     remove_trailing_slashes,
 )
-from datahub.utilities.global_warning_util import add_global_warning
 
 logger = logging.getLogger(__name__)
 
@@ -210,23 +210,16 @@ class SnowflakeConnectionConfig(ConfigModel):
                     f"Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication"
                 )
 
-        # Global warning so every CLI entry point (ingest / check / test-connection /
-        # --strict-warnings) surfaces the deprecation. Covers CAT-1921 where
+        # Hard-error enforcement only. The soft warning is surfaced by each
+        # source's own report (snowflake_v2 / summary / queries) so it isn't
+        # printed twice in the CLI summary. Covers CAT-1921 where
         # authentication_type is unset but a password is present.
-        deprecation_warning = check_password_auth_deprecation(
-            self.authentication_type, self.password
-        )
-        if deprecation_warning is not None:
-            add_global_warning(deprecation_warning)
+        check_password_auth_deprecation(self.authentication_type, self.password)
 
         return self
 
     def is_using_password_auth(self) -> bool:
         """True when this recipe is configured for username+password auth."""
-        from datahub.ingestion.source.snowflake.snowflake_auth_deprecation import (
-            is_using_password_auth,
-        )
-
         return is_using_password_auth(self.authentication_type, self.password)
 
     @staticmethod

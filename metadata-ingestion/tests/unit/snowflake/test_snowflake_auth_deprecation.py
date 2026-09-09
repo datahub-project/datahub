@@ -2,7 +2,7 @@
 Unit tests for the Snowflake username+password auth deprecation warning.
 
 Covers the detection predicate, the soft/hard-error escalation, and the wiring
-into SnowflakeConnectionConfig validation (global warning) — see ING-3479.
+into SnowflakeConnectionConfig validation (hard-error raise) — see ING-3479.
 """
 
 import pytest
@@ -17,17 +17,6 @@ from datahub.ingestion.source.snowflake.snowflake_auth_deprecation import (
     is_using_password_auth,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
-from datahub.utilities.global_warning_util import (
-    clear_global_warnings,
-    get_global_warnings,
-)
-
-
-@pytest.fixture(autouse=True)
-def reset_global_warnings():
-    clear_global_warnings()
-    yield
-    clear_global_warnings()
 
 
 @pytest.fixture
@@ -116,26 +105,22 @@ def _password_auth_config_dict() -> dict:
     }
 
 
-def test_config_validation_adds_global_warning_for_password_auth():
-    SnowflakeV2Config.model_validate(_password_auth_config_dict())
-    warnings = get_global_warnings()
-    deprecation_warnings = [w for w in warnings if "DEFAULT_AUTHENTICATOR" in w]
-    assert len(deprecation_warnings) == 1
-    assert SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL in deprecation_warnings[0]
-
-
-def test_config_validation_no_warning_for_key_pair_auth():
-    config_dict = _password_auth_config_dict()
-    del config_dict["password"]
-    config_dict["authentication_type"] = "KEY_PAIR_AUTHENTICATOR"
-    config_dict["private_key_path"] = "/a/random/path"
-    SnowflakeV2Config.model_validate(config_dict)
-    deprecation_warnings = [
-        w for w in get_global_warnings() if "DEFAULT_AUTHENTICATOR" in w
-    ]
-    assert deprecation_warnings == []
+def test_config_validation_accepts_password_auth_by_default():
+    # Soft path: the validator must not raise when the hard-error toggle is off.
+    # The deprecation warning is surfaced by each source's report, not here.
+    config = SnowflakeV2Config.model_validate(_password_auth_config_dict())
+    assert config.is_using_password_auth()
 
 
 def test_config_validation_hard_error_when_env_set(hard_error_enabled):
     with pytest.raises(ConfigurationError, match="DEFAULT_AUTHENTICATOR"):
         SnowflakeV2Config.model_validate(_password_auth_config_dict())
+
+
+def test_config_validation_no_hard_error_for_key_pair_auth(hard_error_enabled):
+    # The hard-error toggle only fires for password auth; key-pair recipes validate.
+    config_dict = _password_auth_config_dict()
+    del config_dict["password"]
+    config_dict["authentication_type"] = "KEY_PAIR_AUTHENTICATOR"
+    config_dict["private_key_path"] = "/a/random/path"
+    SnowflakeV2Config.model_validate(config_dict)
