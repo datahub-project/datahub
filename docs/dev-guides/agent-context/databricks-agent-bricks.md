@@ -6,7 +6,7 @@ Build a deployed agent on Databricks that combines SQL execution (via a [Genie S
 
 - Everything in [Databricks Genie Code — Prerequisites & Step 1](./databricks-genie-code.md#prerequisites) (the UC connection setup is shared)
 - A [Genie Space](https://docs.databricks.com/en/genie/set-up-genie-space.html) configured with the tables you want the agent to query
-- Python 3.10+
+- Python 3.11+
 - An OpenAI API key (or a [Databricks Foundation Model](https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html) endpoint)
 - The [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/install.html) (for local testing)
 

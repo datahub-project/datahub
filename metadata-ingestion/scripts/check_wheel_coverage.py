@@ -15,12 +15,12 @@ import toml
 METADATA_INGESTION_DIR = Path(__file__).resolve().parent.parent
 
 # Update when requires-python or Docker base image changes.
-REQUIRED_PYTHON_MINORS = {10, 11, 12}
+REQUIRED_PYTHON_MINORS = {11, 12}
 
 KNOWN_EXCEPTIONS = {
     "kerberos",  # Unmaintained, source-only. Needs replacement with krb5/gssapi.
     "python-ldap",  # Source-only, requires OpenLDAP headers.
-    "scipy",  # 1.17+ dropped 3.10; Docker uses 3.10.
+    "scipy",  # 1.17+ dropped 3.10; we require Python 3.11+.
     "sqlalchemy",  # 1.4.x (required by db2 plugin, <2) has no 3.12 wheels; builds from source.
 }
 

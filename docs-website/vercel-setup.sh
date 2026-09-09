@@ -17,18 +17,17 @@ javac --version
 yum groupinstall "Development Tools" -y
 yum install openssl openssl-devel libffi-devel bzip2-devel wget nodejs -y
 
-wget https://www.python.org/ftp/python/3.10.11/Python-3.10.11.tgz
-tar -xf Python-3.10.11.tgz
-cd Python-3.10.11
+wget https://www.python.org/ftp/python/3.11.13/Python-3.11.13.tgz
+tar -xf Python-3.11.13.tgz
+cd Python-3.11.13
 ./configure #--enable-optimizations
 
 make -j $(nproc)
 
 make install
 
-# Set python3.10 as the default version.
+# Set python3.11 as the default version.
 py3="$(which python3)"
 rm "$py3"
-ln "$(which python3.10)" "$py3"
+ln "$(which python3.11)" "$py3"
 python3 --version
-

@@ -19,8 +19,8 @@
 #   docker run airflow-plugin-test py311-airflow31 -- --update-golden-files
 #
 #   # Run with different Python version (requires rebuilding image)
-#   docker build -f Dockerfile.test --build-arg PYTHON_VERSION=3.10 -t airflow-plugin-test:py310 .
-#   docker run airflow-plugin-test:py310 py310-airflow28
+#   docker build -f Dockerfile.test --build-arg PYTHON_VERSION=3.11 -t airflow-plugin-test:py311 .
+#   docker run airflow-plugin-test:py311 py311-airflow28
 
 ARG PYTHON_VERSION=3.11
 FROM python:${PYTHON_VERSION}-slim

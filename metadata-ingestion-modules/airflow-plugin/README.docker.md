@@ -78,7 +78,7 @@ This ensures:
 Test against any Airflow version in one image:
 
 ```bash
-./run-tests.sh py310-airflow27  # Airflow 2.7
+./run-tests.sh py311-airflow27  # Airflow 2.7
 ./run-tests.sh py311-airflow29  # Airflow 2.9
 ./run-tests.sh py311-airflow31  # Airflow 3.1
 ```

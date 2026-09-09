@@ -117,8 +117,8 @@ docker build -f metadata-ingestion-modules/airflow-plugin/Dockerfile.test -t air
 
 ```bash
 docker build -f metadata-ingestion-modules/airflow-plugin/Dockerfile.test \
-  --build-arg PYTHON_VERSION=3.10 \
-  -t airflow-plugin-test:py310 .
+  --build-arg PYTHON_VERSION=3.11 \
+  -t airflow-plugin-test:py311 .
 ```
 
 ### Custom Default Tox Environment
@@ -136,8 +136,8 @@ docker build -f metadata-ingestion-modules/airflow-plugin/Dockerfile.test \
 From `tox.ini`:
 
 - `py39-airflow27` - Python 3.9, Airflow 2.7
-- `py310-airflow27` - Python 3.10, Airflow 2.7
-- `py310-airflow28` - Python 3.10, Airflow 2.8
+- `py311-airflow27` - Python 3.11, Airflow 2.7
+- `py311-airflow28` - Python 3.11, Airflow 2.8
 - `py311-airflow29` - Python 3.11, Airflow 2.9
 - `py311-airflow210` - Python 3.11, Airflow 2.10
 - `py311-airflow31` - Python 3.11, Airflow 3.1 (default)
@@ -272,7 +272,7 @@ docker run -e TOX_ENV=py311-airflow29 airflow-plugin-test
 ### Airflow 2.7
 
 ```bash
-docker run airflow-plugin-test py310-airflow27
+docker run airflow-plugin-test py311-airflow27
 ```
 
 ### Airflow 2.9
@@ -320,12 +320,12 @@ docker build --no-cache -f metadata-ingestion-modules/airflow-plugin/Dockerfile.
 Ensure the Python version in the Docker build matches the tox environment:
 
 ```bash
-# For py310-* environments
-docker build --build-arg PYTHON_VERSION=3.10 \
+# For py311-* environments
+docker build --build-arg PYTHON_VERSION=3.11 \
   -f metadata-ingestion-modules/airflow-plugin/Dockerfile.test \
-  -t airflow-plugin-test:py310 .
+  -t airflow-plugin-test:py311 .
 
-docker run airflow-plugin-test:py310 py310-airflow28
+docker run airflow-plugin-test:py311 py311-airflow28
 ```
 
 ### Permission Issues with Golden Files
@@ -361,8 +361,8 @@ jobs:
     strategy:
       matrix:
         tox-env:
-          - py310-airflow27
-          - py310-airflow28
+          - py311-airflow27
+          - py311-airflow28
           - py311-airflow29
           - py311-airflow210
           - py311-airflow31
@@ -392,8 +392,8 @@ test:
   parallel:
     matrix:
       - TOX_ENV:
-          - py310-airflow27
-          - py310-airflow28
+          - py311-airflow27
+          - py311-airflow28
           - py311-airflow29
           - py311-airflow31
 ```
@@ -462,7 +462,7 @@ docker run airflow-plugin-test py311-airflow31 -- tests/integration/test_plugin.
 
 1. **Always build from repository root** - The Dockerfile needs access to `metadata-ingestion`
 2. **Use volume mounts for golden files** - Makes it easy to extract updated files
-3. **Match Python versions** - Build arg should match tox environment (py310 → PYTHON_VERSION=3.10)
+3. **Match Python versions** - Build arg should match tox environment (py311 → PYTHON_VERSION=3.11)
 4. **Cache Docker layers** - Organize changes to maximize layer reuse
 5. **Clean up** - Remove unused images: `docker image prune`
 6. **Use specific tox envs** - Don't rely on defaults in CI/CD

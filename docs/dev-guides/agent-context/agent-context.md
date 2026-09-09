@@ -77,7 +77,7 @@ For Python SDK usage (LangChain, Google ADK, etc.):
 pip install datahub-agent-context
 ```
 
-**Requirements:** Python 3.10+, a DataHub instance, and a [personal access token](../../authentication/personal-access-tokens.md).
+**Requirements:** Python 3.11+, a DataHub instance, and a [personal access token](../../authentication/personal-access-tokens.md).
 
 ## Available Tools
 

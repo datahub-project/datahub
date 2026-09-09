@@ -28,7 +28,7 @@ The `prefect-datahub` collection allows you to easily integrate DataHub's metada
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.11+
 - Prefect 2.0.0+ and < 3.0.0+
 - A running instance of DataHub
 
