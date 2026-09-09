@@ -33,7 +33,7 @@ const INTERVAL_TO_SECONDS = {
     [DateInterval.Year]: 31536000,
 };
 
-const INTERVAL_TO_MS = {
+export const INTERVAL_TO_MS = {
     [DateInterval.Second]: 1000,
     [DateInterval.Minute]: 60000,
     [DateInterval.Hour]: 3600000,
@@ -60,7 +60,7 @@ export type TimeWindowSize = {
 
 type TimeWindowSizeMs = number;
 
-type TimeWindow = {
+export type TimeWindow = {
     startTime: number;
     endTime: number;
 };
@@ -258,6 +258,10 @@ export function getTimeRangeDescription(startDate: Dayjs | null, endDate: Dayjs 
     }
 
     if (startDate && !endDate) {
+        const dayDiff = dayjs().diff(startDate, 'days');
+        if (dayDiff <= 30) {
+            return i18next.t('shared.time:lastDaysCount', { count: dayDiff });
+        }
         return i18next.t('shared.time:fromDate', { date: startDate.format('ll') });
     }
 

@@ -15,8 +15,6 @@ import { useAppConfig } from '@app/useAppConfig';
 
 import { DataHubPageModuleType, Entity } from '@types';
 
-const NUMBER_OF_PLATFORMS = 15;
-
 const PlatformsModule = (props: ModuleProps) => {
     const { t } = useTranslation('modules');
     const { platformPrivileges } = useUserContext();
@@ -28,8 +26,10 @@ const PlatformsModule = (props: ModuleProps) => {
         return isIngestionEnabled && platformPrivileges?.manageIngestion;
     }, [config?.managedIngestionConfig?.enabled, platformPrivileges?.manageIngestion]);
 
-    const { platforms: allPlatforms, loading } = useGetPlatforms();
-    const platforms = useMemo(() => allPlatforms.slice(0, NUMBER_OF_PLATFORMS), [allPlatforms]);
+    // Show every platform the backend returns (the card is fixed-height and scrollable) rather
+    // than a fixed top-N slice, so low-volume platforms stay discoverable here instead of being
+    // silently dropped below the fold.
+    const { platforms, loading } = useGetPlatforms();
     const { navigateToDataSources, handleEntityClick } = usePlatformModuleUtils();
 
     const renderAssetCount = (entity: Entity) => {

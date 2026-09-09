@@ -16,6 +16,7 @@ from datahub.configuration.config_loader import (
     list_referenced_env_variables,
     load_config_file,
 )
+from datahub.masking.secret_registry import SecretRegistry
 
 
 @pytest.mark.parametrize(
@@ -217,6 +218,30 @@ class TestStdinEnvelopeWithSecrets:
 
         assert config["source"]["config"]["password"] == "my_secret_password"
         assert config["source"]["config"]["host"] == "localhost"
+
+    def test_envelope_secrets_register_even_when_unreferenced(self) -> None:
+        """Envelope secrets are secrets by declaration: they must become
+        maskable even if the recipe never references them (e.g. the caller
+        pre-substituted values into the recipe)."""
+        recipe_yaml = "source:\n  type: test\n  config:\n    host: localhost\n"
+        envelope_json = json.dumps(
+            {
+                "__recipe_yaml__": recipe_yaml,
+                "__secrets__": {"UNREFERENCED_TOKEN": "tok-unreferenced-123"},
+            }
+        )
+
+        SecretRegistry.reset_instance()
+        try:
+            with mock.patch("sys.stdin", io.StringIO(envelope_json)):
+                load_config_file("-", allow_stdin=True, resolve_env_vars=True)
+
+            assert (
+                SecretRegistry.get_instance().get_secret_value("UNREFERENCED_TOKEN")
+                == "tok-unreferenced-123"
+            )
+        finally:
+            SecretRegistry.reset_instance()
 
     def test_envelope_secrets_do_not_touch_os_environ(self) -> None:
         """Secrets from the envelope must NOT be written to os.environ."""

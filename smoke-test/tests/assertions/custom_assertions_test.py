@@ -99,6 +99,7 @@ def test_data(graph_client):
     delete_urn(graph_client, TEST_DATASET_URN)
 
 
+@pytest.mark.p0
 def test_create_update_delete_dataset_custom_assertion(
     test_data: Any, graph_client: DataHubGraph
 ) -> None:
