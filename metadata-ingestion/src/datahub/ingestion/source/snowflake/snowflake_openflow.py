@@ -141,6 +141,8 @@ SCHEMA_STRATEGY_SOURCE_SCHEMA = "SOURCE_SCHEMA"
 # reached by an account with hundreds of separate runtimes, which _PLANNING.md's
 # tenant assumption ("tens of runtimes") calls unusual. Setting
 # include_connector_external_url explicitly overrides it at any size.
+# Snowflake caps SHOW output at this many rows and does not flag the truncation.
+_SHOW_ROW_CAP = 10_000
 _MAX_RUNTIMES_FOR_URL_LOOKUP = 500
 
 # Beyond this the readable per-table job id is replaced by a content hash, so
@@ -897,15 +899,54 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _query_rows(self, query: str) -> List[Dict[str, Any]]:
-        # The shared connection retries only queries whose text contains
-        # ACCOUNT_USAGE *and* that fail with a permission error, so SHOW OPENFLOW
-        # gets nothing from it. Without this the load-bearing inventory fetch is
-        # the one unprotected call in the source while the OPTIONAL url
-        # enrichment below is retried -- backwards. SHOW is read-only, so
-        # retrying is side-effect free.
-        return self._retrying()(
-            lambda: [dict(row) for row in self.connection.query(query)]
-        )
+        return [dict(row) for row in self.connection.query(query)]
+
+    def _warn_if_show_truncated(
+        self, rows: List[Dict[str, Any]], object_type: str
+    ) -> None:
+        # SHOW returns at most _SHOW_ROW_CAP rows and says nothing when it
+        # truncates -- the caller just sees a short inventory, and with stateful
+        # ingestion everything past the cap reads as deleted. Detected by
+        # equality with the cap rather than by paginating: this family's
+        # name-cursor continuation is known to skip and duplicate rows under
+        # concurrent create/rename, which is a worse failure than the one it
+        # would close, and a realistic account sits far below the cap.
+        #
+        # The cap is Snowflake's documented SHOW limit; it is NOT separately
+        # confirmed for the OPENFLOW command family. If the real cap is lower
+        # this warning simply never fires -- it can miss a truncation, but it
+        # cannot invent one.
+        if len(rows) == _SHOW_ROW_CAP:
+            self.report.num_show_results_at_row_cap += 1
+            self.report.warning(
+                title="Inventory may be truncated",
+                message=(
+                    f"SHOW returned exactly {_SHOW_ROW_CAP} rows, which is the "
+                    "row cap, so there may be more objects than were read. Any "
+                    "object past the cap is absent from this run and, with "
+                    "stateful ingestion enabled, is treated as deleted."
+                ),
+                context=object_type,
+            )
+
+    def _query_rows_with_retry(self, query: str) -> List[Dict[str, Any]]:
+        """A read-only query, retried on transient failure.
+
+        The shared connection retries only queries whose text contains
+        ACCOUNT_USAGE *and* that fail with a permission error, so SHOW OPENFLOW
+        matches neither and the load-bearing inventory fetch would otherwise be
+        the one unprotected call in this source.
+
+        Deliberately a separate method rather than retry inside _query_rows.
+        The stage GET goes through _query_rows too, and its retry has to
+        recreate the temporary directory it downloads into -- see
+        _download_connector_config, where a partial file from a failed attempt
+        must not be visible to the next one. Retrying below that level would
+        re-run the GET inside the same directory and defeat it. So each caller
+        retries at the layer where its own invariants hold, and no call is
+        wrapped twice.
+        """
+        return self._retrying()(self._query_rows, query)
 
     # Instance state, set in __init__ like every other attribute here. The
     # class-level default exists ONLY because the unit-test harnesses build a
@@ -1329,7 +1370,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         cursor: Optional[str] = None
         pages = 0
         while True:
-            page = self._query_rows(builder(cursor))
+            page = self._query_rows_with_retry(builder(cursor))
             if not page:
                 break
             rows.extend(page)
@@ -1433,9 +1474,9 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         once per member rather than erasing to a common base -- the three
         models share no base class, only the shape used here.
         """
-        show = self._parse_rows(
-            model, self._query_rows(show_query), object_type, "SHOW"
-        )
+        show_rows = self._query_rows_with_retry(show_query)
+        self._warn_if_show_truncated(show_rows, object_type)
+        show = self._parse_rows(model, show_rows, object_type, "SHOW")
         history = self._parse_rows(
             model, self._paged_history(history_query), object_type, "ACCOUNT_USAGE"
         )

@@ -955,7 +955,80 @@ def test_a_transient_error_on_the_inventory_fetch_is_retried(
 
     source.connection = _FlakyConnection()  # type: ignore[assignment]
 
-    rows = source._query_rows(SnowflakeOpenflowQuery.show_runtimes())
+    rows = source._query_rows_with_retry(SnowflakeOpenflowQuery.show_runtimes())
 
     assert rows == [{"key": "rt-1", "name": "one"}]
     assert len(attempts) == 2, "the first attempt must be retried, not surfaced"
+
+
+def test_a_persistent_failure_is_not_retried_twice_over(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Regression guard for a defect this connector briefly had: the retry was
+    # put inside _query_rows while _read_connector_config already wrapped its
+    # download in one, so a persistent failure cost _RETRY_MAX_ATTEMPTS SQUARED
+    # attempts with compounding backoff. Nothing caught it, because every other
+    # test replaces _query_rows wholesale and so never exercises the real
+    # composition. This asserts the total, which is the only number that
+    # distinguishes one layer from two.
+    monkeypatch.setattr(snowflake_openflow, "_RETRY_BACKOFF_MULTIPLIER", 0)
+    source = _make_source()
+    attempts: List[str] = []
+
+    class _DeadConnection:
+        def query(self, query: str) -> List[Dict[str, Any]]:
+            attempts.append(query)
+            raise ConnectionResetError("persistent")
+
+    source.connection = _DeadConnection()  # type: ignore[assignment]
+    connector = OpenflowConnector(
+        name="c",
+        runtime_name="rt",
+        version_location_uri="@db.schema.stage/v1",
+    )
+
+    assert source._read_connector_config(connector) is None
+    assert len(attempts) == snowflake_openflow._RETRY_MAX_ATTEMPTS, (
+        "the download must be retried at exactly one layer, not nested"
+    )
+
+
+def test_an_inventory_at_the_row_cap_is_reported_as_possibly_truncated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # SHOW truncates silently, and a short inventory reads as a deletion under
+    # stateful ingestion. The cap is patched down so the test states the
+    # boundary rather than materialising ten thousand rows.
+    monkeypatch.setattr(snowflake_openflow, "_SHOW_ROW_CAP", 3)
+    source = _make_source()
+    source._query_rows = _fake_query_rows(  # type: ignore[assignment]
+        SnowflakeOpenflowQuery.show_runtimes(),
+        "OPENFLOW_RUNTIME_HISTORY",
+        [{"key": f"rt-{n}", "name": str(n)} for n in range(3)],
+        [],
+    )
+
+    source._fetch_runtimes()
+
+    assert source.report.num_show_results_at_row_cap == 1
+    assert "Inventory may be truncated" in _warning_titles(source.report)
+
+
+def test_an_inventory_below_the_row_cap_is_not_flagged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The other half of the boundary: one row short of the cap must stay quiet,
+    # or every ordinary run cries truncation.
+    monkeypatch.setattr(snowflake_openflow, "_SHOW_ROW_CAP", 3)
+    source = _make_source()
+    source._query_rows = _fake_query_rows(  # type: ignore[assignment]
+        SnowflakeOpenflowQuery.show_runtimes(),
+        "OPENFLOW_RUNTIME_HISTORY",
+        [{"key": f"rt-{n}", "name": str(n)} for n in range(2)],
+        [],
+    )
+
+    source._fetch_runtimes()
+
+    assert source.report.num_show_results_at_row_cap == 0
+    assert "Inventory may be truncated" not in _warning_titles(source.report)

@@ -42,6 +42,15 @@ downstream would report it.
 - **Gen 2 connectors only.** Gen 1 Openflow connectors are not Snowflake SQL objects, so this
   source cannot see them — and cannot report how many were omitted. If your account runs Gen 1
   exclusively, the connector inventory will be empty.
+- **Entity volume scales with replicated tables, not connectors.** Each replicated table becomes
+  its own DataJob, so an account with 500 connectors averaging 100 tables each produces roughly
+  50,000 DataJobs alongside 500 DataFlows. These are streamed rather than accumulated, so the
+  source's own memory is unaffected, but size your GMS and Kafka throughput for the table count
+  rather than the connector count.
+- **A very large inventory may be silently truncated.** `SHOW OPENFLOW …` returns at most 10,000
+  rows and does not flag that it truncated. The source warns when a result comes back at exactly
+  that size, since anything past it is absent from the run and — with stateful ingestion enabled —
+  would be treated as deleted.
 - **An empty result may be a permissions problem.** `SHOW OPENFLOW …` is privilege-filtered and
   returns **zero rows** with no error when the role lacks `MONITOR`. The ingestion report raises a
   warning in this case rather than reporting success.

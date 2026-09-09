@@ -42,6 +42,9 @@ class SnowflakeOpenflowReport(StaleEntityRemovalSourceReport):
     # Non-zero means objects are missing from this run's inventory -- and with
     # stateful ingestion that reads as a deletion.
     num_rows_missing_identity: int = 0
+    # SHOW calls that came back at exactly the row cap, so the inventory they
+    # produced may be short. See _warn_if_show_truncated.
+    num_show_results_at_row_cap: int = 0
     # The history views paged. Expected on a churning account; the signal is
     # that a single page is NOT the norm there.
     num_history_pages_beyond_first: int = 0
