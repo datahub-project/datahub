@@ -34,6 +34,10 @@ import org.testng.annotations.Test;
  * <p>If {@code i18n} is present, every non-English UI locale under {@code
  * datahub-web-react/src/i18n/locales} must have translated copy for the English fields the toast
  * actually uses.
+ *
+ * <p>Live HTTP reachability of CTA URLs is not checked here. GitHub Actions job {@code
+ * product_update_cta_live} probes those links so this Gradle job can stay green while a blog post
+ * is unpublished.
  */
 public class ProductUpdateReleaseSyncTest {
 
