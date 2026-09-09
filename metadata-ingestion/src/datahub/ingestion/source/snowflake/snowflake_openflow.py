@@ -897,7 +897,15 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _query_rows(self, query: str) -> List[Dict[str, Any]]:
-        return [dict(row) for row in self.connection.query(query)]
+        # The shared connection retries only queries whose text contains
+        # ACCOUNT_USAGE *and* that fail with a permission error, so SHOW OPENFLOW
+        # gets nothing from it. Without this the load-bearing inventory fetch is
+        # the one unprotected call in the source while the OPTIONAL url
+        # enrichment below is retried -- backwards. SHOW is read-only, so
+        # retrying is side-effect free.
+        return self._retrying()(
+            lambda: [dict(row) for row in self.connection.query(query)]
+        )
 
     # Instance state, set in __init__ like every other attribute here. The
     # class-level default exists ONLY because the unit-test harnesses build a
@@ -1367,6 +1375,44 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             self.report.num_history_pages_beyond_first += pages - 1
         return rows
 
+    def _parse_rows(
+        self,
+        model: Type[RowModel],
+        rows: List[Dict[str, Any]],
+        object_type: str,
+        surface: str,
+    ) -> List[RowModel]:
+        """Rows parsed into models, counting and reporting the ones that cannot be.
+
+        from_row returns None when the column carrying the object's identity is
+        absent. Dropping those silently is how a healthy object disappears: it is
+        then missing from the stale-entity checkpoint, so the next run
+        SOFT-DELETES it, and the operator sees a green run with no warnings. A
+        total parse failure is already caught downstream by the empty-inventory
+        report; a partial one is invisible without this.
+        """
+        parsed: List[RowModel] = []
+        dropped = 0
+        for row in rows:
+            item = model.from_row(row)
+            if item is None:
+                dropped += 1
+            else:
+                parsed.append(item)
+        if dropped:
+            self.report.num_rows_missing_identity += dropped
+            self.report.warning(
+                title="Rows skipped: identity column missing",
+                message=(
+                    "Rows were dropped because the column carrying the object's "
+                    "identity was absent, most likely a renamed or unexpectedly "
+                    "cased Snowflake column. With stateful ingestion enabled the "
+                    "affected objects are treated as deleted."
+                ),
+                context=f"{object_type} ({surface}): {dropped} row(s)",
+            )
+        return parsed
+
     def _fetch_inventory(
         self,
         *,
@@ -1387,11 +1433,13 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         once per member rather than erasing to a common base -- the three
         models share no base class, only the shape used here.
         """
-        show = [model.from_row(row) for row in self._query_rows(show_query)]
-        history = [model.from_row(row) for row in self._paged_history(history_query)]
-        merged, mixed_keys = merge_show_and_history(
-            [row for row in show if row], [row for row in history if row]
+        show = self._parse_rows(
+            model, self._query_rows(show_query), object_type, "SHOW"
         )
+        history = self._parse_rows(
+            model, self._paged_history(history_query), object_type, "ACCOUNT_USAGE"
+        )
+        merged, mixed_keys = merge_show_and_history(show, history)
         self.report.num_keys_with_mixed_lifecycle_rows += mixed_keys
         live = [row for row in merged if row.deleted_on is None]
         if not live:

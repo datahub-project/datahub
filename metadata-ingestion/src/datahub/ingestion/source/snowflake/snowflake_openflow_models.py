@@ -46,11 +46,16 @@ def get_col(row: Dict[str, Any], *names: str) -> Optional[Any]:
 # did not parse, and every such row then sorted at the same sentinel; ties there
 # resolve CLOSED-over-OPEN, so a whole account could have been reported deleted.
 _TZ_SUFFIX = re.compile(r"\s*([+-]\d{2}):?(\d{2})$")
+# fromisoformat only learned to accept the "Z" designator in 3.11; on 3.10 it
+# raises. setup.py declares python_requires=">=3.10" and CI runs a 3.10 leg, so
+# a dev venv on 3.11 will not surface this. Rewrite it to the numeric offset.
+_UTC_DESIGNATOR = re.compile(r"\s*[Zz]$")
 
 
 def _parse_timestamp(value: str) -> Optional[datetime]:
     """A Snowflake timestamp rendering as a datetime, or None if unrecognised."""
-    normalised = _TZ_SUFFIX.sub(r"\1:\2", value.strip()).replace(" ", "T", 1)
+    normalised = _UTC_DESIGNATOR.sub("+00:00", value.strip())
+    normalised = _TZ_SUFFIX.sub(r"\1:\2", normalised).replace(" ", "T", 1)
     try:
         return datetime.fromisoformat(normalised)
     except ValueError:

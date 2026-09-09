@@ -63,7 +63,7 @@ DEPLOYMENT_URN = "urn:li:container:1a0e6286b2b666d963c21e6360d532a0"
 RUNTIME_URN = "urn:li:container:d638d9f8db756f7c21271bf68113e7e8"
 FLOW_URN = f"urn:li:dataFlow:(openflow,{RUNTIME_NAME}/{CONNECTOR_NAME},PROD)"
 JOB_URN = f"urn:li:dataJob:({FLOW_URN},{RUNTIME_NAME}/{CONNECTOR_NAME})"
-# One job per replicated table, beside the connector-level anchor above.
+# One job per replicated table. These are the only DataJobs emitted.
 TABLE_JOB_URNS = {
     f"urn:li:dataJob:({FLOW_URN},{RUNTIME_NAME}/{CONNECTOR_NAME}/public.{table})"
     for table in ("mytable", "othertable")

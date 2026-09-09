@@ -38,18 +38,23 @@ class SnowflakeOpenflowReport(StaleEntityRemovalSourceReport):
     # un-nested rather than nested wrongly.
     num_connectors_with_ambiguous_runtime: int = 0
     num_keys_with_mixed_lifecycle_rows: int = 0
+    # Rows whose identity column was absent, so from_row could not build a model.
+    # Non-zero means objects are missing from this run's inventory -- and with
+    # stateful ingestion that reads as a deletion.
+    num_rows_missing_identity: int = 0
     # The history views paged. Expected on a churning account; the signal is
     # that a single page is NOT the norm there.
     num_history_pages_beyond_first: int = 0
     num_runtimes: int = 0
     num_connectors: int = 0
 
-    # Ownership ASPECTS, not owners: one per container, flow, anchor job and
-    # per-table job that carries the connector's OWNER.
+    # Ownership ASPECTS, not owners: one per container, flow and per-table job
+    # that carries the connector's OWNER.
     num_owners_emitted: int = 0
 
     num_lineage_edges: int = 0
-    # One DataJob per replicated table, beside the connector-level anchor.
+    # One DataJob per replicated table. These are the only DataJobs emitted --
+    # the connector itself is the DataFlow, not a task inside its own pipeline.
     num_table_jobs: int = 0
     num_lineage_edges_skipped: int = 0
     # Edges emitted with a destination but no upstream, because the

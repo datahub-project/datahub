@@ -14,14 +14,14 @@ catalog of its own, so destination table schemas, profiling and column-level lin
 | ----------------- | ------------------------------------- | ----------------------- |
 | Deployment        | Container                             | Openflow Deployment     |
 | Runtime           | Container                             | Openflow Runtime        |
-| Connector         | DataFlow + DataJob                    | Openflow Connector      |
+| Connector         | DataFlow                              | Openflow Connector      |
 | Replicated table  | DataJob (one per table)               | Openflow Connector Sync |
 | Destination table | Dataset (on the `snowflake` platform) | Table                   |
 
-Each replicated table gets its own DataJob so lineage keeps the 1:1 pairing the connector's
-configuration states; the connector-level DataJob is an anchor for its properties and ownership
-and carries no lineage of its own. Putting every table's edges on one job would instead assert
-that every source table feeds every destination table.
+A connector is the pipeline, so it maps to a DataFlow; the tables it replicates are the tasks
+inside it, so each gets its own DataJob. Keeping one job per table preserves the 1:1 pairing the
+connector's configuration states — putting every table's edges on a single job would instead
+assert that every source table feeds every destination table.
 
 Openflow's own entities use the `openflow` platform. The destination tables stay on `snowflake` so
 they join the warehouse ingestion.

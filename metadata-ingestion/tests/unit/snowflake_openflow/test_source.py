@@ -906,3 +906,56 @@ def test_a_genuinely_orphaned_runtime_still_warns() -> None:
     assert _warning_titles(source.report) == [
         "Runtime with no visible parent deployment"
     ]
+
+
+def test_rows_missing_their_identity_column_are_counted_and_reported() -> None:
+    # A row whose identity column is absent cannot become a model, and dropping
+    # it silently is how a healthy object disappears: it is then missing from
+    # the stale-entity checkpoint, so the NEXT run soft-deletes it while
+    # reporting success. The two surviving runtimes prove the drop is partial --
+    # the total-failure case is already covered by the empty-inventory report,
+    # and it is the partial one that used to be invisible.
+    source = _make_source()
+    source._query_rows = _fake_query_rows(  # type: ignore[assignment]
+        SnowflakeOpenflowQuery.show_runtimes(),
+        "OPENFLOW_RUNTIME_HISTORY",
+        [
+            {"key": "rt-1", "name": "one"},
+            {"name": "two-but-no-key"},
+            {"key": "rt-3", "name": "three"},
+        ],
+        [],
+    )
+
+    runtimes = source._fetch_runtimes()
+
+    assert sorted(r.key for r in runtimes) == ["rt-1", "rt-3"]
+    assert source.report.num_rows_missing_identity == 1
+    assert "Rows skipped: identity column missing" in _warning_titles(source.report)
+
+
+def test_a_transient_error_on_the_inventory_fetch_is_retried(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # SHOW OPENFLOW is outside the shared connection's retry, which fires only
+    # for ACCOUNT_USAGE text AND a permission error. Without a retry here one
+    # blip aborts the run with zero entities, while the OPTIONAL per-connector
+    # url enrichment -- which already had one -- survives. SHOW is read-only, so
+    # retrying cannot double an effect.
+    monkeypatch.setattr(snowflake_openflow, "_RETRY_BACKOFF_MULTIPLIER", 0)
+    source = _make_source()
+    attempts: List[str] = []
+
+    class _FlakyConnection:
+        def query(self, query: str) -> List[Dict[str, Any]]:
+            attempts.append(query)
+            if len(attempts) == 1:
+                raise ConnectionResetError("transient")
+            return [{"key": "rt-1", "name": "one"}]
+
+    source.connection = _FlakyConnection()  # type: ignore[assignment]
+
+    rows = source._query_rows(SnowflakeOpenflowQuery.show_runtimes())
+
+    assert rows == [{"key": "rt-1", "name": "one"}]
+    assert len(attempts) == 2, "the first attempt must be retried, not surfaced"
