@@ -9,10 +9,10 @@ import { CSVInfo } from '@app/ingest/source/builder/CSVInfo';
 import { IngestionDocumentationHint } from '@app/ingest/source/builder/IngestionDocumentationHint';
 import { LookerWarning } from '@app/ingest/source/builder/LookerWarning';
 import RecipeForm from '@app/ingest/source/builder/RecipeForm/RecipeForm';
-import { SnowflakePasswordAuthDeprecationWarning } from '@app/ingestV2/source/builder/SnowflakePasswordAuthDeprecationWarning';
 import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingest/source/builder/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingest/source/builder/types';
+import { SnowflakePasswordAuthDeprecationWarning } from '@app/ingestV2/source/builder/SnowflakePasswordAuthDeprecationWarning';
 import { Button } from '@src/alchemy-components';
 
 const ControlsContainer = styled.div`
@@ -73,9 +73,7 @@ function RecipeBuilder(props: Props) {
     const [isViewingForm, setIsViewingForm] = useState(true);
     const [hideDocsHint, setHideDocsHint] = useState(false);
 
-    // Parse the staged recipe YAML once per render for client-side detection
-    // (e.g. the Snowflake password-auth deprecation banner). Invalid YAML is
-    // ignored here; the form/yaml editor surfaces its own validation errors.
+    // Invalid YAML is ignored; the form/yaml editor surfaces its own validation errors.
     const parsedRecipe = React.useMemo(() => {
         try {
             return displayRecipe ? YAML.parse(displayRecipe) : null;

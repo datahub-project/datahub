@@ -52,8 +52,7 @@ export function getSnowflakeAuthTypeFromRecipe(recipe: any): string {
     if (authType) {
         return authType;
     }
-    // Fall back to credential inference for recipes without an explicit
-    // authentication_type (CAT-1921: the UI does not always write it).
+    // CAT-1921: the UI does not always write authentication_type.
     const hasPassword = !!get(recipe, passwordFieldPath);
     const hasPrivateKey = !!get(recipe, privateKeyFieldPath);
     if (hasPassword && !hasPrivateKey) {

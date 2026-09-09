@@ -4,23 +4,18 @@ import { Trans, useTranslation } from 'react-i18next';
 
 import { getSnowflakeAuthTypeFromRecipe } from '@app/ingestV2/source/builder/RecipeForm/snowflake';
 
-// Stable URL for the customer-facing migration guide. Kept in sync with the
-// CLI warning (snowflake_auth_deprecation.py) and the structured report.
+// Kept in sync with the CLI warning (snowflake_auth_deprecation.py).
 const SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL =
     'https://docs.datahub.com/docs/quick-ingestion-guides/snowflake/migrate-to-key-pair-auth';
 
 interface Props {
-    /** Parsed recipe JSON (source.config.*). When null/undefined the banner is hidden. */
+    /** Parsed recipe object. When null/undefined the banner is hidden. */
     recipe: any;
 }
 
 /**
- * Warns the user that their Snowflake recipe is using deprecated username+password
- * auth (DEFAULT_AUTHENTICATOR) and links to the key-pair migration guide.
- *
- * Detection reuses getSnowflakeAuthTypeFromRecipe() so it stays consistent with the
- * form's own auth-type inference (including the CAT-1921 edge case where
- * authentication_type is omitted but a password is present).
+ * Warns that the Snowflake recipe uses deprecated username+password auth and
+ * links to the key-pair migration guide.
  */
 export const SnowflakePasswordAuthDeprecationWarning = ({ recipe }: Props) => {
     const { t } = useTranslation('ingestion.sourceBuilder');
