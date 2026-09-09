@@ -633,6 +633,7 @@ plugins: Dict[str, Set[str]] = {
     | postgres_common
     | aws_common
     | {"sqlalchemy-cockroachdb<2.0.0"},
+    "convex": {"requests<3.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common | cachetools_lib,
@@ -1168,6 +1169,7 @@ entry_points = {
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
         "confluence = datahub.ingestion.source.confluence.confluence_source:ConfluenceSource",
+        "convex = datahub.ingestion.source.convex.source:ConvexSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
         "db2 = datahub.ingestion.source.sql.db2:Db2Source",
