@@ -18,6 +18,7 @@ from datahub.ingestion.source.snowflake.snowflake_openflow_config import (
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_models import (
     OpenflowConnector,
+    OpenflowRuntime,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_query import (
     CONNECTOR_HISTORY,
@@ -856,3 +857,50 @@ def test_gate_is_decided_from_the_connectors_actually_fetched(
 
     # Three connectors, two distinct locations -- not three, and not one.
     assert seen == [(3, 2)]
+
+
+def test_excluding_a_deployment_produces_no_grant_monitor_warnings() -> None:
+    # Filtering a deployment removed it from by_deployment_name, so every
+    # runtime under it was told "Grant MONITOR on the deployment" -- wrong
+    # remediation, fires every run, and the operator cannot clear it because
+    # they asked for the exclusion. It then cascaded: those runtimes never
+    # entered runtime_keys_by_name, so each of their connectors warned too.
+    # One pattern entry yielded 1 + N unclearable warnings.
+    source = _make_source(deployment_pattern=AllowDenyPattern(deny=["excluded_dep"]))
+    monkeypatch_free_runtime = OpenflowRuntime(
+        key="rt-1", name="rt", deployment_name="excluded_dep"
+    )
+    source._fetch_deployments = lambda: []  # type: ignore[method-assign]
+    source._fetch_runtimes = lambda: [monkeypatch_free_runtime]  # type: ignore[method-assign]
+    source._fetch_connectors = lambda: [  # type: ignore[method-assign]
+        OpenflowConnector(name="c1", runtime_name="rt")
+    ]
+
+    list(source.get_workunits_internal())
+
+    # Neither the runtime-level nor the cascaded connector-level warning.
+    # (An unrelated "no config location" warning is expected: the stub
+    # connector carries no version_location_uri, which is not what this pins.)
+    assert "Runtime with no visible parent deployment" not in _warning_titles(
+        source.report
+    )
+    assert "Connector with no visible runtime" not in _warning_titles(source.report)
+    # Still counted, so the total stays visible even though it is not warned.
+    assert source.report.num_connectors_without_runtime_parent == 1
+
+
+def test_a_genuinely_orphaned_runtime_still_warns() -> None:
+    # The waiver must be narrow: a runtime whose deployment is missing for any
+    # reason OTHER than the operator's filter is a real permissions gap.
+    source = _make_source()
+    source._fetch_deployments = lambda: []  # type: ignore[method-assign]
+    source._fetch_runtimes = lambda: [  # type: ignore[method-assign]
+        OpenflowRuntime(key="rt-1", name="rt", deployment_name="invisible_dep")
+    ]
+    source._fetch_connectors = lambda: []  # type: ignore[method-assign]
+
+    list(source.get_workunits_internal())
+
+    assert _warning_titles(source.report) == [
+        "Runtime with no visible parent deployment"
+    ]

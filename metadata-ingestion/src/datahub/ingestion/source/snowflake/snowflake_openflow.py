@@ -924,6 +924,16 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
     _fetch_connector_urls: bool = True
 
     @cached_property
+    def _filtered_parent_runtimes(self) -> Set[Optional[str]]:
+        """Runtimes whose DEPLOYMENT the operator filtered out.
+
+        Per-instance and lazily created for the same reason as _canvas_urls: a
+        mutable class-level default would be shared by every source, including
+        the test harnesses that build one via object.__new__.
+        """
+        return set()
+
+    @cached_property
     def _canvas_urls(self) -> Dict[Tuple[str, str, str], str]:
         """Canvas URL per runtime, for this run only.
 
@@ -1510,13 +1520,28 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 else None
             )
             if parent_deployment is None:
-                self.report.warning(
-                    title="Runtime with no visible parent deployment",
-                    message="The runtime's deployment is not visible to this role, so "
-                    "the runtime container cannot be nested. Grant MONITOR on the "
-                    "deployment.",
-                    context=runtime.key,
-                )
+                if (
+                    runtime.deployment_name
+                    and not self.config.deployment_pattern.allowed(
+                        runtime.deployment_name
+                    )
+                ):
+                    # The operator excluded this deployment, so its runtimes
+                    # arriving un-nested is the requested outcome -- not a
+                    # missing grant. Telling them to fix a grant that is
+                    # already correct produces a warning they cannot ever
+                    # clear, which is how a warning stops being read. Same
+                    # waiver shape as _report_connector_without_runtime_parent
+                    # applies one level down for runtime_pattern.
+                    self._filtered_parent_runtimes.add(runtime.name)
+                else:
+                    self.report.warning(
+                        title="Runtime with no visible parent deployment",
+                        message="The runtime's deployment is not visible to this "
+                        "role, so the runtime container cannot be nested. Grant "
+                        "MONITOR on the deployment.",
+                        context=runtime.key,
+                    )
                 continue
             self.report.num_runtimes += 1
             runtime_key = self._runtime_key(runtime, parent_deployment)
@@ -1609,6 +1634,11 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         self, connector: OpenflowConnector
     ) -> None:
         self.report.num_connectors_without_runtime_parent += 1
+        if connector.runtime_name in self._filtered_parent_runtimes:
+            # Its runtime was skipped because the operator filtered that
+            # runtime's DEPLOYMENT. Same waiver as the runtime_pattern case
+            # below: requested, so counted rather than warned.
+            return
         if not self.config.runtime_pattern.allowed(connector.runtime_name):
             # The operator asked for this runtime to be skipped, so its
             # connectors arriving un-nested is the requested outcome. Warning
