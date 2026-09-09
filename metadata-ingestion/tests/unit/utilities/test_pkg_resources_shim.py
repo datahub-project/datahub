@@ -73,6 +73,17 @@ def test_resource_filename_returns_existing_path():
     assert path.endswith("fragments.gql")
 
 
+def test_resource_filename_accepts_submodule_anchor():
+    # The real redshift/cockroachdb call is a *submodule* anchor (no __path__):
+    # pkg_resources.resource_filename("sqlalchemy_redshift.dialect", "redshift-ca-bundle.crt").
+    # That resolves through a different branch than the package anchor above, so
+    # exercise it directly against the dialect this shim exists to support.
+    if importlib.util.find_spec("sqlalchemy_redshift") is None:
+        pytest.skip("sqlalchemy_redshift not installed")
+    path = resource_filename("sqlalchemy_redshift.dialect", "redshift-ca-bundle.crt")
+    assert os.path.exists(path)
+
+
 def test_resource_filename_rejects_traversal():
     with pytest.raises(ValueError):
         resource_filename("datahub.cli.gql", "../evil")

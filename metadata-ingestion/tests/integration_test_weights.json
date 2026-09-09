@@ -66176,22 +66176,6 @@
     "duration": "0.003s"
   },
   {
-    "testId": "tests.unit.utilities.test_threading_timeout::test_timeout_early_exit",
-    "duration": "0.001s"
-  },
-  {
-    "testId": "tests.unit.utilities.test_threading_timeout::test_timeout_no_timeout",
-    "duration": "0.101s"
-  },
-  {
-    "testId": "tests.unit.utilities.test_threading_timeout::test_timeout_raises",
-    "duration": "0.502s"
-  },
-  {
-    "testId": "tests.unit.utilities.test_threading_timeout::test_timeout_zero",
-    "duration": "0.001s"
-  },
-  {
     "testId": "tests.unit.utilities.test_topological_sort::test_topological_sort_invalid",
     "duration": "0.001s"
   },

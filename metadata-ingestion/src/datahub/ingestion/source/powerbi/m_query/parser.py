@@ -1,5 +1,6 @@
 import logging
 import re
+import threading
 from typing import Dict, List, Optional
 
 from datahub.ingestion.api.common import PipelineContext
@@ -17,6 +18,7 @@ from datahub.ingestion.source.powerbi.m_query import (
 from datahub.ingestion.source.powerbi.m_query._bridge import (
     MQueryBridgeError,
     MQueryParseError,
+    MQueryParseTimeout,
     _clear_bridge,
     get_bridge,
 )
@@ -25,7 +27,6 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     Lineage,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
-from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -39,22 +40,44 @@ logger = logging.getLogger(__name__)
 _M_QUERY_LET_KEYWORD = re.compile(r"\blet\b", re.IGNORECASE)
 
 
-def _parse_with_bridge(expression: str, timeout: int) -> Dict[int, dict]:
-    """Call the bridge and return the NodeIdMap dict.
-    Clears the singleton on bridge crash or timeout so the next call gets a fresh context.
+def _parse_with_bridge(expression: str, timeout: float) -> Dict[int, dict]:
+    """Call the bridge and return the NodeIdMap dict, bounded by ``timeout`` seconds.
+
+    The V8 parse runs as a single non-yielding microtask, so it cannot be
+    interrupted mid-execution. We run it on a daemon worker and bound the calling
+    thread with a plain timed ``join`` — deliberately NOT injecting an
+    asynchronous exception, which can be delivered inside a lock's critical
+    section (e.g. logging or ``concurrent.futures``) and deadlock the whole
+    process. On timeout the worker is abandoned to finish on its own; the V8
+    event loop is serialized, so a later parse simply queues behind it.
     """
-    try:
-        with threading_timeout(timeout):
-            return get_bridge().parse(expression)
-    except MQueryBridgeError:
-        _clear_bridge()
-        raise
-    except TimeoutException:
-        # The timeout interrupts the Python thread mid-V8-eval, leaving the MiniRacer
-        # context in an undefined state. Clear the singleton so the next call gets a
-        # fresh context rather than reusing the potentially-corrupted one.
-        _clear_bridge()
-        raise
+    result: List[Dict[int, dict]] = []
+    errors: List[Exception] = []
+
+    def _run() -> None:
+        try:
+            result.append(get_bridge().parse(expression))
+        except Exception as e:
+            errors.append(e)
+
+    worker = threading.Thread(target=_run, name="m-query-parse", daemon=True)
+    worker.start()
+    worker.join(timeout)
+    if worker.is_alive():
+        raise MQueryParseTimeout(f"M-Query parsing exceeded {timeout}s")
+    if errors:
+        error = errors[0]
+        if isinstance(error, MQueryBridgeError):
+            # A V8 crash can leave the context in an undefined state; drop the
+            # singleton so the next call gets a fresh one. (Not done on timeout:
+            # the worker may still be using the context.)
+            _clear_bridge()
+        raise error
+    if not result:
+        # Worker exited without a result and without a caught Exception (e.g. a
+        # BaseException such as SystemExit); surface it rather than IndexError.
+        raise MQueryBridgeError("M-Query parse worker exited without a result")
+    return result[0]
 
 
 def get_upstream_tables(
@@ -105,7 +128,7 @@ def get_upstream_tables(
     try:
         with reporter.m_query_parse_timer:
             node_map = _parse_with_bridge(expression, config.m_query_parse_timeout)
-    except TimeoutException:
+    except MQueryParseTimeout:
         reporter.m_query_parse_timeouts += 1
         reporter.warning(
             title="M-Query Parsing Timeout",

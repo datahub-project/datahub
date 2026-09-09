@@ -11,6 +11,13 @@ NodeIdMap = dict[int, dict]
 
 _BUNDLE_PATH = Path(__file__).parent / "mquery_bridge" / "bundle.js.gz"
 
+# Serializes all V8 access on the singleton context. The M-query parse is a
+# non-yielding V8 microtask a timeout cannot interrupt, so a timed-out caller
+# abandons its worker while it is still parsing (see parser._parse_with_bridge).
+# This lock stops a later parse — or _clear_bridge's close() — from touching the
+# context concurrently, which the non-thread-safe MiniRacer context forbids.
+_parse_lock = threading.Lock()
+
 
 class MQueryBridgeError(RuntimeError):
     """V8 context error or malformed response from the M-Query bridge."""
@@ -24,6 +31,11 @@ class MQueryParseError(RuntimeError):
     def __init__(self, message: str, expression: str = "") -> None:
         super().__init__(message)
         self.expression = expression
+
+
+class MQueryParseTimeout(RuntimeError):
+    """A parse exceeded its time budget. Raised by the caller-side timeout bound,
+    not by the bridge itself (the V8 parse cannot be interrupted mid-execution)."""
 
 
 class MQueryBridge:
@@ -68,7 +80,8 @@ class MQueryBridge:
              2: {"kind": "ArrayWrapper", "id": 2, ...},
              ...}
 
-        Not thread-safe — callers must be single-threaded.
+        Concurrent calls are serialized by an internal lock (``_parse_lock``), so a
+        slow parse blocks later ones rather than corrupting the shared V8 context.
 
         Raises:
             MQueryParseError: parser returned a structured error for this expression.
@@ -77,21 +90,23 @@ class MQueryBridge:
         # JSPromise is available: __init__ already guaranteed py_mini_racer is installed.
         from py_mini_racer import JSPromise
 
-        try:
-            # parseExpression is async, so ctx.call() returns an unresolved plain dict.
-            # Use ctx.eval() instead, which returns a JSPromise; call .get() to await it.
-            result = self._ctx.eval(f"parseExpression({json.dumps(expression)})")
-            if not isinstance(result, JSPromise):
-                raise MQueryBridgeError(
-                    f"M-Query bridge: expected JSPromise from parseExpression, got {type(result).__name__}"
-                )
-            raw = result.get()
-        except MQueryBridgeError:
-            raise
-        except Exception as e:
-            # Catches all py_mini_racer errors (JSEvalException, JSTimeoutException, etc.)
-            # MiniRacerBaseException is not exported from the top-level namespace in mini-racer.
-            raise MQueryBridgeError(f"M-Query bridge V8 error: {e}") from e
+        # Serialize V8 access; held only for the eval+await, not the JSON handling below.
+        with _parse_lock:
+            try:
+                # parseExpression is async, so ctx.call() returns an unresolved plain dict.
+                # Use ctx.eval() instead, which returns a JSPromise; call .get() to await it.
+                result = self._ctx.eval(f"parseExpression({json.dumps(expression)})")
+                if not isinstance(result, JSPromise):
+                    raise MQueryBridgeError(
+                        f"M-Query bridge: expected JSPromise from parseExpression, got {type(result).__name__}"
+                    )
+                raw = result.get()
+            except MQueryBridgeError:
+                raise
+            except Exception as e:
+                # Catches all py_mini_racer errors (JSEvalException, JSTimeoutException, etc.)
+                # MiniRacerBaseException is not exported from the top-level namespace in mini-racer.
+                raise MQueryBridgeError(f"M-Query bridge V8 error: {e}") from e
 
         if not isinstance(raw, str):
             raise MQueryBridgeError(
@@ -140,15 +155,16 @@ def _clear_bridge() -> None:
     to ensure each test module gets an isolated bridge.
     """
     global _bridge_instance
-    with _bridge_lock:
+    # Acquire _parse_lock first so we never close() the context while a parse
+    # (possibly an abandoned, timed-out one) is still running on it — that segfaults.
+    with _parse_lock, _bridge_lock:
         if _bridge_instance is not None:
             # Explicitly close the V8 context before dropping the reference.
             # If we just set _bridge_instance = None here, Python's GC decides
             # when to finalize the MiniRacer object. If that happens while other
             # threads are active (e.g. in a later, unrelated test), MiniRacer's
             # __del__ -> close() path segfaults. Closing synchronously here, while
-            # the lock is held and no concurrent parse() calls are in flight,
-            # shuts down V8 cleanly.
+            # both locks are held (no parse in flight), shuts down V8 cleanly.
             try:
                 _bridge_instance._ctx.close()
             except Exception:

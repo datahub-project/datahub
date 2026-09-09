@@ -17,7 +17,7 @@ def test_datahub_version():
 
 
 def test_setuptools_not_capped_below_83():
-    # ING-3241 acceptance: acryl-datahub must not cap setuptools, so it installs
+    # Acceptance: acryl-datahub must not cap setuptools, so it installs
     # alongside setuptools>=83 (CVE-2026-59890). setup.py declares no cap; the
     # >=83 floor is enforced at lock time (pyproject [tool.uv]) and resolved in
     # constraints.txt. Guards against a cap being reintroduced.

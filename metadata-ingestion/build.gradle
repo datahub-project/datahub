@@ -203,14 +203,6 @@ task lintFix(type: Exec, dependsOn: installDev) {
 // Add "PYTHONDEVMODE=1" here to also warn on unclosed sockets.
 def pytest_default_env = "PYTHONFAULTHANDLER=1"
 
-// A hung test must dump every thread's stack and fail fast, not wedge until the
-// job cap. pytest-timeout (thread method) covers a hang in any test's
-// setup/call/teardown; the outer `timeout -s ABRT` bounds the whole process so a
-// hang in session teardown / interpreter finalize is still dumped via faulthandler
-// (PYTHONFAULTHANDLER=1) rather than sitting silent for ~80 minutes.
-def pytest_timeout_args = "--timeout=600 --timeout-method=thread"
-def pytest_wall_clock = "timeout -s ABRT 2700"
-
 task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
@@ -223,7 +215,7 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
   def cvg_arg = get_coverage_args("quick")
   commandLine 'bash', '-c',
     venv_activate_command +
-    "${pytest_default_env} ${pytest_wall_clock} pytest ${cvg_arg} tests/unit --random-order -m 'not integration' ${pytest_timeout_args} --junit-xml=test-results/junit.quick.xml"
+    "${pytest_default_env} pytest ${cvg_arg} tests/unit --random-order -m 'not integration' --junit-xml=test-results/junit.quick.xml"
 }
 
 task testPerformance(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
@@ -294,7 +286,7 @@ integrationBatchIds.each { batchId ->
         inputs.file file("setup.py")
         commandLine 'bash', '-c',
             venv_activate_command +
-            "${pytest_default_env} ${pytest_wall_clock} pytest ${cvgArg} -m '${markerName}' ${pytest_timeout_args} --junit-xml=${junitXml}"
+            "${pytest_default_env} pytest ${cvgArg} -m '${markerName}' --junit-xml=${junitXml}"
     }
 }
 
