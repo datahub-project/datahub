@@ -77,6 +77,16 @@ _INODE_PREFIX = "inode-"
 _SEMANTIC_VIEW_TABLE = "semanticViewTable"
 _CONNECTION_ID = "connectionId"
 
+# Sigma's REST API reference documents NO error responses for the GET endpoints
+# this connector uses -- /columns, /elements and /spec all list a 200 and
+# nothing else (checked 2026-09). So the 409s and 400s a run hits are
+# undocumented and the response body is the only place an explanation can come
+# from. What Sigma DOES document: pagination defaults to 50 with a maximum of
+# 1000 (we already request the maximum, so page size is not the cause), and the
+# published rate limits cover only /auth/token (1/s), export and download
+# (400/min) and send (100/min) -- nothing that /columns would hit.
+# https://help.sigmacomputing.com/reference/get-started-sigma-api
+#
 # Sigma explains a 4xx in the response body; the exception text carries only
 # "400 Client Error: Bad Request for url: ...", which is what 12 workbooks
 # aborted with on one tenant (2026-09) while costing 37,655 chart columns their
