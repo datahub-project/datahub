@@ -34,6 +34,9 @@ from datahub.ingestion.source.snowflake.constants import (
 from datahub.ingestion.source.snowflake.snowflake_assertion import (
     SnowflakeAssertionsHandler,
 )
+from datahub.ingestion.source.snowflake.snowflake_auth_deprecation import (
+    SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnection,
@@ -180,6 +183,22 @@ class SnowflakeV2Source(
         self.connection: SnowflakeConnection = self._exit_stack.enter_context(
             self.config.get_connection()
         )
+
+        # The config validator already emits a global warning for the CLI; mirror it
+        # here so the deprecation also surfaces in the structured ingestion report /
+        # DataHub UI. is_using_password_auth() covers the edge case where
+        # authentication_type is unset but a password is present.
+        if self.config.is_using_password_auth():
+            self.report.warning(
+                "Snowflake is deprecating username + password authentication "
+                "(DEFAULT_AUTHENTICATOR). Switch this recipe to key-pair auth "
+                "(KEY_PAIR_AUTHENTICATOR) before your account's enforcement date.",
+                title="Snowflake password-auth deprecation",
+                context=(
+                    "Snowflake Strong Authentication rollout (Phase 3, Aug-Oct 2026). "
+                    f"Migration guide: {SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL}"
+                ),
+            )
 
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary(

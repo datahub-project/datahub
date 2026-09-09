@@ -43,12 +43,16 @@ from datahub.ingestion.source.snowflake.oauth_config import (
     OAuthIdentityProvider,
 )
 from datahub.ingestion.source.snowflake.oauth_generator import OAuthTokenGenerator
+from datahub.ingestion.source.snowflake.snowflake_auth_deprecation import (
+    check_password_auth_deprecation,
+)
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.utilities.config_clean import (
     remove_protocol,
     remove_suffix,
     remove_trailing_slashes,
 )
+from datahub.utilities.global_warning_util import add_global_warning
 
 logger = logging.getLogger(__name__)
 
@@ -206,7 +210,28 @@ class SnowflakeConnectionConfig(ConfigModel):
                     f"Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication"
                 )
 
+        # Snowflake is deprecating username + password (DEFAULT_AUTHENTICATOR) auth.
+        # Surface a global warning at config validation so it reaches every CLI entry
+        # point (datahub ingest run / datahub check / --test-source-connection) plus
+        # --strict-warnings and telemetry. Escalates to a hard error when
+        # DATAHUB_SNOWFLAKE_PASSWORD_AUTH_HARD_ERROR is set. The predicate also covers
+        # the CAT-1921 edge case where authentication_type is unset but a password is
+        # present (defaults to DEFAULT_AUTHENTICATOR).
+        deprecation_warning = check_password_auth_deprecation(
+            self.authentication_type, self.password
+        )
+        if deprecation_warning is not None:
+            add_global_warning(deprecation_warning)
+
         return self
+
+    def is_using_password_auth(self) -> bool:
+        """True when this recipe is configured for username+password auth."""
+        from datahub.ingestion.source.snowflake.snowflake_auth_deprecation import (
+            is_using_password_auth,
+        )
+
+        return is_using_password_auth(self.authentication_type, self.password)
 
     @staticmethod
     def _check_oauth_config(oauth_config: Optional[OAuthConfiguration]) -> None:
