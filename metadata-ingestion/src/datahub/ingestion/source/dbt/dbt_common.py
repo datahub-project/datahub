@@ -865,11 +865,17 @@ class DBTCommonConfig(
                 "semantic_model_project_name must not be blank; omit it to infer "
                 "the project name instead"
             )
+        # `,` and `)` would terminate the URN's tuple syntax. `.` is rejected
+        # because the Semantic Model Dataset name is `<project>.semantic_layer.
+        # <name>`, which the migration CLI parses by splitting on `.` -- a
+        # dotted project would make ingest's own URNs unparseable there. dbt
+        # requires project names to be letters, digits and underscores anyway.
         invalid = [c for c in ".,()" if c in stripped]
         if invalid:
             raise ValueError(
                 f"semantic_model_project_name must not contain {invalid}; it is "
-                "used verbatim in semanticModel and metric URNs"
+                "used verbatim in the semanticModel, metric and Semantic Model "
+                "Dataset URNs"
             )
         return stripped
 
