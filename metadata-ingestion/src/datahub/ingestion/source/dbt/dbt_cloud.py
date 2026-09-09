@@ -974,6 +974,14 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         semantic_model_def: Optional[DBTSemanticModelDefinition] = None
         if resource_type == "semantic_model":
             semantic_model_def = parse_semantic_model_definition(node)
+            if semantic_model_def.discarded:
+                self.report.warning(
+                    title="Could not read part of a dbt semantic model",
+                    message="Some entities, dimensions or measures were skipped "
+                    "because the Discovery API response did not have the "
+                    "expected shape. The emitted schema is incomplete.",
+                    context=f"{key}: {'; '.join(semantic_model_def.discarded)}",
+                )
             columns = convert_semantic_model_fields_to_columns(semantic_model_def)
         elif "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models

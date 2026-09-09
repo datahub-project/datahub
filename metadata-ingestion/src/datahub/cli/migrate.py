@@ -1176,13 +1176,15 @@ def snowflake_semantic_views(
         expected_subtype=SEMANTIC_VIEW_SUBTYPE,
         # Rollback sources are semanticModels, which carry no subtype to check.
         filter_subtype=(
-            (lambda candidates: filter_by_semantic_view_subtype(graph, candidates, force))
+            (
+                lambda candidates: filter_by_semantic_view_subtype(
+                    graph, candidates, force
+                )
+            )
             if forward
             else None
         ),
-        soft_deleted_label=(
-            "Semantic View dataset" if forward else "semanticModel"
-        ),
+        soft_deleted_label=("Semantic View dataset" if forward else "semanticModel"),
         include_soft_deleted=include_soft_deleted,
     )
     if sources.message is not None:
@@ -1219,9 +1221,7 @@ def snowflake_semantic_views(
     _exit_nonzero_on_migration_errors(report, dry_run)
 
 
-def _collect_source_urns(
-    urns: Tuple[str, ...], urn_file: Optional[str]
-) -> List[str]:
+def _collect_source_urns(urns: Tuple[str, ...], urn_file: Optional[str]) -> List[str]:
     """Union --urn and --urn-file, preserving order and dropping duplicates."""
     collected = list(urns)
     if urn_file:

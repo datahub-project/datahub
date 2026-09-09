@@ -974,6 +974,9 @@ class DBTSemanticModelDefinition:
     # dbt allows declaring `primary_entity` on the semantic model instead of
     # listing an entity of type `primary`; MetricFlow joins on it either way.
     primary_entity: Optional[str] = None
+    # Parts of the raw node that could not be read, for the ingestion report.
+    # Empty for every well-formed manifest.
+    discarded: List[str] = field(default_factory=list)
 
     def is_empty(self) -> bool:
         return not (self.entities or self.dimensions or self.measures)
@@ -996,6 +999,16 @@ def _optional_str(value: Any) -> Optional[str]:
     return value if isinstance(value, str) else None
 
 
+def _name_or_blank(
+    raw: Mapping[str, Any], section: str, index: int, discarded: List[str]
+) -> str:
+    name = raw.get("name")
+    if isinstance(name, str) and name.strip():
+        return name
+    discarded.append(f"{section}[{index}] has no usable name")
+    return ""
+
+
 def parse_semantic_model_definition(
     raw: Mapping[str, Any],
 ) -> DBTSemanticModelDefinition:
@@ -1004,26 +1017,31 @@ def parse_semantic_model_definition(
     Accepts either a manifest.json `semantic_models` entry or a dbt Cloud
     Discovery API `semanticModels` node.
     """
+    discarded: List[str] = []
     entities = [
         DBTSemanticEntity(
-            name=raw_entity["name"],
+            name=_name_or_blank(raw_entity, "entities", index, discarded),
             # Defaulted here, not at use, to preserve the legacy column
             # `data_type` strings exactly (see the constants above).
             type=raw_entity.get("type", SEMANTIC_ENTITY_TYPE_UNKNOWN),
             description=raw_entity.get("description", ""),
             expr=_optional_str(raw_entity.get("expr")),
         )
-        for raw_entity in _iter_mappings(raw.get("entities"))
+        for index, raw_entity in _iter_mappings(
+            raw.get("entities"), "entities", discarded
+        )
     ]
 
     dimensions = []
-    for raw_dimension in _iter_mappings(raw.get("dimensions")):
+    for index, raw_dimension in _iter_mappings(
+        raw.get("dimensions"), "dimensions", discarded
+    ):
         type_params = _first_present(raw_dimension, "type_params", "typeParams")
         if not isinstance(type_params, Mapping):
             type_params = {}
         dimensions.append(
             DBTSemanticDimension(
-                name=raw_dimension["name"],
+                name=_name_or_blank(raw_dimension, "dimensions", index, discarded),
                 type=raw_dimension.get("type", SEMANTIC_DIMENSION_TYPE_CATEGORICAL),
                 description=raw_dimension.get("description", ""),
                 expr=_optional_str(raw_dimension.get("expr")),
@@ -1035,7 +1053,7 @@ def parse_semantic_model_definition(
 
     measures = [
         DBTSemanticMeasure(
-            name=raw_measure["name"],
+            name=_name_or_blank(raw_measure, "measures", index, discarded),
             agg=raw_measure.get("agg", SEMANTIC_MEASURE_AGG_UNKNOWN),
             description=raw_measure.get("description", ""),
             expr=_optional_str(raw_measure.get("expr")),
@@ -1043,7 +1061,9 @@ def parse_semantic_model_definition(
                 _first_present(raw_measure, "create_metric", "createMetric")
             ),
         )
-        for raw_measure in _iter_mappings(raw.get("measures"))
+        for index, raw_measure in _iter_mappings(
+            raw.get("measures"), "measures", discarded
+        )
     ]
 
     return DBTSemanticModelDefinition(
@@ -1053,13 +1073,36 @@ def parse_semantic_model_definition(
         primary_entity=_optional_str(
             _first_present(raw, "primary_entity", "primaryEntity")
         ),
+        discarded=discarded,
     )
 
 
-def _iter_mappings(value: Any) -> List[Mapping[str, Any]]:
-    if not isinstance(value, list):
+def _iter_mappings(
+    value: Any, section: str, discarded: List[str]
+) -> List[Tuple[int, Mapping[str, Any]]]:
+    """Read a list-of-objects manifest section, recording anything unusable.
+
+    A wrong shape here would previously raise and be reported as a node
+    extraction failure; returning an empty list silently instead would drop
+    every field of that kind with nothing to explain it.
+
+    Yields each item with its index in the *original* list, so a message about
+    one entry points at the entry the author actually wrote.
+    """
+    if value is None:
         return []
-    return [item for item in value if isinstance(item, Mapping)]
+    if not isinstance(value, list):
+        discarded.append(f"{section} is {type(value).__name__}, expected a list")
+        return []
+    items: List[Tuple[int, Mapping[str, Any]]] = []
+    for index, item in enumerate(value):
+        if isinstance(item, Mapping):
+            items.append((index, item))
+        else:
+            discarded.append(
+                f"{section}[{index}] is {type(item).__name__}, expected an object"
+            )
+    return items
 
 
 def convert_semantic_model_fields_to_columns(

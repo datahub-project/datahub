@@ -4762,3 +4762,44 @@ def _make_semantic_model_node(name: str, *, package_name: str) -> DBTNode:
             }
         ),
     )
+
+
+def test_unreadable_semantic_model_sections_are_reported_not_dropped():
+    """A wrong manifest shape used to raise; silently emptying is worse."""
+    source = _semantic_model_source()
+    nodes = extract_semantic_models(
+        manifest_semantic_models={
+            "semantic_model.p.broken": {
+                "name": "broken",
+                "entities": "not-a-list",
+                "dimensions": [{"name": "ok", "type": "categorical"}, "junk"],
+                "measures": [{"agg": "sum"}],
+                "node_relation": {"database": "d", "schema": "s"},
+            }
+        },
+        manifest_nodes={},
+        manifest_adapter="postgres",
+        tag_prefix="dbt:",
+        report=source.report,
+    )
+
+    assert len(nodes) == 1
+    warning = next(
+        w
+        for w in source.report.warnings
+        if w.title == "Could not read part of a dbt semantic model"
+    )
+    context = " ".join(warning.context)
+    assert "entities is str, expected a list" in context
+    assert "dimensions[1] is str, expected an object" in context
+    assert "measures[0] has no usable name" in context
+
+
+def test_a_semantic_model_field_without_a_name_does_not_abort_the_run():
+    """Every neighbouring field is read defensively; this one raised KeyError."""
+    definition = parse_semantic_model_definition(
+        {"entities": [{"type": "primary"}], "measures": [{"name": "m", "agg": "sum"}]}
+    )
+
+    assert definition.entities[0].name == ""
+    assert definition.discarded == ["entities[0] has no usable name"]

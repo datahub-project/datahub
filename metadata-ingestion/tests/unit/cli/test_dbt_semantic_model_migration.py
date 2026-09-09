@@ -607,3 +607,79 @@ class TestRoundTrip:
         emitted = _emitted(graph)[_LEGACY]
         assert ownership in emitted
         assert editable in emitted
+
+
+class TestFieldPathResolution:
+    def test_renamed_column_falls_back_with_a_note(self):
+        """The realistic case: the destination has a schema, minus this column."""
+        graph = _graph(
+            {
+                _LEGACY: {
+                    "ownership": OwnershipClass(owners=[]),
+                    "editableSchemaMetadata": EditableSchemaMetadataClass(
+                        editableSchemaFieldInfo=[
+                            EditableSchemaFieldInfoClass(
+                                fieldPath="renamed_measure",
+                                globalTags=GlobalTagsClass(
+                                    tags=[TagAssociationClass(tag=make_tag_urn("pii"))]
+                                ),
+                            )
+                        ]
+                    ),
+                },
+                _NEW: {
+                    "schemaMetadata": SchemaMetadataClass(
+                        schemaName="x",
+                        platform="urn:li:dataPlatform:dbt",
+                        version=0,
+                        hash="",
+                        platformSchema=None,  # type: ignore[arg-type]
+                        fields=[_schema_field("a_different_column")],
+                    )
+                },
+            }
+        )
+
+        result = migrate_one_dataset(graph, _LEGACY, _NEW, False, False, False)
+
+        assert any("not in destination schemaMetadata" in note for note in result.notes)
+
+
+class TestBatchIsolation:
+    def test_an_unexpected_exception_does_not_abort_the_batch(self):
+        """Distinct from a mapping miss, which returns an error result."""
+        other = "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.customers,PROD)"
+        graph = _graph(
+            {
+                _LEGACY: {"ownership": OwnershipClass(owners=[])},
+                other: {"ownership": OwnershipClass(owners=[])},
+            }
+        )
+        graph.exists.side_effect = lambda urn: _raise_boom() if urn == _LEGACY else True
+        mapping = build_mapping(
+            graph,
+            MigrationDirection.DATASET_TO_SM,
+            [_LEGACY, other],
+            explicit_pairs={_LEGACY: _NEW, other: _NEW},
+        )
+
+        report = run_migration(
+            graph,
+            MigrationDirection.DATASET_TO_SM,
+            [_LEGACY, other],
+            mapping,
+            False,
+            False,
+            False,
+        )
+
+        assert len(report.results) == 2
+        failed = [r for r in report.results if r.error is not None]
+        assert [r.src_urn for r in failed] == [_LEGACY]
+        # The type is carried, not just str(e).
+        assert failed[0].error is not None
+        assert failed[0].error.startswith("RuntimeError:")
+
+
+def _raise_boom() -> bool:
+    raise RuntimeError("boom")

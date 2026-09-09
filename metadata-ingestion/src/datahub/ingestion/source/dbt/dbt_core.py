@@ -648,6 +648,7 @@ def extract_semantic_models(
     manifest_nodes: Dict[str, Dict[str, Any]],
     manifest_adapter: Optional[str],
     tag_prefix: str,
+    report: Optional[DBTSourceReport] = None,
 ) -> List[DBTNode]:
     """Extract dbt semantic models (dbt 1.6+) from manifest.json."""
     semantic_model_nodes: List[DBTNode] = []
@@ -664,6 +665,16 @@ def extract_semantic_models(
         alias = node_relation.get("alias")
 
         definition = parse_semantic_model_definition(sm_node)
+        if definition.discarded and report is not None:
+            # Reported on the legacy path too: the dataset would otherwise be
+            # emitted with a partial or empty schema and nothing saying why.
+            report.warning(
+                title="Could not read part of a dbt semantic model",
+                message="Some entities, dimensions or measures were skipped "
+                "because the manifest did not have the expected shape. The "
+                "emitted schema is incomplete.",
+                context=f"{key}: {'; '.join(definition.discarded)}",
+            )
         columns = convert_semantic_model_fields_to_columns(definition)
 
         tags = sm_node.get("tags", [])
