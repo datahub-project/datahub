@@ -568,6 +568,8 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         super().__init__(config, ctx)
         self.config = config
         self.platform = PLATFORM
+        # Set once per run by _decide_url_lookup, before the connector loop.
+        self._url_lookup_suppressed = False
         self.report: SnowflakeOpenflowReport = SnowflakeOpenflowReport()
         self.connection: SnowflakeConnection = config.connection.get_connection()
 
@@ -764,8 +766,12 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
     def _query_rows(self, query: str) -> List[Dict[str, Any]]:
         return [dict(row) for row in self.connection.query(query)]
 
-    # Class-level default so the decision is "not suppressed" for any caller
-    # that never runs the connector loop (unit tests drive methods directly).
+    # Instance state, set in __init__ like every other attribute here. The
+    # class-level default exists ONLY because the unit-test harnesses build a
+    # source via object.__new__ to avoid opening a real Snowflake connection,
+    # so __init__ never runs for them. Removing it costs an identical
+    # assignment in five separate test helpers and buys no behaviour: the
+    # value is an immutable bool, never mutated through the class.
     _url_lookup_suppressed: bool = False
 
     def _decide_url_lookup(self, connector_count: int) -> None:
@@ -780,13 +786,17 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             return
         self._url_lookup_suppressed = True
         self.report.num_connector_urls_skipped_for_scale = connector_count
+        # message stays a literal so warnings aggregate; the varying counts go
+        # in context, which is what every other warning in this file does.
         self.report.warning(
             title="Connector external links skipped",
-            message=f"This account has {connector_count} connectors, above the "
-            f"{_MAX_CONNECTORS_FOR_URL_LOOKUP} at which the per-connector "
-            "DESCRIBE needed for each link would dominate the run. No external "
-            "links are emitted. Set include_connector_external_url: true "
-            "explicitly to fetch them anyway.",
+            message="This account has more connectors than the threshold at "
+            "which the per-connector DESCRIBE needed for each external link "
+            "would dominate the run, so no external links are emitted. Set "
+            "include_connector_external_url: true explicitly to fetch them "
+            "anyway.",
+            context=f"{connector_count} connectors, threshold "
+            f"{_MAX_CONNECTORS_FOR_URL_LOOKUP}",
         )
 
     def _retrying(self) -> Retrying:
