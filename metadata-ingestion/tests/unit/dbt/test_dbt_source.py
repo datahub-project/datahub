@@ -13,7 +13,6 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt import dbt_cloud
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
-    DEFAULT_PROJECT_NAME,
     DBTColumn,
     DBTEntitiesEnabled,
     DBTExposure,
@@ -3716,7 +3715,7 @@ def test_parse_semantic_model_definition_camel_and_snake_case_agree():
                 {
                     "name": "ordered_at",
                     "type": "time",
-                    "type_params": {"time_granularity": "day", "is_primary": True},
+                    "type_params": {"time_granularity": "day"},
                 }
             ],
             "measures": [
@@ -3731,7 +3730,7 @@ def test_parse_semantic_model_definition_camel_and_snake_case_agree():
                 {
                     "name": "ordered_at",
                     "type": "time",
-                    "typeParams": {"timeGranularity": "day", "is_primary": True},
+                    "typeParams": {"timeGranularity": "day"},
                 }
             ],
             "measures": [
@@ -3743,7 +3742,6 @@ def test_parse_semantic_model_definition_camel_and_snake_case_agree():
     assert snake == camel
     assert snake.primary_entity == "orders"
     assert snake.dimensions[0].time_granularity == "day"
-    assert snake.dimensions[0].is_primary_time
     assert snake.measures[0].create_metric
 
 
@@ -4663,7 +4661,6 @@ def _semantic_model_source(**config_overrides: Any) -> DBTCoreSource:
 def test_emit_semantic_model_entities_defaults_to_off():
     """Existing semantic-model dataset URNs must stay stable by default."""
     source = _semantic_model_source()
-    assert source.config.emit_semantic_model_entities is None
     assert source._emit_semantic_model_entities() is False
     assert source.report.semantic_model_emission_effective is False
 
@@ -4675,13 +4672,31 @@ def test_emit_semantic_model_entities_enabled_without_a_graph():
     assert source.report.semantic_model_emission_reason is not None
 
 
-def test_resolve_semantic_model_project_name_prefers_the_config_override():
+def test_semantic_models_stay_datasets_when_the_server_refuses():
+    """The "I turned it on and nothing happened" path must still emit datasets."""
+    source = _semantic_model_source(emit_semantic_model_entities=True)
+    graph = mock.MagicMock()
+    graph.server_config.is_datahub_cloud = True
+    graph.server_config.service_version = "0.3.1"
+    # The gate vetoes on this, so a server too old to have the entity types
+    # falls back rather than emitting aspects it would reject.
+    graph.server_config.supports_feature.return_value = False
+    source.ctx.graph = graph
+
+    assert source._emit_semantic_model_entities() is False
+    assert source.report.semantic_model_emission_effective is False
+    assert any(
+        w.title == "Cannot emit dbt semanticModel/metric entities"
+        for w in source.report.warnings
+    )
+
+
+def test_resolve_semantic_model_project_name_precedence():
+    """Config override beats the manifest, which beats the package name."""
     source = _semantic_model_source(semantic_model_project_name="pinned")
     source._project_name = "from_manifest"
     assert source._resolve_semantic_model_project_name([]) == "pinned"
 
-
-def test_resolve_semantic_model_project_name_uses_the_manifest_name():
     source = _semantic_model_source()
     source._project_name = "from_manifest"
     assert source._resolve_semantic_model_project_name([]) == "from_manifest"
@@ -4693,18 +4708,30 @@ def test_resolve_semantic_model_project_name_falls_back_to_the_package_name():
     nodes = [
         _make_semantic_model_node("orders", package_name="jaffle_shop"),
         _make_semantic_model_node("customers", package_name="jaffle_shop"),
+    ]
+    assert source._resolve_semantic_model_project_name(nodes) == "jaffle_shop"
+    assert source.report.warnings == []
+
+
+def test_multiple_dbt_packages_warns_that_the_project_name_is_inferred():
+    """An installed package must not silently become the URN identity."""
+    source = _semantic_model_source()
+    nodes = [
+        _make_semantic_model_node("orders", package_name="jaffle_shop"),
+        _make_semantic_model_node("customers", package_name="jaffle_shop"),
         _make_semantic_model_node("vendored", package_name="some_package"),
     ]
     assert source._resolve_semantic_model_project_name(nodes) == "jaffle_shop"
+    assert any(w.title == "Ambiguous dbt project name" for w in source.report.warnings)
 
 
-def test_resolve_semantic_model_project_name_warns_when_undeterminable():
-    """The generic fallback must not silently become part of every URN."""
+def test_undeterminable_project_name_is_a_failure_and_emits_nothing():
+    """URNs minted under a placeholder would need a hard delete to correct."""
     source = _semantic_model_source()
-    assert source._resolve_semantic_model_project_name([]) == DEFAULT_PROJECT_NAME
+    assert source._resolve_semantic_model_project_name([]) is None
     assert any(
-        w.title == "Could not determine the dbt project name"
-        for w in source.report.warnings
+        f.title == "Could not determine the dbt project name"
+        for f in source.report.failures
     )
 
 

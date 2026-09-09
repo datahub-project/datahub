@@ -995,10 +995,11 @@ class TestDbtCloudSemanticModelEntities:
             "(urn:li:dataPlatform:dbt,test_project,semantic_layer)" in urns
         )
         assert (
-            "urn:li:dataset:(urn:li:dataPlatform:dbt,test_project.orders,PROD)" in urns
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,test_project.semantic_layer.orders,PROD)"
+            in urns
         )
         assert (
-            "urn:li:dataset:(urn:li:dataPlatform:dbt,test_project.customers,PROD)"
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,test_project.semantic_layer.customers,PROD)"
             in urns
         )
         # createMetric is already in the Discovery API selection set.

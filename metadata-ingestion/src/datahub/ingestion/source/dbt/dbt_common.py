@@ -597,18 +597,23 @@ class DBTCommonConfig(
         default=None,
         description="The platform instance for the platform that dbt is operating on. Use this if you have multiple instances of the same platform (e.g. redshift) and need to distinguish between them.",
     )
-    emit_semantic_model_entities: Optional[bool] = Field(
-        default=None,
+    emit_semantic_model_entities: bool = Field(
+        default=False,
         description="If true, emit dbt semantic models as first-class "
         "`semanticModel` entities: one `semanticModel` per dbt project, one "
         "dataset with subtype `Semantic Model Dataset` per dbt semantic model, "
         "and one `metric` entity per `create_metric` measure and per top-level "
-        "`metrics:` definition (dbt Core only). When unset or false, semantic "
-        "models are emitted as datasets with subtype `Semantic Model`, keeping "
-        "existing URNs stable. Requires a DataHub server that registers "
-        "semanticModel/metric (Cloud >= 2.1.0, or OSS with "
-        "`METRICS_ENABLED=true`). Re-ingest with stateful ingestion enabled so "
-        "the previous `Semantic Model` datasets are soft-deleted.",
+        "`metrics:` definition (dbt Core only). When false (the default), "
+        "semantic models are emitted as datasets with subtype `Semantic Model`, "
+        "keeping existing URNs stable. Requires a DataHub server new enough to "
+        "have `semanticModel` and `metric` in its entity registry: DataHub "
+        "Cloud 2.1.0 or later, which is checked before emitting, or a "
+        "correspondingly recent OSS server, which is not checked -- so confirm "
+        "the version before enabling this on OSS. Set `METRICS_ENABLED=true` on "
+        "the server for the entities to be visible in the Metrics UI and "
+        "search; ingestion succeeds either way. Re-ingest with stateful "
+        "ingestion enabled so the previous `Semantic Model` datasets are "
+        "soft-deleted.",
     )
     semantic_model_project_name: Optional[str] = Field(
         default=None,
@@ -841,6 +846,28 @@ class DBTCommonConfig(
 
         return self
 
+    @field_validator("semantic_model_project_name")
+    @classmethod
+    def validate_semantic_model_project_name(cls, v: Optional[str]) -> Optional[str]:
+        # This lands verbatim in semanticModel and metric URNs, where the
+        # reserved characters would produce a malformed urn and an empty value
+        # would silently fall back to inference.
+        if v is None:
+            return None
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError(
+                "semantic_model_project_name must not be blank; omit it to infer "
+                "the project name instead"
+            )
+        invalid = [c for c in ".,()" if c in stripped]
+        if invalid:
+            raise ValueError(
+                f"semantic_model_project_name must not contain {invalid}; it is "
+                "used verbatim in semanticModel and metric URNs"
+            )
+        return stripped
+
     @model_validator(mode="after")
     def validate_skip_sources_in_lineage(self) -> "DBTCommonConfig":
         if self.prefer_sql_parser_lineage and not self.skip_sources_in_lineage:
@@ -924,7 +951,6 @@ class DBTSemanticDimension:
     description: Optional[str]
     expr: Optional[str]
     time_granularity: Optional[str] = None
-    is_primary_time: bool = False
 
     @property
     def is_time(self) -> bool:
@@ -938,7 +964,6 @@ class DBTSemanticMeasure:
     description: Optional[str]
     expr: Optional[str]
     create_metric: bool = False
-    agg_time_dimension: Optional[str] = None
 
 
 @dataclass
@@ -1005,7 +1030,6 @@ def parse_semantic_model_definition(
                 time_granularity=_optional_str(
                     _first_present(type_params, "time_granularity", "timeGranularity")
                 ),
-                is_primary_time=bool(type_params.get("is_primary")),
             )
         )
 
@@ -1017,9 +1041,6 @@ def parse_semantic_model_definition(
             expr=_optional_str(raw_measure.get("expr")),
             create_metric=bool(
                 _first_present(raw_measure, "create_metric", "createMetric")
-            ),
-            agg_time_dimension=_optional_str(
-                _first_present(raw_measure, "agg_time_dimension", "aggTimeDimension")
             ),
         )
         for raw_measure in _iter_mappings(raw.get("measures"))
@@ -1442,7 +1463,6 @@ class DBTExposure:
 METRIC_TYPE_SIMPLE = "simple"
 METRIC_TYPE_RATIO = "ratio"
 METRIC_TYPE_DERIVED = "derived"
-METRIC_TYPE_CUMULATIVE = "cumulative"
 METRIC_TYPE_CONVERSION = "conversion"
 
 # Metric types whose type_params reference other metrics rather than measures.
@@ -1460,7 +1480,6 @@ class DBTMetricInput:
     """
 
     name: str
-    alias: Optional[str] = None
 
 
 @dataclass
@@ -1483,7 +1502,6 @@ class DBTMetric:
     input_metrics: List[DBTMetricInput] = field(default_factory=list)
     expr: Optional[str] = None
     filter: Optional[str] = None
-    meta: Dict[str, Any] = field(default_factory=dict)
     tags: List[str] = field(default_factory=list)
     depends_on: List[str] = field(default_factory=list)
     dbt_package_name: Optional[str] = None
@@ -1708,6 +1726,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._metrics: List[DBTMetric] = []
         # dbt project name, used in the semanticModel URN. Set by subclasses.
         self._project_name: Optional[str] = None
+        # Resolved once by _emit_semantic_model_entities; the report
+        # field of the same meaning is descriptive only.
+        self._emit_semantic_models: Optional[bool] = None
         # Cache for upstream existence checks (skip_missing_upstreams_in_lineage)
         self._upstream_exists_cache: Dict[str, bool] = {}
 
@@ -2300,17 +2321,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _emit_semantic_model_entities(self) -> bool:
         """Resolve the semantic-model emission decision once, then cache it.
 
-        Unlike Snowflake, an unset value resolves to *off* rather than
-        auto-enabling on managed servers: dbt has been emitting semantic models
-        as datasets for a while, and auto-enabling would silently re-mint those
-        URNs. The gate is used to refuse an explicit opt-in that the server
-        cannot honour.
+        Unlike Snowflake, this does not auto-enable on managed servers: dbt has
+        been emitting semantic models as datasets for a while, and auto-enabling
+        would silently re-mint those URNs on upgrade. The gate is used to refuse
+        an explicit opt-in that the server cannot honour.
         """
-        if self.report.semantic_model_emission_effective is not None:
-            return self.report.semantic_model_emission_effective
+        if self._emit_semantic_models is not None:
+            return self._emit_semantic_models
 
         requested = self.config.emit_semantic_model_entities
         if not requested:
+            self._emit_semantic_models = False
             self.report.semantic_model_emission_effective = False
             self.report.semantic_model_emission_reason = (
                 "emit_semantic_model_entities is not enabled"
@@ -2324,23 +2345,31 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.report.warning(
                 title="Cannot emit dbt semanticModel/metric entities",
                 message="emit_semantic_model_entities was requested, but this "
-                "DataHub server cannot accept semanticModel/metric entities. "
-                "Falling back to emitting semantic models as datasets with "
-                "subtype 'Semantic Model'. Requires DataHub Cloud >= 2.1.0, or "
-                "OSS with METRICS_ENABLED=true.",
+                "DataHub Cloud server is too old to accept semanticModel and "
+                "metric entities. Emitting semantic models as datasets with "
+                "subtype 'Semantic Model' instead. Requires DataHub Cloud "
+                "2.1.0 or later.",
                 context=decision.reason,
             )
+        self._emit_semantic_models = decision.enabled
         self.report.semantic_model_emission_effective = decision.enabled
         self.report.semantic_model_emission_reason = decision.reason
         return decision.enabled
 
     def _resolve_semantic_model_project_name(
         self, semantic_model_nodes: List[DBTNode]
-    ) -> str:
+    ) -> Optional[str]:
+        """Resolve the project name that becomes part of every new URN.
+
+        Returns None when it cannot be determined, which callers must treat as
+        "do not emit": minting entity identity under a generic placeholder
+        would need a hard delete to correct later.
+        """
         if self.config.semantic_model_project_name:
             return self.config.semantic_model_project_name
         if self._project_name:
             return self._project_name
+
         # dbt Cloud has no manifest metadata, but the Discovery API returns
         # packageName for semantic models, which is the project name for
         # first-party (non-package) models.
@@ -2349,28 +2378,46 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             for node in semantic_model_nodes
             if node.dbt_package_name
         )
+        if len(packages) > 1:
+            # An installed package shipping more semantic models than the root
+            # project would otherwise become the URN identity, and that
+            # identity would churn as the mix changes.
+            self.report.warning(
+                title="Ambiguous dbt project name",
+                message="Semantic models come from more than one dbt package, "
+                "so the project name was inferred from the most common one. Set "
+                "`semantic_model_project_name` to pin it, since it is part of "
+                "the semanticModel and metric URNs and must stay stable.",
+                context=f"packages={sorted(packages)}",
+            )
         if packages:
             return packages.most_common(1)[0][0]
-        self.report.warning(
-            title="Could not determine the dbt project name",
-            message="Falling back to a generic name in the semanticModel and "
-            "metric URNs. Set `semantic_model_project_name` to pin it, since it "
-            "is part of the entity identity and must stay stable across runs.",
-        )
-        return DEFAULT_PROJECT_NAME
 
-    def _warn_unsupported_semantic_model_config(self) -> None:
-        self.report.warning(
-            title="Some config options do not apply in semantic-model mode",
-            message="`include_column_lineage`, `column_meta_mapping`, "
-            "`meta_mapping`, `infer_dbt_schemas`, `incremental_lineage`, "
-            "`skip_missing_upstreams_in_lineage` and sibling emission are not "
-            "applied to semanticModel/metric entities. Semantic-model datasets "
-            "carry coarse upstream lineage to the dbt nodes they are built on; "
-            "no siblings, no column-level lineage and no meta-derived "
-            "tags/terms/owners are emitted for them.",
-            context="emit_semantic_model_entities=true",
+        self.report.failure(
+            title="Could not determine the dbt project name",
+            message="No semanticModel, Semantic Model Dataset or metric "
+            "entities were emitted. The project name is part of their URNs, so "
+            "it cannot be defaulted -- entities minted under a placeholder name "
+            "would need a hard delete to correct. Set "
+            "`semantic_model_project_name` in the recipe.",
+            context=f"{len(semantic_model_nodes)} semantic models",
         )
+        return None
+
+    def _unsupported_semantic_model_config(self) -> List[str]:
+        """Config options that have no effect in semantic-model mode."""
+        candidates = {
+            "include_column_lineage": self.config.include_column_lineage,
+            "column_meta_mapping": bool(self.config.column_meta_mapping),
+            "meta_mapping": bool(self.config.meta_mapping),
+            "infer_dbt_schemas": not self.config.infer_dbt_schemas,
+            "incremental_lineage": self.config.incremental_lineage,
+            "skip_missing_upstreams_in_lineage": (
+                self.config.skip_missing_upstreams_in_lineage
+            ),
+            "dbt_is_primary_sibling": not self.config.dbt_is_primary_sibling,
+        }
+        return sorted(name for name, is_set in candidates.items() if is_set)
 
     def _create_semantic_model_workunits(
         self,
@@ -2390,7 +2437,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not semantic_model_nodes and not metric_definitions:
             return
 
-        self._warn_unsupported_semantic_model_config()
+        unsupported = self._unsupported_semantic_model_config()
+        if unsupported:
+            self.report.info(
+                title="Some config options do not apply in semantic-model mode",
+                message="These options are set but are not applied to "
+                "semanticModel, Semantic Model Dataset or metric entities. "
+                "Semantic-model datasets carry coarse upstream lineage to the "
+                "dbt nodes they are built on; no siblings, no column-level "
+                "lineage and no meta-derived tags, terms or owners.",
+                context=", ".join(unsupported),
+            )
         logger.info(
             f"Creating dbt semantic model metadata for "
             f"{len(semantic_model_nodes)} semantic models and "
@@ -2402,12 +2459,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             DbtSemanticModelMapper,
         )
 
+        project_name = self._resolve_semantic_model_project_name(semantic_model_nodes)
+        if project_name is None:
+            return
+
         mapper = DbtSemanticModelMapper(
             config=self.config,
             report=self.report,
-            project_name=self._resolve_semantic_model_project_name(
-                semantic_model_nodes
-            ),
+            project_name=project_name,
         )
         yield from mapper.emit(
             semantic_model_nodes=semantic_model_nodes,

@@ -6404,7 +6404,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -6420,7 +6420,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -6445,7 +6445,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -6463,7 +6463,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -6481,7 +6481,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "semanticModelProperties",
     "aspect": {
@@ -6498,7 +6498,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -6569,7 +6569,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.customers,PROD),customer_id)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.customers,PROD),customer_id)",
     "changeType": "UPSERT",
     "aspectName": "semanticFieldAnnotation",
     "aspect": {
@@ -6596,7 +6596,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.customers,PROD),customer_email)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.customers,PROD),customer_email)",
     "changeType": "UPSERT",
     "aspectName": "semanticFieldAnnotation",
     "aspect": {
@@ -6623,7 +6623,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.customers,PROD),customer_lifetime_value)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.customers,PROD),customer_lifetime_value)",
     "changeType": "UPSERT",
     "aspectName": "semanticFieldAnnotation",
     "aspect": {
@@ -6648,7 +6648,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -6664,7 +6664,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -6689,7 +6689,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -6707,7 +6707,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -6725,7 +6725,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD)",
     "changeType": "UPSERT",
     "aspectName": "semanticModelProperties",
     "aspect": {
@@ -6742,7 +6742,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -6850,7 +6850,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD),payment_id)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD),payment_id)",
     "changeType": "UPSERT",
     "aspectName": "semanticFieldAnnotation",
     "aspect": {
@@ -6877,7 +6877,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD),customer_id)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD),customer_id)",
     "changeType": "UPSERT",
     "aspectName": "semanticFieldAnnotation",
     "aspect": {
@@ -6904,7 +6904,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD),billing_month)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD),billing_month)",
     "changeType": "UPSERT",
     "aspectName": "semanticFieldAnnotation",
     "aspect": {
@@ -6931,7 +6931,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD),payment_status)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD),payment_status)",
     "changeType": "UPSERT",
     "aspectName": "semanticFieldAnnotation",
     "aspect": {
@@ -6958,7 +6958,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD),payment_amount)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD),payment_amount)",
     "changeType": "UPSERT",
     "aspectName": "semanticFieldAnnotation",
     "aspect": {
@@ -6983,7 +6983,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD),payment_count)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD),payment_count)",
     "changeType": "UPSERT",
     "aspectName": "semanticFieldAnnotation",
     "aspect": {
@@ -7008,7 +7008,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.regions,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.regions,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -7024,7 +7024,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.regions,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.regions,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -7049,7 +7049,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.regions,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.regions,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -7067,7 +7067,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.regions,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.regions,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -7085,7 +7085,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.regions,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.regions,PROD)",
     "changeType": "UPSERT",
     "aspectName": "semanticModelProperties",
     "aspect": {
@@ -7102,7 +7102,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.regions,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.regions,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
@@ -7171,7 +7171,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.regions,PROD),region_id)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.regions,PROD),region_id)",
     "changeType": "UPSERT",
     "aspectName": "semanticFieldAnnotation",
     "aspect": {
@@ -7198,7 +7198,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.regions,PROD),territory_id)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.regions,PROD),territory_id)",
     "changeType": "UPSERT",
     "aspectName": "semanticFieldAnnotation",
     "aspect": {
@@ -7225,7 +7225,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.regions,PROD),region_name)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.regions,PROD),region_name)",
     "changeType": "UPSERT",
     "aspectName": "semanticFieldAnnotation",
     "aspect": {
@@ -7527,7 +7527,7 @@
         "json": {
             "datasetUpstreams": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD)"
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD)"
                 }
             ]
         }
@@ -7622,7 +7622,7 @@
         "json": {
             "datasetUpstreams": [
                 {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD)"
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD)"
                 }
             ]
         }
@@ -7955,7 +7955,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -7971,7 +7971,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -7987,7 +7987,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.regions,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.regions,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8003,7 +8003,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.customers,PROD),customer_email)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.customers,PROD),customer_email)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8019,7 +8019,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.customers,PROD),customer_id)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.customers,PROD),customer_id)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8035,7 +8035,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.customers,PROD),customer_lifetime_value)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.customers,PROD),customer_lifetime_value)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8051,7 +8051,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD),billing_month)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD),billing_month)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8067,7 +8067,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD),customer_id)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD),customer_id)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8083,7 +8083,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD),payment_amount)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD),payment_amount)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8099,7 +8099,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD),payment_count)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD),payment_count)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8115,7 +8115,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD),payment_id)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD),payment_id)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8131,7 +8131,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.payments,PROD),payment_status)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD),payment_status)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8147,7 +8147,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.regions,PROD),region_id)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.regions,PROD),region_id)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8163,7 +8163,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.regions,PROD),region_name)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.regions,PROD),region_name)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -8179,7 +8179,7 @@
 },
 {
     "entityType": "schemaField",
-    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.regions,PROD),territory_id)",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.regions,PROD),territory_id)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

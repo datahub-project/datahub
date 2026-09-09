@@ -507,10 +507,7 @@ def _metric_input(value: Any) -> Optional[DBTMetricInput]:
     if isinstance(value, dict):
         name = value.get("name")
         if isinstance(name, str) and name:
-            alias = value.get("alias")
-            return DBTMetricInput(
-                name=name, alias=alias if isinstance(alias, str) else None
-            )
+            return DBTMetricInput(name=name)
     return None
 
 
@@ -611,7 +608,6 @@ def extract_dbt_metrics(
                 input_metrics=_dedupe_metric_inputs(input_metrics),
                 expr=type_params.get("expr"),
                 filter=_metric_filter(metric_node.get("filter")),
-                meta=metric_node.get("meta") or {},
                 tags=tags,
                 depends_on=depends_on_nodes,
                 dbt_package_name=metric_node.get("package_name"),

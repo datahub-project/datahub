@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional, Type, TypeVar
 
+from datahub.errors import SdkUsageError
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt.dbt_common import (
@@ -16,6 +17,7 @@ from datahub.metadata.schema_classes import (
     DialectClass,
     DialectExpressionClass,
     ERModelRelationshipCardinalityClass,
+    GlobalTagsClass,
     MetricExpressionClass,
     MetricInfoClass,
     MetricRelationshipsClass,
@@ -32,6 +34,7 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
     UpstreamLineageClass,
 )
+from datahub.sdk.semantic_model import SemanticModel, SemanticModelDataset
 
 _A = TypeVar("_A")
 
@@ -221,8 +224,8 @@ def test_one_semantic_model_per_project_and_one_dataset_per_semantic_model():
 
     properties = _aspects(workunits, SemanticModelPropertiesClass)
     assert {urn for urn, _ in properties} == {
-        "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.customers,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.semantic_layer.customers,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.semantic_layer.orders,PROD)",
     }
     assert {aspect.alias for _, aspect in properties} == {"orders", "customers"}
     assert all(
@@ -254,7 +257,7 @@ def test_platform_instance_is_folded_into_path_but_not_the_dataset_name():
     )
     # The dataset builder prefixes the instance itself, so the name must not.
     assert _aspects(workunits, SemanticModelPropertiesClass)[0][0] == (
-        "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics.jaffle_shop.orders,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics.jaffle_shop.semantic_layer.orders,PROD)"
     )
 
 
@@ -274,7 +277,7 @@ def test_dataset_name_casing_follows_convert_urns_to_lowercase():
         [_sm_node("Orders", _ORDERS)],
     )
     assert _aspects(workunits, SemanticModelPropertiesClass)[0][0].endswith(
-        "Jaffle_Shop.Orders,PROD)"
+        "Jaffle_Shop.semantic_layer.Orders,PROD)"
     )
 
 
@@ -566,7 +569,7 @@ def test_create_metric_measure_emits_a_metric_with_expression_and_upstream():
 
     upstreams = dict(_aspects(workunits, MetricUpstreamsClass))
     assert _destinations(next(iter(upstreams.values())).datasetUpstreams) == [
-        "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.orders,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.semantic_layer.orders,PROD)"
     ]
 
 
@@ -640,7 +643,7 @@ def test_manifest_metric_resolves_upstream_via_type_params_measure():
 
     upstreams = dict(_aspects(workunits, MetricUpstreamsClass))
     assert _destinations(upstreams[revenue_urn].datasetUpstreams) == [
-        "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.orders,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.semantic_layer.orders,PROD)"
     ]
 
 
@@ -667,7 +670,7 @@ def test_manifest_metric_resolves_upstream_via_depends_on():
     upstreams = dict(_aspects(workunits, MetricUpstreamsClass))
     opaque_urn = "urn:li:metric:(urn:li:dataPlatform:dbt,jaffle_shop,opaque)"
     assert _destinations(upstreams[opaque_urn].datasetUpstreams) == [
-        "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.orders,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.semantic_layer.orders,PROD)"
     ]
 
 
@@ -779,8 +782,8 @@ def test_measure_valued_ratio_input_becomes_an_upstream_not_a_derived_edge():
     assert relationships[arpu_urn].derivedFrom == []
     upstreams = dict(_aspects(workunits, MetricUpstreamsClass))
     assert set(_destinations(upstreams[arpu_urn].datasetUpstreams)) == {
-        "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.orders,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.customers,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.semantic_layer.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,jaffle_shop.semantic_layer.customers,PROD)",
     }
     assert mapper.report.warnings == []
 
@@ -888,4 +891,279 @@ def test_metrics_are_not_emitted_without_a_semantic_model_to_attach_to():
     assert any(
         w.title == "No dbt semantic models could be emitted"
         for w in mapper.report.warnings
+    )
+
+
+# --- URN collision and case handling ---------------------------------------
+
+
+def test_case_differing_semantic_model_names_get_distinct_dataset_urns():
+    """convert_urns_to_lowercase defaults true, so "Orders"/"orders" collide."""
+    mapper = _mapper()
+    workunits = _emit(
+        mapper, [_sm_node("Orders", _ORDERS), _sm_node("orders", _CUSTOMERS)]
+    )
+
+    urns = {urn for urn, _ in _aspects(workunits, SemanticModelPropertiesClass)}
+    assert len(urns) == 2
+    assert any(
+        w.title == "Duplicate dbt semantic model name" for w in mapper.report.warnings
+    )
+
+
+def test_logical_dataset_name_cannot_collide_with_a_two_part_dbt_node():
+    """DBTNode.get_db_fqn drops a falsy database, so nodes can be 2-part too."""
+    workunits = _emit(_mapper(project_name="pagila"), [_sm_node("orders", _ORDERS)])
+
+    urn = _aspects(workunits, SemanticModelPropertiesClass)[0][0]
+    # Three parts, so <schema>.<name> can never resolve to the same URN.
+    assert "pagila.semantic_layer.orders" in urn
+
+
+def test_case_differing_entity_names_still_resolve_a_relationship():
+    """Owners are indexed case-insensitively, so membership must be too."""
+    orders = {
+        "entities": [
+            {"name": "order_id", "type": "primary"},
+            {"name": "Customer_Id", "type": "foreign"},
+        ],
+        "measures": [{"name": "total", "agg": "sum"}],
+    }
+    mapper = _mapper()
+    workunits = _emit(
+        mapper, [_sm_node("orders", orders), _sm_node("customers", _CUSTOMERS)]
+    )
+
+    relationships = _relationships(_one(workunits, SemanticModelInfoClass))
+    assert len(relationships) == 1
+    # Each side uses the field path present in its own schema.
+    assert relationships[0].fromColumns == ["Customer_Id"]
+    assert relationships[0].toColumns == ["customer_id"]
+    assert mapper.report.warnings == []
+
+
+def test_primary_entity_without_a_matching_entity_is_not_a_join_target():
+    """dbt allows primary_entity precisely when no such column exists."""
+    regions = {
+        "primary_entity": "region_id",
+        "entities": [{"name": "territory_id", "type": "unique"}],
+        "dimensions": [{"name": "region_name", "type": "categorical"}],
+    }
+    orders = {
+        "entities": [
+            {"name": "order_id", "type": "primary"},
+            {"name": "region_id", "type": "foreign"},
+        ],
+        "measures": [{"name": "total", "agg": "sum"}],
+    }
+    mapper = _mapper()
+    workunits = _emit(
+        mapper, [_sm_node("orders", orders), _sm_node("regions", regions)]
+    )
+
+    # No fabricated column, and no relationship to a target with no column.
+    assert _one(workunits, SemanticModelInfoClass).relationships is None
+    schemas = {
+        urn: {f.fieldPath for f in aspect.fields}
+        for urn, aspect in _aspects(workunits, SchemaMetadataClass)
+    }
+    regions_fields = next(v for k, v in schemas.items() if "regions" in k)
+    assert "region_id" not in regions_fields
+    assert any(
+        "declared as a key but has no matching entity" in entry
+        for entry in mapper.report.semantic_model_relationships_unresolved
+    )
+
+
+def test_duplicate_measure_name_across_models_is_reported():
+    """Measure names are unique per model, not per project."""
+    a = {
+        "entities": [{"name": "a_id", "type": "primary"}],
+        "measures": [{"name": "revenue", "agg": "sum"}],
+    }
+    b = {
+        "entities": [{"name": "b_id", "type": "primary"}],
+        "measures": [{"name": "revenue", "agg": "max"}],
+    }
+    mapper = _mapper()
+    _emit(mapper, [_sm_node("a", a), _sm_node("b", b)])
+
+    assert any(w.title == "Ambiguous dbt measure name" for w in mapper.report.warnings)
+
+
+# --- derivedFrom canonical case ---------------------------------------------
+
+
+def test_derived_from_uses_the_defining_case_not_the_referencing_case():
+    """A dangling derivedFrom edge is worse than a missing one."""
+    mapper = _mapper()
+    workunits = _emit(
+        mapper,
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.revenue": {
+                    "name": "Revenue",
+                    "label": "Revenue",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {"measure": "order_total"},
+                },
+                "metric.jaffle_shop.margin": {
+                    "name": "margin",
+                    "label": "Margin",
+                    "description": "",
+                    "type": "derived",
+                    # Referenced in a different case than it was defined.
+                    "type_params": {
+                        "expr": "revenue * 0.4",
+                        "metrics": [{"name": "revenue"}],
+                    },
+                },
+            }
+        ),
+    )
+
+    emitted = {urn for urn, _ in _aspects(workunits, MetricInfoClass)}
+    relationships = dict(_aspects(workunits, MetricRelationshipsClass))
+    margin_urn = "urn:li:metric:(urn:li:dataPlatform:dbt,jaffle_shop,margin)"
+    derived = _destinations(relationships[margin_urn].derivedFrom)
+    assert derived == ["urn:li:metric:(urn:li:dataPlatform:dbt,jaffle_shop,Revenue)"]
+    # The edge must point at a metric that was actually emitted.
+    assert set(derived) <= emitted
+    assert mapper.report.warnings == []
+
+
+# --- metric filter ----------------------------------------------------------
+
+
+def test_metric_filter_is_folded_into_the_expression():
+    """Dropping the filter would publish a broader metric as authoritative."""
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.us_revenue": {
+                    "name": "us_revenue",
+                    "label": "US Revenue",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {"measure": "order_total"},
+                    "filter": {
+                        "where_filters": [{"where_sql_template": "region = 'US'"}]
+                    },
+                }
+            }
+        ),
+    )
+
+    metrics = dict(_aspects(workunits, MetricInfoClass))
+    urn = "urn:li:metric:(urn:li:dataPlatform:dbt,jaffle_shop,us_revenue)"
+    assert (
+        _expression_of(metrics[urn].expression).expression
+        == "sum(orders.order_total) FILTER (WHERE region = 'US')"
+    )
+
+
+def test_metric_tags_reach_the_emitted_metric():
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.revenue": {
+                    "name": "revenue",
+                    "label": "Revenue",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {"measure": "order_total"},
+                    "tags": ["certified"],
+                }
+            }
+        ),
+    )
+
+    tags = dict(_aspects(workunits, GlobalTagsClass))
+    urn = "urn:li:metric:(urn:li:dataPlatform:dbt,jaffle_shop,revenue)"
+    assert [t.tag for t in tags[urn].tags] == ["urn:li:tag:dbt:certified"]
+
+
+# --- report reconciliation --------------------------------------------------
+
+
+def test_metric_counters_reconcile_with_the_emitted_total():
+    mapper = _mapper()
+    _emit(
+        mapper,
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                # Shadows the create_metric measure, so it must not be
+                # double-counted.
+                "metric.jaffle_shop.order_total": {
+                    "name": "order_total",
+                    "label": "Order Total",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {"measure": "order_total"},
+                },
+                "metric.jaffle_shop.other": {
+                    "name": "other",
+                    "label": "Other",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {},
+                },
+            }
+        ),
+    )
+
+    report = mapper.report
+    assert (
+        report.num_metrics_from_measures + report.num_metrics_from_manifest
+        == report.num_metrics_emitted
+    )
+
+
+# --- emission failure isolation ---------------------------------------------
+
+
+def test_one_unrepresentable_dataset_does_not_lose_the_project(monkeypatch):
+    mapper = _mapper()
+    nodes = [_sm_node("orders", _ORDERS), _sm_node("customers", _CUSTOMERS)]
+    original = SemanticModelDataset.as_workunits
+
+    def as_workunits(self):
+        if self.urn.name.endswith("orders"):
+            raise SdkUsageError("cannot represent this dataset")
+        return original(self)
+
+    monkeypatch.setattr(SemanticModelDataset, "as_workunits", as_workunits)
+    workunits = _emit(mapper, nodes)
+
+    # The other dataset and the semanticModel still land.
+    assert _aspects(workunits, SemanticModelInfoClass)
+    assert len(_aspects(workunits, SemanticModelPropertiesClass)) == 1
+    assert any(
+        w.title == "Failed to emit a dbt semantic model entity"
+        for w in mapper.report.warnings
+    )
+
+
+def test_a_bad_semantic_model_is_a_failure_not_a_warning(monkeypatch):
+    """Losing the semanticModel loses the whole project, so it must fail."""
+    mapper = _mapper()
+    nodes = [_sm_node("orders", _ORDERS)]
+
+    def raise_sdk_error(self):
+        raise SdkUsageError("bad alias")
+
+    monkeypatch.setattr(SemanticModel, "as_workunits", raise_sdk_error)
+    workunits = _emit(mapper, nodes)
+
+    assert workunits == []
+    assert any(
+        f.title == "Failed to emit dbt semantic model entities"
+        for f in mapper.report.failures
     )
