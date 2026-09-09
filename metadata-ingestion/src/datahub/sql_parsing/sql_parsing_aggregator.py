@@ -128,8 +128,7 @@ class ViewDefinition:
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
     override_dialect: Optional[DialectOrStr] = None
-    # Snowflake CUSTOM_INCREMENTAL tables need this: their MERGE-INTO-SELF DDL doesn't parse,
-    # but the base tables are known from a catalog graph. See add_view_definition.
+    # Table-level fallback for an unparseable definition; see add_view_definition.
     table_level_fallback_upstreams: Optional[List[UrnStr]] = None
 
 
@@ -362,6 +361,7 @@ class SqlAggregatorReport(Report):
     num_view_definitions: int = 0
     num_views_failed: int = 0
     num_views_table_level_fallback: int = 0
+    num_views_self_reference_dropped: int = 0
     num_views_column_timeout: int = 0
     num_views_column_failed: int = 0
     views_parse_failures: LossyDict[UrnStr, str] = dataclasses.field(
@@ -910,10 +910,13 @@ class SqlParsingAggregator(Closeable):
         multiple dialects (e.g. Glue/Hive catalogs holding both Presto/Trino and
         Hive views).
 
-        ``table_level_fallback_upstreams`` is used only when the definition is present
-        but unparseable (``table_error``): the given URNs are emitted as table-level
-        upstreams so lineage survives even without column-level detail. It is ignored
-        when the definition parses successfully.
+        ``table_level_fallback_upstreams`` is emitted as table-level upstreams (no
+        column-level detail) when the definition is present but yields no usable
+        lineage: either it does not parse (``table_error``), or it parses but resolves
+        to nothing (e.g. a partial MERGE-INTO-SELF parse referencing only the view). It
+        is ignored when the definition yields real upstreams. Snowflake CUSTOM_INCREMENTAL
+        dynamic tables are the motivating case: their MERGE-INTO-SELF DDL does not parse,
+        but the base tables are known from the catalog.
         """
 
         self.report.num_view_definitions += 1
@@ -1266,18 +1269,15 @@ class SqlParsingAggregator(Closeable):
     def _exclude_self_column_lineage(
         view_urn: UrnStr, column_lineage: Optional[List[ColumnLineageInfo]]
     ) -> List[ColumnLineageInfo]:
-        # Drop the self-edge from each entry, keeping any real upstreams in the same entry.
+        # Valid only for SQL-parsed views. Unity metric views self-reference and are
+        # excluded from this path (unity/source.py), so don't widen this guard.
         result: List[ColumnLineageInfo] = []
         for cl in column_lineage or []:
             kept = [uc for uc in cl.upstreams if uc.table != view_urn]
             if len(kept) == len(cl.upstreams):
                 result.append(cl)
             elif kept:
-                result.append(
-                    ColumnLineageInfo(
-                        downstream=cl.downstream, upstreams=kept, logic=cl.logic
-                    )
-                )
+                result.append(cl.model_copy(update={"upstreams": kept}))
         return result
 
     def _process_view_definition(
@@ -1316,12 +1316,29 @@ class SqlParsingAggregator(Closeable):
             view_definition.view_definition
         )
 
-        # Exclude self-references; the fallback path does the same, so neither can emit a
-        # self-loop or phantom column lineage.
+        # Exact-URN match, so a schema-resolver casing mismatch fails open (a self-loop
+        # slips through) to the pre-guard behavior.
         upstreams = self._exclude_self_upstreams(view_urn, parsed.in_tables)
         column_lineage = self._exclude_self_column_lineage(
             view_urn, parsed.column_lineage
         )
+        if view_urn in parsed.in_tables or any(
+            uc.table == view_urn
+            for cl in (parsed.column_lineage or [])
+            for uc in cl.upstreams
+        ):
+            self.report.num_views_self_reference_dropped += 1
+
+        # Fall back only when nothing usable was derived (no upstreams, no real column
+        # edge), so a real column edge is not discarded.
+        derived_nothing = not upstreams and not any(
+            cl.upstreams for cl in column_lineage
+        )
+        if derived_nothing and view_definition.table_level_fallback_upstreams:
+            self._add_table_level_fallback_lineage(
+                view_urn, view_definition.table_level_fallback_upstreams
+            )
+            return
 
         # Register the query.
         self._add_to_query_map(
@@ -1348,9 +1365,7 @@ class SqlParsingAggregator(Closeable):
     ) -> None:
         self.report.num_views_table_level_fallback += 1
         upstreams = self._exclude_self_upstreams(view_urn, upstreams)
-        # "known_" prefix: can_generate_query() skips known-lineage ids, so no spurious Query entity is
-        # emitted (as with add_known_lineage_mapping); hashed on the URN to stay deterministic.
-        query_fingerprint = f"known_{generate_hash(view_urn)}"
+        query_fingerprint = self._view_fallback_query_id(view_urn)
         self._add_to_query_map(
             QueryMetadata(
                 query_id=query_fingerprint,
@@ -1360,7 +1375,7 @@ class SqlParsingAggregator(Closeable):
                 lineage_type=models.DatasetLineageTypeClass.VIEW,
                 latest_timestamp=None,
                 actor=None,
-                upstreams=list(upstreams),
+                upstreams=upstreams,
                 # Table-level only: identity CLL from INPUTS would be wrong for aliased/aggregated columns.
                 column_lineage=[],
                 column_usage={},
@@ -1750,6 +1765,12 @@ class SqlParsingAggregator(Closeable):
     @classmethod
     def _known_lineage_query_id(cls) -> str:
         return f"known_{uuid.uuid4()}"
+
+    @classmethod
+    def _view_fallback_query_id(cls, view_urn: UrnStr) -> str:
+        # "known_" prefix: can_generate_query() skips it, so no placeholder Query entity
+        # is emitted (as add_known_lineage_mapping); hashed on the URN for determinism.
+        return f"known_{generate_hash(view_urn)}"
 
     @classmethod
     def _is_known_lineage_query_id(cls, query_id: QueryId) -> bool:
