@@ -610,6 +610,20 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 datasphere_upstream_urn = self._resolve_datasphere_upstream(model)
                 if datasphere_upstream_urn is not None:
                     self.report.dwc_lineage_resolved += 1
+                    # Materialize the upstream key so the Datasphere node exists even when
+                    # that connector hasn't run yet, matching the BW/HANA path above and
+                    # keeping this lineage order-independent.
+                    if (
+                        datasphere_upstream_urn
+                        not in self.ingested_upstream_dataset_keys
+                    ):
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=datasphere_upstream_urn,
+                            aspect=dataset_urn_to_key(datasphere_upstream_urn),
+                        ).as_workunit(is_primary_source=False)
+
+                        self.ingested_upstream_dataset_keys.add(datasphere_upstream_urn)
+
                     yield MetadataChangeProposalWrapper(
                         entityUrn=dataset_urn,
                         aspect=UpstreamLineageClass(
@@ -997,7 +1011,12 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         # SAC exposes the Datasphere object's technical name (the model name) but not its
         # space, so the space comes from connection_mapping and the urn is built directly.
         object_name = (model.name or "").strip()
-        if not object_name:
+        # SAC synthesizes `<namespace>:<model_id>` as the name when OData exposes no real
+        # technical name; that value can't identify the Datasphere object, so treat it as
+        # unresolved rather than stitching to a fabricated urn. ponytail: this string compare
+        # is coupled to the fallback built when resource models are fetched — if that format
+        # changes, promote it to an explicit "name missing" flag on ResourceModel.
+        if not object_name or object_name == f"{model.namespace}:{model.model_id}":
             self.report.dwc_lineage_unresolved += 1
             self.report.warning(
                 title="SAP Datasphere model has no name",
@@ -1006,6 +1025,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     "because the model has no name to derive the object from."
                 ),
                 context=f"{model.connection_id}: {model.namespace}:{model.model_id}",
+                log=False,
             )
             return None
 
@@ -1021,10 +1041,9 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     "space id), or set resolve_datasphere_lineage=false to silence this."
                 ),
                 context=f"{model.connection_id}: {model.name}",
+                log=False,
             )
             return None
-
-        platform = _DATASPHERE_PLATFORM
 
         # Match the Datasphere connector's urn casing so the upstream stitches.
         dataset_name = f"{connection.datasphere_space}.{object_name}"
@@ -1032,7 +1051,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             dataset_name = dataset_name.lower()
 
         return make_dataset_urn_with_platform_instance(
-            platform=platform,
+            platform=_DATASPHERE_PLATFORM,
             name=dataset_name,
             platform_instance=connection.platform_instance,
             env=connection.env,

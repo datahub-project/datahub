@@ -18,7 +18,11 @@ from datahub.ingestion.source.sac.sac import (
     SACSourceConfig,
 )
 from datahub.ingestion.source.sac.sac_common import ResourceModel
-from datahub.metadata.schema_classes import SubTypesClass, UpstreamLineageClass
+from datahub.metadata.schema_classes import (
+    DatasetKeyClass,
+    SubTypesClass,
+    UpstreamLineageClass,
+)
 from datahub.testing import mce_helpers
 
 DWC_MODEL_URN = (
@@ -481,6 +485,19 @@ def test_resolve_datasphere_upstream_no_space_is_skipped(requests_mock):
     assert source.report.dwc_lineage_skipped_no_space == 1
 
 
+def test_resolve_datasphere_upstream_synthetic_name_is_unresolved(requests_mock):
+    # SAC falls back to `<namespace>:<model_id>` when OData exposes no real technical name;
+    # that value cannot identify the Datasphere object, so no lineage is emitted.
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+    synthetic_name = "t.3.C1ekdhlvx11ts0000000000000:C1ekdhlvx11ts0000000000000"
+
+    assert source._resolve_datasphere_upstream(_dwc_model(synthetic_name)) is None
+    assert source.report.dwc_lineage_unresolved == 1
+
+
 def test_get_model_workunits_emits_datasphere_upstream_and_subtype(requests_mock):
     # Drives a DWC model through the full workunit emission (not just the resolver) so the
     # UpstreamLineage MCP and the SAC_LIVE_DATA_MODEL subtype gate are exercised end-to-end.
@@ -491,11 +508,23 @@ def test_get_model_workunits_emits_datasphere_upstream_and_subtype(requests_mock
 
     workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
 
+    expected_upstream = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fax_mart,PROD)"
+    )
+
     upstream = _first_aspect(workunits, UpstreamLineageClass)
     assert upstream is not None
-    assert [u.dataset for u in upstream.upstreams] == [
-        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fax_mart,PROD)"
+    assert [u.dataset for u in upstream.upstreams] == [expected_upstream]
+
+    # The upstream key is materialized so the Datasphere node exists even if that
+    # connector has not run yet (order-independent lineage).
+    key_workunits = [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetKeyClass) is not None
+        and wu.get_urn() == expected_upstream
     ]
+    assert len(key_workunits) == 1
 
     subtype = _first_aspect(workunits, SubTypesClass)
     assert subtype is not None
