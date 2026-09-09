@@ -5,6 +5,7 @@ import json
 import logging
 import pathlib
 import tempfile
+from functools import cached_property
 from typing import (
     Any,
     Callable,
@@ -837,21 +838,18 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
     # value is an immutable bool, never mutated through the class.
     _fetch_connector_urls: bool = True
 
-    @property
-    def _canvas_urls(self) -> Dict[str, str]:
-        """Per-runtime canvas cache, created per instance on first use.
+    @cached_property
+    def _canvas_urls(self) -> Dict[Tuple[str, str, str], str]:
+        """Canvas URL per runtime, for this run only.
 
         NOT a class-level default like `_fetch_connector_urls`. That one is a
         bool, so every write rebinds and instances cannot interfere; a dict is
         mutated in place, so a class-level one would be shared by every source
-        -- and by every test built via object.__new__, which is how this was
-        caught. Lazy so those harnesses need no extra assignment.
+        -- and by every test built via object.__new__, which is how that was
+        caught. cached_property gives per-instance state without depending on
+        __init__, which those same harnesses skip.
         """
-        cache = self.__dict__.get("_canvas_url_by_runtime")
-        if cache is None:
-            cache = {}
-            self.__dict__["_canvas_url_by_runtime"] = cache
-        return cache
+        return {}
 
     def _decide_url_lookup(self, connector_count: int, runtime_count: int) -> None:
         """Resolve the tri-state URL option, once per run, into one boolean.
@@ -877,10 +875,11 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         # in context, which is what every other warning in this file does.
         self.report.warning(
             title="Connector external links skipped",
-            message="This account has more connectors than the threshold at "
-            "which the per-connector DESCRIBE needed for each external link "
-            "would dominate the run, so no external links are emitted. Set "
-            "include_connector_external_url: true to fetch them anyway.",
+            message="This account has more distinct Openflow runtimes than "
+            "the threshold at which the per-runtime DESCRIBE needed for each "
+            "external link would dominate the run, so no external links are "
+            "emitted. Set include_connector_external_url: true to fetch them "
+            "anyway.",
             context=f"{runtime_count} distinct runtimes across "
             f"{connector_count} connectors, threshold "
             f"{_MAX_RUNTIMES_FOR_URL_LOOKUP} runtimes",
@@ -907,7 +906,25 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         """
         if not self._fetch_connector_urls:
             return None
-        cached = self._canvas_urls.get(connector.runtime_name)
+        # Keyed on the connector's schema PLUS the runtime name, never the
+        # name alone. This file documents twice that runtime names are scoped
+        # to their deployment rather than the account, so two deployments may
+        # each hold a runtime called `default`; a bare-name key would hand one
+        # deployment's connectors the other's canvas host. The schema is the
+        # same scope the DESCRIBE itself is issued in, so it cannot be less
+        # precise than the query whose answer it caches. A connector missing
+        # either part is not cached at all rather than cached under a partial
+        # key -- it also cannot be DESCRIBEd, so it returns below anyway.
+        cache_key = (
+            connector.database_name,
+            connector.schema_name,
+            connector.runtime_name,
+        )
+        cached = (
+            self._canvas_urls.get(cache_key)  # type: ignore[arg-type]
+            if all(cache_key)
+            else None
+        )
         if cached is not None:
             return cached
         fqn = connector.fqn
@@ -954,7 +971,8 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             # Successes only. Caching a transient DESCRIBE failure against this
             # runtime would deny the link to every sibling connector processed
             # afterwards, trading N-plus-one for a correctness regression.
-            self._canvas_urls[connector.runtime_name] = url
+            if all(cache_key):
+                self._canvas_urls[cache_key] = url  # type: ignore[index]
         return url
 
     def _read_connector_config(

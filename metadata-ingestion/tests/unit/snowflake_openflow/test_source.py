@@ -729,3 +729,57 @@ def test_a_failed_lookup_is_not_cached_against_the_runtime() -> None:
 
     assert first is None
     assert second == "https://h.app/rt-1/nifi/"
+
+
+def test_gate_counts_runtimes_not_connectors() -> None:
+    # The whole point of the rename: the DESCRIBE is one per runtime, so an
+    # account with many connectors on few runtimes costs a handful of queries
+    # and must not be degraded. Reverting the gate to connector_count fails
+    # here, which the previous tests did not catch -- they passed both counts
+    # the same value.
+    source = _make_source()
+    source._decide_url_lookup(connector_count=100_000, runtime_count=10)
+    assert source._fetch_connector_urls
+    assert _warning_titles(source.report) == []
+
+
+def test_gate_fires_on_runtime_count_even_with_few_connectors() -> None:
+    source = _make_source()
+    source._decide_url_lookup(connector_count=5, runtime_count=_MAX + 1)
+    assert not source._fetch_connector_urls
+    assert _warning_titles(source.report) == ["Connector external links skipped"]
+
+
+def test_identically_named_runtimes_in_different_schemas_are_not_shared() -> None:
+    # Runtime names are scoped to their deployment, not the account, so two
+    # deployments can each hold a runtime called the same thing. Keying the
+    # cache on the bare name would hand one deployment's connectors the other's
+    # canvas host -- silently, since both URLs are well-formed.
+    source = _make_source()
+    urls = iter(
+        [
+            [{"CONNECTOR_URL": "https://a.app/rt-a/nifi/#/connectors/x/"}],
+            [{"CONNECTOR_URL": "https://b.app/rt-b/nifi/#/connectors/y/"}],
+        ]
+    )
+    calls: List[str] = []
+
+    def per_call(query: str) -> List[Dict[str, Any]]:
+        calls.append(query)
+        return next(urls)
+
+    source._query_rows = per_call  # type: ignore[method-assign]
+    first = source._read_connector_url(
+        OpenflowConnector(
+            name="c1", runtime_name="default", database_name="DB_A", schema_name="S"
+        )
+    )
+    second = source._read_connector_url(
+        OpenflowConnector(
+            name="c2", runtime_name="default", database_name="DB_B", schema_name="S"
+        )
+    )
+
+    assert first == "https://a.app/rt-a/nifi/"
+    assert second == "https://b.app/rt-b/nifi/"
+    assert len(calls) == 2
