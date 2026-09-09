@@ -1106,6 +1106,8 @@ def test_data_lake_s3_calls(seeded_local_system_bucket, calls_test_tuple):
         calls.append(c)
 
     assert calls == expected_calls
+
+
 @pytest.mark.parametrize(
     "full_path,enable_compression,default_extension,expected",
     [
