@@ -285,13 +285,14 @@
                 "status": "RUNNING",
                 "runtime": "MyRuntime"
             },
+            "externalUrl": "https://openflow.example.snowflakecomputing.app:443/myruntime-1/nifi/#/connectors/00000000-0000-0000-0000-000000000001/",
             "name": "pg_cdc",
             "env": "PROD"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1788814686801,
-        "runId": "snowflake-openflow-2026_09_07-20_58_06-vte4w6",
+        "lastObserved": 1788955783727,
+        "runId": "snowflake-openflow-2026_09_09-12_09_42-dztb4e",
         "lastRunId": "no-run-id-provided"
     }
 },

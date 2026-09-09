@@ -86,6 +86,13 @@ RUNTIME_SHOW_ROWS = [
     }
 ]
 
+# The NiFi canvas deep link DESCRIBE returns. Only DESCRIBE carries it -- SHOW
+# returns 16 columns, DESCRIBE 20 (measured against a live account).
+CONNECTOR_URL = (
+    "https://openflow.example.snowflakecomputing.app:443/"
+    f"{RUNTIME_KEY}/nifi/#/connectors/00000000-0000-0000-0000-000000000001/"
+)
+
 CONNECTOR_SHOW_ROWS = [
     {
         "name": CONNECTOR_NAME,
@@ -95,8 +102,14 @@ CONNECTOR_SHOW_ROWS = [
         "default_version_location_uri": STAGE_URI,
         "status": "RUNNING",
         "owner": OWNER_ROLE,
+        # DESCRIBE addresses the connector by three-part name, and only SHOW
+        # supplies these two.
+        "database_name": "MY_DB",
+        "schema_name": "MY_SCHEMA",
     }
 ]
+
+CONNECTOR_DESCRIBE_ROWS = [{"CONNECTOR_URL": CONNECTOR_URL}]
 
 DEPLOYMENT_HISTORY_ROWS = [
     {
@@ -201,6 +214,8 @@ def default_query_results(
         return RowCountList(RUNTIME_HISTORY_ROWS)
     if CONNECTOR_HISTORY in query:
         return RowCountList(CONNECTOR_HISTORY_ROWS)
+    if query.startswith("DESCRIBE OPENFLOW CONNECTOR"):
+        return RowCountList(CONNECTOR_DESCRIBE_ROWS)
     if query.startswith("GET "):
         # A real GET downloads the file into the directory named in the query's
         # 'file://<dir>' argument and returns audit rows, not content. The source

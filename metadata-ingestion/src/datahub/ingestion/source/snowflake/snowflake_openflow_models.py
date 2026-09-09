@@ -22,6 +22,7 @@ COL_CONNECTOR_DEFINITION = "CONNECTOR_DEFINITION"
 COL_DEFAULT_VERSION = "DEFAULT_VERSION"
 COL_DEFAULT_VERSION_LOCATION_URI = "DEFAULT_VERSION_LOCATION_URI"
 COL_DISPLAY_NAME = "DISPLAY_NAME"
+COL_CONNECTOR_URL = "CONNECTOR_URL"
 
 
 def get_col(row: Dict[str, Any], *names: str) -> Optional[Any]:
@@ -118,6 +119,11 @@ class OpenflowConnector:
     display_name: Optional[str] = None
     default_version: Optional[str] = None
     version_location_uri: Optional[str] = None
+    # Only SHOW carries these two; the history view does not. They exist to
+    # address the connector in DESCRIBE, which is the only surface exposing
+    # CONNECTOR_URL.
+    database_name: Optional[str] = None
+    schema_name: Optional[str] = None
     created_on: Optional[str] = None
     deleted_on: Optional[str] = None
 
@@ -141,6 +147,8 @@ class OpenflowConnector:
             display_name=get_str(row, COL_DISPLAY_NAME),
             default_version=get_str(row, COL_DEFAULT_VERSION),
             version_location_uri=get_str(row, COL_DEFAULT_VERSION_LOCATION_URI),
+            database_name=get_str(row, COL_DATABASE_NAME),
+            schema_name=get_str(row, COL_SCHEMA_NAME),
             created_on=get_str(row, COL_CREATED_ON),
             deleted_on=get_str(row, COL_DELETED_ON),
         )
@@ -151,6 +159,20 @@ class OpenflowConnector:
         # datahub.utilities.urn_encoder.RESERVED_CHARS), so it needs no
         # escaping when this key ends up inside a DataFlow URN component.
         return f"{self.runtime_name}/{self.name}"
+
+    @property
+    def fqn(self) -> Optional[str]:
+        """Quoted three-part name, or None when SHOW did not supply the parts.
+
+        Openflow object names are case-sensitive and may contain characters that
+        an unquoted identifier cannot carry, so every part is double-quoted; an
+        embedded double quote is doubled, which is how Snowflake escapes one
+        inside a quoted identifier.
+        """
+        if not self.database_name or not self.schema_name:
+            return None
+        parts = (self.database_name, self.schema_name, self.name)
+        return ".".join('"' + part.replace('"', '""') + '"' for part in parts)
 
 
 RowModel = TypeVar("RowModel", OpenflowDeployment, OpenflowRuntime, OpenflowConnector)

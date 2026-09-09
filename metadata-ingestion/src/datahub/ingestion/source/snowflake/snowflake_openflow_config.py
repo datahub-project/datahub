@@ -122,6 +122,16 @@ class SnowflakeOpenflowSourceConfig(
         "the Snowflake tables it writes.",
     )
 
+    include_connector_external_url: bool = Field(
+        default=True,
+        description=(
+            "Emit each connector's NiFi canvas URL as the DataFlow's external "
+            "link. This costs one DESCRIBE OPENFLOW CONNECTOR per connector, "
+            "because SHOW does not return the URL. Set false to skip those "
+            "queries."
+        ),
+    )
+
     @model_validator(mode="after")
     def default_snowflake_env_to_env(self) -> "SnowflakeOpenflowSourceConfig":
         if self.snowflake_env is None:

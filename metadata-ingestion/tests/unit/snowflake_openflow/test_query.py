@@ -67,3 +67,12 @@ def test_generated_limit_matches_the_page_size_the_pager_reads():
         f"LIMIT {SnowflakeOpenflowQuery.PAGE_SIZE}"
         in SnowflakeOpenflowQuery.deployment_history(None)
     )
+
+
+def test_describe_connector_escapes_the_string_literal():
+    # IDENTIFIER() takes the quoted name as a string literal, so a single quote
+    # inside the name has to be doubled or it closes the literal early.
+    query = SnowflakeOpenflowQuery.describe_connector('"db"."s"."o\'brien"')
+    assert query == (
+        'DESCRIBE OPENFLOW CONNECTOR IDENTIFIER(\'"db"."s"."o\'\'brien"\')'
+    )

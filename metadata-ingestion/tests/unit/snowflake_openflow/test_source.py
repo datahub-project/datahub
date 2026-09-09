@@ -13,6 +13,9 @@ from datahub.ingestion.source.snowflake.snowflake_openflow import (
 from datahub.ingestion.source.snowflake.snowflake_openflow_config import (
     SnowflakeOpenflowSourceConfig,
 )
+from datahub.ingestion.source.snowflake.snowflake_openflow_models import (
+    OpenflowConnector,
+)
 from datahub.ingestion.source.snowflake.snowflake_openflow_query import (
     CONNECTOR_HISTORY,
     DEPLOYMENT_HISTORY,
@@ -447,3 +450,74 @@ def test_upstream_info_is_quiet_when_source_env_merely_restates_env():
     source = _make_source(env="PROD", source_env="PROD")
     source._warn_if_upstream_folding_is_unverifiable()
     assert _UPSTREAM_WARNING not in _info_titles(source.report)
+
+
+# --- connector external URL (DESCRIBE-only column) ------------------------
+
+
+def _addressable_connector() -> OpenflowConnector:
+    return OpenflowConnector(
+        name="conn",
+        runtime_name="rt",
+        database_name="DB",
+        schema_name="SCH",
+    )
+
+
+def test_connector_url_is_read_from_describe():
+    source = _make_source()
+    seen: List[str] = []
+
+    def fake(query: str) -> List[Dict[str, Any]]:
+        seen.append(query)
+        return [{"CONNECTOR_URL": "https://host/rt/nifi/#/connectors/abc/"}]
+
+    source._query_rows = fake  # type: ignore[method-assign]
+    assert (
+        source._read_connector_url(_addressable_connector())
+        == "https://host/rt/nifi/#/connectors/abc/"
+    )
+    assert seen == [SnowflakeOpenflowQuery.describe_connector('"DB"."SCH"."conn"')]
+
+
+def test_connector_url_disabled_issues_no_describe():
+    # The flag exists to buy back one query per connector; if it still queried,
+    # it would buy nothing.
+    source = _make_source(include_connector_external_url=False)
+
+    def fake(query: str) -> List[Dict[str, Any]]:
+        raise AssertionError(f"should not have queried: {query!r}")
+
+    source._query_rows = fake  # type: ignore[method-assign]
+    assert source._read_connector_url(_addressable_connector()) is None
+
+
+def test_connector_url_failure_is_counted_and_warned_not_raised():
+    # A missing link must cost one aspect field, never the connector.
+    source = _make_source()
+
+    def fake(query: str) -> List[Dict[str, Any]]:
+        raise RuntimeError("DESCRIBE denied")
+
+    source._query_rows = fake  # type: ignore[method-assign]
+    assert source._read_connector_url(_addressable_connector()) is None
+    assert source.report.num_connector_urls_failed == 1
+    assert _warning_titles(source.report) == ["Could not read connector URL"]
+
+
+def test_history_only_connector_is_counted_quietly_not_warned():
+    # A connector seen only in the history view has no DATABASE_NAME, so it
+    # cannot be addressed. For a dropped connector that is the steady state --
+    # warning on it would fire on every run forever.
+    source = _make_source()
+
+    def fake(query: str) -> List[Dict[str, Any]]:
+        raise AssertionError("unaddressable connector must not be queried")
+
+    source._query_rows = fake  # type: ignore[method-assign]
+    assert (
+        source._read_connector_url(OpenflowConnector(name="c", runtime_name="rt"))
+        is None
+    )
+    assert source.report.num_connectors_without_fqn == 1
+    assert _warning_titles(source.report) == []

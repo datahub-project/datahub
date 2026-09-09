@@ -56,6 +56,17 @@ class SnowflakeOpenflowQuery:
         return _history_query(CONNECTOR_HISTORY, cursor)
 
     @staticmethod
+    def describe_connector(fqn: str) -> str:
+        # DESCRIBE, not SHOW: CONNECTOR_URL is one of the columns SHOW does not
+        # return (measured -- DESCRIBE gives 20 columns against SHOW's 16). It
+        # is the deep link into the connector's NiFi canvas.
+        #
+        # IDENTIFIER() takes the quoted name as a *string literal*, so the
+        # single quotes that delimit it are doubled; `fqn` has already doubled
+        # any embedded double quote for the identifier itself.
+        return f"DESCRIBE OPENFLOW CONNECTOR IDENTIFIER('{fqn.replace(chr(39), chr(39) * 2)}')"
+
+    @staticmethod
     def get_stage_file_to_local(
         version_location_uri: str, filename: str, local_dir: str
     ) -> str:

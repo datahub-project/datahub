@@ -439,3 +439,23 @@ def test_mixed_lifecycle_keys_are_counted():
         [], [open_row, closed_row, other_open, other_closed]
     )
     assert two_keys == 2
+
+
+def test_fqn_quotes_every_part_and_doubles_embedded_quotes():
+    # Openflow names are case-sensitive and Snowsight allows characters an
+    # unquoted identifier cannot carry. A name containing a double quote would
+    # otherwise terminate the identifier early and change which object DESCRIBE
+    # addresses.
+    connector = OpenflowConnector(
+        name='we"ird',
+        runtime_name="rt",
+        database_name="My_DB",
+        schema_name="My_Schema",
+    )
+    assert connector.fqn == '"My_DB"."My_Schema"."we""ird"'
+
+
+def test_fqn_is_none_when_show_did_not_supply_the_parts():
+    # History rows carry no DATABASE_NAME / SCHEMA_NAME, so a connector known
+    # only from the view cannot be addressed by DESCRIBE at all.
+    assert OpenflowConnector(name="c", runtime_name="rt").fqn is None

@@ -4,6 +4,10 @@
 - **Table-level lineage** — derived from each connector's own configuration, so it is observed
   rather than declared. Disable with `include_openflow_lineage: false`.
 - **Ownership** — from each object's `OWNER`.
+- **External link** — each connector's `DataFlow` links to its NiFi canvas, so "view in Openflow"
+  opens the flow itself. The URL comes from `DESCRIBE OPENFLOW CONNECTOR`, which `SHOW` does not
+  return, so this costs one extra query per connector; disable with
+  `include_connector_external_url: false`.
 - **Deletion detection** — via stateful ingestion, using `DELETED_ON` from the `ACCOUNT_USAGE`
   views.
 
@@ -44,6 +48,12 @@ downstream would report it.
   `fivetran` source emits column-level lineage without parsing anything, by reading the
   `column_lineage` tables Fivetran maintains in its log schema. Snowflake would need to publish an
   equivalent for Openflow.
+- **The external link is undocumented and access-gated.** The canvas URL is only discoverable from
+  a `DESCRIBE` column -- no Snowflake documentation page names the endpoint -- so its shape could
+  change. Opening it also requires access to the deployment's SPCS ingress, which is separate from
+  the Snowflake privileges this source needs; a viewer without it gets an auth error, not a flow.
+  A connector known only from the history views (a dropped one, typically) cannot be addressed by
+  `DESCRIBE` at all and is emitted without a link.
 - **Kafka-source connectors get no upstream lineage.** `OPENFLOW_KAFKA` is deliberately unmapped.
   DataHub names a Kafka dataset by the bare topic, but this source reconstructs an upstream from a
   connector's `jdbc:` Source URL and its schema-qualified table list, and a Kafka connector carries

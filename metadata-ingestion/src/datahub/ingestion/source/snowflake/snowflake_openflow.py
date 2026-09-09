@@ -63,9 +63,11 @@ from datahub.ingestion.source.snowflake.snowflake_openflow_config import (
     SnowflakeOpenflowSourceConfig,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_models import (
+    COL_CONNECTOR_URL,
     OpenflowConnector,
     OpenflowDeployment,
     OpenflowRuntime,
+    get_str,
     merge_show_and_history,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_query import (
@@ -430,6 +432,7 @@ def build_connector_flow(
     platform_instance: Optional[str],
     env: str,
     parent_container: Optional[OpenflowRuntimeKey] = None,
+    external_url: Optional[str] = None,
 ) -> DataFlow:
     # Keyed on the COMPOSITE <runtime_name>/<connector_name> (connector.key), not on
     # CONNECTOR_ID and not on the bare name. Three measured facts force this:
@@ -449,6 +452,7 @@ def build_connector_flow(
         subtype=DataFlowSubTypes.OPENFLOW_CONNECTOR,
         custom_properties=_connector_properties(connector),
         owners=_owner_classes(connector.owner),
+        external_url=external_url,
         # `unset`, not None: the SDK treats None as "this entity has no parent"
         # and writes an EMPTY browsePathsV2, which then suppresses the one
         # auto_browse_path_v2 would otherwise derive. `unset` leaves both
@@ -750,6 +754,41 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
 
     def _query_rows(self, query: str) -> List[Dict[str, Any]]:
         return [dict(row) for row in self.connection.query(query)]
+
+    def _read_connector_url(self, connector: OpenflowConnector) -> Optional[str]:
+        """The connector's NiFi canvas deep link, or None.
+
+        A missing link degrades the flow by one aspect field; it never costs
+        lineage. So every failure here is counted and, at worst, warned -- it
+        must not abort the connector the way a lineage failure would.
+        """
+        if not self.config.include_connector_external_url:
+            return None
+        fqn = connector.fqn
+        if fqn is None:
+            # Only SHOW carries DATABASE_NAME / SCHEMA_NAME, so a connector
+            # known solely from the history view cannot be addressed by
+            # DESCRIBE. Counted rather than warned: for a dropped connector
+            # this is the expected steady state, not a fault.
+            self.report.num_connectors_without_fqn += 1
+            return None
+        try:
+            rows = self._query_rows(SnowflakeOpenflowQuery.describe_connector(fqn))
+        except Exception as exc:
+            self.report.num_connector_urls_failed += 1
+            self.report.warning(
+                title="Could not read connector URL",
+                message="DESCRIBE OPENFLOW CONNECTOR failed, so this connector "
+                "has no external link. Everything else about it is unaffected. "
+                "Set include_connector_external_url: false to skip these queries.",
+                context=connector.key,
+                exc=exc,
+            )
+            return None
+        if not rows:
+            self.report.num_connector_urls_failed += 1
+            return None
+        return get_str(rows[0], COL_CONNECTOR_URL)
 
     def _read_connector_config(
         self, connector: OpenflowConnector
@@ -1217,6 +1256,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
                 parent_container=parent_runtime_key,
+                external_url=self._read_connector_url(connector),
             )
             yield from flow.as_workunits()
             if connector.owner:
