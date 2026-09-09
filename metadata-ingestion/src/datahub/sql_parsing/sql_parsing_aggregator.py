@@ -1364,6 +1364,9 @@ class SqlParsingAggregator(Closeable):
         self, view_urn: UrnStr, upstreams: List[UrnStr]
     ) -> None:
         self.report.num_views_table_level_fallback += 1
+        # Guarded so a pre-stripped caller isn't miscounted; covers the fallback path too.
+        if view_urn in upstreams:
+            self.report.num_views_self_reference_dropped += 1
         upstreams = self._exclude_self_upstreams(view_urn, upstreams)
         query_fingerprint = self._view_fallback_query_id(view_urn)
         self._add_to_query_map(

@@ -2,6 +2,7 @@ import functools
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
+from typing import List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,6 +10,7 @@ import time_machine
 
 from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.schema_classes import (
@@ -1984,7 +1986,9 @@ _UNPARSEABLE_DT_DDL = (
 )
 
 
-def _upstream_lineage_aspect(mcps, downstream_urn):
+def _upstream_lineage_aspect(
+    mcps: List[MetadataChangeProposalWrapper], downstream_urn: str
+) -> Optional[UpstreamLineageClass]:
     for mcp in mcps:
         if mcp.entityUrn == downstream_urn and isinstance(
             mcp.aspect, UpstreamLineageClass
@@ -1993,7 +1997,7 @@ def _upstream_lineage_aspect(mcps, downstream_urn):
     return None
 
 
-def _skip_query_present(mcps):
+def _skip_query_present(mcps: List[MetadataChangeProposalWrapper]) -> bool:
     return any(
         isinstance(mcp.aspect, QueryPropertiesClass)
         and mcp.aspect.statement.value == "-skip-"
@@ -2028,6 +2032,7 @@ def test_view_definition_table_level_fallback_on_parse_failure() -> None:
     # the fallback must not surface a spurious Query entity carrying the "-skip-" placeholder.
     assert not _skip_query_present(mcps)
     assert aggregator.report.num_views_table_level_fallback == 1
+    assert aggregator.report.num_views_self_reference_dropped == 0
 
 
 def test_table_level_fallback_excludes_self() -> None:
@@ -2053,6 +2058,7 @@ def test_table_level_fallback_excludes_self() -> None:
     upstreams = [u.dataset for u in aspect.upstreams]
     assert up in upstreams
     assert dt not in upstreams  # self excluded by the fallback path
+    assert aggregator.report.num_views_self_reference_dropped == 1
 
     # A fallback list of only the view strips to empty, so no upstream lineage is emitted.
     all_self = SqlParsingAggregator(

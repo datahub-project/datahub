@@ -6,10 +6,12 @@ The temp table prefix restoration is now in sqlglot_lineage.py and is
 dialect-aware - only applying to MSSQL dialect.
 """
 
+import pytest
 import sqlglot
 
 from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.sqlglot_lineage import (
+    SqlUnderstandingError,
     _restore_mssql_temp_table_prefix,
     _table_name_from_sqlglot_table,
 )
@@ -762,6 +764,57 @@ class TestDotExpressionTableNames:
         assert "##globaltemp" in table_name.table, (
             f"Expected ##globaltemp in table name, got {table_name.table}"
         )
+
+
+class TestSnowflakeIdentifierTableNames:
+    """Tests for Snowflake's IDENTIFIER('...') construct.
+
+    sqlglot parses IDENTIFIER('a.b.c') into a DynamicIdentifier wrapping the raw
+    literal text -- it does not split it into catalog/db/table parts, so
+    table.name/db/catalog all come back empty. _table_name_from_sqlglot_table
+    must do that splitting itself instead of silently truncating the table name.
+    """
+
+    def _get_snowflake_dialect(self) -> sqlglot.Dialect:
+        return get_dialect("snowflake")
+
+    def _get_table(self, sql: str) -> sqlglot.exp.Table:
+        stmt = sqlglot.parse_one(sql, dialect="snowflake")
+        return next(iter(stmt.find_all(sqlglot.exp.Table)))
+
+    def test_three_part_literal(self):
+        table = self._get_table("SELECT * FROM IDENTIFIER('db.schema.base_a')")
+        result = _table_name_from_sqlglot_table(table, self._get_snowflake_dialect())
+        assert result.database == "db"
+        assert result.db_schema == "schema"
+        assert result.table == "base_a"
+
+    def test_two_part_literal_uses_default_db(self):
+        table = self._get_table("SELECT * FROM IDENTIFIER('schema.base_a')")
+        result = _table_name_from_sqlglot_table(
+            table, self._get_snowflake_dialect(), default_db="default_db"
+        )
+        assert result.database == "default_db"
+        assert result.db_schema == "schema"
+        assert result.table == "base_a"
+
+    def test_one_part_literal_uses_defaults(self):
+        table = self._get_table("SELECT * FROM IDENTIFIER('base_a')")
+        result = _table_name_from_sqlglot_table(
+            table,
+            self._get_snowflake_dialect(),
+            default_db="default_db",
+            default_schema="default_schema",
+        )
+        assert result.database == "default_db"
+        assert result.db_schema == "default_schema"
+        assert result.table == "base_a"
+
+    def test_non_literal_argument_raises(self):
+        """A dynamically-computed IDENTIFIER argument can't be resolved statically."""
+        table = self._get_table("SELECT * FROM IDENTIFIER('prefix_' || some_col)")
+        with pytest.raises(SqlUnderstandingError):
+            _table_name_from_sqlglot_table(table, self._get_snowflake_dialect())
 
 
 class TestTableNameEquality:

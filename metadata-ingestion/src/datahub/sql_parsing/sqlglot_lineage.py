@@ -158,6 +158,30 @@ def _table_name_from_sqlglot_table(
     Returns:
         A _TableName with the correct table name (including temp prefix for MSSQL)
     """
+    # sqlglot parses Snowflake's IDENTIFIER('db.schema.tbl') into a DynamicIdentifier
+    # without splitting it, so the name would otherwise truncate to default db/schema.
+    # Only a static string literal resolves; a bind/session var or concat can't.
+    if isinstance(table.this, sqlglot.exp.DynamicIdentifier):
+        literal = table.this.this
+        if not (isinstance(literal, sqlglot.exp.Literal) and literal.is_string):
+            raise SqlUnderstandingError(
+                f"Cannot statically resolve table name from IDENTIFIER(...) argument: {literal}"
+            )
+        id_parts = literal.this.split(".")
+        if len(id_parts) >= 3:
+            database, db_schema, table_name = id_parts[-3], id_parts[-2], id_parts[-1]
+        elif len(id_parts) == 2:
+            database, db_schema, table_name = default_db, id_parts[0], id_parts[1]
+        else:
+            database, db_schema, table_name = default_db, default_schema, id_parts[0]
+
+        return _TableName(
+            database=database,
+            db_schema=db_schema,
+            table=table_name,
+            parts=tuple(id_parts),
+        )
+
     # Handle Snowflake semantic views: SEMANTIC_VIEW(table_name ...)
     # In this case, table.this is a SemanticView expression, and we need to
     # extract the actual table from within it.
