@@ -13,7 +13,6 @@ import ColumnSearch from '@app/lineageV3/LineageEntityNode/ColumnSearch';
 import { LineageDisplayColumn } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import { LineageNodesContext, TRANSITION_DURATION_MS, onClickPreventSelect } from '@app/lineageV3/common';
 import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV3/constants';
-import { LineageAssetType } from '@app/lineageV3/types';
 
 const MainColumnsWrapper = styled.div<{ isGhost: boolean }>`
     display: flex;
@@ -99,6 +98,8 @@ interface Props {
     setSelectedColumn: Dispatch<SetStateAction<string | null>>;
     hoveredColumn: string | null;
     setHoveredColumn: Dispatch<SetStateAction<string | null>>;
+    mayHideUpstreamLineage: boolean;
+    mayHideDownstreamLineage: boolean;
 }
 
 export default function DelayedColumns(props: Props) {
@@ -145,6 +146,8 @@ function Columns(props: Props) {
         setSelectedColumn,
         hoveredColumn,
         setHoveredColumn,
+        mayHideUpstreamLineage,
+        mayHideDownstreamLineage,
     } = props;
 
     const updateNodeInternals = useUpdateNodeInternals();
@@ -194,6 +197,8 @@ function Columns(props: Props) {
         setSelectedColumn,
         hoveredColumn,
         setHoveredColumn,
+        mayHideUpstreamLineage,
+        mayHideDownstreamLineage,
     };
     const handleMouseLeave = useCallback(() => {
         setHoveredColumn(null);
@@ -246,17 +251,5 @@ function useComputeAllNeighborsFetched(entity: FetchedEntity): boolean {
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [entity.upstreamChildren, entity.downstreamChildren, nodes, dataVersion],
     );
-    useEffect(() => {
-        if (allNeighborsFetched) {
-            const node = nodes.get(entity.urn);
-            node?.entity?.lineageAssets?.forEach((asset) => {
-                if (asset.type === LineageAssetType.Column) {
-                    // eslint-disable-next-line no-param-reassign
-                    asset.lineageCountsFetched = true;
-                }
-            });
-        }
-    }, [allNeighborsFetched, nodes, entity.urn]);
-
     return allNeighborsFetched;
 }

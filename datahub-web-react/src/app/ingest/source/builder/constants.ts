@@ -30,6 +30,7 @@ import glueLogo from '@images/gluelogo.png';
 import googleSheetsLogo from '@images/google-sheets-logo.png';
 import grafanaLogo from '@images/grafana.png';
 import hiveLogo from '@images/hivelogo.png';
+import informixLogo from '@images/informixlogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
 import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
@@ -39,6 +40,7 @@ import microstrategyLogo from '@images/microstrategylogo.svg';
 import mlflowLogo2 from '@images/mlflowlogo2.png';
 import modeLogo from '@images/modelogo.png';
 import mongodbLogo from '@images/mongodblogo.png';
+import montecarloLogo from '@images/montecarlologo.png';
 import mssqlLogo from '@images/mssqllogo.png';
 import mysqlLogo from '@images/mysqllogo-2.png';
 import neo4j from '@images/neo4j.svg';
@@ -56,6 +58,7 @@ import sigmaLogo from '@images/sigmalogo.png';
 import snaplogicLogo from '@images/snaplogic.svg';
 import snowflakeLogo from '@images/snowflakelogo.png';
 import snowplowLogo from '@images/snowplowlogo.png';
+import sqlmeshLogo from '@images/sqlmeshlogo.png';
 import starrocksLogo from '@images/starrockslogo.svg';
 import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
@@ -113,6 +116,8 @@ const GRAFANA = 'grafana';
 const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
 const HIVE = 'hive';
 const HIVE_URN = `urn:li:dataPlatform:${HIVE}`;
+export const INFORMIX = 'informix';
+export const INFORMIX_URN = `urn:li:dataPlatform:${INFORMIX}`;
 const KAFKA = 'kafka';
 const KAFKA_URN = `urn:li:dataPlatform:${KAFKA}`;
 export const LOOKER = 'looker';
@@ -133,6 +138,8 @@ export const MODE = 'mode';
 export const MODE_URN = `urn:li:dataPlatform:${MODE}`;
 const MONGO_DB = 'mongodb';
 const MONGO_DB_URN = `urn:li:dataPlatform:${MONGO_DB}`;
+export const MONTECARLO = 'montecarlo';
+export const MONTECARLO_URN = `urn:li:dataPlatform:${MONTECARLO}`;
 const MSSQL = 'mssql';
 const MSSQL_URN = `urn:li:dataPlatform:${MSSQL}`;
 export const MYSQL = 'mysql';
@@ -219,6 +226,8 @@ export const FABRIC_ONELAKE = 'fabric-onelake';
 export const FABRIC_ONELAKE_URN = `urn:li:dataPlatform:${FABRIC_ONELAKE}`;
 export const STREAMLIT = 'streamlit';
 export const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
+export const SQLMESH = 'sqlmesh';
+export const SQLMESH_URN = `urn:li:dataPlatform:${SQLMESH}`;
 export const OMNI = 'omni';
 export const OMNI_URN = `urn:li:dataPlatform:${OMNI}`;
 
@@ -244,6 +253,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [GLUE_URN]: glueLogo,
     [GRAFANA_URN]: grafanaLogo,
     [HIVE_URN]: hiveLogo,
+    [INFORMIX_URN]: informixLogo,
     [KAFKA_URN]: kafkaLogo,
     [LOOKER_URN]: lookerLogo,
     [MARIA_DB_URN]: mariadbLogo,
@@ -253,6 +263,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [MLFLOW_URN]: mlflowLogo2,
     [MODE_URN]: modeLogo,
     [MONGO_DB_URN]: mongodbLogo,
+    [MONTECARLO_URN]: montecarloLogo,
     [MSSQL_URN]: mssqlLogo,
     [MYSQL_URN]: mysqlLogo,
     [NOTION_URN]: notionLogo,
@@ -291,6 +302,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [FABRIC_DATA_FACTORY_URN]: fabricDataFactoryLogo,
     [FABRIC_ONELAKE_URN]: fabricOnelakeLogo,
     [STREAMLIT_URN]: streamlitLogo,
+    [SQLMESH_URN]: sqlmeshLogo,
     [OMNI_URN]: omniLogo,
 };
 

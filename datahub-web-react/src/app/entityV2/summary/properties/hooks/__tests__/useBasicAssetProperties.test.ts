@@ -40,8 +40,15 @@ describe('useBasicAssetProperties', () => {
         expect(result.current).toEqual([CREATED_PROPERTY, OWNERS_PROPERTY]);
     });
 
-    it('should return correct properties for DataProduct entity type', () => {
-        (useEntityContext as any).mockReturnValue({ entityType: EntityType.DataProduct });
+    it.each([
+        EntityType.DataProduct,
+        EntityType.Dataset,
+        EntityType.Application,
+        EntityType.Container,
+        EntityType.Chart,
+        EntityType.Dashboard,
+    ])('should return the shared asset property strip for %s', (entityType) => {
+        (useEntityContext as any).mockReturnValue({ entityType });
         const { result } = renderHook(() => useBasicAssetProperties());
         expect(result.current).toEqual([
             CREATED_PROPERTY,
@@ -53,7 +60,7 @@ describe('useBasicAssetProperties', () => {
     });
 
     it('should return an empty array for other entity types', () => {
-        (useEntityContext as any).mockReturnValue({ entityType: EntityType.Chart });
+        (useEntityContext as any).mockReturnValue({ entityType: EntityType.DataFlow });
         const { result } = renderHook(() => useBasicAssetProperties());
         expect(result.current).toEqual([]);
     });

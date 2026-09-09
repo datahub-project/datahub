@@ -1,18 +1,16 @@
-import { Text, Tooltip, toast } from '@components';
+import { Text, Tooltip } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import analytics, { EventType } from '@app/analytics';
+import { useUndeprecateResource } from '@app/entityV2/shared/EntityDropdown/useUndeprecateResource';
+import DeprecationReplacement from '@app/entityV2/shared/components/styled/DeprecationReplacement';
 import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
-import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
-import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV3/utils/lineageUtils';
 import { decommissionTimeToSeconds, toLocalDateString } from '@app/shared/time/timeUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { StructuredPopover } from '@src/alchemy-components/components/StructuredPopover';
 import dayjs from '@utils/dayjs';
 
-import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { Deprecation, SubResourceType } from '@types';
 
 import DeprecatedIcon from '@images/deprecated-status.svg?react';
@@ -48,14 +46,6 @@ const LastEvaluatedAtLabel = styled(Text).attrs({
 })`
     display: flex;
     align-items: center;
-`;
-
-const ReplacementContainer = styled.span`
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    // make sure the span doesn't exceed the parent div
-    max-width: 100%;
 `;
 
 const ThinDivider = styled.hr`
@@ -98,8 +88,8 @@ export const DeprecationIcon = ({
     popoverPlacement = 'bottom',
 }: Props) => {
     const { t } = useTranslation('entity.shared.components');
-    const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
     const [showUndeprecateModal, setShowUndeprecateModal] = useState(false);
+    const [hasPopoverOpened, setHasPopoverOpened] = useState(false);
 
     const decommissionTimeSeconds = deprecation.decommissionTime
         ? decommissionTimeToSeconds(deprecation.decommissionTime)
@@ -113,43 +103,22 @@ export const DeprecationIcon = ({
     const decommissionTimeGMT =
         decommissionTimeSeconds && dayjs.unix(decommissionTimeSeconds).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
 
-    const hasDetails = deprecation.note !== '' || deprecation.decommissionTime !== null;
+    const hasDetails = deprecation.note !== '' || deprecation.decommissionTime !== null || !!deprecation.replacement;
     const isDividerNeeded = deprecation.note !== '' && deprecation.decommissionTime !== null;
 
+    const undeprecate = useUndeprecateResource({ urn, subResource, subResourceType, refetch });
+
     const batchUndeprecate = () => {
-        batchUpdateDeprecationMutation({
-            variables: {
-                input: {
-                    resources: [{ resourceUrn: urn, subResource, subResourceType }],
-                    deprecated: false,
-                },
-            },
-        })
-            .then(({ errors }) => {
-                if (!errors) {
-                    toast.success(t('deprecation.markedUnDeprecatedSuccess'), { duration: 2 });
-                    refetch?.();
-                    analytics.event({
-                        type: EventType.SetDeprecation,
-                        entityUrns: [urn],
-                        deprecated: false,
-                        resources: subResource ? [{ resourceUrn: urn, subResource, subResourceType }] : undefined,
-                    });
-                }
-                setShowUndeprecateModal(false);
-            })
-            .catch((e) => {
-                toast.destroy();
-                toast.error(t('deprecation.markUnDeprecatedError', { message: e.message || '' }), { duration: 3 });
-            });
+        // Left open on failure so the user can retry: the hook reports the error itself.
+        undeprecate().then((succeeded) => succeeded && setShowUndeprecateModal(false));
     };
 
-    const isReplacementSchemaField = deprecation?.replacement?.urn?.startsWith('urn:li:schemaField');
     const isSubResource = subResourceType === SubResourceType.DatasetField;
 
     return (
         <StructuredPopover
             zIndex={zIndexOverride || 999} // set to 999 to ensure it is below the 1000 mark of the entity popover if on the entity level
+            onOpenChange={(open) => open && setHasPopoverOpened(true)}
             placement={popoverPlacement}
             width={340}
             title={
@@ -158,18 +127,15 @@ export const DeprecationIcon = ({
                         <DeprecatedTitle>
                             {isSubResource ? t('deprecation.columnDeprecated') : t('deprecation.assetDeprecated')}
                         </DeprecatedTitle>
-                        {deprecation.replacement && (
+                        {!!deprecation.replacement && (
                             <DeprecatedSubTitle>
                                 <Text size="sm" weight="bold" color="text" type="div">
                                     {t('deprecation.replacementLabel')}
                                 </Text>
-                                {isReplacementSchemaField ? (
-                                    <ReplacementContainer>
-                                        {getV1FieldPathFromSchemaFieldUrn(deprecation.replacement.urn)}
-                                    </ReplacementContainer>
-                                ) : (
-                                    <EntityLink entity={deprecation.replacement} />
-                                )}
+                                <DeprecationReplacement
+                                    replacement={deprecation.replacement}
+                                    hasPopoverOpened={hasPopoverOpened}
+                                />
                             </DeprecatedSubTitle>
                         )}
                         {deprecation?.note && (

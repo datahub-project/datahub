@@ -4,6 +4,8 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { IconStyleType } from '@app/entity/Entity';
+import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
 import { EntityPreviewTag } from '@app/recommendations/renderer/component/EntityPreviewTag';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -51,7 +53,7 @@ export const CompactEntityNameComponent = ({
     if (entity.type === EntityType.SchemaField) {
         const { parent, fieldPath } = entity as SchemaFieldEntity;
         processedEntity = parent;
-        columnName = fieldPath;
+        columnName = decodeSchemaField(downgradeV2FieldPath(fieldPath) || '');
     }
 
     const genericProps = entityRegistry.getGenericEntityProperties(processedEntity.type, processedEntity);

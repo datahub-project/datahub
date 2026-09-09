@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("Notion")
 @config_class(NotionSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class NotionSource(StatefulIngestionSourceBase, TestableSource):
     platform = "notion"  # Required for stateful ingestion checkpoint job_id
@@ -170,7 +170,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         # Filtering configuration
         filtering:
           skip_empty_documents: true
-          min_text_length: 50  # Skip pages with < 50 chars
+          min_text_length: 50  # optional; default 0 embeds all non-empty pages
 
         # Advanced options
         advanced:
@@ -1831,11 +1831,16 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         # those roots, so any document it emits is in-scope by construction —
         # no extra filtering is needed here.
 
-        # Check for empty documents
+        total_text_length = sum(len(elem.get("text", "")) for elem in elements)
+
+        # Check for empty documents: no elements, or elements that carry no text
+        # at all. The total_text_length == 0 check matters now that
+        # min_text_length defaults to 0 -- otherwise a page whose elements have no
+        # text (e.g. image-only) would slip past the length check below.
         if self.config.filtering.skip_empty_documents:
-            if not elements:
+            if not elements or total_text_length == 0:
                 self.report.report_file_skipped(
-                    metadata.get("filename", "unknown"), "No elements extracted"
+                    metadata.get("filename", "unknown"), "No text content"
                 )
                 return True
 
@@ -1846,7 +1851,6 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             and current_page_id in parent_page_ids
         )
 
-        total_text_length = sum(len(elem.get("text", "")) for elem in elements)
         if total_text_length < self.config.filtering.min_text_length:
             if is_parent_page:
                 logger.info(
@@ -2164,10 +2168,29 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
         # Generate embeddings inline using ChunkingSource.
         # DocumentChunkingSource enforces max_documents and raises RuntimeError when exceeded.
+        from datahub.ingestion.source.unstructured.chunking_source import (
+            SkipMarkerReadError,
+            compute_source_text_sha256,
+        )
+
+        # Hash the exact text build_document_entity put on DocumentInfo (the same
+        # extraction over the same elements), so the embeddings' sourceTextSha256
+        # byte-matches the server-stamped resolvedTextSha256 of the indexed body.
+        source_text = self.document_builder.content_mapper.extract_text_content(
+            elements
+        )
         try:
             yield from self.chunking_source.process_elements_inline(
-                document_urn=document_urn, elements=elements
+                document_urn=document_urn,
+                elements=elements,
+                source_text_sha256=compute_source_text_sha256(source_text),
             )
+        except SkipMarkerReadError as e:
+            # Do not fall through to _update_document_state: recording state here would
+            # permanently drop the skip marker. Leaving the document unrecorded retries
+            # it next run.
+            logger.warning(f"Skip marker deferred for {page_id}: {e}")
+            return
         except RuntimeError as e:
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True

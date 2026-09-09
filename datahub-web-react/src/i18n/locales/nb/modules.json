@@ -42,6 +42,7 @@
     "assetCollection.viewAllManualHint": "Manuelt valgte samlinger støtter ikke “Vis alle”-lenken foreløpig.",
     "assetCollection.viewAllUnsupportedHint": "Denne samlingen viser ikke en “Vis alle”-lenke — denne filtertypen støttes ikke foreløpig.",
     "assets.moduleName": "Assets",
+    "assets.relatedModuleName": "Relaterte ressurser",
     "assets.moduleDescription": "Relaterte assets tagget med den overordnede entiteten",
     "assets.addTermError": "Kunne ikke legge til begrep: \n {{error}}",
     "assets.addTermModalTitle": "Legg til begrep i assets",

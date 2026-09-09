@@ -6,6 +6,7 @@ import pytest
 
 from datahub.cli.cli_utils import get_aspects_for_entity
 from datahub.emitter.mce_builder import make_dataset_urn, make_tag_urn
+from tests.utilities.domains import Domain
 from tests.utils import (
     delete_urns_from_file,
     ingest_file_via_rest,
@@ -14,6 +15,8 @@ from tests.utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -101,6 +104,7 @@ def test_setup(auth_session, graph_client, tmp_path):
     )
 
 
+@pytest.mark.p0
 @pytest.mark.dependency()
 def test_delete_reference(graph_client, test_setup):
     tag_urn, dataset_urn = test_setup

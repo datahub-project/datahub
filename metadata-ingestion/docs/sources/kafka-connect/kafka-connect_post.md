@@ -90,6 +90,72 @@ The `use_connect_topics_api` flag controls topic retrieval behavior:
 - **When `true` (default)**: Uses environment-specific topic discovery with full transform support
 - **When `false`**: Disables all topic discovery for air-gapped environments or performance optimization
 
+#### Confluent Cloud Stream Catalog
+
+Confluent Cloud's Stream Catalog exposes each connector together with the topics it reads or writes, plus any tags and business metadata curated in Stream Governance. Enable the `confluent_catalog` block to read it:
+
+```yml
+source:
+  type: kafka-connect
+  config:
+    confluent_cloud_environment_id: "env-xyz123"
+    confluent_cloud_cluster_id: "lkc-abc456"
+    username: "your-connect-api-key"
+    password: "your-connect-api-secret"
+
+    confluent_catalog:
+      enabled: true
+      # Stream Catalog GraphQL lives at <schema_registry_url>/catalog/graphql
+      schema_registry_url: "https://psrc-xxxxx.region.provider.confluent.cloud"
+      api_key: "your-schema-registry-api-key"
+      api_secret: "your-schema-registry-api-secret"
+
+      include_tags: true # catalog tags as DataHub tags (default)
+      include_business_metadata: true # catalog business metadata as custom properties (default)
+
+      # Off by default - read the trade-off below before enabling
+      include_lineage: false
+```
+
+**Requirements**: Confluent Cloud with the **Stream Governance Advanced** package on the environment — tags and business metadata are an Advanced feature, and the catalog API returns `403` even for reads on Essentials. The Schema Registry API key also needs a role that grants Stream Catalog read access — in practice **DataSteward** on the environment; `EnvironmentAdmin` alone is not enough, as it administers the environment but does not carry the catalog read permission. This has no equivalent on self-hosted Kafka Connect — the block is ignored (with a warning) when `confluent_catalog.schema_registry_url` is not a Confluent Cloud endpoint.
+
+**What each option changes:**
+
+- `include_tags` — catalog tags on a connector are written to its DataHub pipeline (`dataFlow`).
+- `include_business_metadata` — catalog business metadata attributes on a connector become custom properties on the same pipeline.
+- `include_lineage` — for **source** connectors, lineage is taken from the catalog's topic list instead of being predicted by the transform pipeline. Off by default; see the trade-off below.
+
+This source only writes the Kafka Connect pipelines it owns. Catalog tags and business metadata on the **topics** are ingested by the [`kafka`](/docs/generated/ingestion/sources/kafka) source, which owns those datasets — enable `confluent_catalog` there to pick them up.
+
+##### The `include_lineage` trade-off
+
+Catalog lineage is `connector -> topic` only. The catalog reports topic names _after_ topic-routing SMTs have been applied, so that one edge is exact rather than inferred — but the catalog has no view of the source system, so it cannot say which table a row came from.
+
+Enabling `include_lineage` therefore changes source connectors from:
+
+```
+postgres.ecommerce.public.orders  ->  kafka.public.orders     (plus column-level lineage)
+```
+
+to:
+
+```
+(no input)  ->  kafka.public.orders
+```
+
+The Kafka topic edge becomes exact, but the source table disappears from the graph, and with it the column-level lineage derived from that table's schema. If you want `postgres -> kafka -> snowflake` to read as one connected chain, leave this off.
+
+Toggling `include_lineage` also **re-keys the DataJob URNs**: config-inferred jobs are keyed on the source table, while catalog jobs are keyed on the target topic, so tags, documentation, and ownership attached to the old job URNs are orphaned when you flip the flag. Treat enabling it as a one-way move for a given connector rather than something to turn on and off.
+
+Scope of the change:
+
+- **Sink connectors are unaffected.** `topic -> table` lineage always comes from the connector config, because the catalog knows nothing about the destination system.
+- **Connectors missing from the catalog are unaffected.** They fall back to the config-matching path automatically. When a connector _is_ in the catalog but lists no topics, the count is reported as `catalog_lineage_fallbacks`.
+
+Leaving `include_lineage: false` still gives you every tag and business metadata attribute from Stream Governance.
+
+The catalog is read once per ingestion run, paged via `page_size` (default 100).
+
 #### Advanced Scenarios: Complex Transform Chains
 
 The new reverse transform pipeline strategy handles complex scenarios automatically:
@@ -155,8 +221,41 @@ transforms.RegexRouter.replacement: "events.$1"
 - ❌ **Not supported**: Connector class is not used in this environment
 
 :::info
-On JDBC Sink connectors in Confluent Cloud:\*\* `io.debezium.connector.jdbc.JdbcSinkConnector` and `io.confluent.connect.jdbc.JdbcSinkConnector` are not Confluent Cloud managed connectors — they can only appear as custom (self-managed) connectors deployed against a Confluent Cloud Kafka cluster. When present, DataHub supports lineage extraction for them, but with one limitation: the target platform (e.g. `postgres`, `mysql`, `oracle`, `mssql`) must be auto-detected from the `connection.url` field in the connector configuration. If `connection.url` is absent or uses an unrecognised JDBC scheme, platform detection will fail and a warning will be emitted. For Confluent Cloud managed JDBC sink connectors, use the dedicated `PostgresSink` or `MySqlSink` connector classes instead, which have explicit platform support.
+On JDBC Sink connectors in Confluent Cloud: `io.debezium.connector.jdbc.JdbcSinkConnector` and `io.confluent.connect.jdbc.JdbcSinkConnector` are not Confluent Cloud managed connectors — they can only appear as custom (self-managed) connectors deployed against a Confluent Cloud Kafka cluster. When present, DataHub supports lineage extraction for them, but with one limitation: the target platform (e.g. `postgres`, `mysql`, `oracle`, `mssql`) must be auto-detected from the `connection.url` field in the connector configuration. If `connection.url` is absent or uses an unrecognised JDBC scheme, platform detection will fail and a warning will be emitted. For Confluent Cloud managed JDBC sink connectors, use the dedicated `PostgresSink` or `MySqlSink` connector classes instead, which have explicit platform support.
 :::
+
+#### JDBC Sink: Matching Target Dataset URNs
+
+For lineage to resolve correctly, the dataset URNs generated by Kafka Connect ingestion must match the URNs produced when the target database was ingested. DataHub constructs URNs from a `connection.url` in the connector config; the format depends on the platform:
+
+| Platform   | Default URN format      | Schema used                                                |
+| ---------- | ----------------------- | ---------------------------------------------------------- |
+| PostgreSQL | `database.schema.table` | `public` unless `currentSchema` is set in the URL          |
+| SQL Server | `database.schema.table` | `dbo` unless `schema.name` is set in connector config      |
+| MySQL      | `database.table`        | N/A (MySQL has no separate schema level)                   |
+| Oracle     | `schema.table`          | `schema.name` / `db.schema` if set, else `connection.user` |
+| Snowflake  | `database.schema.table` | From `schema.name` connector config                        |
+
+**Oracle note**: The Oracle source connector supports `add_database_name_to_urn: true`, which changes URNs from `schema.table` to `database.schema.table`. Kafka Connect sink lineage always uses `schema.table` (`database_name` is omitted). `connect_to_platform_map` only sets the platform instance, not the dataset name. To match three-level Oracle URNs, ingest Oracle without `add_database_name_to_urn`, or use `generic_connectors` with an explicit `target_dataset` in `database.schema.table` form.
+
+Host:port/service Oracle URLs (`jdbc:oracle:thin:@host:1521/svc` and the OCI equivalent) are normalized automatically. TNS descriptor (`@(DESCRIPTION=...)`) and LDAP (`@ldap://...`) URLs are not — those connectors will emit a warning and skip lineage. Use `generic_connectors` to map them explicitly.
+
+**Overriding URNs with `connect_to_platform_map`**: If the auto-detected platform instance does not match your database ingestion, you can force a specific instance. This only adds a `{platform_instance}.` prefix to the URN; it does not change the dataset name (`schema.table` vs `database.schema.table`).
+
+```yml
+source:
+  type: kafka-connect
+  config:
+    connect_to_platform_map:
+      my-oracle-sink-connector:
+        oracle: my_oracle_instance
+```
+
+**Overriding the schema**: If the connector writes to a non-default schema, set `schema.name` (or `db.schema`) in the connector configuration:
+
+```
+schema.name=myschema
+```
 
 #### Supported Transforms
 

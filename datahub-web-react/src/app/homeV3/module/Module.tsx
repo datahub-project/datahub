@@ -14,6 +14,7 @@ import SemanticModelDimensionsModule from '@app/entityV2/summary/modules/semanti
 import SemanticModelMetricsModule from '@app/entityV2/summary/modules/semanticModelMetrics/SemanticModelMetricsModule';
 import SemanticModelRelationshipsModule from '@app/entityV2/summary/modules/semanticModelRelationships/SemanticModelRelationshipsModule';
 import MetricSqlModule from '@app/entityV2/summary/modules/sql/MetricSqlModule';
+import SubDataProductsModule from '@app/entityV2/summary/modules/subDataProducts/SubDataProductsModule';
 import ModuleErrorBoundary from '@app/homeV3/module/components/ModuleErrorBoundary';
 import { ModuleProvider } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
@@ -43,6 +44,7 @@ function Module(props: ModuleProps) {
         if (module.properties.type === DataHubPageModuleType.OutputPorts) return OutputPortsModule;
         if (module.properties.type === DataHubPageModuleType.ChildHierarchy) return ChildHierarchyModule;
         if (module.properties.type === DataHubPageModuleType.DataProducts) return DataProductsModule;
+        if (module.properties.type === DataHubPageModuleType.SubDataProducts) return SubDataProductsModule;
         if (module.properties.type === DataHubPageModuleType.RelatedTerms) return RelatedTermsModule;
         if (module.properties.type === DataHubPageModuleType.Platforms) return PlatformsModule;
         if (module.properties.type === DataHubPageModuleType.Lineage) return LineageModule;

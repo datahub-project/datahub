@@ -3,6 +3,8 @@ package com.linkedin.metadata.utils.elasticsearch;
 import static org.apache.commons.codec.digest.DigestUtils.sha256Hex;
 import static org.testng.Assert.*;
 
+import com.datahub.context.Enrichment;
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
@@ -10,9 +12,21 @@ import com.linkedin.util.Pair;
 import java.net.URLEncoder;
 import java.util.List;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 import org.testng.annotations.Test;
 
 public class IndexConventionImplTest {
+
+  // No tenant / request identity: resolvers fall back to their static/deploy prefix.
+  private static final OperationFingerprint OP = OperationFingerprint.EMPTY;
+
+  private static IndexConvention withPrefix(
+      String prefix, EntityIndexConfiguration entityIndexConfiguration) {
+    return new IndexConventionImpl(
+        IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+        new ConfiguredIndexPrefixResolver(prefix),
+        entityIndexConfiguration);
+  }
 
   @Test
   public void testIndexConventionNoPrefix() {
@@ -21,38 +35,72 @@ public class IndexConventionImplTest {
         IndexConventionImpl.noPrefix("MD5", entityIndexConfiguration);
     String entityName = "dataset";
     String expectedIndexName = "datasetindex_v2";
-    assertEquals(indexConventionNoPrefix.getEntityIndexName(entityName), expectedIndexName);
-    assertEquals(indexConventionNoPrefix.getPrefix(), Optional.empty());
-    assertEquals(indexConventionNoPrefix.getEntityName(expectedIndexName), Optional.of(entityName));
-    assertEquals(indexConventionNoPrefix.getEntityName("totally not an index"), Optional.empty());
-    assertEquals(indexConventionNoPrefix.getEntityName("dataset_v2"), Optional.empty());
+    assertEquals(indexConventionNoPrefix.getEntityIndexName(OP, entityName), expectedIndexName);
+    assertEquals(indexConventionNoPrefix.getPrefix(OP), Optional.empty());
     assertEquals(
-        indexConventionNoPrefix.getEntityName("dashboardindex_v2_1683649932260"),
+        indexConventionNoPrefix.getEntityName(OP, expectedIndexName), Optional.of(entityName));
+    assertEquals(
+        indexConventionNoPrefix.getEntityName(OP, "totally not an index"), Optional.empty());
+    assertEquals(indexConventionNoPrefix.getEntityName(OP, "dataset_v2"), Optional.empty());
+    assertEquals(
+        indexConventionNoPrefix.getEntityName(OP, "dashboardindex_v2_1683649932260"),
         Optional.of("dashboard"));
   }
 
   @Test
   public void testIndexConventionPrefix() {
     EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
-    IndexConvention indexConventionPrefix =
-        new IndexConventionImpl(
-            IndexConventionImpl.IndexConventionConfig.builder()
-                .prefix("prefix")
-                .hashIdAlgo("MD5")
-                .build(),
-            entityIndexConfiguration);
+    IndexConvention indexConventionPrefix = withPrefix("prefix", entityIndexConfiguration);
     String entityName = "dataset";
     String expectedIndexName = "prefix_datasetindex_v2";
-    assertEquals(indexConventionPrefix.getEntityIndexName(entityName), expectedIndexName);
-    assertEquals(indexConventionPrefix.getPrefix(), Optional.of("prefix"));
-    assertEquals(indexConventionPrefix.getEntityName(expectedIndexName), Optional.of(entityName));
-    assertEquals(indexConventionPrefix.getEntityName("totally not an index"), Optional.empty());
-    assertEquals(indexConventionPrefix.getEntityName("prefix_dataset_v2"), Optional.empty());
+    assertEquals(indexConventionPrefix.getEntityIndexName(OP, entityName), expectedIndexName);
+    assertEquals(indexConventionPrefix.getPrefix(OP), Optional.of("prefix"));
     assertEquals(
-        indexConventionPrefix.getEntityName("prefix_dashboardindex_v2_1683649932260"),
+        indexConventionPrefix.getEntityName(OP, expectedIndexName), Optional.of(entityName));
+    assertEquals(indexConventionPrefix.getEntityName(OP, "totally not an index"), Optional.empty());
+    assertEquals(indexConventionPrefix.getEntityName(OP, "prefix_dataset_v2"), Optional.empty());
+    assertEquals(
+        indexConventionPrefix.getEntityName(OP, "prefix_dashboardindex_v2_1683649932260"),
         Optional.of("dashboard"));
     assertEquals(
-        indexConventionPrefix.getEntityName("dashboardindex_v2_1683649932260"), Optional.empty());
+        indexConventionPrefix.getEntityName(OP, "dashboardindex_v2_1683649932260"),
+        Optional.empty());
+  }
+
+  /**
+   * The prefix is resolved from the operation, not baked into the convention: a single convention
+   * instance yields different index names for different operations, and its inverse strips the
+   * matching prefix. This is the core contract enabling per-operation (e.g. per-tenant) index
+   * isolation.
+   */
+  @Test
+  public void testPrefixResolvedPerOperation() {
+    EntityIndexConfiguration entityIndexConfiguration =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(false).cleanup(false).build())
+            .build();
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new PrefixEnrichmentResolver("fallback"),
+            entityIndexConfiguration);
+
+    OperationFingerprint acme = operationWithPrefix("acme");
+    OperationFingerprint beta = operationWithPrefix("beta");
+
+    assertEquals(indexConvention.getEntityIndexName(acme, "dataset"), "acme_datasetindex_v2");
+    assertEquals(indexConvention.getEntityIndexName(beta, "dataset"), "beta_datasetindex_v2");
+    // No enrichment -> deploy/fallback prefix.
+    assertEquals(indexConvention.getEntityIndexName(OP, "dataset"), "fallback_datasetindex_v2");
+
+    // Inverse strips the operation's own prefix, and rejects another operation's prefix.
+    assertEquals(
+        indexConvention.getEntityName(acme, "acme_datasetindex_v2"), Optional.of("dataset"));
+    assertEquals(indexConvention.getEntityName(acme, "beta_datasetindex_v2"), Optional.empty());
+
+    assertEquals(indexConvention.getAllEntityIndicesPatterns(acme), List.of("acme_*index_v2"));
+    assertEquals(indexConvention.getAllEntityIndicesPatterns(beta), List.of("beta_*index_v2"));
   }
 
   @Test
@@ -64,45 +112,41 @@ public class IndexConventionImplTest {
     String aspectName = "datasetusagestatistics";
     String expectedIndexName = "dataset_datasetusagestatisticsaspect_v1";
     assertEquals(
-        indexConventionNoPrefix.getTimeseriesAspectIndexName(entityName, aspectName),
+        indexConventionNoPrefix.getTimeseriesAspectIndexName(OP, entityName, aspectName),
         expectedIndexName);
-    assertEquals(indexConventionNoPrefix.getPrefix(), Optional.empty());
+    assertEquals(indexConventionNoPrefix.getPrefix(OP), Optional.empty());
     assertEquals(
-        indexConventionNoPrefix.getEntityAndAspectName(expectedIndexName),
+        indexConventionNoPrefix.getEntityAndAspectName(OP, expectedIndexName),
         Optional.of(Pair.of(entityName, aspectName)));
     assertEquals(
-        indexConventionNoPrefix.getEntityAndAspectName("totally not an index"), Optional.empty());
-    assertEquals(indexConventionNoPrefix.getEntityAndAspectName("dataset_v2"), Optional.empty());
+        indexConventionNoPrefix.getEntityAndAspectName(OP, "totally not an index"),
+        Optional.empty());
+    assertEquals(
+        indexConventionNoPrefix.getEntityAndAspectName(OP, "dataset_v2"), Optional.empty());
     assertEquals(
         indexConventionNoPrefix.getEntityAndAspectName(
-            "dashboard_dashboardusagestatisticsaspect_v1"),
+            OP, "dashboard_dashboardusagestatisticsaspect_v1"),
         Optional.of(Pair.of("dashboard", "dashboardusagestatistics")));
   }
 
   @Test
   public void testTimeseriesIndexConventionPrefix() {
     EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
-    IndexConvention indexConventionPrefix =
-        new IndexConventionImpl(
-            IndexConventionImpl.IndexConventionConfig.builder()
-                .prefix("prefix")
-                .hashIdAlgo("MD5")
-                .build(),
-            entityIndexConfiguration);
+    IndexConvention indexConventionPrefix = withPrefix("prefix", entityIndexConfiguration);
     String entityName = "dataset";
     String aspectName = "datasetusagestatistics";
     String expectedIndexName = "prefix_dataset_datasetusagestatisticsaspect_v1";
     assertEquals(
-        indexConventionPrefix.getTimeseriesAspectIndexName(entityName, aspectName),
+        indexConventionPrefix.getTimeseriesAspectIndexName(OP, entityName, aspectName),
         expectedIndexName);
-    assertEquals(indexConventionPrefix.getPrefix(), Optional.of("prefix"));
+    assertEquals(indexConventionPrefix.getPrefix(OP), Optional.of("prefix"));
     assertEquals(
-        indexConventionPrefix.getEntityAndAspectName(expectedIndexName),
+        indexConventionPrefix.getEntityAndAspectName(OP, expectedIndexName),
         Optional.of(Pair.of(entityName, aspectName)));
     assertEquals(
-        indexConventionPrefix.getEntityAndAspectName("totally not an index"), Optional.empty());
+        indexConventionPrefix.getEntityAndAspectName(OP, "totally not an index"), Optional.empty());
     assertEquals(
-        indexConventionPrefix.getEntityAndAspectName("prefix_datasetusagestatisticsaspect_v1"),
+        indexConventionPrefix.getEntityAndAspectName(OP, "prefix_datasetusagestatisticsaspect_v1"),
         Optional.empty());
   }
 
@@ -112,10 +156,10 @@ public class IndexConventionImplTest {
     assertEquals(
         new IndexConventionImpl(
                 IndexConventionImpl.IndexConventionConfig.builder()
-                    .prefix("")
                     .hashIdAlgo("")
                     .schemaFieldDocIdHashEnabled(true)
                     .build(),
+                new ConfiguredIndexPrefixResolver(""),
                 entityIndexConfiguration)
             .getEntityDocumentId(
                 UrnUtils.getUrn(
@@ -135,34 +179,38 @@ public class IndexConventionImplTest {
 
     // Test valid v2 entity indices
     assertTrue(
-        indexConvention.isV2EntityIndex("datasetindex_v2"), "Should identify v2 entity index");
+        indexConvention.isV2EntityIndex(OP, "datasetindex_v2"), "Should identify v2 entity index");
     assertTrue(
-        indexConvention.isV2EntityIndex("dashboardindex_v2"), "Should identify v2 entity index");
+        indexConvention.isV2EntityIndex(OP, "dashboardindex_v2"),
+        "Should identify v2 entity index");
     assertTrue(
-        indexConvention.isV2EntityIndex("prefix_datasetindex_v2"),
+        indexConvention.isV2EntityIndex(OP, "prefix_datasetindex_v2"),
         "Should identify v2 entity index with prefix");
     assertTrue(
-        indexConvention.isV2EntityIndex("very_long_entity_nameindex_v2"),
+        indexConvention.isV2EntityIndex(OP, "very_long_entity_nameindex_v2"),
         "Should identify v2 entity index with long name");
 
     // Test invalid indices
     assertFalse(
-        indexConvention.isV2EntityIndex("datasetindex_v3"), "Should not identify v3 index as v2");
+        indexConvention.isV2EntityIndex(OP, "datasetindex_v3"),
+        "Should not identify v3 index as v2");
     assertFalse(
-        indexConvention.isV2EntityIndex("datasetindex_v1"), "Should not identify v1 index as v2");
+        indexConvention.isV2EntityIndex(OP, "datasetindex_v1"),
+        "Should not identify v1 index as v2");
     assertFalse(
-        indexConvention.isV2EntityIndex("dataset_v2"),
+        indexConvention.isV2EntityIndex(OP, "dataset_v2"),
         "Should not identify index without 'index' suffix");
     assertFalse(
-        indexConvention.isV2EntityIndex("index_v2"), "Should not identify standalone suffix");
+        indexConvention.isV2EntityIndex(OP, "index_v2"), "Should not identify standalone suffix");
     assertFalse(
-        indexConvention.isV2EntityIndex("datasetindex_v2_extra"),
+        indexConvention.isV2EntityIndex(OP, "datasetindex_v2_extra"),
         "Should not identify index with extra suffix");
-    assertFalse(indexConvention.isV2EntityIndex(""), "Should not identify empty string");
+    assertFalse(indexConvention.isV2EntityIndex(OP, ""), "Should not identify empty string");
     assertFalse(
-        indexConvention.isV2EntityIndex("not_an_index"), "Should not identify non-index string");
+        indexConvention.isV2EntityIndex(OP, "not_an_index"),
+        "Should not identify non-index string");
     assertFalse(
-        indexConvention.isV2EntityIndex("datasetindex_v2_1683649932260"),
+        indexConvention.isV2EntityIndex(OP, "datasetindex_v2_1683649932260"),
         "Should not identify timestamped index");
   }
 
@@ -173,90 +221,82 @@ public class IndexConventionImplTest {
 
     // Test valid v3 entity indices
     assertTrue(
-        indexConvention.isV3EntityIndex("datasetindex_v3"), "Should identify v3 entity index");
+        indexConvention.isV3EntityIndex(OP, "datasetindex_v3"), "Should identify v3 entity index");
     assertTrue(
-        indexConvention.isV3EntityIndex("dashboardindex_v3"), "Should identify v3 entity index");
+        indexConvention.isV3EntityIndex(OP, "dashboardindex_v3"),
+        "Should identify v3 entity index");
     assertTrue(
-        indexConvention.isV3EntityIndex("prefix_datasetindex_v3"),
+        indexConvention.isV3EntityIndex(OP, "prefix_datasetindex_v3"),
         "Should identify v3 entity index with prefix");
     assertTrue(
-        indexConvention.isV3EntityIndex("very_long_entity_nameindex_v3"),
+        indexConvention.isV3EntityIndex(OP, "very_long_entity_nameindex_v3"),
         "Should identify v3 entity index with long name");
 
     // Test invalid indices
     assertFalse(
-        indexConvention.isV3EntityIndex("datasetindex_v2"), "Should not identify v2 index as v3");
+        indexConvention.isV3EntityIndex(OP, "datasetindex_v2"),
+        "Should not identify v2 index as v3");
     assertFalse(
-        indexConvention.isV3EntityIndex("datasetindex_v1"), "Should not identify v1 index as v3");
+        indexConvention.isV3EntityIndex(OP, "datasetindex_v1"),
+        "Should not identify v1 index as v3");
     assertFalse(
-        indexConvention.isV3EntityIndex("dataset_v3"),
+        indexConvention.isV3EntityIndex(OP, "dataset_v3"),
         "Should not identify index without 'index' suffix");
     assertFalse(
-        indexConvention.isV3EntityIndex("index_v3"), "Should not identify standalone suffix");
+        indexConvention.isV3EntityIndex(OP, "index_v3"), "Should not identify standalone suffix");
     assertFalse(
-        indexConvention.isV3EntityIndex("datasetindex_v3_extra"),
+        indexConvention.isV3EntityIndex(OP, "datasetindex_v3_extra"),
         "Should not identify index with extra suffix");
-    assertFalse(indexConvention.isV3EntityIndex(""), "Should not identify empty string");
+    assertFalse(indexConvention.isV3EntityIndex(OP, ""), "Should not identify empty string");
     assertFalse(
-        indexConvention.isV3EntityIndex("not_an_index"), "Should not identify non-index string");
+        indexConvention.isV3EntityIndex(OP, "not_an_index"),
+        "Should not identify non-index string");
     assertFalse(
-        indexConvention.isV3EntityIndex("datasetindex_v3_1683649932260"),
+        indexConvention.isV3EntityIndex(OP, "datasetindex_v3_1683649932260"),
         "Should not identify timestamped index");
   }
 
   @Test
   public void testIsV2EntityIndexWithPrefix() {
     EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
-    IndexConvention indexConvention =
-        new IndexConventionImpl(
-            IndexConventionImpl.IndexConventionConfig.builder()
-                .prefix("test_prefix")
-                .hashIdAlgo("MD5")
-                .build(),
-            entityIndexConfiguration);
+    IndexConvention indexConvention = withPrefix("test_prefix", entityIndexConfiguration);
 
     // Test valid v2 entity indices with prefix
     assertTrue(
-        indexConvention.isV2EntityIndex("test_prefix_datasetindex_v2"),
+        indexConvention.isV2EntityIndex(OP, "test_prefix_datasetindex_v2"),
         "Should identify v2 entity index with prefix");
     assertTrue(
-        indexConvention.isV2EntityIndex("test_prefix_dashboardindex_v2"),
+        indexConvention.isV2EntityIndex(OP, "test_prefix_dashboardindex_v2"),
         "Should identify v2 entity index with prefix");
 
     // Test invalid indices
     assertFalse(
-        indexConvention.isV2EntityIndex("datasetindex_v2"),
+        indexConvention.isV2EntityIndex(OP, "datasetindex_v2"),
         "Should not identify v2 index without prefix");
     assertFalse(
-        indexConvention.isV2EntityIndex("wrong_prefix_datasetindex_v2"),
+        indexConvention.isV2EntityIndex(OP, "wrong_prefix_datasetindex_v2"),
         "Should not identify v2 index with wrong prefix");
   }
 
   @Test
   public void testIsV3EntityIndexWithPrefix() {
     EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
-    IndexConvention indexConvention =
-        new IndexConventionImpl(
-            IndexConventionImpl.IndexConventionConfig.builder()
-                .prefix("test_prefix")
-                .hashIdAlgo("MD5")
-                .build(),
-            entityIndexConfiguration);
+    IndexConvention indexConvention = withPrefix("test_prefix", entityIndexConfiguration);
 
     // Test valid v3 entity indices with prefix
     assertTrue(
-        indexConvention.isV3EntityIndex("test_prefix_datasetindex_v3"),
+        indexConvention.isV3EntityIndex(OP, "test_prefix_datasetindex_v3"),
         "Should identify v3 entity index with prefix");
     assertTrue(
-        indexConvention.isV3EntityIndex("test_prefix_dashboardindex_v3"),
+        indexConvention.isV3EntityIndex(OP, "test_prefix_dashboardindex_v3"),
         "Should identify v3 entity index with prefix");
 
     // Test invalid indices
     assertFalse(
-        indexConvention.isV3EntityIndex("datasetindex_v3"),
+        indexConvention.isV3EntityIndex(OP, "datasetindex_v3"),
         "Should not identify v3 index without prefix");
     assertFalse(
-        indexConvention.isV3EntityIndex("wrong_prefix_datasetindex_v3"),
+        indexConvention.isV3EntityIndex(OP, "wrong_prefix_datasetindex_v3"),
         "Should not identify v3 index with wrong prefix");
   }
 
@@ -270,7 +310,7 @@ public class IndexConventionImplTest {
             .build();
 
     IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5", entityIndexConfiguration);
-    List<String> patterns = indexConvention.getAllEntityIndicesPatterns();
+    List<String> patterns = indexConvention.getAllEntityIndicesPatterns(OP);
 
     assertEquals(patterns.size(), 2, "Should return both V2 and V3 patterns");
     assertTrue(patterns.contains("*index_v2"), "Should contain V2 pattern");
@@ -286,15 +326,9 @@ public class IndexConventionImplTest {
             .v3(EntityIndexVersionConfiguration.builder().enabled(true).cleanup(true).build())
             .build();
 
-    IndexConvention indexConvention =
-        new IndexConventionImpl(
-            IndexConventionImpl.IndexConventionConfig.builder()
-                .prefix("test_prefix")
-                .hashIdAlgo("MD5")
-                .build(),
-            entityIndexConfiguration);
+    IndexConvention indexConvention = withPrefix("test_prefix", entityIndexConfiguration);
 
-    List<String> patterns = indexConvention.getAllEntityIndicesPatterns();
+    List<String> patterns = indexConvention.getAllEntityIndicesPatterns(OP);
 
     assertEquals(patterns.size(), 2, "Should return both V2 and V3 patterns");
     assertTrue(patterns.contains("test_prefix_*index_v2"), "Should contain V2 pattern with prefix");
@@ -311,7 +345,7 @@ public class IndexConventionImplTest {
             .build();
 
     IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5", entityIndexConfiguration);
-    List<String> patterns = indexConvention.getAllEntityIndicesPatterns();
+    List<String> patterns = indexConvention.getAllEntityIndicesPatterns(OP);
 
     assertEquals(patterns.size(), 1, "Should return only V2 pattern");
     assertTrue(patterns.contains("*index_v2"), "Should contain V2 pattern");
@@ -328,7 +362,7 @@ public class IndexConventionImplTest {
             .build();
 
     IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5", entityIndexConfiguration);
-    List<String> patterns = indexConvention.getAllEntityIndicesPatterns();
+    List<String> patterns = indexConvention.getAllEntityIndicesPatterns(OP);
 
     assertEquals(patterns.size(), 1, "Should return only V3 pattern");
     assertFalse(patterns.contains("*index_v2"), "Should not contain V2 pattern");
@@ -345,7 +379,7 @@ public class IndexConventionImplTest {
             .build();
 
     IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5", entityIndexConfiguration);
-    List<String> patterns = indexConvention.getAllEntityIndicesPatterns();
+    List<String> patterns = indexConvention.getAllEntityIndicesPatterns(OP);
 
     assertEquals(patterns.size(), 0, "Should return empty list when no versions are enabled");
   }
@@ -360,7 +394,7 @@ public class IndexConventionImplTest {
             .build();
 
     IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5", entityIndexConfiguration);
-    List<String> v3Patterns = indexConvention.getV3EntityIndexPatterns();
+    List<String> v3Patterns = indexConvention.getV3EntityIndexPatterns(OP);
 
     assertEquals(v3Patterns.size(), 1, "Should return one v3 pattern");
     assertEquals(
@@ -376,15 +410,9 @@ public class IndexConventionImplTest {
             .v3(EntityIndexVersionConfiguration.builder().enabled(false).cleanup(false).build())
             .build();
 
-    IndexConvention indexConvention =
-        new IndexConventionImpl(
-            IndexConventionImpl.IndexConventionConfig.builder()
-                .prefix("test_prefix")
-                .hashIdAlgo("MD5")
-                .build(),
-            entityIndexConfiguration);
+    IndexConvention indexConvention = withPrefix("test_prefix", entityIndexConfiguration);
 
-    List<String> v3Patterns = indexConvention.getV3EntityIndexPatterns();
+    List<String> v3Patterns = indexConvention.getV3EntityIndexPatterns(OP);
 
     assertEquals(v3Patterns.size(), 1, "Should return one v3 pattern");
     assertEquals(
@@ -403,14 +431,14 @@ public class IndexConventionImplTest {
             .build();
 
     IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5", entityIndexConfiguration);
-    List<String> v3Patterns = indexConvention.getV3EntityIndexPatterns();
+    List<String> v3Patterns = indexConvention.getV3EntityIndexPatterns(OP);
 
     assertEquals(v3Patterns.size(), 1, "Should return one v3 pattern");
     assertEquals(
         v3Patterns.get(0), "*index_v3", "Should return v3 pattern even when v3 is disabled");
 
     // Verify that getAllEntityIndicesPatterns doesn't include v3 when disabled
-    List<String> allPatterns = indexConvention.getAllEntityIndicesPatterns();
+    List<String> allPatterns = indexConvention.getAllEntityIndicesPatterns(OP);
     assertFalse(
         allPatterns.contains("*index_v3"),
         "getAllEntityIndicesPatterns should not include v3 when disabled");
@@ -422,16 +450,117 @@ public class IndexConventionImplTest {
     IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5", entityIndexConfiguration);
 
     assertTrue(
-        indexConvention.isSemanticEntityIndex("datasetindex_v2_semantic"),
+        indexConvention.isSemanticEntityIndex(OP, "datasetindex_v2_semantic"),
         "Should identify semantic entity index");
 
     assertFalse(
-        indexConvention.isSemanticEntityIndex("datasetindex_v2"),
+        indexConvention.isSemanticEntityIndex(OP, "datasetindex_v2"),
         "Should not identify v2 index as semantic");
     // A versioned semantic backing index must NOT be treated as the bare semantic index, so
     // orphan cleanup still reclaims stale semantic backing indices.
     assertFalse(
-        indexConvention.isSemanticEntityIndex("datasetindex_v2_semantic_1700000000000"),
+        indexConvention.isSemanticEntityIndex(OP, "datasetindex_v2_semantic_1700000000000"),
         "Should not identify a versioned semantic backing index");
+  }
+
+  /**
+   * The resolved-name cache is a bounded LRU (see {@code
+   * IndexConventionImpl#INDEX_NAME_CACHE_MAX_SIZE}): resolving more distinct (prefix, base) pairs
+   * than it can hold must never return a stale or wrong name for an evicted entry — an eviction
+   * just forces a (cheap) recompute. Guards the singleton bean against per-prefix (e.g. per-tenant)
+   * unbounded growth and stale reads after eviction.
+   */
+  @Test
+  public void testBoundedNameCacheStaysCorrectUnderManyPrefixes() {
+    EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new PrefixEnrichmentResolver("fallback"),
+            entityIndexConfiguration);
+
+    // Exceed the LRU bound (10_000) with distinct prefixes; every resolved name must be correct.
+    for (int i = 0; i < 15_000; i++) {
+      assertEquals(
+          indexConvention.getEntityIndexName(operationWithPrefix("t" + i), "dataset"),
+          "t" + i + "_datasetindex_v2");
+    }
+    // "t0" is now evicted — re-resolving it must still yield the correct name, never a stale one.
+    assertEquals(
+        indexConvention.getEntityIndexName(operationWithPrefix("t0"), "dataset"),
+        "t0_datasetindex_v2");
+  }
+
+  // --- Test fixtures for per-operation prefix resolution -------------------------------------
+
+  /** A test enrichment carrying an index prefix, mirroring how a deployment stamps identity. */
+  private record PrefixEnrichment(String prefix) implements Enrichment {}
+
+  /** Resolves the prefix from {@link PrefixEnrichment}, falling back to a fixed default. */
+  private static final class PrefixEnrichmentResolver implements IndexPrefixResolver {
+    private final String fallback;
+
+    private PrefixEnrichmentResolver(String fallback) {
+      this.fallback = fallback;
+    }
+
+    @Nonnull
+    @Override
+    public String resolvePrefix(@Nonnull OperationFingerprint operation) {
+      return operation
+          .getEnrichment(PrefixEnrichment.class)
+          .map(PrefixEnrichment::prefix)
+          .orElse(fallback);
+    }
+  }
+
+  private static OperationFingerprint operationWithPrefix(String prefix) {
+    return new OperationFingerprint() {
+      @Nonnull
+      @Override
+      public com.linkedin.common.urn.Urn getActor() {
+        return OperationFingerprint.EMPTY.getActor();
+      }
+
+      @Nonnull
+      @Override
+      public String getRequestID() {
+        return OperationFingerprint.EMPTY.getRequestID();
+      }
+
+      @Nonnull
+      @Override
+      public com.linkedin.common.AuditStamp getAuditStamp() {
+        return OperationFingerprint.EMPTY.getAuditStamp();
+      }
+
+      @Nonnull
+      @Override
+      public String getGlobalContextId() {
+        return OperationFingerprint.EMPTY.getGlobalContextId();
+      }
+
+      @Nonnull
+      @Override
+      public String getSearchContextId() {
+        return OperationFingerprint.EMPTY.getSearchContextId();
+      }
+
+      @Nonnull
+      @Override
+      public String getEntityContextId() {
+        return OperationFingerprint.EMPTY.getEntityContextId();
+      }
+
+      @Nonnull
+      @Override
+      @SuppressWarnings("unchecked")
+      public <T extends Enrichment> Optional<T> getEnrichment(@Nonnull Class<T> type) {
+        if (type.equals(PrefixEnrichment.class)) {
+          return Optional.of((T) new PrefixEnrichment(prefix));
+        }
+        return Optional.empty();
+      }
+    };
   }
 }

@@ -57,6 +57,11 @@ public class RetentionServiceExactKeyTest {
           }
 
           @Override
+          protected com.linkedin.entity.client.SystemEntityClient getSystemEntityClient() {
+            return mock(com.linkedin.entity.client.SystemEntityClient.class);
+          }
+
+          @Override
           protected AspectsBatch buildAspectsBatch(
               @Nonnull OperationContext opContext,
               List<MetadataChangeProposal> mcps,

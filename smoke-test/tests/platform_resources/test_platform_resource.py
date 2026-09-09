@@ -11,9 +11,12 @@ from datahub.api.entities.platformresource.platform_resource import (
     PlatformResourceKey,
     PlatformResourceSearchFields,
 )
+from tests.utilities.domains import Domain
 from tests.utils import wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 
 def generate_random_id(length=8):

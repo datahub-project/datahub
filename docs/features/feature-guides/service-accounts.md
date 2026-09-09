@@ -288,7 +288,11 @@ Variables:
 }
 ```
 
-Valid duration options: `ONE_HOUR`, `ONE_DAY`, `ONE_MONTH`, `THREE_MONTHS`, `SIX_MONTHS`, `ONE_YEAR`, `NO_EXPIRY`
+Valid duration options (enum): `ONE_HOUR`, `ONE_DAY`, `ONE_WEEK`, `ONE_MONTH`, `THREE_MONTHS`, `SIX_MONTHS`, `ONE_YEAR`.
+`NO_EXPIRY` is only accepted when `ACCESS_TOKEN_ALLOW_NO_EXPIRY=true`.
+
+You may also pass `durationIso` (ISO-8601, e.g. `P30D` or `P1Y`) instead of `duration`. Exactly one of `duration` or `durationIso` is required.
+Allowed ISO values are configured via `ACCESS_TOKEN_ALLOWED_DURATIONS` (create-time allowlist; existing tokens are unaffected).
 
 ## Best Practices
 

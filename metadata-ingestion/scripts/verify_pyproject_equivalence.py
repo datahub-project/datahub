@@ -22,7 +22,7 @@ from generate_pyproject_deps import merge_duplicate_deps
 SCRIPT_DIR = Path(__file__).parent
 METADATA_INGESTION_DIR = SCRIPT_DIR.parent
 
-CIRCULAR_EXTRAS = {"airflow", "great-expectations"}
+CIRCULAR_EXTRAS = {"airflow", "great-expectations", "sqlmesh"}
 SELF_REF_PATTERN = re.compile(r"^acryl-datahub\[(.+)\]$")
 
 

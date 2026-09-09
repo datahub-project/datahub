@@ -161,9 +161,6 @@ public class EntityGraphRegistry {
     }
 
     if (properties.isEnabled()) {
-      if (byId.isEmpty()) {
-        errors.add("entity graph cache has no enabled graphs with resolvable edges");
-      }
       validateKnownGraphs(byId, errors);
       if (!errors.isEmpty()) {
         throw new IllegalStateException(
@@ -193,27 +190,33 @@ public class EntityGraphRegistry {
 
   private static void validateKnownGraphs(
       @Nonnull Map<String, EntityGraphDefinition> byId, @Nonnull List<String> errors) {
+    List<String> disabled = new ArrayList<>();
     for (KnownEntityGraph known : KnownEntityGraph.values()) {
       EntityGraphDefinition definition = byId.get(known.getConfigKey());
       if (definition == null) {
-        errors.add(
-            "required graph "
-                + known.getConfigKey()
-                + " ("
-                + known.name()
-                + ") is missing or disabled");
+        disabled.add(known.getConfigKey());
         continue;
       }
-      if (definition.getBuildSource() != known.getExpectedBuildSource()) {
+      GraphSnapshotSource actualSource = definition.getBuildSource();
+      if (!known.allowsBuildSource(actualSource)) {
         errors.add(
             "graph "
                 + known.getConfigKey()
                 + " ("
                 + known.name()
-                + ") requires buildSource "
-                + known.getExpectedBuildSource().name().toLowerCase(Locale.ROOT)
-                + " but was "
-                + definition.getBuildSource().name().toLowerCase(Locale.ROOT));
+                + ") does not allow buildSource "
+                + actualSource.name().toLowerCase(Locale.ROOT)
+                + " with scope.mode "
+                + known.getExpectedScope().name()
+                + " (allowed: "
+                + known.allowedBuildSourcesDescription()
+                + ")");
+      } else if (actualSource != known.getExpectedBuildSource()) {
+        log.warn(
+            "Known entity graph {} using buildSource {} (default {})",
+            known.getConfigKey(),
+            actualSource.name().toLowerCase(Locale.ROOT),
+            known.expectedBuildSourceYaml());
       }
       ScopeMode actualScope = definition.getScope().getMode();
       if (!matchesScopeRequirement(actualScope, known.getExpectedScope())) {
@@ -227,6 +230,9 @@ public class EntityGraphRegistry {
                 + " but was "
                 + actualScope.name());
       }
+    }
+    if (!disabled.isEmpty()) {
+      log.info("Known entity graphs disabled or omitted: {}", String.join(", ", disabled));
     }
   }
 

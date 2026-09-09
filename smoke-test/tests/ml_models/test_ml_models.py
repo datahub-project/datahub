@@ -16,8 +16,11 @@ from datahub.metadata.schema_classes import (
     MLModelGroupPropertiesClass,
     MLModelPropertiesClass,
 )
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 # Generate unique model names for testing
 start_index = randint(10, 10000)

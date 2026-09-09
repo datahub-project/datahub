@@ -167,6 +167,14 @@ class RollingRestartPhase(Phase):
                         mount_env=mount_env,
                     ),
                     timeout_s=self._recreate_timeout_s,
+                    # A rolling restart swaps images; it does not re-run
+                    # system-update. Without --no-deps, recreating GMS drags its
+                    # depends_on system-update-debug along, and that unmanaged
+                    # job sweeps aspect migrations at the base config's settings
+                    # — migrating fixtures that later phases still need to find
+                    # stale. Real ZDU runs system-update as its own explicit
+                    # step, which this framework already does per phase.
+                    no_deps=True,
                 )
             except Exception as exc:
                 log.exception("RollingRestartPhase: recreate failed for %s", service)

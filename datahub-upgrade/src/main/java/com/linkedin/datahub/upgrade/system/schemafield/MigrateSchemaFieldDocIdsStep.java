@@ -82,7 +82,9 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
     this.batchDelayMs = batchDelayMs;
     this.limit = limit;
     this.indexName =
-        elasticSearchComponents.getIndexConvention().getEntityIndexName(SCHEMA_FIELD_ENTITY_NAME);
+        elasticSearchComponents
+            .getIndexConvention()
+            .getEntityIndexName(opContext, SCHEMA_FIELD_ENTITY_NAME);
     // FIXME: This is a legacy job that was doing bad things with the bulk processor, moved to the
     // standard, but
     //        ideally this should pull from config

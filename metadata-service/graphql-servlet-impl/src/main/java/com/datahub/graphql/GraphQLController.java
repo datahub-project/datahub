@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.google.inject.name.Named;
+import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
@@ -70,6 +71,8 @@ public class GraphQLController {
   @Inject ConfigurationProvider configurationProvider;
 
   @Inject MetricUtils metricUtils;
+
+  @Inject AspectMappingRegistry aspectMappingRegistry;
 
   @Inject RateLimitEngine rateLimitEngine;
 
@@ -314,6 +317,7 @@ public class GraphQLController {
             documentMetadata,
             variables,
             graphqlUsageClassificationRegistry);
+    context.setAspectMappingRegistry(aspectMappingRegistry);
     Span.current()
         .setAttribute(
             ACTOR_URN_ATTR,

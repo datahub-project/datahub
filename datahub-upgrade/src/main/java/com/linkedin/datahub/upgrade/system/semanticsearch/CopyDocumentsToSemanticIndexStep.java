@@ -66,8 +66,8 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
 
   private UpgradeStepResult execute(UpgradeContext context) {
     try {
-      String baseIndexName = indexConvention.getEntityIndexName(entityName);
-      String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+      String baseIndexName = indexConvention.getEntityIndexName(opContext, entityName);
+      String semanticIndexName = indexConvention.getEntityIndexNameSemantic(opContext, entityName);
       log.info(
           "Starting document copy for entity '{}': {} -> {}",
           entityName,

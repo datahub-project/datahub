@@ -201,6 +201,7 @@ test.describe('Change History Calendar', () => {
 
     // Open dropdown
     await historyHelper.typesSelect.click({ timeout: TIMEOUTS.SHORT });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.QUICK);
 
     // Toggle all 6 standard operation types OFF
@@ -212,6 +213,7 @@ test.describe('Change History Calendar', () => {
     // Close dropdown by clicking it again
     await historyHelper.typesSelect.click({ timeout: TIMEOUTS.SHORT });
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     // ──────────────────────────────────────────────────────────
@@ -306,6 +308,7 @@ test.describe('Change History Calendar', () => {
     const customPill = historyHelper.getSummaryPill(CUSTOM_OPERATION_DISPLAY);
     await expect(customPill).toBeVisible();
     await historyHelper.toggleSummaryPill(CUSTOM_OPERATION_DISPLAY);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     // ──────────────────────────────────────────────────────────
@@ -478,6 +481,7 @@ test.describe('Change History Calendar', () => {
     // Wait for calendar to be visible
     await historyHelper.calendar.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     const day0DateStr = getDateString(0);

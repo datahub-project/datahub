@@ -1064,7 +1064,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "View"
+                "Semantic Model"
             ]
         }
     },

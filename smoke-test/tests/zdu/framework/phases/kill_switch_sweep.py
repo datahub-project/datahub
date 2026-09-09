@@ -38,7 +38,7 @@ import threading
 import time
 from datetime import datetime
 
-from ._shared import read_token_passthrough
+from ._shared import old_image_gms_window, read_token_passthrough
 from .base import Phase, PhaseResult
 from ..constants import REPO_ROOT
 from ..context import KillSwitchCapture, TestContext
@@ -48,6 +48,9 @@ from ..host_mounts import worktree_mount_env
 from ..mysql_client import MySQLClient
 
 log = logging.getLogger(__name__)
+
+# Private DATAHUB_REVISION for this phase's sweep — see _find_migrate_result.
+_MIGRATE_REVISION = "324"
 
 
 _DEFAULT_SEED_COUNT = 1000
@@ -88,6 +91,7 @@ class KillSwitchSweepPhase(Phase):
         urn_prefix: str = _DEFAULT_URN_PREFIX,
         poll_interval_s: float = _DEFAULT_POLL_INTERVAL_S,
         restart_timeout_s: int = _DEFAULT_RESTART_TIMEOUT_S,
+        old_image_tag: str = "debug",
         new_image_tag: str = "debug",
         build_images_root: str = "smoke-test/build/zdu-images",
     ) -> None:
@@ -104,6 +108,7 @@ class KillSwitchSweepPhase(Phase):
         self._urn_prefix = urn_prefix
         self._poll_interval_s = poll_interval_s
         self._restart_timeout_s = restart_timeout_s
+        self._old_image_tag = old_image_tag
         self._new_image_tag = new_image_tag
         self._build_images_root = build_images_root
 
@@ -122,44 +127,60 @@ class KillSwitchSweepPhase(Phase):
         self._docker.remove_container(_KILL_CONTAINER_NAME)
         self._docker.remove_container(_RESTART_CONTAINER_NAME)
 
-        try:
-            self._seed_test_aspects_via_rest()
-        except Exception as exc:
-            log.exception("[kill-switch] REST seed failed: %s", exc)
-            return self._fail(
-                started_at, time.monotonic() - t0, f"REST seed failed: {exc}"
-            )
+        # Everything that depends on the fixture staying un-migrated runs with
+        # GMS held on the OLD image — seed, sweep, kill and resume alike. The
+        # window has to span the sweep, not just the seed: GMS hosts the
+        # embedded MCE/MAE consumers, so restoring it to NEW hands the fresh
+        # fixture to an armed mutator chain that drains it in seconds. See
+        # old_image_gms_window.
+        with old_image_gms_window(
+            self._docker,
+            gms_service=self._gms_service,
+            old_image_tag=self._old_image_tag,
+            new_image_tag=self._new_image_tag,
+            build_images_root=self._build_images_root,
+            log_prefix="[kill-switch]",
+        ):
+            try:
+                self._seed_test_aspects_via_rest()
+            except Exception as exc:
+                log.exception("[kill-switch] REST seed failed: %s", exc)
+                return self._fail(
+                    started_at, time.monotonic() - t0, f"REST seed failed: {exc}"
+                )
 
-        # Phase 1: kill mid-sweep.
-        kill_start = time.monotonic()
-        try:
-            self._run_kill_phase(ctx, cap)
-        except Exception as exc:
-            log.exception("[kill-switch] kill phase failed: %s", exc)
+            # Phase 1: kill mid-sweep.
+            kill_start = time.monotonic()
+            try:
+                self._run_kill_phase(ctx, cap)
+            except Exception as exc:
+                log.exception("[kill-switch] kill phase failed: %s", exc)
+                cap.kill_phase_duration_s = time.monotonic() - kill_start
+                return self._fail(
+                    started_at, time.monotonic() - t0, f"kill phase failed: {exc}"
+                )
             cap.kill_phase_duration_s = time.monotonic() - kill_start
-            return self._fail(
-                started_at, time.monotonic() - t0, f"kill phase failed: {exc}"
-            )
-        cap.kill_phase_duration_s = time.monotonic() - kill_start
 
-        # Phase 2: restart and verify resume.
-        resume_start = time.monotonic()
-        try:
-            self._run_resume_phase(ctx, cap)
-        except Exception as exc:
-            log.exception("[kill-switch] resume phase failed: %s", exc)
+            # Phase 2: restart and verify resume.
+            resume_start = time.monotonic()
+            try:
+                self._run_resume_phase(ctx, cap)
+            except Exception as exc:
+                log.exception("[kill-switch] resume phase failed: %s", exc)
+                cap.resume_phase_duration_s = time.monotonic() - resume_start
+                return self._fail(
+                    started_at, time.monotonic() - t0, f"resume phase failed: {exc}"
+                )
             cap.resume_phase_duration_s = time.monotonic() - resume_start
-            return self._fail(
-                started_at, time.monotonic() - t0, f"resume phase failed: {exc}"
-            )
-        cap.resume_phase_duration_s = time.monotonic() - resume_start
 
-        # Final state capture.
-        cap.final_aspect_count_at_target = (
-            self._mysql.count_aspects_at_schema_version_for_urn_prefix(
-                self._urn_prefix, self._aspect, self._target_schema_version
+            # Read the final count inside the window — once GMS is back on NEW
+            # its armed consumers migrate anything the sweep left behind, which
+            # would mask a sweep that did not finish its own work.
+            cap.final_aspect_count_at_target = (
+                self._mysql.count_aspects_at_schema_version_for_urn_prefix(
+                    self._urn_prefix, self._aspect, self._target_schema_version
+                )
             )
-        )
         log.info(
             "[kill-switch] phase done: killed at %d/%d migrated, "
             "final %d/%d at target (kill %.1fs, resume %.1fs)",
@@ -296,20 +317,20 @@ class KillSwitchSweepPhase(Phase):
         self._docker.remove_container(_KILL_CONTAINER_NAME)
 
     def _capture_upgrade_state_at_kill(self, cap: KillSwitchCapture) -> None:
-        # MigrateAspects upgrade-id has a stable prefix; find the row whose
-        # URN matches it. The framework already has a helper for prefix lookups.
+        # Read this phase's own upgrade result by exact id — a prefix scan would
+        # also match the boot-time sweep's row (same "migrate-aspects-" prefix,
+        # release-version id) and return whichever the query happened to order
+        # first.
         try:
-            upgrade_id, parsed = self._mysql.find_upgrade_result_by_urn_prefix(
-                "migrate-aspects-"
-            )
+            upgrade_id, parsed = self._find_migrate_result()
         except Exception as exc:
             log.warning(
                 "[kill-switch] could not read MigrateAspects upgrade result: %s", exc
             )
             return
-        if upgrade_id is None or parsed is None:
+        if parsed is None:
             log.warning(
-                "[kill-switch] no MigrateAspects upgrade result found at kill time"
+                "[kill-switch] no upgrade result for %s at kill time", upgrade_id
             )
             return
         cap.upgrade_state_at_kill = parsed.get("state")
@@ -383,9 +404,7 @@ class KillSwitchSweepPhase(Phase):
 
         # Capture final upgrade state.
         try:
-            _, parsed = self._mysql.find_upgrade_result_by_urn_prefix(
-                "migrate-aspects-"
-            )
+            _, parsed = self._find_migrate_result()
             if parsed is not None:
                 cap.final_upgrade_state = parsed.get("state")
         except Exception as exc:
@@ -410,6 +429,14 @@ class KillSwitchSweepPhase(Phase):
             **token_env,
             "ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED": "true",
             "SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED": "true",
+            # Give this sweep its own upgrade id so its state/cursor assertions
+            # describe its own job. MigrateAspects ids are
+            # "migrate-aspects-<gitVersion>-<revision>" and the framework controls
+            # only the revision, so a private one separates this sweep from the
+            # boot-time run (revision 0), the upgrade phases (1) and the other
+            # sweeps. Without it MigrateAspectsStep short-circuits on whichever
+            # sweep finished first and left a SUCCEEDED result.
+            "DATAHUB_REVISION": _MIGRATE_REVISION,
             # The upgrade container starts with this false by default; passing
             # it explicitly registers the AspectMigrationMutator Spring beans
             # so MigrateAspects doesn't short-circuit with "no mutators
@@ -435,6 +462,22 @@ class KillSwitchSweepPhase(Phase):
             extra_args=["-u", "SystemUpdateNonBlocking"],
             compose_env=compose_env,
             container_name=container_name,
+        )
+
+    def _find_migrate_result(self) -> tuple[str | None, dict | None]:
+        """Locate this phase's own ``migrate-aspects-*`` upgrade result.
+
+        Matched by the private ``DATAHUB_REVISION`` this phase runs its sweep
+        under (324). MigrateAspects derives its upgrade id as
+        ``migrate-aspects-<gitVersion>-<revision>``
+        (``NonBlockingConfigs.java``), and the framework knows only the
+        revision half — so the revision is the suffix we match on. Note
+        ``SYSTEM_UPDATE_MIGRATE_ASPECTS_UPGRADE_VERSION`` is NOT a way to do
+        this: no such property exists in application.yaml, so setting it has no
+        effect at all.
+        """
+        return self._mysql.find_upgrade_result_by_urn_prefix_suffix(
+            "migrate-aspects-", f"-{_MIGRATE_REVISION}"
         )
 
     def _fail(self, started_at: datetime, duration_s: float, error: str) -> PhaseResult:

@@ -18,6 +18,11 @@ on:
         required: false
         default: "quickstart"
         type: string
+      workers_per_shard:
+        description: "EXPERIMENTAL: Playwright --workers per shard. Default 1 preserves existing behavior; >1 enables multiple worker processes that share one shard's stack and filesystem."
+        required: false
+        default: "1"
+        type: string
 
 permissions:
   contents: read
@@ -92,6 +97,7 @@ jobs:
       test_runner_type: ${{ needs.setup.outputs.test_runner_type }}
       datahub_version: ${{ inputs.datahub_version }}
       profile_name: ${{ inputs.profileName }}
+      workers_per_shard: ${{ inputs.workers_per_shard }}
     secrets: inherit
 
   playwright_report:

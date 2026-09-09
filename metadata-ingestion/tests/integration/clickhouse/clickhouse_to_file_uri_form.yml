@@ -4,7 +4,7 @@ source:
   type: clickhouse
   config:
     platform_instance: clickhousetestserver
-    sqlalchemy_uri: "clickhouse://clickhouseuser:clickhousepass@localhost:28123/?compression=lz4&secure=false"
+    sqlalchemy_uri: "clickhouse://clickhouseuser:clickhousepass@localhost:${CLICKHOUSE_PORT}/?compression=lz4&secure=false"
     database_pattern:
       allow:
         - "^db1"

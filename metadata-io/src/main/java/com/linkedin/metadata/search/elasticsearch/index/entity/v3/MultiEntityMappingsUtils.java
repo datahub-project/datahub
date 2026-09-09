@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -266,37 +267,54 @@ public class MultiEntityMappingsUtils {
       if (existingProperties != null && configProperties != null) {
         Map<String, Object> mergedProperties = new HashMap<>(existingProperties);
 
-        // Special handling for _aspects - merge the individual aspects instead of overwriting
-        if (configProperties.containsKey("_aspects")
-            && existingProperties.containsKey("_aspects")) {
-          @SuppressWarnings("unchecked")
-          Map<String, Object> existingAspects =
-              (Map<String, Object>) existingProperties.get("_aspects");
-          @SuppressWarnings("unchecked")
-          Map<String, Object> configAspects =
-              (Map<String, Object>) configProperties.get("_aspects");
-
-          if (existingAspects.containsKey("properties")
-              && configAspects.containsKey("properties")) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> existingAspectsProperties =
-                (Map<String, Object>) existingAspects.get("properties");
-            @SuppressWarnings("unchecked")
-            Map<String, Object> configAspectsProperties =
-                (Map<String, Object>) configAspects.get("properties");
-
-            Map<String, Object> mergedAspectsProperties = new HashMap<>(existingAspectsProperties);
-            mergedAspectsProperties.putAll(configAspectsProperties);
-
-            Map<String, Object> mergedAspects = new HashMap<>(existingAspects);
-            mergedAspects.put("properties", mergedAspectsProperties);
-            mergedProperties.put("_aspects", mergedAspects);
+        // _aspects and structuredProperties are assembled independently per entity and must retain
+        // every child across a multi-entity search group. structuredProperties in particular is now
+        // mapped dynamic:false, so a field left unmerged here would be dropped from _source rather
+        // than dynamic-mapped — silently removing another entity's structured properties from
+        // search. Deep-merge their child properties instead of overwriting.
+        for (String mergedContainer : List.of("_aspects", "structuredProperties")) {
+          if (!configProperties.containsKey(mergedContainer)) {
+            continue;
           }
+          if (!existingProperties.containsKey(mergedContainer)) {
+            mergedProperties.put(mergedContainer, configProperties.get(mergedContainer));
+            continue;
+          }
+          Object existingContainerValue = existingProperties.get(mergedContainer);
+          Object configContainerValue = configProperties.get(mergedContainer);
+          if (!(existingContainerValue instanceof Map) || !(configContainerValue instanceof Map)) {
+            mergedProperties.put(mergedContainer, configContainerValue);
+            continue;
+          }
+          @SuppressWarnings("unchecked")
+          Map<String, Object> existingContainer = (Map<String, Object>) existingContainerValue;
+          @SuppressWarnings("unchecked")
+          Map<String, Object> configContainer = (Map<String, Object>) configContainerValue;
+          Map<String, Object> mergedContainerValue = new HashMap<>(existingContainer);
+          mergedContainerValue.putAll(configContainer);
+
+          Object existingChildProperties = existingContainer.get("properties");
+          Object configChildProperties = configContainer.get("properties");
+          if (existingChildProperties instanceof Map && configChildProperties instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> existingContainerProperties =
+                (Map<String, Object>) existingChildProperties;
+            @SuppressWarnings("unchecked")
+            Map<String, Object> configContainerProperties =
+                (Map<String, Object>) configChildProperties;
+
+            Map<String, Object> mergedContainerProperties =
+                new HashMap<>(existingContainerProperties);
+            mergedContainerProperties.putAll(configContainerProperties);
+            mergedContainerValue.put("properties", mergedContainerProperties);
+          }
+          mergedProperties.put(mergedContainer, mergedContainerValue);
         }
 
         // Merge all other properties normally
         for (Map.Entry<String, Object> entry : configProperties.entrySet()) {
-          if (!"_aspects".equals(entry.getKey())) {
+          if (!"_aspects".equals(entry.getKey())
+              && !"structuredProperties".equals(entry.getKey())) {
             mergedProperties.put(entry.getKey(), entry.getValue());
           }
         }

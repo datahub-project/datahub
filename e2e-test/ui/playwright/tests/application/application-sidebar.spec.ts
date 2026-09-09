@@ -119,6 +119,7 @@ test.describe('Application Sidebar Integration', () => {
     logger?.info(`Navigating to dataset: ${DATASET_WITHOUT_APP_NAME}`);
     await applicationsPage.navigateToDataset(DATASET_WITHOUT_APP_URN);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.OPERATION);
 
     logger?.info(`Adding application: ${TEST_APP_NAME}`);

@@ -6,8 +6,11 @@ services:
       ORACLE_PWD: example
       ORACLE_CHARACTERSET: AL32UTF8
     ports:
-      - "51521:1521"
-      - "55500:5500"  # Oracle Enterprise Manager Express
+      # Ephemeral: letting Docker pick free host ports avoids colliding with
+      # a leaked container from a prior run. Neither port is baked into the
+      # container's own startup config, so ephemeral assignment is safe.
+      - "1521"
+      - "5500"  # Oracle Enterprise Manager Express
     volumes:
       - ./startup:/opt/oracle/scripts/startup
     healthcheck:

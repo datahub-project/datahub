@@ -122,7 +122,7 @@ class TableData:
 
 @platform_name("ABS Data Lake", id="abs")
 @config_class(DataLakeSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(
     SourceCapability.OPERATION_CAPTURE,

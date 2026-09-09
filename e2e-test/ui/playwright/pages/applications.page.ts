@@ -124,6 +124,7 @@ export class ApplicationsPage extends BasePage {
     await this.searchInput.fill('');
     await this.searchInput.type(query);
     // Wait for search debounce + network
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
@@ -150,6 +151,7 @@ export class ApplicationsPage extends BasePage {
     // Wait for modal to close and success message
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     // Wait for refetch to complete
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
@@ -180,6 +182,7 @@ export class ApplicationsPage extends BasePage {
   async confirmDeletion(): Promise<void> {
     await this.deleteConfirmButton.click();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 
@@ -204,6 +207,7 @@ export class ApplicationsPage extends BasePage {
   async verifyAssetInList(assetName: string): Promise<void> {
     // Wait for GraphQL search query to complete and render assets
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.MEDIUM);
 
     const assetElement = this.getAssetElement(assetName);
@@ -255,6 +259,7 @@ export class ApplicationsPage extends BasePage {
 
   async clickSelectApplicationDropdown(): Promise<void> {
     await this.applicationSelectDropdown.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS); // Wait for modal to fully stabilize
     await this.applicationSelectDropdown.click({ timeout: TIMEOUTS.MEDIUM });
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
@@ -266,10 +271,12 @@ export class ApplicationsPage extends BasePage {
 
     // Wait for input to be ready
     await searchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
 
     // Fill the search input with application name
     await searchInput.fill(appName);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 
@@ -277,6 +284,7 @@ export class ApplicationsPage extends BasePage {
     const option = this.getDropdownOption(appName);
     await option.click();
     // Small wait for dropdown to close
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 

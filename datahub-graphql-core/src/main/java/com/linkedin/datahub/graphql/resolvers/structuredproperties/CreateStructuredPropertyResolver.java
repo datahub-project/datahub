@@ -201,7 +201,7 @@ public class CreateStructuredPropertyResolver
                 primitiveValue.setString(allowedValueInput.getStringValue());
               }
               if (allowedValueInput.getNumberValue() != null) {
-                primitiveValue.setDouble(allowedValueInput.getNumberValue().doubleValue());
+                primitiveValue.setDouble(allowedValueInput.getNumberValue());
               }
               value.setValue(primitiveValue);
               value.setDescription(allowedValueInput.getDescription(), SetMode.IGNORE_NULL);

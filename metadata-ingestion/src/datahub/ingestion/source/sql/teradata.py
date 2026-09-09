@@ -1523,7 +1523,7 @@ class LineageQuery:
 
 @platform_name("Teradata")
 @config_class(TeradataConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(
     SourceCapability.CONTAINERS,

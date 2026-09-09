@@ -1,0 +1,11 @@
+# Bare rateLimits: fragment (no datahub.gms wrapper).
+rateLimits:
+  failOpen: false
+  endpoint:
+    rules:
+      - id: bare-wrapper-rule
+        pathPattern: /auth/signUp
+        methods: [POST]
+        capacity: 200
+        refillTokens: 200
+        refillPeriodSeconds: 60
