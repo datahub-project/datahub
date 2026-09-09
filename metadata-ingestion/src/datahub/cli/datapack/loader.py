@@ -853,7 +853,7 @@ def load_pack_into_datahub(
     Returns:
         The run_id used for this load.
     """
-    client_config = load_client_config()
+    client_config = _resolve_datapack_client_config()
     run_id = _generate_run_id(pack.name)
 
     if dry_run:
@@ -861,6 +861,7 @@ def load_pack_into_datahub(
             click.echo(f"\n--- File {i + 1}/{len(file_entries)}: {entry.path.name} ---")
             click.echo(f"Dry run - would load {entry.path}")
         click.echo(f"\nDry run complete for {len(file_entries)} files.")
+        click.echo(f"Would ingest to {client_config.server}.")
         return run_id
 
     ingest_datapack_file_entries(
