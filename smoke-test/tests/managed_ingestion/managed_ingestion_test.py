@@ -252,6 +252,7 @@ def _ensure_execution_request_present(auth_session, execution_request_urn):
     return res_data
 
 
+@pytest.mark.p0
 def test_create_list_get_remove_secret(auth_session):
     # Get count of existing secrets
     query = """query listSecrets($input: ListSecretsInput!) {\n

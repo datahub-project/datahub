@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 pytestmark = pytest.mark.domain(Domain.AI)
 
 
+@pytest.mark.p0
 def test_get_current_offset_no_params(auth_session: TestSessionWrapper):
     """
     Test that polling Events API with no offsetId and no lookbackWindowDays

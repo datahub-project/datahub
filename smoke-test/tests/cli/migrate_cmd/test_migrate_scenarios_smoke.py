@@ -207,6 +207,7 @@ def test_dataplatform2instance_assigns_instance_and_carries_aspects(
         wait_for_writes_to_sync()
 
 
+@pytest.mark.p0
 def test_preserve_leaves_existing_target_untouched(
     graph_client: DataHubGraph,
 ) -> None:

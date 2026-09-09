@@ -3,12 +3,14 @@ from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
     Any,
+    ClassVar,
     Dict,
     FrozenSet,
     Iterable,
     List,
     Optional,
     Tuple,
+    Type,
     Union,
 )
 
@@ -16,17 +18,17 @@ from typing import (
 import psycopg2  # noqa: F401
 import sqlalchemy.dialects.postgresql as custom_types
 
-# GeoAlchemy adds support for PostGIS extensions in SQLAlchemy. In order to
-# activate it, we must import it so that it can hook into SQLAlchemy. While
-# we don't use the Geometry type that we import, we do care about the side
-# effects of the import. For more details, see here:
+# GeoAlchemy adds support for PostGIS extensions in SQLAlchemy. Importing it
+# hooks PostGIS reflection into SQLAlchemy, and the imported types are also
+# registered in the DataHub type mapping below. For more details, see here:
 # https://geoalchemy-2.readthedocs.io/en/latest/core_tutorial.html#reflecting-tables.
-from geoalchemy2 import Geometry  # noqa: F401
+from geoalchemy2 import Geography, Geometry, Raster
 from pydantic import BaseModel, field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.types import UserDefinedType
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
@@ -76,6 +78,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BytesTypeClass,
     MapTypeClass,
+    StringTypeClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.perf_timer import PerfTimer
@@ -87,6 +90,155 @@ register_custom_type(custom_types.ARRAY, ArrayTypeClass)
 register_custom_type(custom_types.JSON, BytesTypeClass)
 register_custom_type(custom_types.JSONB, BytesTypeClass)
 register_custom_type(custom_types.HSTORE, MapTypeClass)
+
+
+class _PostgresCustomType(UserDefinedType):
+    """Placeholder for postgres types that SQLAlchemy does not ship.
+
+    Registering these in ``ischema_names`` keeps their columns from reflecting
+    as ``NullType``, which would both classify them as DataHub NullType and
+    replace their native type name with the literal string "null".
+
+    ``UserDefinedType`` with ``get_col_spec`` is used instead of the existing
+    ``make_sqlalchemy_type`` helper because that helper sets
+    ``impl = LargeBinary``, which would compile these types to a misleading
+    ``BYTEA`` native type name; this route preserves the real type name,
+    including its modifier (e.g. ``VECTOR(4)``).
+    """
+
+    # No default on purpose: a subclass that forgets to set it fails loudly at
+    # first compile instead of silently emitting an empty nativeDataType.
+    type_name: ClassVar[str]
+
+    def __init__(self, dimensions: Optional[int] = None) -> None:
+        # Reflection passes the type modifier through as a single int
+        # (e.g. vector(4) -> dimensions=4). A named parameter — rather than
+        # *args — is required for SQLAlchemy's statement-cache key to include
+        # the modifier (VECTOR(4) vs VECTOR(1536) must not share a key), and
+        # it also survives adapt()/constructor_copy().
+        self.dimensions = dimensions
+
+    def get_col_spec(self, **kw: Any) -> str:
+        if self.dimensions is not None:
+            return f"{self.type_name}({self.dimensions})"
+        return self.type_name
+
+
+def _make_postgres_type(name: str) -> Type[_PostgresCustomType]:
+    assert name, "postgres placeholder types need a non-empty type name"
+    # cache_ok must be in each subclass's own __dict__ — SQLAlchemy does not
+    # consult the MRO for it, and without it every statement touching one of
+    # these columns is uncacheable and emits an SAWarning.
+    postgres_type: Type[_PostgresCustomType] = type(
+        name, (_PostgresCustomType,), {"type_name": name, "cache_ok": True}
+    )
+    return postgres_type
+
+
+# pgvector (https://github.com/pgvector/pgvector)
+VECTOR = _make_postgres_type("VECTOR")
+HALFVEC = _make_postgres_type("HALFVEC")
+SPARSEVEC = _make_postgres_type("SPARSEVEC")
+# Built-in geometric types (https://www.postgresql.org/docs/current/datatype-geometric.html)
+POINT = _make_postgres_type("POINT")
+LINE = _make_postgres_type("LINE")
+LSEG = _make_postgres_type("LSEG")
+BOX = _make_postgres_type("BOX")
+PATH = _make_postgres_type("PATH")
+POLYGON = _make_postgres_type("POLYGON")
+CIRCLE = _make_postgres_type("CIRCLE")
+XML = _make_postgres_type("XML")
+LTREE = _make_postgres_type("LTREE")
+CITEXT = _make_postgres_type("CITEXT")
+# PG14+ multirange counterparts of the range types; SQLAlchemy only ships
+# these natively from 2.0, so under the current 1.4 pin they need placeholders
+# too (the setdefault below yields to the native types after an upgrade).
+INT4MULTIRANGE = _make_postgres_type("INT4MULTIRANGE")
+INT8MULTIRANGE = _make_postgres_type("INT8MULTIRANGE")
+NUMMULTIRANGE = _make_postgres_type("NUMMULTIRANGE")
+DATEMULTIRANGE = _make_postgres_type("DATEMULTIRANGE")
+TSMULTIRANGE = _make_postgres_type("TSMULTIRANGE")
+TSTZMULTIRANGE = _make_postgres_type("TSTZMULTIRANGE")
+
+# PostGIS types are reflected via the geoalchemy2 import above; map them so
+# their columns stop falling back to NullType. BytesTypeClass (not
+# RecordTypeClass, which signals a struct with nested sub-fields) follows the
+# Teradata/Snowflake precedent for opaque geospatial scalars — PostGIS values
+# really are WKB on the wire.
+register_custom_type(Geometry, BytesTypeClass)
+register_custom_type(Geography, BytesTypeClass)
+register_custom_type(Raster, BytesTypeClass)
+
+for _vector_type in (VECTOR, HALFVEC, SPARSEVEC):
+    register_custom_type(_vector_type, ArrayTypeClass)
+for _geometric_type in (POINT, LINE, LSEG, BOX, PATH, POLYGON, CIRCLE):
+    register_custom_type(_geometric_type, BytesTypeClass)
+for _string_like_type in (XML, LTREE, CITEXT):
+    register_custom_type(_string_like_type, StringTypeClass)
+
+register_custom_type(custom_types.CIDR, StringTypeClass)
+for _range_type in (
+    custom_types.INT4RANGE,
+    custom_types.INT8RANGE,
+    custom_types.NUMRANGE,
+    custom_types.DATERANGE,
+    custom_types.TSRANGE,
+    custom_types.TSTZRANGE,
+):
+    register_custom_type(_range_type, StringTypeClass)
+for _multirange_type in (
+    INT4MULTIRANGE,
+    INT8MULTIRANGE,
+    NUMMULTIRANGE,
+    DATEMULTIRANGE,
+    TSMULTIRANGE,
+    TSTZMULTIRANGE,
+):
+    register_custom_type(_multirange_type, StringTypeClass)
+
+# If the pgvector SQLAlchemy integration is installed, importing it registers
+# a full-featured `vector` type in ischema_names (it parses dimensions
+# properly). Prefer it over the placeholder — the setdefault below yields to
+# it — and map it to the same DataHub type.
+try:
+    from pgvector.sqlalchemy import Vector as _PgVectorType
+
+    register_custom_type(_PgVectorType, ArrayTypeClass)
+except ImportError:
+    pass
+
+# ischema_names is process-global state shared by every PGDialect subclass in
+# the process (CockroachDB, TimescaleDB, ... inherit these entries; Redshift
+# does not go through this source). setdefault instead of update so a real
+# type implementation registered by another library (pgvector above,
+# SQLAlchemy 2.0.7+'s own CITEXT, ...) is never clobbered by a placeholder.
+#
+# Reflection precedence caveat: PGDialect._get_column_info consults
+# ischema_names *before* user-defined domains, so a domain named exactly like
+# one of these entries (e.g. "xml", "box") now resolves to the placeholder and
+# skips the domain branch — including its nullability and default handling.
+for _type_name, _placeholder_type in {
+    "vector": VECTOR,
+    "halfvec": HALFVEC,
+    "sparsevec": SPARSEVEC,
+    "point": POINT,
+    "line": LINE,
+    "lseg": LSEG,
+    "box": BOX,
+    "path": PATH,
+    "polygon": POLYGON,
+    "circle": CIRCLE,
+    "xml": XML,
+    "ltree": LTREE,
+    "citext": CITEXT,
+    "int4multirange": INT4MULTIRANGE,
+    "int8multirange": INT8MULTIRANGE,
+    "nummultirange": NUMMULTIRANGE,
+    "datemultirange": DATEMULTIRANGE,
+    "tsmultirange": TSMULTIRANGE,
+    "tstzmultirange": TSTZMULTIRANGE,
+}.items():
+    custom_types.base.ischema_names.setdefault(_type_name, _placeholder_type)
 
 
 VIEW_LINEAGE_QUERY = """

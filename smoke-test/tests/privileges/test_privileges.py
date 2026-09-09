@@ -36,6 +36,7 @@ pytestmark = [
     pytest.mark.no_cypress_suite1,
     pytest.mark.global_policy_mutator,
     pytest.mark.domain(Domain.PLATFORM),
+    pytest.mark.p0,
 ]
 
 # Valid email for auth.native.signUp.enforceValidEmail (Play EmailValidator).
