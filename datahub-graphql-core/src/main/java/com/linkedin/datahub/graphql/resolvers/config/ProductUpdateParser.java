@@ -145,35 +145,49 @@ public class ProductUpdateParser {
     productUpdate.setCtaLink(ctaLink);
 
     // Parse features array if present
+    ParsedFeatures parsedFeatures = ParsedFeatures.empty();
     if (json.has("features") && json.get("features").isArray()) {
-      List<ProductUpdateFeature> features = parseFeatures(json.get("features"));
-      if (!features.isEmpty()) {
-        productUpdate.setFeatures(features);
+      parsedFeatures = parseFeatures(json.get("features"));
+      if (!parsedFeatures.features().isEmpty()) {
+        productUpdate.setFeatures(parsedFeatures.features());
       }
     }
 
-    applyI18nOverlay(productUpdate, json, locale);
+    applyI18nOverlay(productUpdate, json, locale, parsedFeatures.sourceIndices());
     return productUpdate;
+  }
+
+  /**
+   * Parsed features alongside the position each one held in the source JSON array. Invalid entries
+   * are dropped during parsing, so these positions are what the {@code i18n} features array — which
+   * mirrors the untranslated array — must be indexed by.
+   */
+  private record ParsedFeatures(List<ProductUpdateFeature> features, List<Integer> sourceIndices) {
+    static ParsedFeatures empty() {
+      return new ParsedFeatures(List.of(), List.of());
+    }
   }
 
   /**
    * Parse features array from JSON.
    *
    * @param featuresArray JSON array node containing feature objects
-   * @return List of parsed ProductUpdateFeature objects (may be empty)
+   * @return parsed ProductUpdateFeature objects (may be empty) and their source positions
    */
   @Nonnull
-  private static List<ProductUpdateFeature> parseFeatures(@Nonnull JsonNode featuresArray) {
+  private static ParsedFeatures parseFeatures(@Nonnull JsonNode featuresArray) {
     List<ProductUpdateFeature> features = new ArrayList<>();
+    List<Integer> sourceIndices = new ArrayList<>();
 
-    for (JsonNode featureNode : featuresArray) {
-      ProductUpdateFeature feature = parseFeature(featureNode);
+    for (int i = 0; i < featuresArray.size(); i++) {
+      ProductUpdateFeature feature = parseFeature(featuresArray.get(i));
       if (feature != null) {
         features.add(feature);
+        sourceIndices.add(i);
       }
     }
 
-    return features;
+    return new ParsedFeatures(features, sourceIndices);
   }
 
   /**
@@ -254,7 +268,10 @@ public class ProductUpdateParser {
    * or the JSON has no matching {@code i18n} entry.
    */
   private static void applyI18nOverlay(
-      @Nonnull ProductUpdate productUpdate, @Nonnull JsonNode json, @Nullable String locale) {
+      @Nonnull ProductUpdate productUpdate,
+      @Nonnull JsonNode json,
+      @Nullable String locale,
+      @Nonnull List<Integer> featureSourceIndices) {
     JsonNode override = findI18nOverride(json, locale);
     if (override == null) {
       return;
@@ -266,7 +283,7 @@ public class ProductUpdateParser {
     localizedText(override, "primaryCtaText").ifPresent(productUpdate::setPrimaryCtaText);
     localizedText(override, "secondaryCtaText").ifPresent(productUpdate::setSecondaryCtaText);
     localizedText(override, "ctaText").ifPresent(productUpdate::setCtaText);
-    overlayFeatures(productUpdate, override);
+    overlayFeatures(productUpdate, override, featureSourceIndices);
   }
 
   @Nullable
@@ -342,7 +359,9 @@ public class ProductUpdateParser {
   }
 
   private static void overlayFeatures(
-      @Nonnull ProductUpdate productUpdate, @Nonnull JsonNode override) {
+      @Nonnull ProductUpdate productUpdate,
+      @Nonnull JsonNode override,
+      @Nonnull List<Integer> featureSourceIndices) {
     List<ProductUpdateFeature> features = productUpdate.getFeatures();
     if (features == null || features.isEmpty()) {
       return;
@@ -351,9 +370,11 @@ public class ProductUpdateParser {
     if (featuresNode == null || !featuresNode.isArray()) {
       return;
     }
-    int count = Math.min(features.size(), featuresNode.size());
+    int count = Math.min(features.size(), featureSourceIndices.size());
     for (int i = 0; i < count; i++) {
-      JsonNode featureOverride = featuresNode.get(i);
+      // Index by source position: parseFeatures drops invalid entries, so the parsed list can be
+      // shorter than the untranslated array the i18n one mirrors.
+      JsonNode featureOverride = featuresNode.get(featureSourceIndices.get(i));
       if (!isObject(featureOverride)) {
         continue;
       }

@@ -1102,6 +1102,40 @@ public class ProductUpdateParserTest {
     assertEquals(pt.getTitle(), "Portuguese");
   }
 
+  @Test
+  public void testParseProductUpdateOverlaysFeaturesAroundInvalidEntries() throws Exception {
+    // The middle entry is dropped for missing "description", so the parsed list is shorter than
+    // the source array the i18n features array mirrors position-for-position.
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"features\": ["
+            + "  {\"title\": \"First\", \"description\": \"Description 1\"},"
+            + "  {\"title\": \"Invalid\"},"
+            + "  {\"title\": \"Third\", \"description\": \"Description 3\"}"
+            + "],"
+            + "\"i18n\": { \"ja\": { \"features\": ["
+            + "  {\"title\": \"一番\", \"description\": \"説明1\"},"
+            + "  {\"title\": \"無効\", \"description\": \"説明2\"},"
+            + "  {\"title\": \"三番\", \"description\": \"説明3\"}"
+            + "] } }"
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+    ProductUpdate result =
+        ProductUpdateParser.parseProductUpdate(Optional.of(jsonNode), null, "ja");
+
+    assertNotNull(result);
+    assertEquals(result.getFeatures().size(), 2);
+    assertEquals(result.getFeatures().get(0).getTitle(), "一番");
+    assertEquals(result.getFeatures().get(0).getDescription(), "説明1");
+    // Must take the third translation, not the second one that belongs to the dropped entry.
+    assertEquals(result.getFeatures().get(1).getTitle(), "三番");
+    assertEquals(result.getFeatures().get(1).getDescription(), "説明3");
+  }
+
   private static String localizedProductUpdateJson() {
     return "{"
         + "\"enabled\": true,"
