@@ -57,27 +57,40 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
         """
         if not self.rds_iam_enabled():
             return None
-        if self._rds_iam_manager is None:
-            hostname, port = parse_host_port(
-                self.host_port, default_port=self.rds_iam_default_port()
+        hostname, port = parse_host_port(
+            self.host_port, default_port=self.rds_iam_default_port()
+        )
+        # Reused only while it still describes this config. Both model_copy()
+        # and model_copy(deep=True) carry PrivateAttrs, so a copy that changed
+        # host_port or username would otherwise go on presenting a token minted
+        # for the original -- to a different host, with a credential scoped to
+        # the old one. Neither connector copies its config today; this is a few
+        # lines so that staying true is not something anyone has to remember.
+        cached = self._rds_iam_manager
+        if (
+            cached is not None
+            and cached.endpoint == hostname
+            and cached.port == port
+            and cached.username == self.username
+        ):
+            return cached
+        if port is None:
+            raise ValueError(
+                "Port must be specified for RDS IAM authentication. "
+                "Please provide host_port in the format 'hostname:port' "
+                "(e.g., 'mydb.rds.amazonaws.com:5432')."
             )
-            if port is None:
-                raise ValueError(
-                    "Port must be specified for RDS IAM authentication. "
-                    "Please provide host_port in the format 'hostname:port' "
-                    "(e.g., 'mydb.rds.amazonaws.com:5432')."
-                )
-            if not self.username:
-                raise ValueError(
-                    "username is required for RDS IAM authentication. "
-                    "Please add 'username: <your_db_username>' to your configuration."
-                )
-            self._rds_iam_manager = RDSIAMTokenManager(
-                endpoint=hostname,
-                username=self.username,
-                port=port,
-                aws_config=self.aws_config,  # type: ignore[attr-defined]
+        if not self.username:
+            raise ValueError(
+                "username is required for RDS IAM authentication. "
+                "Please add 'username: <your_db_username>' to your configuration."
             )
+        self._rds_iam_manager = RDSIAMTokenManager(
+            endpoint=hostname,
+            username=self.username,
+            port=port,
+            aws_config=self.aws_config,  # type: ignore[attr-defined]
+        )
         return self._rds_iam_manager
 
     def install_rds_iam_auth(self, engine: Any) -> None:

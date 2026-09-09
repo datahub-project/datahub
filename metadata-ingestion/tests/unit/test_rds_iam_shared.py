@@ -30,8 +30,12 @@ def _postgres(**kw: Any) -> PostgresConfig:
 
 
 class _FakeManager:
-    def __init__(self) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         self.calls = 0
+        # The real manager records these and the cache guard reads them back.
+        self.endpoint = kwargs.get("endpoint")
+        self.port = kwargs.get("port")
+        self.username = kwargs.get("username")
 
     def get_token(self) -> str:
         self.calls += 1
@@ -43,7 +47,7 @@ def _recording_manager(built: List[Dict[str, Any]]) -> Any:
 
     def make(**kwargs: Any) -> _FakeManager:
         built.append(kwargs)
-        return _FakeManager()
+        return _FakeManager(**kwargs)
 
     return make
 
@@ -58,13 +62,28 @@ def _capture(monkeypatch: pytest.MonkeyPatch) -> List[Tuple[Any, str, Any]]:
     return registered
 
 
-def _listener(config: Any, monkeypatch: pytest.MonkeyPatch) -> Tuple[Any, _FakeManager]:
-    manager = _FakeManager()
-    monkeypatch.setattr(config, "_rds_iam_manager", manager, raising=False)
+def _stub_manager(monkeypatch: pytest.MonkeyPatch) -> List[Dict[str, Any]]:
+    """Replace the token manager class, never the cached instance.
+
+    Seeding `_rds_iam_manager` directly is not enough: rds_iam_token_manager
+    checks that the cache still describes this config, so an identity-less fake
+    is rejected and the fall-through constructs the *real* manager -- which
+    reaches STS. Stubbing the constructor makes that unreachable.
+    """
+    built: List[Dict[str, Any]] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager",
+        _recording_manager(built),
+    )
+    return built
+
+
+def _listener(config: Any, monkeypatch: pytest.MonkeyPatch) -> Tuple[Any, Any]:
+    _stub_manager(monkeypatch)
     registered = _capture(monkeypatch)
     config.install_rds_iam_auth(object())
     assert [name for _, name, _ in registered] == ["do_connect"]
-    return registered[0][2], manager
+    return registered[0][2], config.rds_iam_token_manager()
 
 
 @pytest.mark.parametrize("factory", [_mysql, _postgres], ids=["mysql", "postgres"])
@@ -182,7 +201,7 @@ def test_the_probes_engine_gets_the_same_listener(factory, monkeypatch):
     create_engine() has no credential to offer.
     """
     config = factory(**_IAM)
-    monkeypatch.setattr(config, "_rds_iam_manager", _FakeManager(), raising=False)
+    _stub_manager(monkeypatch)
     registered = _capture(monkeypatch)
 
     config.probe_prepare_engine(object())
@@ -207,7 +226,7 @@ def test_sqlalchemy_accepts_the_registration_on_a_real_engine(monkeypatch):
     from sqlalchemy import create_engine, event
 
     config = _postgres(**_IAM)
-    monkeypatch.setattr(config, "_rds_iam_manager", _FakeManager(), raising=False)
+    _stub_manager(monkeypatch)
     # Built before the spy is installed: patching rds_iam.event.listen resolves
     # to the shared sqlalchemy.event module, so a create_engine() inside the spy's
     # lifetime would have its own on_connect/first_connect registrations captured
@@ -228,3 +247,63 @@ def test_sqlalchemy_accepts_the_registration_on_a_real_engine(monkeypatch):
     # do_connect is a dialect-level event, so it does not land on the engine's
     # own dispatch -- ask SQLAlchemy rather than guessing where it went.
     assert event.contains(engine, "do_connect", captured[0])
+
+
+@pytest.mark.parametrize("factory", [_mysql, _postgres], ids=["mysql", "postgres"])
+def test_a_copy_pointed_at_another_host_does_not_reuse_the_old_token(
+    factory, monkeypatch
+):
+    """model_copy() carries PrivateAttrs, cache included.
+
+    Measured, not assumed: both model_copy() and model_copy(deep=True) bring the
+    cached manager across. Without a check the copy would keep presenting a
+    token minted for the original endpoint -- to a different host, with a
+    credential scoped to the old one.
+    """
+    built: List[Dict[str, Any]] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager",
+        _recording_manager(built),
+    )
+    config = factory(**_IAM)
+    config.rds_iam_token_manager()
+    assert built[0]["endpoint"] == "db.rds.amazonaws.com"
+
+    moved = config.model_copy(update={"host_port": "other.rds.amazonaws.com:3306"})
+    manager = moved.rds_iam_token_manager()
+
+    assert len(built) == 2, "the copy reused a manager built for another endpoint"
+    assert built[1]["endpoint"] == "other.rds.amazonaws.com"
+    assert manager is not None
+
+
+@pytest.mark.parametrize("factory", [_mysql, _postgres], ids=["mysql", "postgres"])
+def test_an_unchanged_copy_does_not_rebuild_the_manager(factory, monkeypatch):
+    """The guard must not defeat the caching it guards.
+
+    The two copy modes differ, which is worth pinning because it is not what you
+    would assume: model_copy() hands over the same manager instance, while
+    model_copy(deep=True) deep-copies it -- a distinct object that still carries
+    the minted token. Neither goes back to the constructor, which is the
+    property that matters: no copy of a config re-authenticates against STS.
+    """
+    built: List[Dict[str, Any]] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager",
+        _recording_manager(built),
+    )
+    config = factory(**_IAM)
+    first = config.rds_iam_token_manager()
+
+    assert config.model_copy().rds_iam_token_manager() is first
+
+    deep = config.model_copy(deep=True).rds_iam_token_manager()
+    assert deep is not first
+    assert deep is not None
+    assert (deep.endpoint, deep.port, deep.username) == (
+        first.endpoint,  # type: ignore[union-attr]
+        first.port,  # type: ignore[union-attr]
+        first.username,  # type: ignore[union-attr]
+    )
+
+    assert len(built) == 1, "a copy went back to the constructor"
