@@ -7,6 +7,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -15,14 +16,20 @@ import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.generated.DateRange;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.opensearch.action.search.SearchRequest;
@@ -44,6 +51,7 @@ public class AnalyticsServiceTest {
   private static final List<String> FACETS = List.of("hasOwners", "hasTags");
 
   private SearchClientShim<?> mockClient;
+  private IndexConvention mockIndexConvention;
   private OperationContext opContext;
   private AnalyticsService service;
 
@@ -54,14 +62,14 @@ public class AnalyticsServiceTest {
     // opContext.withSpan, which a bare mock would swallow without invoking.
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
-    IndexConvention mockIndexConvention = mock(IndexConvention.class);
+    mockIndexConvention = mock(IndexConvention.class);
     when(mockIndexConvention.getEntityIndexName(any(OperationFingerprint.class), any()))
         .thenAnswer(invocation -> invocation.getArgument(1).toString().toLowerCase() + "index_v2");
     when(mockIndexConvention.getIndexName(
             any(OperationFingerprint.class), eq(AnalyticsService.DATAHUB_USAGE_EVENT_INDEX)))
         .thenReturn(USAGE_INDEX);
 
-    service = new AnalyticsService(mockClient, mockIndexConvention);
+    service = new AnalyticsService(mockClient, mockIndexConvention, opContext.getEntityRegistry());
   }
 
   private Map<String, DateRange> twoRanges() {
@@ -110,9 +118,119 @@ public class AnalyticsServiceTest {
     // The cardinality metric hangs off the range buckets rather than off separate queries.
     assertNotNull(subAggByName(byRange, "unique"));
 
-    String source = request.source().toString();
+    String source = compactJson(request.source().toString());
     assertTrue(source.contains(BROWSER_ID), "expected cardinality on browserId");
     assertTrue(source.contains("\"size\":0"), "aggregation-only request should fetch no hits");
+    assertTrue(source.contains("\"gte\":100") || source.contains("\"from\":100"));
+    assertFalse(source.contains("\"gte\":\"100\""));
+  }
+
+  @Test
+  public void testDateRangeQuerySerializesNumericEpochMillis() {
+    String json =
+        compactJson(service.dateRangeQuery(new DateRange("100", "200"), "timestamp").toString());
+
+    assertFalse(json.contains("\"gte\":\"100\""));
+    assertFalse(json.contains("\"lt\":\"200\""));
+    assertTrue(json.contains("\"gte\":100") || json.contains("\"from\":100"));
+    assertTrue(json.contains("\"lt\":200") || json.contains("\"to\":200"));
+  }
+
+  @Test
+  public void testDateRangeQueryRejectsNonNumericBounds() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> service.dateRangeQuery(new DateRange("not-a-timestamp", "200"), "timestamp"));
+  }
+
+  @Test
+  public void testFilteredAggregationUsesNumericRangeAndKeywordUsageSource() {
+    AggregationBuilder agg =
+        service.getFilteredAggregation(
+            Map.of(), Map.of(), Optional.of(new DateRange("100", "200")), "timestamp");
+    String json = compactJson(agg.toString());
+
+    assertTrue(json.contains("\"gte\":100") || json.contains("\"from\":100"));
+    assertFalse(json.contains("\"gte\":\"100\""));
+    assertTrue(json.contains("\"" + DataHubUsageEventConstants.USAGE_SOURCE + ".keyword\""));
+  }
+
+  @Test
+  public void testCoerceTermValuesConvertsBooleanFields() {
+    Object[] coerced = service.coerceTermValues("hasOwners", List.of("true", "FALSE"));
+    assertEquals(coerced.length, 2);
+    assertEquals(coerced[0], true);
+    assertEquals(coerced[1], false);
+    String json = compactJson(service.termsQuery("hasOwners", List.of("true")).toString());
+    assertFalse(json.contains("\"true\""));
+    assertTrue(json.contains("true"));
+  }
+
+  @Test
+  public void testCoerceTermValuesLeavesKeywordFieldsAsStrings() {
+    Object[] coerced = service.coerceTermValues("actor.urn", List.of("urn:li:corpuser:admin"));
+    assertEquals(coerced[0], "urn:li:corpuser:admin");
+  }
+
+  @Test
+  public void testCoerceTermValuesDoesNotInferBooleanFromValueSpelling() {
+    Object[] coerced = service.coerceTermValues("eventType", List.of("true"));
+    assertEquals(coerced[0], "true");
+    String json = compactJson(service.termsQuery("eventType", List.of("true")).toString());
+    assertTrue(json.contains("\"true\""));
+  }
+
+  @Test
+  public void testCoerceTermValuesUsesEntityRegistryBooleanMapping() {
+    Object[] removed = service.coerceTermValues("removed", List.of("true"));
+    assertEquals(removed[0], true);
+    Object[] hasOwners = service.coerceTermValues("hasOwners", List.of("true"));
+    assertEquals(hasOwners[0], true);
+  }
+
+  @Test
+  public void testCoerceTermValuesRejectsInvalidBooleanTerms() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> service.coerceTermValues("hasOwners", List.of("yes")));
+  }
+
+  @Test
+  public void testBooleanFieldCacheRefreshesWhenRegistrySpecsChange() {
+    EntitySpec initialSpec = mock(EntitySpec.class);
+    when(initialSpec.getSearchableFieldTypes())
+        .thenReturn(Map.of("hasOwners", Set.of(SearchableAnnotation.FieldType.BOOLEAN)));
+    EntitySpec patchedSpec = mock(EntitySpec.class);
+    when(patchedSpec.getSearchableFieldTypes())
+        .thenReturn(
+            Map.of(
+                "hasOwners",
+                Set.of(SearchableAnnotation.FieldType.BOOLEAN),
+                "hasCustomFlag",
+                Set.of(SearchableAnnotation.FieldType.BOOLEAN)));
+
+    Map<String, EntitySpec> specs = new HashMap<>();
+    specs.put("dataset", initialSpec);
+    EntityRegistry registry = mock(EntityRegistry.class);
+    when(registry.getEntitySpecs()).thenReturn(specs);
+
+    AnalyticsService patchedService =
+        new AnalyticsService(mockClient, mockIndexConvention, registry);
+
+    assertEquals(patchedService.coerceTermValues("hasCustomFlag", List.of("true"))[0], "true");
+
+    specs.put("dataset", patchedSpec);
+    assertEquals(
+        patchedService.coerceTermValues("hasCustomFlag", List.of("true"))[0],
+        "true",
+        "TTL-fresh snapshot must not observe a plugin patch immediately");
+
+    patchedService.expireBooleanFieldCache();
+    assertEquals(patchedService.coerceTermValues("hasCustomFlag", List.of("true"))[0], true);
+  }
+
+  private static String compactJson(String json) {
+    return json.replaceAll("\\s+", "");
   }
 
   @Test
@@ -152,6 +270,9 @@ public class AnalyticsServiceTest {
     assertTrue(source.contains("\"_index\""), "entity buckets must be scoped by _index");
     assertTrue(source.contains("datasetindex_v2"), "expected the dataset index alias as the term");
     assertTrue(source.contains("hasOwners"), "expected the facet field as a term filter");
+    String compact = compactJson(source);
+    assertTrue(compact.contains("\"hasOwners\":[true]"));
+    assertFalse(compact.contains("\"hasOwners\":[\"true\"]"));
     assertTrue(source.contains("removed"), "soft-deleted entities must be excluded");
   }
 
