@@ -72,7 +72,7 @@ Each field carries a **semantic annotation** identifying it as a `DIMENSION` (gr
 
 **For DataHub Cloud customers**: Reach out to your DataHub representative to enable this feature for your organization. Metrics & Semantic Models require **DataHub Cloud 2.1.0 or later**, and the feature is gated behind a per-tenant flag while it's in Beta.
 
-**For DataHub Core (OSS) deployments**: Available in **DataHub Core v1.7.0 or later**. Set the environment variable `METRICS_ENABLED=true` on the GMS service before starting DataHub. For local docker-compose deployments:
+**For DataHub Core (OSS) deployments**: Available in **DataHub Core v1.7.0 or later**, which is when `semanticModel` and `metric` entered the entity registry — so a server at that version or later accepts these entities regardless of any flag. Set the environment variable `METRICS_ENABLED=true` on the GMS service to _surface_ them: it enables the Metrics page, the `/metrics` route, and search. With it off, ingestion still succeeds and the entities are stored; they are simply not discoverable in the UI. For local docker-compose deployments:
 
 ```bash
 # Add METRICS_ENABLED=true to your GMS environment
@@ -115,15 +115,32 @@ source:
       column_lineage: true # physical→logical column lineage
 ```
 
-The `emit_semantic_model_entities` control is tri-state:
+Snowflake's `emit_semantic_model_entities` control is tri-state (the dbt source's flag of the same name is a plain boolean — see [From dbt](#from-dbt)):
 
 | Value            | Behavior                                                                                                                                                                                                                         |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `null` (default) | Auto-detect. On DataHub Cloud ≥ 2.1.0 with Metrics enabled, emits SM/Metric entities. Elsewhere (older Cloud, OSS/self-hosted without an explicit opt-in, or connectionless runs) falls back to legacy `Semantic View` datasets. |
-| `true`           | Request SM/Metric emission. Honored on Cloud when the server + flag support it; on OSS, requires the operator to run a server that registers these entities.                                                                     |
+| `true`           | Request SM/Metric emission. On Cloud, honored when the server version supports it. On OSS there is no server interrogation at all, so this is taken at face value — confirm the server is v1.7.0 or later before enabling it.    |
 | `false`          | Force legacy `Semantic View` dataset behavior even if the server supports the new entities.                                                                                                                                      |
 
 Snowflake Semantic Views are a native Snowflake capability. If you also use the Cortex Analyst integration on top of Semantic Views, that integration is gated to Snowflake Enterprise Edition and above — cataloging the Semantic Views into DataHub does not depend on Cortex.
+
+### From dbt
+
+The dbt and dbt-cloud sources emit Semantic Models and Metrics from dbt's [MetricFlow semantic layer](https://docs.getdbt.com/docs/build/semantic-models):
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: target/manifest.json
+    target_platform: snowflake
+    emit_semantic_model_entities: true # a plain boolean, not tri-state
+```
+
+Unlike Snowflake, this flag is a plain boolean and defaults to `false`. There is no auto-detect: dbt has emitted semantic models as datasets for several releases, so auto-enabling would silently re-mint those URNs on upgrade. Setting `true` against a DataHub Cloud server too old to accept the entities falls back to the dataset behavior and reports why.
+
+One dbt Semantic Model is emitted per dbt **project**, and each entry in the project's `semantic_models:` block becomes a **Dataset** with subtype `Semantic Model Dataset` inside it. So searching for a dbt semantic model named `orders` finds a Dataset named `<project>.semantic_layer.orders`; the Semantic Model itself is the project. See [Semantic Models and Metrics](/docs/generated/ingestion/sources/dbt#semantic-models-and-metrics) for the full mapping and the migration path from the legacy dataset shape.
 
 ### From the DataHub Python SDK
 

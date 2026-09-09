@@ -9,8 +9,10 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 for what it emits. Two dbt Cloud specifics:
 
 - The project name in the `SemanticModel` and `Metric` URNs comes from the semantic models'
-  `packageName`, since there is no manifest metadata to read it from. Set
-  `semantic_model_project_name` to pin it.
+  `packageName`, since there is no manifest metadata to read it from. If the semantic models come
+  from more than one dbt package, the most common one is used and the report says so — an installed
+  package shipping more semantic models than your own project would otherwise become the URN
+  identity. Set `semantic_model_project_name` to pin it.
 - Only metrics from measures with `create_metric: true` are ingested. Metrics declared in a
   `metrics:` block are not, because the Discovery API does not expose the semantic graph — those
   definitions live in the separate

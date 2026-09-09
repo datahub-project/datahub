@@ -575,18 +575,35 @@ source:
     # semantic_model_project_name: jaffle_shop
 ```
 
-This requires a DataHub server that registers the `semanticModel` and `metric` entity types —
-DataHub Cloud 2.1.0 or later, or OSS with `METRICS_ENABLED=true`. If the server cannot accept them,
-ingestion falls back to the default mode and says so in the report rather than failing.
+This requires a DataHub server new enough to have `semanticModel` and `metric` in its entity
+registry: DataHub Cloud 2.1.0 or later, or DataHub Core v1.7.0 or later.
+
+- **On DataHub Cloud**, the server version is checked before emitting. If it is too old, ingestion
+  falls back to the default mode and says so in the report rather than failing.
+- **On OSS**, there is no server interrogation, so the recipe is taken at face value and there is no
+  fallback — confirm you are running a compatible server before setting this to `true`.
+
+Setting `METRICS_ENABLED=true` on the server is a separate, **visibility** concern: it enables the
+Metrics page, the `/metrics` route, and search. Ingestion succeeds without it; the entities are
+stored but not discoverable in the UI.
 
 ##### Why one Semantic Model per project
 
 A MetricFlow entity is project-scoped: semantic models are joined to each other by matching entity
 _names_, and a metric is queried by its bare name with no per-model qualifier. So the project — not
 the individual semantic model — is the unit that corresponds to a DataHub `SemanticModel`, and each
-dbt semantic model becomes a logical dataset within it. DataHub's
-[multiple dbt projects](#multiple-dbt-projects) setup already expects one ingestion recipe per dbt
-project, so one recipe produces one `SemanticModel`.
+dbt semantic model becomes a logical dataset within it.
+
+The metadata model makes this the only workable mapping. `SemanticModelInfo.relationships` lives on
+the `SemanticModel`, and each relationship's `from`/`to` are **alias strings** naming datasets that
+belong to that same model, while a dataset's `semanticModelProperties.semanticModel` is a **single**
+URN. One `SemanticModel` per `semantic_models:` entry would therefore give every model exactly one
+dataset, leave `relationships` permanently empty, and make MetricFlow's cross-model joins
+unrepresentable. In other words a `SemanticModel` is the join container, and in MetricFlow that
+container is the project.
+
+DataHub's [multiple dbt projects](#multiple-dbt-projects) setup already expects one ingestion recipe
+per dbt project, so one recipe produces one `SemanticModel`.
 
 ##### Lineage
 
@@ -623,7 +640,8 @@ The `SemanticModel` and `Metric` URNs contain the dbt project name, read from
 
 ##### Migrating from the default mode
 
-The two modes use different URNs (`<database>.<schema>.<name>` versus `<project>.<name>`), so
+The two modes use different URNs (`<database>.<schema>.<name>` versus
+`<project>.semantic_layer.<name>`), so
 turning the flag on is a replacement, not an in-place upgrade. Run with
 `stateful_ingestion.enabled: true` so the previous `Semantic Model` datasets are soft-deleted;
 without it they are left behind with no owner. Governance authored on the old datasets — owners,
@@ -631,9 +649,11 @@ tags, terms, documentation — is not carried across automatically.
 
 ##### Not currently mapped
 
-- **Metric `type`, `window`, `grain_to_date`, and `filter`.** `MetricInfo` has no field for these, so
-  a `cumulative` metric and a `simple` metric are indistinguishable in DataHub. This needs a metadata
-  model change rather than a connector one.
+- **Metric `type`, `window`, and `grain_to_date`.** `MetricInfo` has no field for these, so a
+  `cumulative` metric and a `simple` metric are indistinguishable in DataHub. This needs a metadata
+  model change rather than a connector one. A metric's `filter` _is_ represented: it is folded into
+  the emitted expression (`sum(orders.revenue) FILTER (WHERE region = 'US')`), because a metric whose
+  filter was dropped would publish a broader number than the dbt definition.
 - **Top-level `metrics:` on dbt Cloud.** The Discovery API does not expose the semantic graph, so
   only metrics from `create_metric: true` measures are ingested there. Use the dbt Core source if you
   need the `metrics:` block.

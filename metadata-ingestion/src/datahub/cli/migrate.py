@@ -1152,68 +1152,44 @@ def snowflake_semantic_views(
     migration_direction = MigrationDirection(direction)
     graph = get_default_graph(ClientMode.CLI)
 
-    urns_to_process: List[str] = list(urns)
-    if urn_file:
-        urns_to_process.extend(_read_urns_from_file(urn_file))
-    # Preserve order while dropping duplicates from --urn / --urn-file.
-    urns_to_process = list(dict.fromkeys(urns_to_process))
-    used_discovery = not bool(urns_to_process)
+    forward = migration_direction == MigrationDirection.DATASET_TO_SM
 
-    subtype_skipped: List[str] = []
-    if urns_to_process:
-        if migration_direction == MigrationDirection.DATASET_TO_SM:
-            urns_to_process, subtype_skipped = filter_by_semantic_view_subtype(
-                graph, urns_to_process, force
-            )
-    else:
-        if migration_direction == MigrationDirection.DATASET_TO_SM:
-            urns_to_process = discover_semantic_view_dataset_urns(
+    def discover(only_soft_deleted: bool) -> List[str]:
+        if forward:
+            return discover_semantic_view_dataset_urns(
                 graph,
                 env=env,
                 platform_instance=platform_instance,
                 include_soft_deleted=include_soft_deleted,
+                only_soft_deleted=only_soft_deleted,
             )
-        else:
-            urns_to_process = discover_semantic_model_urns(
-                graph,
-                platform_instance=platform_instance,
-                include_soft_deleted=include_soft_deleted,
-            )
+        return discover_semantic_model_urns(
+            graph,
+            platform_instance=platform_instance,
+            include_soft_deleted=include_soft_deleted,
+            only_soft_deleted=only_soft_deleted,
+        )
 
-    if not urns_to_process:
-        if subtype_skipped:
-            click.echo(
-                f"No entities found to migrate: all {len(subtype_skipped)} provided "
-                f"urn(s) lack the '{SEMANTIC_VIEW_SUBTYPE}' subtype. Pass --force to "
-                "bypass this check."
-            )
-            return
-        if used_discovery and not include_soft_deleted:
-            if migration_direction == MigrationDirection.DATASET_TO_SM:
-                soft_only = discover_semantic_view_dataset_urns(
-                    graph,
-                    env=env,
-                    platform_instance=platform_instance,
-                    only_soft_deleted=True,
-                )
-            else:
-                soft_only = discover_semantic_model_urns(
-                    graph,
-                    platform_instance=platform_instance,
-                    only_soft_deleted=True,
-                )
-            if soft_only:
-                click.echo(
-                    f"No live entities found to migrate, but found "
-                    f"{len(soft_only)} soft-deleted "
-                    f"{'Semantic View dataset' if migration_direction == MigrationDirection.DATASET_TO_SM else 'semanticModel'}"
-                    f"{'s' if len(soft_only) != 1 else ''}. "
-                    "Did ingest already run? Re-run with --include-soft-deleted "
-                    "after reviewing that set."
-                )
-                return
-        click.echo("No entities found to migrate.")
+    sources = semantic_migration_common.resolve_migration_sources(
+        explicit_urns=_collect_source_urns(urns, urn_file),
+        discover=discover,
+        expected_subtype=SEMANTIC_VIEW_SUBTYPE,
+        # Rollback sources are semanticModels, which carry no subtype to check.
+        filter_subtype=(
+            (lambda candidates: filter_by_semantic_view_subtype(graph, candidates, force))
+            if forward
+            else None
+        ),
+        soft_deleted_label=(
+            "Semantic View dataset" if forward else "semanticModel"
+        ),
+        include_soft_deleted=include_soft_deleted,
+    )
+    if sources.message is not None:
+        click.echo(sources.message)
         return
+    urns_to_process = sources.urns
+    subtype_skipped = sources.subtype_skipped
 
     click.echo(
         f"Found {len(urns_to_process)} entities to migrate ({direction})."
@@ -1241,6 +1217,16 @@ def snowflake_semantic_views(
     )
     click.echo(f"{report}")
     _exit_nonzero_on_migration_errors(report, dry_run)
+
+
+def _collect_source_urns(
+    urns: Tuple[str, ...], urn_file: Optional[str]
+) -> List[str]:
+    """Union --urn and --urn-file, preserving order and dropping duplicates."""
+    collected = list(urns)
+    if urn_file:
+        collected.extend(_read_urns_from_file(urn_file))
+    return list(dict.fromkeys(collected))
 
 
 def _exit_nonzero_on_migration_errors(
@@ -1454,57 +1440,36 @@ def dbt_semantic_models(
         else dbt_migration.SEMANTIC_MODEL_DATASET_SUBTYPE
     )
 
-    urns_to_process: List[str] = list(urns)
-    if urn_file:
-        urns_to_process.extend(_read_urns_from_file(urn_file))
-    # Preserve order while dropping duplicates from --urn / --urn-file.
-    urns_to_process = list(dict.fromkeys(urns_to_process))
-    used_discovery = not bool(urns_to_process)
-
-    discover = (
+    discover_fn = (
         dbt_migration.discover_legacy_dataset_urns
         if forward
         else dbt_migration.discover_semantic_model_dataset_urns
     )
 
-    subtype_skipped: List[str] = []
-    if urns_to_process:
-        urns_to_process, subtype_skipped = dbt_migration.filter_by_expected_subtype(
-            graph, urns_to_process, force, migration_direction
-        )
-    else:
-        urns_to_process = discover(
+    def discover(only_soft_deleted: bool) -> List[str]:
+        return discover_fn(
             graph,
             env=env,
             platform_instance=platform_instance,
             include_soft_deleted=include_soft_deleted,
+            only_soft_deleted=only_soft_deleted,
         )
 
-    if not urns_to_process:
-        if subtype_skipped:
-            click.echo(
-                f"No entities found to migrate: all {len(subtype_skipped)} provided "
-                f"urn(s) lack the '{expected_subtype}' subtype. Pass --force to "
-                "bypass this check."
-            )
-            return
-        if used_discovery and not include_soft_deleted:
-            soft_only = discover(
-                graph,
-                env=env,
-                platform_instance=platform_instance,
-                only_soft_deleted=True,
-            )
-            if soft_only:
-                click.echo(
-                    f"No live entities found to migrate, but found {len(soft_only)} "
-                    f"soft-deleted '{expected_subtype}' dataset"
-                    f"{'s' if len(soft_only) != 1 else ''}. Did ingest already run? "
-                    "Re-run with --include-soft-deleted after reviewing that set."
-                )
-                return
-        click.echo("No entities found to migrate.")
+    sources = semantic_migration_common.resolve_migration_sources(
+        explicit_urns=_collect_source_urns(urns, urn_file),
+        discover=discover,
+        expected_subtype=expected_subtype,
+        filter_subtype=lambda candidates: dbt_migration.filter_by_expected_subtype(
+            graph, candidates, force, migration_direction
+        ),
+        soft_deleted_label=f"'{expected_subtype}' dataset",
+        include_soft_deleted=include_soft_deleted,
+    )
+    if sources.message is not None:
+        click.echo(sources.message)
         return
+    urns_to_process = sources.urns
+    subtype_skipped = sources.subtype_skipped
 
     mapping = dbt_migration.build_mapping(
         graph,

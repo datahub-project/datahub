@@ -568,6 +568,76 @@ def maybe_fold_documentation_to_editable_dataset(
     return "folded documentation into editableDatasetProperties.description"
 
 
+@dataclass
+class ResolvedSources:
+    """The source urns to migrate, or a terminal message explaining why none.
+
+    Shared by every semantic-model migration command: the collect / dedupe /
+    subtype-filter / discover / empty-result sequence is identical, and the
+    empty-result messages are the operator-facing part most likely to drift.
+    """
+
+    urns: List[str] = field(default_factory=list)
+    subtype_skipped: List[str] = field(default_factory=list)
+    # Set when there is nothing to migrate; the caller echoes it and stops.
+    message: Optional[str] = None
+
+
+def resolve_migration_sources(
+    *,
+    explicit_urns: Sequence[str],
+    discover: Callable[..., List[str]],
+    expected_subtype: str,
+    soft_deleted_label: str,
+    include_soft_deleted: bool,
+    filter_subtype: Optional[
+        Callable[[Sequence[str]], Tuple[List[str], List[str]]]
+    ] = None,
+) -> ResolvedSources:
+    """Resolve which urns to migrate from explicit input or discovery.
+
+    ``discover`` takes ``only_soft_deleted`` as a keyword. ``filter_subtype``
+    is None for directions that do not validate the source's subtype.
+    """
+    urns = list(dict.fromkeys(explicit_urns))
+    used_discovery = not urns
+
+    subtype_skipped: List[str] = []
+    if urns:
+        if filter_subtype is not None:
+            urns, subtype_skipped = filter_subtype(urns)
+    else:
+        urns = discover(only_soft_deleted=False)
+
+    if urns:
+        return ResolvedSources(urns=urns, subtype_skipped=subtype_skipped)
+
+    if subtype_skipped:
+        return ResolvedSources(
+            subtype_skipped=subtype_skipped,
+            message=(
+                f"No entities found to migrate: all {len(subtype_skipped)} "
+                f"provided urn(s) lack the '{expected_subtype}' subtype. Pass "
+                "--force to bypass this check."
+            ),
+        )
+    if used_discovery and not include_soft_deleted:
+        # After a flag flip, stateful ingestion soft-deletes the previous side,
+        # so "nothing found" usually means "found, but soft-deleted".
+        soft_only = discover(only_soft_deleted=True)
+        if soft_only:
+            return ResolvedSources(
+                message=(
+                    f"No live entities found to migrate, but found "
+                    f"{len(soft_only)} soft-deleted {soft_deleted_label}"
+                    f"{'s' if len(soft_only) != 1 else ''}. "
+                    "Did ingest already run? Re-run with --include-soft-deleted "
+                    "after reviewing that set."
+                )
+            )
+    return ResolvedSources(message="No entities found to migrate.")
+
+
 def status_filter(
     include_soft_deleted: bool, only_soft_deleted: bool
 ) -> RemovedStatusFilter:
