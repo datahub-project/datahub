@@ -4,8 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -35,9 +40,8 @@ import org.testng.annotations.Test;
  * datahub-web-react/src/i18n/locales} must have translated copy for the English fields the toast
  * actually uses.
  *
- * <p>Live HTTP reachability of CTA URLs is not checked here. GitHub Actions job {@code
- * product_update_cta_live} probes those links so this Gradle job can stay green while a blog post
- * is unpublished.
+ * <p>CTA hrefs are GET-probed so an unpublished blog post fails {@code product_update_release_sync}
+ * like any other CI test.
  */
 public class ProductUpdateReleaseSyncTest {
 
@@ -60,6 +64,10 @@ public class ProductUpdateReleaseSyncTest {
   private static final Pattern BUNDLED_IMAGE =
       Pattern.compile("https://raw\\.githubusercontent\\.com/datahub-project/datahub/[^/]+/(.+)");
   private static final Pattern RELEASE_MONTH = Pattern.compile("\\d{4}-(0[1-9]|1[0-2])");
+
+  private static final int HTTP_TIMEOUT_SECONDS = 10;
+  private static final int HTTP_ATTEMPTS = 3;
+  private static final String HTTP_USER_AGENT = "DataHub-product-update-ci/1.0";
 
   private Path repoRoot;
 
@@ -177,6 +185,23 @@ public class ProductUpdateReleaseSyncTest {
             + " references image "
             + imagePath
             + ", which does not exist in the repo. The toast would render with a broken image.");
+  }
+
+  /**
+   * The toast button is a raw href republished by cloud-router. Fail CI when the CTA 404s so an
+   * unpublished blog cannot merge.
+   */
+  @Test(dataProvider = "flavors")
+  public void testProductUpdateCtaLinksAreReachable(@Nonnull ProductUpdateFlavor flavor)
+      throws IOException, InterruptedException {
+    JsonNode json = readProductUpdate(flavor);
+    if (!json.path("enabled").asBoolean(false)) {
+      return;
+    }
+
+    for (String link : ctaLinks(json)) {
+      assertUrlReachable(flavor, link);
+    }
   }
 
   /**
@@ -345,6 +370,83 @@ public class ProductUpdateReleaseSyncTest {
         "Could not locate DataHub repo root from user.dir="
             + cwd
             + "; set -Ddatahub.repoRoot=/path/to/datahub");
+  }
+
+  @Nonnull
+  private static List<String> ctaLinks(@Nonnull JsonNode json) {
+    List<String> links = new ArrayList<>();
+    String primary = effectiveCtaLink(json);
+    if (!primary.isBlank()) {
+      links.add(primary);
+    }
+    JsonNode secondary = json.get("secondaryCtaLink");
+    if (secondary != null && secondary.isTextual()) {
+      String secondaryLink = secondary.asText();
+      if (!secondaryLink.isBlank() && !"null".equals(secondaryLink)) {
+        links.add(secondaryLink);
+      }
+    }
+    return links;
+  }
+
+  private static void assertUrlReachable(@Nonnull ProductUpdateFlavor flavor, @Nonnull String url)
+      throws InterruptedException {
+    URI uri;
+    try {
+      uri = URI.create(url);
+    } catch (IllegalArgumentException e) {
+      Assert.fail(flavor.jsonPath() + " CTA is not a valid URL: " + url);
+      return;
+    }
+    String scheme = uri.getScheme();
+    if (scheme == null || (!"https".equalsIgnoreCase(scheme) && !"http".equalsIgnoreCase(scheme))) {
+      Assert.fail(flavor.jsonPath() + " CTA must be an http(s) URL: " + url);
+      return;
+    }
+
+    HttpClient client =
+        HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(HTTP_TIMEOUT_SECONDS))
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .build();
+
+    int lastStatus = -1;
+    IOException lastError = null;
+    for (int attempt = 1; attempt <= HTTP_ATTEMPTS; attempt++) {
+      HttpRequest request =
+          HttpRequest.newBuilder(uri)
+              .timeout(Duration.ofSeconds(HTTP_TIMEOUT_SECONDS))
+              .header("User-Agent", HTTP_USER_AGENT)
+              .GET()
+              .build();
+      try {
+        HttpResponse<Void> response = client.send(request, HttpResponse.BodyHandlers.discarding());
+        lastStatus = response.statusCode();
+        if (lastStatus >= 200 && lastStatus < 400) {
+          return;
+        }
+        if (lastStatus == 404 || lastStatus == 410) {
+          break;
+        }
+      } catch (IOException e) {
+        lastError = e;
+      }
+      if (attempt < HTTP_ATTEMPTS) {
+        Thread.sleep(250L * attempt);
+      }
+    }
+
+    String detail =
+        lastError != null
+            ? lastError.getClass().getSimpleName() + ": " + lastError.getMessage()
+            : "HTTP " + lastStatus;
+    Assert.fail(
+        flavor.jsonPath()
+            + " CTA is not reachable: "
+            + url
+            + " ("
+            + detail
+            + "). Point the toast at a published page; cloud-router will republish this JSON.");
   }
 
   @Nonnull
