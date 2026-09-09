@@ -69,8 +69,6 @@ asttokens==3.0.1
     # via stack-data
 async-lru==2.2.0
     # via jupyterlab
-async-timeout==5.0.1 ; python_full_version < '3.11'
-    # via aiohttp
 asynch==0.2.5
     # via clickhouse-sqlalchemy
 asyncmy2==0.2.20
@@ -143,8 +141,6 @@ backoff==2.2.1
     #   gql
     #   unstructured
     #   unstructured-ingest
-backports-asyncio-runner==1.2.0 ; python_full_version < '3.11'
-    # via pytest-asyncio
 backports-tarfile==1.2.0 ; python_full_version < '3.12' and platform_machine != 'ppc64le' and platform_machine != 's390x'
     # via jaraco-context
 beautifulsoup4==4.14.3
@@ -400,12 +396,6 @@ entrypoints==0.4
     # via altair
 et-xmlfile==2.0.0
     # via openpyxl
-exceptiongroup==1.3.1 ; python_full_version < '3.11'
-    # via
-    #   anyio
-    #   cattrs
-    #   ipython
-    #   pytest
 executing==2.2.1
     # via stack-data
 expandvars==1.1.2
@@ -644,7 +634,6 @@ ijson==3.5.0
 importlib-metadata==8.7.1
     # via
     #   acryl-great-expectations
-    #   build
     #   dask
     #   keyring
     #   mlflow-skinny
@@ -930,9 +919,7 @@ nest-asyncio==1.6.0
     # via
     #   acryl-datahub
     #   ipykernel
-networkx==3.4.2 ; python_full_version < '3.11'
-    # via acryl-datahub
-networkx==3.6.1 ; python_full_version >= '3.11'
+networkx==3.6.1
     # via acryl-datahub
 nh3==0.3.3
     # via readme-renderer
@@ -1523,11 +1510,7 @@ schwifty==2025.9.0
     # via
     #   acryl-datahub
     #   acryl-datahub-classify
-scipy==1.15.3 ; python_full_version < '3.11'
-    # via
-    #   acryl-datahub
-    #   acryl-great-expectations
-scipy==1.17.1 ; python_full_version >= '3.11'
+scipy==1.17.1
     # via
     #   acryl-datahub
     #   acryl-great-expectations
@@ -1713,13 +1696,7 @@ toml==0.10.2
     #   acryl-datahub
     #   feast
 tomli==2.4.0 ; python_full_version <= '3.11'
-    # via
-    #   alembic
-    #   build
-    #   coverage
-    #   jupyterlab
-    #   mypy
-    #   pytest
+    # via coverage
 tomlkit==0.14.0
     # via
     #   dlt
@@ -1821,12 +1798,9 @@ typing-extensions==4.15.0
     # via
     #   acryl-datahub
     #   acryl-great-expectations
-    #   aiobotocore
     #   aiosignal
     #   alembic
     #   anyio
-    #   asgiref
-    #   async-lru
     #   atlassian-python-api
     #   azure-core
     #   azure-identity
@@ -1836,19 +1810,14 @@ typing-extensions==4.15.0
     #   beautifulsoup4
     #   boto3-stubs
     #   cattrs
-    #   cloudpathlib
-    #   cryptography
     #   dlt
-    #   exceptiongroup
     #   fastapi
     #   google-cloud-aiplatform
     #   google-genai
     #   grpcio
     #   ipython
     #   looker-sdk
-    #   mistune
     #   mlflow-skinny
-    #   multidict
     #   mypy
     #   mypy-boto3-dynamodb
     #   mypy-boto3-glue
@@ -1864,14 +1833,11 @@ typing-extensions==4.15.0
     #   pydantic
     #   pydantic-core
     #   pydash
-    #   pyjwt
     #   pyopenssl
-    #   pypdf
     #   pytest-asyncio
     #   python-oxmsg
     #   python-utils
     #   referencing
-    #   schwifty
     #   simple-salesforce
     #   snowflake-connector-python
     #   sqlalchemy2-stubs
@@ -1881,7 +1847,6 @@ typing-extensions==4.15.0
     #   typing-inspect
     #   typing-inspection
     #   unstructured
-    #   uvicorn
 typing-inspect==0.9.0
     # via
     #   acryl-datahub

@@ -109,8 +109,6 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
@@ -131,7 +129,7 @@ setuptools.setup(
         "datahub_agent_context": ["py.typed"],
         "datahub_agent_context.mcp_tools": ["gql/*.gql"],
     },
-    python_requires=">=3.9",
+    python_requires=">=3.11",
     zip_safe=False,
     install_requires=list(base_requirements),
     extras_require={

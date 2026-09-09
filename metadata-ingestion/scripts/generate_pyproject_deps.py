@@ -226,14 +226,13 @@ def generate_pyproject_toml() -> str:
     output_lines.append('description = "A CLI to work with DataHub metadata"')
     output_lines.append('readme = "README.md"')
     output_lines.append('license = "Apache-2.0"')
-    output_lines.append('requires-python = ">=3.10"')
+    output_lines.append('requires-python = ">=3.11"')
     output_lines.append("classifiers = [")
     for c in [
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Intended Audience :: Developers",

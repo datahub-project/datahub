@@ -4,7 +4,7 @@ Build autonomous data agents with [LangChain](https://python.langchain.com/) tha
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.11+
 - LangChain (`pip install langchain langchain-openai`)
 - A DataHub instance and [access token](../../authentication/personal-access-tokens.md)
 - An OpenAI API key (or another LLM provider with tool-calling support)

@@ -20,7 +20,7 @@ Want a fully managed DataHub? **[Try DataHub Cloud free](https://datahub.com/fre
   | Linux    | [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/) and [Docker Compose](https://docs.docker.com/compose/install/linux/) |
 
 - **Launch the Docker engine** from command line or the desktop app.
-- Ensure you have **Python 3.10+** installed & configured. (Check using `python3 --version`).
+- Ensure you have **Python 3.11+** installed & configured. (Check using `python3 --version`).
 
 :::note Docker Resource Allocation
 
