@@ -8,6 +8,8 @@ import { PluginOption, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
 
+import { i18nLocaleBundlesPlugin } from './src/i18n/i18nLocaleBundlesPlugin';
+
 const injectMeticulous = () => {
     if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
         return null;
@@ -126,21 +128,8 @@ export default defineConfig(async ({ mode }) => {
     };
 
     const isHttps = process.env.REACT_APP_HTTPS === 'true';
+    const localesDir = path.resolve(__dirname, 'src/i18n/locales');
     const devPlugins: PluginOption[] = mode === 'development' ? [injectMeticulous()] : [];
-
-    if (mode === 'development') {
-        const localesDir = path.resolve(__dirname, 'src/i18n/locales');
-        const { i18nextHMRPlugin } = await import('i18next-hmr/vite');
-        devPlugins.push(i18nextHMRPlugin({ localesDir }));
-        // i18nextHMRPlugin sends the WS event but returns undefined, letting Vite fall through
-        // to a full-page reload for files not in the module graph. Return [] to suppress it.
-        devPlugins.push({
-            name: 'i18next-hmr-suppress-reload',
-            handleHotUpdate({ file }) {
-                return file.startsWith(localesDir) && file.endsWith('.json') ? [] : undefined;
-            },
-        });
-    }
 
     if (isHttps) {
         devPlugins.push(
@@ -155,6 +144,7 @@ export default defineConfig(async ({ mode }) => {
         appType: 'spa',
         base: './', // Always use root - runtime base path detection handles deployment paths
         plugins: [
+            i18nLocaleBundlesPlugin(localesDir),
             substituteBasePathForDev(),
             assertLazyIconsGenerated(),
             ...devPlugins,
@@ -174,8 +164,6 @@ export default defineConfig(async ({ mode }) => {
                     { src: path.resolve(__dirname, 'src/images/*'), dest: 'assets/platforms' },
                     // Also keep the theme json files in the build directory
                     { src: path.resolve(__dirname, 'src/conf/theme/*.json'), dest: 'assets/conf/theme' },
-                    // i18n locale files — served at /assets/locales/{{lng}}/{{ns}}.json
-                    { src: path.resolve(__dirname, 'src/i18n/locales'), dest: 'assets' },
                 ],
             }),
             viteStaticCopy({
@@ -238,11 +226,6 @@ export default defineConfig(async ({ mode }) => {
                     // splits cut import cycles and cause "cannot access X before initialization"
                     // TDZ crashes at load).
                     sourcemapExcludeSources: true,
-                    // Split locale JSON files into per-language chunks
-                    manualChunks(id: string) {
-                        const match = id.match(/\/locales\/([^/]+)\/[^/]+\.json$/);
-                        return match ? match[1] : undefined;
-                    },
                 },
             },
         },

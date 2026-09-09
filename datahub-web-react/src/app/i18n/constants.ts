@@ -131,4 +131,4 @@ export const LANGUAGE_OPTIONS: SelectOption[] = [
     label: localeConfig.label,
 }));
 
-export const DEFAULT_LANGUAGE: SupportedLanguage = 'en';
+export { DEFAULT_LANGUAGE } from '@src/i18n/supportedLanguages';
