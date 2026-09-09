@@ -185,11 +185,13 @@ def removeUser(session, urn):
     return response.json()
 
 
-def listUsers(session):
+def listUsers(session, query: Optional[str] = None):
     input = {
         "start": 0,
         "count": 20,
     }
+    if query is not None:
+        input["query"] = query
 
     # list users
     json = {
@@ -227,7 +229,7 @@ def wait_for_user_in_list(
     start = time.time()
     last_users: list[dict[str, str]] | None = None
     while time.time() - start < max_timeout_in_sec:
-        res_data = listUsers(session)
+        res_data = listUsers(session, query=username)
         users = res_data.get("data", {}).get("listUsers", {}).get("users", [])
         last_users = users if users is not None else []
         found = {"username": username} in last_users
