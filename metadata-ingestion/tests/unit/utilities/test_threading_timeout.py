@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import threading
 import time
 
@@ -99,3 +101,31 @@ def test_on_timeout_when_target_thread_absent_does_not_mark_timed_out():
     ctx = _ThreadingTimeout(1.0)  # _target_tid defaults to 0 (no such thread)
     ctx._on_timeout()
     assert ctx._timed_out is False
+
+
+def test_armed_watchdog_does_not_block_interpreter_shutdown():
+    # A watchdog still armed when the interpreter starts shutting down must not
+    # delay exit. A non-daemon Timer would be joined by threading._shutdown() for
+    # its full interval, and when it fires mid-shutdown it injects TimeoutException
+    # into the shutdown machinery -- observed as an ~80-minute hang on py3.11 CI.
+    # The watchdog must be a daemon so shutdown neither waits for it nor lets it
+    # fire. Uses a subprocess because it asserts on interpreter-exit timing.
+    code = (
+        "from datahub.utilities.threading_timeout import _ThreadingTimeout\n"
+        "ctx = _ThreadingTimeout(30.0)\n"
+        "ctx.__enter__()\n"  # arm the watchdog and never disarm it
+        "print('armed')\n"
+    )
+    start = time.monotonic()
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    elapsed = time.monotonic() - start
+    assert proc.stdout.strip() == "armed"
+    assert elapsed < 15, (
+        f"interpreter shutdown blocked {elapsed:.1f}s on an armed watchdog "
+        "(the Timer must be a daemon)"
+    )

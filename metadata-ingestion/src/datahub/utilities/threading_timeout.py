@@ -68,6 +68,11 @@ class _ThreadingTimeout:
         # Target the entering thread, not whichever thread constructed this.
         self._target_tid = threading.get_ident()
         self._timer = threading.Timer(self._seconds, self._on_timeout)
+        # Daemon so a watchdog still armed at interpreter shutdown is never joined
+        # by threading._shutdown(): a non-daemon Timer would block shutdown for its
+        # full interval and, firing mid-shutdown, inject TimeoutException into the
+        # shutdown machinery (an ~80-minute hang on py3.11 CI).
+        self._timer.daemon = True
         self._timer.start()
 
     def __exit__(
