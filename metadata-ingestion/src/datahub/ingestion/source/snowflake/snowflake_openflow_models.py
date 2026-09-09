@@ -1,4 +1,5 @@
 import dataclasses
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar
 
 COL_NAME = "NAME"
@@ -37,6 +38,33 @@ def get_col(row: Dict[str, Any], *names: str) -> Optional[Any]:
     return None
 
 
+def get_datetime(row: Dict[str, Any], *names: str) -> Optional[datetime]:
+    """The column as an aware datetime, however the driver rendered it.
+
+    Snowflake returns TIMESTAMP_LTZ as a datetime; other paths and fixtures
+    carry strings. Ordering these AS STRINGS is wrong the moment two rows
+    render in different UTC offsets: across a DST fall-back the later event can
+    sort first, and _resolve_per_key would then keep the older OPEN row and
+    lose the deletion entirely -- silently, since nothing about the result is
+    malformed.
+
+    Naive values are read as UTC. That is a choice, not a fact: it keeps them
+    mutually comparable rather than raising, and the alternative (guessing the
+    session timezone) would be a fabrication.
+    """
+    value = get_col(row, *names)
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        try:
+            parsed = datetime.fromisoformat(str(value).replace(" ", "T", 1))
+        except ValueError:
+            return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
 def get_str(row: Dict[str, Any], *names: str) -> Optional[str]:
     value = get_col(row, *names)
     return None if value is None else str(value)
@@ -50,6 +78,9 @@ class OpenflowDeployment:
     owner: Optional[str] = None
     display_name: Optional[str] = None
     created_on: Optional[str] = None
+    # Parsed form of created_on, used for ORDERING. The string is kept
+    # for the pagination cursor, which Snowflake parses itself.
+    created_at: Optional[datetime] = None
     deleted_on: Optional[str] = None
 
     @classmethod
@@ -64,6 +95,7 @@ class OpenflowDeployment:
             owner=get_str(row, COL_OWNER),
             display_name=get_str(row, COL_DISPLAY_NAME),
             created_on=get_str(row, COL_CREATED_ON),
+            created_at=get_datetime(row, COL_CREATED_ON),
             deleted_on=get_str(row, COL_DELETED_ON),
         )
 
@@ -80,6 +112,9 @@ class OpenflowRuntime:
     object_schema: Optional[str] = None
     execute_as_role: Optional[str] = None
     created_on: Optional[str] = None
+    # Parsed form of created_on, used for ORDERING. The string is kept
+    # for the pagination cursor, which Snowflake parses itself.
+    created_at: Optional[datetime] = None
     deleted_on: Optional[str] = None
 
     @classmethod
@@ -98,6 +133,7 @@ class OpenflowRuntime:
             object_schema=get_str(row, COL_SCHEMA_NAME),
             execute_as_role=get_str(row, COL_EXECUTE_AS_ROLE, COL_EXECUTE_AS_ROLE_NAME),
             created_on=get_str(row, COL_CREATED_ON),
+            created_at=get_datetime(row, COL_CREATED_ON),
             deleted_on=get_str(row, COL_DELETED_ON),
         )
 
@@ -125,6 +161,9 @@ class OpenflowConnector:
     database_name: Optional[str] = None
     schema_name: Optional[str] = None
     created_on: Optional[str] = None
+    # Parsed form of created_on, used for ORDERING. The string is kept
+    # for the pagination cursor, which Snowflake parses itself.
+    created_at: Optional[datetime] = None
     deleted_on: Optional[str] = None
 
     @classmethod
@@ -150,6 +189,7 @@ class OpenflowConnector:
             database_name=get_str(row, COL_DATABASE_NAME),
             schema_name=get_str(row, COL_SCHEMA_NAME),
             created_on=get_str(row, COL_CREATED_ON),
+            created_at=get_datetime(row, COL_CREATED_ON),
             deleted_on=get_str(row, COL_DELETED_ON),
         )
 
@@ -186,6 +226,10 @@ class OpenflowConnector:
         parts = (self.database_name, self.schema_name, self.name)
         return ".".join('"' + part.replace('"', '""') + '"' for part in parts)
 
+
+# Sorts before any real timestamp, so a row whose CREATED_ON was absent or
+# unparseable never displaces one that has a usable value.
+_EPOCH = datetime.min.replace(tzinfo=timezone.utc)
 
 RowModel = TypeVar("RowModel", OpenflowDeployment, OpenflowRuntime, OpenflowConnector)
 
@@ -235,10 +279,12 @@ def _resolve_per_key(rows: List[RowModel]) -> Tuple[List[RowModel], int]:
             # report it as 5 or 1 depending on arrival order and could exceed
             # num_connectors, which the field name promises it cannot.
             mixed_keys.add(row.key)
-        newer = (row.created_on or "") > (current.created_on or "")
-        tied_and_closed = (row.created_on or "") == (current.created_on or "") and (
-            row.deleted_on is not None
-        )
+        # Compared as instants, never as their rendering: two rows in
+        # different UTC offsets order correctly only this way.
+        row_at = row.created_at or _EPOCH
+        current_at = current.created_at or _EPOCH
+        newer = row_at > current_at
+        tied_and_closed = row_at == current_at and row.deleted_on is not None
         if newer or tied_and_closed:
             resolved[row.key] = row
     return list(resolved.values()), len(mixed_keys)

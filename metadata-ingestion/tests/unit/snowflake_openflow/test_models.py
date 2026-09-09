@@ -1,7 +1,10 @@
+from datetime import datetime, timedelta, timezone
+
 from datahub.ingestion.source.snowflake.snowflake_openflow_models import (
     OpenflowConnector,
     OpenflowDeployment,
     OpenflowRuntime,
+    _resolve_per_key,
     merge_show_and_history,
 )
 
@@ -459,3 +462,54 @@ def test_fqn_is_none_when_show_did_not_supply_the_parts():
     # History rows carry no DATABASE_NAME / SCHEMA_NAME, so a connector known
     # only from the view cannot be addressed by DESCRIBE at all.
     assert OpenflowConnector(name="c", runtime_name="rt").fqn is None
+
+
+def test_a_deletion_across_a_dst_boundary_is_not_lost() -> None:
+    # The concrete failure of ordering by rendering. Around a fall-back the
+    # same hour is emitted in two offsets, so wall-clock order and real order
+    # come apart: 02:00-07:00 is 09:00Z and 01:30-08:00 is 09:30Z, so the
+    # SECOND is later -- while as strings "...02:00:00-07:00" sorts after
+    # "...01:30:00-08:00" and reverses them. The resolver would then keep the
+    # older OPEN row and the deletion would vanish, with nothing malformed to
+    # notice.
+    created = datetime(2026, 11, 1, 2, 0, tzinfo=timezone(timedelta(hours=-7)))
+    deleted = datetime(2026, 11, 1, 1, 30, tzinfo=timezone(timedelta(hours=-8)))
+    assert str(created) > str(deleted), "the string ordering must be the wrong way"
+    assert created < deleted, "the instants must order the other way"
+
+    rows = [
+        OpenflowConnector.from_row(
+            {"NAME": "c", "RUNTIME_NAME": "rt", "CREATED_ON": created}
+        ),
+        OpenflowConnector.from_row(
+            {
+                "NAME": "c",
+                "RUNTIME_NAME": "rt",
+                "CREATED_ON": deleted,
+                "DELETED_ON": deleted,
+            }
+        ),
+    ]
+    resolved, _ = _resolve_per_key([row for row in rows if row])
+
+    assert len(resolved) == 1
+    assert resolved[0].deleted_on is not None, (
+        "the later row is the deletion; ordering by rendering loses it"
+    )
+
+
+def test_an_unparseable_created_on_never_displaces_a_usable_one() -> None:
+    # get_datetime returns None rather than raising, so such a row sorts at the
+    # epoch -- present, but never winning against a row that has a real time.
+    rows = [
+        OpenflowConnector.from_row(
+            {"NAME": "c", "RUNTIME_NAME": "rt", "CREATED_ON": "not a timestamp"}
+        ),
+        OpenflowConnector.from_row(
+            {"NAME": "c", "RUNTIME_NAME": "rt", "CREATED_ON": "2024-01-01 00:00:00"}
+        ),
+    ]
+    resolved, _ = _resolve_per_key([row for row in rows if row])
+
+    assert len(resolved) == 1
+    assert resolved[0].created_on == "2024-01-01 00:00:00"
