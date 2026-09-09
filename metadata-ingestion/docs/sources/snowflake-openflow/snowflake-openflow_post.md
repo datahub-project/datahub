@@ -10,6 +10,25 @@
 Schema metadata, column-level lineage, profiling and dataset usage are deliberately **not**
 supported here; use the `snowflake` source for the destination tables.
 
+#### Supported connector types
+
+Every Openflow connector is catalogued regardless of its type: it becomes a DataFlow under its
+runtime, with ownership, subtypes and lineage into its destination Snowflake tables.
+
+Deriving the **upstream** side additionally requires knowing the connector type, because each
+upstream platform names datasets at a different tier. Three types are mapped:
+
+| Openflow connector definition | Upstream platform | Upstream dataset name   |
+| ----------------------------- | ----------------- | ----------------------- |
+| `OPENFLOW_POSTGRES_CDC`       | `postgres`        | `database.schema.table` |
+| `OPENFLOW_MYSQL_CDC`          | `mysql`           | `database.table`        |
+| `OPENFLOW_SQLSERVER_CDC`      | `mssql`           | `database.schema.table` |
+
+A connector of any other type keeps its destination lineage and raises a warning naming the
+unmapped definition. The upstream edge is omitted rather than guessed: a dataset URN built at the
+wrong tier is still well-formed, so a guess would point at a dataset that cannot exist and nothing
+downstream would report it.
+
 ### Limitations
 
 - **Gen 2 connectors only.** Gen 1 Openflow connectors are not Snowflake SQL objects, so this
@@ -25,6 +44,10 @@ supported here; use the `snowflake` source for the destination tables.
   `fivetran` source emits column-level lineage without parsing anything, by reading the
   `column_lineage` tables Fivetran maintains in its log schema. Snowflake would need to publish an
   equivalent for Openflow.
+- **Kafka-source connectors get no upstream lineage.** `OPENFLOW_KAFKA` is deliberately unmapped.
+  DataHub names a Kafka dataset by the bare topic, but this source reconstructs an upstream from a
+  connector's `jdbc:` Source URL and its schema-qualified table list, and a Kafka connector carries
+  neither.
 - **Only the `SOURCE_SCHEMA` destination schema strategy is supported.** Prefix, Suffix and Pattern
   strategies exist; a connector using one has its lineage skipped and counted in the report rather
   than guessed.
@@ -74,9 +97,10 @@ halves differ because their defaults differ: an upstream that folds must have be
 `convert_urns_to_lowercase: true` spelled out. Use a lowercase platform instance on both sides and
 the question does not arise; the ingestion report warns when it cannot be sure.
 
-**A connector is catalogued but has no lineage.** Either its destination schema strategy is not
-`SOURCE_SCHEMA`, or it selects tables by pattern rather than by name. Both are counted in the
-ingestion report.
+**A connector is catalogued but has no lineage.** One of three: its connector type is not in
+[Supported connector types](#supported-connector-types), its destination schema strategy is not
+`SOURCE_SCHEMA`, or it selects tables by pattern rather than by name. All three are counted in the
+ingestion report; only the first also names the unmapped definition in a warning.
 
 **A connector is catalogued but does not appear under its runtime.** `SHOW OPENFLOW CONNECTORS` is
 account-wide while runtimes are privilege-filtered, so a connector can name a runtime this run never

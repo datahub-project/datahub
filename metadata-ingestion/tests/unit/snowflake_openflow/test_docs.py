@@ -4,6 +4,9 @@ from typing import List, Set
 
 import yaml
 
+from datahub.ingestion.source.snowflake.snowflake_openflow import (
+    CONNECTOR_DEFINITION_PLATFORM,
+)
 from datahub.ingestion.source.snowflake.snowflake_openflow_config import (
     SnowflakeOpenflowSourceConfig,
 )
@@ -94,3 +97,23 @@ def test_docs_disable_instruction_matches_the_parsed_default():
         "docs instruct operators to disable lineage with `false`, which only makes "
         "sense while the default is enabled"
     )
+
+
+def test_supported_connector_types_table_matches_the_mapping():
+    # The table is hand-maintained prose; the mapping is what the code actually
+    # consults. Adding a definition without documenting it would leave operators
+    # reading a list that silently understates what produces upstream lineage.
+    documented = set(re.findall(r"\|\s*`(OPENFLOW_[A-Z0-9_]+)`\s*\|", POST.read_text()))
+    assert documented == set(CONNECTOR_DEFINITION_PLATFORM), (
+        f"documented {sorted(documented)} != mapped "
+        f"{sorted(CONNECTOR_DEFINITION_PLATFORM)}"
+    )
+
+
+def test_documented_upstream_platforms_match_the_mapping():
+    rows = re.findall(
+        r"\|\s*`(OPENFLOW_[A-Z0-9_]+)`\s*\|\s*`([a-z]+)`\s*\|", POST.read_text()
+    )
+    assert {d: p for d, p in rows} == {
+        d: u.platform for d, u in CONNECTOR_DEFINITION_PLATFORM.items()
+    }
