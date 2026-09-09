@@ -962,6 +962,7 @@ module.exports = {
             "docs/quick-ingestion-guides/snowflake/overview",
             "docs/quick-ingestion-guides/snowflake/setup",
             "docs/quick-ingestion-guides/snowflake/configuration",
+            "docs/quick-ingestion-guides/snowflake/migrate-to-key-pair-auth",
           ],
         },
         {
