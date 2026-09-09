@@ -928,7 +928,7 @@ def no_retry_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
     # The real backoff waits ~1s then ~2s, which is right for a network blip and
     # wrong for a unit test. Only the wait is neutralised; which exceptions
     # retry, and how many attempts there are, stay exactly as shipped.
-    monkeypatch.setattr(snowflake_openflow, "_STAGE_GET_BACKOFF_MULTIPLIER", 0)
+    monkeypatch.setattr(snowflake_openflow, "_RETRY_BACKOFF_MULTIPLIER", 0)
 
 
 def test_stage_get_retries_a_transient_connection_error(

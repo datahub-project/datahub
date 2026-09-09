@@ -127,8 +127,11 @@ class SnowflakeOpenflowSourceConfig(
         description=(
             "Emit each connector's NiFi canvas URL as the DataFlow's external "
             "link. This costs one DESCRIBE OPENFLOW CONNECTOR per connector, "
-            "because SHOW does not return the URL. Set false to skip those "
-            "queries."
+            "because SHOW does not return the URL. Left at its default, the "
+            "lookup is skipped (with a warning) on accounts with more than 500 "
+            "connectors, where that second round trip per connector would "
+            "dominate the run. Setting this to true explicitly overrides that "
+            "and fetches the links at any size; false skips them entirely."
         ),
     )
 

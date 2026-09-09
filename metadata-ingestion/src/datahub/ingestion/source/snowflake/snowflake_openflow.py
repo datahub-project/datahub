@@ -127,11 +127,20 @@ SCHEMA_STRATEGY_SOURCE_SCHEMA = "SOURCE_SCHEMA"
 # query text, which a GET never does, and that gate is deliberately narrow
 # because it is shared with sources that also issue writes. So the retry lives
 # here, where the caller knows its own statement is a read.
-_STAGE_GET_MAX_ATTEMPTS = 3
+# Above this many connectors the per-connector DESCRIBE that fetches
+# CONNECTOR_URL stops being a rounding error and starts dominating the run: it
+# is a second serial round trip per connector, on top of the stage GET that
+# lineage already needs. A deep link is a convenience, so at that size it is
+# dropped rather than allowed to double the run. Setting
+# include_connector_external_url explicitly overrides this -- an operator who
+# asks for the links by name gets them at any count.
+_MAX_CONNECTORS_FOR_URL_LOOKUP = 500
+
+_RETRY_MAX_ATTEMPTS = 3
 # Seconds. Produces waits of ~1s then ~2s. Read at call time rather than baked
 # into a module-level Retrying, so a unit test can set it to 0 and exercise the
 # loop without sleeping.
-_STAGE_GET_BACKOFF_MULTIPLIER = 1.0
+_RETRY_BACKOFF_MULTIPLIER = 1.0
 
 # Only transient, connection-class failures are retried. A ProgrammingError
 # (no READ on the version stage, no config.json at that URI) fails identically
@@ -140,7 +149,7 @@ _STAGE_GET_BACKOFF_MULTIPLIER = 1.0
 # Enumerated one by one because snowflake-connector's error hierarchy is flat:
 # every class below derives straight from `Error`, alongside the deterministic
 # ones, so there is no transient base class to catch instead.
-_RETRYABLE_STAGE_GET_ERRORS: Tuple[Type[BaseException], ...] = (
+_RETRYABLE_SNOWFLAKE_ERRORS: Tuple[Type[BaseException], ...] = (
     OSError,  # socket level: ConnectionError, TimeoutError, DNS failures
     snowflake_errors.OperationalError,
     snowflake_errors.InterfaceError,
@@ -755,6 +764,43 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
     def _query_rows(self, query: str) -> List[Dict[str, Any]]:
         return [dict(row) for row in self.connection.query(query)]
 
+    # Class-level default so the decision is "not suppressed" for any caller
+    # that never runs the connector loop (unit tests drive methods directly).
+    _url_lookup_suppressed: bool = False
+
+    def _decide_url_lookup(self, connector_count: int) -> None:
+        """Drop the URL pass, once per run, when the account is too large."""
+        if not self.config.include_connector_external_url:
+            return
+        if "include_connector_external_url" in self.config.model_fields_set:
+            # Asked for by name. Honour it whatever the count -- the operator
+            # has taken the cost decision.
+            return
+        if connector_count <= _MAX_CONNECTORS_FOR_URL_LOOKUP:
+            return
+        self._url_lookup_suppressed = True
+        self.report.num_connector_urls_skipped_for_scale = connector_count
+        self.report.warning(
+            title="Connector external links skipped",
+            message=f"This account has {connector_count} connectors, above the "
+            f"{_MAX_CONNECTORS_FOR_URL_LOOKUP} at which the per-connector "
+            "DESCRIBE needed for each link would dominate the run. No external "
+            "links are emitted. Set include_connector_external_url: true "
+            "explicitly to fetch them anyway.",
+        )
+
+    def _retrying(self) -> Retrying:
+        # Shared by both per-connector network calls. They fail the same way --
+        # a transient blip on either drops that connector's contribution for the
+        # whole run, since neither is revisited.
+        return Retrying(
+            retry=retry_if_exception_type(_RETRYABLE_SNOWFLAKE_ERRORS),
+            stop=stop_after_attempt(_RETRY_MAX_ATTEMPTS),
+            wait=wait_exponential(multiplier=_RETRY_BACKOFF_MULTIPLIER, max=4),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            reraise=True,
+        )
+
     def _read_connector_url(self, connector: OpenflowConnector) -> Optional[str]:
         """The connector's NiFi canvas deep link, or None.
 
@@ -763,6 +809,8 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         must not abort the connector the way a lineage failure would.
         """
         if not self.config.include_connector_external_url:
+            return None
+        if self._url_lookup_suppressed:
             return None
         fqn = connector.fqn
         if fqn is None:
@@ -773,7 +821,9 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             self.report.num_connectors_without_fqn += 1
             return None
         try:
-            rows = self._query_rows(SnowflakeOpenflowQuery.describe_connector(fqn))
+            rows = self._retrying()(
+                self._query_rows, SnowflakeOpenflowQuery.describe_connector(fqn)
+            )
         except Exception as exc:
             self.report.num_connector_urls_failed += 1
             self.report.warning(
@@ -785,10 +835,23 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 exc=exc,
             )
             return None
-        if not rows:
+        # Both remaining branches mean DESCRIBE answered but not with what its
+        # contract promises -- an empty result, or a row without the column.
+        # Neither is an operator mistake, so neither is silent: they are the
+        # shape a Snowflake-side surface change would take, and a silently
+        # absent link is indistinguishable from a connector that simply has
+        # none.
+        url = get_str(rows[0], COL_CONNECTOR_URL) if rows else None
+        if url is None:
             self.report.num_connector_urls_failed += 1
-            return None
-        return get_str(rows[0], COL_CONNECTOR_URL)
+            self.report.warning(
+                title="Connector URL missing from DESCRIBE",
+                message="DESCRIBE OPENFLOW CONNECTOR succeeded but returned "
+                "no CONNECTOR_URL, so this connector has no external link. "
+                "Everything else about it is unaffected.",
+                context=connector.key,
+            )
+        return url
 
     def _read_connector_config(
         self, connector: OpenflowConnector
@@ -815,14 +878,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             # single transient blip would otherwise drop this connector's
             # lineage for the whole run: the failure is caught below, counted,
             # and never revisited.
-            retryer = Retrying(
-                retry=retry_if_exception_type(_RETRYABLE_STAGE_GET_ERRORS),
-                stop=stop_after_attempt(_STAGE_GET_MAX_ATTEMPTS),
-                wait=wait_exponential(multiplier=_STAGE_GET_BACKOFF_MULTIPLIER, max=4),
-                before_sleep=before_sleep_log(logger, logging.WARNING),
-                reraise=True,
-            )
-            return retryer(
+            return self._retrying()(
                 self._download_connector_config, connector.version_location_uri
             )
         except Exception as exc:
@@ -1218,7 +1274,9 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             if runtime.owner:
                 self.report.num_owners_emitted += 1
 
-        for connector in self._fetch_connectors():
+        connectors = self._fetch_connectors()
+        self._decide_url_lookup(len(connectors))
+        for connector in connectors:
             self.report.num_connectors += 1
             # A miss leaves the flow un-nested rather than dropped: SHOW OPENFLOW
             # CONNECTORS is account-wide, while runtimes are both privilege-filtered

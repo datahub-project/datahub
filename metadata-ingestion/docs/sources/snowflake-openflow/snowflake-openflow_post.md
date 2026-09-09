@@ -6,8 +6,9 @@
 - **Ownership** — from each object's `OWNER`.
 - **External link** — each connector's `DataFlow` links to its NiFi canvas, so "view in Openflow"
   opens the flow itself. The URL comes from `DESCRIBE OPENFLOW CONNECTOR`, which `SHOW` does not
-  return, so this costs one extra query per connector; disable with
-  `include_connector_external_url: false`.
+  return, so it costs a second round trip per connector on top of the one lineage already needs.
+  Above 500 connectors that lookup is skipped automatically and the run says so; set
+  `include_connector_external_url: true` to force it at any size, or `false` to skip it entirely.
 - **Deletion detection** — via stateful ingestion, using `DELETED_ON` from the `ACCOUNT_USAGE`
   views.
 

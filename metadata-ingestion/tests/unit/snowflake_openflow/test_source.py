@@ -1,9 +1,11 @@
 from typing import Any, Callable, Dict, List, Optional
 
 import pytest
+from snowflake.connector.errors import OperationalError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.snowflake import snowflake_openflow
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
@@ -455,6 +457,10 @@ def test_upstream_info_is_quiet_when_source_env_merely_restates_env():
 # --- connector external URL (DESCRIBE-only column) ------------------------
 
 
+def _never_queried(query: str) -> List[Dict[str, Any]]:
+    raise AssertionError(f"should not have queried: {query!r}")
+
+
 def _addressable_connector() -> OpenflowConnector:
     return OpenflowConnector(
         name="conn",
@@ -520,4 +526,103 @@ def test_history_only_connector_is_counted_quietly_not_warned():
         is None
     )
     assert source.report.num_connectors_without_fqn == 1
+    assert _warning_titles(source.report) == []
+
+
+def test_connector_url_retries_a_transient_connection_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The DESCRIBE shipped without a retry while the stage GET beside it had
+    # one, so a single blip permanently cost that connector its link. Both
+    # per-connector calls now share the same bounded policy.
+    monkeypatch.setattr(snowflake_openflow, "_RETRY_BACKOFF_MULTIPLIER", 0)
+    source = _make_source()
+    attempts: List[str] = []
+
+    def flaky(query: str) -> List[Dict[str, Any]]:
+        attempts.append(query)
+        if len(attempts) < 3:
+            raise OperationalError(msg="connection reset by peer")
+        return [{"CONNECTOR_URL": "https://host/rt/nifi/#/connectors/abc/"}]
+
+    source._query_rows = flaky  # type: ignore[method-assign]
+    assert (
+        source._read_connector_url(_addressable_connector())
+        == "https://host/rt/nifi/#/connectors/abc/"
+    )
+    assert len(attempts) == 3
+    assert source.report.num_connector_urls_failed == 0
+
+
+def test_connector_url_gives_up_after_the_bounded_number_of_attempts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(snowflake_openflow, "_RETRY_BACKOFF_MULTIPLIER", 0)
+    source = _make_source()
+    attempts: List[str] = []
+
+    def always_failing(query: str) -> List[Dict[str, Any]]:
+        attempts.append(query)
+        raise OperationalError(msg="connection reset by peer")
+
+    source._query_rows = always_failing  # type: ignore[method-assign]
+    assert source._read_connector_url(_addressable_connector()) is None
+    assert len(attempts) == snowflake_openflow._RETRY_MAX_ATTEMPTS
+    assert source.report.num_connector_urls_failed == 1
+
+
+@pytest.mark.parametrize(
+    "describe_rows",
+    [
+        pytest.param([], id="no rows at all"),
+        pytest.param([{"NAME": "conn"}], id="a row without the CONNECTOR_URL column"),
+    ],
+)
+def test_describe_answering_without_a_url_is_counted_and_warned(
+    describe_rows: List[Dict[str, Any]],
+) -> None:
+    # Both shapes mean DESCRIBE answered but not per its contract -- what a
+    # Snowflake-side surface change would look like. Silently returning None
+    # would make it indistinguishable from a connector that has no link.
+    source = _make_source()
+    source._query_rows = lambda query: describe_rows  # type: ignore[method-assign]
+    assert source._read_connector_url(_addressable_connector()) is None
+    assert source.report.num_connector_urls_failed == 1
+    assert _warning_titles(source.report) == ["Connector URL missing from DESCRIBE"]
+
+
+def test_url_lookup_is_dropped_on_an_oversized_account() -> None:
+    # The DESCRIBE is a second serial round trip per connector. Past the
+    # threshold a convenience link is not worth doubling the run.
+    source = _make_source()
+    source._decide_url_lookup(snowflake_openflow._MAX_CONNECTORS_FOR_URL_LOOKUP + 1)
+    source._query_rows = _never_queried  # type: ignore[method-assign]
+
+    assert source._read_connector_url(_addressable_connector()) is None
+    assert _warning_titles(source.report) == ["Connector external links skipped"]
+
+
+def test_url_lookup_survives_at_the_threshold() -> None:
+    # Boundary is inclusive: the warning must not fire for an account sitting
+    # exactly on the limit, or the message would name a count it permits.
+    source = _make_source()
+    source._decide_url_lookup(snowflake_openflow._MAX_CONNECTORS_FOR_URL_LOOKUP)
+    assert not source._url_lookup_suppressed
+    assert _warning_titles(source.report) == []
+
+
+def test_explicitly_requested_urls_are_fetched_at_any_scale() -> None:
+    # Auto-degrade applies to the DEFAULT only. An operator who named the flag
+    # has taken the cost decision, and silently ignoring them would be worse
+    # than the cost.
+    source = _make_source(include_connector_external_url=True)
+    source._decide_url_lookup(snowflake_openflow._MAX_CONNECTORS_FOR_URL_LOOKUP * 100)
+    assert not source._url_lookup_suppressed
+    assert _warning_titles(source.report) == []
+
+
+def test_disabled_flag_needs_no_scale_warning() -> None:
+    # Nothing was going to be fetched, so there is nothing to announce.
+    source = _make_source(include_connector_external_url=False)
+    source._decide_url_lookup(snowflake_openflow._MAX_CONNECTORS_FOR_URL_LOOKUP * 100)
     assert _warning_titles(source.report) == []
