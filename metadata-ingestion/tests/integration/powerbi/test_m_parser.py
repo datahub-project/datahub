@@ -27,7 +27,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
 )
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import NativeQueryLineage
 from datahub.ingestion.source.powerbi.powerbi import Mapper
-from datahub.metadata.schema_classes import NumberTypeClass
+from datahub.metadata.schema_classes import NumberTypeClass, UpstreamLineageClass
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -1305,6 +1305,77 @@ def test_bigquery_external_query_no_empty_column_lineage_edge():
     )
     # No column-lineage entry with an empty upstreams list is emitted.
     assert all(cll.upstreams for cll in lineage[0].column_lineage)
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_respects_dataset_type_mapping():
+    # A resolved federation upstream must still pass the dataset_type_mapping filter,
+    # which lives in Mapper.extract_lineage (powerbi.py) — AFTER get_upstream_tables
+    # returns — and keys off the *PowerBI* platform name of the resolved pair. So this
+    # has to be exercised through the Mapper, not get_upstream_tables.
+    #
+    # databricks is the sharp edge: both "Databricks" (DATABRICKS_SQL) and
+    # "DatabricksMultiCloud" map to the datahub platform "databricks", and
+    # _data_platform_pair_for("databricks") returns the first-declared pair, whose
+    # PowerBI name is "Databricks". A user who narrows dataset_type_mapping to only the
+    # other name ("DatabricksMultiCloud") therefore silently loses the federated edge —
+    # which is exactly the guarantee this test pins in both directions.
+    expression = """
+        let
+            Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "select * from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")", null, [EnableFolding=true])
+        in
+            Source
+    """
+    ds_urn = "urn:li:dataset:(urn:li:dataPlatform:powerbi,ds-1,PROD)"
+    external_urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,ext_db.ext_schema.usage_report,PROD)"
+
+    def emitted_upstreams(dataset_type_mapping: dict) -> List[str]:
+        config = PowerBiDashboardSourceConfig.model_validate(
+            {
+                "tenant_id": "fake",
+                "client_id": "foo",
+                "client_secret": "bar",
+                "native_query_parsing": True,
+                "enable_advance_lineage_sql_construct": True,
+                "extract_column_level_lineage": False,
+                "dataset_type_mapping": dataset_type_mapping,
+                "bigquery_external_query_connection_to_platform": {
+                    "my_project.us-east1.my_connection": {
+                        "platform": "databricks",
+                        "default_database": "ext_db",
+                    }
+                },
+            }
+        )
+        mapper = Mapper(
+            ctx=PipelineContext(run_id="fake"),
+            config=config,
+            reporter=PowerBiDashboardSourceReport(),
+            dataplatform_instance_resolver=create_dataplatform_instance_resolver(
+                config
+            ),
+        )
+        table = powerbi_data_classes.Table(
+            columns=[],
+            measures=[],
+            expression=expression,
+            name="t",
+            full_name="dev.public.t",
+        )
+        mcps = mapper.extract_lineage(table, ds_urn, MagicMock())
+        return [
+            up.dataset
+            for mcp in mcps
+            if isinstance(mcp.aspect, UpstreamLineageClass)
+            for up in mcp.aspect.upstreams
+        ]
+
+    # Mapped under the PowerBI name the resolved pair carries -> edge emitted.
+    assert emitted_upstreams({"Databricks": "databricks"}) == [external_urn]
+
+    # Mapped only under the *other* databricks PowerBI name -> edge dropped, even though
+    # both resolve to the same datahub platform. Guards the setdefault ambiguity.
+    assert emitted_upstreams({"DatabricksMultiCloud": "databricks"}) == []
 
 
 @pytest.mark.integration
