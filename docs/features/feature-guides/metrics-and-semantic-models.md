@@ -140,7 +140,7 @@ source:
 
 Unlike Snowflake, this flag is a plain boolean and defaults to `false`. There is no auto-detect: dbt has emitted semantic models as datasets for several releases, so auto-enabling would silently re-mint those URNs on upgrade. Setting `true` against a DataHub Cloud server too old to accept the entities falls back to the dataset behavior and reports why.
 
-One dbt Semantic Model is emitted per dbt **project**, and each entry in the project's `semantic_models:` block becomes a **Dataset** with subtype `Semantic Model Dataset` inside it. So searching for a dbt semantic model named `orders` finds a Dataset named `<project>.semantic_layer.orders`; the Semantic Model itself is the project. See [Semantic Models and Metrics](/docs/generated/ingestion/sources/dbt#semantic-models-and-metrics) for the full mapping and the migration path from the legacy dataset shape.
+One dbt Semantic Model is emitted per dbt **project**, and each entry in the project's `semantic_models:` block becomes a **Dataset** with subtype `Semantic Model Dataset` inside it. So searching for a dbt semantic model named `orders` finds a Dataset named `<project>.semantic_layer.orders`; the Semantic Model itself is the project. See [Semantic Models and Metrics](../../generated/ingestion/sources/dbt.md#semantic-models-and-metrics) for the full mapping and the migration path from the legacy dataset shape.
 
 ### From the DataHub Python SDK
 

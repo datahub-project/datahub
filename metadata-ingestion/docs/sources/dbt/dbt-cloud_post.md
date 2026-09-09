@@ -2,10 +2,10 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
-#### Semantic models and metrics
+#### Semantic model and metric differences
 
 `emit_semantic_model_entities` works the same way here as for dbt Core — see
-[Semantic Models and Metrics](/docs/generated/ingestion/sources/dbt#semantic-models-and-metrics)
+[Semantic Models and Metrics](#semantic-models-and-metrics)
 for what it emits. Two dbt Cloud specifics:
 
 - The project name in the `SemanticModel` and `Metric` URNs comes from the semantic models'
