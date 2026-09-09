@@ -1535,12 +1535,12 @@ def _join_spec_source(source: SigmaSource, join_type: str = "left") -> None:
                         "columns": [],
                         "source": {
                             "kind": "join",
-                            "primarySource": {"kind": "warehouse-table"},
+                            "primarySource": {"elementId": "a", "kind": "table"},
                             "joins": [
                                 {
                                     "joinType": join_type,
-                                    "left": {"elementId": "a", "kind": "element"},
-                                    "right": {"elementId": "c", "kind": "element"},
+                                    "left": {"elementId": "a", "kind": "table"},
+                                    "right": {"elementId": "c", "kind": "table"},
                                     # Sides are Sigma FORMULAS, not identifiers:
                                     # a live tenant spells them "[Col]" and
                                     # "Coalesce([Col], -2)".
@@ -1548,7 +1548,6 @@ def _join_spec_source(source: SigmaSource, join_type: str = "left") -> None:
                                         {
                                             "left": "[col_k]",
                                             "right": "Coalesce([col_k], -2)",
-                                            "op": "equals",
                                         }
                                     ],
                                 }
@@ -1656,15 +1655,15 @@ def _foreign_spec_source(source: SigmaSource) -> None:
                         "columns": [],
                         "source": {
                             "kind": "join",
-                            "primarySource": {"kind": "warehouse-table"},
+                            "primarySource": {"elementId": "a", "kind": "table"},
                             "joins": [
                                 {
                                     "joinType": "inner",
-                                    "left": {"elementId": "a", "kind": "element"},
+                                    "left": {"elementId": "a", "kind": "table"},
                                     "right": {
                                         "dataModelId": "other-dm",
                                         "elementId": "shared",
-                                        "kind": "element",
+                                        "kind": "table",
                                     },
                                     "columns": [
                                         {"left": "[col_k]", "right": "[col_k]"}
@@ -2040,12 +2039,12 @@ def _both_sides_foreign_spec(source: SigmaSource) -> None:
                                     "left": {
                                         "dataModelId": "left-dm",
                                         "elementId": "dim_a",
-                                        "kind": "element",
+                                        "kind": "table",
                                     },
                                     "right": {
                                         "dataModelId": "right-dm",
                                         "elementId": "fact_b",
-                                        "kind": "element",
+                                        "kind": "table",
                                     },
                                     "columns": [
                                         {"left": "[col_k]", "right": "[col_k]"}

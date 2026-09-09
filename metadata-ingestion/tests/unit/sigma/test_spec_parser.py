@@ -5,9 +5,9 @@ recovered from the key skeletons this parser logs when it cannot read a
 descriptor::
 
     source = {"kind": "join",
-              "primarySource": {...},
+              "primarySource": {"elementId": ..., "kind": "table"},
               "joins": [{"joinType": ..., "left": {...}, "right": {...},
-                         "columns": [{"left": ..., "right": ..., "op": ...}]}]}
+                         "columns": [{"left": ..., "right": ...}]}]}
 
 An earlier version looked for the predicate at ``source.columns[]`` and matched
 sides by scanning for column ids belonging to the same document. It read zero
@@ -24,8 +24,11 @@ from datahub.ingestion.source.sigma.spec_parser import parse_data_model_spec
 _LEFT_EXPR = "[Col A]"
 _RIGHT_EXPR = "[Col B]"
 
-_ELEMENT_SIDE_L = {"elementId": "el-left", "groupingId": "g1", "kind": "element"}
-_ELEMENT_SIDE_R = {"elementId": "el-right", "groupingId": "g2", "kind": "element"}
+# ``kind`` is "table", not "element": Sigma's create-data-model API rejects
+# "element" outright, and a spec it stores back reads "table". Confirmed
+# against a live tenant (2026-09) rather than assumed.
+_ELEMENT_SIDE_L = {"elementId": "el-left", "groupingId": "g1", "kind": "table"}
+_ELEMENT_SIDE_R = {"elementId": "el-right", "groupingId": "g2", "kind": "table"}
 _WAREHOUSE_SIDE = {
     "connectionId": "conn-1",
     "kind": "warehouse-table",
@@ -66,7 +69,7 @@ def _join(
 ) -> Dict[str, Any]:
     return {
         "kind": "join",
-        "primarySource": {"kind": "warehouse-table", "connectionId": "c"},
+        "primarySource": {"elementId": "el-left", "kind": "table"},
         "joins": [
             {"joinType": "left", "left": left, "right": right, "columns": columns}
         ],
@@ -79,7 +82,7 @@ def test_predicate_is_read_from_joins_not_from_source_columns() -> None:
             _join(
                 _ELEMENT_SIDE_L,
                 _ELEMENT_SIDE_R,
-                [{"left": _LEFT_EXPR, "right": _RIGHT_EXPR, "op": "equals"}],
+                [{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}],
             )
         ),
         data_model_id="dm-1",
@@ -199,7 +202,13 @@ def test_multiple_joins_and_multi_column_predicates() -> None:
 
 def test_empty_joins_list_is_not_unreadable() -> None:
     index = parse_data_model_spec(
-        _spec({"kind": "join", "joins": [], "primarySource": {"kind": "table"}}),
+        _spec(
+            {
+                "kind": "join",
+                "joins": [],
+                "primarySource": {"elementId": "el-left", "kind": "table"},
+            }
+        ),
         data_model_id="dm-1",
     )
     assert index.pairs == []
