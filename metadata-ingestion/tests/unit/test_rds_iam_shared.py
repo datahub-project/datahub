@@ -33,9 +33,12 @@ class _FakeManager:
     def __init__(self, **kwargs: Any) -> None:
         self.calls = 0
         # The real manager records these and the cache guard reads them back.
+        # Mirror all four: a fake missing one makes the guard raise rather than
+        # answer, which is a test artefact and not a finding.
         self.endpoint = kwargs.get("endpoint")
         self.port = kwargs.get("port")
         self.username = kwargs.get("username")
+        self.aws_config = kwargs.get("aws_config")
 
     def get_token(self) -> str:
         self.calls += 1
@@ -307,3 +310,67 @@ def test_an_unchanged_copy_does_not_rebuild_the_manager(factory, monkeypatch):
     )
 
     assert len(built) == 1, "a copy went back to the constructor"
+
+
+@pytest.mark.parametrize("factory", [_mysql, _postgres], ids=["mysql", "postgres"])
+def test_the_token_is_signed_for_the_host_the_engine_dials(factory, monkeypatch):
+    """get_sql_alchemy_url() returns sqlalchemy_uri in preference to anything
+    built from host_port, so a recipe setting both signed a token for one host
+    and presented it to another. Pre-existing -- the Source code read host_port
+    too -- but a credential aimed at the wrong endpoint."""
+    built: List[Dict[str, Any]] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager",
+        _recording_manager(built),
+    )
+    config = factory(**_IAM)
+    scheme = config.scheme
+    object.__setattr__(
+        config, "sqlalchemy_uri", f"{scheme}://u@real.rds.amazonaws.com:5555/d"
+    )
+
+    config.rds_iam_token_manager()
+
+    assert built[0]["endpoint"] == "real.rds.amazonaws.com"
+    assert built[0]["port"] == 5555
+
+
+@pytest.mark.parametrize("factory", [_mysql, _postgres], ids=["mysql", "postgres"])
+def test_an_ordinary_recipe_still_signs_for_host_port(factory, monkeypatch):
+    """The guard above must not change the common case, where the URL is built
+    from host_port anyway."""
+    built: List[Dict[str, Any]] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager",
+        _recording_manager(built),
+    )
+    factory(**_IAM).rds_iam_token_manager()
+    assert built[0]["endpoint"] == "db.rds.amazonaws.com"
+
+
+@pytest.mark.parametrize("factory", [_mysql, _postgres], ids=["mysql", "postgres"])
+def test_a_copy_that_switches_aws_config_does_not_reuse_the_credentials(
+    factory, monkeypatch
+):
+    """aws_config decides which credentials sign the token, so it belongs in the
+    cache identity alongside endpoint, port and username."""
+    built: List[Dict[str, Any]] = []
+    monkeypatch.setattr(
+        "datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager",
+        _recording_manager(built),
+    )
+    config = factory(**_IAM)
+    config.rds_iam_token_manager()
+    assert built[0]["aws_config"].aws_region == "us-west-2"
+
+    moved = config.model_copy(
+        update={
+            "aws_config": config.aws_config.model_copy(
+                update={"aws_region": "eu-central-1"}
+            )
+        }
+    )
+    moved.rds_iam_token_manager()
+
+    assert len(built) == 2, "the copy kept a manager holding the old credentials"
+    assert built[1]["aws_config"].aws_region == "eu-central-1"

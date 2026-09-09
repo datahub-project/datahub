@@ -126,3 +126,26 @@ def test_is_telemetry_wrapped_sees_through_wraps():
     assert "telemetry" not in wrapped.__module__
     assert telemetry.is_telemetry_wrapped(wrapped)
     assert not telemetry.is_telemetry_wrapped(target)
+
+
+def test_an_already_wrapped_callback_is_left_entirely_alone(pings):
+    """The metadata wrapper used to run unconditionally, so on a callback that
+    needed no telemetry wrapper it became wraps(f)(f) -- setting f.__wrapped__
+    to f. inspect.unwrap and inspect.signature then raise "wrapper loop" on
+    exactly the commands that instrument themselves.
+
+    Unreachable while the detection never fired; making the detection work is
+    what made it live.
+    """
+    import inspect
+
+    root = _group()
+    before = root.commands["explicit"].callback
+    enable_auto_decorators(root)
+    after = root.commands["explicit"].callback
+
+    assert after is before, "an already-wrapped callback should be untouched"
+    assert after is not None
+    assert getattr(after, "__wrapped__", None) is not after
+    inspect.unwrap(after)
+    inspect.signature(after)

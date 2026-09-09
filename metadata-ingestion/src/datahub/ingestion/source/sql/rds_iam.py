@@ -1,7 +1,8 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from pydantic import PrivateAttr
 from sqlalchemy import event
+from sqlalchemy.engine import make_url
 
 from datahub.ingestion.source.aws.aws_common import RDSIAMTokenManager
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
@@ -49,6 +50,31 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
         truthy `ssl`, psycopg2 an `sslmode`), which is why it is abstract."""
         raise NotImplementedError
 
+    def rds_iam_endpoint(self) -> Tuple[str, Optional[int]]:
+        """The host and port the token must be signed for.
+
+        Read back off the URL the engine will actually dial, not off host_port:
+        `get_sql_alchemy_url()` returns `sqlalchemy_uri` in preference to
+        anything built from host_port, so a recipe setting both would have had
+        its token signed for one host and presented to another. Identical for
+        the ordinary recipe, where the URL is built from host_port anyway.
+
+        Falls back to host_port if the URL will not parse, which keeps a
+        malformed-URL recipe reporting the error it already reported rather
+        than a new one from here.
+        """
+        try:
+            url = make_url(self.get_sql_alchemy_url())
+        except Exception:
+            return parse_host_port(
+                self.host_port, default_port=self.rds_iam_default_port()
+            )
+        if not url.host:
+            return parse_host_port(
+                self.host_port, default_port=self.rds_iam_default_port()
+            )
+        return url.host, url.port or self.rds_iam_default_port()
+
     def rds_iam_token_manager(self) -> Optional[RDSIAMTokenManager]:
         """The shared token manager, or None when IAM auth is not selected.
 
@@ -57,9 +83,7 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
         """
         if not self.rds_iam_enabled():
             return None
-        hostname, port = parse_host_port(
-            self.host_port, default_port=self.rds_iam_default_port()
-        )
+        hostname, port = self.rds_iam_endpoint()
         # Reused only while it still describes this config. Both model_copy()
         # and model_copy(deep=True) carry PrivateAttrs, so a copy that changed
         # host_port or username would otherwise go on presenting a token minted
@@ -72,6 +96,10 @@ class RDSIAMConnectionMixin(SQLAlchemyConnectionConfig):
             and cached.endpoint == hostname
             and cached.port == port
             and cached.username == self.username
+            # aws_config too: it decides which credentials sign the token, so a
+            # copy that switched region or assumed role would otherwise keep
+            # signing with the old one.
+            and cached.aws_config == self.aws_config  # type: ignore[attr-defined]
         ):
             return cached
         if port is None:

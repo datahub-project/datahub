@@ -506,11 +506,19 @@ def enable_auto_decorators(main_group: click.Group) -> None:
 
             decorated_callback = original_callback
 
-            if not has_telemetry_decorator(decorated_callback):
-                log.debug(
-                    f"Applying telemetry decorator to {original_callback.__module__}.{original_callback.__name__}"
-                )
-                decorated_callback = telemetry.with_telemetry()(decorated_callback)
+            if has_telemetry_decorator(decorated_callback):
+                # Nothing to add, and nothing to do: wraps() below would be
+                # wraps(f)(f), setting f.__wrapped__ = f. That cycle makes
+                # inspect.unwrap and inspect.signature raise "wrapper loop" on
+                # exactly the commands that instrument themselves. It was
+                # unreachable while the detection above never fired; making the
+                # detection work is what made it live.
+                return
+
+            log.debug(
+                f"Applying telemetry decorator to {original_callback.__module__}.{original_callback.__name__}"
+            )
+            decorated_callback = telemetry.with_telemetry()(decorated_callback)
 
             # Preserve the original function's metadata
             decorated_callback = wraps(original_callback)(decorated_callback)
