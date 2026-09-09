@@ -111,6 +111,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
   private final int keywordMaxLength;
 
+  @Nonnull private final List<V3MappingContributor> mappingContributors;
+
   /**
    * Constructs a new MultiEntityMappingsBuilder with the given entity index configuration.
    *
@@ -125,15 +127,25 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    */
   public MultiEntityMappingsBuilder(@Nonnull EntityIndexConfiguration entityIndexConfiguration)
       throws IOException {
-    this(entityIndexConfiguration, ESUtils.KEYWORD_MAXLENGTH);
+    this(entityIndexConfiguration, ESUtils.KEYWORD_MAXLENGTH, List.of());
   }
 
   public MultiEntityMappingsBuilder(
       @Nonnull EntityIndexConfiguration entityIndexConfiguration, int keywordMaxLength)
       throws IOException {
+    this(entityIndexConfiguration, keywordMaxLength, List.of());
+  }
+
+  public MultiEntityMappingsBuilder(
+      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
+      int keywordMaxLength,
+      @Nonnull List<V3MappingContributor> mappingContributors)
+      throws IOException {
 
     this.entityIndexConfiguration = entityIndexConfiguration;
     this.keywordMaxLength = keywordMaxLength > 0 ? keywordMaxLength : ESUtils.KEYWORD_MAXLENGTH;
+    this.mappingContributors =
+        mappingContributors == null ? List.of() : List.copyOf(mappingContributors);
     String mappingConfig = entityIndexConfiguration.getV3().getMappingConfig();
     if (mappingConfig != null && !mappingConfig.trim().isEmpty()) {
       this.mappingBaseConfiguration =
@@ -442,6 +454,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
           MultiEntityMappingsUtils.mergeMappings(combinedMappings, mappingBaseConfiguration);
     }
 
+    applyMappingContributors(combinedMappings);
+
     // Build _search section with all copy_to destination fields
     Map<String, Object> searchSection =
         MultiEntityMappingsUtils.buildSearchSection(entitySpecs, combinedMappings);
@@ -454,6 +468,31 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     }
 
     return combinedMappings;
+  }
+
+  private void applyMappingContributors(@Nonnull Map<String, Object> combinedMappings) {
+    if (mappingContributors.isEmpty()) {
+      return;
+    }
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) combinedMappings.get("properties");
+    if (properties == null) {
+      properties = new HashMap<>();
+      combinedMappings.put("properties", properties);
+    }
+    for (V3MappingContributor contributor : mappingContributors) {
+      Map<String, Object> extras = contributor.extraRootProperties();
+      for (Map.Entry<String, Object> extra : extras.entrySet()) {
+        if (properties.containsKey(extra.getKey())
+            || MappingConstants.STRATEGY_OWNED_ROOT_FIELDS.contains(extra.getKey())) {
+          throw new IllegalArgumentException(
+              "V3 mapping contributor attempted to overwrite existing property '"
+                  + extra.getKey()
+                  + "'");
+        }
+        properties.put(extra.getKey(), extra.getValue());
+      }
+    }
   }
 
   /**

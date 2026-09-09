@@ -14,6 +14,7 @@ import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -660,5 +661,49 @@ public class DeleteIndexDocumentsFixTest {
     fix.deleteFromAllIndices(mockOpContext, urn, "assertion");
 
     verify(mockGraphService).removeNode(mockOpContext, urn);
+  }
+
+  @Test
+  public void testDeletesHashedV3DocumentId() {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    String hashedId =
+        new com.linkedin.metadata.search.elasticsearch.index.entity.v3
+                .Sha256UrnEntityDocumentIdHasher()
+            .documentId(opContext, urn);
+    String searchGroup = opContext.getEntityRegistry().getEntitySpec("dataset").getSearchGroup();
+
+    fix.deleteFromAllIndices(opContext, urn, "dataset");
+
+    verify(mockEntitySearchService)
+        .deleteDocumentBySearchGroup(eq(opContext), eq(searchGroup), eq(hashedId));
+    verify(mockEntitySearchService)
+        .deleteDocument(eq(opContext), eq("dataset"), eq(getExpectedDocId(urn)));
+  }
+
+  @Test
+  public void testV3NoOpDeleteDoesNotCountAsSuccessWhenOtherDeletesFail() {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    doThrow(new RuntimeException("System metadata delete failed"))
+        .when(mockEsSystemMetadataDAO)
+        .deleteByUrn(any(OperationContext.class), eq(urn.toString()));
+    doThrow(new RuntimeException("Search delete failed"))
+        .when(mockEntitySearchService)
+        .deleteDocument(eq(opContext), eq("dataset"), eq(getExpectedDocId(urn)));
+    doThrow(new RuntimeException("Graph delete failed"))
+        .when(mockGraphService)
+        .removeNode(eq(opContext), eq(urn));
+
+    try {
+      fix.deleteFromAllIndices(opContext, urn, "dataset");
+      fail("Expected RuntimeException");
+    } catch (RuntimeException e) {
+      assertTrue(e.getMessage().contains("Failed to delete from all indices"));
+    }
+
+    verify(mockEntitySearchService)
+        .deleteDocumentBySearchGroup(eq(opContext), anyString(), anyString());
   }
 }
