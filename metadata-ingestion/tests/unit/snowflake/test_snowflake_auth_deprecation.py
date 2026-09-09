@@ -139,3 +139,39 @@ def test_config_validation_no_warning_for_key_pair_auth():
         w for w in get_global_warnings() if "DEFAULT_AUTHENTICATOR" in w
     ]
     assert deprecation_warnings == []
+
+
+def test_test_connection_logs_deprecation_for_password_auth(caplog):
+    # --test-source-connection does not print global warnings or the source
+    # report, so test_connection logs the deprecation directly.
+    from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
+
+    with caplog.at_level(
+        "WARNING", logger="datahub.ingestion.source.snowflake.snowflake_v2"
+    ):
+        SnowflakeV2Source.test_connection(_password_auth_config_dict())
+
+    deprecation_records = [
+        r for r in caplog.records if "DEFAULT_AUTHENTICATOR" in r.message
+    ]
+    assert len(deprecation_records) == 1
+    assert SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL in deprecation_records[0].message
+
+
+def test_test_connection_no_deprecation_for_key_pair_auth(caplog):
+    from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
+
+    config_dict = _password_auth_config_dict()
+    del config_dict["password"]
+    config_dict["authentication_type"] = "KEY_PAIR_AUTHENTICATOR"
+    config_dict["private_key_path"] = "/a/random/path"
+
+    with caplog.at_level(
+        "WARNING", logger="datahub.ingestion.source.snowflake.snowflake_v2"
+    ):
+        SnowflakeV2Source.test_connection(config_dict)
+
+    deprecation_records = [
+        r for r in caplog.records if "DEFAULT_AUTHENTICATOR" in r.message
+    ]
+    assert deprecation_records == []
