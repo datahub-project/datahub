@@ -58,8 +58,28 @@ def _is_it_a_version(version: str) -> bool:
     return re.match(r"^v?\d+\.\d+(\.\d+)?$", version) is not None
 
 
+def _is_four_part_version(version: str) -> bool:
+    return re.match(r"^v?\d+\.\d+\.\d+\.\d+$", version) is not None
+
+
+def _is_published_release_tag(version: str) -> bool:
+    try:
+        response = requests.get(
+            f"https://api.github.com/repos/datahub-project/datahub/git/ref/tags/{version}",
+            timeout=5,
+        )
+        return response.status_code == 200
+    except Exception as e:
+        logger.debug(
+            "Could not verify whether %s is a published git tag: %s", version, e
+        )
+        return False
+
+
 def _is_passthrough_version(version: str) -> bool:
-    return _is_it_a_version(version) or version.startswith("sha-")
+    if _is_it_a_version(version) or version.startswith("sha-"):
+        return True
+    return _is_four_part_version(version) and _is_published_release_tag(version)
 
 
 def _is_magic_alias(version: str) -> bool:

@@ -199,6 +199,107 @@ def test_quickstart_semver_not_in_map_does_not_prompt():
     )
 
 
+@pytest.mark.parametrize("tag", ["v1.5.0.6", "v1.3.0.1"])
+def test_quickstart_published_four_part_tag_passthrough(tag: str) -> None:
+    with (
+        mock.patch(
+            "datahub.cli.quickstart_versioning._is_published_release_tag",
+            return_value=True,
+        ) as mock_published,
+        mock.patch("datahub.cli.quickstart_versioning.click.confirm") as mock_confirm,
+    ):
+        execution_plan = example_version_mapper.get_quickstart_execution_plan(tag)
+    mock_published.assert_called_once_with(tag)
+    mock_confirm.assert_not_called()
+    assert execution_plan == QuickstartExecutionPlan(
+        docker_tag=tag,
+        composefile_git_ref=tag,
+        mysql_tag="8.2",
+    )
+
+
+def test_quickstart_published_four_part_tag_does_not_remap_shorter_key():
+    version_mapper = QuickstartVersionMappingConfig.model_validate(
+        {
+            "quickstart_version_map": {
+                "default": example_version_mapper.quickstart_version_map["default"],
+                "v1.5.0": {
+                    "composefile_git_ref": "v1.5.0",
+                    "docker_tag": "v1.5.0",
+                    "mysql_tag": "8.2",
+                },
+            },
+        }
+    )
+    with (
+        mock.patch(
+            "datahub.cli.quickstart_versioning._is_published_release_tag",
+            return_value=True,
+        ),
+        mock.patch("datahub.cli.quickstart_versioning.click.confirm") as mock_confirm,
+    ):
+        execution_plan = version_mapper.get_quickstart_execution_plan("v1.5.0.6")
+    mock_confirm.assert_not_called()
+    assert execution_plan == QuickstartExecutionPlan(
+        docker_tag="v1.5.0.6",
+        composefile_git_ref="v1.5.0.6",
+        mysql_tag="8.2",
+    )
+
+
+def test_quickstart_exact_four_part_mapping_key_skips_tag_lookup():
+    version_mapper = QuickstartVersionMappingConfig.model_validate(
+        {
+            "quickstart_version_map": {
+                "default": example_version_mapper.quickstart_version_map["default"],
+                "v1.3.0.1": {
+                    "composefile_git_ref": "mapped-compose",
+                    "docker_tag": "mapped-image",
+                    "mysql_tag": "8.2",
+                },
+            },
+        }
+    )
+    with (
+        mock.patch(
+            "datahub.cli.quickstart_versioning._is_published_release_tag"
+        ) as mock_published,
+        mock.patch("datahub.cli.quickstart_versioning.click.confirm") as mock_confirm,
+    ):
+        execution_plan = version_mapper.get_quickstart_execution_plan("v1.3.0.1")
+    mock_published.assert_not_called()
+    mock_confirm.assert_not_called()
+    assert execution_plan == QuickstartExecutionPlan(
+        docker_tag="mapped-image",
+        composefile_git_ref="mapped-compose",
+        mysql_tag="8.2",
+    )
+
+
+def test_quickstart_unpublished_four_part_tag_prompts():
+    with (
+        mock.patch(
+            "datahub.cli.quickstart_versioning._is_published_release_tag",
+            return_value=False,
+        ),
+        mock.patch(
+            "datahub.cli.quickstart_versioning.sys.stdin.isatty", return_value=True
+        ),
+        mock.patch(
+            "datahub.cli.quickstart_versioning.click.confirm", return_value=True
+        ) as mock_confirm,
+    ):
+        execution_plan = example_version_mapper.get_quickstart_execution_plan(
+            "v9.9.9.9"
+        )
+    mock_confirm.assert_called_once()
+    assert execution_plan == QuickstartExecutionPlan(
+        docker_tag="quickstart",
+        composefile_git_ref="master",
+        mysql_tag="8.2",
+    )
+
+
 def test_quickstart_unrecognized_version_prompts_default_on_yes():
     with (
         mock.patch(
