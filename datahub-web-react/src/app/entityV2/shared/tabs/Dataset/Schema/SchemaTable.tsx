@@ -461,7 +461,8 @@ export default function SchemaTable({
         [expandedDrawerFieldPath, expandedRows, expandedRowPrefixes],
     );
 
-    // Previous expression `row.depth || 0 > 1` was truthy for any non-zero depth due to precedence.
+    // `rows` is groupByFieldPath output: top-level roots only, all with depth 0. Nested rows
+    // live on `.children`, so this stays false unless a future caller passes a flattened list.
     const hasSomeRowsWithDepthGreaterThanZero = useMemo(() => rows.some((row) => (row.depth || 0) > 0), [rows]);
 
     const [schemaFieldDrawerFieldPath, setSchemaFieldDrawerFieldPath] = useState(expandedDrawerFieldPath);

@@ -24,6 +24,14 @@ describe('useEditableSchemaFieldInfoMaps', () => {
             expect(result.current.exactMap.size).toBe(0);
             expect(result.current.v2NormalizedMap.size).toBe(0);
         });
+
+        it('skips v2NormalizedMap entries when fieldPath is missing', () => {
+            const metadata = {
+                editableSchemaFieldInfo: [{ description: 'no path' }],
+            } as EditableSchemaMetadata;
+            const { result } = renderHook(() => useEditableSchemaFieldInfoMaps(metadata));
+            expect(result.current.v2NormalizedMap.size).toBe(0);
+        });
     });
 
     describe('exactMap — O(1) lookup by fieldPath', () => {

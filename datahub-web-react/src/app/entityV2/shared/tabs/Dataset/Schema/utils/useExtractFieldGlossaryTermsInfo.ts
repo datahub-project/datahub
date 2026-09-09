@@ -1,4 +1,4 @@
-import { downgradeV2FieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import { normalizeFieldPathKey } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import useEditableSchemaFieldInfoMaps from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import { EditableSchemaMetadata, GlossaryTerms, SchemaField } from '@src/types.generated';
 
@@ -39,8 +39,8 @@ export default function useExtractFieldGlossaryTermsInfo(
         const baseUneditableTermUrns = new Set(baseUneditableTerms.map((t) => t.term.urn));
 
         // Collect extra uneditable terms from path-insensitive matches (O(1) map lookup)
-        const normalizedRecordPath = (downgradeV2FieldPath(record.fieldPath) ?? record.fieldPath).toLowerCase();
-        const extraUneditableTerms = (v2NormalizedMap.get(normalizedRecordPath) ?? [])
+        const normalizedRecordPath = normalizeFieldPathKey(record.fieldPath);
+        const extraUneditableTerms = (normalizedRecordPath ? (v2NormalizedMap.get(normalizedRecordPath) ?? []) : [])
             .flatMap((info) => info.glossaryTerms?.terms || [])
             .filter((t) => !baseUneditableTermUrns.has(t.term.urn));
 

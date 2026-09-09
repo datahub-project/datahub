@@ -391,4 +391,14 @@ describe('useExtractFieldTermsInfo', () => {
 
         expect(numberOfTerms).toBe(2);
     });
+
+    it('does not throw when the schema field has no fieldPath', () => {
+        const extractFieldTermsInfo = renderHook(() => useExtractFieldGlossaryTermsInfo(filledEditableSchemaMetadata))
+            .result.current;
+        const schemaField = { ...emptySchemaField, fieldPath: undefined as unknown as string };
+
+        expect(() => extractFieldTermsInfo(schemaField)).not.toThrow();
+        const { numberOfTerms } = extractFieldTermsInfo(schemaField);
+        expect(numberOfTerms).toBe(0);
+    });
 });

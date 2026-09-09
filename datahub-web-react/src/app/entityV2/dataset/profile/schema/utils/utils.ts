@@ -40,9 +40,17 @@ export function pathMatchesNewPath(fieldPathA?: string | null, fieldPathB?: stri
 export function pathMatchesInsensitiveToV2(fieldPathA?: string | null, fieldPathB?: string | null) {
     if (!fieldPathA || !fieldPathB) return false;
     if (fieldPathA === fieldPathB) return true;
-    const a = downgradeV2FieldPath(fieldPathA);
-    const b = downgradeV2FieldPath(fieldPathB);
-    return !!a && !!b && a.toLowerCase() === b.toLowerCase();
+    const a = normalizeFieldPathKey(fieldPathA);
+    const b = normalizeFieldPathKey(fieldPathB);
+    return !!a && !!b && a === b;
+}
+
+/** Lowercased v1-equivalent path for case-insensitive v2 matching. Null when the input is missing. */
+export function normalizeFieldPathKey(fieldPath?: string | null): string | null {
+    if (!fieldPath) {
+        return null;
+    }
+    return (downgradeV2FieldPath(fieldPath) ?? fieldPath).toLowerCase();
 }
 
 // should use pathMatchesExact when rendering editable info so the user edits the correct field
@@ -84,14 +92,14 @@ export function groupByFieldPath(
     ] as Array<ExtendedSchemaFields>;
 
     const outputRows: Array<ExtendedSchemaFields> = [];
-    // keyed by fieldPath so parent lookup is O(1) — replaces the O(n) inner loop
-    const outputRowByPath: Record<string, ExtendedSchemaFields> = {};
+    // Map so parent lookup is O(1) and keys like toString/constructor/__proto__ are not inherited
+    const outputRowByPath = new Map<string, ExtendedSchemaFields>();
 
     for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
         const row = { children: undefined, ...rows[rowIndex], depth: 0 };
 
         const parentPath = getParentPath(row.fieldPath);
-        const parentRow = parentPath ? (outputRowByPath[parentPath] ?? null) : null;
+        const parentRow = parentPath ? (outputRowByPath.get(parentPath) ?? null) : null;
 
         // if the parent field exists in the output, add the current row as a child
         if (parentRow) {
@@ -101,7 +109,7 @@ export function groupByFieldPath(
         } else {
             outputRows.push(row);
         }
-        outputRowByPath[row.fieldPath] = row;
+        outputRowByPath.set(row.fieldPath, row);
     }
     return outputRows;
 }

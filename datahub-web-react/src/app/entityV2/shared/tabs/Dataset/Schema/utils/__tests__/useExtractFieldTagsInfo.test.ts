@@ -390,4 +390,14 @@ describe('useExtractFieldTagsInfo', () => {
         ).toBeTruthy();
         expect(numberOfTags).toBe(2);
     });
+
+    it('does not throw when the schema field has no fieldPath', () => {
+        const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(filledEditableSchemaMetadata)).result
+            .current;
+        const schemaField = { ...emptySchemaField, fieldPath: undefined as unknown as string };
+
+        expect(() => extractFieldTagsInfo(schemaField)).not.toThrow();
+        const { numberOfTags } = extractFieldTagsInfo(schemaField);
+        expect(numberOfTags).toBe(0);
+    });
 });

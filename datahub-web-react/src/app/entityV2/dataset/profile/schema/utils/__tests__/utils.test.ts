@@ -4,6 +4,7 @@ import {
     downgradeV2FieldPath,
     getParentPath,
     groupByFieldPath,
+    normalizeFieldPathKey,
     pathMatchesInsensitiveToV2,
 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 
@@ -67,6 +68,23 @@ describe('pathMatchesInsensitiveToV2', () => {
         expect(pathMatchesInsensitiveToV2(null, 'address')).toBe(false);
         expect(pathMatchesInsensitiveToV2('address', undefined)).toBe(false);
         expect(pathMatchesInsensitiveToV2(null, null)).toBe(false);
+    });
+});
+
+describe('normalizeFieldPathKey', () => {
+    it('returns null for missing paths', () => {
+        expect(normalizeFieldPathKey(null)).toBeNull();
+        expect(normalizeFieldPathKey(undefined)).toBeNull();
+        expect(normalizeFieldPathKey('')).toBeNull();
+    });
+
+    it('lowercases downgraded v2 paths', () => {
+        expect(normalizeFieldPathKey('[version=2.0].[type=struct].payload.additionalInfo')).toBe(
+            'payload.additionalinfo',
+        );
+        expect(normalizeFieldPathKey('payload.additionalInfo.rawCounterpartyId')).toBe(
+            'payload.additionalinfo.rawcounterpartyid',
+        );
     });
 });
 
@@ -151,5 +169,36 @@ describe('groupByFieldPath', () => {
         expect(rows[0].fieldPath).toBe(orphan);
         expect(rows[0].depth).toBe(0);
         expect(rows[0].children).toBeUndefined();
+    });
+
+    it('does not treat Object.prototype keys as parents when no such row exists', () => {
+        const orphan = 'toString.child';
+        const rows = groupByFieldPath([field(orphan)], { showKeySchema: false });
+        expect(rows).toHaveLength(1);
+        expect(rows[0].fieldPath).toBe(orphan);
+        expect(rows[0].depth).toBe(0);
+        expect(rows[0].parent).toBeUndefined();
+    });
+
+    it('nests children under a real toString parent row', () => {
+        const parent = 'toString';
+        const child = 'toString.[type=string].child';
+        const rows = groupByFieldPath([field(parent), field(child)], { showKeySchema: false });
+        expect(rows).toHaveLength(1);
+        expect(rows[0].fieldPath).toBe(parent);
+        expect(rows[0].children![0].fieldPath).toBe(child);
+        expect(rows[0].children![0].depth).toBe(1);
+    });
+
+    it('stores constructor and __proto__ field paths without inheriting Object.prototype', () => {
+        const constructorChild = 'constructor.child';
+        const protoChild = '__proto__.child';
+        const rows = groupByFieldPath(
+            [field('constructor'), field(constructorChild), field('__proto__'), field(protoChild)],
+            { showKeySchema: false },
+        );
+        expect(rows.map((r) => r.fieldPath)).toEqual(['constructor', '__proto__']);
+        expect(rows[0].children![0].fieldPath).toBe(constructorChild);
+        expect(rows[1].children![0].fieldPath).toBe(protoChild);
     });
 });
