@@ -31,6 +31,7 @@ from datahub.ingestion.source.sigma.sigma_api import (
     BASE_ELEMENT_TYPES,
     INGESTED_ELEMENT_TYPES,
     SigmaAPI,
+    _error_body,
 )
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
@@ -3220,3 +3221,49 @@ class TestPivotAndInputTableOptOut:
 
         assert elements == []
         assert api.report.workbook_elements_skipped_by_type == {"pivot-table": 1}
+
+
+class TestFailedCallsCarryTheServersExplanation:
+    """A 4xx that Sigma explains in its body read as an unexplained failure.
+
+    ``requests`` puts only "400 Client Error: Bad Request for url: ..." into
+    the exception text. On one tenant (2026-09) 12 workbooks aborted their
+    /columns fetch that way, costing 37,655 chart columns their formulas, with
+    nothing in the log saying why.
+    """
+
+    def _fail_with(self, status: int, body: str, headers: Optional[Dict] = None):
+        response = requests.Response()
+        response.status_code = status
+        response._content = body.encode()
+        response.headers.update(headers or {})
+        return requests.exceptions.HTTPError(response=response)
+
+    def test_the_response_body_reaches_the_report(self) -> None:
+        api = _create_sigma_api()
+        try:
+            raise self._fail_with(400, '{"message":"workbook is being edited"}')
+        except requests.exceptions.HTTPError:
+            api._log_http_error(message="Unable to fetch columns for workbook 'wb-1'.")
+
+        context = api.report.warnings[0].context[0]
+        assert "workbook is being edited" in context
+        assert "http_status=400" in context
+
+    def test_retry_after_is_surfaced_when_the_server_sends_it(self) -> None:
+        """Decides whether a 409 is worth retrying or is terminal."""
+        api = _create_sigma_api()
+        try:
+            raise self._fail_with(409, "conflict", {"Retry-After": "30"})
+        except requests.exceptions.HTTPError:
+            api._log_http_error(message="Unable to fetch columns.")
+
+        assert "retry_after=30" in api.report.warnings[0].context[0]
+
+    def test_an_unreadable_body_does_not_raise(self) -> None:
+        """The call has already failed; reading the body must not fail too."""
+        response = MagicMock()
+        type(response).text = property(
+            lambda self: (_ for _ in ()).throw(ValueError("undecodable"))
+        )
+        assert _error_body(response) is None

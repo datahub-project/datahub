@@ -77,10 +77,34 @@ _INODE_PREFIX = "inode-"
 _SEMANTIC_VIEW_TABLE = "semanticViewTable"
 _CONNECTION_ID = "connectionId"
 
+# Sigma explains a 4xx in the response body; the exception text carries only
+# "400 Client Error: Bad Request for url: ...", which is what 12 workbooks
+# aborted with on one tenant (2026-09) while costing 37,655 chart columns their
+# formulas. Bounded because a body is not guaranteed to be a short message.
+_MAX_ERROR_BODY_CHARS = 400
+
 BASE_ELEMENT_TYPES = frozenset({"table", "visualization"})
 INGESTED_ELEMENT_TYPES = BASE_ELEMENT_TYPES | frozenset({"pivot-table", "input-table"})
 
 T = TypeVar("T", bound=BaseModel)
+
+
+def _error_body(response: Optional[requests.Response]) -> Optional[str]:
+    """The server's explanation for a 4xx, bounded.
+
+    ``requests`` puts only the status line into the exception text, so a 400
+    that Sigma explains in its body reads as an unexplained failure. Reading
+    the body must never itself raise -- the call has already failed.
+    """
+    if response is None:
+        return None
+    try:
+        text = (response.text or "").strip()
+    except Exception:
+        return None
+    if not text:
+        return None
+    return text[:_MAX_ERROR_BODY_CHARS].replace("\n", " ")
 
 
 class SigmaAPI:
@@ -165,10 +189,15 @@ class SigmaAPI:
         that list truncates.
         """
         _, e, _ = sys.exc_info()
-        status = (
-            e.response.status_code
+        response = (
+            e.response
             if isinstance(e, requests.exceptions.HTTPError) and e.response is not None
             else None
+        )
+        status = response.status_code if response is not None else None
+        body = _error_body(response)
+        retry_after = (
+            response.headers.get("Retry-After") if response is not None else None
         )
         key = str(status) if status is not None else type(e).__name__
         self.report.api_call_failures_by_status[key] = (
@@ -186,7 +215,12 @@ class SigmaAPI:
             message="A Sigma API call failed. The affected objects are emitted "
             "without whatever that call would have provided; see "
             "api_call_failures_by_status for the totals by status code.",
-            context=f"{message} (http_status={status})",
+            context=(
+                f"{message} (http_status={status}"
+                + (f", retry_after={retry_after}" if retry_after else "")
+                + (f", body={body}" if body else "")
+                + ")"
+            ),
         )
         logger.debug(msg=message, exc_info=e)
         return e
@@ -1120,6 +1154,7 @@ class SigmaAPI:
         # detected (e.g. page=1 → nextPageToken=1 → page=1 repeating).
         seen_cursors: Set[Tuple[str, str]] = set()
         first_page = True
+        pages_read = 0
         # Sigma reports the full row count on each page. Comparing against it
         # is the only reliable truncation test: a caller guessing from round
         # numbers misses a 5,000 cap and false-positives on a tenant that
@@ -1137,6 +1172,7 @@ class SigmaAPI:
                     return raw_entries
                 first_page = False
                 response.raise_for_status()
+                pages_read += 1
                 response_dict = response.json()
                 for entry in response_dict.get(Constant.ENTRIES, []):
                     if isinstance(entry, dict):
@@ -1207,8 +1243,13 @@ class SigmaAPI:
                 message="Pagination aborted; partial results preserved.",
                 context=(
                     f"endpoint={error_ctx}, url={url}, "
-                    f"partial_results={len(raw_entries)}"
+                    f"partial_results={len(raw_entries)}, "
+                    # Which page died separates "the endpoint refuses this
+                    # object outright" from "it served rows and then stopped",
+                    # which need different fixes.
+                    f"pages_read={pages_read}"
                     + (f", http_status={http_status}" if http_status else "")
+                    + (f", body={_error_body(getattr(e, 'response', None))}")
                 ),
                 exc=e,
             )
