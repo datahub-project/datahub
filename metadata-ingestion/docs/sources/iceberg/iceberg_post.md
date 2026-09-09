@@ -472,7 +472,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 
 - Iceberg views are not ingested; only tables.
 - Nanosecond-precision timestamps degrade to microsecond precision in schema fields (the native data type preserves the original type).
-- Geospatial (`geometry`/`geography`) columns are treated as opaque strings; payloads are not decoded.
+- Geospatial (`geometry`/`geography`) columns are unsupported by the current PyIceberg 0.11.x dependency.
 - Profiling statistics exclude delete files but reflect per-file state at write time, so rows later removed by deletes or deletion vectors remain counted in per-field statistics (see [Iceberg table format version 3 (V3)](#iceberg-table-format-version-3-v3)).
 
 ### Troubleshooting
