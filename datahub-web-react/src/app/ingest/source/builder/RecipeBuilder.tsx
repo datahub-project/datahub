@@ -9,7 +9,7 @@ import { CSVInfo } from '@app/ingest/source/builder/CSVInfo';
 import { IngestionDocumentationHint } from '@app/ingest/source/builder/IngestionDocumentationHint';
 import { LookerWarning } from '@app/ingest/source/builder/LookerWarning';
 import RecipeForm from '@app/ingest/source/builder/RecipeForm/RecipeForm';
-import { SnowflakePasswordAuthDeprecationWarning } from '@app/ingest/source/builder/SnowflakePasswordAuthDeprecationWarning';
+import { SnowflakePasswordAuthDeprecationWarning } from '@app/ingestV2/source/builder/SnowflakePasswordAuthDeprecationWarning';
 import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingest/source/builder/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingest/source/builder/types';

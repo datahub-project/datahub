@@ -50,6 +50,15 @@ export function ConnectionDetailsStep() {
     const [initialRecipeYml] = useState(existingRecipeFromStateYaml || existingRecipeYaml);
     const [stagedRecipeYml, setStagedRecipeYml] = useState(initialRecipeYml || placeholderRecipe);
 
+    // state.config.recipe is a JSON string; parse it for client-side detection.
+    const parsedRecipe = useMemo(() => {
+        try {
+            return state.config?.recipe ? JSON.parse(state.config.recipe) : null;
+        } catch {
+            return null;
+        }
+    }, [state.config?.recipe]);
+
     const analyticsRef = useRef(false);
 
     const updateRecipe = useCallback(
@@ -175,7 +184,7 @@ export function ConnectionDetailsStep() {
         <>
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
             {type === CSV && <CSVInfo />}
-            {type === SNOWFLAKE && <SnowflakePasswordAuthDeprecationWarning recipe={state.config?.recipe} />}
+            {type === SNOWFLAKE && <SnowflakePasswordAuthDeprecationWarning recipe={parsedRecipe} />}
             <Container>
                 <NameAndOwnersSection
                     source={state.ingestionSource}

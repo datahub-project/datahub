@@ -54,6 +54,26 @@ describe('SnowflakePasswordAuthDeprecationWarning', () => {
         expect(container).toBeEmptyDOMElement();
     });
 
+    it('renders nothing when key-pair auth has a stale password (respects explicit authentication_type)', () => {
+        const recipe = {
+            source: {
+                config: {
+                    authentication_type: 'KEY_PAIR_AUTHENTICATOR',
+                    password: 'secret', // stale password left over from a previous config // noqa: secret gitleaks:allow - dummy test fixture
+                    private_key: '-----BEGIN PRIVATE KEY-----',
+                },
+            },
+        };
+
+        const { container } = render(
+            <ThemeProvider theme={themeV2}>
+                <SnowflakePasswordAuthDeprecationWarning recipe={recipe} />
+            </ThemeProvider>,
+        );
+
+        expect(container).toBeEmptyDOMElement();
+    });
+
     it('infers DEFAULT_AUTHENTICATOR from a password with no explicit authentication_type (CAT-1921 edge case)', () => {
         const recipe = { source: { config: { password: 'secret' } } }; // noqa: secret gitleaks:allow - dummy test fixture
 
