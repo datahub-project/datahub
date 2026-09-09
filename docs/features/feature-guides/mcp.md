@@ -497,7 +497,7 @@ Combine a service account with a default view to create a tightly-scoped MCP con
 
 ## Self-Hosted MCP Server Usage
 
-Run the [open-source MCP server](https://github.com/acryldata/mcp-server-datahub) locally. This works with any DataHub instance — both DataHub Core and DataHub Cloud.
+Run the [open-source MCP server](https://github.com/acryldata/mcp-server-datahub) yourself. This works with any DataHub instance — both DataHub Core and DataHub Cloud. Run it locally for a single user, or as a [shared HTTP service](#shared-http-deployment) for a team.
 
 ### Prerequisites
 
@@ -618,6 +618,47 @@ For other AI tools, provide the following configuration:
   - `DATAHUB_GMS_TOKEN`: `<your-datahub-token>`
 
 </details>
+
+### Shared HTTP Deployment
+
+:::info
+Requires [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub) v0.7.0+. Earlier versions expose an HTTP transport with no per-request authentication, which is not safe to share between users.
+:::
+
+The setups above run one server per person. To serve a whole team from a single deployment, run the HTTP entry point instead. Each user authenticates with their **own** DataHub token, so permissions, search results, and audit attribution stay per-user.
+
+```bash
+docker run -p 8000:8000 \
+  -e DATAHUB_GMS_URL="<your-datahub-url>" \
+  acryldata/mcp-server-datahub:latest
+```
+
+Or without Docker:
+
+```bash
+DATAHUB_GMS_URL="<your-datahub-url>" FASTMCP_HOST=0.0.0.0 \
+  uvx --from mcp-server-datahub mcp-server-datahub-http
+```
+
+:::caution
+Do **not** set `DATAHUB_GMS_TOKEN` on a shared deployment — the server refuses to start when it is present, because a server-wide token would make every user act as a single identity. Your DataHub instance must also run with `METADATA_SERVICE_AUTH_ENABLED=true` so it can establish each caller's identity.
+:::
+
+Clients connect to `http://<host>:8000/mcp` and send their own [personal access token](../../authentication/personal-access-tokens.md) on every request:
+
+```
+Authorization: Bearer <your-datahub-token>
+```
+
+For example, with Claude Code:
+
+```bash
+claude mcp add --transport http datahub \
+  "http://<host>:8000/mcp" \
+  --header "Authorization: Bearer <your-datahub-token>"
+```
+
+The server also exposes an unauthenticated `GET /health` endpoint for load balancer and Kubernetes probes.
 
 ### Troubleshooting
 

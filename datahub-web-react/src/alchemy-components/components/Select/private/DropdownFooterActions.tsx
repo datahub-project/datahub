@@ -19,9 +19,11 @@ interface Props {
     onCancel?: () => void;
     onUpdate?: () => void;
     size?: SelectSizeOptions;
+    /** Label for the confirm button. Defaults to translated "Update". */
+    updateLabel?: string;
 }
 
-export default function DropdownFooterActions({ onCancel, onUpdate, size }: Props) {
+export default function DropdownFooterActions({ onCancel, onUpdate, size, updateLabel }: Props) {
     const { t: tc } = useTranslation('common.actions');
     return (
         <FooterBase>
@@ -34,7 +36,7 @@ export default function DropdownFooterActions({ onCancel, onUpdate, size }: Prop
                 onFocus={(e) => e.stopPropagation()}
                 data-testid="footer-button-update"
             >
-                {tc('update')}
+                {updateLabel ?? tc('update')}
             </Button>
         </FooterBase>
     );

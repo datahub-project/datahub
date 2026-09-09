@@ -133,7 +133,9 @@ public class DailyReport {
   public void dailyReport() {
     AnalyticsService analyticsService =
         new AnalyticsService(
-            _elasticClient, systemOperationContext.getSearchContext().getIndexConvention());
+            _elasticClient,
+            systemOperationContext.getSearchContext().getIndexConvention(),
+            systemOperationContext.getEntityRegistry());
 
     DateTime endDate = DateTime.now();
     DateTime yesterday = endDate.minusDays(1);

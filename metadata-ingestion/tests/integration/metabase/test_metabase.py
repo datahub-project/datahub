@@ -1,20 +1,32 @@
 import json
+import logging
 import pathlib
-from unittest.mock import patch
+from contextlib import ExitStack, contextmanager
+from typing import Dict, Iterator, Optional
+from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
 from requests.models import HTTPError
 
+import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.metabase import MetabaseSource
+from datahub.ingestion.source.metabase.source import MetabaseSource
 from datahub.testing import mce_helpers
+from tests.integration.metabase.metabase_setup_utils import (  # type: ignore[import-untyped]
+    setup_metabase_test_data,
+    verify_metabase_api_ready,
+)
+from tests.test_helpers.click_helpers import run_datahub_cmd
+from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )
+
+logger = logging.getLogger(__name__)
 
 FROZEN_TIME = "2021-11-11 07:00:00"
 
@@ -25,6 +37,97 @@ GMS_SERVER = f"http://localhost:{GMS_PORT}"
 RESPONSE_ERROR_LIST = ["http://localhost:3000/api/dashboard/public"]
 
 test_resources_dir = pathlib.Path(__file__).parent
+
+_METABASE_API = "http://localhost:3000"
+
+
+def _base_response_map():
+    return {
+        f"{_METABASE_API}/api/session": "session.json",
+        f"{_METABASE_API}/api/user/current": "user.json",
+        f"{_METABASE_API}/api/user/1": "user.json",
+        f"{_METABASE_API}/api/collection/?exclude-other-user-collections=false": "collections.json",
+        f"{_METABASE_API}/api/collection/root/items?models=dashboard": "empty_collection_dashboards.json",
+        f"{_METABASE_API}/api/collection/150/items?models=dashboard": "collection_dashboards.json",
+    }
+
+
+@contextmanager
+def _mocked_metabase(
+    json_response_map: Dict[str, str],
+    mock_datahub_graph: Optional[MagicMock] = None,
+) -> Iterator[None]:
+    session_builder = MockResponse.build_mocked_requests_sucess
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "datahub.ingestion.source.metabase.source.requests.session",
+                side_effect=session_builder(json_response_map),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "datahub.ingestion.source.metabase.source.requests.post",
+                side_effect=MockResponse.build_mocked_requests_session_post(
+                    json_response_map
+                ),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "datahub.ingestion.source.metabase.source.requests.delete",
+                side_effect=MockResponse.build_mocked_requests_session_delete(
+                    json_response_map
+                ),
+            )
+        )
+        if mock_datahub_graph is not None:
+            mock_checkpoint = stack.enter_context(
+                patch(
+                    "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+                    mock_datahub_graph,
+                )
+            )
+            mock_checkpoint.return_value = mock_datahub_graph
+        yield
+
+
+def _file_pipeline_config(
+    tmp_path: pathlib.Path,
+    filename: str,
+    run_id: str,
+    pipeline_name: str,
+    extra_source_config: Optional[Dict[str, object]] = None,
+) -> Dict[str, object]:
+    source_config: Dict[str, object] = {
+        "username": "xxxx",
+        "password": "xxxx",
+        "connect_uri": "http://localhost:3000/",
+    }
+    if extra_source_config:
+        source_config.update(extra_source_config)
+    return {
+        "run_id": run_id,
+        "source": {
+            "type": "metabase",
+            "config": source_config,
+        },
+        "pipeline_name": pipeline_name,
+        "sink": {
+            "type": "file",
+            "config": {"filename": f"{tmp_path}/{filename}"},
+        },
+    }
+
+
+def _tagged_collection_item_map(root_dashboards="empty_collection_dashboards.json"):
+    return {
+        f"{_METABASE_API}/api/collection/?exclude-other-user-collections=false": "collections_with_tags.json",
+        f"{_METABASE_API}/api/collection/root/items?models=dashboard": root_dashboards,
+        f"{_METABASE_API}/api/collection/150/items?models=dashboard": "empty_collection_dashboards.json",
+        f"{_METABASE_API}/api/collection/200/items?models=dashboard": "empty_collection_dashboards.json",
+        f"{_METABASE_API}/api/collection/201/items?models=dashboard": "empty_collection_dashboards.json",
+    }
 
 
 class MockResponse:
@@ -54,7 +157,7 @@ class MockResponse:
             self.json_data = data
         return self.json_data
 
-    def get(self, url, params=None):
+    def get(self, url, params=None, **kwargs):
         self.url = url
         return self
 
@@ -87,7 +190,7 @@ class MockResponse:
 
     @staticmethod
     def build_mocked_requests_session_post(json_response_map):
-        def mocked_requests_session_post(url, data, json):
+        def mocked_requests_session_post(url, data, json, **kwargs):
             return MockResponse(
                 url=url,
                 data=data,
@@ -99,7 +202,7 @@ class MockResponse:
 
     @staticmethod
     def build_mocked_requests_session_delete(json_response_map):
-        def mocked_requests_session_delete(url, headers):
+        def mocked_requests_session_delete(url, headers, **kwargs):
             return MockResponse(
                 url=url,
                 data=None,
@@ -113,21 +216,18 @@ class MockResponse:
 @pytest.fixture
 def default_json_response_map():
     return {
-        "http://localhost:3000/api/session": "session.json",
-        "http://localhost:3000/api/user/current": "user.json",
-        "http://localhost:3000/api/collection/?exclude-other-user-collections=false": "collections.json",
-        "http://localhost:3000/api/collection/root/items?models=dashboard": "collection_dashboards.json",
-        "http://localhost:3000/api/collection/150/items?models=dashboard": "collection_dashboards.json",
-        "http://localhost:3000/api/dashboard/10": "dashboard_1.json",
-        "http://localhost:3000/api/dashboard/20": "dashboard_2.json",
-        "http://localhost:3000/api/user/1": "user.json",
-        "http://localhost:3000/api/card": "card.json",
-        "http://localhost:3000/api/database/1": "bigquery_database.json",
-        "http://localhost:3000/api/database/2": "postgres_database.json",
-        "http://localhost:3000/api/card/1": "card_1.json",
-        "http://localhost:3000/api/card/2": "card_2.json",
-        "http://localhost:3000/api/table/21": "table_21.json",
-        "http://localhost:3000/api/card/3": "card_3.json",
+        **_base_response_map(),
+        f"{_METABASE_API}/api/dashboard/10": "dashboard_1.json",
+        f"{_METABASE_API}/api/dashboard/20": "dashboard_2.json",
+        f"{_METABASE_API}/api/card": "card.json",
+        f"{_METABASE_API}/api/database/1": "bigquery_database.json",
+        f"{_METABASE_API}/api/database/2": "postgres_database.json",
+        f"{_METABASE_API}/api/card/1": "card_1.json",
+        f"{_METABASE_API}/api/card/2": "card_2.json",
+        f"{_METABASE_API}/api/table/21": "table_21.json",
+        f"{_METABASE_API}/api/card/3": "card_3.json",
+        f"{_METABASE_API}/api/field/131": "field_131.json",
+        f"{_METABASE_API}/api/field/136": "field_136.json",
     }
 
 
@@ -168,19 +268,19 @@ def test_metabase_ingest_success(
 ):
     with (
         patch(
-            "datahub.ingestion.source.metabase.requests.session",
+            "datahub.ingestion.source.metabase.source.requests.session",
             side_effect=MockResponse.build_mocked_requests_sucess(
                 default_json_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.post",
+            "datahub.ingestion.source.metabase.source.requests.post",
             side_effect=MockResponse.build_mocked_requests_session_post(
                 default_json_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.delete",
+            "datahub.ingestion.source.metabase.source.requests.delete",
             side_effect=MockResponse.build_mocked_requests_session_delete(
                 default_json_response_map
             ),
@@ -211,17 +311,17 @@ def test_stateful_ingestion(
     json_response_map = default_json_response_map
     with (
         patch(
-            "datahub.ingestion.source.metabase.requests.session",
+            "datahub.ingestion.source.metabase.source.requests.session",
             side_effect=MockResponse.build_mocked_requests_sucess(json_response_map),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.post",
+            "datahub.ingestion.source.metabase.source.requests.post",
             side_effect=MockResponse.build_mocked_requests_session_post(
                 json_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.delete",
+            "datahub.ingestion.source.metabase.source.requests.delete",
             side_effect=MockResponse.build_mocked_requests_session_delete(
                 json_response_map
             ),
@@ -275,19 +375,19 @@ def test_stateful_ingestion(
 def test_metabase_ingest_failure(pytestconfig, tmp_path, default_json_response_map):
     with (
         patch(
-            "datahub.ingestion.source.metabase.requests.session",
+            "datahub.ingestion.source.metabase.source.requests.session",
             side_effect=MockResponse.build_mocked_requests_failure(
                 default_json_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.post",
+            "datahub.ingestion.source.metabase.source.requests.post",
             side_effect=MockResponse.build_mocked_requests_session_post(
                 default_json_response_map
             ),
         ),
         patch(
-            "datahub.ingestion.source.metabase.requests.delete",
+            "datahub.ingestion.source.metabase.source.requests.delete",
             side_effect=MockResponse.build_mocked_requests_session_delete(
                 default_json_response_map
             ),
@@ -346,4 +446,326 @@ def test_strip_template_expressions():
     assert (
         MetabaseSource.strip_template_expressions(query_with_dashboard_filters[0])
         == query_with_dashboard_filters[1]
+    )
+
+
+@pytest.fixture
+def extended_json_response_map():
+    return {
+        **_base_response_map(),
+        **_tagged_collection_item_map(root_dashboards="collection_dashboards.json"),
+        f"{_METABASE_API}/api/dashboard/10": "dashboard_1.json",
+        f"{_METABASE_API}/api/dashboard/20": "dashboard_2.json",
+        f"{_METABASE_API}/api/card": "card_with_models.json",
+        f"{_METABASE_API}/api/database/1": "bigquery_database.json",
+        f"{_METABASE_API}/api/database/2": "postgres_database.json",
+        f"{_METABASE_API}/api/card/1": "card_1.json",
+        f"{_METABASE_API}/api/card/2": "card_2.json",
+        f"{_METABASE_API}/api/card/3": "card_3.json",
+        f"{_METABASE_API}/api/card/4": "card_4_model.json",
+        f"{_METABASE_API}/api/card/5": "card_5_nested.json",
+        f"{_METABASE_API}/api/card/6": "card_6_model_query_builder.json",
+        f"{_METABASE_API}/api/card/7": "card_7_model_with_join.json",
+        f"{_METABASE_API}/api/table/21": "table_21.json",
+        f"{_METABASE_API}/api/table/22": "table_22.json",
+        f"{_METABASE_API}/api/field/128": "field_128.json",
+        f"{_METABASE_API}/api/field/131": "field_131.json",
+        f"{_METABASE_API}/api/field/132": "field_132.json",
+        f"{_METABASE_API}/api/field/141": "field_141.json",
+    }
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_metabase_ingest_with_models_and_collections(
+    pytestconfig, tmp_path, extended_json_response_map, mock_datahub_graph
+):
+    """
+    Integration test for Metabase Models, Collection Tags, and Nested Query Lineage.
+
+    This test validates that:
+    1. Models are extracted as datasets with correct URN format (model. prefix)
+    2. Models have lineage to source tables from SQL parsing
+    3. Collection tags are applied to models based on their collection_id
+    4. Nested query lineage resolves through multiple levels of card references
+    """
+    output_file = "metabase_new_features_mces.json"
+    with _mocked_metabase(extended_json_response_map, mock_datahub_graph):
+        pipeline = Pipeline.create(
+            _file_pipeline_config(
+                tmp_path,
+                output_file,
+                "metabase-new-features-test",
+                "test_new_features_pipeline",
+                extra_source_config={"extract_models": True},
+            )
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        with open(f"{tmp_path}/{output_file}", "r") as f:
+            content = f.read()
+
+        assert "model.4" in content, "Model 4 should be extracted as dataset"
+        assert "model.6" in content, "Model 6 should be extracted as dataset"
+        assert "metabase_collection_john_doe" in content, (
+            "Collection tag should be present"
+        )
+        assert (
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata" in content
+            or "SchemaMetadataClass" in content
+            or "schemaMetadata" in content
+        ), "Models should have schema metadata"
+
+
+@pytest.fixture
+def mbql_cll_response_map():
+    """Response map for MBQL CLL tests.
+
+    Uses card_model_6_only.json (single model card) so we only need endpoints
+    for card 6 and its dependencies rather than the full card list.
+    """
+    return {
+        **_base_response_map(),
+        **_tagged_collection_item_map(),
+        f"{_METABASE_API}/api/card": "card_model_6_only.json",
+        f"{_METABASE_API}/api/database/2": "postgres_database.json",
+        f"{_METABASE_API}/api/card/6": "card_6_model_query_builder.json",
+        f"{_METABASE_API}/api/table/21": "table_21.json",
+        f"{_METABASE_API}/api/field/131": "field_131.json",
+        f"{_METABASE_API}/api/field/132": "field_132.json",
+    }
+
+
+_FILM_URN = "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.film,PROD)"
+_ACTOR_URN = "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.actor,PROD)"
+_MODEL_6_URN = "urn:li:dataset:(urn:li:dataPlatform:metabase,model.6,PROD)"
+_MODEL_7_URN = "urn:li:dataset:(urn:li:dataPlatform:metabase,model.7,PROD)"
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_mbql_cll_model(
+    pytestconfig, tmp_path, mbql_cll_response_map, mock_datahub_graph
+):
+    """
+    Integration test: a query-builder model (card_6) should produce UpstreamLineageClass
+    with fineGrainedLineages entries mapping upstream ClickHouse/Postgres columns to
+    the model's output columns.
+
+    card_6 structure:
+      - source-table: 21 (film), breakout on field 131 (rating), aggregation COUNT(*) and AVG(field 132)
+      - result_metadata:
+          rating       → field_ref ["field", 131, null]      → direct ref to film.rating
+          film_count   → field_ref ["aggregation", 0]        → COUNT(*) fan-in
+          avg_rental_rate → field_ref ["aggregation", 1]     → AVG(film.rental_rate)
+    """
+    output_file = "mbql_cll_mces.json"
+    with _mocked_metabase(mbql_cll_response_map, mock_datahub_graph):
+        pipeline = Pipeline.create(
+            _file_pipeline_config(
+                tmp_path,
+                output_file,
+                "mbql-cll-test",
+                "test_mbql_cll",
+                extra_source_config={"extract_models": True},
+            )
+        )
+        pipeline.run()
+
+        with open(f"{tmp_path}/{output_file}") as f:
+            output = json.load(f)
+
+        upstream_aspects = [
+            item
+            for item in output
+            if item.get("entityUrn") == _MODEL_6_URN
+            and "upstreamLineage" in item.get("aspectName", "")
+        ]
+        assert len(upstream_aspects) == 1, (
+            f"Expected exactly one upstreamLineage aspect for model.6, got {len(upstream_aspects)}"
+        )
+
+        lineage_json = upstream_aspects[0]["aspect"]["json"]
+        upstream_datasets = [u["dataset"] for u in lineage_json.get("upstreams", [])]
+        assert _FILM_URN in upstream_datasets, (
+            f"Expected film table in upstreams, got: {upstream_datasets}"
+        )
+
+        fine_grained = lineage_json.get("fineGrainedLineages", [])
+        assert len(fine_grained) > 0, (
+            "Expected fineGrainedLineages to be populated for MBQL model"
+        )
+
+        film_rating_urn = builder.make_schema_field_urn(_FILM_URN, "rating")
+        film_rental_rate_urn = builder.make_schema_field_urn(_FILM_URN, "rental_rate")
+        model_rating_urn = builder.make_schema_field_urn(_MODEL_6_URN, "rating")
+        model_avg_urn = builder.make_schema_field_urn(_MODEL_6_URN, "avg_rental_rate")
+        model_count_urn = builder.make_schema_field_urn(_MODEL_6_URN, "film_count")
+
+        downstreams = {d for fg in fine_grained for d in fg.get("downstreams", [])}
+        assert model_rating_urn in downstreams
+        assert model_avg_urn in downstreams
+
+        count_fgl = next(
+            (fg for fg in fine_grained if model_count_urn in fg.get("downstreams", [])),
+            None,
+        )
+        assert count_fgl is not None, "COUNT(*) column (film_count) should have CLL"
+        assert set(count_fgl.get("upstreams", [])) == {
+            film_rating_urn,
+            film_rental_rate_urn,
+        }
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_mbql_join_lineage(pytestconfig, tmp_path, mock_datahub_graph):
+    """
+    Integration test: a query-builder model with a join clause (card_7) should produce
+    lineage to BOTH the primary source table AND the joined table.
+    """
+    join_response_map = {
+        **_base_response_map(),
+        **_tagged_collection_item_map(),
+        f"{_METABASE_API}/api/card": "card_models_6_and_7.json",
+        f"{_METABASE_API}/api/database/2": "postgres_database.json",
+        f"{_METABASE_API}/api/card/6": "card_6_model_query_builder.json",
+        f"{_METABASE_API}/api/card/7": "card_7_model_with_join.json",
+        f"{_METABASE_API}/api/table/21": "table_21.json",
+        f"{_METABASE_API}/api/table/22": "table_22.json",
+        f"{_METABASE_API}/api/field/128": "field_128.json",
+        f"{_METABASE_API}/api/field/131": "field_131.json",
+        f"{_METABASE_API}/api/field/132": "field_132.json",
+        f"{_METABASE_API}/api/field/141": "field_141.json",
+    }
+
+    output_file = "mbql_join_mces.json"
+    with _mocked_metabase(join_response_map, mock_datahub_graph):
+        pipeline = Pipeline.create(
+            _file_pipeline_config(
+                tmp_path,
+                output_file,
+                "mbql-join-test",
+                "test_mbql_join",
+                extra_source_config={"extract_models": True},
+            )
+        )
+        pipeline.run()
+
+        with open(f"{tmp_path}/{output_file}") as f:
+            output = json.load(f)
+
+        upstream_aspects = [
+            item
+            for item in output
+            if item.get("entityUrn") == _MODEL_7_URN
+            and "upstreamLineage" in item.get("aspectName", "")
+        ]
+        assert upstream_aspects, (
+            "No UpstreamLineage aspect found for model.7 — card_7 must appear in the card list"
+        )
+
+        lineage_json = upstream_aspects[0]["aspect"]["json"]
+        upstream_datasets = {u["dataset"] for u in lineage_json.get("upstreams", [])}
+        assert _FILM_URN in upstream_datasets, (
+            f"Primary source table (film) must be upstream: {upstream_datasets}"
+        )
+        assert _ACTOR_URN in upstream_datasets, (
+            f"Joined table (actor) must be upstream: {upstream_datasets}"
+        )
+
+
+# ============================================================================
+# Docker-based Integration Tests
+# ============================================================================
+
+DOCKER_FROZEN_TIME = "2024-01-20 12:00:00"
+METABASE_BASE_URL = "http://localhost:3001"
+
+
+@pytest.fixture(scope="module")
+def metabase_credentials():
+    """Credentials for Metabase admin user."""
+    return {
+        "email": "admin@test.com",
+        "password": "Admin123!",
+        "first_name": "Test",
+        "last_name": "Admin",
+    }
+
+
+@pytest.fixture(scope="module")
+def loaded_metabase(docker_compose_runner, metabase_credentials):
+    """Start Metabase and PostgreSQL via Docker Compose."""
+    with docker_compose_runner(
+        test_resources_dir / "docker-compose.yml", "metabase"
+    ) as docker_services:
+        # Wait for PostgreSQL to be ready
+        wait_for_port(docker_services, "postgres", 5432, timeout=60)
+        logger.info("PostgreSQL is ready")
+
+        # Wait for Metabase to be ready
+        wait_for_port(docker_services, "metabase", 3000, timeout=180)
+        logger.info("Metabase port is open")
+
+        # Additional verification that Metabase API is accessible
+        verify_metabase_api_ready(METABASE_BASE_URL, timeout=120)
+        logger.info("Metabase API is ready")
+
+        # Setup Metabase with initial user and test data
+        setup_metabase_test_data(METABASE_BASE_URL, metabase_credentials)
+        logger.info("Metabase test data setup complete")
+
+        yield docker_services
+
+    cleanup_image("metabase/metabase")
+
+
+@time_machine.travel(DOCKER_FROZEN_TIME)
+def test_metabase_docker_ingest(
+    loaded_metabase, pytestconfig, tmp_path, metabase_credentials
+):
+    """Test Metabase ingestion from actual Docker container."""
+
+    config_file = (test_resources_dir / "metabase_docker_to_file.yml").resolve()
+    output_path = tmp_path / "metabase_docker_mcps.json"
+
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "metabase_docker_mcps_golden.json",
+        ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['inputEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['chartEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['datasetEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
+        ],
+    )
+
+
+@time_machine.travel(DOCKER_FROZEN_TIME)
+def test_metabase_docker_models_extraction(
+    loaded_metabase, pytestconfig, tmp_path, metabase_credentials
+):
+    """Test that Metabase models are extracted correctly with lineage."""
+
+    config_file = (test_resources_dir / "metabase_docker_models_to_file.yml").resolve()
+    output_path = tmp_path / "metabase_docker_models_mcps.json"
+
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "metabase_docker_models_mcps_golden.json",
+        ignore_paths=[
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['inputEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['chartEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['datasetEdges'\]\[\d+\]\['lastModified'\]",
+            r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
+        ],
     )
