@@ -77,4 +77,10 @@ public final class MysqlTestUtils {
   public static String uniqueServerName(@Nonnull String base) {
     return base + "_" + UUID.randomUUID().toString().replace("-", "");
   }
+
+  /** Short random identifier for building unique test URNs. */
+  @Nonnull
+  public static String shortId() {
+    return UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+  }
 }

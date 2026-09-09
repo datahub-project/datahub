@@ -7,6 +7,7 @@ import { useHistory, useLocation } from 'react-router-dom';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 
+import { IconStyleType } from '@app/entityV2/Entity';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
 import ManageLineageMenu from '@app/lineageV3/LineageEntityNode/ManageLineageMenu';
@@ -90,7 +91,6 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     const refetch = useRefetchLineage(urn, type);
 
     const isQuery = type === EntityType.Query;
-    const isDataProcessInstance = type === EntityType.DataProcessInstance;
 
     const { rootUrn } = useContext(LineageNodesContext);
     const { cllHighlightedNodes, setHoveredNode, displayedMenuNode, setDisplayedMenuNode } =
@@ -128,9 +128,12 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             )}
             <IconWrapper>
                 {icon && <CustomIcon src={icon} alt={entity?.platform?.name} />}
-                {!icon && isDataProcessInstance && entityRegistry.getIcon(EntityType.DataProcessInstance, 18)}
                 {!icon && isQuery && <Icon icon={Tilde} color="gray" size="inherit" />}
-                {!icon && !isQuery && !isDataProcessInstance && (
+                {/* After hydration, fall back to the type icon when there is no platform logo
+                    (common for DataJobs under a Dataset root). Otherwise the node stays a
+                    permanent Skeleton.Avatar. */}
+                {!icon && !isQuery && entity && entityRegistry.getIcon(type, 18)}
+                {!icon && !isQuery && !entity && (
                     <Skeleton.Avatar active shape="circle" size={TRANSFORMATION_NODE_SIZE} />
                 )}
             </IconWrapper>
@@ -193,6 +196,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
                     )
                 }
                 properties={entity?.genericEntityProperties}
+                typeIcon={entityRegistry.getIcon(type, 16, IconStyleType.ACCENT)}
                 platformIcons={icon ? [icon] : []}
                 childrenOpen={false}
                 menuActions={menuActions}

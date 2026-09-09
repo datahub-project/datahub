@@ -19,7 +19,7 @@
     "groups.createModal.name.label": "Nimi",
     "groups.createModal.name.placeholder": "Nimi ryhmällesi",
     "groups.createModal.name.validationError.empty": "Anna ryhmän nimi.",
-    "groups.createModal.name.validationError.tooLong": "Nimen on oltava enintään 50 merkkiä pitkä.",
+    "groups.createModal.name.validationError.tooLong": "Nimen on oltava enintään 250 merkkiä pitkä.",
     "groups.createModal.title": "Luo uusi ryhmä",
     "groups.createOwnerError": "Sinun lisäämisesi ryhmän omistajaksi automaattisesti epäonnistui. Lisää itsesi omistajaksi manuaalisesti.",
     "groups.createSuccess": "Ryhmä luotu!",

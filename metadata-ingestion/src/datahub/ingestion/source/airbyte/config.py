@@ -263,6 +263,15 @@ class AirbyteSourceConfig(
         "Use this to override platform details for specific destinations.",
     )
 
+    include_inactive_connections: bool = Field(
+        default=False,
+        description=(
+            "Also ingest connections that are disabled in Airbyte. "
+            "By default, connections reported as inactive are skipped with no "
+            "warning, even if they still appear healthy in the Airbyte UI."
+        ),
+    )
+
     include_statuses: bool = Field(
         default=True,
         description="Whether to ingest run statuses",

@@ -43,6 +43,7 @@ import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
 import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.retention.RetentionTestUtils;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
@@ -166,7 +167,8 @@ public class EbeanEntityServiceTest
             server,
             1000,
             new PlainAspectTableResolver(),
-            new PassThroughScopedTransactionFactory(server));
+            new PassThroughScopedTransactionFactory(server),
+            RetentionTestUtils.systemEntityClient(_entityServiceImpl, _mockProducer, metricUtils));
     _retentionService = (EbeanRetentionService<ChangeItemImpl>) spy(_realRetentionService);
     doReturn(20)
         .when(_retentionService)

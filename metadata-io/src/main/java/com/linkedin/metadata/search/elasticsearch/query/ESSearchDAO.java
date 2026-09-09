@@ -116,7 +116,11 @@ public class ESSearchDAO {
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nullable Filter filter) {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
     CountRequest countRequest =
-        new CountRequest(opContext.getSearchContext().getIndexConvention().getIndexName(entitySpec))
+        new CountRequest(
+                opContext
+                    .getSearchContext()
+                    .getIndexConvention()
+                    .getIndexName(opContext, entitySpec))
             .query(
                 SearchRequestHandler.getFilterQuery(
                     opContext,
@@ -159,6 +163,7 @@ public class ESSearchDAO {
             searchResponse = client.search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
+                opContext,
                 opContext.getSearchContext().getIndexConvention(),
                 SearchRequestHandler.getBuilder(
                         opContext,
@@ -186,19 +191,25 @@ public class ESSearchDAO {
   }
 
   private String transformIndexToken(
-      IndexConvention indexConvention, String name, int entityTypeIdx) {
+      @Nonnull OperationContext opContext,
+      IndexConvention indexConvention,
+      String name,
+      int entityTypeIdx) {
     if (entityTypeIdx < 0) {
       return name;
     }
     String[] tokens = name.split(AGGREGATION_SEPARATOR_CHAR);
     if (entityTypeIdx < tokens.length) {
       tokens[entityTypeIdx] =
-          indexConvention.getEntityName(tokens[entityTypeIdx]).orElse(tokens[entityTypeIdx]);
+          indexConvention
+              .getEntityName(opContext, tokens[entityTypeIdx])
+              .orElse(tokens[entityTypeIdx]);
     }
     return String.join(AGGREGATION_SEPARATOR_CHAR, tokens);
   }
 
   private AggregationMetadata transformAggregationMetadata(
+      @Nonnull OperationContext opContext,
       @Nonnull IndexConvention indexConvention,
       @Nonnull AggregationMetadata aggMeta,
       int entityTypeIdx) {
@@ -209,7 +220,8 @@ public class ESSearchDAO {
                   .collect(
                       Collectors.toMap(
                           entry ->
-                              transformIndexToken(indexConvention, entry.getKey(), entityTypeIdx),
+                              transformIndexToken(
+                                  opContext, indexConvention, entry.getKey(), entityTypeIdx),
                           Map.Entry::getValue))));
       aggMeta.setFilterValues(
           new FilterValueArray(
@@ -218,7 +230,10 @@ public class ESSearchDAO {
                       filterValue ->
                           filterValue.setValue(
                               transformIndexToken(
-                                  indexConvention, filterValue.getValue(), entityTypeIdx)))
+                                  opContext,
+                                  indexConvention,
+                                  filterValue.getValue(),
+                                  entityTypeIdx)))
                   .collect(Collectors.toList())));
     }
     return aggMeta;
@@ -226,32 +241,34 @@ public class ESSearchDAO {
 
   @VisibleForTesting
   public SearchResult transformIndexIntoEntityName(
-      IndexConvention indexConvention, SearchResult result) {
+      @Nonnull OperationContext opContext, IndexConvention indexConvention, SearchResult result) {
     return result.setMetadata(
         result
             .getMetadata()
             .setAggregations(
                 transformIndexIntoEntityName(
-                    indexConvention, result.getMetadata().getAggregations())));
+                    opContext, indexConvention, result.getMetadata().getAggregations())));
   }
 
   private ScrollResult transformIndexIntoEntityName(
-      IndexConvention indexConvention, ScrollResult result) {
+      @Nonnull OperationContext opContext, IndexConvention indexConvention, ScrollResult result) {
     return result.setMetadata(
         result
             .getMetadata()
             .setAggregations(
                 transformIndexIntoEntityName(
-                    indexConvention, result.getMetadata().getAggregations())));
+                    opContext, indexConvention, result.getMetadata().getAggregations())));
   }
 
   private AggregationMetadataArray transformIndexIntoEntityName(
-      @Nonnull IndexConvention indexConvention, AggregationMetadataArray aggArray) {
+      @Nonnull OperationContext opContext,
+      @Nonnull IndexConvention indexConvention,
+      AggregationMetadataArray aggArray) {
     List<AggregationMetadata> newAggs = new ArrayList<>();
     for (AggregationMetadata aggMeta : aggArray) {
       List<String> aggregateFacets = List.of(aggMeta.getName().split(AGGREGATION_SEPARATOR_CHAR));
       int entityTypeIdx = aggregateFacets.indexOf(INDEX_VIRTUAL_FIELD);
-      newAggs.add(transformAggregationMetadata(indexConvention, aggMeta, entityTypeIdx));
+      newAggs.add(transformAggregationMetadata(opContext, indexConvention, aggMeta, entityTypeIdx));
     }
     return new AggregationMetadataArray(newAggs);
   }
@@ -273,6 +290,7 @@ public class ESSearchDAO {
                 client.search(opContext, searchRequest, RequestOptions.DEFAULT);
             // extract results, validated against document model as well
             return transformIndexIntoEntityName(
+                opContext,
                 opContext.getSearchContext().getIndexConvention(),
                 SearchRequestHandler.getBuilder(
                         opContext,
@@ -365,7 +383,7 @@ public class ESSearchDAO {
             .distinct()
             .collect(Collectors.toList());
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
+    Filter transformedFilters = transformFilterForEntities(opContext, postFilters, indexConvention);
 
     SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(
@@ -379,7 +397,7 @@ public class ESSearchDAO {
                 opContext, finalInput, transformedFilters, sortCriteria, from, size, facets)
             .indices(
                 entityNames.stream()
-                    .map(indexConvention::getEntityIndexName)
+                    .map(name -> indexConvention.getEntityIndexName(opContext, name))
                     .toArray(String[]::new));
 
     return Triple.of(searchRequest, transformedFilters, entitySpecs);
@@ -406,7 +424,7 @@ public class ESSearchDAO {
       @Nullable Integer size) {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
-    Filter transformedFilters = transformFilterForEntities(filters, indexConvention);
+    Filter transformedFilters = transformFilterForEntities(opContext, filters, indexConvention);
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(
                 opContext,
@@ -417,7 +435,7 @@ public class ESSearchDAO {
                 searchServiceConfig)
             .getFilterRequest(opContext, transformedFilters, sortCriteria, from, size);
 
-    searchRequest.indices(indexConvention.getIndexName(entitySpec));
+    searchRequest.indices(indexConvention.getIndexName(opContext, entitySpec));
     return executeAndExtract(
         opContext, List.of(entitySpec), searchRequest, transformedFilters, from, size);
   }
@@ -478,9 +496,9 @@ public class ESSearchDAO {
             entityName,
             query,
             field,
-            transformFilterForEntities(requestParams, indexConvention),
+            transformFilterForEntities(opContext, requestParams, indexConvention),
             limit);
-    req.indices(indexConvention.getIndexName(entitySpec));
+    req.indices(indexConvention.getIndexName(opContext, entitySpec));
     return Pair.of(req, builder);
   }
 
@@ -549,16 +567,19 @@ public class ESSearchDAO {
             .getAggregationRequest(
                 opContext,
                 field,
-                transformFilterForEntities(requestParams, indexConvention),
+                transformFilterForEntities(opContext, requestParams, indexConvention),
                 limit);
-    if (entityNames == null) {
-      List<String> indexPatterns = indexConvention.getAllEntityIndicesPatterns();
+    // An empty list must fall through to the operation-scoped patterns, not to the else branch:
+    // an empty indices array makes Elasticsearch search ALL indices, letting aggregates span
+    // prefixes. Mirror the null handling of the entitySpec branch above.
+    if (entityNames == null || entityNames.isEmpty()) {
+      List<String> indexPatterns = indexConvention.getAllEntityIndicesPatterns(opContext);
       searchRequest.indices(indexPatterns.toArray(new String[0]));
     } else {
       Stream<String> stream =
           entityNames.stream()
               .map(name -> opContext.getEntityRegistry().getEntitySpec(name))
-              .map(indexConvention::getIndexName);
+              .map(spec -> indexConvention.getIndexName(opContext, spec));
       searchRequest.indices(stream.toArray(String[]::new));
     }
     return searchRequest;
@@ -645,7 +666,8 @@ public class ESSearchDAO {
 
     final IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     final SearchRequest request =
-        new SearchRequest(indexConvention.getEntityIndexName(Constants.INCIDENT_ENTITY_NAME));
+        new SearchRequest(
+            indexConvention.getEntityIndexName(opContext, Constants.INCIDENT_ENTITY_NAME));
     request.source(source);
     return request;
   }
@@ -758,9 +780,11 @@ public class ESSearchDAO {
             .collect(Collectors.toList());
 
     String[] indexArray =
-        entities.stream().map(indexConvention::getEntityIndexName).toArray(String[]::new);
+        entities.stream()
+            .map(name -> indexConvention.getEntityIndexName(opContext, name))
+            .toArray(String[]::new);
 
-    Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
+    Filter transformedFilters = transformFilterForEntities(opContext, postFilters, indexConvention);
 
     boolean hasSliceOptions = opContext.getSearchContext().getSearchFlags().hasSliceOptions();
     if (hasSliceOptions && isSliceDisabled()) {
@@ -820,7 +844,10 @@ public class ESSearchDAO {
 
                 SearchRequest searchRequest =
                     new SearchRequest(
-                        opContext.getSearchContext().getIndexConvention().getIndexName(indexName));
+                        opContext
+                            .getSearchContext()
+                            .getIndexConvention()
+                            .getIndexName(opContext, indexName));
                 searchRequest.source(searchSourceBuilder);
 
                 return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
@@ -849,7 +876,7 @@ public class ESSearchDAO {
                     opContext
                         .getSearchContext()
                         .getIndexConvention()
-                        .getIndexName(entry.getValue());
+                        .getIndexName(opContext, entry.getValue());
 
                 SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
                 searchSourceBuilder.query(
@@ -902,7 +929,7 @@ public class ESSearchDAO {
     explainRequest
         .query(searchRequest.getLeft().source().query())
         .id(documentId)
-        .index(indexConvention.getEntityIndexName(entityName));
+        .index(indexConvention.getEntityIndexName(opContext, entityName));
     try {
       return client.explain(opContext, explainRequest, RequestOptions.DEFAULT);
     } catch (IOException e) {

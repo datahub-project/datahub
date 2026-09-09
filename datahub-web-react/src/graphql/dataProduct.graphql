@@ -68,6 +68,20 @@ fragment dataProductSearchFields on DataProduct {
         createdOn {
             time
         }
+        parentDataProduct {
+            urn
+            type
+            properties {
+                name
+            }
+        }
+    }
+    parentDataProducts {
+        urn
+        type
+        properties {
+            name
+        }
     }
     ownership {
         ...ownershipFields
@@ -90,6 +104,10 @@ fragment dataProductSearchFields on DataProduct {
     entities(input: { start: 0, count: 0, query: "*" }) {
         total
     }
+}
+
+mutation moveDataProduct($input: MoveDataProductInput!) {
+    moveDataProduct(input: $input)
 }
 
 mutation createDataProduct($input: CreateDataProductInput!) {

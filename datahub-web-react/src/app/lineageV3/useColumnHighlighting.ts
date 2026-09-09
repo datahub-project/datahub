@@ -11,15 +11,17 @@ import {
     HighlightedColumns,
     LineageNodesContext,
     NodeContext,
+    ShownRelatedColumns,
     createColumnRef,
     createLineageFilterNodeId,
     isTransformational,
-    isUrnQuery,
+    isUrnTransformational,
     parseColumnRef,
     setDefault,
     setDifference,
 } from '@app/lineageV3/common';
 import { LINEAGE_ARROW_MARKER } from '@app/lineageV3/lineageSVGs';
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { EntityType, LineageDirection } from '@types';
@@ -33,14 +35,15 @@ export default function useColumnHighlighting(
 ): {
     cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
+    shownRelatedColumns: ShownRelatedColumns;
 } {
     const entityRegistry = useEntityRegistryV2();
     const theme = useTheme();
     const { setEdges } = useReactFlow();
+    const { showLineageFilterNodes } = useAppConfig().config.featureFlags;
     const {
         nodes,
         adjacencyList,
-        edges,
         rootUrn,
         rootType,
         nodeVersion,
@@ -49,13 +52,8 @@ export default function useColumnHighlighting(
         showDataProcessInstances,
     } = useContext(LineageNodesContext);
 
-    const { cllHighlightedNodes, highlightedColumns, columnEdges } = useMemo(() => {
+    const { cllHighlightedNodes, highlightedColumns, shownRelatedColumns, columnEdges } = useMemo(() => {
         const displayedNodeIds = new Set(shownUrns);
-        const validQueryIds = new Set(
-            Array.from(edges.values())
-                .map((edge) => edge.via)
-                .filter((via): via is string => !!via),
-        );
         return processColumnHighlights(
             selectedColumn,
             hoveredColumn,
@@ -65,9 +63,9 @@ export default function useColumnHighlighting(
                 adjacencyList,
                 displayedNodeIds,
                 nodeIdsByUrn,
-                validQueryIds,
                 rootUrn,
                 rootType,
+                showFilterNodes: showLineageFilterNodes,
             },
             theme.colors.borderSelected,
             theme.colors.borderHover,
@@ -78,11 +76,11 @@ export default function useColumnHighlighting(
         selectedColumn,
         hoveredColumn,
         nodes,
-        edges,
         fineGrainedLineage,
         shownUrns,
         nodeIdsByUrn,
         entityRegistry,
+        showLineageFilterNodes,
     ]);
 
     useEffect(() => {
@@ -104,7 +102,7 @@ export default function useColumnHighlighting(
         );
     }, [nodeVersion, hideTransformations, showDataProcessInstances, columnEdges, setEdges]);
 
-    return { cllHighlightedNodes, highlightedColumns };
+    return { cllHighlightedNodes, highlightedColumns, shownRelatedColumns };
 }
 
 interface ArgumentBundle {
@@ -114,9 +112,10 @@ interface ArgumentBundle {
     displayedNodeIds: Set<string>;
     /** Flow node ids for each urn, as one urn can be rendered by multiple nodes. */
     nodeIdsByUrn: Map<string, string[]>;
-    validQueryIds: Set<string>;
     rootUrn: string;
     rootType: EntityType;
+    /** Whether lineage filter nodes are rendered, rather than the column lineage controls. */
+    showFilterNodes: boolean;
 }
 
 function processColumnHighlights(
@@ -140,23 +139,25 @@ export function computeSingleColumnHighlights(
         adjacencyList,
         displayedNodeIds,
         nodeIdsByUrn,
-        validQueryIds,
         rootUrn,
         rootType,
+        showFilterNodes,
     }: ArgumentBundle,
     stroke: string,
 ): {
     cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
+    shownRelatedColumns: ShownRelatedColumns;
     columnEdges: Map<string, Edge>;
 } {
     const cllHighlightedNodes = new Map<string, Set<FineGrainedOperationRef> | null>();
     const highlightedColumns = new Map<string, Set<string>>();
+    const shownRelatedColumns: ShownRelatedColumns = new Map();
     const columnEdges = new Map<string, Edge>();
     const nodeIdsFor = (urn: string) => nodeIdsByUrn.get(urn) ?? [urn];
 
     if (column === null) {
-        return { cllHighlightedNodes, highlightedColumns, columnEdges };
+        return { cllHighlightedNodes, highlightedColumns, shownRelatedColumns, columnEdges };
     }
 
     const [urn, field] = parseColumnRef(column);
@@ -220,16 +221,25 @@ export function computeSingleColumnHighlights(
             if (ref === undefined) {
                 break;
             }
-            const { filterNodeRef, showFilterNodeEdge, isTentative } = addEdgeToLineageFilterNode(
-                ref,
-                direction,
-                fgl,
-                nodes,
-                displayedNodeIds,
-            );
+            // Every column reached in this direction reports how much of its own lineage is on the
+            // graph, so each can show what it is hiding -- but only on the side we traversed, as
+            // the other side of it was never explored
             const [currentUrn] = parseColumnRef(ref);
-            if (displayedNodeIds.has(currentUrn) && showFilterNodeEdge) {
-                addEdge(ref, filterNodeRef, isTentative);
+            if (displayedNodeIds.has(currentUrn)) {
+                const numRelatedOnGraph = countRelatedColumnsOnGraph(ref, fgl, displayedNodeIds, rootType);
+                setDefault(shownRelatedColumns, ref, {})[direction] = numRelatedOnGraph;
+
+                if (showFilterNodes) {
+                    const { filterNodeRef, showFilterNodeEdge, isTentative } = getLineageFilterNodeEdge(
+                        ref,
+                        direction,
+                        nodes,
+                        numRelatedOnGraph,
+                    );
+                    if (showFilterNodeEdge) {
+                        addEdge(ref, filterNodeRef, isTentative);
+                    }
+                }
             }
 
             fgl.get(ref)?.forEach((fineGrainedOperationRef, childRef) => {
@@ -248,11 +258,15 @@ export function computeSingleColumnHighlights(
                 }
                 setDefault(highlightedColumns, childUrn, new Set()).add(childField);
 
-                if (displayedNodeIds.has(childUrn)) {
-                    addEdge(ref, childRef);
-                } else if (!isUrnQuery(childUrn) || validQueryIds.has(childUrn)) {
-                    // Compute parents of missing nodes; don't add any edges through them
+                if (!displayedNodeIds.has(childUrn)) {
+                    // Compute parents of missing nodes; edges are drawn directly between the
+                    // displayed columns on either side of them. Includes query nodes not on the
+                    // graph, e.g. when a fine-grained edge's query differs from its table edge's.
                     setDefault(missingNodeParents, childRef, new Set()).add(ref);
+                } else if (displayedNodeIds.has(currentUrn)) {
+                    // If `ref`'s own node is missing instead, its edges to displayed children are
+                    // drawn from its ancestors, by the missing node handling below
+                    addEdge(ref, childRef);
                 }
             });
         }
@@ -283,7 +297,7 @@ export function computeSingleColumnHighlights(
         });
     });
 
-    return { cllHighlightedNodes, highlightedColumns, columnEdges };
+    return { cllHighlightedNodes, highlightedColumns, shownRelatedColumns, columnEdges };
 }
 
 function getTopologicalOrder(missingNodes: Set<ColumnRef>, fgl: FineGrainedLineageMap) {
@@ -319,12 +333,17 @@ function getTopologicalOrder(missingNodes: Set<ColumnRef>, fgl: FineGrainedLinea
     return topologicalOrder;
 }
 
-function addEdgeToLineageFilterNode(
+/**
+ * Computes the edge from a column to the lineage filter node holding the lineage it has that isn't
+ * on the graph: tentative while counts are unknown, solid once they show there is more to see, and
+ * absent once everything is displayed. Only used when lineage filter nodes are rendered; otherwise
+ * the column lineage controls carry these counts.
+ */
+function getLineageFilterNodeEdge(
     ref: ColumnRef,
     direction: LineageDirection,
-    fgl: FineGrainedLineageMap,
     nodes: NodeContext['nodes'],
-    displayedNodeIds: Set<string>,
+    numRelatedOnGraph: number,
 ): {
     filterNodeRef: ColumnRef;
     showFilterNodeEdge: boolean;
@@ -332,15 +351,10 @@ function addEdgeToLineageFilterNode(
 } {
     const [urn, field] = parseColumnRef(ref);
     const filterNodeRef = createLineageFilterNodeId(urn, direction);
-
-    const entity = nodes.get(urn)?.entity;
-    const lineageAsset = entity?.lineageAssets?.get(field);
+    const lineageAsset = nodes.get(urn)?.entity?.lineageAssets?.get(field);
 
     const cachedNumRelated =
         direction === LineageDirection.Downstream ? lineageAsset?.numDownstream : lineageAsset?.numUpstream;
-    const numRelatedOnGraph = Array.from(fgl.get(ref)?.keys() || []).filter((neighbor) =>
-        displayedNodeIds.has(neighbor),
-    ).length;
 
     // Show tentative edge if we haven't fetched counts yet, even if we have cached value
     const isTentative = !lineageAsset?.lineageCountsFetched;
@@ -349,4 +363,33 @@ function addEdgeToLineageFilterNode(
         showFilterNodeEdge: (cachedNumRelated ?? 0) > numRelatedOnGraph || isTentative,
         isTentative,
     };
+}
+
+/**
+ * Number of columns related to `ref` that are rendered on the graph, to compare against the count
+ * fetched for the column. Traverses through refs that aren't rendered as their own column -- both
+ * transformations and nodes missing from the graph -- as those aren't counted for the column either.
+ */
+function countRelatedColumnsOnGraph(
+    ref: ColumnRef,
+    fgl: FineGrainedLineageMap,
+    displayedNodeIds: Set<string>,
+    rootType: EntityType,
+): number {
+    const related = new Set<ColumnRef>();
+    const seen = new Set<ColumnRef>([ref]);
+    const toVisit = Array.from(fgl.get(ref)?.keys() || []);
+    while (toVisit.length) {
+        const neighbor = toVisit.pop();
+        if (neighbor !== undefined && !seen.has(neighbor)) {
+            seen.add(neighbor);
+            const [neighborUrn] = parseColumnRef(neighbor);
+            if (displayedNodeIds.has(neighborUrn) && !isUrnTransformational(neighborUrn, rootType)) {
+                related.add(neighbor);
+            } else {
+                toVisit.push(...(fgl.get(neighbor)?.keys() || []));
+            }
+        }
+    }
+    return related.size;
 }

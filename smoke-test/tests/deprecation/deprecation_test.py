@@ -3,7 +3,10 @@ from typing import Any, Dict
 import pytest
 
 from conftest import _ingest_cleanup_unique_dataset_impl
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, get_root_urn
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -18,6 +21,7 @@ def dataset_urn(auth_session, graph_client, tmp_path_factory):
     )
 
 
+@pytest.mark.p0
 @pytest.mark.dependency()
 def test_update_deprecation_all_fields(auth_session, dataset_urn):
     query = """query getDataset($urn: String!) {\n

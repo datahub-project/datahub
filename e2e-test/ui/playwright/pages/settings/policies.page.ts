@@ -1,7 +1,7 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { BaseSettingsPage, type PageOptions } from './base.settings.page';
 import { TOAST_MESSAGES } from './constants';
-import { WAIT_TIMEOUT, SHORT_TIMEOUT } from '../../utils/constants';
+import { WAIT_TIMEOUT, SHORT_TIMEOUT, TIMEOUTS } from '../../utils/constants';
 
 export class PoliciesPage extends BaseSettingsPage {
   private readonly searchInput: Locator;
@@ -89,6 +89,15 @@ export class PoliciesPage extends BaseSettingsPage {
   async searchForPolicy(policyName: string): Promise<void> {
     await this.searchInput.clear();
     await this.searchInput.fill(policyName);
+    // The policies search box is debounced, so the table keeps rendering the previous result set
+    // for a moment after the last keystroke. Callers open a row menu immediately after searching,
+    // and the debounced refetch then unmounts the table rows — silently closing that open menu.
+    // Wait for the debounce to fire and its refetch to finish before handing control back.
+    // A fixed wait is required here: repeat searches for the same term short-circuit in the UI
+    // (no refetch is issued), so there is no network response or DOM change to wait on.
+    // eslint-disable-next-line playwright/no-wait-for-timeout
+    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+    await this.page.waitForLoadState('networkidle');
   }
 
   async openRowMenu(policyName: string): Promise<void> {

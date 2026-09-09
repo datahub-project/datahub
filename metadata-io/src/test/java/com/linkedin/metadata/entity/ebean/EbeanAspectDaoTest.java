@@ -52,6 +52,7 @@ import io.ebean.test.LoggedSql;
 import jakarta.persistence.PersistenceException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,6 +91,15 @@ public class EbeanAspectDaoTest {
             new PassThroughScopedTransactionFactory(server));
   }
 
+  /**
+   * Snapshot {@link LoggedSql#stop()} without streaming the live buffer. Under {@code
+   * parallel="classes"}, other suites can mutate the process-global LoggedSql list and cause {@link
+   * java.util.ConcurrentModificationException} on stream/spliterator.
+   */
+  private static List<String> snapshotStoppedSql() {
+    return Arrays.asList(LoggedSql.stop().toArray(new String[0]));
+  }
+
   @AfterMethod
   public void cleanup() {
     // Shutdown Database instance to prevent thread pool and connection leaks
@@ -108,7 +118,7 @@ public class EbeanAspectDaoTest {
                     "urn:li:corpuser:orderby", STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION)))
         .orderBy(EbeanAspectV2.KEY_ORDER_BY_PROPERTY_PATH)
         .findList();
-    final String sql = String.join(" ", LoggedSql.stop()).toLowerCase();
+    final String sql = String.join(" ", snapshotStoppedSql()).toLowerCase();
     assertTrue(sql.contains("order by"), "embedded-id orderBy must emit a SQL ORDER BY clause");
     assertFalse(sql.contains("key.urn"), "embedded-id path must resolve to columns, not 'key.urn'");
   }
@@ -163,7 +173,7 @@ public class EbeanAspectDaoTest {
 
     // Get the captured SQL statements
     List<String> sql =
-        LoggedSql.stop().stream()
+        snapshotStoppedSql().stream()
             .filter(str -> str.contains("testGetNextVersionForUpdate"))
             .toList();
     if (canWrite) {
@@ -198,7 +208,7 @@ public class EbeanAspectDaoTest {
 
     // Get the captured SQL statements
     List<String> sql =
-        LoggedSql.stop().stream()
+        snapshotStoppedSql().stream()
             .filter(str -> str.contains("testGetLatestAspectsForUpdate"))
             .toList();
     assertEquals(
@@ -241,7 +251,7 @@ public class EbeanAspectDaoTest {
 
     // Get the captured SQL statements
     List<String> sql =
-        LoggedSql.stop().stream()
+        snapshotStoppedSql().stream()
             .filter(
                 str ->
                     str.contains("testbatchGetForUpdate1")
@@ -381,12 +391,17 @@ public class EbeanAspectDaoTest {
   }
 
   private void insertAspect(String urn, String aspect, long version, String metadata) {
+    insertAspect(urn, aspect, version, metadata, System.currentTimeMillis());
+  }
+
+  private void insertAspect(
+      String urn, String aspect, long version, String metadata, long createdOnMs) {
     EbeanAspectV2 aspectRecord = new EbeanAspectV2();
     aspectRecord.setKey(new EbeanAspectV2.PrimaryKey(urn, aspect, version));
     aspectRecord.setMetadata(metadata);
     aspectRecord.setCreatedBy("urn:li:corpuser:tester");
     aspectRecord.setCreatedFor(null);
-    aspectRecord.setCreatedOn(new Timestamp(System.currentTimeMillis()));
+    aspectRecord.setCreatedOn(new Timestamp(createdOnMs));
     aspectRecord.setSystemMetadata(null);
     testDao.getServer().save(aspectRecord);
   }
@@ -414,6 +429,41 @@ public class EbeanAspectDaoTest {
     int count3 = testDao.countAspect(opContext, args3);
     assertEquals(
         count3, 2, "Should return count of aspects matching both URN pattern and aspect name");
+  }
+
+  @Test
+  public void testCountAspectWithPitEpochMsBounds() {
+    long nowMs = System.currentTimeMillis();
+    long oneHourAgoMs = nowMs - 3_600_000L;
+    long twoHoursAgoMs = nowMs - 7_200_000L;
+
+    insertAspect("urn:li:test:recent", "testAspect1", 0, "recent", nowMs);
+    insertAspect("urn:li:test:middle", "testAspect1", 0, "middle", oneHourAgoMs);
+    insertAspect("urn:li:test:old", "testAspect1", 0, "old", twoHoursAgoMs);
+
+    // Regression test: only gePitEpochMs set (lePitEpochMs left at its 0 default, as
+    // datahub-upgrade's RestoreIndices does) must not silently match zero rows.
+    var geOnlyArgs = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
+    geOnlyArgs.gePitEpochMs = oneHourAgoMs;
+    assertEquals(
+        testDao.countAspect(opContext, geOnlyArgs),
+        2,
+        "Only gePitEpochMs set: should match rows created at or after the lower bound");
+
+    var leOnlyArgs = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
+    leOnlyArgs.lePitEpochMs = oneHourAgoMs;
+    assertEquals(
+        testDao.countAspect(opContext, leOnlyArgs),
+        2,
+        "Only lePitEpochMs set: should match rows created at or before the upper bound");
+
+    var bothArgs = new com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs();
+    bothArgs.gePitEpochMs = oneHourAgoMs;
+    bothArgs.lePitEpochMs = oneHourAgoMs;
+    assertEquals(
+        testDao.countAspect(opContext, bothArgs),
+        1,
+        "Both bounds set: should match only rows created within the range");
   }
 
   @Test(dataProvider = "writabilityConfig")

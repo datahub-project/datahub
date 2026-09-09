@@ -455,6 +455,8 @@ services:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
+      kafka-broker:
+        condition: service_healthy
   system-update-debug-postgres:
     <<: *datahub-system-update-service-dev
     profiles:

@@ -15,7 +15,8 @@ public class ValidationException extends RuntimeException {
   }
 
   public ValidationException(@Nonnull ValidationExceptionCollection validationExceptionCollection) {
-    this(validationExceptionCollection.toString());
+    // Keep the collection attached so API layers can map subtypes (e.g. AUTHORIZATION → 403).
+    this("Failed to validate MCP due to: " + validationExceptionCollection);
     this.validationExceptionCollection = validationExceptionCollection;
   }
 }

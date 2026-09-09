@@ -451,6 +451,6 @@ tasks.withType(Test) {
 }
 
 clean {
-  //TODO: Is this really needed? dont see generated folder in projectDir. It is in build, but that doest need explicit clean
+  //TODO: Is this really needed? dont see generated folder in projectDir. It is in build, but that doest need explicit clean?
   delete "$projectDir/generated"
 }

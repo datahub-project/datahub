@@ -3,7 +3,10 @@ services:
     image: cassandra:latest
     container_name: test-cassandra
     ports:
-      - 9042:9042
+      # Ephemeral: only the CQL native transport port needs host access (for
+      # ingestion); the load-keyspace container reaches it over the compose
+      # network via the service name, not the host port.
+      - "9042"
     volumes:
       - ${CASSANDRA_CONFIG_DIR:-./setup}/cassandra.yaml:/etc/cassandra/cassandra.yaml
       - ./setup/init_keyspaces.cql:/docker-entrypoint-initdb.d/init_keyspaces.cql

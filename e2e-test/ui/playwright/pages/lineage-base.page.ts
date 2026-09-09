@@ -22,6 +22,14 @@ import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 
+/**
+ * How long the graph viewport must hold still to count as settled: longer than the graph's own
+ * deferred fitView (a 1s timer once entity data loads, then a 1s pan/zoom animation — see
+ * useFitView in LineageDisplay.tsx), so a pending fit that has not visibly started yet is waited
+ * out rather than declared settled.
+ */
+const VIEWPORT_SETTLE_MS = 2200;
+
 export class LineageBasePage extends BasePage {
   // ── Static selector properties ───────────────────────────────────────────────
   readonly lineageEditMenuButton: Locator;
@@ -138,13 +146,39 @@ export class LineageBasePage extends BasePage {
     });
   }
 
+  /** Column-level lineage edge between two rendered columns, e.g. drawn on column hover/select. */
+  getColumnEdge(node1Urn: string, col1Name: string, node2Urn: string, col2Name: string): Locator {
+    return this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`);
+  }
+
+  /**
+   * The upstream segment of a column edge routed through a displayed operation node — a query or
+   * data job: `column -> operation`. The operation side of the edge id uses the operation node's
+   * urn as its "field" (see addEdge in useColumnHighlighting + parseColumnRef truncation of the
+   * fine-grained operation ref).
+   */
+  getColumnToOperationEdge(nodeUrn: string, colName: string, operationUrn: string): Locator {
+    return this.page.getByTestId(`rf__edge-${nodeUrn}::${colName}-${operationUrn}::${operationUrn}`);
+  }
+
+  /** The downstream segment of a column edge routed through a displayed operation node: `operation -> column`. */
+  getOperationToColumnEdge(operationUrn: string, nodeUrn: string, colName: string): Locator {
+    return this.page.getByTestId(`rf__edge-${operationUrn}::${operationUrn}-${nodeUrn}::${colName}`);
+  }
+
+  /** Assert a rendered edge is drawn with the lineage arrowhead marker (i.e. it's a real arrow). */
+  async checkEdgeHasArrowMarker(edge: Locator): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- ReactFlow edge path has no test id of its own
+    await expect(edge.locator('path.react-flow__edge-path')).toHaveAttribute('marker-end', /lineage-arrow/);
+  }
+
   async checkEdgeBetweenColumnsExists(
     node1Urn: string,
     col1Name: string,
     node2Urn: string,
     col2Name: string,
   ): Promise<void> {
-    await expect(this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`)).toBeAttached({
+    await expect(this.getColumnEdge(node1Urn, col1Name, node2Urn, col2Name)).toBeAttached({
       timeout: 10000,
     });
   }
@@ -155,7 +189,7 @@ export class LineageBasePage extends BasePage {
     node2Urn: string,
     col2Name: string,
   ): Promise<void> {
-    await expect(this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`)).not.toBeAttached({
+    await expect(this.getColumnEdge(node1Urn, col1Name, node2Urn, col2Name)).not.toBeAttached({
       timeout: 5000,
     });
   }
@@ -175,6 +209,32 @@ export class LineageBasePage extends BasePage {
   async contract(nodeUrn: string): Promise<void> {
     // Contract button may be outside the ReactFlow viewport; use dispatchEvent to bypass checks.
     await this.page.getByTestId(`contract-${nodeUrn}-button`).first().dispatchEvent('click');
+  }
+
+  /**
+   * Wait for the graph viewport to stop moving before hover-driven interactions.
+   *
+   * The graph pans/zooms itself well after it looks ready: a deferred fitView fires up to a
+   * second after all entity data loads and animates for another second. If that lands after a
+   * column has been hovered, the column slides out from under the stationary cursor, the browser
+   * recomputes hover and fires mouseleave, and hover-driven UI (column highlights, the column
+   * lineage controls) unmounts mid-assertion.
+   */
+  async waitForViewportToSettle(): Promise<void> {
+    await this.page.waitForFunction(
+      (settleMs) => {
+        const viewport = document.querySelector<HTMLElement>('.react-flow__viewport');
+        const transform = viewport?.style.transform ?? '';
+        const holder = window as { __viewportSettle?: { transform: string; since: number } };
+        if (holder.__viewportSettle?.transform !== transform) {
+          holder.__viewportSettle = { transform, since: Date.now() };
+          return false;
+        }
+        return Date.now() - holder.__viewportSettle.since >= settleMs;
+      },
+      VIEWPORT_SETTLE_MS,
+      { polling: 200, timeout: 15000 },
+    );
   }
 
   // ── Column interactions ─────────────────────────────────────────────────────
@@ -388,6 +448,7 @@ export class LineageBasePage extends BasePage {
   /** Open the column selector dropdown and pick a column by name. */
   async selectColumnFromDropdown(columnName: string): Promise<void> {
     await this.page.getByText('Select column').click({ force: true });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(1000);
     await this.columnDropdownVirtualList.getByText(columnName, { exact: true }).click();
   }

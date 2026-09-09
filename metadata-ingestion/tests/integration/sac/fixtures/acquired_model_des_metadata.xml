@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="sac">
+      <EntityType Name="MasterData">
+        <Key><PropertyRef Name="master_id"/></Key>
+        <Property Name="master_id" Type="Edm.String">
+          <Annotation Term="Integration.OriginalDataType"><String>NVARCHAR</String></Annotation>
+        </Property>
+      </EntityType>
+      <EntityType Name="FactData">
+        <Key><PropertyRef Name="Account"/></Key>
+        <Property Name="Account" Type="Edm.String" MaxLength="256">
+          <Annotation Term="Integration.OriginalDataType"><String>NVARCHAR</String></Annotation>
+        </Property>
+        <Property Name="SignedData" Type="Edm.Decimal" Precision="31" Scale="7" Nullable="true"/>
+      </EntityType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

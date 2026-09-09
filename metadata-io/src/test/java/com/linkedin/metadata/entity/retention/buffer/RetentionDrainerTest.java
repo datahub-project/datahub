@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity.retention.buffer;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -30,9 +31,11 @@ import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.retention.RetentionBatchEntry;
 import com.linkedin.metadata.entity.retention.RetentionContextResolver;
 import com.linkedin.metadata.entity.retention.RetentionKey;
+import com.linkedin.metadata.entity.retention.RetentionTestUtils;
 import com.linkedin.metadata.entity.retention.SimpleRetentionContextResolver;
 import com.linkedin.metadata.entity.retention.SimpleRetentionKey;
 import com.linkedin.metadata.entity.retention.UnresolvableRetentionKeyException;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -310,7 +313,8 @@ public class RetentionDrainerTest {
 
   @Test
   @SuppressWarnings("unchecked")
-  public void testTickWithRealEbeanServiceClearsNoPolicyKeysFromBuffer() {
+  public void testTickWithRealEbeanServiceClearsNoPolicyKeysFromBuffer()
+      throws java.net.URISyntaxException {
     // Integration guard against the infinite re-drain bug. The drainer passes a single
     // List<RetentionBatchEntry> (each entry pairs a key with its context) to
     // applyRetentionBatchWithPolicyDefaults. The Ebean override rebuilds each context with a
@@ -327,16 +331,20 @@ public class RetentionDrainerTest {
 
     Database server = EbeanTestUtils.createTestServer("RetentionDrainerRealEbean");
     EntityService<?> entityService = mock(EntityService.class);
-    // getRetention -> getLatestAspects empty -> getRetention returns new Retention() (empty) ->
-    // no-op DELETE, but the key is still committed and returned as a success.
-    when(entityService.getLatestAspects(any(), any(), any())).thenReturn(Collections.emptyMap());
+    // getRetention -> SystemEntityClient.batchGetV2 -> getEntitiesV2 empty -> getRetention returns
+    // new Retention() (empty) -> no-op DELETE, but the key is still committed and returned as a
+    // success.
+    when(entityService.getEntitiesV2(any(), any(), any(), any(), anyBoolean()))
+        .thenReturn(Collections.emptyMap());
     EbeanRetentionService<?> realService =
         new EbeanRetentionService<>(
             entityService,
             server,
             2,
             new PlainAspectTableResolver(),
-            new PassThroughScopedTransactionFactory(server));
+            new PassThroughScopedTransactionFactory(server),
+            RetentionTestUtils.systemEntityClient(
+                entityService, mock(EventProducer.class), mock(MetricUtils.class)));
 
     try {
       retentionBuffer.enqueue(SYSTEM_CONTEXT, TEST_URN, ASPECT, 3L);

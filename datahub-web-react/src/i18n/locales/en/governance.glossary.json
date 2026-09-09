@@ -17,5 +17,11 @@
     "sidebar.collapse": "Collapse Glossary",
     "sidebar.expand": "Expand Glossary",
     "sidebar.home": "Glossary Home",
-    "sidebar.section.allTerms": "All Glossary Terms"
+    "sidebar.ownerFilter.label": "Owners",
+    "sidebar.ownerFilter.placeholder": "Filter by owner",
+    "sidebar.domainFilter.label": "Domains",
+    "sidebar.domainFilter.placeholder": "Filter by domain",
+    "sidebar.section.allTerms": "All Glossary Terms",
+    "sidebar.tagFilter.label": "Tags",
+    "sidebar.tagFilter.placeholder": "Filter by tag"
 }

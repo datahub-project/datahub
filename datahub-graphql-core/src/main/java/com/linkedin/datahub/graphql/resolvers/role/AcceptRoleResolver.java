@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.AcceptRoleInput;
 import com.linkedin.entity.client.SystemEntityClient;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
   private final RoleService _roleService;
   private final InviteTokenService _inviteTokenService;
   private final SystemEntityClient _systemEntityClient;
+  private final OperationContext _systemOperationContext;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -48,8 +50,12 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
             final Urn roleUrn =
                 _inviteTokenService.getInviteTokenRole(
                     context.getOperationContext(), inviteTokenUrn);
+            // The grant is authorized by the invite token, not by the accepting user, who holds no
+            // privileges at this point. Assigning as the system actor keeps the write out of scope
+            // for PrivilegeGrantAuthorizationValidator, which requires Manage Policies for a user
+            // to write roleMembership.
             _roleService.batchAssignRoleToActors(
-                context.getOperationContext(),
+                _systemOperationContext,
                 Collections.singletonList(authentication.getActor().toUrnStr()),
                 roleUrn);
 

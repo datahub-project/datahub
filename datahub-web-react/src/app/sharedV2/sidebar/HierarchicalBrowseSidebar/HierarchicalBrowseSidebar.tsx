@@ -108,8 +108,10 @@ type Props = {
  * Plug-and-play hierarchical browse sidebar.
  *
  * Compose this shell + shared helpers — do not re-implement collapse, padding,
- * dividers, or tree scroll. SaaS: take `HierarchicalBrowseSidebar/**` wholesale;
- * keep fork badges on TermItem via `afterLabel`.
+ * dividers, or tree scroll. Flat filter/search empty + clear chrome lives in
+ * `SidebarFilteredResults` (Documents / Glossary / Domains should reuse it).
+ * SaaS: take `HierarchicalBrowseSidebar/**` wholesale; keep fork badges on
+ * TermItem via `afterLabel`.
  */
 export default function HierarchicalBrowseSidebar({
     title,

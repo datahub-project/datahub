@@ -25,6 +25,7 @@ FILES=(
   "spark/agent/lifecycle/SparkOpenLineageExtensionVisitorWrapper.java"
   "spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java"
   "spark/agent/lifecycle/plan/StreamingDataSourceV2RelationVisitor.java"
+  "spark/agent/lifecycle/plan/TopicPartitionProxy.java"
   "spark/agent/lifecycle/plan/WriteToDataSourceV2Visitor.java"
   "spark3/agent/lifecycle/plan/MergeIntoCommandEdgeInputDatasetBuilder.java"
   "spark3/agent/lifecycle/plan/MergeIntoCommandInputDatasetBuilder.java"
@@ -47,6 +48,11 @@ for file in "${FILES[@]}"; do
   UPSTREAM_FILE="$UPSTREAM_DIR/$file"
   DATAHUB_FILE="$DATAHUB_SRC/$file"
   PATCH_FILE="$PATCHES_DIR/datahub-customizations/v${UPSTREAM_VERSION}/$(basename "$file" .java).patch"
+  # Recorded in the patch header instead of the absolute paths diff would otherwise emit. Those are
+  # not cosmetic: they are what `patch` reads to locate the target, so a header naming this machine's
+  # home directory produces a patch nobody else can apply. Relative, a/-b/ prefixed, same as git.
+  UPSTREAM_LABEL="a/patches/upstream-$UPSTREAM_VERSION/$file"
+  DATAHUB_LABEL="b/src/main/java/io/openlineage/$file"
 
   if [ ! -f "$UPSTREAM_FILE" ]; then
     echo "Warning: Upstream file not found: $UPSTREAM_FILE (skipping)"
@@ -61,7 +67,8 @@ for file in "${FILES[@]}"; do
   fi
 
   # Generate unified diff
-  if diff -u "$UPSTREAM_FILE" "$DATAHUB_FILE" > "$PATCH_FILE" 2>/dev/null; then
+  if diff -u --label "$UPSTREAM_LABEL" --label "$DATAHUB_LABEL" \
+       "$UPSTREAM_FILE" "$DATAHUB_FILE" > "$PATCH_FILE" 2>/dev/null; then
     # No differences found
     echo "No customizations in: $file"
     rm -f "$PATCH_FILE"
@@ -76,8 +83,12 @@ for file in "${FILES[@]}"; do
 # Upstream version: OpenLineage $UPSTREAM_VERSION
 # Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 #
-# To apply this patch to a new upstream version:
-#   patch -p0 < datahub-customizations/$(basename "$PATCH_FILE")
+# To apply this patch to a new upstream version, from the acryl-spark-lineage module directory:
+#   patch src/main/java/io/openlineage/$file < patches/datahub-customizations/v${UPSTREAM_VERSION}/$(basename "$PATCH_FILE")
+#
+# The target is named explicitly rather than left to -p<n>: both header paths exist during an
+# upgrade, and patch's "fewest components wins" heuristic picks the upstream reference copy, so
+# -p1 would silently rewrite patches/upstream-*/ instead of the source tree.
 #
 EOF
     cat "$PATCH_FILE" >> "$TEMP_PATCH"
@@ -92,4 +103,7 @@ echo ""
 echo "To apply these patches to a new upstream version:"
 echo "  1. Place new upstream files in patches/upstream-<version>/"
 echo "  2. Copy files to src/main/java/io/openlineage/"
-echo "  3. Apply patches: for p in patches/datahub-customizations/*.patch; do patch -p0 < \$p; done"
+echo "  3. Apply patches, from the module directory (target read from each patch's +++ header):"
+echo "       for p in patches/datahub-customizations/v${UPSTREAM_VERSION}/*.patch; do"
+echo "         patch \"\$(sed -n 's|^+++ b/||p' \"\$p\" | head -1)\" < \"\$p\""
+echo "       done"

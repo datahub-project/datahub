@@ -578,7 +578,8 @@ public class IncrementalReindexCatchUpStepTest {
   public void testGlobalIndexCatchUpUsesUnscopedUrnLike() {
     // Graph index is a "global" index — catch-up should emit MCLs for ALL entities (urnLike = "%")
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    String graphIndexName = indexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME);
+    String graphIndexName =
+        indexConvention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME);
 
     Map<String, String> phase1State =
         IncrementalReindexState.setPhase1State(

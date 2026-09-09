@@ -15,6 +15,7 @@ import com.datastax.oss.driver.api.querybuilder.select.Selector;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
@@ -50,12 +51,18 @@ public class CassandraRetentionService<U extends ChangeMCP> extends RetentionSer
   private final EntityService<U> _entityService;
   private final CqlSession _cqlSession;
   private final int _batchSize;
+  private final SystemEntityClient _systemEntityClient;
 
   private final Clock _clock = Clock.systemUTC();
 
   @Override
   public EntityService<U> getEntityService() {
     return _entityService;
+  }
+
+  @Override
+  protected SystemEntityClient getSystemEntityClient() {
+    return _systemEntityClient;
   }
 
   @Override

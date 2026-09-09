@@ -1,4 +1,4 @@
-import { Text } from '@components';
+import { ButtonTabs, Text } from '@components';
 import { Form } from 'antd';
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +9,6 @@ import { useHierarchyFormContext } from '@app/homeV3/modules/hierarchyViewModule
 import { FORM_FIELD_ASSET_TYPE } from '@app/homeV3/modules/hierarchyViewModule/components/form/constants';
 import GlossarySelectableTreeView from '@app/homeV3/modules/hierarchyViewModule/components/glossary/GlossarySelectableTreeView';
 import { ASSET_TYPE_DOMAINS, ASSET_TYPE_GLOSSARY } from '@app/homeV3/modules/hierarchyViewModule/constants';
-import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';
 import FormItem from '@app/homeV3/modules/shared/Form/FormItem';
 
 const Wrapper = styled.div``;

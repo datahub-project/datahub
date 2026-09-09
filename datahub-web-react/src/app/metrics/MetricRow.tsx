@@ -6,6 +6,7 @@ import { MetricsTreeItem } from '@app/metrics/MetricsTreeItem';
 import { useMetricsEntityContext } from '@app/metrics/context/MetricsEntityContext';
 import { MetricEntity } from '@app/metrics/metricsTypes';
 import useMetricChildren from '@app/metrics/useMetricChildren';
+import { DEFAULT_METRICS_SIDEBAR_SORT, MetricsSidebarSortValue } from '@app/metrics/utils/metricsSidebarSort';
 import { PageRoutes } from '@conf/Global';
 
 export type MetricRowProps = {
@@ -16,6 +17,7 @@ export type MetricRowProps = {
     isSelected: boolean;
     expandedMetricUrns: Set<string>;
     selectedUrn: string | null;
+    sort?: MetricsSidebarSortValue;
     onToggle: () => void;
     onToggleMetric: (urn: string) => void;
 };
@@ -27,6 +29,7 @@ export function MetricRow({
     isSelected,
     expandedMetricUrns,
     selectedUrn,
+    sort = DEFAULT_METRICS_SIDEBAR_SORT,
     onToggle,
     onToggleMetric,
 }: MetricRowProps) {
@@ -47,6 +50,7 @@ export function MetricRow({
     const { data, scrollRef } = useMetricChildren({
         mode: { kind: 'metric', parentMetricUrn: metric.urn },
         skip: !isExpanded || !hasChildren,
+        sort,
     });
 
     const children = data as MetricEntity[];
@@ -76,6 +80,7 @@ export function MetricRow({
                         isSelected={selectedUrn === child.urn}
                         expandedMetricUrns={expandedMetricUrns}
                         selectedUrn={selectedUrn}
+                        sort={sort}
                         onToggle={() => onToggleMetric(child.urn)}
                         onToggleMetric={onToggleMetric}
                     />

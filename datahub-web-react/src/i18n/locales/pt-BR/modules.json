@@ -42,6 +42,7 @@
     "assetCollection.viewAllManualHint": "Coleções selecionadas manualmente não oferecem suporte ao link “Ver tudo” no momento.",
     "assetCollection.viewAllUnsupportedHint": "Esta coleção não exibirá um link “Ver tudo” — este tipo de filtro não é compatível no momento.",
     "assets.moduleName": "Ativos",
+    "assets.relatedModuleName": "Ativos Relacionados",
     "assets.moduleDescription": "Ativos relacionados marcados com a entidade pai",
     "assets.addTermError": "Falha ao adicionar termo do glossário: \n {{error}}",
     "assets.addTermModalTitle": "Adicionar Termo do Glossário aos ativos",

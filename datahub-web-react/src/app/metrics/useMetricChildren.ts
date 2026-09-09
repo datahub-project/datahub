@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 
 import { MetricEntity } from '@app/metrics/metricsTypes';
-import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
+import {
+    DEFAULT_METRICS_SIDEBAR_SORT,
+    MetricsSidebarSortValue,
+    metricsSidebarSortToCriterion,
+} from '@app/metrics/utils/metricsSidebarSort';
 
 import { useScrollMetricsQuery } from '@graphql/metricsBrowse.generated';
-import { EntityType, SortOrder } from '@types';
+import { EntityType } from '@types';
 
 export const METRIC_CHILDREN_COUNT = 50;
 
@@ -23,16 +27,17 @@ type Props = {
     mode: ModelMode | MetricMode;
     /** Pass true when the parent row is collapsed — skips the query entirely. */
     skip?: boolean;
+    sort?: MetricsSidebarSortValue;
 };
 
-function buildScrollInput(mode: ModelMode | MetricMode, scrollId: string | null) {
+function buildScrollInput(mode: ModelMode | MetricMode, scrollId: string | null, sort: MetricsSidebarSortValue) {
     const baseInput = {
         scrollId,
         query: '*',
         types: [EntityType.Metric],
         count: METRIC_CHILDREN_COUNT,
         sortInput: {
-            sortCriteria: [{ field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Ascending }],
+            sortCriteria: [metricsSidebarSortToCriterion(sort)],
         },
         searchFlags: { skipCache: true },
     };
@@ -61,25 +66,36 @@ function buildScrollInput(mode: ModelMode | MetricMode, scrollId: string | null)
     };
 }
 
-export default function useMetricChildren({ mode, skip }: Props) {
+export default function useMetricChildren({ mode, skip, sort = DEFAULT_METRICS_SIDEBAR_SORT }: Props) {
     const [scrollId, setScrollId] = useState<string | null>(null);
     const [data, setData] = useState<MetricEntity[]>([]);
 
     const modeKey = mode.kind === 'model' ? mode.modelUrn : mode.parentMetricUrn;
+    const modeKind = mode.kind;
+    const resetKey = `${modeKind}:${modeKey}:${sort}`;
 
-    // Reset accumulated data when the parent URN changes.
-    useEffect(() => {
+    // Reset during render so the first query after sort/mode change uses a null
+    // cursor (not the previous page's scrollId with the new sort/filters).
+    const [prevResetKey, setPrevResetKey] = useState(resetKey);
+    if (resetKey !== prevResetKey) {
+        setPrevResetKey(resetKey);
         setScrollId(null);
         setData([]);
-    }, [modeKey]);
+    }
+
+    const variables = useMemo(
+        () => buildScrollInput(mode, scrollId, sort),
+        // mode is rebuilt each render; modeKey + modeKind capture identity.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [modeKind, modeKey, scrollId, sort],
+    );
 
     const { data: scrollData, loading } = useScrollMetricsQuery({
-        variables: buildScrollInput(mode, scrollId),
+        variables,
         skip: !!skip,
         notifyOnNetworkStatusChange: true,
     });
 
-    // Merge incoming results into local state (same merge-not-replace pattern as useGlossaryChildren).
     useEffect(() => {
         if (scrollData?.scrollAcrossEntities?.searchResults) {
             const fresh = scrollData.scrollAcrossEntities.searchResults
@@ -88,6 +104,9 @@ export default function useMetricChildren({ mode, skip }: Props) {
             const freshByUrn = new Map(fresh.map((e) => [e.urn, e]));
 
             setData((currData) => {
+                if (scrollId === null) {
+                    return fresh;
+                }
                 const updated = currData.map((e) => freshByUrn.get(e.urn) || e);
                 const seenUrns = new Set(updated.map((e) => e.urn));
                 const additions = fresh.filter((e) => !seenUrns.has(e.urn));

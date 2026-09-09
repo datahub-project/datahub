@@ -20,6 +20,10 @@ MSTR_OBJECT_TYPE_DASHBOARD = 55
 MSTR_OBJECT_TYPE_REPORT = 3
 # Documents share object type 55 with dossiers; the subtype distinguishes them.
 MSTR_OBJECT_SUBTYPE_DOCUMENT = "14081"
+# EnumDSSXMLObjectTypes: Metric, Consolidation. Used for project-wide metric
+# search and to recognize a consolidation-type expression token.
+MSTR_OBJECT_TYPE_METRIC = 7
+MSTR_OBJECT_TYPE_CONSOLIDATION = 47
 
 MEASURE_TAG_URN = "urn:li:tag:Measure"
 DIMENSION_TAG_URN = "urn:li:tag:Dimension"

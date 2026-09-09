@@ -52,13 +52,17 @@ from tests.entity_graph_cache.helpers import (
     wait_for_hierarchy_writes,
     wait_for_session_group_membership_labels,
 )
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 METRIC_SEARCH_SCROLL = "entity.graph.build.search_scroll"
 METRIC_GRAPH_SCROLL = "entity.graph.build.graph_scroll"
 
 
+@pytest.mark.p0
 def test_domain_parent_domains_hierarchy(auth_session, graph_client):
     run_id = unique_id("egc-domain")
     grandparent_id = f"egc-grand-{run_id}"
@@ -136,6 +140,7 @@ def test_domain_sync_move_reflects_in_parent_domains(auth_session, graph_client)
         cleanup_domains(auth_session, created)
 
 
+@pytest.mark.p0
 def test_glossary_parent_nodes_hierarchy(auth_session, graph_client):
     run_id = unique_id("egc-glossary")
     root_id = f"egc-gnode-root-{run_id}"
@@ -400,6 +405,7 @@ def test_glossary_cache_metrics_when_isolated(auth_session, graph_client):
         cleanup_glossary_entities(graph_client, created)
 
 
+@pytest.mark.p0
 def test_container_parent_containers_hierarchy(auth_session, graph_client):
     run_id = unique_id("egc-container")
     grandparent_id = f"egc-c-grand-{run_id}"
@@ -439,6 +445,7 @@ def test_container_parent_containers_hierarchy(auth_session, graph_client):
         cleanup_containers(graph_client, created)
 
 
+@pytest.mark.p0
 def test_container_relationships_direct_children(auth_session, graph_client):
     run_id = unique_id("egc-container-rel")
     grandparent_id = f"egc-cr-grand-{run_id}"

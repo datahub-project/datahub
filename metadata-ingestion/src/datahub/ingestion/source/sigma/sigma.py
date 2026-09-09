@@ -284,7 +284,7 @@ class _CustomSqlRegistration:
 
 @platform_name("Sigma")
 @config_class(SigmaSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",

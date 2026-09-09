@@ -7,6 +7,7 @@ import { MetricsTreeItem } from '@app/metrics/MetricsTreeItem';
 import { useMetricsEntityContext } from '@app/metrics/context/MetricsEntityContext';
 import { MetricEntity, SemanticModel } from '@app/metrics/metricsTypes';
 import useMetricChildren from '@app/metrics/useMetricChildren';
+import { DEFAULT_METRICS_SIDEBAR_SORT, MetricsSidebarSortValue } from '@app/metrics/utils/metricsSidebarSort';
 import { PageRoutes } from '@conf/Global';
 
 export type SemanticModelRowProps = {
@@ -15,6 +16,7 @@ export type SemanticModelRowProps = {
     isSelected: boolean;
     expandedMetricUrns: Set<string>;
     selectedUrn: string | null;
+    sort?: MetricsSidebarSortValue;
     onToggle: () => void;
     onToggleMetric: (urn: string) => void;
 };
@@ -25,6 +27,7 @@ export function SemanticModelRow({
     isSelected,
     expandedMetricUrns,
     selectedUrn,
+    sort = DEFAULT_METRICS_SIDEBAR_SORT,
     onToggle,
     onToggleMetric,
 }: SemanticModelRowProps) {
@@ -45,6 +48,7 @@ export function SemanticModelRow({
     const { data, scrollRef } = useMetricChildren({
         mode: { kind: 'model', modelUrn: model.urn },
         skip: !isExpanded || !hasChildren,
+        sort,
     });
 
     const metrics = data as MetricEntity[];
@@ -75,6 +79,7 @@ export function SemanticModelRow({
                         isSelected={selectedUrn === metric.urn}
                         expandedMetricUrns={expandedMetricUrns}
                         selectedUrn={selectedUrn}
+                        sort={sort}
                         onToggle={() => onToggleMetric(metric.urn)}
                         onToggleMetric={onToggleMetric}
                     />

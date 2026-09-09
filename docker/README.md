@@ -180,7 +180,6 @@ Every quickstart configuration automatically gets a nuke task for targeted clean
 
 - **`quickstartNuke`** - Removes containers and volumes for the default project namespace (`datahub`)
 - **`quickstartDebugNuke`** - Removes containers and volumes for the debug configuration (`datahub`)
-- **`quickstartCypressNuke`** - Removes containers and volumes for the cypress configuration (`dh-cypress`)
 - **`quickstartDebugMinNuke`** - Removes containers and volumes for the debug-min configuration (`datahub`)
 - **`quickstartDebugConsumersNuke`** - Removes containers and volumes for the debug-consumers configuration (`datahub`)
 - **`quickstartPgNuke`** - Removes containers and volumes for the quickstart-postgres configuration (`datahub`)
@@ -194,7 +193,6 @@ Every quickstart configuration automatically gets a nuke task for targeted clean
 ### Project Namespace Behavior
 
 - **Default project namespace (`datahub`)**: Most configurations use this, so their nuke tasks will clean up containers in the same namespace
-- **Custom project namespace (`dh-cypress`)**: The cypress configuration uses its own namespace for isolation
 
 ## Usage
 
@@ -203,7 +201,6 @@ Every quickstart configuration automatically gets a nuke task for targeted clean
 ```bash
 # Remove containers and volumes for specific configurations
 ./gradlew quickstartDebugNuke      # For debug configuration
-./gradlew quickstartCypressNuke    # For cypress configuration
 ./gradlew quickstartDebugMinNuke   # For debug-min configuration
 ./gradlew quickstartPgNuke           # For quickstart-postgres (slim)
 ./gradlew quickstartPgConsumersNuke  # For quickstart-postgres-consumers (with MAE/MCE)
@@ -218,7 +215,7 @@ Every quickstart configuration automatically gets a nuke task for targeted clean
 
   - You want to clean up a specific configuration environment
   - You need targeted cleanup without affecting other configurations
-  - You're working with a particular development setup (debug, postgres, cypress, etc.)
+  - You're working with a particular development setup (debug, postgres, etc.)
 
 - **Use `quickstartDown` when:**
   - You want to stop all running containers
@@ -271,9 +268,9 @@ The nuke tasks are automatically generated based on the `quickstart_configs` in 
 
 ## Related Commands
 
-- **Start services**: `./gradlew quickstartDebug`, `./gradlew quickstartCypress`
+- **Start services**: `./gradlew quickstartDebug`
 - **Stop services**: `./gradlew quickstartDown`
-- **Reload services**: `./gradlew debugReload`, `./gradlew cypressReload`
+- **Reload services**: `./gradlew debugReload`
 
 ## Examples
 
@@ -287,23 +284,10 @@ The nuke tasks are automatically generated based on the `quickstart_configs` in 
 ./gradlew quickstartDebug
 ```
 
-### Cypress Environment Isolation
-
-```bash
-# Clean up cypress environment
-./gradlew quickstartCypressNuke
-
-# Start fresh cypress environment
-./gradlew quickstartCypress
-```
-
 ### Mixed Environment Management
 
 ```bash
-# Clean up only cypress (leaving main environment intact)
-./gradlew quickstartCypressNuke
-
-# Clean up only debug environment (leaving cypress intact)
+# Clean up only debug environment (leaving other environments intact)
 ./gradlew quickstartDebugNuke
 
 # Clean up only postgres environment (leaving others intact)

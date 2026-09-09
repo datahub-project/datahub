@@ -17,6 +17,7 @@ import { ExecutionCancelInfo } from '@app/ingestV2/executions/types';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
+import SourceTypeFilter from '@app/ingestV2/shared/components/filters/SourceTypeFilter';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
 import IngestionSourceRefetcher from '@app/ingestV2/source/IngestionSourceRefetcher';
 import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
@@ -131,6 +132,8 @@ interface Props {
     setSourceFilter: (sourceFilter: number | undefined) => void;
     searchQuery?: string;
     setSearchQuery: (query: string) => void;
+    sourceTypes?: string[];
+    setSourceTypes: (sourceTypes: string[]) => void;
 }
 
 export const IngestionSourceList = ({
@@ -145,6 +148,8 @@ export const IngestionSourceList = ({
     setSourceFilter: setSourceFilterFromUrl,
     searchQuery: searchQueryFromUrl,
     setSearchQuery: setSearchQueryFromUrl,
+    sourceTypes: sourceTypesFromUrl,
+    setSourceTypes: setSourceTypesFromUrl,
 }: Props) => {
     const { t } = useTranslation('ingestion');
     const { t: tc } = useTranslation('common.actions');
@@ -211,6 +216,9 @@ export const IngestionSourceList = ({
     const sourceFilter = useMemo(() => sourceFilterFromUrl ?? IngestionSourceType.ALL, [sourceFilterFromUrl]);
     const prevSourceFilter = usePrevious(sourceFilter);
 
+    const sourceTypes = useMemo(() => sourceTypesFromUrl ?? [], [sourceTypesFromUrl]);
+    const prevSourceTypes = usePrevious(sourceTypes);
+
     // Debounce the search query
     useDebounce(
         () => {
@@ -231,6 +239,13 @@ export const IngestionSourceList = ({
         }
     }, [sourceFilter, setPage, prevSourceFilter]);
 
+    // When source type filter changes, reset page to 1
+    useEffect(() => {
+        if (prevSourceTypes !== undefined && prevSourceTypes !== sourceTypes) {
+            setPage(1);
+        }
+    }, [sourceTypes, setPage, prevSourceTypes]);
+
     /**
      * Show or hide system ingestion sources using a hidden command S command.
      */
@@ -246,8 +261,11 @@ export const IngestionSourceList = ({
                 negated: sourceFilter !== IngestionSourceType.CLI,
             });
         }
+        if (sourceTypes.length) {
+            draftFilters.push({ field: 'type', values: sourceTypes });
+        }
         return draftFilters;
-    }, [sourceFilter, hideSystemSources]);
+    }, [sourceFilter, hideSystemSources, sourceTypes]);
 
     const queryInputs = useMemo(
         () => ({
@@ -669,6 +687,11 @@ export const IngestionSourceList = ({
                                 width="fit-content"
                                 size="lg"
                                 data-testid="ingestions-type-filter"
+                            />
+                            <SourceTypeFilter
+                                values={sourceTypes}
+                                onUpdate={setSourceTypesFromUrl}
+                                hideSystemSources={hideSystemSources}
                             />
                         </SearchContainer>
                         <FilterButtonsContainer>

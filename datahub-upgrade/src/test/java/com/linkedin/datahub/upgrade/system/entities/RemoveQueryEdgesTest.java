@@ -57,7 +57,8 @@ public class RemoveQueryEdgesTest {
     // Setup mock chain for index name resolution
     when(mockOpContext.getSearchContext()).thenReturn(mockSearchContext);
     when(mockSearchContext.getIndexConvention()).thenReturn(mockIndexConvention);
-    when(mockIndexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME))
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext), eq(ElasticSearchGraphService.INDEX_NAME)))
         .thenReturn("test_graph_index");
 
     when(mockUpgradeContext.opContext()).thenReturn(mockOpContext);
