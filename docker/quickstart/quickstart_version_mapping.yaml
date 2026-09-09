@@ -14,7 +14,8 @@
 # - The handling of `stable` is special. See below.
 # - Otherwise, we'll assume that it represents a docker-compose git ref and docker tag.
 #   e.g. `--version v0.x.y` will use the v0.x.y tag for all images and the compose file from the v0.x.y git tag.
-#   Unmapped four-part hotfix tags (e.g. v1.5.0.6) passthrough the same way when the git/docker tag is published.
+#   Unmapped four-part hotfix tags (e.g. v1.5.0.6) use that docker tag for DataHub images and the
+#   shorter release (v1.5.0, or that key's mapping) for composefile_git_ref and mysql_tag.
 # - If no version is specified the "default" key will be used.
 #
 # This file can also be used to map broken releases to fixed ones.
