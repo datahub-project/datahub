@@ -74,7 +74,7 @@ describe('SnowflakePasswordAuthDeprecationWarning', () => {
         expect(container).toBeEmptyDOMElement();
     });
 
-    it('infers DEFAULT_AUTHENTICATOR from a password with no explicit authentication_type (CAT-1921 edge case)', () => {
+    it('infers DEFAULT_AUTHENTICATOR from a password with no explicit authentication_type', () => {
         const recipe = { source: { config: { password: 'secret' } } }; // noqa: secret gitleaks:allow - dummy test fixture
 
         const { getByText } = render(

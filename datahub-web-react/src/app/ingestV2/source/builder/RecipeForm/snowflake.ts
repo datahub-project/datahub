@@ -52,7 +52,7 @@ export function getSnowflakeAuthTypeFromRecipe(recipe: any): string {
     if (authType) {
         return authType;
     }
-    // CAT-1921: the UI does not always write authentication_type.
+    // The UI does not always write authentication_type.
     const hasPassword = !!get(recipe, passwordFieldPath);
     const hasPrivateKey = !!get(recipe, privateKeyFieldPath);
     if (hasPassword && !hasPrivateKey) {
