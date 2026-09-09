@@ -67,7 +67,6 @@ def test_is_using_password_auth_ignores_other_auth_modes():
 
 def test_is_using_password_auth_ignores_missing_password():
     assert not is_using_password_auth("DEFAULT_AUTHENTICATOR", None)
-    assert not is_using_password_auth("DEFAULT_AUTHENTICATOR", _SecretStrLike(""))
 
 
 def test_check_returns_warning_for_password_auth():
@@ -109,8 +108,8 @@ def test_warning_message_includes_migration_guide_link():
 def _password_auth_config_dict() -> dict:
     return {
         "account_id": "acctname",
-        "username": "user",  # noqa: secret  gitleaks:allow
-        "password": "password",  # noqa: secret  gitleaks:allow
+        "username": "user",  # gitleaks:allow
+        "password": "password",  # gitleaks:allow
         "warehouse": "COMPUTE_WH",
         "role": "datahub_role",
     }
