@@ -269,7 +269,7 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     # Per EXTERNAL_QUERY connection (not per upstream table URN).
     m_query_external_query_connections_resolved: int = 0
     m_query_external_query_connections_unmapped: int = 0
-    m_query_external_query_parse_errors: int = 0
+    m_query_external_query_failures: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count

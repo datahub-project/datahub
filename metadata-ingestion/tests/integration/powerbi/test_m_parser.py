@@ -1114,7 +1114,7 @@ def test_bigquery_external_query_comment_mention_not_federation_when_unparseable
     # treated as a federation. The trigger tokenizes the SQL (comments are dropped), so a
     # commented mention is ignored. Here the query is also unparseable: with the old raw
     # regex it was routed into EXTERNAL_QUERY handling and discarded as a *federation*
-    # parse failure (warning + m_query_external_query_parse_errors), inflating the counter
+    # parse failure (warning + m_query_external_query_failures), inflating the counter
     # that can flip the strict-warning exit status. It must instead fall through to the
     # normal native-SQL path, which reports the failure at info level without the
     # federation counter.
@@ -1150,7 +1150,7 @@ def test_bigquery_external_query_comment_mention_not_federation_when_unparseable
 
     assert combine_upstreams_from_lineage(lineages) == []
     # A comment-only mention must not be counted or warned about as a federation failure.
-    assert reporter.m_query_external_query_parse_errors == 0
+    assert reporter.m_query_external_query_failures == 0
     assert reporter.m_query_external_query_connections_resolved == 0
     assert reporter.m_query_external_query_connections_unmapped == 0
     assert len(reporter.warnings) == 0
@@ -1199,7 +1199,7 @@ def test_bigquery_external_query_string_literal_mention_does_not_hijack_native_l
     # No federation was present, so none of the federation counters/warnings must fire.
     assert reporter.m_query_external_query_connections_resolved == 0
     assert reporter.m_query_external_query_connections_unmapped == 0
-    assert reporter.m_query_external_query_parse_errors == 0
+    assert reporter.m_query_external_query_failures == 0
     assert len(reporter.warnings) == 0
 
 
@@ -1425,7 +1425,7 @@ def test_bigquery_external_query_raw_string_args_resolve():
     )
     assert reporter.m_query_external_query_connections_resolved == 1
     # Raw-string args must not be misreported as non-literal (which drops lineage).
-    assert reporter.m_query_external_query_parse_errors == 0
+    assert reporter.m_query_external_query_failures == 0
 
 
 @pytest.mark.integration
@@ -1627,7 +1627,7 @@ def test_bigquery_external_query_non_literal_args_warns():
     )
 
     assert combine_upstreams_from_lineage(lineages) == []
-    assert reporter.m_query_external_query_parse_errors == 1
+    assert reporter.m_query_external_query_failures == 1
     assert len(reporter.warnings) == 1
 
 
@@ -1724,7 +1724,7 @@ def test_bigquery_external_query_inner_sql_parse_failure_warns():
         )
 
     assert combine_upstreams_from_lineage(lineages) == []
-    assert reporter.m_query_external_query_parse_errors == 1
+    assert reporter.m_query_external_query_failures == 1
     # The inner-SQL parse failure must surface as a warning, not be silently dropped.
     assert Constant.SQL_PARSING_FAILURE in [entry.title for entry in reporter.warnings]
 
@@ -1785,7 +1785,7 @@ def test_bigquery_external_query_partial_lineage_when_outer_parse_fails():
     # surface as a warning rather than the benign pure-native info level.
     assert Constant.SQL_PARSING_FAILURE in [entry.title for entry in reporter.warnings]
     # The dropped outer query must also be counted so partial runs aren't under-reported.
-    assert reporter.m_query_external_query_parse_errors == 1
+    assert reporter.m_query_external_query_failures == 1
 
 
 @pytest.mark.integration
@@ -1855,7 +1855,7 @@ def test_bigquery_external_query_partial_lineage_when_outer_table_error():
         for warning in reporter.warnings
     )
     # The dropped outer query must also be counted so partial runs aren't under-reported.
-    assert reporter.m_query_external_query_parse_errors == 1
+    assert reporter.m_query_external_query_failures == 1
 
 
 @pytest.mark.integration
@@ -1996,7 +1996,7 @@ def test_bigquery_external_query_inner_sql_resolves_no_table_warns():
 
     assert combine_upstreams_from_lineage(lineages) == []
     assert reporter.m_query_external_query_connections_resolved == 0
-    assert reporter.m_query_external_query_parse_errors == 1
+    assert reporter.m_query_external_query_failures == 1
     # A federation that resolves nothing must surface as a warning, not be silently dropped.
     assert Constant.SQL_PARSING_FAILURE in [entry.title for entry in reporter.warnings]
 
@@ -2059,7 +2059,7 @@ def test_bigquery_external_query_inner_sql_table_error_warns():
 
     assert combine_upstreams_from_lineage(lineages) == []
     assert reporter.m_query_external_query_connections_resolved == 0
-    assert reporter.m_query_external_query_parse_errors == 1
+    assert reporter.m_query_external_query_failures == 1
     assert Constant.SQL_PARSING_FAILURE in [entry.title for entry in reporter.warnings]
 
 
@@ -2256,7 +2256,7 @@ def test_bigquery_external_query_extraction_parse_failure_skips_lineage():
     assert combine_upstreams_from_lineage(lineages) == []
     # Reported exactly once, at extraction time; the native parser is not re-invoked to
     # re-report the same root cause.
-    assert reporter.m_query_external_query_parse_errors == 1
+    assert reporter.m_query_external_query_failures == 1
     assert len(reporter.warnings) == 1
 
 
