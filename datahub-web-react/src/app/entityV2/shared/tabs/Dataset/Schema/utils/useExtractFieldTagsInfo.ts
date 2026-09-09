@@ -1,4 +1,4 @@
-import { downgradeV2FieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
+import { normalizeFieldPathKey } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import useEditableSchemaFieldInfoMaps from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import { EditableSchemaMetadata, GlobalTags, SchemaField } from '@src/types.generated';
 
@@ -39,8 +39,8 @@ export default function useExtractFieldTagsInfo(
         const baseUneditableTagUrns = new Set(baseUneditableTags.map((t) => t.tag.urn));
 
         // Collect extra uneditable tags from path-insensitive matches (O(1) map lookup)
-        const normalizedRecordPath = (downgradeV2FieldPath(record.fieldPath) ?? record.fieldPath).toLowerCase();
-        const extraUneditableTags = (v2NormalizedMap.get(normalizedRecordPath) ?? [])
+        const normalizedRecordPath = normalizeFieldPathKey(record.fieldPath);
+        const extraUneditableTags = (normalizedRecordPath ? (v2NormalizedMap.get(normalizedRecordPath) ?? []) : [])
             .flatMap((info) => info.globalTags?.tags || [])
             .filter((tag) => !baseUneditableTagUrns.has(tag.tag.urn));
 

@@ -282,6 +282,13 @@ describe('useExtractFieldDescriptionInfo', () => {
             );
         });
 
+        it('does not throw when the schema field has no fieldPath', () => {
+            const { result } = renderHook(() => useExtractFieldDescriptionInfo(mockEditableSchemaMetadata));
+            const schemaField = { ...mockSchemaField, fieldPath: undefined as unknown as string };
+
+            expect(() => result.current(schemaField)).not.toThrow();
+        });
+
         it('should handle schema field without schemaFieldEntity', () => {
             const schemaFieldWithoutEntity = { ...mockSchemaField };
             delete schemaFieldWithoutEntity.schemaFieldEntity;
