@@ -1380,6 +1380,8 @@ starlette==0.52.1
     # via fastapi
 starrocks==1.3.3
     # via acryl-datahub
+stopit==1.1.2
+    # via acryl-datahub
 strictyaml==1.7.3
     # via pyiceberg
 tableauserverclient==0.40

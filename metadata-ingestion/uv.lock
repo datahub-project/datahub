@@ -216,6 +216,7 @@ all = [
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "starrocks" },
+    { name = "stopit" },
     { name = "tableauserverclient" },
     { name = "tableschema" },
     { name = "tenacity" },
@@ -613,6 +614,7 @@ dev = [
     { name = "sqlalchemy2-stubs" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
+    { name = "stopit" },
     { name = "tableauserverclient" },
     { name = "tableschema" },
     { name = "tabulate" },
@@ -807,6 +809,7 @@ docs = [
     { name = "sqlalchemy2-stubs" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
+    { name = "stopit" },
     { name = "tableauserverclient" },
     { name = "tableschema" },
     { name = "tabulate" },
@@ -1284,6 +1287,7 @@ powerbi = [
     { name = "msal" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
+    { name = "stopit" },
 ]
 powerbi-report-server = [
     { name = "requests" },
@@ -2714,6 +2718,10 @@ requires-dist = [
     { name = "starrocks", marker = "extra == 'all'", specifier = ">=1.3.3,<2.0" },
     { name = "starrocks", marker = "extra == 'integration-tests'", specifier = ">=1.3.3,<2.0" },
     { name = "starrocks", marker = "extra == 'starrocks'", specifier = ">=1.3.3,<2.0" },
+    { name = "stopit", marker = "extra == 'all'", specifier = "==1.1.2" },
+    { name = "stopit", marker = "extra == 'dev'", specifier = "==1.1.2" },
+    { name = "stopit", marker = "extra == 'docs'", specifier = "==1.1.2" },
+    { name = "stopit", marker = "extra == 'powerbi'", specifier = "==1.1.2" },
     { name = "tableauserverclient", marker = "extra == 'all'", specifier = ">=0.34,<=0.40" },
     { name = "tableauserverclient", marker = "extra == 'dev'", specifier = ">=0.34,<=0.40" },
     { name = "tableauserverclient", marker = "extra == 'docs'", specifier = ">=0.34,<=0.40" },
@@ -4963,7 +4971,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -10308,8 +10316,8 @@ name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
-    { name = "jeepney", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
+    { name = "cryptography" },
+    { name = "jeepney" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
@@ -10650,8 +10658,8 @@ name = "sqlalchemy-hana"
 version = "3.0.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "hdbcli", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
-    { name = "sqlalchemy", marker = "platform_machine != 'arm64' or sys_platform != 'darwin'" },
+    { name = "hdbcli" },
+    { name = "sqlalchemy" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c0/df/02733e868ea8908c921aabd0004c4483cec6985e73e9fa8f6d12434dfe6d/sqlalchemy_hana-3.0.3.tar.gz", hash = "sha256:37ea5033628e1682037dd13dc5b9e4c585dfa28bc2bdbc02f816059147262bae", size = 44273, upload-time = "2025-06-02T10:34:23.183Z" }
 wheels = [
@@ -10794,6 +10802,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/db/35/c99b2eb4f5a94bd5c
 wheels = [
     { url = "https://files.pythonhosted.org/packages/93/b5/0d81ff72dfd5dabd844b0d8f1a50055e1b4671e3a72588c66f2e19a9ee9b/starrocks-1.3.3-py3-none-any.whl", hash = "sha256:b3ff89ed838d7f9ce07c7f97bd175d71e3539252a455314b6826636085573324", size = 109638, upload-time = "2026-01-14T11:18:44.201Z" },
 ]
+
+[[package]]
+name = "stopit"
+version = "1.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/35/58/e8bb0b0fb05baf07bbac1450c447d753da65f9701f551dca79823ce15d50/stopit-1.1.2.tar.gz", hash = "sha256:f7f39c583fd92027bd9d06127b259aee7a5b7945c1f1fa56263811e1e766996d", size = 18281, upload-time = "2018-02-09T00:32:14.204Z" }
 
 [[package]]
 name = "strictyaml"

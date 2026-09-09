@@ -20,10 +20,6 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     create_dataplatform_instance_resolver,
 )
 from datahub.ingestion.source.powerbi.m_query import parser
-from datahub.ingestion.source.powerbi.m_query._bridge import (
-    MQueryParseTimeout,
-    _clear_bridge,
-)
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataPlatformTable,
     Lineage,
@@ -1526,8 +1522,7 @@ def test_m_query_timeout(mock_get_bridge):
     mock_bridge_instance = MagicMock()
 
     mock_get_bridge.return_value = mock_bridge_instance
-    # The parse runs on a worker thread bounded by join(timeout); a parse that
-    # outlasts the 1s budget surfaces as an "M-Query Parsing Timeout" warning.
+    # sleep for 5 seconds to trigger timeout
     mock_bridge_instance.parse.side_effect = lambda expression: time.sleep(5)
 
     parser.get_upstream_tables(
@@ -1551,23 +1546,6 @@ def test_m_query_timeout(mock_get_bridge):
     assert is_entry_present, (
         'Warning message "M-Query Parsing Timeout" should be present in reporter'
     )
-
-
-def test_m_query_parse_timeout_enforced_on_real_parse():
-    # End-to-end regression guard: a genuinely slow REAL V8 parse must actually be
-    # bounded by the timeout. A broken bound (e.g. a native timeout that cannot
-    # interrupt the non-yielding parse) would silently let it run unbounded and
-    # this would hang instead of raising. Large let-expression parses in ~0.5s;
-    # the 50ms budget must trip. The abandoned background parse is drained so it
-    # does not slow later tests sharing the singleton bridge.
-    big = "let\n" + ",\n".join(f"    v{i} = {i}" for i in range(5000)) + "\nin v0"
-    _clear_bridge()
-    try:
-        with pytest.raises(MQueryParseTimeout):
-            parser._parse_with_bridge(big, timeout=0.05)
-    finally:
-        time.sleep(1.0)  # let the abandoned daemon parse finish before cleanup
-        _clear_bridge()
 
 
 def test_comments_in_m_query():

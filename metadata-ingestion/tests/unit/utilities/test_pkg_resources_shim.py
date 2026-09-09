@@ -80,6 +80,9 @@ def test_resource_filename_accepts_submodule_anchor():
     # exercise it directly against the dialect this shim exists to support.
     if importlib.util.find_spec("sqlalchemy_redshift") is None:
         pytest.skip("sqlalchemy_redshift not installed")
+    # The dialect imports pkg_resources at module load; under setuptools>=82 that
+    # is only importable once the shim is installed (the real callers do this too).
+    ensure_pkg_resources()
     path = resource_filename("sqlalchemy_redshift.dialect", "redshift-ca-bundle.crt")
     assert os.path.exists(path)
 

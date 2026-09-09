@@ -813,6 +813,7 @@ powerbi = [
     "msal>=1.31.1,<2.0.0",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "stopit==1.1.2",
 ]
 
 powerbi-report-server = [
@@ -1266,6 +1267,7 @@ all = [
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
     "starrocks>=1.3.3,<2.0",
+    "stopit==1.1.2",
     "tableauserverclient>=0.34,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
@@ -1436,6 +1438,7 @@ dev = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "stopit==1.1.2",
     "tableauserverclient>=0.34,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.11.0",
@@ -1628,6 +1631,7 @@ docs = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "stopit==1.1.2",
     "tableauserverclient>=0.34,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.11.0",

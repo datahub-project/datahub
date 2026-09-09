@@ -404,6 +404,13 @@ s3_base = {
     *cachetools_lib,
 }
 
+threading_timeout_common = {
+    # Bounds M-Query parse time. stopit imports pkg_resources at import time;
+    # setuptools>=82 removed pkg_resources, so we install a shim
+    # (utilities/pkg_resources_shim) before importing stopit — no setuptools pin needed.
+    "stopit==1.1.2",
+}
+
 abs_base = {
     # CVE-2025-36068: azure-core <1.34.0 has Server-Side Request Forgery via
     # redirect handling in the pipeline transport layer, fixed in 1.38.0.
@@ -828,6 +835,7 @@ plugins: Dict[str, Set[str]] = {
         microsoft_common
         | {"sqlparse>=0.6.0,<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
         | sqlglot_lib
+        | threading_timeout_common
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
