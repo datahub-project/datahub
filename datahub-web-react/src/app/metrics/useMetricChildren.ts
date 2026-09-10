@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useInView } from 'react-intersection-observer';
 
+import useMetricsSidebarPagination from '@app/metrics/hooks/useMetricsSidebarPagination';
 import { MetricEntity } from '@app/metrics/metricsTypes';
 import {
     advanceMetricsSidebarPagination,
-    createMetricsSidebarPaginationState,
-    getMetricsSidebarPaginationView,
     mergeMetricsSidebarPaginationPage,
 } from '@app/metrics/utils/metricsSidebarPagination';
 import {
@@ -81,8 +80,7 @@ export default function useMetricChildren({ mode, skip, sort = DEFAULT_METRICS_S
     const modeKey = mode.kind === 'model' ? mode.modelUrn : mode.parentMetricUrn;
     const modeKind = mode.kind;
     const criteriaKey = `${modeKind}:${modeKey}:${sort}`;
-    const [pagination, setPagination] = useState(() => createMetricsSidebarPaginationState<MetricEntity>(criteriaKey));
-    const { scrollId, entities: data } = getMetricsSidebarPaginationView(pagination, criteriaKey);
+    const { scrollId, entities: data, setPagination } = useMetricsSidebarPagination<MetricEntity>(criteriaKey);
     const variables = useMemo(
         () => buildScrollInput(modeKind, modeKey, scrollId, sort),
         [modeKind, modeKey, scrollId, sort],
@@ -106,17 +104,17 @@ export default function useMetricChildren({ mode, skip, sort = DEFAULT_METRICS_S
                 .filter((e): e is MetricEntity => e?.__typename === 'Metric');
             setPagination((current) => mergeMetricsSidebarPaginationPage(current, criteriaKey, fresh));
         }
-    }, [criteriaKey, error, loading, scrollData, skip]);
+    }, [criteriaKey, error, loading, scrollData, setPagination, skip]);
 
     const nextScrollId = scrollData?.scrollAcrossEntities?.nextScrollId;
 
     const [scrollRef, inView] = useInView({ triggerOnce: false });
 
     useEffect(() => {
-        if (!skip && !loading && nextScrollId && scrollId !== nextScrollId && inView) {
+        if (!skip && !loading && !error && nextScrollId && scrollId !== nextScrollId && inView) {
             setPagination((current) => advanceMetricsSidebarPagination(current, criteriaKey, nextScrollId));
         }
-    }, [criteriaKey, inView, nextScrollId, scrollId, loading, skip]);
+    }, [criteriaKey, error, inView, nextScrollId, scrollId, loading, setPagination, skip]);
 
     return {
         data,

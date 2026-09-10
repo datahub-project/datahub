@@ -53,6 +53,7 @@ export default function MetricsGroupSection({ group, sort, isExpanded, selectedU
         groupKey: group.key,
         sort,
         skip: !isExpanded,
+        selectedUrn,
     });
 
     let icon = <FolderSimple color={theme.colors.icon} size={16} />;

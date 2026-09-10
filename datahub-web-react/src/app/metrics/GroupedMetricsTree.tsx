@@ -72,7 +72,7 @@ export default function GroupedMetricsTree({ mode, sort }: Props) {
                     group={group}
                     sort={sort}
                     isExpanded={expandedGroupKeys.has(group.key)}
-                    selectedUrn={selectedUrn}
+                    selectedUrn={activeGroup?.key === group.key ? selectedUrn : null}
                     onToggle={() =>
                         setExpandedGroupKeys((current) => {
                             const next = new Set(current);

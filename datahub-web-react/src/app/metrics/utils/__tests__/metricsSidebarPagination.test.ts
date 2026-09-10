@@ -39,6 +39,14 @@ describe('metrics sidebar pagination', () => {
         expect(mergeMetricsSidebarPage(current, [current[1]], false)).toBe(current);
     });
 
+    it('keeps later-page lists unique when a page repeats a URN', () => {
+        const current: TestEntity[] = [{ urn: 'a', name: 'A' }];
+        const firstB = { urn: 'b', name: 'B1' };
+        const secondB = { urn: 'b', name: 'B2' };
+
+        expect(mergeMetricsSidebarPage(current, [firstB, secondB], false)).toEqual([current[0], firstB]);
+    });
+
     it('exposes a null cursor and no stale rows as soon as criteria change', () => {
         const initial = createMetricsSidebarPaginationState<TestEntity>('name-asc');
         const firstPage = mergeMetricsSidebarPaginationPage(initial, 'name-asc', [{ urn: 'a', name: 'A' }]);

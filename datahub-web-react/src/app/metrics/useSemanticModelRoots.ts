@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useInView } from 'react-intersection-observer';
 
+import useMetricsSidebarPagination from '@app/metrics/hooks/useMetricsSidebarPagination';
 import { SemanticModel } from '@app/metrics/metricsTypes';
 import {
     advanceMetricsSidebarPagination,
-    createMetricsSidebarPaginationState,
-    getMetricsSidebarPaginationView,
     mergeMetricsSidebarPaginationPage,
 } from '@app/metrics/utils/metricsSidebarPagination';
 import {
@@ -39,8 +38,7 @@ export default function useSemanticModelRoots(
     skip = false,
 ) {
     const criteriaKey = sort;
-    const [pagination, setPagination] = useState(() => createMetricsSidebarPaginationState<SemanticModel>(criteriaKey));
-    const { scrollId, entities: data } = getMetricsSidebarPaginationView(pagination, criteriaKey);
+    const { scrollId, entities: data, setPagination } = useMetricsSidebarPagination<SemanticModel>(criteriaKey);
 
     const variables = useMemo(() => buildScrollInput(scrollId, sort), [scrollId, sort]);
 
@@ -63,17 +61,17 @@ export default function useSemanticModelRoots(
                 .filter((e): e is SemanticModel => e?.__typename === 'SemanticModel');
             setPagination((current) => mergeMetricsSidebarPaginationPage(current, criteriaKey, fresh));
         }
-    }, [criteriaKey, error, loading, scrollData, skip]);
+    }, [criteriaKey, error, loading, scrollData, setPagination, skip]);
 
     const nextScrollId = scrollData?.scrollAcrossEntities?.nextScrollId;
 
     const [scrollRef, inView] = useInView({ triggerOnce: false });
 
     useEffect(() => {
-        if (!skip && !loading && nextScrollId && scrollId !== nextScrollId && inView) {
+        if (!skip && !loading && !error && nextScrollId && scrollId !== nextScrollId && inView) {
             setPagination((current) => advanceMetricsSidebarPagination(current, criteriaKey, nextScrollId));
         }
-    }, [criteriaKey, inView, nextScrollId, scrollId, loading, skip]);
+    }, [criteriaKey, error, inView, nextScrollId, scrollId, loading, setPagination, skip]);
 
     return {
         data,

@@ -1,3 +1,5 @@
+import { mergeUrnEntities } from '@app/sharedV2/utils/mergeUrnEntities';
+
 type UrnEntity = {
     urn: string;
 };
@@ -29,18 +31,7 @@ export function getMetricsSidebarPaginationView<T extends UrnEntity>(
  * refreshed when the server returns them again, while new rows retain server order.
  */
 export function mergeMetricsSidebarPage<T extends UrnEntity>(current: T[], fresh: T[], isFirstPage: boolean): T[] {
-    if (isFirstPage) return fresh;
-
-    const freshByUrn = new Map(fresh.map((entity) => [entity.urn, entity]));
-    const updated = current.map((entity) => freshByUrn.get(entity.urn) ?? entity);
-    const seenUrns = new Set(updated.map((entity) => entity.urn));
-    const additions = fresh.filter((entity) => !seenUrns.has(entity.urn));
-
-    if (additions.length === 0 && updated.every((entity, index) => entity === current[index])) {
-        return current;
-    }
-
-    return [...updated, ...additions];
+    return mergeUrnEntities(current, fresh, isFirstPage);
 }
 
 export function mergeMetricsSidebarPaginationPage<T extends UrnEntity>(
