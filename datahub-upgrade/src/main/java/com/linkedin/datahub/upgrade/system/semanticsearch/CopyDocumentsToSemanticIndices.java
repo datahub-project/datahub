@@ -5,6 +5,7 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.search.semantic.SemanticSearchEntityUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
@@ -34,7 +35,9 @@ public class CopyDocumentsToSemanticIndices implements BlockingSystemUpgrade {
       return;
     }
 
-    Set<String> enabledEntities = semanticSearchConfiguration.getEnabledEntities();
+    Set<String> enabledEntities =
+        SemanticSearchEntityUtils.canonicalizeEntityNames(
+            semanticSearchConfiguration.getEnabledEntities(), opContext.getEntityRegistry());
     if (enabledEntities == null || enabledEntities.isEmpty()) {
       log.info("No entities enabled for copying documents to semantic search indices. Skipping.");
       steps = ImmutableList.of();

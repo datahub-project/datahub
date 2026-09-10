@@ -568,6 +568,34 @@ public class UpdateIndicesV2StrategyTest {
   }
 
   @Test
+  public void testShouldWriteToSemanticIndex_MatchesLowercaseConfigToCanonicalEntity() {
+    SemanticSearchConfiguration semanticConfig = mock(SemanticSearchConfiguration.class);
+    when(semanticConfig.isEnabled()).thenReturn(true);
+    when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataproduct"));
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.getEntityIndexNameSemantic(operationContext, "dataProduct"))
+        .thenReturn("dataproductindex_v2_semantic");
+    when(elasticSearchService.indexExists(
+            any(OperationContext.class), eq("dataproductindex_v2_semantic")))
+        .thenReturn(true);
+
+    UpdateIndicesV2Strategy strategyWithDataProduct =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            semanticConfig,
+            indexConvention,
+            false,
+            mockMappingsBuilder,
+            null);
+
+    assertTrue(strategyWithDataProduct.shouldWriteToSemanticIndex(operationContext, "dataProduct"));
+  }
+
+  @Test
   public void testShouldWriteToSemanticIndex_CachesIndexExistsResult() {
     // Setup: All conditions met
     SemanticSearchConfiguration semanticConfig = mock(SemanticSearchConfiguration.class);

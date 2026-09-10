@@ -23,6 +23,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.semantic.SemanticSearchEntityUtils;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
@@ -724,7 +725,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
 
     // Condition 2: Entity must be in the enabled entities list
     Set<String> enabledEntities = semanticSearchConfig.getEnabledEntities();
-    if (enabledEntities == null || !enabledEntities.contains(entityName)) {
+    if (!SemanticSearchEntityUtils.containsEntity(
+        enabledEntities, opContext.getEntityRegistry(), entityName)) {
       log.debug(
           "Semantic dual-write check for '{}': SKIP - entity not in enabled list (enabledEntities={})",
           entityName,

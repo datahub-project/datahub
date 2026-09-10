@@ -267,6 +267,18 @@ public class V2SemanticSearchMappingsBuilderTest {
   }
 
   @Test
+  public void testGetIndexMappingsSupportsCamelCaseEntityConfig() {
+    Collection<IndexMapping> result =
+        semanticSearchMappingsBuilder.getIndexMappings(operationContext, Collections.emptyList());
+
+    assertTrue(
+        result.stream()
+            .anyMatch(
+                indexMapping -> indexMapping.getIndexName().equals("dataflowindex_v2_semantic")),
+        "A dataFlow config entry should create the lowercased dataflow semantic index");
+  }
+
+  @Test
   public void testEs8EngineUsesDenseVector() throws JsonProcessingException {
     EntityIndexConfiguration entityIndexConfiguration = mock(EntityIndexConfiguration.class);
     EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
