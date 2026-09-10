@@ -1,7 +1,7 @@
 import logging
 import re
 from abc import abstractmethod
-from collections import defaultdict
+from collections import Counter, defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -13,12 +13,11 @@ from typing import (
     Iterable,
     List,
     Literal,
+    Mapping,
     Optional,
-    Sequence,
     Set,
     Tuple,
     Type,
-    TypedDict,
     Union,
 )
 
@@ -63,6 +62,9 @@ from datahub.ingestion.api.incremental_lineage_helper import (
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.common.semantic_model_gate import (
+    resolve_emit_semantic_model_entities,
+)
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
@@ -157,6 +159,10 @@ from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
+
+# Fallback when the dbt project name cannot be determined; it becomes part of
+# the semanticModel / metric URNs, so it must be stable.
+DEFAULT_PROJECT_NAME = "dbt_project"
 
 
 class _TwoTierSchemaResolver(SchemaResolver):
@@ -368,6 +374,28 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     # Semantic model entity emission statistics
     num_semantic_models_emitted: int = 0
 
+    # First-class semanticModel/metric emission
+    # (emit_semantic_model_entities=true). Kept separate from
+    # num_semantic_models_emitted above, which counts nodes *extracted*.
+    num_semantic_model_entities_emitted: int = 0
+    num_semantic_model_datasets_emitted: int = 0
+    num_semantic_model_relationships_emitted: int = 0
+    num_metrics_emitted: int = 0
+    num_metrics_from_measures: int = 0
+    num_metrics_from_manifest: int = 0
+    num_metrics_without_upstreams: int = 0
+    # Built but not emitted, because the SDK could not represent the entity.
+    # num_metrics_from_measures + num_metrics_from_manifest ==
+    #   num_metrics_emitted + num_metrics_dropped.
+    num_metrics_dropped: int = 0
+    num_semantic_model_datasets_dropped: int = 0
+    semantic_models_skipped: LossyList[str] = field(default_factory=LossyList)
+    semantic_model_relationships_unresolved: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    semantic_model_emission_effective: Optional[bool] = None
+    semantic_model_emission_reason: Optional[str] = None
+
     def record_node_failure(
         self,
         context: str,
@@ -573,6 +601,32 @@ class DBTCommonConfig(
     target_platform_instance: Optional[str] = Field(
         default=None,
         description="The platform instance for the platform that dbt is operating on. Use this if you have multiple instances of the same platform (e.g. redshift) and need to distinguish between them.",
+    )
+    emit_semantic_model_entities: bool = Field(
+        default=False,
+        description="If true, emit dbt semantic models as first-class "
+        "`semanticModel` entities: one `semanticModel` per dbt project, one "
+        "dataset with subtype `Semantic Model Dataset` per dbt semantic model, "
+        "and one `metric` entity per `create_metric` measure and per top-level "
+        "`metrics:` definition (dbt Core only). When false (the default), "
+        "semantic models are emitted as datasets with subtype `Semantic Model`, "
+        "keeping existing URNs stable. Requires a DataHub server new enough to "
+        "have `semanticModel` and `metric` in its entity registry: DataHub "
+        "Cloud 2.1.0 or later, which is checked before emitting, or a "
+        "correspondingly recent OSS server, which is not checked -- so confirm "
+        "the version before enabling this on OSS. Set `METRICS_ENABLED=true` on "
+        "the server for the entities to be visible in the Metrics UI and "
+        "search; ingestion succeeds either way. Re-ingest with stateful "
+        "ingestion enabled so the previous `Semantic Model` datasets are "
+        "soft-deleted.",
+    )
+    semantic_model_project_name: Optional[str] = Field(
+        default=None,
+        description="Overrides the dbt project name used in the `semanticModel` "
+        "and `metric` URNs. By default it is read from "
+        "`manifest.metadata.project_name` (dbt Core) or from the semantic "
+        "models' package name (dbt Cloud). Set this to pin it, since it is part "
+        "of the entity identity and must stay stable across runs.",
     )
     emit_target_platform_instance_aspects: bool = Field(
         default=True,
@@ -797,6 +851,34 @@ class DBTCommonConfig(
 
         return self
 
+    @field_validator("semantic_model_project_name")
+    @classmethod
+    def validate_semantic_model_project_name(cls, v: Optional[str]) -> Optional[str]:
+        # This lands verbatim in semanticModel and metric URNs, where the
+        # reserved characters would produce a malformed urn and an empty value
+        # would silently fall back to inference.
+        if v is None:
+            return None
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError(
+                "semantic_model_project_name must not be blank; omit it to infer "
+                "the project name instead"
+            )
+        # `,` and `)` would terminate the URN's tuple syntax. `.` is rejected
+        # because the Semantic Model Dataset name is `<project>.semantic_layer.
+        # <name>`, which the migration CLI parses by splitting on `.` -- a
+        # dotted project would make ingest's own URNs unparseable there. dbt
+        # requires project names to be letters, digits and underscores anyway.
+        invalid = [c for c in ".,()" if c in stripped]
+        if invalid:
+            raise ValueError(
+                f"semantic_model_project_name must not contain {invalid}; it is "
+                "used verbatim in the semanticModel, metric and Semantic Model "
+                "Dataset URNs"
+            )
+        return stripped
+
     @model_validator(mode="after")
     def validate_skip_sources_in_lineage(self) -> "DBTCommonConfig":
         if self.prefer_sql_parser_lineage and not self.skip_sources_in_lineage:
@@ -842,86 +924,239 @@ class DBTColumn:
     datahub_data_type: Optional[SchemaFieldDataType] = None
 
 
-# Semantic model constants and types
-SEMANTIC_MODEL_UNKNOWN_DATA_TYPE = "UNKNOWN"
+# dbt defaults applied at parse time so the legacy flattened-column
+# representation stays byte-identical to the pre-dataclass `.get(key, default)`
+# behavior. The semantic-model mapper re-normalizes these itself.
+SEMANTIC_ENTITY_TYPE_UNKNOWN = "unknown"
+SEMANTIC_DIMENSION_TYPE_CATEGORICAL = "categorical"
+SEMANTIC_MEASURE_AGG_UNKNOWN = "unknown"
+
+# Entity types that identify a row: valid join targets, and part of the key.
+SEMANTIC_KEY_ENTITY_TYPES = frozenset({"primary", "unique", "natural"})
+# Entity types that reference another semantic model: valid join sources.
+SEMANTIC_JOIN_SOURCE_ENTITY_TYPES = frozenset({"foreign", "unique", "natural"})
+
+SEMANTIC_DIMENSION_TYPE_TIME = "time"
 
 
-class SemanticModelEntity(TypedDict, total=False):
-    """TypedDict for dbt semantic model entity definition."""
-
+@dataclass
+class DBTSemanticEntity:
     name: str
-    type: str  # e.g., "primary", "foreign", "natural"
-    description: str
-    expr: str
+    type: Optional[str]
+    description: Optional[str]
+    expr: Optional[str]
+
+    @property
+    def is_key(self) -> bool:
+        return (self.type or "").lower() in SEMANTIC_KEY_ENTITY_TYPES
+
+    @property
+    def is_join_source(self) -> bool:
+        return (self.type or "").lower() in SEMANTIC_JOIN_SOURCE_ENTITY_TYPES
 
 
-class SemanticModelDimension(TypedDict, total=False):
-    """TypedDict for dbt semantic model dimension definition."""
-
+@dataclass
+class DBTSemanticDimension:
     name: str
-    type: str  # e.g., "categorical", "time"
-    description: str
-    expr: str
-    type_params: Dict[str, Any]  # For time dimensions: time_granularity, etc.
+    type: Optional[str]
+    description: Optional[str]
+    expr: Optional[str]
+    time_granularity: Optional[str] = None
+
+    @property
+    def is_time(self) -> bool:
+        return (self.type or "").lower() == SEMANTIC_DIMENSION_TYPE_TIME
 
 
-class SemanticModelMeasure(TypedDict, total=False):
-    """TypedDict for dbt semantic model measure definition."""
-
+@dataclass
+class DBTSemanticMeasure:
     name: str
-    agg: str  # Aggregation type: sum, count, average, min, max, count_distinct
-    description: str
-    expr: str
-    create_metric: bool
+    agg: Optional[str]
+    description: Optional[str]
+    expr: Optional[str]
+    create_metric: bool = False
+
+
+@dataclass
+class DBTSemanticModelDefinition:
+    entities: List[DBTSemanticEntity] = field(default_factory=list)
+    dimensions: List[DBTSemanticDimension] = field(default_factory=list)
+    measures: List[DBTSemanticMeasure] = field(default_factory=list)
+    # dbt allows declaring `primary_entity` on the semantic model instead of
+    # listing an entity of type `primary`; MetricFlow joins on it either way.
+    primary_entity: Optional[str] = None
+    # Parts of the raw node that could not be read, for the ingestion report.
+    # Empty for every well-formed manifest.
+    discarded: List[str] = field(default_factory=list)
+
+    def is_empty(self) -> bool:
+        return not (self.entities or self.dimensions or self.measures)
+
+
+def _first_present(raw: Mapping[str, Any], *keys: str) -> Any:
+    """Read the first key that is present and non-None.
+
+    The dbt manifest uses snake_case (`type_params`, `create_metric`) while the
+    dbt Cloud Discovery API returns camelCase (`typeParams`, `createMetric`).
+    """
+    for key in keys:
+        value = raw.get(key)
+        if value is not None:
+            return value
+    return None
+
+
+def _optional_str(value: Any) -> Optional[str]:
+    return value if isinstance(value, str) else None
+
+
+def _name_or_blank(
+    raw: Mapping[str, Any], section: str, index: int, discarded: List[str]
+) -> str:
+    name = raw.get("name")
+    if isinstance(name, str) and name.strip():
+        return name
+    discarded.append(f"{section}[{index}] has no usable name")
+    return ""
+
+
+def parse_semantic_model_definition(
+    raw: Mapping[str, Any],
+) -> DBTSemanticModelDefinition:
+    """Parse a raw semantic model node into a typed definition.
+
+    Accepts either a manifest.json `semantic_models` entry or a dbt Cloud
+    Discovery API `semanticModels` node.
+    """
+    discarded: List[str] = []
+    entities = [
+        DBTSemanticEntity(
+            name=_name_or_blank(raw_entity, "entities", index, discarded),
+            # Defaulted here, not at use, to preserve the legacy column
+            # `data_type` strings exactly (see the constants above).
+            type=raw_entity.get("type", SEMANTIC_ENTITY_TYPE_UNKNOWN),
+            description=raw_entity.get("description", ""),
+            expr=_optional_str(raw_entity.get("expr")),
+        )
+        for index, raw_entity in _iter_mappings(
+            raw.get("entities"), "entities", discarded
+        )
+    ]
+
+    dimensions = []
+    for index, raw_dimension in _iter_mappings(
+        raw.get("dimensions"), "dimensions", discarded
+    ):
+        type_params = _first_present(raw_dimension, "type_params", "typeParams")
+        if not isinstance(type_params, Mapping):
+            type_params = {}
+        dimensions.append(
+            DBTSemanticDimension(
+                name=_name_or_blank(raw_dimension, "dimensions", index, discarded),
+                type=raw_dimension.get("type", SEMANTIC_DIMENSION_TYPE_CATEGORICAL),
+                description=raw_dimension.get("description", ""),
+                expr=_optional_str(raw_dimension.get("expr")),
+                time_granularity=_optional_str(
+                    _first_present(type_params, "time_granularity", "timeGranularity")
+                ),
+            )
+        )
+
+    measures = [
+        DBTSemanticMeasure(
+            name=_name_or_blank(raw_measure, "measures", index, discarded),
+            agg=raw_measure.get("agg", SEMANTIC_MEASURE_AGG_UNKNOWN),
+            description=raw_measure.get("description", ""),
+            expr=_optional_str(raw_measure.get("expr")),
+            create_metric=bool(
+                _first_present(raw_measure, "create_metric", "createMetric")
+            ),
+        )
+        for index, raw_measure in _iter_mappings(
+            raw.get("measures"), "measures", discarded
+        )
+    ]
+
+    return DBTSemanticModelDefinition(
+        entities=entities,
+        dimensions=dimensions,
+        measures=measures,
+        primary_entity=_optional_str(
+            _first_present(raw, "primary_entity", "primaryEntity")
+        ),
+        discarded=discarded,
+    )
+
+
+def _iter_mappings(
+    value: Any, section: str, discarded: List[str]
+) -> List[Tuple[int, Mapping[str, Any]]]:
+    """Read a list-of-objects manifest section, recording anything unusable.
+
+    A wrong shape here would previously raise and be reported as a node
+    extraction failure; returning an empty list silently instead would drop
+    every field of that kind with nothing to explain it.
+
+    Yields each item with its index in the *original* list, so a message about
+    one entry points at the entry the author actually wrote.
+    """
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        discarded.append(f"{section} is {type(value).__name__}, expected a list")
+        return []
+    items: List[Tuple[int, Mapping[str, Any]]] = []
+    for index, item in enumerate(value):
+        if isinstance(item, Mapping):
+            items.append((index, item))
+        else:
+            discarded.append(
+                f"{section}[{index}] is {type(item).__name__}, expected an object"
+            )
+    return items
 
 
 def convert_semantic_model_fields_to_columns(
-    entities: Sequence[SemanticModelEntity],
-    dimensions: Sequence[SemanticModelDimension],
-    measures: Sequence[SemanticModelMeasure],
+    definition: DBTSemanticModelDefinition,
 ) -> List[DBTColumn]:
     """Convert semantic model fields to DBTColumn objects for schema display."""
     columns: List[DBTColumn] = []
     index = 0
 
-    for entity in entities:
-        entity_type = entity.get("type", "unknown")
-        description = entity.get("description", "") or f"Entity ({entity_type})"
+    # An unnamed entry cannot become a schema field on either path; it is
+    # already recorded in definition.discarded and reported by the caller.
+    for entity in (e for e in definition.entities if e.name):
         columns.append(
             DBTColumn(
-                name=entity["name"],
+                name=entity.name,
                 comment="",
-                description=description,
+                description=entity.description or f"Entity ({entity.type})",
                 index=index,
-                data_type=f"entity:{entity_type}",
+                data_type=f"entity:{entity.type}",
             )
         )
         index += 1
 
-    for dimension in dimensions:
-        dim_type = dimension.get("type", "categorical")
-        description = dimension.get("description", "") or f"Dimension ({dim_type})"
+    for dimension in (d for d in definition.dimensions if d.name):
         columns.append(
             DBTColumn(
-                name=dimension["name"],
+                name=dimension.name,
                 comment="",
-                description=description,
+                description=dimension.description or f"Dimension ({dimension.type})",
                 index=index,
-                data_type=f"dimension:{dim_type}",
+                data_type=f"dimension:{dimension.type}",
             )
         )
         index += 1
 
-    for measure in measures:
-        agg_type = measure.get("agg", "unknown")
-        description = measure.get("description", "") or f"Measure ({agg_type})"
+    for measure in (m for m in definition.measures if m.name):
         columns.append(
             DBTColumn(
-                name=measure["name"],
+                name=measure.name,
                 comment="",
-                description=description,
+                description=measure.description or f"Measure ({measure.agg})",
                 index=index,
-                data_type=f"measure:{agg_type}",
+                data_type=f"measure:{measure.agg}",
             )
         )
         index += 1
@@ -1104,10 +1339,8 @@ class DBTNode:
 
     owner: Optional[str]
 
-    # Semantic view specific fields (only populated when materialization == 'semantic_view')
-    entities: List[Dict[str, Any]] = field(default_factory=list)
-    dimensions: List[Dict[str, Any]] = field(default_factory=list)
-    measures: List[Dict[str, Any]] = field(default_factory=list)
+    # Populated only for node_type == "semantic_model".
+    semantic_model_def: Optional[DBTSemanticModelDefinition] = None
 
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_nodes: List[str] = field(default_factory=list)  # list of upstream dbt_name
@@ -1280,6 +1513,63 @@ class DBTExposure:
             name=self.unique_id,
             platform_instance=platform_instance,
         ).urn()
+
+
+# dbt metric types. `simple` is also the fallback when `type` is absent.
+METRIC_TYPE_SIMPLE = "simple"
+METRIC_TYPE_RATIO = "ratio"
+METRIC_TYPE_DERIVED = "derived"
+METRIC_TYPE_CONVERSION = "conversion"
+
+# Metric types whose type_params reference other metrics rather than measures.
+METRIC_TYPES_WITH_METRIC_INPUTS = frozenset(
+    {METRIC_TYPE_RATIO, METRIC_TYPE_DERIVED, METRIC_TYPE_CONVERSION}
+)
+
+
+@dataclass(frozen=True)
+class DBTMetricInput:
+    """A measure or metric reference inside a dbt metric's `type_params`.
+
+    dbt >= 1.7 uses ``{"name": ..., "filter": ..., "alias": ...}``; dbt 1.6
+    sometimes uses a bare string.
+    """
+
+    name: str
+
+
+@dataclass
+class DBTMetric:
+    """A dbt metric from the manifest's top-level `metrics` block.
+
+    Separate from ``semantic_models``: a metric aggregates a measure declared
+    on a semantic model, or derives from other metrics.
+    See https://docs.getdbt.com/docs/build/metrics-overview
+    """
+
+    name: str
+    unique_id: str  # e.g. "metric.my_project.revenue"
+    label: Optional[str] = None
+    description: Optional[str] = None
+    type: str = METRIC_TYPE_SIMPLE
+    # type_params.measure + type_params.input_measures
+    measures: List[DBTMetricInput] = field(default_factory=list)
+    # type_params.metrics + metric-valued numerator/denominator
+    input_metrics: List[DBTMetricInput] = field(default_factory=list)
+    expr: Optional[str] = None
+    filter: Optional[str] = None
+    tags: List[str] = field(default_factory=list)
+    depends_on: List[str] = field(default_factory=list)
+    dbt_package_name: Optional[str] = None
+    dbt_file_path: Optional[str] = None
+
+    @property
+    def display_name(self) -> str:
+        return self.label or self.name
+
+    @property
+    def references_metrics(self) -> bool:
+        return self.type in METRIC_TYPES_WITH_METRIC_INPUTS
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -1489,6 +1779,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._query_timestamp_cache: Optional[int] = None
         # Exposures loaded by subclass (manifest or dbt Cloud API)
         self._exposures: List[DBTExposure] = []
+        self._metrics: List[DBTMetric] = []
+        # dbt project name, used in the semanticModel URN. Set by subclasses.
+        self._project_name: Optional[str] = None
+        # Resolved once by _emit_semantic_model_entities; the report
+        # field of the same meaning is descriptive only.
+        self._emit_semantic_models: Optional[bool] = None
         # Cache for upstream existence checks (skip_missing_upstreams_in_lineage)
         self._upstream_exists_cache: Dict[str, bool] = {}
 
@@ -1822,6 +2118,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         """Return dbt exposures. Subclasses populate self._exposures during load."""
         return self._exposures
 
+    def load_metrics(self) -> List[DBTMetric]:
+        """Return dbt metrics. Subclasses populate self._metrics during load."""
+        return self._metrics
+
     def create_exposure_mcps(
         self,
         exposures: List[DBTExposure],
@@ -2016,6 +2316,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         nodes = self._filter_nodes(all_nodes)
         nodes = self._drop_duplicate_sources(nodes)
 
+        semantic_model_nodes: List[DBTNode] = []
+        if self._emit_semantic_model_entities():
+            # Route semantic models to the first-class semanticModel path.
+            # Removing them here excludes them from both the dbt-platform
+            # dataset emission and create_target_platform_mces -- the latter
+            # fabricates a warehouse dataset URN, sibling and lineage for a
+            # YAML-only node (DBTNode.exists_in_target_platform is True for
+            # semantic models), which was never correct.
+            # all_nodes_map intentionally still holds them, since the mapper
+            # needs them to resolve physical upstreams.
+            semantic_model_nodes = [
+                node for node in nodes if node.node_type == "semantic_model"
+            ]
+            nodes = [node for node in nodes if node.node_type != "semantic_model"]
+
         non_test_nodes = [
             dataset_node for dataset_node in nodes if dataset_node.node_type != "test"
         ]
@@ -2053,6 +2368,168 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     f"Creating dbt exposure metadata for {len(exposures)} exposures"
                 )
                 yield from self.create_exposure_mcps(exposures, all_nodes_map)
+
+        if self._emit_semantic_model_entities():
+            yield from self._create_semantic_model_workunits(
+                semantic_model_nodes, all_nodes_map
+            )
+
+    def _emit_semantic_model_entities(self) -> bool:
+        """Resolve the semantic-model emission decision once, then cache it.
+
+        Unlike Snowflake, this does not auto-enable on managed servers: dbt has
+        been emitting semantic models as datasets for a while, and auto-enabling
+        would silently re-mint those URNs on upgrade. The gate is used to refuse
+        an explicit opt-in that the server cannot honour.
+        """
+        if self._emit_semantic_models is not None:
+            return self._emit_semantic_models
+
+        requested = self.config.emit_semantic_model_entities
+        if not requested:
+            self._emit_semantic_models = False
+            self.report.semantic_model_emission_effective = False
+            self.report.semantic_model_emission_reason = (
+                "emit_semantic_model_entities is not enabled"
+            )
+            return False
+
+        decision = resolve_emit_semantic_model_entities(
+            graph=self.ctx.graph, recipe_value=requested
+        )
+        if not decision.enabled:
+            self.report.warning(
+                title="Cannot emit dbt semanticModel/metric entities",
+                message="emit_semantic_model_entities was requested, but this "
+                "DataHub Cloud server will not accept semanticModel and metric "
+                "entities -- see the reason in the context. Emitting semantic "
+                "models as datasets with subtype 'Semantic Model' instead. "
+                "Requires DataHub Cloud 2.1.0 or later with the Metrics feature "
+                "enabled.",
+                context=decision.reason,
+            )
+        self._emit_semantic_models = decision.enabled
+        self.report.semantic_model_emission_effective = decision.enabled
+        self.report.semantic_model_emission_reason = decision.reason
+        return decision.enabled
+
+    def _resolve_semantic_model_project_name(
+        self, semantic_model_nodes: List[DBTNode]
+    ) -> Optional[str]:
+        """Resolve the project name that becomes part of every new URN.
+
+        Returns None when it cannot be determined, which callers must treat as
+        "do not emit": minting entity identity under a generic placeholder
+        would need a hard delete to correct later.
+        """
+        if self.config.semantic_model_project_name:
+            return self.config.semantic_model_project_name
+        if self._project_name:
+            return self._project_name
+
+        # dbt Cloud has no manifest metadata, but the Discovery API returns
+        # packageName for semantic models, which is the project name for
+        # first-party (non-package) models.
+        packages = Counter(
+            node.dbt_package_name
+            for node in semantic_model_nodes
+            if node.dbt_package_name
+        )
+        if len(packages) > 1:
+            # An installed package shipping more semantic models than the root
+            # project would otherwise become the URN identity, and that
+            # identity would churn as the mix changes.
+            self.report.warning(
+                title="Ambiguous dbt project name",
+                message="Semantic models come from more than one dbt package, "
+                "so the project name was inferred from the most common one. Set "
+                "`semantic_model_project_name` to pin it, since it is part of "
+                "the semanticModel and metric URNs and must stay stable.",
+                context=f"packages={sorted(packages)}",
+            )
+        if packages:
+            return packages.most_common(1)[0][0]
+
+        self.report.failure(
+            title="Could not determine the dbt project name",
+            message="No semanticModel, Semantic Model Dataset or metric "
+            "entities were emitted. The project name is part of their URNs, so "
+            "it cannot be defaulted -- entities minted under a placeholder name "
+            "would need a hard delete to correct. Set "
+            "`semantic_model_project_name` in the recipe.",
+            context=f"{len(semantic_model_nodes)} semantic models",
+        )
+        return None
+
+    def _unsupported_semantic_model_config(self) -> List[str]:
+        """Config options that have no effect in semantic-model mode."""
+        candidates = {
+            "include_column_lineage": self.config.include_column_lineage,
+            "column_meta_mapping": bool(self.config.column_meta_mapping),
+            "meta_mapping": bool(self.config.meta_mapping),
+            "infer_dbt_schemas": not self.config.infer_dbt_schemas,
+            "incremental_lineage": self.config.incremental_lineage,
+            "skip_missing_upstreams_in_lineage": (
+                self.config.skip_missing_upstreams_in_lineage
+            ),
+            "dbt_is_primary_sibling": not self.config.dbt_is_primary_sibling,
+        }
+        return sorted(name for name, is_set in candidates.items() if is_set)
+
+    def _create_semantic_model_workunits(
+        self,
+        semantic_model_nodes: List[DBTNode],
+        all_nodes_map: Dict[str, DBTNode],
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self.config.entities_enabled.can_emit_semantic_models:
+            self.report.warning(
+                title="emit_semantic_model_entities has no effect",
+                message="`entities_enabled.semantic_models` is not set to YES, "
+                "so no semanticModel, Semantic Model Dataset or metric entities "
+                "will be emitted.",
+            )
+            return
+
+        metric_definitions = self.load_metrics()
+        if not semantic_model_nodes and not metric_definitions:
+            return
+
+        unsupported = self._unsupported_semantic_model_config()
+        if unsupported:
+            self.report.info(
+                title="Some config options do not apply in semantic-model mode",
+                message="These options are set but are not applied to "
+                "semanticModel, Semantic Model Dataset or metric entities. "
+                "Semantic-model datasets carry coarse upstream lineage to the "
+                "dbt nodes they are built on; no siblings, no column-level "
+                "lineage and no meta-derived tags, terms or owners.",
+                context=", ".join(unsupported),
+            )
+        logger.info(
+            f"Creating dbt semantic model metadata for "
+            f"{len(semantic_model_nodes)} semantic models and "
+            f"{len(metric_definitions)} metrics"
+        )
+        # Imported lazily: dbt_semantic_model imports DBTNode, DBTCommonConfig
+        # and DBTSourceReport from this module, so a top-level import cycles.
+        from datahub.ingestion.source.dbt.dbt_semantic_model import (
+            DbtSemanticModelMapper,
+        )
+
+        project_name = self._resolve_semantic_model_project_name(semantic_model_nodes)
+        if project_name is None:
+            return
+
+        mapper = DbtSemanticModelMapper(
+            config=self.config,
+            report=self.report,
+            project_name=project_name,
+        )
+        yield from mapper.emit(
+            semantic_model_nodes=semantic_model_nodes,
+            metric_definitions=metric_definitions,
+            all_nodes_map=all_nodes_map,
+        )
 
     def _is_allowed_node(self, node: DBTNode) -> bool:
         """

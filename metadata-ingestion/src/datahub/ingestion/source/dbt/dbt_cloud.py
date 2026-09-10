@@ -38,11 +38,14 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
     DBTExposure,
+    DBTMetric,
     DBTNode,
+    DBTSemanticModelDefinition,
     DBTSourceBase,
     DBTSourceReport,
     convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
+    parse_semantic_model_definition,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
@@ -744,8 +747,16 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     else:
                         raw_nodes.extend(data["job"][node_type])
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to fetch {node_type} from job {job_id}: {e}. Continuing with other jobs."
+                    # A GraphQL failure here silently drops an entire node
+                    # type -- every semantic model, say -- so it must be
+                    # operator-visible in the report, not just in the log.
+                    self.report.warning(
+                        title="Failed to fetch dbt Cloud nodes",
+                        message="No metadata was ingested for this node type "
+                        "from this job. Ingestion continued with the other "
+                        "node types and jobs.",
+                        context=f"{node_type} from job {job_id}",
+                        exc=e,
                     )
                     continue
 
@@ -861,6 +872,27 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             )
         return test_info, test_result
 
+    def load_metrics(self) -> List[DBTMetric]:
+        """dbt Cloud cannot supply top-level `metrics:` definitions yet.
+
+        The Discovery API does not expose the semantic graph; metric
+        definitions with their expressions and derivations live in the
+        separate Semantic Layer GraphQL API, which needs its own endpoint and
+        a token carrying the "Semantic Layer Only" permission set. Metrics
+        from `create_metric` measures are unaffected -- those come from the
+        semanticModels query, which already selects `createMetric`.
+        """
+        # Only reached from behind the resolved gate, so no config check here:
+        # checking the raw value would also fire when the gate refused.
+        self.report.info(
+            title="dbt Cloud does not ingest top-level metric definitions",
+            message="Metrics declared in a `metrics:` block are not ingested "
+            "from dbt Cloud, because the Discovery API does not expose them. "
+            "Metrics from measures with `create_metric: true` are ingested as "
+            "normal. Use the dbt Core source if you need the `metrics:` block.",
+        )
+        return super().load_metrics()
+
     def _parse_into_dbt_node(self, node: Dict) -> DBTNode:
         key = node["uniqueId"]
         resource_type = node["resourceType"]
@@ -939,16 +971,18 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     )
 
         columns: List[DBTColumn] = []
+        semantic_model_def: Optional[DBTSemanticModelDefinition] = None
         if resource_type == "semantic_model":
-            # For semantic models, convert entities/dimensions/measures to columns
-            entities = node.get("entities", [])
-            dimensions = node.get("dimensions", [])
-            measures = node.get("measures", [])
-            columns = convert_semantic_model_fields_to_columns(
-                entities=entities,
-                dimensions=dimensions,
-                measures=measures,
-            )
+            semantic_model_def = parse_semantic_model_definition(node)
+            if semantic_model_def.discarded:
+                self.report.warning(
+                    title="Could not read part of a dbt semantic model",
+                    message="Some entities, dimensions or measures were skipped "
+                    "because the Discovery API response did not have the "
+                    "expected shape. The emitted schema is incomplete.",
+                    context=f"{key}: {'; '.join(semantic_model_def.discarded)}",
+                )
+            columns = convert_semantic_model_fields_to_columns(semantic_model_def)
         elif "columns" in node and node["columns"] is not None:
             # columns will be empty for ephemeral models
             columns = list(
@@ -996,6 +1030,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             test_results=[test_result] if test_result else [],
             model_performances=[],  # TODO: support model performance with dbt Cloud
             freshness_info=freshness_info,
+            semantic_model_def=semantic_model_def,
         )
 
     def _parse_into_dbt_column(

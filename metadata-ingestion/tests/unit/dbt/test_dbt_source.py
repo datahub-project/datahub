@@ -14,17 +14,16 @@ from datahub.ingestion.source.dbt import dbt_cloud
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
+    DBTCommonConfig,
     DBTEntitiesEnabled,
     DBTExposure,
     DBTNode,
     DBTSourceReport,
     EmitDirective,
     NullTypeClass,
-    SemanticModelDimension,
-    SemanticModelEntity,
-    SemanticModelMeasure,
     convert_semantic_model_fields_to_columns,
     get_column_type,
+    parse_semantic_model_definition,
     parse_semantic_view_cll,
 )
 from datahub.ingestion.source.dbt.dbt_core import (
@@ -32,6 +31,7 @@ from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreSource,
     extract_dbt_entities,
     extract_dbt_exposures,
+    extract_dbt_metrics,
     extract_semantic_models,
     load_run_results,
     parse_dbt_timestamp,
@@ -3474,20 +3474,36 @@ def test_extract_catalog_stats_partial_only_row_count() -> None:
 
 def test_convert_semantic_model_fields_to_columns_basic():
     """Test converting semantic model entities, dimensions, and measures to columns."""
-    entities: list[SemanticModelEntity] = [
-        {"name": "order_id", "type": "primary", "description": "Primary order key"},
-        {"name": "customer_id", "type": "foreign", "description": ""},
-    ]
-    dimensions: list[SemanticModelDimension] = [
-        {"name": "order_date", "type": "time", "description": "When order was placed"},
-        {"name": "status", "type": "categorical", "description": ""},
-    ]
-    measures: list[SemanticModelMeasure] = [
-        {"name": "total_revenue", "agg": "sum", "description": "Sum of order amounts"},
-        {"name": "order_count", "agg": "count", "description": ""},
-    ]
+    definition = parse_semantic_model_definition(
+        {
+            "entities": [
+                {
+                    "name": "order_id",
+                    "type": "primary",
+                    "description": "Primary order key",
+                },
+                {"name": "customer_id", "type": "foreign", "description": ""},
+            ],
+            "dimensions": [
+                {
+                    "name": "order_date",
+                    "type": "time",
+                    "description": "When order was placed",
+                },
+                {"name": "status", "type": "categorical", "description": ""},
+            ],
+            "measures": [
+                {
+                    "name": "total_revenue",
+                    "agg": "sum",
+                    "description": "Sum of order amounts",
+                },
+                {"name": "order_count", "agg": "count", "description": ""},
+            ],
+        }
+    )
 
-    columns = convert_semantic_model_fields_to_columns(entities, dimensions, measures)
+    columns = convert_semantic_model_fields_to_columns(definition)
 
     assert len(columns) == 6
 
@@ -3510,17 +3526,17 @@ def test_convert_semantic_model_fields_to_columns_basic():
 
 def test_convert_semantic_model_fields_empty_descriptions():
     """Test default description generation when descriptions are empty."""
-    entities: list[SemanticModelEntity] = [
-        {"name": "id", "type": "primary", "description": ""},
-    ]
-    dimensions: list[SemanticModelDimension] = [
-        {"name": "category", "type": "categorical", "description": ""},
-    ]
-    measures: list[SemanticModelMeasure] = [
-        {"name": "total", "agg": "sum", "description": ""},
-    ]
+    definition = parse_semantic_model_definition(
+        {
+            "entities": [{"name": "id", "type": "primary", "description": ""}],
+            "dimensions": [
+                {"name": "category", "type": "categorical", "description": ""}
+            ],
+            "measures": [{"name": "total", "agg": "sum", "description": ""}],
+        }
+    )
 
-    columns = convert_semantic_model_fields_to_columns(entities, dimensions, measures)
+    columns = convert_semantic_model_fields_to_columns(definition)
 
     assert len(columns) == 3
 
@@ -3679,6 +3695,71 @@ def test_extract_semantic_models_basic():
     # Check tags have prefix
     assert "dbt:metrics" in node.tags
     assert "dbt:orders" in node.tags
+
+    # The typed definition is retained alongside the flattened columns; the
+    # first-class semanticModel path reads it instead of the columns.
+    definition = node.semantic_model_def
+    assert definition is not None
+    assert [e.name for e in definition.entities] == ["order_id"]
+    assert definition.entities[0].is_key
+    assert definition.dimensions[0].is_time
+    assert definition.dimensions[0].time_granularity is None
+    assert definition.measures[0].agg == "sum"
+    assert not definition.measures[0].create_metric
+
+
+def test_parse_semantic_model_definition_camel_and_snake_case_agree():
+    """dbt Core sends snake_case; the dbt Cloud Discovery API sends camelCase."""
+    snake = parse_semantic_model_definition(
+        {
+            "primary_entity": "orders",
+            "dimensions": [
+                {
+                    "name": "ordered_at",
+                    "type": "time",
+                    "type_params": {"time_granularity": "day"},
+                }
+            ],
+            "measures": [
+                {"name": "revenue", "agg": "sum", "create_metric": True},
+            ],
+        }
+    )
+    camel = parse_semantic_model_definition(
+        {
+            "primaryEntity": "orders",
+            "dimensions": [
+                {
+                    "name": "ordered_at",
+                    "type": "time",
+                    "typeParams": {"timeGranularity": "day"},
+                }
+            ],
+            "measures": [
+                {"name": "revenue", "agg": "sum", "createMetric": True},
+            ],
+        }
+    )
+
+    assert snake == camel
+    assert snake.primary_entity == "orders"
+    assert snake.dimensions[0].time_granularity == "day"
+    assert snake.measures[0].create_metric
+
+
+def test_parse_semantic_model_definition_tolerates_missing_and_empty_sections():
+    """dbt Cloud returns `typeParams: {}` and omits sections entirely."""
+    definition = parse_semantic_model_definition(
+        {"dimensions": [{"name": "status", "type": "categorical", "typeParams": {}}]}
+    )
+
+    assert definition.entities == []
+    assert definition.measures == []
+    assert definition.primary_entity is None
+    assert definition.dimensions[0].time_granularity is None
+    assert not definition.dimensions[0].is_time
+    assert not definition.is_empty()
+    assert parse_semantic_model_definition({}).is_empty()
 
 
 def test_extract_semantic_models_fallback_to_depends_on():
@@ -4570,3 +4651,221 @@ def test_load_file_as_json_handles_utf8_bom():
         assert DBTCoreSource.load_file_as_json(
             "https://example.com/manifest.json", None
         ) == {"nodes": {}}
+
+
+def _semantic_model_source(**config_overrides: Any) -> DBTCoreSource:
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config_dict = create_base_dbt_config()
+    config_dict.update(config_overrides)
+    return DBTCoreSource(DBTCoreConfig(**config_dict), ctx)
+
+
+def test_emit_semantic_model_entities_defaults_to_off():
+    """Existing semantic-model dataset URNs must stay stable by default."""
+    source = _semantic_model_source()
+    assert source._emit_semantic_model_entities() is False
+    assert source.report.semantic_model_emission_effective is False
+
+
+def test_emit_semantic_model_entities_enabled_without_a_graph():
+    """OSS semantics: an explicit recipe opt-in is honoured with no graph."""
+    source = _semantic_model_source(emit_semantic_model_entities=True)
+    assert source._emit_semantic_model_entities() is True
+    assert source.report.semantic_model_emission_reason is not None
+
+
+def test_semantic_models_stay_datasets_when_the_server_refuses():
+    """The "I turned it on and nothing happened" path must still emit datasets."""
+    source = _semantic_model_source(emit_semantic_model_entities=True)
+    graph = mock.MagicMock()
+    graph.server_config.is_datahub_cloud = True
+    graph.server_config.service_version = "0.3.1"
+    # The gate vetoes on this, so a server too old to have the entity types
+    # falls back rather than emitting aspects it would reject.
+    graph.server_config.supports_feature.return_value = False
+    source.ctx.graph = graph
+
+    assert source._emit_semantic_model_entities() is False
+    assert source.report.semantic_model_emission_effective is False
+    assert any(
+        w.title == "Cannot emit dbt semanticModel/metric entities"
+        for w in source.report.warnings
+    )
+
+
+def test_resolve_semantic_model_project_name_precedence():
+    """Config override beats the manifest, which beats the package name."""
+    source = _semantic_model_source(semantic_model_project_name="pinned")
+    source._project_name = "from_manifest"
+    assert source._resolve_semantic_model_project_name([]) == "pinned"
+
+    source = _semantic_model_source()
+    source._project_name = "from_manifest"
+    assert source._resolve_semantic_model_project_name([]) == "from_manifest"
+
+
+def test_resolve_semantic_model_project_name_falls_back_to_the_package_name():
+    """dbt Cloud has no manifest metadata, but does return packageName."""
+    source = _semantic_model_source()
+    nodes = [
+        _make_semantic_model_node("orders", package_name="jaffle_shop"),
+        _make_semantic_model_node("customers", package_name="jaffle_shop"),
+    ]
+    assert source._resolve_semantic_model_project_name(nodes) == "jaffle_shop"
+    assert source.report.warnings == []
+
+
+def test_multiple_dbt_packages_warns_that_the_project_name_is_inferred():
+    """An installed package must not silently become the URN identity."""
+    source = _semantic_model_source()
+    nodes = [
+        _make_semantic_model_node("orders", package_name="jaffle_shop"),
+        _make_semantic_model_node("customers", package_name="jaffle_shop"),
+        _make_semantic_model_node("vendored", package_name="some_package"),
+    ]
+    assert source._resolve_semantic_model_project_name(nodes) == "jaffle_shop"
+    assert any(w.title == "Ambiguous dbt project name" for w in source.report.warnings)
+
+
+def test_undeterminable_project_name_is_a_failure_and_emits_nothing():
+    """URNs minted under a placeholder would need a hard delete to correct."""
+    source = _semantic_model_source()
+    assert source._resolve_semantic_model_project_name([]) is None
+    assert any(
+        f.title == "Could not determine the dbt project name"
+        for f in source.report.failures
+    )
+
+
+def _make_semantic_model_node(name: str, *, package_name: str) -> DBTNode:
+    return DBTNode(
+        database="analytics",
+        schema="public",
+        name=name,
+        alias=name,
+        dbt_name=f"semantic_model.{package_name}.{name}",
+        dbt_adapter="snowflake",
+        node_type="semantic_model",
+        max_loaded_at=None,
+        materialization=None,
+        comment="",
+        description="",
+        dbt_file_path=None,
+        catalog_type=None,
+        language="yaml",
+        raw_code=None,
+        dbt_package_name=package_name,
+        missing_from_catalog=False,
+        owner=None,
+        semantic_model_def=parse_semantic_model_definition(
+            {
+                "entities": [{"name": f"{name}_id", "type": "primary"}],
+                "measures": [{"name": "total", "agg": "sum"}],
+            }
+        ),
+    )
+
+
+def test_unreadable_semantic_model_sections_are_reported_not_dropped():
+    """A wrong manifest shape used to raise; silently emptying is worse."""
+    source = _semantic_model_source()
+    nodes = extract_semantic_models(
+        manifest_semantic_models={
+            "semantic_model.p.broken": {
+                "name": "broken",
+                "entities": "not-a-list",
+                "dimensions": [{"name": "ok", "type": "categorical"}, "junk"],
+                "measures": [{"agg": "sum"}],
+                "node_relation": {"database": "d", "schema": "s"},
+            }
+        },
+        manifest_nodes={},
+        manifest_adapter="postgres",
+        tag_prefix="dbt:",
+        report=source.report,
+    )
+
+    assert len(nodes) == 1
+    warning = next(
+        w
+        for w in source.report.warnings
+        if w.title == "Could not read part of a dbt semantic model"
+    )
+    context = " ".join(warning.context)
+    assert "entities is str, expected a list" in context
+    assert "dimensions[1] is str, expected an object" in context
+    assert "measures[0] has no usable name" in context
+
+
+def test_a_semantic_model_field_without_a_name_does_not_abort_the_run():
+    """Every neighbouring field is read defensively; this one raised KeyError."""
+    definition = parse_semantic_model_definition(
+        {"entities": [{"type": "primary"}], "measures": [{"name": "m", "agg": "sum"}]}
+    )
+
+    assert definition.entities[0].name == ""
+    assert definition.discarded == ["entities[0] has no usable name"]
+
+
+def test_manifest_load_wires_the_report_into_semantic_model_extraction():
+    """The report kwarg was added to the function but not to the call site.
+
+    Asserting through loadManifestAndCatalog rather than by calling
+    extract_semantic_models directly, which is what let the dead wiring pass.
+    """
+    import inspect
+
+    source_lines = inspect.getsource(DBTCoreSource.loadManifestAndCatalog)
+    call = source_lines.split("extract_semantic_models(")[1].split(")")[0]
+    assert "report=self.report" in call
+
+
+def test_two_top_level_metrics_sharing_a_name_emit_one_metric():
+    """Distinct from the measure-shadowing case, which has its own warning."""
+    from datahub.ingestion.source.dbt.dbt_semantic_model import DbtSemanticModelMapper
+
+    node = _make_semantic_model_node("orders", package_name="p")
+    mapper = DbtSemanticModelMapper(
+        config=DBTCommonConfig.model_validate({"target_platform": "postgres"}),
+        report=DBTSourceReport(),
+        project_name="p",
+    )
+    metrics = extract_dbt_metrics(
+        {
+            "metric.p.a_revenue": {
+                "name": "Revenue",
+                "label": "A",
+                "description": "",
+                "type": "simple",
+                "type_params": {},
+            },
+            "metric.p.b_revenue": {
+                "name": "revenue",
+                "label": "B",
+                "description": "",
+                "type": "simple",
+                "type_params": {},
+            },
+        },
+        "dbt:",
+    )
+
+    workunits = list(
+        mapper.emit(
+            semantic_model_nodes=[node],
+            metric_definitions=metrics,
+            all_nodes_map={node.dbt_name: node},
+        )
+    )
+
+    metric_urns = set()
+    for wu in workunits:
+        urn = getattr(wu.metadata, "entityUrn", None)
+        if isinstance(urn, str) and urn.startswith("urn:li:metric:"):
+            metric_urns.add(urn)
+    assert len(metric_urns) == 1
+    assert any(w.title == "Duplicate dbt metric name" for w in mapper.report.warnings)
+    # Counted once, and not against the measure bucket.
+    assert mapper.report.num_metrics_from_manifest == 1
+    assert mapper.report.num_metrics_from_measures == 0
+    assert mapper.report.num_metrics_emitted == 1

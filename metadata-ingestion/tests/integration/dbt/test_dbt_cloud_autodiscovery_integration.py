@@ -8,7 +8,7 @@ Tests focus on:
 - Comparison between explicit and auto-discovery modes
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Set
 from unittest import mock
 
 import pytest
@@ -851,3 +851,221 @@ class TestSourceFreshnessExtraction:
         source_nodes = [n for n in nodes if n.node_type == "source"]
         assert len(source_nodes) == 2
         assert all(n.freshness_info is not None for n in source_nodes)
+
+
+@pytest.fixture
+def mock_graphql_response_with_joined_semantic_models() -> Dict[str, Any]:
+    """Two semantic models joined by a shared entity name.
+
+    `orders.customer_id` is foreign and `customers.customer_id` is primary,
+    which is what MetricFlow joins on. Kept separate from
+    mock_graphql_response so the node counts asserted there stay stable.
+    """
+    return {
+        "job": {
+            "models": [],
+            "sources": [],
+            "seeds": [],
+            "snapshots": [],
+            "tests": [],
+            "exposures": [],
+            "semanticModels": [
+                {
+                    "uniqueId": "semantic_model.test_project.orders",
+                    "name": "orders",
+                    "description": "Orders semantic model",
+                    "resourceType": "semantic_model",
+                    "packageName": "test_project",
+                    "database": "db",
+                    "schema": "sc",
+                    "meta": {},
+                    "tags": [],
+                    "dependsOn": [],
+                    "entities": [
+                        {"name": "order_id", "type": "primary", "expr": None},
+                        {"name": "customer_id", "type": "foreign", "expr": None},
+                    ],
+                    "dimensions": [
+                        {
+                            "name": "ordered_at",
+                            "type": "time",
+                            "expr": None,
+                            # camelCase, as the Discovery API returns it.
+                            "typeParams": {"timeGranularity": "day"},
+                        }
+                    ],
+                    "measures": [
+                        {
+                            "name": "order_total",
+                            "agg": "sum",
+                            "description": "Revenue",
+                            "expr": None,
+                            "createMetric": True,
+                        }
+                    ],
+                },
+                {
+                    "uniqueId": "semantic_model.test_project.customers",
+                    "name": "customers",
+                    "description": "Customers semantic model",
+                    "resourceType": "semantic_model",
+                    "packageName": "test_project",
+                    "database": "db",
+                    "schema": "sc",
+                    "meta": {},
+                    "tags": [],
+                    "dependsOn": [],
+                    "entities": [
+                        {"name": "customer_id", "type": "primary", "expr": None}
+                    ],
+                    "dimensions": [
+                        {"name": "country", "type": "categorical", "expr": None}
+                    ],
+                    "measures": [],
+                },
+            ],
+        }
+    }
+
+
+class TestDbtCloudSemanticModelEntities:
+    """dbt Cloud inherits semanticModel emission via the shared dbt_common path."""
+
+    @staticmethod
+    def _emitted_urns(source: DBTCloudSource) -> Set[str]:
+        urns: Set[str] = set()
+        for wu in source.get_workunits():
+            urn = getattr(wu.metadata, "entityUrn", None)
+            if isinstance(urn, str):
+                urns.add(urn)
+        return urns
+
+    @staticmethod
+    def _source(
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+        response: Dict[str, Any],
+        **config_overrides: Any,
+    ) -> DBTCloudSource:
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [DBTCloudJob(id=100, generate_docs=True)]
+        mock_graphql.return_value = response
+
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            auto_discovery=AutoDiscoveryConfig(enabled=True),
+            target_platform="snowflake",
+            # PATCH would require a graph client, which these tests do not have.
+            write_semantics="OVERRIDE",
+            **config_overrides,
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        return DBTCloudSource(config, ctx)
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_semantic_model_entities_emitted_when_flag_enabled(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+        mock_graphql_response_with_joined_semantic_models: Dict[str, Any],
+    ) -> None:
+        source = self._source(
+            mock_get_envs,
+            mock_get_jobs,
+            mock_graphql,
+            mock_graphql_response_with_joined_semantic_models,
+            emit_semantic_model_entities=True,
+        )
+
+        urns = self._emitted_urns(source)
+
+        # dbt Cloud has no manifest metadata, so the project name comes from
+        # the semantic models' packageName.
+        assert (
+            "urn:li:semanticModel:"
+            "(urn:li:dataPlatform:dbt,test_project,semantic_layer)" in urns
+        )
+        assert (
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,test_project.semantic_layer.orders,PROD)"
+            in urns
+        )
+        assert (
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,test_project.semantic_layer.customers,PROD)"
+            in urns
+        )
+        # createMetric is already in the Discovery API selection set.
+        assert (
+            "urn:li:metric:(urn:li:dataPlatform:dbt,test_project,order_total)" in urns
+        )
+        # The phantom warehouse dataset for a YAML-only node must be gone.
+        assert not any("dataPlatform:snowflake" in urn for urn in urns)
+
+        assert source.report.num_semantic_model_entities_emitted == 1
+        assert source.report.num_semantic_model_datasets_emitted == 2
+        assert source.report.num_semantic_model_relationships_emitted == 1
+        assert source.report.num_metrics_from_measures == 1
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_semantic_models_stay_datasets_when_flag_disabled(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+        mock_graphql_response_with_joined_semantic_models: Dict[str, Any],
+    ) -> None:
+        source = self._source(
+            mock_get_envs,
+            mock_get_jobs,
+            mock_graphql,
+            mock_graphql_response_with_joined_semantic_models,
+        )
+
+        urns = self._emitted_urns(source)
+
+        assert not any(urn.startswith("urn:li:semanticModel:") for urn in urns)
+        assert not any(urn.startswith("urn:li:metric:") for urn in urns)
+        assert "urn:li:dataset:(urn:li:dataPlatform:dbt,db.sc.orders,PROD)" in urns
+        assert source.report.num_semantic_model_entities_emitted == 0
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_graphql_fetch_failure_is_reported_not_only_logged(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+        mock_graphql_response_with_joined_semantic_models: Dict[str, Any],
+    ) -> None:
+        """A failed node-type fetch silently drops every node of that type."""
+        source = self._source(
+            mock_get_envs,
+            mock_get_jobs,
+            mock_graphql,
+            mock_graphql_response_with_joined_semantic_models,
+            emit_semantic_model_entities=True,
+        )
+
+        def fail_semantic_models(query: str, variables: Dict[str, Any]) -> Any:
+            if "semanticModels" in query:
+                raise ValueError("transport blew up")
+            return mock_graphql_response_with_joined_semantic_models
+
+        mock_graphql.side_effect = fail_semantic_models
+
+        list(source.get_workunits())
+
+        assert any(
+            w.title == "Failed to fetch dbt Cloud nodes" for w in source.report.warnings
+        )

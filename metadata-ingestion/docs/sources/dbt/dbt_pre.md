@@ -276,7 +276,7 @@ To create HMAC keys, see the [GCS HMAC key documentation](https://cloud.google.c
 The artifacts used by this source are:
 
 - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json) — **required**
-  - Models, sources, seeds, snapshots, tests, exposures, semantic models, and lineage.
+  - Models, sources, seeds, snapshots, tests, exposures, semantic models, metrics, and lineage.
   - The manifest is the source of truth for which nodes and tests are active. Tests disabled in the manifest (via `enabled: false` or the `--exclude` flag) are excluded from DataHub even if they appear in `run_results.json`.
 - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json) — optional but recommended
   - Column schemas and table statistics. Generate it with `dbt docs generate`.
@@ -291,23 +291,24 @@ The artifacts used by this source are:
 
 The table below summarizes the DataHub entities and aspects produced from each artifact. Several of these outputs have dedicated sections on this page (dataset statistics, query entities, exposures, semantic models, and `meta_mapping`).
 
-| Artifact           | DataHub entity · aspect                                                       | What it captures                                                                                                                |
-| ------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `manifest.json`    | Dataset · DatasetProperties                                                   | Name, description, and dbt metadata (materialization, package, file path, unique id, dbt version, adapter) as custom properties |
-|                    | Dataset · SubTypes                                                            | dbt resource type: `Model`, `Source`, `Seed`, or `Snapshot`                                                                     |
-|                    | Dataset · UpstreamLineage                                                     | Table lineage from `depends_on.nodes`; column-level lineage from parsed SQL when available                                      |
-|                    | Dataset · ViewProperties                                                      | Raw and compiled SQL                                                                                                            |
-|                    | Dataset · Ownership, GlobalTags, GlossaryTerms, Domains, StructuredProperties | Owners and tags from `meta`/`config`; terms, domains, and structured properties via `meta_mapping`/`column_meta_mapping`        |
-|                    | Assertion · AssertionInfo                                                     | Test definitions and parameters                                                                                                 |
-|                    | Dashboard                                                                     | dbt exposures (dashboards, notebooks, ML models, applications) with upstream lineage                                            |
-|                    | Dataset (Semantic Model)                                                      | dbt semantic models (dbt 1.6+): entities, dimensions, and measures                                                              |
-|                    | Query                                                                         | Queries defined in a model's `meta.queries`                                                                                     |
-| `catalog.json`     | Dataset · SchemaMetadata                                                      | Column names, types, comments, and descriptions                                                                                 |
-|                    | Dataset · DatasetProfile                                                      | Table statistics: row count, size, and column count                                                                             |
-| `sources.json`     | Dataset · SchemaMetadata (`lastModified`)                                     | Source freshness timestamp (`max_loaded_at`)                                                                                    |
-|                    | Assertion                                                                     | Source freshness checks, as freshness assertions                                                                                |
-| `run_results.json` | Assertion · AssertionRunEvent                                                 | Test run status, timing, failure count, and failure messages                                                                    |
-|                    | DataProcessInstance                                                           | Model run performance: status, start/end times, and run id (dbt Core only)                                                      |
+| Artifact           | DataHub entity · aspect                                                       | What it captures                                                                                                                                               |
+| ------------------ | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `manifest.json`    | Dataset · DatasetProperties                                                   | Name, description, and dbt metadata (materialization, package, file path, unique id, dbt version, adapter) as custom properties                                |
+|                    | Dataset · SubTypes                                                            | dbt resource type: `Model`, `Source`, `Seed`, or `Snapshot`                                                                                                    |
+|                    | Dataset · UpstreamLineage                                                     | Table lineage from `depends_on.nodes`; column-level lineage from parsed SQL when available                                                                     |
+|                    | Dataset · ViewProperties                                                      | Raw and compiled SQL                                                                                                                                           |
+|                    | Dataset · Ownership, GlobalTags, GlossaryTerms, Domains, StructuredProperties | Owners and tags from `meta`/`config`; terms, domains, and structured properties via `meta_mapping`/`column_meta_mapping`                                       |
+|                    | Assertion · AssertionInfo                                                     | Test definitions and parameters                                                                                                                                |
+|                    | Dashboard                                                                     | dbt exposures (dashboards, notebooks, ML models, applications) with upstream lineage                                                                           |
+|                    | Dataset (Semantic Model)                                                      | dbt semantic models (dbt 1.6+): entities, dimensions, and measures, as a dataset with flattened columns                                                        |
+|                    | SemanticModel · Dataset (Semantic Model Dataset) · Metric                     | The same semantic models as first-class entities, plus metrics from `create_metric` measures and the `metrics:` block. Requires `emit_semantic_model_entities` |
+|                    | Query                                                                         | Queries defined in a model's `meta.queries`                                                                                                                    |
+| `catalog.json`     | Dataset · SchemaMetadata                                                      | Column names, types, comments, and descriptions                                                                                                                |
+|                    | Dataset · DatasetProfile                                                      | Table statistics: row count, size, and column count                                                                                                            |
+| `sources.json`     | Dataset · SchemaMetadata (`lastModified`)                                     | Source freshness timestamp (`max_loaded_at`)                                                                                                                   |
+|                    | Assertion                                                                     | Source freshness checks, as freshness assertions                                                                                                               |
+| `run_results.json` | Assertion · AssertionRunEvent                                                 | Test run status, timing, failure count, and failure messages                                                                                                   |
+|                    | DataProcessInstance                                                           | Model run performance: status, start/end times, and run id (dbt Core only)                                                                                     |
 
 **Recommended workflow for dbt build and DataHub ingestion:**
 
