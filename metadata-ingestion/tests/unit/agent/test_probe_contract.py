@@ -200,6 +200,7 @@ _CONFIG_HOOKS = frozenset(
         "probe_filter_target",
         "probe_schema_verdict_override",
         "probe_prepare_engine",
+        "probe_unfiltered_kinds",
     }
 )
 
@@ -358,48 +359,68 @@ def _probe_capable_configs():
     return out
 
 
-def test_which_declared_kinds_resolve_to_no_filter_field():
-    """A kind an agent can ask about that resolves to no pattern field.
+def test_every_declared_kind_either_filters_or_says_it_does_not():
+    """No kind may resolve to nothing by accident.
 
-    `probe filter --kind X` then answers "everything included" for X. That is
-    correct when the source genuinely filters nothing at that level -- Mode has
-    no dataset or query filter -- and a confidently wrong verdict when the
-    annotation merely rotted away, which is what happened to Teradata's
-    database_pattern. **The two are indistinguishable from here**: UNFILTERED is
-    a framework sentinel and no connector can declare it, so "deliberately
-    unfiltered" and "the annotation evaporated" produce the same silence.
+    `probe filter --kind X` reports every name included when it can find no
+    pattern field, and that is the right answer when the source genuinely
+    filters nothing at that level -- Mode filters spaces and reports, and
+    nothing below them. It is a confidently wrong answer when a filter exists
+    and its annotation was dropped, which is what happened to Teradata's
+    database_pattern: pydantic v2 replaces the annotation when a subclass
+    redeclares the field.
 
-    Until a connector can say which it means, this list is the difference. Every
-    entry has been looked at once; a new one cannot appear without someone
-    adding it here and deciding which case it is.
+    The two were indistinguishable, so this was a hand-maintained list of which
+    was which. A source can now say `probe_unfiltered_kinds()`, so the list is
+    replaced by the rule it was standing in for.
     """
     from datahub.ingestion.agent.introspect import (
         _pattern_field_for_config_class,
         declared_kinds_for_class,
+        declared_unfiltered_kinds,
     )
 
-    # Mode filters spaces and reports, and nothing below them -- there is no
-    # dataset or query pattern to resolve to, deliberately.
-    known_unfiltered = {"mode": ["Dataset", "Query"]}
-
-    unresolved: Dict[str, List[str]] = {}
+    silent: Dict[str, List[str]] = {}
     checked = 0
     for source_type, config_cls in _probe_capable_configs():
+        unfiltered = declared_unfiltered_kinds(config_cls)
         for kind in sorted(declared_kinds_for_class(source_type, config_cls)):
             checked += 1
+            if kind in unfiltered:
+                continue
             if _pattern_field_for_config_class(config_cls, kind) is None:
-                unresolved.setdefault(source_type, []).append(kind)
+                silent.setdefault(source_type, []).append(kind)
 
-    assert unresolved == known_unfiltered, (
-        "the set of declared kinds with no filter field changed.\n"
-        f"  now:      {unresolved}\n"
-        f"  expected: {known_unfiltered}\n"
-        "A new entry is either a level the source really does not filter (add it "
-        "here) or an annotation that got dropped -- pydantic v2 replaces the "
-        "annotation when a subclass redeclares an inherited field, which is how "
-        "Teradata lost Filters(Database) without anything failing."
+    assert not silent, (
+        "these kinds resolve to no filter field and are not declared "
+        f"unfiltered:\n  {silent}\n"
+        "Either the field lost its Filters(...) annotation -- pydantic v2 drops "
+        "it when a subclass redeclares an inherited field -- or the source "
+        "really does not filter that level, in which case say so with "
+        "probe_unfiltered_kinds()."
     )
     assert checked > 20, f"only {checked} (source, kind) pairs reached"
+
+
+def test_a_source_cannot_both_declare_a_kind_unfiltered_and_filter_it():
+    """Declaring "nothing filters this" while holding a field the resolver
+    would find is a contradiction, and resolving it silently is how the two
+    halves of this feature came to disagree in the first place."""
+    from datahub.ingestion.agent.introspect import (
+        _pattern_field_for_config_class,
+        declared_unfiltered_kinds,
+    )
+
+    contradictions = []
+    for source_type, config_cls in _probe_capable_configs():
+        for kind in sorted(declared_unfiltered_kinds(config_cls)):
+            field = _pattern_field_for_config_class(config_cls, kind)
+            if field is not None:
+                contradictions.append(
+                    f"{source_type}: declares {kind!r} unfiltered but "
+                    f"{field} would filter it"
+                )
+    assert not contradictions, "\n  ".join(contradictions)
 
 
 def test_describe_and_probe_filter_agree_about_every_field():
@@ -494,3 +515,50 @@ def test_no_connector_leans_on_the_name_convention():
         "alias, and annotating that would have made the wrong field permanent."
     )
     assert checked > 20, f"only {checked} probe-capable configs reached"
+
+
+def test_no_config_declares_a_catalog_scope_its_provider_overrides():
+    """Scope can be declared in two places, and the provider's wins.
+
+    That is not drift to be tidied away: SnowflakeSummaryConfig is not a
+    SQLCommonConfig and cannot carry probe_catalog_scope, so the provider
+    attribute is the only place covering both Snowflake sources. Moving the
+    declaration onto the config would narrow snowflake-summary to
+    information_schema without a word.
+
+    What must not happen is *both*. A config that overrides probe_catalog_scope
+    while its provider sets catalog_scope has written dead code that reads as
+    live -- I added exactly that to snowflake_config.py, verified it correct in
+    isolation, and it did nothing; the only reason it surfaced was the CLI
+    reporting a relation count that did not match.
+    """
+    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+
+    conflicts = []
+    checked = 0
+    for source_type in sorted(source_registry.mapping):
+        try:
+            provider_cls = _provider_class(source_type)
+        except Exception:
+            continue
+        if provider_cls is None or "catalog_scope" not in vars(provider_cls):
+            continue
+        checked += 1
+        config_cls = config_class_for(source_type)
+        own = getattr(config_cls, "probe_catalog_scope", None)
+        base = getattr(SQLCommonConfig, "probe_catalog_scope", None)
+        if own is not None and base is not None and own.__func__ is not base.__func__:
+            conflicts.append(
+                f"{source_type}: {config_cls.__name__}.probe_catalog_scope is "
+                f"ignored because {provider_cls.__name__} sets catalog_scope"
+            )
+
+    assert not conflicts, (
+        "these configs declare a catalog scope nothing reads:\n  "
+        + "\n  ".join(conflicts)
+        + "\nDeclare it on the provider, or remove the provider's attribute."
+    )
+    assert checked >= 2, (
+        f"only {checked} providers declare catalog_scope; expected at least the "
+        "Snowflake and BigQuery ones, so this test is not scanning nothing"
+    )

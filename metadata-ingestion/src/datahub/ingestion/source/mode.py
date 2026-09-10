@@ -267,6 +267,18 @@ class ModeConfig(
         "default_schema", month="January", year=2025
     )
 
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        """Datasets and queries are reported whole; Mode filters above them.
+
+        Declared rather than left to silence. `probe filter --kind Dataset`
+        answers "included" for everything either way, but without this there is
+        no way to tell that from a filter whose annotation was dropped -- which
+        is exactly what happened to Teradata's database_pattern, and nothing
+        noticed because the two look identical from outside.
+        """
+        return {"Dataset", "Query"}
+
     space_pattern: Annotated[AllowDenyPattern, Filters("Space")] = Field(
         default=AllowDenyPattern(
             deny=["^Personal$"],

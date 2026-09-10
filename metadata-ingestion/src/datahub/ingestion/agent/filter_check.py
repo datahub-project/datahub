@@ -42,6 +42,14 @@ class FilterCheckResult:
     results: List[FilterVerdict]
     tried: Optional[Dict[str, List[str]]] = None
     warnings: List[str] = field(default_factory=list)
+    # Why pattern_field is null, which the field alone cannot say:
+    #   "by_pattern"  -- a field decided; pattern_field names it
+    #   "unfiltered"  -- the source declares it filters nothing at this level
+    #   "unresolved"  -- no field could be found, and none was declared absent
+    # The last is the interesting one: it is what a dropped annotation looks
+    # like. Teradata's database_pattern read exactly like Mode's genuinely
+    # unfiltered datasets until this told them apart.
+    filtering: str = "by_pattern"
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -49,6 +57,7 @@ class FilterCheckResult:
             "kind": self.kind,
             "parent_path": self.parent_path,
             "pattern_field": self.pattern_field,
+            "filtering": self.filtering,
             "tried": self.tried,
             "results": [r.to_dict() for r in self.results],
             "warnings": self.warnings,
@@ -254,13 +263,20 @@ def check_filters(
             warnings.append(message)
 
     resolved = pattern_field_for_config(config, kind)
-    # Two ways to arrive with no pattern, and they mean the same thing to a
-    # caller: the source offers no filter at this level (UNFILTERED, declared;
-    # Mode's datasets and queries) or none could be resolved for the kind. The
-    # question asked is "would these be ingested", and where nothing filters
-    # them the answer is "yes, all of them" -- an error would say something is
-    # wrong when nothing is. pattern_field comes back null to say why.
+    # Both of these report every name included, and the answer is right either
+    # way -- the question is "would these be ingested", and where nothing
+    # filters them the answer is yes. What differs is whether that is the
+    # source's design or a gap, and `filtering` is what says which. They were
+    # indistinguishable until a source could declare the first: a level whose
+    # annotation had been dropped looked exactly like a level with no filter,
+    # which is how Teradata's database_pattern went unnoticed.
     pattern_field = None if resolved == UNFILTERED else resolved
+    if resolved == UNFILTERED:
+        filtering = "unfiltered"
+    elif resolved is None:
+        filtering = "unresolved"
+    else:
+        filtering = "by_pattern"
 
     if resolved is None:
         # A kind the source never declares is more likely a typo than a level
@@ -343,6 +359,7 @@ def check_filters(
         kind=kind,
         parent_path=list(parent_path),
         pattern_field=pattern_field,
+        filtering=filtering,
         results=results,
         tried=tried,
         warnings=warnings,

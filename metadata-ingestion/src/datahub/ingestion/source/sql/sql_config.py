@@ -225,6 +225,12 @@ class SQLCommonConfig(
 
         Name relations rather than whole schemas for a vendor catalog: see
         CatalogScope's docstring for why that is not merely stylistic.
+
+        Overridden here by a provider that sets `catalog_scope` on itself --
+        Snowflake and BigQuery do, because SnowflakeSummaryConfig is not a
+        SQLCommonConfig and could not carry this method. Declaring it in both
+        places means this one is dead; a contract test refuses that rather than
+        leaving it to be discovered.
         """
         return CatalogScope()
 

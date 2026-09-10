@@ -15,6 +15,7 @@ from datahub.ingestion.agent.models import (
     ProbeNodeKind,
     SourceSpec,
 )
+from datahub.ingestion.agent.verdicts import UNFILTERED
 from datahub.ingestion.source.source_registry import source_registry
 
 
@@ -134,6 +135,24 @@ def _pattern_field_for_config_class(
     return None
 
 
+def declared_unfiltered_kinds(config: Any) -> Set[str]:
+    """Levels this source says it deliberately does not filter.
+
+    Read duck-typed rather than off SQLCommonConfig, because the sources that
+    need it are not all SQL: Mode filters spaces and reports and nothing below
+    them, and its config is not a SQLCommonConfig. Same reason
+    probe_container_kind is read this way.
+    """
+    declared = getattr(config, "probe_unfiltered_kinds", None)
+    if not callable(declared):
+        return set()
+    try:
+        return {str(kind) for kind in declared()}
+    except Exception:
+        # A config that cannot answer is treated as not having answered.
+        return set()
+
+
 def pattern_field_for_config(config: Any, kind: ProbeNodeKind) -> Optional[str]:
     """Find the *live config object's* AllowDenyPattern field that filters `kind`.
 
@@ -154,6 +173,13 @@ def pattern_field_for_config(config: Any, kind: ProbeNodeKind) -> Optional[str]:
     # type[Any], which mypy's lru_cache stub rejects as Hashable (a metaclass
     # __hash__ signature mismatch) even though it is hashable at runtime.
     config_cls: type = type(config)
+    # Checked first, and deliberately: a source saying "nothing filters this
+    # level" is making a statement, where the convention below is a guess. A
+    # source that declares a kind unfiltered *and* has a field the guess would
+    # find is contradicting itself, which a contract test refuses rather than
+    # resolving silently.
+    if str(kind) in declared_unfiltered_kinds(config):
+        return UNFILTERED
     hinted = _hinted_pattern_field(config_cls, kind)
     if hinted is not None:
         return hinted

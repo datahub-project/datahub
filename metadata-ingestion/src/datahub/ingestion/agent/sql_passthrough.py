@@ -105,6 +105,17 @@ class SqlCatalogPassthrough:
 
     # What `probe sql` may read here. The default is information_schema only; a
     # dialect whose catalog lives elsewhere declares its own (see CatalogScope).
+    #
+    # Two places can declare it, and **this one wins**. The usual place is the
+    # config's SQLCommonConfig.probe_catalog_scope, which the framework applies
+    # after building the provider; setting it here instead overrides that, and
+    # is what a source whose config is not a SQLCommonConfig has to do --
+    # SnowflakeSummaryConfig is one, so Snowflake declares its ACCOUNT_USAGE
+    # surface here to cover both of its sources at once.
+    #
+    # A config that overrides probe_catalog_scope while its provider sets this
+    # is the trap: the config method is then dead code that reads as live.
+    # test_no_config_declares_a_catalog_scope_its_provider_overrides refuses it.
     catalog_scope: CatalogScope = CatalogScope()
 
     # What one query here may spend. Applying it is the provider's job, since the
