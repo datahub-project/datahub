@@ -194,6 +194,16 @@ _CHART_REF_MISS_UNKNOWN_SOURCE = "source_name_unknown_to_this_workbook"
 # chart_ref_miss_reasons cannot be reconciled against it -- these were the only
 # unresolved refs with no entry in the breakdown, on two consecutive runs.
 _CHART_REF_MISS_JOIN_CHAIN_DANGLING = "join_chain_no_valid_split"
+# Synthetic SUB-keys of _CHART_REF_MISS_UNKNOWN_SOURCE, not causes in their own
+# right: they split it by whether the name exists elsewhere in the run. Named
+# here because the accounting check has to exclude them, and a literal repeated
+# in two places is exactly how that check would silently start double-counting.
+_CHART_REF_MISS_UNKNOWN_SOURCE_ELSEWHERE = (
+    "unknown_source_but_name_exists_in_a_data_model_this_workbook_loads"
+)
+_CHART_REF_MISS_UNKNOWN_SOURCE_ABSENT = (
+    "unknown_source_absent_from_this_workbooks_data_models"
+)
 
 
 def _warehouse_column_from_display_name(display_name: str) -> str:
@@ -5956,9 +5966,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 workbook_dm_url_ids
             )
             key = (
-                "unknown_source_but_name_exists_in_a_data_model_this_workbook_loads"
+                _CHART_REF_MISS_UNKNOWN_SOURCE_ELSEWHERE
                 if known
-                else "unknown_source_absent_from_this_workbooks_data_models"
+                else _CHART_REF_MISS_UNKNOWN_SOURCE_ABSENT
             )
             self.reporter.chart_ref_miss_reasons[key] = (
                 self.reporter.chart_ref_miss_reasons.get(key, 0) + 1
@@ -6608,6 +6618,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if refs:
                     param_count = 0
                     sibling_count = 0
+                    # Snapshot the breakdown so this column can prove, on its
+                    # own, that its failure was attributed. Twice now a silent
+                    # return has left columns in the unresolved bucket with no
+                    # entry in chart_ref_miss_reasons, and both times it took
+                    # arithmetic across two full runs to notice -- because
+                    # every counter that DID fire looked healthy. This makes a
+                    # missed attribution self-reporting, whatever the cause.
+                    misses_before = sum(self.reporter.chart_ref_miss_reasons.values())
                     for ref in refs:
                         if ref.is_parameter:
                             param_count += 1
@@ -6655,6 +6673,41 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             # look here for a resolver defect". Kept separate from
                             # the two pure cases, which answer different questions.
                             all_unresolvable_mixed = True
+                        elif (
+                            sum(self.reporter.chart_ref_miss_reasons.values())
+                            == misses_before
+                        ):
+                            # This column is about to be counted as "a real ref
+                            # failed" while contributing nothing to the
+                            # breakdown -- so the breakdown cannot be
+                            # reconciled against its own total, and the residual
+                            # is unattributable without reading the source.
+                            #
+                            # Do NOT try to name the cause here: the whole point
+                            # is that it is a path nobody anticipated. Record
+                            # the raw evidence instead, so the next such gap is
+                            # diagnosable from one log line rather than from
+                            # arithmetic across two full runs.
+                            self.reporter.chart_input_fields_unattributed += 1
+                            self.reporter.chart_ref_unattributed_samples.append(
+                                f"{element.elementId}.{column}: formula={formula!r} "
+                                f"refs={[r.raw for r in refs]!r} "
+                                f"segments={[len(r.parts) for r in refs]!r} "
+                                f"param={param_count} sibling={sibling_count}"
+                            )
+                            logger.debug(
+                                "CHART REF UNATTRIBUTED element %s column %r: the "
+                                "column falls back to a self-reference but no "
+                                "resolution step recorded a reason. formula=%r "
+                                "refs=%r segments=%r param_count=%d sibling_count=%d",
+                                element.elementId,
+                                column,
+                                formula,
+                                [r.raw for r in refs],
+                                [len(r.parts) for r in refs],
+                                param_count,
+                                sibling_count,
+                            )
 
             multi_segment = self._multi_segment_refs(refs)
             if multi_segment:
@@ -7434,4 +7487,51 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         yield from self._drain_sql_aggregators()
 
     def get_report(self) -> SourceReport:
+        self._check_chart_column_accounting()
         return self.reporter
+
+    def _check_chart_column_accounting(self) -> None:
+        """Reconcile the chart-column counters against each other, in-run.
+
+        Every chart column ends in exactly one of five buckets, and the
+        fallback bucket then splits three ways. Both identities are supposed to
+        hold exactly, and both were derived by hand from two 100MB logs before
+        being written down here -- which is the wrong way round. If a future
+        change breaks one, the report should say so on the line where it
+        happens rather than wait for someone to do the arithmetic again.
+
+        Recorded, never raised: a bookkeeping discrepancy must not fail an
+        ingestion that is otherwise emitting correct metadata.
+        """
+        r = self.reporter
+        fallback_parts = (
+            r.chart_input_fields_formulas_not_fetched
+            + r.chart_input_fields_self_ref_no_formula
+            + r.chart_input_fields_self_ref_unresolved_refs
+        )
+        if fallback_parts != r.chart_input_fields_self_ref_fallback:
+            r.chart_column_accounting_check["fallback_split_residual"] = (
+                r.chart_input_fields_self_ref_fallback - fallback_parts
+            )
+
+        # The two synthetic keys sub-divide the "unknown source" reason, so
+        # they are excluded to avoid counting those refs twice.
+        distinct_reasons = sum(
+            count
+            for reason, count in r.chart_ref_miss_reasons.items()
+            if reason
+            not in (
+                _CHART_REF_MISS_UNKNOWN_SOURCE_ABSENT,
+                _CHART_REF_MISS_UNKNOWN_SOURCE_ELSEWHERE,
+            )
+        )
+        # Reasons count REFS and the bucket counts COLUMNS, and a column may
+        # carry several refs -- so reasons should be >= columns. Fewer means
+        # some column recorded nothing at all.
+        if distinct_reasons < r.chart_input_fields_self_ref_unresolved_refs:
+            r.chart_column_accounting_check["unattributed_columns"] = (
+                r.chart_input_fields_self_ref_unresolved_refs - distinct_reasons
+            )
+        r.chart_column_accounting_check["reconciles"] = (
+            0 if r.chart_column_accounting_check else 1
+        )

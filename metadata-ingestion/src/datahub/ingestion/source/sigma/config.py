@@ -17,6 +17,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 
 class Constant:
@@ -485,6 +486,33 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # the run: it does => our lookup scope is too narrow; it does not => the run
     # never saw that element (filtered, 409-ing, or outside the ingest).
     chart_ref_miss_reasons: Dict[str, int] = field(default_factory=dict)
+    # Columns counted as "a real ref failed" that contributed NOTHING to the
+    # breakdown above. This is the breakdown auditing itself: while it reads 0,
+    # chart_ref_miss_reasons accounts for every unresolved column and can be
+    # used as evidence about where the remaining gaps come from. Non-zero means
+    # some resolution path returns without recording a reason, and the residual
+    # is unattributable.
+    #
+    # It exists because that happened twice, and both times the counters that
+    # DID fire looked healthy -- the gap was only visible as a constant 234
+    # across two full runs whose totals differed. Reading it off one line beats
+    # reconstructing it from arithmetic across two 100MB logs.
+    chart_input_fields_unattributed: int = 0
+    # Raw evidence for the above: the element, column, formula, refs and their
+    # segment counts. Deliberately not summarised -- the cause is by definition
+    # a path nobody anticipated, so a pre-chosen category would be the wrong
+    # one. LossyList caps it, and the counter carries the true total.
+    chart_ref_unattributed_samples: LossyList[str] = field(default_factory=LossyList)
+    # The counters checking themselves at the end of the run. ``reconciles: 1``
+    # and nothing else means both identities hold: every chart column lands in
+    # exactly one bucket, and every unresolved column has a named cause. Any
+    # other key is a residual that nobody has explained, with the size of the
+    # discrepancy as its value.
+    #
+    # Both identities were originally worked out by hand across two 100MB logs.
+    # Checking them in-run is the difference between noticing a gap in the next
+    # report and noticing it two runs later, if at all.
+    chart_column_accounting_check: Dict[str, int] = field(default_factory=dict)
     # 'datasheet' nodes whose nodeId is a bare element id, admitted as sheet
     # upstreams. The emit-time element lookup drops any that do not match a
     # real element, so this is an attempt count, not an emitted-edge count.

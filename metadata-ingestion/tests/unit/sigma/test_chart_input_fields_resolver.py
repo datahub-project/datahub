@@ -899,6 +899,84 @@ class TestBridgeWarehouseColumnName:
 # ---------------------------------------------------------------------------
 
 
+class TestChartColumnAccountingCheck:
+    """The counters reconcile themselves, so a future gap is one line to find.
+
+    Both identities here were originally derived by hand from two 100MB logs,
+    twice, because nothing in the report said they were broken -- every counter
+    that fired looked healthy and the residual was only visible as a constant
+    234 across runs whose totals differed. Checking them in-run turns that into
+    a number in the next report.
+    """
+
+    def _source(self) -> SigmaSource:
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        return src
+
+    def test_balanced_counters_report_reconciles(self) -> None:
+        src = self._source()
+        r = src.reporter
+        r.chart_input_fields_self_ref_fallback = 10
+        r.chart_input_fields_formulas_not_fetched = 4
+        r.chart_input_fields_self_ref_no_formula = 3
+        r.chart_input_fields_self_ref_unresolved_refs = 3
+        r.chart_ref_miss_reasons = {"source_name_unknown_to_this_workbook": 3}
+
+        src.get_report()
+
+        assert r.chart_column_accounting_check == {"reconciles": 1}
+
+    def test_an_unbalanced_fallback_split_reports_the_residual(self) -> None:
+        src = self._source()
+        r = src.reporter
+        r.chart_input_fields_self_ref_fallback = 10
+        r.chart_input_fields_formulas_not_fetched = 4
+        r.chart_input_fields_self_ref_no_formula = 3
+        r.chart_input_fields_self_ref_unresolved_refs = 1  # two columns missing
+        r.chart_ref_miss_reasons = {"source_name_unknown_to_this_workbook": 1}
+
+        src.get_report()
+
+        assert r.chart_column_accounting_check["fallback_split_residual"] == 2
+        assert r.chart_column_accounting_check["reconciles"] == 0
+
+    def test_columns_with_no_recorded_cause_are_reported(self) -> None:
+        """The exact shape of the bug this check exists for."""
+        src = self._source()
+        r = src.reporter
+        r.chart_input_fields_self_ref_fallback = 5
+        r.chart_input_fields_formulas_not_fetched = 0
+        r.chart_input_fields_self_ref_no_formula = 0
+        r.chart_input_fields_self_ref_unresolved_refs = 5
+        r.chart_ref_miss_reasons = {"source_name_unknown_to_this_workbook": 3}
+
+        src.get_report()
+
+        assert r.chart_column_accounting_check["unattributed_columns"] == 2
+        assert r.chart_column_accounting_check["reconciles"] == 0
+
+    def test_the_synthetic_sub_keys_are_not_double_counted(self) -> None:
+        """They split an existing reason; counting them would mask a real gap.
+
+        Three refs, all the same cause, each also filed under one sub-key. A
+        naive sum reads 6 and would hide a shortfall of up to three columns.
+        """
+        src = self._source()
+        r = src.reporter
+        r.chart_input_fields_self_ref_fallback = 3
+        r.chart_input_fields_self_ref_unresolved_refs = 3
+        r.chart_ref_miss_reasons = {
+            "source_name_unknown_to_this_workbook": 3,
+            "unknown_source_absent_from_this_workbooks_data_models": 2,
+            "unknown_source_but_name_exists_in_a_data_model_this_workbook_loads": 1,
+        }
+
+        src.get_report()
+
+        assert r.chart_column_accounting_check == {"reconciles": 1}
+
+
 class TestEveryUnresolvedRefIsAttributable:
     """``chart_ref_miss_reasons`` must account for every ref that fails.
 
