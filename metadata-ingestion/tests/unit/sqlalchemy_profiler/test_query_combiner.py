@@ -1091,3 +1091,28 @@ class TestFlattenPath:
         assert (row["a"], row["b"], row["c"]) == (3, 3, 3)
         assert cap_partner.result.scalar() == 3
         assert combiner.report.query_exceptions == 0
+
+
+class TestGroupKeySeparatesDistinct:
+    def test_a_lone_cheap_and_lone_distinct_do_not_become_two_statements(
+        self, engine, test_table
+    ):
+        # They end up in separate statements anyway, so keying them together
+        # hid them from the singleton demotion: two flat statements saving
+        # nothing, where the CTE path needs one.
+        cheap = sa.select(sa.func.count().label("c")).select_from(test_table)
+        distinct = sa.select(
+            sa.func.count(sa.func.distinct(test_table.c.value)).label("u")
+        ).select_from(test_table)
+
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap_c = _schedule(qc, conn, cheap)
+            cap_u = _schedule(qc, conn, distinct)
+            qc.flush()
+
+        assert cap_c.result.scalar() == 3
+        assert cap_u.result.scalar() == 3
+        assert combiner.report.flat_queries_issued == 0
+        assert combiner.report.flatten_singletons == 2
+        assert combiner.report.combined_queries_issued == 1

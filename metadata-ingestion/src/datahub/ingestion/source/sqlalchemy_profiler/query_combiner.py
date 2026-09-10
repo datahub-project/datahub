@@ -626,12 +626,22 @@ class SQLAlchemyQueryCombiner:
         )
 
     @staticmethod
-    def _flatten_signature(fut: "_QueryFuture") -> Tuple[Tuple[Any, ...], Any]:
+    def _flatten_signature(fut: "_QueryFuture") -> Tuple[Tuple[Any, ...], Any, bool]:
         # FROM objects plus the connection, by identity (not id(), which is
         # only unique among live objects). Two same-named tables must not
         # merge, or the flat SELECT becomes `FROM t, t`. The connection is in
         # the key because the group runs on members[0].conn.
-        return (tuple(fut.query.get_final_froms()), fut.conn)
+        #
+        # Distinct-heavy queries are keyed apart because they end up in
+        # separate statements anyway. Grouping them together would hide that
+        # from the singleton demotion, which would then let a lone cheap
+        # aggregate and a lone COUNT(DISTINCT) become two flat statements
+        # saving nothing, where the CTE path needs one.
+        return (
+            tuple(fut.query.get_final_froms()),
+            fut.conn,
+            bool(SQLAlchemyQueryCombiner._count_distinct_columns(fut.query)),
+        )
 
     @staticmethod
     def _count_distinct_columns(query: Any) -> int:
@@ -734,22 +744,16 @@ class SQLAlchemyQueryCombiner:
                 )
 
     def _execute_flat_group(self, members: List[Tuple[str, _QueryFuture]]) -> None:
-        # One flat SELECT for the cheap aggregates, plus enough more that no
-        # statement exceeds max_distinct_per_statement distinct trees.
-        cheap: List[Tuple[str, _QueryFuture]] = []
-        distinct_heavy: List[Tuple[str, _QueryFuture, int]] = []
-        for k, fut in members:
-            n_distinct = self._count_distinct_columns(fut.query)
-            if n_distinct:
-                distinct_heavy.append((k, fut, n_distinct))
-            else:
-                cheap.append((k, fut))
-
-        if cheap:
-            self._execute_flat_select(cheap)
-        for chunk in _chunk_by_distinct_budget(
-            distinct_heavy, self.max_distinct_per_statement
-        ):
+        # The group is homogeneous by signature, so it is either all cheap --
+        # one flat SELECT -- or all distinct-heavy, in which case it is split
+        # so no statement exceeds max_distinct_per_statement distinct trees.
+        sized = [
+            (k, fut, self._count_distinct_columns(fut.query)) for k, fut in members
+        ]
+        if not sized[0][2]:
+            self._execute_flat_select(members)
+            return
+        for chunk in _chunk_by_distinct_budget(sized, self.max_distinct_per_statement):
             self._execute_flat_select(chunk)
 
     def _execute_flat_select(self, members: List[Tuple[str, _QueryFuture]]) -> None:
