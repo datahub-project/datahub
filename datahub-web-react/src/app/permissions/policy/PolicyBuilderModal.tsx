@@ -1,11 +1,10 @@
-import { Button, Modal } from '@components';
+import { Button, Modal, Stepper } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import PolicyActorForm from '@app/permissions/policy/PolicyActorForm';
 import PolicyPrivilegeForm from '@app/permissions/policy/PolicyPrivilegeForm';
-import PolicyStepper from '@app/permissions/policy/PolicyStepper';
 import PolicyTypeForm from '@app/permissions/policy/PolicyTypeForm';
 import { EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -24,11 +23,11 @@ type Props = {
 };
 
 const StepsWrapper = styled.div`
-    padding: 0px 20px;
+    padding: 0px 24px;
 `;
 
 const StepContent = styled.div`
-    padding: 0px 20px;
+    padding: 0px 24px;
     max-height: 75vh;
     overflow-y: auto;
 `;
@@ -186,7 +185,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                 bodyStyle={MODAL_BODY_STYLE}
             >
                 <StepsWrapper>
-                    <PolicyStepper steps={policySteps} currentStepIndex={activeStepIndex} />
+                    <Stepper steps={policySteps} currentStepIndex={activeStepIndex} />
                 </StepsWrapper>
                 <StepContent>{activeStep.content}</StepContent>
                 <StepsControls>

@@ -1,23 +1,15 @@
-import { Text } from '@components';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import React from 'react';
 import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
 
-type Step = {
-    title: string;
-};
-
-type Props = {
-    steps: Step[];
-    currentStepIndex: number;
-};
+import { StepperProps } from '@components/components/Stepper/types';
+import { Text } from '@components/components/Text';
 
 const StepperContainer = styled.div`
     display: flex;
     align-items: center;
     gap: 0;
-    padding: 0 20px;
 `;
 
 const StepWrapper = styled.div<{ $isCompleted: boolean; $isCurrent: boolean }>`
@@ -92,11 +84,11 @@ const ProgressLine = styled.div`
     margin: 0 8px;
 `;
 
-export default function PolicyStepper({ steps, currentStepIndex }: Props) {
+export function Stepper({ steps, currentStepIndex, dataTestId }: StepperProps) {
     const theme = useTheme();
 
     return (
-        <StepperContainer>
+        <StepperContainer data-testid={dataTestId}>
             {steps.map((step, index) => {
                 const isCompleted = index < currentStepIndex;
                 const isCurrent = index === currentStepIndex;
