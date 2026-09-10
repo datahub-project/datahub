@@ -1303,8 +1303,66 @@ def test_bigquery_external_query_no_empty_column_lineage_edge():
         lineage[0].upstreams[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
     )
-    # No column-lineage entry with an empty upstreams list is emitted.
-    assert all(cll.upstreams for cll in lineage[0].column_lineage)
+    # No column-lineage entry with an empty upstreams list is emitted. Every outer column
+    # of this fully-federated query traces only into the inert placeholder subquery, so all
+    # entries are dropped and no column-level lineage remains. (Asserting == [] rather than
+    # all(...) so the guard cannot pass vacuously on an empty list.)
+    assert lineage[0].column_lineage == []
+
+
+@pytest.mark.integration
+def test_bigquery_external_query_empty_column_lineage_drop_is_selective():
+    # Guards that the empty-upstreams drop is SELECTIVE, not a blanket clear: a real column
+    # that resolves an upstream survives while the federated placeholder column is dropped.
+    # nat.name traces to the native BigQuery table (real upstream); ext.account_name traces
+    # only into the inert placeholder subquery the federation is rewritten to (empty
+    # upstreams), so exactly one column-lineage entry must remain — the native one.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "with ext as (select account_name from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")), nat as (select name from my_project.my_dataset.native_table) select ext.account_name, nat.name from ext, nat", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    lineage: List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage] = (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+    )
+
+    # Exactly one entry survives: the native `name` column, and only the placeholder-fed
+    # `account_name` entry was dropped. A blanket clear would leave zero; no filter at all
+    # would leave two (one with empty upstreams) — so this pins the drop as selective.
+    column_lineage = lineage[0].column_lineage
+    assert len(column_lineage) == 1
+    assert column_lineage[0].downstream.column == "name"
+    assert [u.column for u in column_lineage[0].upstreams] == ["name"]
+    assert column_lineage[0].upstreams[0].table == (
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.native_table,PROD)"
+    )
 
 
 @pytest.mark.integration
