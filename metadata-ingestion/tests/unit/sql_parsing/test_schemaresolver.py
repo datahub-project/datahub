@@ -531,3 +531,19 @@ class TestTableNameParts:
         assert table_with_parts == table_without_parts, "Equality ignores parts field"
         assert table_with_parts.parts == ("source", "schema", "table")
         assert table_without_parts.parts is None
+
+
+def test_closed_reflects_the_underlying_cache():
+    """`closed` is the accessor callers use instead of reaching through
+    `_schema_cache`, so the delegation needs a test of its own rather than being
+    covered only where it happens to be used.
+    """
+    resolver = SchemaResolver(platform="snowflake")
+
+    assert not resolver.closed
+    assert not resolver._schema_cache.closed
+
+    resolver.close()
+
+    assert resolver.closed
+    assert resolver._schema_cache.closed

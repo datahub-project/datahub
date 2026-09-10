@@ -2195,10 +2195,14 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             if self.chunking_source.report.num_documents_limit_reached:
                 self.report.num_documents_limit_reached = True
                 raise
+            # No semanticContent was written: return before the report accounting and the
+            # (stateful) _update_document_state below. Recording state would checkpoint the
+            # page as done and permanently skip it next run; leaving it unrecorded retries it.
             short_error = str(e).split("\n")[0][:150]
             logger.warning(
-                f"Failed to generate embeddings for {page_id}: {short_error}"
+                f"Embeddings deferred for {page_id}, will retry next run: {short_error}"
             )
+            return
         except Exception as e:
             short_error = str(e).split("\n")[0][:150]
             is_credential_error = any(
@@ -2215,12 +2219,16 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             if is_credential_error:
                 logger.error(
                     f"EMBEDDING CREDENTIAL ERROR for {page_id}: {short_error}\n"
-                    f"Document ingested without embeddings. Fix AWS/Cohere credentials."
+                    f"Document left without embeddings; will retry next run after "
+                    f"credentials are fixed."
                 )
             else:
                 logger.warning(
-                    f"Failed to generate embeddings for {page_id}: {short_error}"
+                    f"Embeddings deferred for {page_id}, will retry next run: {short_error}"
                 )
+            # Same rationale as the RuntimeError branch: return before state is recorded so
+            # the page is retried next run instead of being checkpointed as done.
+            return
 
         # Update report
         file_type = metadata.get("filetype", "unknown")
