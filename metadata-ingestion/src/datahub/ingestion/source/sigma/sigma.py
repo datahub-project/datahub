@@ -189,6 +189,11 @@ _CHART_REF_MISS_UPSTREAM_FILTERED = "named_element_filtered_from_emission"
 _CHART_REF_MISS_NAMED_BUT_NOT_AN_UPSTREAM = "element_named_but_not_a_lineage_upstream"
 _CHART_REF_MISS_AMBIGUOUS_WAREHOUSE = "ambiguous_warehouse_table_name"
 _CHART_REF_MISS_UNKNOWN_SOURCE = "source_name_unknown_to_this_workbook"
+# A join-chain ref (>2 segments) whose every candidate split failed schema
+# validation. It has its own counter, but a counter outside
+# chart_ref_miss_reasons cannot be reconciled against it -- these were the only
+# unresolved refs with no entry in the breakdown, on two consecutive runs.
+_CHART_REF_MISS_JOIN_CHAIN_DANGLING = "join_chain_no_valid_split"
 
 
 def _warehouse_column_from_display_name(display_name: str) -> str:
@@ -6483,6 +6488,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # the column falls back to a self-reference so it
             # still appears in the V2 column list.
             self.reporter.chart_join_chain_dangling_suppressed += 1
+            # Also file it in the miss breakdown. The counter above says how
+            # many were suppressed but sits outside chart_ref_miss_reasons, so
+            # these refs were the ONLY unresolved ones with no entry there --
+            # 234 columns on each of two consecutive runs, unattributable until
+            # the branch was read. A breakdown that cannot be reconciled against
+            # its own total cannot be used as evidence that the resolver is
+            # clean, which is the entire point of collecting it.
+            self._note_chart_ref_miss(
+                _CHART_REF_MISS_JOIN_CHAIN_DANGLING,
+                ref=ref,
+                chart_element_id=chart_element_id,
+                workbook_dm_url_ids=workbook_dm_url_ids,
+                count=True,
+            )
         return result
 
     def _count_unresolved_chart_column(

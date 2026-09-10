@@ -6,7 +6,7 @@ Cases cover probe-derived chart formulas and resolver behavior.
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -897,6 +897,60 @@ class TestBridgeWarehouseColumnName:
 # ---------------------------------------------------------------------------
 # _resolve_chart_join_chain_ref
 # ---------------------------------------------------------------------------
+
+
+class TestEveryUnresolvedRefIsAttributable:
+    """``chart_ref_miss_reasons`` must account for every ref that fails.
+
+    The breakdown exists so an operator can say which unresolved refs are a
+    connector problem and which are not. That argument only holds if it
+    reconciles against its own total -- and it did not: a join-chain ref whose
+    every split failed incremented ``chart_join_chain_dangling_suppressed`` and
+    returned, recording no reason. On two consecutive tenant runs that left 234
+    columns unattributable, invisible because the counter it DID increment
+    looked healthy.
+    """
+
+    def _resolve(self, formula: str) -> Tuple[SigmaSource, Optional[Tuple[str, str]]]:
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src.dm_element_urn_to_cols = {}
+        src.dm_element_urn_by_name = {}
+        src.dm_key_by_element_urn = {}
+        ref = extract_bracket_refs(formula)[0]
+        result = src._resolve_chart_ref(
+            ref,
+            chart_element_id="chart-1",
+            chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={},
+        )
+        return src, result
+
+    def test_a_join_chain_ref_with_no_valid_split_records_a_reason(self) -> None:
+        src, result = self._resolve("[Joined/Element B/Col K]")
+
+        assert result is None
+        assert src.reporter.chart_join_chain_dangling_suppressed == 1
+        assert src.reporter.chart_ref_miss_reasons.get("join_chain_no_valid_split") == 1
+
+    def test_a_two_segment_ref_is_still_attributed_by_the_ordinary_path(
+        self,
+    ) -> None:
+        """The <=2 branch must keep its own, more specific reasons."""
+        src, result = self._resolve("[Element B/Col K]")
+
+        assert result is None
+        assert src.reporter.chart_join_chain_dangling_suppressed == 0
+        assert "join_chain_no_valid_split" not in src.reporter.chart_ref_miss_reasons
+        # One ref, one reason -- plus the synthetic sub-key that splits the
+        # "unknown source" case, which is why the breakdown is not a flat sum.
+        assert src.reporter.chart_ref_miss_reasons == {
+            "source_name_unknown_to_this_workbook": 1,
+            "unknown_source_absent_from_this_workbooks_data_models": 1,
+        }
 
 
 class TestChartJoinChainRef:
