@@ -64,6 +64,8 @@ public class EmbeddingProviderFactory {
 
   @Nullable private AwsBedrockEmbeddingProvider managedBedrockProvider;
 
+  @Nullable private OnnxEmbeddingProvider managedOnnxProvider;
+
   /**
    * Creates an EmbeddingProvider bean for generating query embeddings.
    *
@@ -155,6 +157,12 @@ public class EmbeddingProviderFactory {
     if (managedBedrockProvider != null) {
       managedBedrockProvider.close();
       managedBedrockProvider = null;
+    }
+    // ONNX holds native OrtSession + tokenizer allocations. destroyMethod is disabled on the bean,
+    // so Spring will not auto-close it — release here on context shutdown to avoid a native leak.
+    if (managedOnnxProvider != null) {
+      managedOnnxProvider.close();
+      managedOnnxProvider = null;
     }
   }
 
@@ -258,7 +266,11 @@ public class EmbeddingProviderFactory {
             onnxConfig.getPooling(),
             onnxConfig.getQueryInstruction());
 
-    return validateOnnxProviderDimension(provider, models, modelName);
+    EmbeddingProvider validated = validateOnnxProviderDimension(provider, models, modelName);
+    // Track only after validation passes; on mismatch validateOnnxProviderDimension has already
+    // closed the provider and thrown, so managedOnnxProvider must stay null (no double-close).
+    managedOnnxProvider = provider;
+    return validated;
   }
 
   /**
