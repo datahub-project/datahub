@@ -1,7 +1,6 @@
 import collections
 import contextlib
 import dataclasses
-import enum
 import itertools
 import logging
 import random
@@ -145,22 +144,6 @@ def is_single_row_query(query: Any) -> bool:
 # tree on the server, so letting all of them coexist trades a scan problem for
 # a memory problem. Not yet measured; overridable via a hidden config knob.
 DEFAULT_MAX_DISTINCT_PER_STATEMENT = 5
-
-
-def _render(query: Any, dialect: Any) -> str:
-    # str(query) uses SQLAlchemy's default dialect, which omits anything scoped
-    # to a real one. Compiling under the connection's dialect keeps those
-    # visible to the gate.
-    return str(query) if dialect is None else str(query.compile(dialect=dialect))
-
-
-class _FlattenVerdict(enum.Enum):
-    # REJECTED and GATE_ERROR both fall back to the CTE path, but only
-    # GATE_ERROR means the gate itself broke. Kept apart so a gate that throws
-    # on everything is not mistaken for a workload with nothing to flatten.
-    FLATTENABLE = "flattenable"
-    REJECTED = "rejected"
-    GATE_ERROR = "gate_error"
 
 
 def _chunk_by_distinct_budget(
@@ -311,10 +294,9 @@ class SQLAlchemyQueryCombinerReport(Report):
     # that counter can rise while scans fall.
     scans_avoided: int = 0
 
-    # Why queued queries did not flatten. Only gate_errors is a defect
-    # signal; rejected and singletons are the gate working as designed.
+    # Why queued queries did not flatten. rejected = not built by
+    # execute_aggregate, so untaggable. singletons = alone in its FROM group.
     flatten_rejected: int = 0
-    flatten_gate_errors: int = 0
     flatten_singletons: int = 0
 
     # Recovery ladder, each rung strictly worse than the one above.
@@ -626,57 +608,12 @@ class SQLAlchemyQueryCombiner:
     # -- flatten path -------------------------------------------------------
 
     @staticmethod
-    def _is_flattenable(query: Any, dialect: Any = None) -> bool:
-        return (
-            SQLAlchemyQueryCombiner._flatten_verdict(query, dialect)
-            is _FlattenVerdict.FLATTENABLE
+    def _is_flattenable(query: Any) -> bool:
+        # Only ProfilingConnection.execute_aggregate sets this, and it builds
+        # the statement itself, so a tagged query cannot carry a clause.
+        return bool(
+            query.get_execution_options().get(FLATTENABLE_EXECUTION_OPTION, False)
         )
-
-    @staticmethod
-    def _flatten_verdict(query: Any, dialect: Any = None) -> "_FlattenVerdict":
-        # Fail closed: rebuild a bare `SELECT <cols> FROM <froms>` and require
-        # an identical render, so an unknown clause is rejected by default.
-        # HAVING is the dangerous one -- the flat path would drop it and
-        # fabricate a row.
-        #
-        # Rendered under the connection's dialect, not the default one. A
-        # construct scoped to a dialect -- with_hint(dialect_name="mysql") --
-        # renders as nothing by default, so it would pass the compare and then
-        # be silently dropped from the flat statement.
-        try:
-            rebuilt = sqlalchemy.select(get_query_columns(query))
-            for f in query.get_final_froms():
-                rebuilt.append_from(f)
-            try:
-                original_sql = _render(query, dialect)
-                rebuilt_sql = _render(rebuilt, dialect)
-            except sqlalchemy.exc.CompileError:
-                # The dialect refuses to render it -- an unscoped with_hint on
-                # PostgreSQL, for instance. Equivalence cannot be proven, so
-                # this is a designed rejection rather than a broken gate.
-                return _FlattenVerdict.REJECTED
-            if original_sql != rebuilt_sql:
-                return _FlattenVerdict.REJECTED
-            # Only execute_aggregate sets this, and it builds the query itself.
-            if not query.get_execution_options().get(
-                FLATTENABLE_EXECUTION_OPTION, False
-            ):
-                return _FlattenVerdict.REJECTED
-            # Duplicate explicit .label() names make .columns raise. Caught
-            # here rather than by the outer handler, because that one counts
-            # gate errors and this rejection is by design.
-            try:
-                _ = query.subquery().columns
-            except sqlalchemy.exc.InvalidRequestError:
-                return _FlattenVerdict.REJECTED
-            return _FlattenVerdict.FLATTENABLE
-        except Exception as e:
-            # The gate broke, which is not the same as refusing the query.
-            # Counted apart so a gate throwing on everything is visible.
-            logger.debug(
-                "flatten gate raised; treating query as unflattenable", exc_info=e
-            )
-            return _FlattenVerdict.GATE_ERROR
 
     @staticmethod
     def _flatten_signature(fut: "_QueryFuture") -> Tuple[Tuple[Any, ...], Any]:
@@ -713,14 +650,10 @@ class SQLAlchemyQueryCombiner:
         )
         unmatched: Dict[str, _QueryFuture] = {}
         for k, fut in pending_queue.items():
-            verdict = self._flatten_verdict(fut.query, fut.conn.dialect)
-            if verdict is _FlattenVerdict.FLATTENABLE:
+            if self._is_flattenable(fut.query):
                 groups[self._flatten_signature(fut)].append((k, fut))
             else:
-                if verdict is _FlattenVerdict.GATE_ERROR:
-                    self.report.flatten_gate_errors += 1
-                else:
-                    self.report.flatten_rejected += 1
+                self.report.flatten_rejected += 1
                 unmatched[k] = fut
 
         # A one-member group saves no scans and costs a round trip per group

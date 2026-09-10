@@ -2043,6 +2043,25 @@ class TestExecuteAggregateTagging:
         assert opts[SINGLE_ROW_EXECUTION_OPTION] is True
         assert opts[FLATTENABLE_EXECUTION_OPTION] is True
 
+    def test_the_built_statement_carries_no_clause(self) -> None:
+        # This is what makes the flatten path safe now that the combiner no
+        # longer re-derives it: execute_aggregate builds the statement, so a
+        # tagged query cannot carry a clause. If this ever stops holding --
+        # someone widening it to accept a pre-built query -- the combiner will
+        # merge whatever it is handed.
+        raw = MagicMock()
+        table = sa.table("t", sa.column("v"))
+        ProfilingConnection(raw).execute_aggregate(table, sa.func.count())
+
+        stmt = raw.execute.call_args.args[0]
+        assert stmt.whereclause is None
+        assert not stmt._group_by_clauses
+        assert not stmt._order_by_clauses
+        assert stmt._limit_clause is None
+        assert stmt._offset_clause is None
+        assert not stmt._distinct
+        assert len(list(stmt.inner_columns)) == 1
+
     def test_opaque_literal_needs_an_explicit_claim(self) -> None:
         # Nothing can tell MEDIAN(v) from v inside a literal_column, so the
         # caller has to say which it is.

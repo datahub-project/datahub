@@ -12,8 +12,6 @@ from typing import Any, Dict, Optional
 import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine
-from sqlalchemy.dialects import mysql
-from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.engine import Connection
 
 from datahub.ingestion.source.sqlalchemy_profiler import (
@@ -23,7 +21,6 @@ from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
     MAX_QUERIES_TO_COMBINE_AT_ONCE,
     MisTaggedQueryError,
     SQLAlchemyQueryCombiner,
-    _FlattenVerdict,
     _QueryFuture,
     _ResultProxyFake,
     _RowProxyFake,
@@ -735,7 +732,8 @@ class TestFlattenPath:
         assert combiner.report.total_queries == 2
 
     def test_unmatched_shape_falls_through_to_cte_path(self, engine, test_table):
-        # A WHERE clause is not flattenable and falls through to the CTE path.
+        # A clause-bearing query goes through execute_single_row, so it is
+        # never tagged and falls to the CTE path.
         # Two flattenable queries so the group is not a demoted singleton.
         flat_query = sa.select(sa.func.count().label("rowcount")).select_from(
             test_table
@@ -752,7 +750,7 @@ class TestFlattenPath:
         with engine.connect() as conn, combiner.activate() as qc:
             cap_flat = _schedule(qc, conn, flat_query)
             cap_flat2 = _schedule(qc, conn, flat_query2)
-            cap_where = _schedule(qc, conn, where_query)
+            cap_where = _schedule(qc, conn, where_query, flattenable=False)
             qc.flush()
 
         assert cap_flat.result.scalar() == 3
@@ -787,29 +785,6 @@ class TestFlattenPath:
         assert combiner.report.queries_combined == 2
         assert combiner.report.total_queries == 2
 
-    @pytest.mark.parametrize("flatten_enabled", [False, True])
-    def test_duplicate_explicit_labels_route_away_from_flat_path(
-        self, engine, test_table, flatten_enabled
-    ):
-        # Duplicate explicit .label() names make subquery().columns raise.
-        # The gate must reject the query rather than let it raise inside
-        # _execute_flat_select and demote a whole batch.
-        q = sa.select(
-            sa.func.min(test_table.c.value).label("v"),
-            sa.func.max(test_table.c.value).label("v"),
-        ).select_from(test_table)
-        combiner = _make_combiner(flatten_enabled=flatten_enabled)
-        with engine.connect() as conn, combiner.activate() as qc:
-            cap = _schedule(qc, conn, q)
-            qc.flush()
-
-        assert cap.done and cap.exc is None
-        row = cap.result.one()
-        assert row[0] == 10.5
-        assert row[1] == 30.5
-        # The flat path must not have issued a statement for this query.
-        assert combiner.report.flat_queries_issued == 0
-
     @pytest.mark.parametrize(
         "distinct_fn",
         [
@@ -839,71 +814,6 @@ class TestFlattenPath:
         assert [c.result.scalar() for c in caps] == [1, 2, 3, 4, 5, 6, 7]
         assert combiner.report.flat_queries_issued == 2
         assert combiner.report.query_exceptions == 0
-
-    def test_is_flattenable_rejects_every_clause_family(self, engine, test_table):
-        # The gate must reject every clause that renders extra SQL. HAVING is
-        # the correctness case: the flat path would drop it and fabricate a
-        # row. The rest would silently change semantics.
-        t = test_table
-        non_flattenable = {
-            "where": sa.select(sa.func.count().label("c"))
-            .select_from(t)
-            .where(t.c.id > 1),
-            "group_by": sa.select(sa.func.count().label("c"))
-            .select_from(t)
-            .group_by(t.c.id),
-            "order_by": sa.select(sa.func.count().label("c"))
-            .select_from(t)
-            .order_by(t.c.id),
-            "limit": sa.select(sa.func.count().label("c")).select_from(t).limit(1),
-            "offset": sa.select(sa.func.count().label("c")).select_from(t).offset(1),
-            "distinct": sa.select(sa.func.count().label("c")).select_from(t).distinct(),
-            "having": sa.select(sa.func.count().label("c"))
-            .select_from(t)
-            .having(sa.func.count() > 100),
-            "for_update": sa.select(sa.func.count().label("c"))
-            .select_from(t)
-            .with_for_update(),
-            "prefix_distinct": sa.select(sa.func.count().label("c"))
-            .select_from(t)
-            .prefix_with("DISTINCT"),
-            "suffix_for_share": sa.select(sa.func.count().label("c"))
-            .select_from(t)
-            .suffix_with("FOR SHARE"),
-            "fetch": sa.select(sa.func.count().label("c")).select_from(t).fetch(1),
-            "with_hint": sa.select(sa.func.count().label("c"))
-            .select_from(t)
-            .with_hint(t, "USE INDEX (PRIMARY)"),
-        }
-        # Tagged: an untagged query is rejected on the empty allowlist before
-        # the clause gate runs, which would make every assertion below pass
-        # even with the gate deleted.
-        #
-        # Deliberately no dialect. Under SQLite, for_update and an unscoped
-        # with_hint render identically to the bare rebuild (no row locking, no
-        # hints), so they would flatten and two families would fail here for a
-        # non-reason. Dialect-scoped behaviour is pinned separately in
-        # test_dialect_scoped_constructs_are_rejected.
-        for label, q in non_flattenable.items():
-            assert not SQLAlchemyQueryCombiner._is_flattenable(tagged(q)), (
-                f"_is_flattenable should reject {label!r}"
-            )
-
-        # And the plain shapes that ARE flattenable.
-        flattenable = {
-            "plain single": sa.select(sa.func.count().label("c")).select_from(t),
-            "plain multi": sa.select(
-                sa.func.count(t.c.id), sa.func.count(t.c.value)
-            ).select_from(t),
-            "anon count": sa.select(sa.func.count()).select_from(t),
-            "count distinct": sa.select(
-                sa.func.count(sa.func.distinct(t.c.id)).label("uc")
-            ).select_from(t),
-        }
-        for label, q in flattenable.items():
-            assert SQLAlchemyQueryCombiner._is_flattenable(tagged(q)), (
-                f"_is_flattenable should accept {label!r}"
-            )
 
     @pytest.mark.parametrize("flatten_enabled", [False, True])
     def test_having_query_returns_zero_rows_under_both_flags(
@@ -1037,56 +947,12 @@ class TestFlattenPath:
         assert combiner.report.scans_avoided == 4  # (3-1) + (3-1) + (1-1)
         assert combiner.report.query_exceptions == 0
 
-    def test_dialect_scoped_constructs_are_rejected(self, test_table):
-        # str(query) renders under SQLAlchemy's default dialect, where a
-        # construct scoped to a real one renders as nothing -- it would pass
-        # the compare and then be dropped from the flat statement. The gate
-        # renders under the connection's dialect for exactly this.
-        hinted = (
-            sa.select(sa.func.count().label("c"))
-            .select_from(test_table)
-            .with_hint(test_table, "USE INDEX (PRIMARY)", dialect_name="mysql")
-        )
-        hinted_tagged = tagged(hinted)
-        dialect = mysql.dialect()
-
-        # Invisible by default, which is what made this a silent data bug.
-        assert SQLAlchemyQueryCombiner._is_flattenable(hinted_tagged)
-        assert not SQLAlchemyQueryCombiner._is_flattenable(hinted_tagged, dialect)
-
-        # A plain query still flattens under a real dialect.
-        plain = flattenable_query(
-            sa.select(sa.func.count().label("c")).select_from(test_table)
-        )
-        assert SQLAlchemyQueryCombiner._is_flattenable(plain, dialect)
-
-    def test_uncompilable_query_is_rejected_not_counted_as_a_gate_error(
-        self, test_table
-    ):
-        # PostgreSQL raises CompileError on an unscoped with_hint. That is not
-        # an InvalidRequestError, so without a specific catch it would land in
-        # flatten_gate_errors -- the counter documented as the only defect
-        # signal.
-        hinted = flattenable_query(
-            sa.select(sa.func.count().label("c"))
-            .select_from(test_table)
-            .with_hint(test_table, "USE INDEX (PRIMARY)")
-        )
-        verdict = SQLAlchemyQueryCombiner._flatten_verdict(hinted, PGDialect())
-        assert verdict is _FlattenVerdict.REJECTED
-
-    def test_missing_tag_rejects_rather_than_crashing(self, test_table):
-        # A query built outside ProfilingConnection carries no allowlist. That
-        # is a designed rejection, not a gate failure.
+    def test_only_execute_aggregate_queries_are_flattenable(self, test_table):
+        # Anything not built by execute_aggregate carries no tag, so it stays
+        # on the CTE path however plain it looks.
         query = sa.select(sa.func.count().label("c")).select_from(test_table)
-        assert (
-            SQLAlchemyQueryCombiner._flatten_verdict(single_row_query(query))
-            is _FlattenVerdict.REJECTED
-        )
-        assert (
-            SQLAlchemyQueryCombiner._flatten_verdict(single_row_query(query))
-            is _FlattenVerdict.REJECTED
-        )
+        assert not SQLAlchemyQueryCombiner._is_flattenable(single_row_query(query))
+        assert SQLAlchemyQueryCombiner._is_flattenable(tagged(query))
 
     def test_untagged_query_still_cte_batches(self, engine, test_table):
         # Orthogonality: the flatten tag must not disturb the existing
@@ -1109,53 +975,6 @@ class TestFlattenPath:
         assert combiner.report.scans_avoided == 0
         assert combiner.report.combined_queries_issued == 1
         assert combiner.report.query_exceptions == 0
-
-    def test_gate_crash_is_counted_apart_from_allowlist_rejection(
-        self, engine, test_table
-    ):
-        # Only an unanticipated failure counts as a gate error. Duplicate
-        # labels and a WHERE clause are both by-design rejections, so neither
-        # may inflate the defect counter.
-        duplicate_labels = sa.select(
-            sa.func.min(test_table.c.value).label("x"),
-            sa.func.max(test_table.c.value).label("x"),
-        ).select_from(test_table)
-        where_clause = (
-            sa.select(sa.func.count().label("c"))
-            .select_from(test_table)
-            .where(test_table.c.id > 1)
-        )
-        combiner = _make_combiner(flatten_enabled=True)
-        with engine.connect() as conn, combiner.activate() as qc:
-            cap_dup = _schedule(qc, conn, duplicate_labels)
-            cap_where = _schedule(qc, conn, where_clause)
-            qc.flush()
-
-        assert cap_dup.done and cap_where.done
-        assert combiner.report.flatten_rejected == 2
-        assert combiner.report.flatten_gate_errors == 0
-
-    def test_unexpected_gate_failure_is_counted_as_a_gate_error(
-        self, engine, test_table, monkeypatch
-    ):
-        # A gate that throws on everything must not read as a workload with
-        # nothing to flatten.
-        monkeypatch.setattr(
-            query_combiner_module.SQLAlchemyQueryCombiner,
-            "_flatten_verdict",
-            staticmethod(
-                lambda q, dialect=None: query_combiner_module._FlattenVerdict.GATE_ERROR
-            ),
-        )
-        query = sa.select(sa.func.count().label("c")).select_from(test_table)
-        combiner = _make_combiner(flatten_enabled=True)
-        with engine.connect() as conn, combiner.activate() as qc:
-            cap = _schedule(qc, conn, query)
-            qc.flush()
-
-        assert cap.done and cap.exc is None
-        assert combiner.report.flatten_gate_errors == 1
-        assert combiner.report.flatten_rejected == 0
 
     def test_plain_column_keeps_all_its_rows_alongside_aggregates(
         self, engine, test_table
