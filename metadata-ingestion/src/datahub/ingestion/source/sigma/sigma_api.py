@@ -50,6 +50,17 @@ from datahub.ingestion.source.sigma.data_classes import (
 # Logger instance
 logger = logging.getLogger(__name__)
 
+# Dedicated trace logger for ad-hoc, high-volume diagnostics of the chart
+# lineage / formula-resolver pipeline. Enable selectively without raising
+# the main module to DEBUG, e.g. in a recipe:
+#   logging:
+#     loggers:
+#       "datahub.ingestion.source.sigma.trace":
+#         level: DEBUG
+# All emissions use ``logger.isEnabledFor(logging.DEBUG)`` so the cost is
+# a single attribute check when the trace is disabled.
+trace_logger = logging.getLogger("datahub.ingestion.source.sigma.trace")
+
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -351,6 +362,23 @@ class SigmaAPI:
     ) -> None:
         """Dispatch one BFS node into upstream_sources or re-enqueue it (join)."""
         source_type = source_node.get(Constant.TYPE)
+        if trace_logger.isEnabledFor(logging.DEBUG):
+            trace_logger.debug(
+                "kind=lineage-node workbookId=%s elementId=%s node_id=%s "
+                "source_type=%r node_name=%r node_element_id=%r "
+                "node_connection_id=%r",
+                workbook.workbookId,
+                element.elementId,
+                source_node_id,
+                source_type,
+                source_node.get(Constant.NAME),
+                source_node.get(Constant.ELEMENTID),
+                # Surface connectionId for type=table / customSQL nodes so
+                # operators can correlate unresolved warehouse tables back
+                # to the owning Sigma connection (and to /v2/connections
+                # OAuth scope gaps).
+                source_node.get("connectionId"),
+            )
         if source_type == "dataset":
             try:
                 upstream_sources[source_node_id] = DatasetUpstream(
@@ -452,6 +480,11 @@ class SigmaAPI:
             upstream_sources[source_node_id] = WarehouseTableUpstream(
                 url_id=url_id,
                 name=name,
+                # Diagnostic-only: carried through to the lookup-failure
+                # site so the operator can attribute an unresolved BFS
+                # table back to the owning Sigma connection.  Empty string
+                # when the BFS payload omits the field for this node.
+                connection_id=str(source_node.get("connectionId") or ""),
             )
         elif source_type == "customSQL":
             pass  # handled by _build_workbook_customsql_registry via the workbook-level lineage endpoint
@@ -470,7 +503,7 @@ class SigmaAPI:
                     ),
                 )
 
-    def _get_element_upstream_sources(
+    def _get_element_upstream_sources(  # noqa: C901
         self, element: Element, workbook: Workbook
     ) -> Dict[str, ElementUpstream]:
         """Return upstream sources keyed by nodeId, admitting Sigma Dataset
@@ -483,11 +516,26 @@ class SigmaAPI:
         captured (sibling edges in the payload do not leak in).
         """
         upstream_sources: Dict[str, ElementUpstream] = {}
+        trace_enabled = trace_logger.isEnabledFor(logging.DEBUG)
+        if trace_enabled:
+            trace_logger.debug(
+                "kind=lineage-fetch-start workbookId=%s elementId=%s element_name=%r",
+                workbook.workbookId,
+                element.elementId,
+                element.name,
+            )
 
         try:
             response = self._get_api_call(
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/lineage/elements/{element.elementId}"
             )
+            if trace_enabled:
+                trace_logger.debug(
+                    "kind=lineage-fetch-response workbookId=%s elementId=%s status_code=%d",
+                    workbook.workbookId,
+                    element.elementId,
+                    response.status_code,
+                )
             if response.status_code == 500:
                 logger.debug(
                     f"Lineage metadata not present for element {element.name} of workbook '{workbook.name}'"
@@ -503,6 +551,14 @@ class SigmaAPI:
                     f"Lineage not supported for element {element.name} of workbook '{workbook.name}' (400 Bad Request)"
                 )
                 return upstream_sources
+            if response.status_code == 409:
+                # Transient server-side conflict (e.g. concurrent edit /
+                # version mismatch on the workbook). Skip this element's
+                # lineage and continue; next run will pick it up.
+                logger.debug(
+                    f"Lineage temporarily unavailable for element {element.name} of workbook '{workbook.name}' (409 Conflict)"
+                )
+                return upstream_sources
             response.raise_for_status()
             response_dict = response.json()
         except requests.exceptions.RequestException as e:
@@ -515,6 +571,17 @@ class SigmaAPI:
 
         try:
             dependencies = response_dict[Constant.DEPENDENCIES]
+            if trace_enabled:
+                trace_logger.debug(
+                    "kind=lineage-payload-summary workbookId=%s elementId=%s "
+                    "deps_count=%d edges_count=%d",
+                    workbook.workbookId,
+                    element.elementId,
+                    len(dependencies) if isinstance(dependencies, dict) else -1,
+                    len(response_dict.get(Constant.EDGES, []))
+                    if isinstance(response_dict.get(Constant.EDGES), list)
+                    else -1,
+                )
 
             # Reverse adjacency (target nodeId -> source nodeIds). A
             # malformed edge skips itself; others still populate.
@@ -639,6 +706,28 @@ class SigmaAPI:
             )
             return {}
 
+        if trace_enabled:
+            counts_by_type: Dict[str, int] = {}
+            for upstream in upstream_sources.values():
+                key = type(upstream).__name__
+                counts_by_type[key] = counts_by_type.get(key, 0) + 1
+            # Show the first few node-id -> (type, name) pairs to make it easy
+            # to confirm a specific upstream was captured. Truncated to keep
+            # lines short.
+            preview = []
+            for nid, ups in list(upstream_sources.items())[:8]:
+                ups_name = getattr(ups, "name", None)
+                preview.append(f"{nid}:{type(ups).__name__}({ups_name!r})")
+            trace_logger.debug(
+                "kind=lineage-fetch-summary workbookId=%s elementId=%s "
+                "total_upstreams=%d by_type=%s preview=%s",
+                workbook.workbookId,
+                element.elementId,
+                len(upstream_sources),
+                counts_by_type,
+                "|".join(preview),
+            )
+
         return upstream_sources
 
     def _get_element_sql_query(
@@ -717,13 +806,37 @@ class SigmaAPI:
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages/{page.pageId}/elements"
             )
             response.raise_for_status()
+            trace_enabled_pg = trace_logger.isEnabledFor(logging.DEBUG)
             for i, element_dict in enumerate(response.json()[Constant.ENTRIES]):
+                el_type = element_dict.get("type")
+                el_id = element_dict.get(Constant.ELEMENTID)
+                el_name = element_dict.get(Constant.NAME)
                 # only element of table and visualization type have lineage and sql query supported
-                if element_dict.get("type") not in ["table", "visualization"]:
+                if el_type not in ["table", "visualization"]:
+                    if trace_enabled_pg:
+                        trace_logger.debug(
+                            "kind=elem-allowlist-filter workbookId=%s pageId=%s "
+                            "elementId=%s element_name=%r element_type=%r decision=filtered",
+                            workbook.workbookId,
+                            page.pageId,
+                            el_id,
+                            el_name,
+                            el_type,
+                        )
                     logger.debug(
-                        f"Skipping lineage and sql query extraction for element {element_dict.get('name')} of type {element_dict.get('type')} of workbook '{workbook.name}'"
+                        f"Skipping lineage and sql query extraction for element {el_name} of type {el_type} of workbook '{workbook.name}'"
                     )
                     continue
+                elif trace_enabled_pg:
+                    trace_logger.debug(
+                        "kind=elem-allowlist-filter workbookId=%s pageId=%s "
+                        "elementId=%s element_name=%r element_type=%r decision=kept",
+                        workbook.workbookId,
+                        page.pageId,
+                        el_id,
+                        el_name,
+                        el_type,
+                    )
 
                 if not element_dict.get(Constant.NAME):
                     element_dict[Constant.NAME] = (
