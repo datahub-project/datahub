@@ -14,8 +14,9 @@ import { SelectOption, SelectSizeOptions } from '@components/components/Select/t
 
 import { extractTypeFromUrn } from '@app/entity/shared/utils';
 import { EntitySearchDropdown } from '@app/entityV2/shared/EntitySearchSelect/EntitySearchDropdown';
+import { getEntityDisplayName as getEntityDisplayNameUtil } from '@app/entityV2/shared/EntitySearchSelect/utils';
 import { getUserFilters } from '@app/shared/userSearchUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useGetEntitiesLazyQuery } from '@graphql/entity.generated';
 import { useGetIngestionSourceNamesLazyQuery } from '@graphql/ingestion.generated';
@@ -75,7 +76,7 @@ export const EntitySearchSelect: React.FC<EntitySearchSelectProps> = ({
     icon,
 }) => {
     const { t } = useTranslation('entity.shared.selectors');
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
     const [entityCache, setEntityCache] = useState<Map<string, Entity>>(new Map());
     const [isOpen, setIsOpen] = useState(false);
     const selectRef = useRef<HTMLDivElement>(null);
@@ -142,6 +143,11 @@ export const EntitySearchSelect: React.FC<EntitySearchSelectProps> = ({
         setEntityCache((prevCache) => addToCache(prevCache, entity));
     }, []);
 
+    const getEntityDisplayName = useCallback(
+        (entity: Entity) => getEntityDisplayNameUtil(entity, entityRegistry),
+        [entityRegistry],
+    );
+
     // Apply user filters when searching for CorpUser entities
     const defaultFilters = useMemo(() => {
         if (entityTypes.includes(EntityType.CorpUser)) {
@@ -178,11 +184,11 @@ export const EntitySearchSelect: React.FC<EntitySearchSelectProps> = ({
             }
 
             return {
-                label: entity ? entityRegistry.getDisplayName(entity.type, entity) : urn,
+                label: entity ? getEntityDisplayName(entity) : urn,
                 value: urn,
             };
         });
-    }, [selectedUrns, entityCache, entityRegistry, ingestionSourceNames]);
+    }, [selectedUrns, entityCache, getEntityDisplayName, ingestionSourceNames]);
 
     const selectBase = (
         <SelectBase
