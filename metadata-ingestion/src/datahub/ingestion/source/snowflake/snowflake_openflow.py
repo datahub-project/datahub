@@ -748,7 +748,7 @@ def _job_with_name(
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Derived from each connector's own configuration; disable with "
-    "`include_openflow_lineage: false`",
+    "`include_table_lineage: false`",
 )
 @capability(SourceCapability.OWNERSHIP, "Extracted from each object's OWNER")
 @capability(
@@ -879,7 +879,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         # source_env cannot be tested for None -- default_source_env_to_env fills it
         # from `env` during validation, so it is always set. Compare it to `env`
         # instead, which is what "the operator chose an upstream env" actually means.
-        if not self.config.include_openflow_lineage:
+        if not self.config.include_table_lineage:
             return
         configured = (
             self.config.source_platform_instance is not None
@@ -1871,7 +1871,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             # pipeline, edgeless and sharing the per-table jobs' subtype.
             # fivetran keeps one because it hangs run history (DPIs) on it;
             # this source emits none, so the anchor carried nothing.
-            if self.config.include_openflow_lineage:
+            if self.config.include_table_lineage:
                 for pair in self._lineage_for_connector(connector):
                     # One job per replicated table, so each edge keeps the 1:1
                     # pairing this connector's configuration actually states.

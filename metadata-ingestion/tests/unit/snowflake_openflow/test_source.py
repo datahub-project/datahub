@@ -433,7 +433,7 @@ def test_upstream_warning_is_quiet_when_nothing_is_configured():
 def test_upstream_warning_is_quiet_when_lineage_is_disabled():
     # No upstream URNs are built at all, so the coordinates cannot be wrong.
     source = _make_source(
-        source_platform_instance="pg_prod", include_openflow_lineage=False
+        source_platform_instance="pg_prod", include_table_lineage=False
     )
     source._warn_if_upstream_folding_is_unverifiable()
     assert _UPSTREAM_WARNING not in _info_titles(source.report)

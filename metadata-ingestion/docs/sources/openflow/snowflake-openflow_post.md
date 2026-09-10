@@ -2,7 +2,7 @@
 
 - **Containers** — one container per Openflow deployment and runtime, nested.
 - **Table-level lineage** — derived from each connector's own configuration, so it is observed
-  rather than declared. Disable with `include_openflow_lineage: false`.
+  rather than declared. Disable with `include_table_lineage: false`.
 - **Ownership** — from each object's `OWNER`.
 - **External link** — each connector's `DataFlow` links to **its runtime's Openflow canvas**, not to
   the individual connector. `DESCRIBE OPENFLOW CONNECTOR` reports a per-connector URL, but that URL

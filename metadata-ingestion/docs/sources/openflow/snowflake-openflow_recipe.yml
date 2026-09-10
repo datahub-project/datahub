@@ -27,7 +27,7 @@ source:
     source_platform_instance: null
     source_env: PROD
 
-    include_openflow_lineage: true
+    include_table_lineage: true
 
 sink:
   # datahub-rest, datahub-kafka, or any other sink

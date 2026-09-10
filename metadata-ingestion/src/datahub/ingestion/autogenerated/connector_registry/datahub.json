@@ -4534,7 +4534,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Derived from each connector's own configuration; disable with `include_openflow_lineage: false`",
+          "description": "Derived from each connector's own configuration; disable with `include_table_lineage: false`",
           "subtype_modifier": null,
           "supported": true
         },

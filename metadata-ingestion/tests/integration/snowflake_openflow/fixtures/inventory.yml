@@ -19,7 +19,7 @@ source:
     # match the warehouse ingestion or lineage joins to nothing.
     snowflake_env: PROD
     convert_urns_to_lowercase: true
-    include_openflow_lineage: true
+    include_table_lineage: true
 sink:
   type: datahub-rest
   config:

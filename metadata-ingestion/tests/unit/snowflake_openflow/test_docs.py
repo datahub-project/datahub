@@ -85,16 +85,16 @@ def test_recipe_sets_authentication_type_for_key_pair_auth():
 
 def test_docs_disable_instruction_matches_the_parsed_default():
     # The docs tell operators to *disable* lineage by setting
-    # include_openflow_lineage: false. That instruction is only coherent if the
+    # include_table_lineage: false. That instruction is only coherent if the
     # parsed default is on, so this pins the docs/config contract rather than the
     # pydantic default on its own -- the default alone is what the framework
     # guarantees, the agreement between the two is what we guarantee.
     prose = POST.read_text() + RECIPE.read_text()
-    assert "include_openflow_lineage" in prose, (
+    assert "include_table_lineage" in prose, (
         "docs no longer mention the flag; drop this test or update the docs"
     )
     default = SnowflakeOpenflowSourceConfig.model_fields[
-        "include_openflow_lineage"
+        "include_table_lineage"
     ].default
     assert default, (
         "docs instruct operators to disable lineage with `false`, which only makes "

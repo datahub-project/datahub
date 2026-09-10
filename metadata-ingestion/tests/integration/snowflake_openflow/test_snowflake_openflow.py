@@ -262,7 +262,7 @@ def _source_config(
             "password": "pass",
         },
         "env": "PROD",
-        "include_openflow_lineage": True,
+        "include_table_lineage": True,
     }
     if lowercase_urns:
         # Set explicitly, exactly as the fixture recipes do. The source excludes

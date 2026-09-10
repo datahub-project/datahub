@@ -116,7 +116,7 @@ class SnowflakeOpenflowSourceConfig(
         "default.",
     )
 
-    include_openflow_lineage: bool = Field(
+    include_table_lineage: bool = Field(
         default=True,
         description="Emit table-level lineage from each connector's configuration to "
         "the Snowflake tables it writes.",
@@ -141,6 +141,13 @@ class SnowflakeOpenflowSourceConfig(
     def default_snowflake_env_to_env(self) -> "SnowflakeOpenflowSourceConfig":
         if self.snowflake_env is None:
             self.snowflake_env = self.env
+        else:
+            # Fold case exactly as EnvConfigMixin.env_must_be_one_of does
+            # for `env`. Without this, `env: prod` is accepted and
+            # normalised while `snowflake_env: prod` -- the same word, in an
+            # adjacent field documented as needing to match -- is
+            # rejected outright.
+            self.snowflake_env = self.snowflake_env.upper()
         # Validate eagerly, so a typo'd snowflake_env fails at recipe-load time the
         # way a typo'd `env` already does. Without this the bad value survives
         # config validation and only raises deep inside lineage emission.
@@ -168,6 +175,13 @@ class SnowflakeOpenflowSourceConfig(
     def default_source_env_to_env(self) -> "SnowflakeOpenflowSourceConfig":
         if self.source_env is None:
             self.source_env = self.env
+        else:
+            # Fold case exactly as EnvConfigMixin.env_must_be_one_of does
+            # for `env`. Without this, `env: prod` is accepted and
+            # normalised while `source_env: prod` -- the same word, in an
+            # adjacent field documented as needing to match -- is
+            # rejected outright.
+            self.source_env = self.source_env.upper()
         # Validated eagerly for the same reason as snowflake_env above: a typo'd
         # source_env yields a well-formed upstream URN pointing nowhere.
         if self.source_env not in ALL_ENV_TYPES:

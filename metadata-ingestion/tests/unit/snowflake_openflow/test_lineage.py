@@ -656,13 +656,13 @@ def test_lineage_for_connector_counts_pattern_configured_connector():
     assert source.report.num_connectors_without_enumerable_tables == 1
 
 
-def test_include_openflow_lineage_false_skips_lineage_entirely():
+def test_include_table_lineage_false_skips_lineage_entirely():
     # The gate lives in get_workunits_internal, not in _lineage_for_connector
     # itself, so this drives the full method rather than the helper directly.
     # _lineage_for_connector is stubbed to raise: if the gate were removed or
     # inverted, this test fails on that AssertionError rather than passing
     # vacuously.
-    source = _make_source(include_openflow_lineage=False)
+    source = _make_source(include_table_lineage=False)
     connector = _connector()
 
     def fail_if_called(connector: OpenflowConnector) -> Any:
