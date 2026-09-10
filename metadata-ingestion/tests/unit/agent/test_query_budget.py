@@ -477,3 +477,35 @@ def test_no_config_in_the_sql_probe_family_diverges_on_its_option_source():
     # Guards the walk itself: a registry that stopped resolving would otherwise
     # pass this vacuously.
     assert checked > 10, f"only {checked} configs reached -- the walk is broken"
+
+
+def test_a_recipes_own_libpq_options_survive_the_timeout():
+    """libpq packs every `-c setting` into one connect_arg, so assigning the
+    timeout there threw the recipe's own away -- a
+    `-c search_path=reporting,public` vanished and the probe then connected
+    with different session settings than ingestion. Verified by hand when
+    fixed and not by a test, which is how it stayed the only uncovered line
+    in the file."""
+
+    class _Config:
+        options = {"connect_args": {"options": "-c search_path=reporting,public"}}
+
+        def get_sql_alchemy_url(self) -> str:
+            return "postgresql://u:p@h/db"
+
+    sent = engine_options(_Config(), budget=QueryBudget(timeout_seconds=30))[
+        "connect_args"
+    ]["options"]
+    assert "search_path=reporting,public" in sent, "the recipe's setting was dropped"
+    assert "statement_timeout=30000" in sent, "the ceiling was dropped"
+
+
+def test_the_timeout_stands_alone_when_the_recipe_asked_for_nothing():
+    class _Config:
+        def get_sql_alchemy_url(self) -> str:
+            return "postgresql://u:p@h/db"
+
+    sent = engine_options(_Config(), budget=QueryBudget(timeout_seconds=30))[
+        "connect_args"
+    ]["options"]
+    assert sent == "-c statement_timeout=30000"
