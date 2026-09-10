@@ -33,7 +33,7 @@ export const DataProducts = () => {
             section: 'Data Products',
             value: tc('viewAll'),
         });
-        history.push(PageRoutes.MARKETPLACE);
+        history.push(PageRoutes.DATA_PRODUCTS);
     };
 
     const handleDataProductClick = (dataProductUrn: string) => {

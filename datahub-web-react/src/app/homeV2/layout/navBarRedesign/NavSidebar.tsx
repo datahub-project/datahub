@@ -291,11 +291,11 @@ export const NavSidebar = () => {
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
-                        title: t('navLinks.marketplace'),
-                        key: 'marketplace',
+                        title: t('navLinks.dataProducts'),
+                        key: 'dataProducts',
                         icon: <Storefront />,
                         selectedIcon: <Storefront weight="fill" />,
-                        link: PageRoutes.MARKETPLACE,
+                        link: PageRoutes.DATA_PRODUCTS,
                         additionalLinksForPathMatching: [`${PageRoutes.DATA_PRODUCT_ENTITY}/:urn`],
                     },
                     {

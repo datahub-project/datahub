@@ -1,0 +1,96 @@
+import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
+import React, { useEffect, useMemo } from 'react';
+import { useHistory } from 'react-router-dom';
+
+import { DataProductsTreeItem } from '@app/dataProducts/DataProductsTreeItem';
+import { useDataProductsEntityContext } from '@app/dataProducts/context/DataProductsEntityContext';
+import { DataProductEntity } from '@app/dataProducts/dataProductsTypes';
+import useDataProductChildren from '@app/dataProducts/useDataProductChildren';
+import { countPendingOptimistic, mergeDataProductEntities } from '@app/dataProducts/utils/dataProductsDataProductEntity';
+import { PageRoutes } from '@conf/Global';
+
+export type DataProductChildRowProps = {
+    level: number;
+    dataProduct: DataProductEntity;
+    isExpanded: boolean;
+    isSelected: boolean;
+    expandedDataProductUrns: Set<string>;
+    selectedUrn: string | null;
+    onToggle: () => void;
+    onToggleDataProduct: (urn: string) => void;
+};
+
+export function DataProductChildRow({
+    level,
+    dataProduct,
+    isExpanded,
+    isSelected,
+    expandedDataProductUrns,
+    selectedUrn,
+    onToggle,
+    onToggleDataProduct,
+}: DataProductChildRowProps) {
+    const history = useHistory();
+    const { entityData, getOptimisticChildren, refetchKey } = useDataProductsEntityContext();
+    const optimisticChildren = getOptimisticChildren(dataProduct.urn);
+    const hasChildren = (dataProduct.childDataProducts?.total ?? 0) > 0 || optimisticChildren.length > 0;
+
+    useEffect(() => {
+        if (!entityData?.parentDataProducts) return;
+        if (entityData.parentDataProducts.some((p) => p.urn === dataProduct.urn) && !isExpanded) {
+            onToggle();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [entityData?.urn, entityData?.parentDataProducts, dataProduct.urn]);
+
+    const { data, scrollRef, refetch } = useDataProductChildren({
+        parentUrn: dataProduct.urn,
+        skip: !isExpanded || !hasChildren,
+    });
+
+    useEffect(() => {
+        if (refetchKey > 0 && isExpanded) {
+            refetch();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [refetchKey, isExpanded]);
+
+    const children = useMemo(
+        () => mergeDataProductEntities(data as DataProductEntity[], optimisticChildren),
+        [data, optimisticChildren],
+    );
+    const childCount = (dataProduct.childDataProducts?.total ?? 0) + countPendingOptimistic(data, optimisticChildren);
+    const title = dataProduct.properties?.name ?? dataProduct.urn;
+
+    return (
+        <>
+            <DataProductsTreeItem
+                level={level}
+                icon={Storefront}
+                title={title}
+                isSelected={isSelected}
+                hasChildren={hasChildren}
+                childCount={childCount}
+                isExpanded={isExpanded}
+                onClick={() => history.push(`${PageRoutes.DATA_PRODUCT_ENTITY}/${encodeURIComponent(dataProduct.urn)}`)}
+                onToggleExpand={hasChildren ? onToggle : undefined}
+                testId={`data-products-sidebar-product-${dataProduct.urn}`}
+            />
+            {isExpanded &&
+                children.map((child) => (
+                    <DataProductChildRow
+                        key={child.urn}
+                        level={level + 1}
+                        dataProduct={child}
+                        isExpanded={expandedDataProductUrns.has(child.urn)}
+                        isSelected={selectedUrn === child.urn}
+                        expandedDataProductUrns={expandedDataProductUrns}
+                        selectedUrn={selectedUrn}
+                        onToggle={() => onToggleDataProduct(child.urn)}
+                        onToggleDataProduct={onToggleDataProduct}
+                    />
+                ))}
+            {isExpanded && <div ref={scrollRef} style={{ height: 1 }} />}
+        </>
+    );
+}

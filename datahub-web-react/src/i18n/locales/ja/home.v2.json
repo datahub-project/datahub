@@ -77,7 +77,7 @@
     "navLinks.help.title": "ヘルプ",
     "navLinks.home": "ホーム",
     "navLinks.metrics": "メトリクス",
-    "navLinks.marketplace": "マーケットプレイス",
+    "navLinks.dataProducts": "Data Products",
     "navLinks.ingestion.description": "データ統合とPipelineを管理します",
     "navLinks.ingestion.title": "Ingestion",
     "navLinks.settings.description": "アカウントと環境設定を管理します",
