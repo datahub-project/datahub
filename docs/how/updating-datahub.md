@@ -101,6 +101,12 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(View authorization)** `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD` and
+  `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE` now mutate the complete effective default list instead of
+  replacing it. Operators can add or remove one entity type without restating every default
+  unrestricted type. Stock application defaults live on `VIEW_UNRESTRICTED_ENTITY_TYPES` (merged
+  with the registry baseline). An explicitly empty value keeps only the registry baseline.
+
 - **(GMS / AWS clients)** Shared object-storage `S3Client` and `StsClient` no longer fall through to the AWS SDK default credential chain when only a region is set. That path allocated a new IRSA `StsAssumeRoleWithWebIdentityCredentialsProvider` per builder. Clients are created from the shared `DefaultCredentialsProvider` bean, LocalStack dummy credentials (`AWS_ENDPOINT_URL`), or skipped. Iceberg catalog FileIO uses warehouse-vended static keys only. **Action:** none if GMS already has a shared AWS credentials bean or LocalStack; object storage / STS stay unavailable until credentials are explicit.
 
 - **(GMS / GraphQL thread pool)** When `GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL=true`, pool sizes no longer default to `availableProcessors() * 5 / * 100` (which followed node vCPU on Kubernetes). Defaults are 8-core equivalents: core `40`, max `800`, `SynchronousQueue` (`GRAPHQL_CONCURRENCY_QUEUE_SIZE=0`). GraphQL resolver fan-out is blocking I/O, so a small bounded queue plus `CallerRunsPolicy` on the Jetty thread can starve nested work; set `QUEUE_SIZE > 0` only if you want an `ArrayBlockingQueue`. Restore node-scaled sizing with `GRAPHQL_CONCURRENCY_SCALE_WITH_PROCESSORS=true`, or sentinels `CORE_POOL_SIZE < 0`, `MAX_POOL_SIZE <= 0`. The dedicated pool remains **off** by default.
@@ -411,9 +417,9 @@ Requirements:
 - **(GMS / System Update)** A new default-on, non-blocking system update, `BackfillDatasetAliases`, populates the system-owned `aliases` aspect for datasets created before that aspect existed. It scans Elasticsearch for datasets missing the alias, including soft-deleted ones, and emits metadata change proposals that the MCE consumer writes in batches; it never writes to the primary store directly. Because it is non-blocking it runs after startup and never delays GMS. It pages through the index without pausing by default; set `..._DELAY_MS` above zero to throttle it if the emit rate competes with normal write traffic. Configure with `SYSTEM_UPDATE_DATASET_ALIASES_ENABLED` (default `true`), `..._BATCH_SIZE` (`1000`), and `..._DELAY_MS` (`0`). Set `SYSTEM_UPDATE_DATASET_ALIASES_REPROCESS=true` to re-emit for every dataset after the job has already completed. **Action:** none required. If the system update job fails while this step is running, re-run it — no completion marker is written on failure, and the next run resumes from the last page it reached rather than starting over.
 - **(GMS / Structured Properties)** System-update reindex detection now compares Elasticsearch field `type` for structured properties that already exist in both current and target mappings. This repairs indices where NUMBER properties were locked as `float`/`long` by dynamic mapping before an explicit `double` put-mapping landed. Requires both `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true` and `ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX=true` / `structuredProperties.typeMismatchReindexEnabled` (default `true`).
 
-- **(GMS / View Authorization)** `schemaField` and `container` are view-restricted by default (not on
-  stock `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD`; `container` no longer has `viewUnrestricted: true` in
-  the registry). **View Entity Page** on a schema field inherits from the parent dataset encoded in
+- **(GMS / View Authorization)** `schemaField` and `container` are view-restricted by default (not
+  in the effective unrestricted defaults; `container` no longer has `viewUnrestricted: true` in the
+  registry). **View Entity Page** on a schema field inherits from the parent dataset encoded in
   the schemaField URN (`urn:li:schemaField:(<datasetUrn>,<fieldPath>)`), then falls back to a direct
   grant on the column URN. This matches the existing logical-parent write candidate order.
   **OpenAPI and RestLi READ-by-URN** use the same parent-inheritance rules when REST API
