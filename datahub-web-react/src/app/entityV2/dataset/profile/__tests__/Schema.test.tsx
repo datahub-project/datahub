@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import React from 'react';
 
 import { EntityContext } from '@app/entity/shared/EntityContext';
@@ -264,8 +264,9 @@ describe('Schema', () => {
         fireEvent.click(fkButton);
 
         expect(await screen.findByText('Foreign Key to')).toBeInTheDocument();
-        expect(screen.getAllByText('Yet Another Dataset').length).toBeGreaterThan(0);
-    });
+        const constraint = screen.getByTestId('foreign-key-constraint');
+        expect(within(constraint).getByText('Yet Another Dataset')).toBeInTheDocument();
+    }, 15000); // The drawer opens on a debounced value and this file is slow on a loaded runner
 
     it('renders key/value toggle', () => {
         const { getByText, queryByText } = render(
