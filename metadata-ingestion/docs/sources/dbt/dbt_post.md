@@ -650,11 +650,20 @@ tags, terms, documentation — is not carried across automatically.
 
 ##### Not currently mapped
 
-- **Metric `type`, `window`, and `grain_to_date`.** `MetricInfo` has no field for these, so a
-  `cumulative` metric and a `simple` metric are indistinguishable in DataHub. This needs a metadata
-  model change rather than a connector one. A metric's `filter` _is_ represented: it is folded into
-  the emitted expression (`sum(orders.revenue) FILTER (WHERE region = 'US')`), because a metric whose
-  filter was dropped would publish a broader number than the dbt definition.
+- **Metric `window` and `grain_to_date`.** `MetricInfo` has no field for these, so a cumulative
+  metric's window is not carried. The metric's `type` _is_ carried, as a subtype (`Simple`, `Ratio`,
+  `Cumulative`, `Derived`, `Conversion`), so the kinds are distinguishable in search and filters even
+  though a cumulative metric's expression is the same aggregation as its simple counterpart's. A
+  metric's `filter` is also represented: it is folded into the emitted expression
+  (`sum(orders.revenue) FILTER (WHERE region = 'US')`), because a metric whose filter was dropped
+  would publish a broader number than the dbt definition.
+- **`saved_queries` and `groups`.** Neither is ingested. A dbt saved query is a named
+  metric-plus-group-by export definition and a dbt group is an ownership grouping; neither is a
+  semantic model or a metric, so both are out of scope for this feature rather than missing from it.
+- **Column descriptions on the migration path** are carried only where a human authored them
+  (`editableSchemaMetadata`). An ingestion-authored column description is deliberately not copied
+  into the destination's editable layer, where it would override whatever the destination's own
+  ingestion produces.
 - **Top-level `metrics:` on dbt Cloud.** The Discovery API does not expose the semantic graph, so
   only metrics from `create_metric: true` measures are ingested there. Use the dbt Core source if you
   need the `metrics:` block.

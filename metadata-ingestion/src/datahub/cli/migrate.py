@@ -1397,7 +1397,18 @@ def _read_urn_pairs_from_file(path: str) -> Dict[str, str]:
     type=bool,
     is_flag=True,
     default=False,
-    help="Skip the subtype check and skip the confirmation prompt.",
+    help="Skip the subtype check and the confirmation prompt. Does NOT permit "
+    "migrating across envs -- see --allow-cross-env.",
+)
+@click.option(
+    "--allow-cross-env",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Permit migrating sources whose env differs from --env. Off by "
+    "default: a mismatch usually means --env is wrong, and the governance "
+    "would land in the wrong env. Deliberately separate from --force, so "
+    "unattended runs keep this guard.",
 )
 @click.option(
     "--report-inbound-refs",
@@ -1423,6 +1434,7 @@ def dbt_semantic_models(
     include_soft_deleted: bool,
     dry_run: bool,
     force: bool,
+    allow_cross_env: bool,
     report_inbound_refs: bool,
 ) -> None:
     """Copy governance between legacy dbt "Semantic Model" datasets and the
@@ -1456,7 +1468,9 @@ def dbt_semantic_models(
 
     Both sides are datasets, which is why --direction is dataset-to-sm even
     though the destination is a Semantic Model Dataset rather than a
-    semanticModel.
+    semanticModel. Both therefore carry env, so a source in a
+    different env than --env is refused unless --allow-cross-env is passed --
+    a separate flag from --force, so unattended runs keep the guard.
 
     Copies entity-level ownership, domains, tags, glossary terms, institutional
     memory, structured properties, documentation, deprecation, applications, and
@@ -1538,10 +1552,13 @@ def dbt_semantic_models(
         )
         for urn, reason in env_mismatched[:10]:
             click.secho(f"  {urn}: {reason}", fg="yellow", err=True)
-        if not force:
+        # Not gated on --force: that flag exists to skip the subtype check and
+        # the prompt, and folding a safety guard into it would silently disarm
+        # the guard for every automated run.
+        if not allow_cross_env:
             raise click.ClickException(
                 "Refusing to migrate across envs. Pass --env matching the "
-                "sources, or --force to proceed deliberately."
+                "sources, or --allow-cross-env to proceed deliberately."
             )
 
     mapping = dbt_migration.build_mapping(

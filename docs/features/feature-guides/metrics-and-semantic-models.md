@@ -266,7 +266,7 @@ Two entity kinds are deliberately **not** governance destinations, because there
 - the **`semanticModel`** is project-scoped and shared by every semantic model in the project, so copying each legacy dataset onto it would keep only the last one's owners, tags and domain. It receives no governance from the CLI.
 - the **`metric`** entities have no legacy counterpart at all.
 
-Unlike Snowflake, both dbt sides are datasets carrying env, so PROD and DEV stay distinct — and a source in a different env than `--env` is refused unless you pass `--force`.
+Unlike Snowflake, both dbt sides are datasets carrying env, so PROD and DEV stay distinct — and a source in a different env than `--env` is refused unless you pass `--allow-cross-env`. That is deliberately a separate flag from `--force`, so an unattended run passing `-F` keeps the guard.
 
 ### What neither command migrates
 

@@ -1349,6 +1349,69 @@ class TestDbtSemanticModelsCli:
         assert "soft-deleted" in result.output
         assert "--include-soft-deleted" in result.output
 
+    @patch("datahub.cli.migrate.dbt_migration.run_migration")
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_force_does_not_permit_a_cross_env_migration(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        """-F is for skipping the prompt, not for disarming a safety guard.
+
+        Automation commonly passes -F, so folding the env check into it would
+        silently remove the protection from exactly the unattended runs that
+        most need it.
+        """
+        mock_filter.return_value = ([self.LEGACY_URN], [])
+
+        result = self._invoke(
+            "--direction",
+            "dataset-to-sm",
+            "--urn",
+            self.LEGACY_URN,  # a PROD urn
+            "--env",
+            "DEV",
+            "--project-name",
+            "jaffle_shop",
+            "--force",
+        )
+
+        assert result.exit_code != 0
+        assert "Refusing to migrate across envs" in result.output
+        mock_run_migration.assert_not_called()
+
+    @patch("datahub.cli.migrate.dbt_migration.run_migration")
+    @patch("datahub.cli.migrate.dbt_migration.filter_by_expected_subtype")
+    @patch("datahub.cli.migrate.get_default_graph")
+    def test_allow_cross_env_permits_it_deliberately(
+        self,
+        mock_get_graph: MagicMock,
+        mock_filter: MagicMock,
+        mock_run_migration: MagicMock,
+    ) -> None:
+        mock_filter.return_value = ([self.LEGACY_URN], [])
+        mock_run_migration.return_value = MagicMock(results=[])
+
+        result = self._invoke(
+            "--direction",
+            "dataset-to-sm",
+            "--urn",
+            self.LEGACY_URN,
+            "--env",
+            "DEV",
+            "--project-name",
+            "jaffle_shop",
+            "--force",
+            "--allow-cross-env",
+        )
+
+        assert result.exit_code == 0, result.output
+        # Still warned, just not refused.
+        assert "different env" in result.output
+        mock_run_migration.assert_called_once()
+
 
 class TestReadUrnPairsFromFile:
     def test_reads_tab_and_whitespace_separated_pairs(self) -> None:
