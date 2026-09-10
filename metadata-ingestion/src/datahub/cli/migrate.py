@@ -1135,6 +1135,29 @@ def snowflake_semantic_views(
     """Copy governance between legacy Snowflake "Semantic View" datasets and
     semanticModel/metric entities.
 
+    \b
+    WHAT THE FLAG FLIP CHANGES
+    Before (semantic_views.emit_semantic_model_entities off) -- one dataset per
+    Snowflake semantic view, subtype "Semantic View":
+        dataset:(snowflake,test_db.test_schema.sales_model,PROD)
+    After (flag on) -- one semanticModel, one dataset per logical table, and one
+    metric per view metric:
+        semanticModel:(snowflake,test_db.test_schema,sales_model)
+        dataset:(snowflake,test_db.test_schema.sales_model.orders,PROD)      "Semantic Model Dataset"
+        dataset:(snowflake,test_db.test_schema.sales_model.customers,PROD)
+        metric:(snowflake,test_db.test_schema.sales_model.orders,Total_Amount)
+
+    \b
+    WHAT THIS COMMAND MIGRATES  (dataset -> semanticModel, one pair per view)
+        dataset:(snowflake,test_db.test_schema.sales_model,PROD)
+          -> semanticModel:(snowflake,test_db.test_schema,sales_model)
+    Column governance fans out from the legacy dataset's columns:
+        a METRIC column  -> metric:(snowflake,...sales_model.orders,Total_Amount)
+        any other column -> schemaField:(<Semantic Model Dataset urn>,<column>)
+    Unlike the dbt command, the destination here is a semanticModel, which has
+    no env in its key -- so PROD and DEV views with the same db.schema.view map
+    to one semanticModel. Migrate one env at a time.
+
     Source must exist; destination URNs may not (aspects are written so a later
     Snowflake ingest with emit_semantic_model_entities can fill structural
     aspects). Typical order: migrate governance, then ingest.
@@ -1405,10 +1428,35 @@ def dbt_semantic_models(
     """Copy governance between legacy dbt "Semantic Model" datasets and the
     "Semantic Model Dataset" entities emitted with emit_semantic_model_entities.
 
-    Both sides are datasets. The project-level semanticModel entity is NOT a
-    governance destination: it is shared by every semantic model in the project,
-    so copying each legacy dataset onto it would keep only the last one's
-    owners, tags and domain.
+    \b
+    WHAT THE FLAG FLIP CHANGES
+    Before (emit_semantic_model_entities off) -- one dataset per dbt semantic
+    model, subtype "Semantic Model", named <database>.<schema>.<name>:
+        dataset:(dbt,pagila.public.customers,PROD)
+        dataset:(dbt,pagila.public.payments,PROD)
+    After (flag on) -- named <project>.semantic_layer.<name>, plus two new
+    entity kinds:
+        semanticModel:(dbt,sample_dbt,semantic_layer)                  one, project-level
+        dataset:(dbt,sample_dbt.semantic_layer.customers,PROD)         "Semantic Model Dataset"
+        dataset:(dbt,sample_dbt.semantic_layer.payments,PROD)
+        metric:(dbt,sample_dbt,payment_amount)                         subtype Simple/Ratio/...
+
+    \b
+    WHAT THIS COMMAND MIGRATES  (dataset -> dataset, one pair per semantic model)
+        dataset:(dbt,pagila.public.customers,PROD)
+          -> dataset:(dbt,sample_dbt.semantic_layer.customers,PROD)
+        dataset:(dbt,pagila.public.payments,PROD)
+          -> dataset:(dbt,sample_dbt.semantic_layer.payments,PROD)
+    Not migrated, because there is nothing to migrate from:
+        semanticModel  -- project-level and shared by every semantic model, so
+                          three sources onto one destination would keep only the
+                          last one's owners, tags and domain. Gets NO governance
+                          from this command.
+        metric         -- has no legacy counterpart at all.
+
+    Both sides are datasets, which is why --direction is dataset-to-sm even
+    though the destination is a Semantic Model Dataset rather than a
+    semanticModel.
 
     Copies entity-level ownership, domains, tags, glossary terms, institutional
     memory, structured properties, documentation, deprecation, applications, and
