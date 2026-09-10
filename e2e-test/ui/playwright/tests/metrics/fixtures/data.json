@@ -1,0 +1,1658 @@
+[
+  {
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:pw_metrics-sales",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "json": {
+        "name": "PW Metrics Sales",
+        "description": "Sales domain for Metrics Playwright tests"
+      }
+    }
+  },
+  {
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:pw_metrics-finance",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "json": {
+        "name": "PW Metrics Finance",
+        "description": "Finance domain for Metrics Playwright tests"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.raw.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.raw.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "pw_metrics.raw.orders",
+        "description": "Physical orders table"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.raw.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "pw_metrics.raw.orders",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false,
+            "isPartOfKey": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.raw.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.raw.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "pw_metrics.raw.customers",
+        "description": "Physical customers table"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.raw.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "pw_metrics.raw.customers",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false,
+            "isPartOfKey": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,pw_metrics.raw.payments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,pw_metrics.raw.payments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "pw_metrics.raw.payments",
+        "description": "Physical payments table"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,pw_metrics.raw.payments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "pw_metrics.raw.payments",
+        "platform": "urn:li:dataPlatform:bigquery",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false,
+            "isPartOfKey": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.raw.standalone_events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.raw.standalone_events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "pw_metrics.raw.standalone_events",
+        "description": "Physical events for standalone metric"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.raw.standalone_events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "pw_metrics.raw.standalone_events",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false,
+            "isPartOfKey": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,orders_model)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:snowflake"
+      }
+    }
+  },
+  {
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,orders_model)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,orders_model)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelInfo",
+    "aspect": {
+      "json": {
+        "name": "PW Orders Model",
+        "description": "Playwright semantic model over orders and customers.",
+        "nativeDefinition": "semantic_model:\n  name: pw_orders_model\n  datasets: [ORDERS, CUSTOMERS]\n",
+        "datasets": [],
+        "relationships": [
+          {
+            "name": "orders_to_customers",
+            "from": "ORDERS",
+            "fromColumns": [
+              "customer_id"
+            ],
+            "to": "CUSTOMERS",
+            "toColumns": [
+              "customer_id"
+            ],
+            "cardinality": "N_ONE"
+          }
+        ],
+        "lastModified": {
+          "time": 1700000005000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "created": {
+          "time": 1700000000000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,orders_model)",
+    "changeType": "UPSERT",
+    "aspectName": "aiContext",
+    "aspect": {
+      "json": {
+        "synonyms": [
+          "pw orders model"
+        ],
+        "instructions": "Use for Playwright revenue analytics."
+      }
+    }
+  },
+  {
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,orders_model)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "json": {
+        "domains": [
+          "urn:li:domain:pw_metrics-sales"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:snowflake"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:unknown"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.raw.orders,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "Semantic Model Dataset"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelProperties",
+    "aspect": {
+      "json": {
+        "alias": "ORDERS",
+        "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,orders_model)"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "ORDERS",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "created": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.Schemaless": {}
+        },
+        "fields": [
+          {
+            "fieldPath": "order_id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "int",
+            "recursive": false,
+            "isPartOfKey": true
+          },
+          {
+            "fieldPath": "customer_id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "int",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "order_ts",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.BytesType": {}
+              }
+            },
+            "nativeDataType": "timestamp",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "amount",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "float",
+            "recursive": false,
+            "isPartOfKey": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD),order_id)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+      "json": {
+        "type": "DIMENSION",
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "ANSI_SQL",
+              "expression": "ORDERS.order_id"
+            }
+          ]
+        },
+        "dimension": {
+          "isTime": false
+        }
+      }
+    }
+  },
+  {
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD),customer_id)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+      "json": {
+        "type": "DIMENSION",
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "ANSI_SQL",
+              "expression": "ORDERS.customer_id"
+            }
+          ]
+        },
+        "dimension": {
+          "isTime": false
+        }
+      }
+    }
+  },
+  {
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD),order_ts)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+      "json": {
+        "type": "DIMENSION",
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "ANSI_SQL",
+              "expression": "ORDERS.order_ts"
+            }
+          ]
+        },
+        "dimension": {
+          "isTime": true
+        }
+      }
+    }
+  },
+  {
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD),amount)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+      "json": {
+        "type": "MEASURE",
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "SNOWFLAKE",
+              "expression": "SUM(amount)"
+            }
+          ]
+        },
+        "aggregationFunction": "SUM"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.customers_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:snowflake"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.customers_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:unknown"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.raw.customers,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.customers_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "Semantic Model Dataset"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.customers_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelProperties",
+    "aspect": {
+      "json": {
+        "alias": "CUSTOMERS",
+        "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,orders_model)"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.customers_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "CUSTOMERS",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "created": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.Schemaless": {}
+        },
+        "fields": [
+          {
+            "fieldPath": "customer_id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "int",
+            "recursive": false,
+            "isPartOfKey": true
+          },
+          {
+            "fieldPath": "customer_name",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar",
+            "recursive": false,
+            "isPartOfKey": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.customers_ds,PROD),customer_id)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+      "json": {
+        "type": "DIMENSION",
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "ANSI_SQL",
+              "expression": "CUSTOMERS.customer_id"
+            }
+          ]
+        },
+        "dimension": {
+          "isTime": false
+        }
+      }
+    }
+  },
+  {
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.customers_ds,PROD),customer_name)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+      "json": {
+        "type": "DIMENSION",
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "ANSI_SQL",
+              "expression": "CUSTOMERS.customer_name"
+            }
+          ]
+        },
+        "dimension": {
+          "isTime": false
+        }
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,total_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:snowflake"
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,total_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,total_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+      "json": {
+        "name": "PW Total Revenue",
+        "description": "Sum of all order amounts for Playwright Metrics tests.",
+        "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,orders_model)",
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "SNOWFLAKE",
+              "expression": "SUM(ORDERS.amount)"
+            }
+          ]
+        },
+        "lastModified": {
+          "time": 1700000006000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "created": {
+          "time": 1700000000000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,total_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "aiContext",
+    "aspect": {
+      "json": {
+        "synonyms": [
+          "pw revenue"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,total_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+      "json": {
+        "derivedFrom": [],
+        "relatedMetrics": [
+          {
+            "destinationUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,order_count)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,total_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+      "json": {
+        "datasetUpstreams": [
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,total_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "json": {
+        "domains": [
+          "urn:li:domain:pw_metrics-sales"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,double_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:snowflake"
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,double_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,double_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+      "json": {
+        "name": "PW Double Revenue",
+        "description": "Derived metric: 2x total revenue.",
+        "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,orders_model)",
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "SNOWFLAKE",
+              "expression": "2 * total_revenue"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,double_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+      "json": {
+        "derivedFrom": [
+          {
+            "destinationUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,total_revenue)"
+          }
+        ],
+        "relatedMetrics": []
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,double_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+      "json": {
+        "datasetUpstreams": [
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,double_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "json": {
+        "domains": [
+          "urn:li:domain:pw_metrics-sales"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,child_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:snowflake"
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,child_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,child_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+      "json": {
+        "name": "PW Child Revenue",
+        "description": "Child metric of total revenue for hierarchy tests.",
+        "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,orders_model)",
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "SNOWFLAKE",
+              "expression": "SUM(ORDERS.amount) FILTER (WHERE region = 'US')"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,child_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+      "json": {
+        "derivedFrom": [],
+        "relatedMetrics": [],
+        "parentMetric": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,total_revenue)"
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,child_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+      "json": {
+        "datasetUpstreams": [
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,child_revenue)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "json": {
+        "domains": [
+          "urn:li:domain:pw_metrics-sales"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,order_count)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:snowflake"
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,order_count)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,order_count)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+      "json": {
+        "name": "PW Order Count",
+        "description": "Related metric sharing the orders model.",
+        "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,orders_model)",
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "SNOWFLAKE",
+              "expression": "COUNT(ORDERS.order_id)"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,order_count)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+      "json": {
+        "derivedFrom": [],
+        "relatedMetrics": []
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,order_count)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+      "json": {
+        "datasetUpstreams": [
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,order_count)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "json": {
+        "domains": [
+          "urn:li:domain:pw_metrics-sales"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,revenue_per_customer)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:snowflake"
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,revenue_per_customer)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,revenue_per_customer)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+      "json": {
+        "name": "PW Revenue Per Customer",
+        "description": "Multi-input metric reading orders and customers.",
+        "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,orders_model)",
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "SNOWFLAKE",
+              "expression": "SUM(ORDERS.amount) / COUNT(DISTINCT CUSTOMERS.customer_id)"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,revenue_per_customer)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+      "json": {
+        "derivedFrom": [
+          {
+            "destinationUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,total_revenue)"
+          }
+        ],
+        "relatedMetrics": []
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,revenue_per_customer)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+      "json": {
+        "datasetUpstreams": [
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)"
+          },
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.customers_ds,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,revenue_per_customer)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "json": {
+        "domains": [
+          "urn:li:domain:pw_metrics-sales"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:bigquery,pw_metrics.finance,payments_model)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:bigquery"
+      }
+    }
+  },
+  {
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:bigquery,pw_metrics.finance,payments_model)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:bigquery,pw_metrics.finance,payments_model)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelInfo",
+    "aspect": {
+      "json": {
+        "name": "PW Payments Model",
+        "description": "Playwright semantic model over payments.",
+        "nativeDefinition": "semantic_model:\n  name: pw_payments_model\n",
+        "datasets": [],
+        "lastModified": {
+          "time": 1700000002000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "created": {
+          "time": 1700000000000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:bigquery,pw_metrics.finance,payments_model)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "json": {
+        "domains": [
+          "urn:li:domain:pw_metrics-finance"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,pw_metrics.finance.payments_model.payments_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:bigquery"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,pw_metrics.finance.payments_model.payments_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:unknown"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,pw_metrics.raw.payments,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,pw_metrics.finance.payments_model.payments_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "Semantic Model Dataset"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,pw_metrics.finance.payments_model.payments_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelProperties",
+    "aspect": {
+      "json": {
+        "alias": "PAYMENTS",
+        "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:bigquery,pw_metrics.finance,payments_model)"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,pw_metrics.finance.payments_model.payments_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "PAYMENTS",
+        "platform": "urn:li:dataPlatform:bigquery",
+        "version": 0,
+        "created": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown"
+        },
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.Schemaless": {}
+        },
+        "fields": [
+          {
+            "fieldPath": "payment_id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "int",
+            "recursive": false,
+            "isPartOfKey": true
+          },
+          {
+            "fieldPath": "payment_amount",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "float",
+            "recursive": false,
+            "isPartOfKey": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,pw_metrics.finance.payments_model.payments_ds,PROD),payment_id)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+      "json": {
+        "type": "DIMENSION",
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "ANSI_SQL",
+              "expression": "PAYMENTS.payment_id"
+            }
+          ]
+        },
+        "dimension": {
+          "isTime": false
+        }
+      }
+    }
+  },
+  {
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,pw_metrics.finance.payments_model.payments_ds,PROD),payment_amount)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+      "json": {
+        "type": "MEASURE",
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "OTHER",
+              "expression": "SUM(payment_amount)"
+            }
+          ]
+        },
+        "aggregationFunction": "SUM"
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:bigquery,pw_metrics.finance,payment_volume)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:bigquery"
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:bigquery,pw_metrics.finance,payment_volume)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:bigquery,pw_metrics.finance,payment_volume)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+      "json": {
+        "name": "PW Payment Volume",
+        "description": "Total payment volume from BigQuery model.",
+        "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:bigquery,pw_metrics.finance,payments_model)",
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "OTHER",
+              "expression": "SUM(PAYMENTS.payment_amount)"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:bigquery,pw_metrics.finance,payment_volume)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+      "json": {
+        "derivedFrom": [],
+        "relatedMetrics": []
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:bigquery,pw_metrics.finance,payment_volume)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+      "json": {
+        "datasetUpstreams": [
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,pw_metrics.finance.payments_model.payments_ds,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:bigquery,pw_metrics.finance,payment_volume)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "json": {
+        "domains": [
+          "urn:li:domain:pw_metrics-finance"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.standalone,event_count)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.standalone,event_count)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+      "json": {
+        "name": "PW Event Count",
+        "description": "Standalone metric with direct physical dataset upstream.",
+        "created": {
+          "time": 1700000000000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "lastModified": {
+          "time": 1700000001000,
+          "actor": "urn:li:corpuser:datahub"
+        },
+        "expression": {
+          "dialects": [
+            {
+              "dialect": "SNOWFLAKE",
+              "expression": "COUNT(*)"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.standalone,event_count)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+      "json": {
+        "derivedFrom": [],
+        "relatedMetrics": []
+      }
+    }
+  },
+  {
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.standalone,event_count)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+      "json": {
+        "datasetUpstreams": [
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.raw.standalone_events,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_metrics.orders_chart)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_metrics.orders_chart)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+      "json": {
+        "title": "PW Metrics Orders Chart",
+        "description": "Chart fed by semantic model orders dataset",
+        "lastModified": {
+          "created": {
+            "time": 1700000000000,
+            "actor": "urn:li:corpuser:datahub"
+          },
+          "lastModified": {
+            "time": 1700000000000,
+            "actor": "urn:li:corpuser:datahub"
+          }
+        },
+        "inputEdges": [
+          {
+            "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,pw_metrics.orders_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,pw_metrics.orders_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+      "json": {
+        "title": "PW Metrics Orders Dashboard",
+        "description": "Dashboard containing the orders chart",
+        "lastModified": {
+          "created": {
+            "time": 1700000000000,
+            "actor": "urn:li:corpuser:datahub"
+          },
+          "lastModified": {
+            "time": 1700000000000,
+            "actor": "urn:li:corpuser:datahub"
+          }
+        },
+        "chartEdges": [
+          {
+            "destinationUrn": "urn:li:chart:(looker,pw_metrics.orders_chart)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "ORDERS",
+        "description": "Logical orders dataset"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.customers_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.customers_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "CUSTOMERS",
+        "description": "Logical customers dataset"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,pw_metrics.finance.payments_model.payments_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,pw_metrics.finance.payments_model.payments_ds,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "PAYMENTS",
+        "description": "Logical payments dataset"
+      }
+    }
+  }
+]

@@ -208,6 +208,26 @@
     "duration": "12.813s"
   },
   {
+    "filePath": "metrics/metric-details.spec.ts",
+    "duration": "90.000s"
+  },
+  {
+    "filePath": "metrics/metrics-home.spec.ts",
+    "duration": "120.000s"
+  },
+  {
+    "filePath": "metrics/metrics-lineage.spec.ts",
+    "duration": "150.000s"
+  },
+  {
+    "filePath": "metrics/metrics-search.spec.ts",
+    "duration": "90.000s"
+  },
+  {
+    "filePath": "metrics/semantic-model-details.spec.ts",
+    "duration": "90.000s"
+  },
+  {
     "filePath": "mfeframework/valid-config-mfe.spec.ts",
     "duration": "16.045s"
   },
