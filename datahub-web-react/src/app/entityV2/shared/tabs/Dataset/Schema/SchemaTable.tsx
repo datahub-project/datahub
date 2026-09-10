@@ -14,7 +14,10 @@ import useSchemaTitleRenderer from '@app/entityV2/dataset/profile/schema/utils/s
 import useSchemaTypeRenderer from '@app/entityV2/dataset/profile/schema/utils/schemaTypeRenderer';
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
-import { findIndexOfFieldPathExcludingCollapsedFields } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import {
+    findIndexOfFieldPathExcludingCollapsedFields,
+    hasNestedSchemaRows,
+} from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
@@ -465,11 +468,7 @@ export default function SchemaTable({
         [expandedDrawerFieldPath, expandedRows, expandedRowPrefixes],
     );
 
-    // groupByFieldPath returns roots (depth 0) with nested rows on `.children`.
-    const hasSomeRowsWithDepthGreaterThanZero = useMemo(
-        () => rows.some((row) => (row.depth || 0) > 0 || (row.children?.length ?? 0) > 0),
-        [rows],
-    );
+    const hasSomeRowsWithDepthGreaterThanZero = useMemo(() => hasNestedSchemaRows(rows), [rows]);
 
     const [schemaFieldDrawerFieldPath, setSchemaFieldDrawerFieldPath] = useState(expandedDrawerFieldPath);
     useDebounce(() => setSchemaFieldDrawerFieldPath(expandedDrawerFieldPath), KEYBOARD_CONTROL_DEBOUNCE_MS, [

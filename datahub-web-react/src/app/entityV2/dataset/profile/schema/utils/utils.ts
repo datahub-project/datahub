@@ -120,6 +120,10 @@ export function groupByFieldPath(
     return outputRows;
 }
 
+export function hasNestedSchemaRows(rows: Array<ExtendedSchemaFields>): boolean {
+    return rows.some((row) => (row.depth || 0) > 0 || (row.children?.length ?? 0) > 0);
+}
+
 export function diffJson(oldStr: string, newStr: string) {
     const diffArray = diff.diffJson(oldStr || '', newStr || '');
     return diffArray

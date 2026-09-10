@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 import {
     downgradeV2FieldPath,
     getParentPath,
     groupByFieldPath,
+    hasNestedSchemaRows,
     normalizeFieldPathKey,
     pathMatchesInsensitiveToV2,
 } from '@app/entityV2/dataset/profile/schema/utils/utils';
@@ -118,6 +120,11 @@ describe('getParentPath', () => {
             '[version=2.0].[type=struct].payload.[type=union].inner',
         );
     });
+
+    it('preserves attached bracket suffixes such as arr[0] when finding parents', () => {
+        expect(getParentPath('arr[0].item')).toBe('arr[0]');
+        expect(getParentPath('foo.arr[0].item')).toBe('foo.arr[0]');
+    });
 });
 
 describe('groupByFieldPath', () => {
@@ -214,5 +221,31 @@ describe('groupByFieldPath', () => {
         expect(rows.map((r) => r.fieldPath)).toEqual(['constructor', '__proto__']);
         expect(rows[0].children![0].fieldPath).toBe(constructorChild);
         expect(rows[1].children![0].fieldPath).toBe(protoChild);
+    });
+
+    it('nests children under an attached array-index parent path', () => {
+        const parent = 'arr[0]';
+        const child = 'arr[0].item';
+        const rows = groupByFieldPath([field(parent), field(child)], { showKeySchema: false });
+        expect(rows).toHaveLength(1);
+        expect(rows[0].fieldPath).toBe(parent);
+        expect(rows[0].children![0].fieldPath).toBe(child);
+        expect(rows[0].children![0].depth).toBe(1);
+    });
+});
+
+describe('hasNestedSchemaRows', () => {
+    it('is false for a flat list of roots with no children', () => {
+        expect(hasNestedSchemaRows([field('a'), field('b')])).toBe(false);
+    });
+
+    it('is true when a root has nested children', () => {
+        const parent = field('address') as ExtendedSchemaFields;
+        parent.children = [{ ...field('address.street'), depth: 1 }];
+        expect(hasNestedSchemaRows([parent])).toBe(true);
+    });
+
+    it('is true when a row itself has depth greater than zero', () => {
+        expect(hasNestedSchemaRows([{ ...field('street'), depth: 1 }])).toBe(true);
     });
 });

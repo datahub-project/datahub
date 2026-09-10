@@ -1,5 +1,6 @@
 import { renderHook } from '@testing-library/react-hooks';
 
+import { buildEditableSchemaFieldInfoMaps } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
 
 import { EditableSchemaMetadata, EntityType, SchemaField, SchemaFieldDataType } from '@types';
@@ -158,6 +159,24 @@ describe('useExtractFieldDescriptionInfo', () => {
             expect(mockGetFieldDescriptionDetails).toHaveBeenCalledWith(
                 expect.objectContaining({
                     editableFieldInfo: editableSchemaWithDuplicates.editableSchemaFieldInfo![0],
+                }),
+            );
+        });
+
+        it('uses caller-supplied fieldInfoMaps instead of building from metadata', () => {
+            const unusedMetadata: EditableSchemaMetadata = {
+                editableSchemaFieldInfo: [{ fieldPath: 'testField', description: 'from metadata' }],
+            };
+            const suppliedMaps = buildEditableSchemaFieldInfoMaps({
+                editableSchemaFieldInfo: [{ fieldPath: 'testField', description: 'from maps' }],
+            });
+
+            const { result } = renderHook(() => useExtractFieldDescriptionInfo(unusedMetadata, suppliedMaps));
+            result.current(mockSchemaField);
+
+            expect(mockGetFieldDescriptionDetails).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    editableFieldInfo: suppliedMaps.exactMap.get('testField'),
                 }),
             );
         });
