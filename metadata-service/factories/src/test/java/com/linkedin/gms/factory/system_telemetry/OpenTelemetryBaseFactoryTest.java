@@ -16,6 +16,7 @@ import io.datahubproject.metadata.context.telemetry.EnrichingSpanProcessor;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.trace.ReadableSpan;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
@@ -104,6 +105,19 @@ public class OpenTelemetryBaseFactoryTest {
           usageEventPublisher,
           mockSpanProducerRecordResolver,
           mockEnrichingSpanProcessor);
+    }
+
+    public OpenTelemetrySdk testOpenTelemetry(
+        MetricUtils metricUtils, SpanProcessor usageSpanExporter) throws Exception {
+      Method m =
+          OpenTelemetryBaseFactory.class.getDeclaredMethod(
+              "openTelemetry",
+              MetricUtils.class,
+              SpanProcessor.class,
+              EnrichingSpanProcessor.class);
+      m.setAccessible(true);
+      return (OpenTelemetrySdk)
+          m.invoke(this, metricUtils, usageSpanExporter, mockEnrichingSpanProcessor);
     }
   }
 
@@ -450,30 +464,37 @@ public class OpenTelemetryBaseFactoryTest {
   }
 
   @Test
-  public void testResourceAttributesPreserved() {
+  public void testResourceAttributesPreserved() throws Exception {
     String propKey = "otel.resource.attributes";
     String original = System.getProperty(propKey);
 
     try {
       System.setProperty(propKey, "k8s.namespace.name=test-tenant,service.namespace=datahub");
 
+      when(mockEnrichingSpanProcessor.shutdown())
+          .thenReturn(io.opentelemetry.sdk.common.CompletableResultCode.ofSuccess());
+
       TestOpenTelemetryFactory f = new TestOpenTelemetryFactory("datahub-mae-consumer");
-      SystemTelemetryContext ctx =
-          f.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher);
-
-      Span span = ctx.getTracer().spanBuilder("test").startSpan();
+      OpenTelemetrySdk sdk = f.testOpenTelemetry(mockMetricUtils, null);
       try {
-        assertTrue(span instanceof ReadableSpan, "Span should be a ReadableSpan from the SDK");
-        ReadableSpan readable = (ReadableSpan) span;
-        var resource = readable.toSpanData().getResource();
+        Span span = sdk.getTracer("test").spanBuilder("test").startSpan();
+        try {
+          assertTrue(span instanceof ReadableSpan, "Span should be a ReadableSpan from the SDK");
+          ReadableSpan readable = (ReadableSpan) span;
+          var resource = readable.toSpanData().getResource();
 
-        assertEquals(
-            resource.getAttribute(AttributeKey.stringKey("service.name")), "datahub-mae-consumer");
-        assertEquals(
-            resource.getAttribute(AttributeKey.stringKey("k8s.namespace.name")), "test-tenant");
-        assertEquals(resource.getAttribute(AttributeKey.stringKey("service.namespace")), "datahub");
+          assertEquals(
+              resource.getAttribute(AttributeKey.stringKey("service.name")),
+              "datahub-mae-consumer");
+          assertEquals(
+              resource.getAttribute(AttributeKey.stringKey("k8s.namespace.name")), "test-tenant");
+          assertEquals(
+              resource.getAttribute(AttributeKey.stringKey("service.namespace")), "datahub");
+        } finally {
+          span.end();
+        }
       } finally {
-        span.end();
+        sdk.close();
       }
     } finally {
       if (original != null) {
