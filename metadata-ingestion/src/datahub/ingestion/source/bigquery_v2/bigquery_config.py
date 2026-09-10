@@ -2,7 +2,7 @@ import logging
 import re
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Any, Dict, List, Optional, Tuple, Union
+from typing import Annotated, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from pydantic import (
     Field,
@@ -284,7 +284,9 @@ class BigQueryFilterConfig(SQLFilterConfig):
         default=AllowDenyPattern.allow_all(),
     )
 
-    def probe_schema_verdict_override(self, schema: str) -> Optional[SchemaMatch]:
+    def probe_schema_verdict_override(
+        self, schema: str, parent_path: Sequence[str] = ()
+    ) -> Optional[SchemaMatch]:
         # bigquery_schema_gen filters datasets with is_schema_allowed over
         # "project.dataset" whenever match_fully_qualified_names is on, which is
         # the default. filter_check's generic Schema classifier matches the bare
@@ -297,15 +299,19 @@ class BigQueryFilterConfig(SQLFilterConfig):
         # ingestion.
         if not self.match_fully_qualified_names:
             return None
-        # The override is not told which project the caller asked about, and the
-        # qualified form needs one. With exactly one configured there is no
-        # ambiguity -- the common case, and Redshift's self.database equivalent.
-        # With several, say nothing rather than guess: falling through leaves the
-        # bare-name verdict and the "pass the containing schema" warning, which
-        # is a weaker answer but not a wrong one.
-        if len(self.project_ids) != 1:
+        # The caller's project wins, because a recipe may name several and only
+        # the caller knows which one it is asking about. Falling back to the
+        # configured project when there is exactly one keeps `probe filter`
+        # answerable without a --parent for the common single-project recipe.
+        # With several projects and no parent, say nothing rather than guess:
+        # that leaves the bare-name verdict and the "pass the containing
+        # schema" warning, which is weaker but not wrong.
+        if parent_path:
+            project_id = parent_path[-1]
+        elif len(self.project_ids) == 1:
+            project_id = self.project_ids[0]
+        else:
             return None
-        project_id = self.project_ids[0]
         return SchemaMatch(
             included=is_schema_allowed(self.dataset_pattern, schema, project_id, True),
             target=f"{project_id}.{schema}",

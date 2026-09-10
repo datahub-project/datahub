@@ -256,3 +256,89 @@ def test_soft_on_status_degrades_only_the_statuses_it_was_given():
     with pytest.raises(ConnectionError):
         with soft_on_status(403, 404, context="listing datasets"):
             raise ConnectionError("connection reset")
+
+
+# --- the container override is told which container ---------------------------
+
+
+def _bq(parent, projects=("proj_a", "proj_b"), allow="^proj_a\\.analytics$"):
+    from datahub.ingestion.agent.filter_check import check_filters
+
+    return check_filters(
+        source_type="bigquery",
+        config_dict={
+            "project_ids": list(projects),
+            "dataset_pattern": {"allow": [allow]},
+        },
+        kind="Schema",
+        parent_path=list(parent),
+        names=["analytics", "staging"],
+        try_allow=[],
+        try_deny=[],
+    ).to_dict()
+
+
+def _verdicts(payload):
+    return {v["name"]: (v["included"], v.get("target")) for v in payload["results"]}
+
+
+def test_a_multi_project_recipe_is_answerable_with_a_parent():
+    """The reason probe_schema_verdict_override receives the parent at all.
+
+    BigQuery matches dataset_pattern against "project.dataset", and a recipe may
+    name several projects. Without knowing which one the caller means, the
+    override cannot build the qualified name and the verdict falls back to the
+    bare one -- which, against a qualified pattern, excludes everything.
+    """
+    verdicts = _verdicts(_bq(["proj_a"]))
+    assert verdicts["analytics"] == (True, "proj_a.analytics")
+    assert verdicts["staging"] == (False, "proj_a.staging")
+
+
+def test_a_single_project_recipe_still_needs_no_parent():
+    """The fallback that existed before the parameter: with one project
+    configured there is no ambiguity to resolve."""
+    verdicts = _verdicts(_bq([], projects=("proj_a",), allow="^analytics$"))
+    assert verdicts["analytics"] == (True, "proj_a.analytics")
+    assert verdicts["staging"] == (False, "proj_a.staging")
+
+
+def test_an_override_that_cannot_answer_says_so():
+    """Several projects and no parent: the bare-name verdict stands, and every
+    name reads as excluded. That is defensible only if the caller is told why --
+    silence here is a confidently wrong answer, which is the failure this
+    command exists to prevent."""
+    payload = _bq([])
+    assert all(not v["included"] for v in payload["results"])
+    assert any("qualified name" in w for w in payload["warnings"]), payload["warnings"]
+
+
+def test_the_warning_is_absent_when_the_override_could_answer():
+    """It must not fire on every container verdict, or it stops being read."""
+    with_parent = _bq(["proj_a"])
+    single = _bq([], projects=("proj_a",), allow="^analytics$")
+    for payload in (with_parent, single):
+        assert not [w for w in payload["warnings"] if "qualified name" in w]
+
+
+def test_redshift_ignores_the_parent_and_uses_its_own_database():
+    """A Redshift recipe connects to one database, so self.database is the only
+    qualifier ingestion ever uses. Honouring a different parent would answer
+    about a database this recipe does not read."""
+    from datahub.ingestion.source.redshift.config import RedshiftConfig
+
+    config = RedshiftConfig.model_validate(
+        {
+            "host_port": "redshift.example:5439",
+            "database": "prod",
+            "username": "u",
+            "password": "p",
+            "match_fully_qualified_names": True,
+            "schema_pattern": {"allow": ["^prod\\.analytics$"]},
+        }
+    )
+    match = config.probe_schema_verdict_override(
+        schema="analytics", parent_path=("some_other_db",)
+    )
+    assert match is not None
+    assert match.target == "prod.analytics"

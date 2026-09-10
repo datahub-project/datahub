@@ -1,7 +1,7 @@
 import logging
 from copy import deepcopy
 from enum import Enum
-from typing import Any, Callable, Dict, FrozenSet, List, Optional
+from typing import Any, Callable, Dict, FrozenSet, List, Optional, Sequence
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -292,7 +292,13 @@ class RedshiftConfig(
         # this override never degrades.
         return dataset_name(self.database, schema, entity)
 
-    def probe_schema_verdict_override(self, schema: str) -> Optional[SchemaMatch]:
+    def probe_schema_verdict_override(
+        self, schema: str, parent_path: Sequence[str] = ()
+    ) -> Optional[SchemaMatch]:
+        # parent_path is accepted and ignored: a Redshift recipe connects to one
+        # database, so self.database is the only qualifier ingestion ever uses.
+        # Honouring a different parent here would answer about a database this
+        # recipe does not read.
         # Same gap one level up: sql_probe.py's generic Schema-level
         # classifier matches schema_pattern against the bare schema name,
         # but redshift.py's own is_schema_allowed(...) calls (see e.g.

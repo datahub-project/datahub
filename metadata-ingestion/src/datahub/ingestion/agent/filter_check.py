@@ -122,8 +122,33 @@ def _match_target(config: Any, kind: str, ctx: ClassifyContext) -> str:
     return target
 
 
+def _override_needs_parent(config: Any, kind: str) -> bool:
+    """Whether this source would qualify a container name if it knew the parent.
+
+    Asked by calling the override with no parent: a connector that can answer
+    regardless (Redshift, from its single configured database) returns a match,
+    and one that cannot (BigQuery, with several projects named) returns None.
+    That is the same question the caller needs answered, so it is asked rather
+    than inferred from config shape.
+    """
+    if kind not in (DatasetContainerSubTypes.SCHEMA, DatasetContainerSubTypes.DATABASE):
+        return False
+    override = getattr(config, "probe_schema_verdict_override", None)
+    if not callable(override):
+        return False
+    try:
+        return override(schema="__probe_capability_check__", parent_path=()) is None
+    except Exception:
+        # A connector that cannot answer the question is not one to warn about.
+        return False
+
+
 def _structural_verdict(
-    config: Any, kind: str, name: str, pattern_field: Optional[str]
+    config: Any,
+    kind: str,
+    name: str,
+    pattern_field: Optional[str],
+    parent_path: Sequence[str] = (),
 ) -> Optional[Verdict]:
     """Exclusions the source applies before the user's pattern is consulted.
 
@@ -156,7 +181,15 @@ def _structural_verdict(
         return Verdict(False, "default_schema")
 
     override = getattr(config, "probe_schema_verdict_override", None)
-    match = override(schema=name) if callable(override) else None
+    # The container is passed because the qualified form needs one and only the
+    # caller knows which was asked about. Redshift reads its single configured
+    # database and ignores this; BigQuery cannot, because a recipe may name
+    # several projects and the pattern is matched against "project.dataset".
+    match = (
+        override(schema=name, parent_path=tuple(parent_path))
+        if callable(override)
+        else None
+    )
     if match is not None:
         # The override did the matching itself, so it is the only thing that knows
         # which string decided -- carry it out rather than reporting the bare name.
@@ -267,7 +300,23 @@ def check_filters(
             parent_path=tuple(parent_path),
             warn=warn,
         )
-        structural = _structural_verdict(config, kind, name, pattern_field)
+        structural = _structural_verdict(config, kind, name, pattern_field, parent_path)
+        if (
+            structural is None
+            and not parent_path
+            and _override_needs_parent(config, kind)
+        ):
+            # The connector has a qualified rule for this level but could not
+            # apply it: it needs to know which container, and none was given.
+            # Without this the caller sees every name excluded -- the bare name
+            # judged against a qualified pattern -- and nothing saying why.
+            # Deduped by message, so this reports once rather than per name.
+            warn(
+                "this source matches containers on a qualified name and could "
+                "not tell which one you mean, so these were judged on their "
+                "bare names and will mostly read as excluded; pass --parent to "
+                "get the verdict ingestion actually makes"
+            )
         # A structural verdict that matched on its own string reports that string;
         # otherwise the target is resolved the usual way and the pattern decides.
         target = (
