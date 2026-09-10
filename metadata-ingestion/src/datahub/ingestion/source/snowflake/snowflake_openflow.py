@@ -719,8 +719,10 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
 
     Openflow objects are enumerated with ``SHOW OPENFLOW ...`` and mapped as:
     a deployment becomes a Container, a runtime a Container nested under it, and
-    each connector a DataFlow holding a single DataJob. Ownership comes from the
-    Snowflake object OWNER, which is a role, so it maps to a corpGroup.
+    each connector a DataFlow. A connector IS the pipeline, so the DataJobs
+    inside it are the tables it replicates -- one per table, which is what keeps
+    each table's lineage on its own edge. Ownership comes from the Snowflake
+    object OWNER, which is a role, so it maps to a corpGroup.
 
     Lineage is derived from **configuration**, not from observed runs. Each
     connector's ``config.json`` is fetched from its version stage and parsed for
