@@ -48,16 +48,22 @@ class ProfilingConnection:
         That is what makes it safe to merge with other aggregates over the same
         table into a single flat SELECT.
         """
+        query = sa.select([expr]).select_from(table)
+
         # A plain column merged with real aggregates emits
         # `SELECT count(*), v FROM t`, which returns one row on MySQL and
-        # SQLite and silently drops the rest. literal_column is allowed --
-        # several adapters build their median that way, often labelled.
+        # SQLite and silently drops the rest. Run it untagged rather than
+        # raising: results stay correct, only the batching is lost.
+        # literal_column is fine -- several adapters build their median that
+        # way, often labelled.
         inner = expr.element if isinstance(expr, Label) else expr
         if isinstance(inner, ColumnClause) and not inner.is_literal:
-            raise ValueError(
-                f"execute_aggregate needs an aggregate, got a plain column: {expr}"
+            logger.warning(
+                f"execute_aggregate expects an aggregate but got a plain column "
+                f"({expr}); running it uncombined."
             )
-        query = sa.select([expr]).select_from(table)
+            return self._conn.execute(query)
+
         return self._conn.execute(flattenable_query(single_row_query(query)))
 
     def execute_single_row(self, query: Any) -> Any:

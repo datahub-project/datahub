@@ -1966,17 +1966,21 @@ class TestClickHouseAdapter:
 
 
 class TestExecuteAggregateGuard:
-    def test_plain_column_is_rejected(self) -> None:
+    def test_plain_column_runs_untagged(self) -> None:
         # A plain column merged with real aggregates returns one row on MySQL
-        # and SQLite, silently dropping the rest.
-        conn = ProfilingConnection(MagicMock())
+        # and SQLite, silently dropping the rest. It must still run.
         table = sa.table("t", sa.column("v"))
 
-        with pytest.raises(ValueError):
-            conn.execute_aggregate(table, sa.column("v"))
-        # Labelling must not smuggle one past the guard.
-        with pytest.raises(ValueError):
-            conn.execute_aggregate(table, sa.column("v").label("x"))
+        from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+            FLATTENABLE_EXECUTION_OPTION,
+        )
+
+        for expr in (sa.column("v"), sa.column("v").label("x")):
+            raw = MagicMock()
+            ProfilingConnection(raw).execute_aggregate(table, expr)
+            opts = raw.execute.call_args.args[0].get_execution_options()
+            # Untagged: it still runs, it just cannot be merged.
+            assert not opts.get(FLATTENABLE_EXECUTION_OPTION, False)
 
     def test_aggregates_and_literal_columns_are_accepted(self) -> None:
         # literal_column is how several adapters build their median.
