@@ -32,11 +32,29 @@ class FakeSqlProvider:
     def __init__(self) -> None:
         self.ran: List[str] = []
 
-    @probe_method(name="sql", scoped_sql_param="query", row_limit_param="limit")
+    @probe_method(
+        name="sql",
+        scoped_sql_param="query",
+        row_limit_param="limit",
+        shapes_own_result=True,
+    )
     def sql(self, query: str, limit: int = 50) -> Dict[str, object]:
         """Run a catalog query."""
         self.ran.append(query)
         return sql_result(["c"], [["v"]], limit)
+
+
+class FakeListingProvider:
+    """A typed listing: returns a bare list, so the framework owns its +1."""
+
+    def __init__(self) -> None:
+        self.asked: List[int] = []
+
+    @probe_method(row_limit_param="limit")
+    def containers(self, limit: int = 200) -> List[str]:
+        """Every container."""
+        self.asked.append(limit)
+        return [f"c{i}" for i in range(500)][:limit]
 
 
 class FakeApiProvider:
@@ -142,15 +160,30 @@ def test_a_row_limit_below_one_is_clamped_to_one(limit: int) -> None:
 
 
 def test_a_row_limit_within_range_is_left_alone():
+    """`sql` declares shapes_own_result, so it gets exactly what was asked for
+    -- it does its own +1 internally, and a second one here would return
+    limit+1 rows and compute `truncated` against the wrong number."""
     bounded = _bounded_kwargs(
         _spec(FakeSqlProvider(), "sql"), {"query": "SELECT 1", "limit": 50}
     )
     assert bounded["limit"] == 50
 
 
-def test_an_omitted_row_limit_is_left_to_the_getter_default():
-    bounded = _bounded_kwargs(_spec(FakeSqlProvider(), "sql"), {"query": "SELECT 1"})
-    assert "limit" not in bounded
+def test_a_listing_is_asked_for_one_past_its_limit():
+    """The other half of the same contract. A listing returns a bare list, so
+    the framework owns the +1 -- without it a getter returning exactly `limit`
+    items is indistinguishable from one that returned everything."""
+    bounded = _bounded_kwargs(_spec(FakeListingProvider(), "containers"), {"limit": 50})
+    assert bounded["limit"] == 51
+
+
+def test_an_omitted_row_limit_uses_the_getters_own_declared_default():
+    """It used to be left out entirely, which meant the framework did not know
+    the limit and so could not tell a truncated listing from a complete one --
+    and calling with no --limit is the common case. The default is read off the
+    signature rather than guessed, so it is still the getter's own number."""
+    bounded = _bounded_kwargs(_spec(FakeListingProvider(), "containers"), {})
+    assert bounded["limit"] == 201  # the getter's own 200, plus the probe row
 
 
 def test_declaring_a_row_limit_param_that_does_not_exist_is_rejected_at_import():

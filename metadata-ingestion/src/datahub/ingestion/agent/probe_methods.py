@@ -72,6 +72,15 @@ class ProbeMethodSpec:
     # rows, so a limit of 10_000_000 is a fetch the connector really performs,
     # and trimming the output afterwards would be too late to matter.
     row_limit_param: Optional[str] = None
+    # This command returns its own envelope and does its own truncation
+    # accounting, so the framework must not also fetch one past the limit --
+    # two +1s would hand the caller one more item than they asked for and
+    # compute `truncated` against the wrong number. `sql` is the only such
+    # command: it returns {columns, rows, truncated} rather than a bare list.
+    # Declared rather than inferred from scoped_sql_param, so a future
+    # passthrough that shapes its own result says so instead of inheriting the
+    # behaviour by accident.
+    shapes_own_result: bool = False
     # The parameters that name this command's container, outermost first. A
     # caller that already passed `schema` to list its tables should not have to
     # restate it as --parent to get verdicts: the command knows where it looked.
@@ -104,6 +113,7 @@ class ProbeMethodSpec:
         kind: Optional[str] = None,
         row_limit_param: Optional[str] = None,
         parent_params: Tuple[str, ...] = (),
+        shapes_own_result: bool = False,
     ) -> "ProbeMethodSpec":
         sig = inspect.signature(fn)
         params: List[ProbeParam] = []
@@ -156,6 +166,7 @@ class ProbeMethodSpec:
             scoped_path_param=scoped_path_param,
             kind=str(kind) if kind is not None else None,
             row_limit_param=row_limit_param,
+            shapes_own_result=shapes_own_result,
             parent_params=tuple(parent_params),
         )
 
@@ -185,6 +196,7 @@ def probe_method(
     kind: Optional[Any] = None,
     row_limit_param: Optional[str] = None,
     parent_params: Tuple[str, ...] = (),
+    shapes_own_result: bool = False,
 ) -> Callable[[Callable], Callable]:
     """Mark a provider method as an agent/CLI probe command.
 
@@ -209,6 +221,7 @@ def probe_method(
                 kind,
                 row_limit_param,
                 parent_params,
+                shapes_own_result,
             ),
         )
         return fn
@@ -260,6 +273,14 @@ class ProbeMethodResult:
     # run_probe_method reads back after the call; a provider with no such
     # attribute always reports an empty list here.
     warnings: List[str] = field(default_factory=list)
+    # True when the listing was cut short by the limit, so a caller can tell
+    # "these are all of them" from "these are the first N". `sql` has always
+    # reported this inside its own result envelope; the typed listings returned
+    # a bare list and reported nothing, which is the same
+    # confidently-incomplete answer that `failures` exists to prevent one level
+    # up. Always False for a command that declares no row limit -- there is no
+    # limit for it to have hit.
+    truncated: bool = False
     # Reads the provider could not complete at all, as opposed to the degraded
     # sub-fetches in `warnings`. This exists because a connector that reuses its
     # ingestion fetchers records such a read with report.failure(), and nothing
@@ -281,6 +302,7 @@ class ProbeMethodResult:
             "kind": self.kind,
             "parent_path": self.parent_path,
             "result": self.result,
+            "truncated": self.truncated,
             "warnings": self.warnings,
             "failures": self.failures,
         }
@@ -423,21 +445,56 @@ def _bound_method(provider: object, command: str) -> Callable:
     raise ValueError(f"no probe method bound for command '{command}'")
 
 
+def _effective_row_limit(
+    spec: ProbeMethodSpec, call_kwargs: Dict[str, object]
+) -> Optional[int]:
+    """How many items this call is actually allowed to return.
+
+    The caller's clamped limit when they gave one, otherwise the getter's own
+    declared default -- read off the signature rather than guessed. Knowing it
+    in both cases is what lets the framework detect truncation for a listing
+    that was called with no --limit at all, which is the common case.
+    """
+    if spec.row_limit_param is None:
+        return None
+    raw = call_kwargs.get(spec.row_limit_param)
+    if raw is None:
+        declared = next(
+            (p.default for p in spec.params if p.name == spec.row_limit_param), None
+        )
+        raw = declared if isinstance(declared, int) else None
+    if not isinstance(raw, int):
+        return None
+    return clamp_item_limit(raw)
+
+
 def _bounded_kwargs(
     spec: ProbeMethodSpec, call_kwargs: Dict[str, object]
 ) -> Dict[str, object]:
-    """Clamp a declared row-limit parameter into the returnable range.
+    """Clamp a declared row-limit parameter, and ask for one item past it.
 
     Separate from _enforce_gates because it is a different kind of act: gates
-    refuse, this one adjusts. An omitted limit is left out so the getter's own
-    default applies rather than being overwritten with a framework guess.
+    refuse, this one adjusts.
+
+    The +1 is the same convention SqlCatalogPassthrough already uses for `sql`,
+    and for the same stated reason: truncation is detected by comparing what
+    came back against the limit, so a getter that returns exactly `limit` items
+    is indistinguishable from one that returned everything. It lives here
+    rather than in each getter because a getter cannot forget what it does not
+    do -- the typed listings sliced `[:limit]` and returned a bare list, so
+    `containers` reported 200 schemas identically whether the catalog held 200
+    or 20,000, and an agent reading that concludes it has seen the whole
+    catalog. Three reviewers found this independently.
     """
-    if spec.row_limit_param is None or spec.row_limit_param not in call_kwargs:
+    limit = _effective_row_limit(spec, call_kwargs)
+    if limit is None:
         return call_kwargs
-    raw = call_kwargs[spec.row_limit_param]
-    # _coerce already made this an int for an int-annotated parameter.
-    assert isinstance(raw, int)
-    return {**call_kwargs, spec.row_limit_param: clamp_item_limit(raw)}
+    assert spec.row_limit_param is not None
+    if spec.shapes_own_result:
+        # Its own +1 happens inside the command; adding a second here would
+        # return limit+1 items and compute `truncated` against limit+1.
+        return {**call_kwargs, spec.row_limit_param: limit}
+    return {**call_kwargs, spec.row_limit_param: limit + 1}
 
 
 def _enforce_gates(
@@ -559,9 +616,13 @@ def run_probe_method(
             f"unknown probe method '{command}' for source '{source_type}'; "
             f"available: {', '.join(sorted(specs)) or '(none)'}"
         )
-    call_kwargs = _bounded_kwargs(
-        specs[command], _coerce_kwargs(specs[command], kwargs)
-    )
+    # Kept, because the limit has to be read back after the call to undo the
+    # +1 and judge truncation -- and it has to be read from the COERCED dict.
+    # `kwargs` still holds the CLI's raw strings, so "2" failed the int check
+    # and the whole truncation path silently went dormant: the live run
+    # reported limit 3 and truncated false for a listing cut off at 2.
+    coerced_kwargs = _coerce_kwargs(specs[command], kwargs)
+    call_kwargs = _bounded_kwargs(specs[command], coerced_kwargs)
     config = config_class_for(source_type).model_validate(config_dict)
     builder = getattr(provider_cls, "for_config", None)
     if not callable(builder):
@@ -646,15 +707,41 @@ def run_probe_method(
     kind = spec.kind
     if isinstance(overrides, dict) and command in overrides:
         kind = str(overrides[command])
+    # Undo the +1 before anything reads it back: `params` is echoed to the
+    # caller, and reporting the limit we asked the driver for rather than the
+    # one that applies would be a small lie in the field a caller uses to
+    # reproduce the call.
+    truncated = False
+    if spec.shapes_own_result:
+        # One field, meaningful for every command. `sql` reports truncation
+        # inside its own envelope because columns/rows/truncated describe one
+        # result set together -- but a caller should not have to know which
+        # commands wrap their result to find out whether they saw everything,
+        # so it is mirrored up. Leaving it False here would be worse than not
+        # having the field: a `sql` result cut short would read as complete at
+        # the one place a caller looks for that answer.
+        if isinstance(result, dict):
+            truncated = bool(result.get("truncated"))
+    limit = (
+        None if spec.shapes_own_result else _effective_row_limit(spec, coerced_kwargs)
+    )
+    reported_kwargs = dict(call_kwargs)
+    if limit is not None:
+        if spec.row_limit_param is not None:
+            reported_kwargs[spec.row_limit_param] = limit
+        if isinstance(result, list) and len(result) > limit:
+            result = result[:limit]
+            truncated = True
     return ProbeMethodResult(
         source_type=source_type,
         command=command,
-        params=call_kwargs,
+        params=reported_kwargs,
         kind=kind,
         parent_path=[
             str(call_kwargs[p]) for p in spec.parent_params if p in call_kwargs
         ],
         result=result,
+        truncated=truncated,
         warnings=sorted(
             set(list(provider_warnings) if provider_warnings else []) | report_warnings
         ),

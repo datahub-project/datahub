@@ -158,7 +158,14 @@ class SqlCatalogPassthrough:
     def __enter__(self: _SelfT) -> _SelfT:
         return self
 
-    @probe_method(name="sql", scoped_sql_param="query", row_limit_param="limit")
+    @probe_method(
+        name="sql",
+        scoped_sql_param="query",
+        row_limit_param="limit",
+        # This one returns {columns, rows, truncated} and does its own +1 (see
+        # the class docstring), so the framework leaves the limit alone.
+        shapes_own_result=True,
+    )
     def sql(self, query: str, limit: int = 50) -> Dict[str, object]:
         """Run a read-only catalog query. Only a single SELECT over this dialect's
         catalog schemas is permitted -- the framework scope-checks `query` before
