@@ -340,13 +340,15 @@ def test_workspace_reports_the_id_every_urn_is_scoped_by():
     assert _probe().workspace() == {"workspace_id": "ws-123"}
 
 
-def test_the_probe_surfaces_both_halves_of_the_connectors_report():
-    """run_probe_method renders the provider's report after each command.
+def test_the_report_renderer_reads_both_halves():
+    """_report_entries renders warnings and failures alike.
 
-    Asserted through the framework's own renderer rather than a translation
-    property on the probe: the property read only report.warnings, so a failed
-    listing -- which HexApi records with report.failure() -- came back as an
-    empty result with no warnings at exit 0.
+    Half of what the old version of this test claimed. It was named and
+    documented as proving run_probe_method surfaces the provider's report
+    and never called run_probe_method -- so the wiring that actually folds
+    a report into ProbeMethodResult went untested. That is now the test
+    below; this one keeps the renderer's own behaviour, which is worth
+    pinning separately because it is what reads report.failures at all.
     """
     api = _FakeApi(enterprise=True)
     probe = _probe_for(api)
@@ -362,6 +364,52 @@ def test_the_probe_surfaces_both_halves_of_the_connectors_report():
     assert _report_entries(probe.probe_report, "failures") == {
         "Listing failed: 403 Forbidden"
     }
+
+
+def test_run_probe_method_folds_the_connectors_report_into_the_result(monkeypatch):
+    """Driven through run_probe_method, which is where the folding lives.
+
+    A connector reusing its ingestion fetchers records an unreadable
+    endpoint with report.failure(), not report.warning() -- correct for
+    ingestion, which emits what it can. Reading only `warnings` meant those
+    reads came back as an empty result at exit 0, indistinguishable from a
+    workspace that genuinely has none.
+    """
+    import datahub.ingestion.agent.probe_methods as pm
+
+    api = _FakeApi(enterprise=True)
+    api.report.warning(title="Something degraded", message="and here is why")
+    api.report.failure(title="Listing failed", message="403 Forbidden")
+    provider = _probe_for(api)
+
+    class _Provider:
+        @classmethod
+        def for_config(cls, config):
+            return provider
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: type(provider))
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls):
+            return type(provider)
+
+        @classmethod
+        def model_validate(cls, d):
+            return cls()
+
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _Config)
+    monkeypatch.setattr(
+        type(provider), "for_config", classmethod(lambda cls, c: provider)
+    )
+
+    result = pm.run_probe_method("hex", {}, "workspace", {})
+
+    assert "Something degraded: and here is why" in result.warnings
+    assert "Listing failed: 403 Forbidden" in result.failures, (
+        "a failure the connector recorded did not reach the result, so an "
+        "unreadable endpoint reads as an empty one"
+    )
 
 
 def test_project_detail_reports_what_ingestion_would_emit():

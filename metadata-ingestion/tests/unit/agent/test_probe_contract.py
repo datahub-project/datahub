@@ -735,3 +735,80 @@ def test_unity_catalog_is_qualified_by_its_own_override_not_the_framework():
         UnityCatalogSourceConfig.probe_filter_target
         is not SQLCommonConfig.probe_filter_target
     )
+
+
+def test_no_sql_source_falls_back_to_the_bare_fqn():
+    """The get_identifier shim must work for every registered SQL source.
+
+    A reviewer flagged that the shim builds the Source via __new__ and
+    hand-primes the attributes an override reads (mssql's current_database,
+    StarRocks's _current_catalog), so a NEW override reaching for state the
+    shim does not carry degrades to the plain fqn -- discoverable only at
+    runtime, on whichever connector nobody probed.
+
+    The degrade is warned rather than silent, so it is a quality floor
+    rather than a leak. This turns it into a build-time floor: all 29
+    sources are clean today, and a connector that stops being clean fails
+    here instead of returning a worse filter target in production.
+
+    The suggested alternative -- a typed adapter that does not call the
+    connector's own get_identifier -- is deliberately not taken. Calling the
+    real one is the whole point: Db2 uppercases, StarRocks pins its built-in
+    catalog, mssql prefers its per-database value, and reimplementing any of
+    that is the drift the shim exists to prevent.
+    """
+    from datahub.ingestion.agent.verdicts import ClassifyContext
+    from datahub.ingestion.source.sql.sql_probe import _identifier_target
+
+    # Enough of a config for a get_identifier to read; unset required fields
+    # would make the shim raise for reasons that are about this test rather
+    # than about the connector.
+    common = {
+        "host_port": "host:1234",
+        "username": "u",
+        "password": "p",
+        "database": "DB",
+        "scheme": "postgresql",
+    }
+
+    found = _sql_source_types()
+    assert len(found) > 20, f"only {len(found)} SQL sources discovered; the scan broke"
+
+    degraded = {}
+    for source_type, config_cls in found.items():
+        fields = set(getattr(config_cls, "model_fields", {}))
+        config = config_cls.model_construct(
+            **{k: v for k, v in common.items() if k in fields}
+        )
+        warnings: list = []
+        ctx = ClassifyContext(
+            config=config,
+            name="T1",
+            fqn="T1",
+            pattern_field="table_pattern",
+            parent_path=("DB", "SCH"),
+            warn=warnings.append,
+        )
+        try:
+            target = _identifier_target(ctx)
+        except Exception as exc:
+            degraded[source_type] = f"raised {type(exc).__name__}: {exc}"
+            continue
+        reason = next((w for w in warnings if "source state the probe" in w), None)
+        if reason:
+            degraded[source_type] = reason
+        elif target == ctx.fqn and "." not in target:
+            # Druid legitimately matches the bare name, and says so by
+            # overriding get_identifier -- that is not a degrade. A source
+            # reaching the fqn WITHOUT an override is.
+            has_override = "get_identifier" in {
+                k for c in type(config).__mro__ for k in vars(c)
+            }
+            if not has_override:
+                degraded[source_type] = f"bare fqn {target!r} with no override"
+
+    assert not degraded, (
+        "the get_identifier shim degrades for these sources, so their filter "
+        "targets are worse than what ingestion matches on:\n  "
+        + "\n  ".join(f"{k}: {v}" for k, v in degraded.items())
+    )
