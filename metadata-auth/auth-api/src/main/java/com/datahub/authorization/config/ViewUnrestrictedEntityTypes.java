@@ -31,9 +31,10 @@ import lombok.experimental.Accessors;
 public class ViewUnrestrictedEntityTypes {
 
   /**
-   * Additional application defaults appended to the entity-registry baseline. This is separate from
-   * {@link #add} so an operator-provided {@code VIEW_UNRESTRICTED_ENTITY_TYPES_ADD} mutates, rather
-   * than replaces, the application defaults.
+   * Additional application defaults appended to the entity-registry baseline. Overridable via
+   * {@code VIEW_UNRESTRICTED_ENTITY_TYPES_DEFAULT}. This is separate from {@link #add} so an
+   * operator-provided {@code VIEW_UNRESTRICTED_ENTITY_TYPES_ADD} mutates, rather than replaces, the
+   * application defaults.
    */
   private String defaultValue;
 

@@ -43,8 +43,9 @@ When Search Access Controls are enabled:
 
 When Search Access Controls are enabled, some entity types still **bypass** view authorization entirely and can appear
 in search without a View Entity grant. The lean baseline is declared on entities in `entity-registry.yml` via
-`viewUnrestricted: true`. Optional overlays use `VIEW_UNRESTRICTED_ENTITY_TYPES` (full replace when non-empty) plus
-`_ADD` / `_REMOVE`. The add/remove overlays mutate the effective defaults. All other types are restricted by default.
+`viewUnrestricted: true`. Optional overlays use `VIEW_UNRESTRICTED_ENTITY_TYPES` (full replace when non-empty),
+`VIEW_UNRESTRICTED_ENTITY_TYPES_DEFAULT` (replaces the application-default CSV), plus `_ADD` / `_REMOVE`. The
+add/remove overlays mutate the effective defaults. All other types are restricted by default.
 
 The effective defaults include the previous unrestricted CSV **minus** types already flagged in
 `entity-registry.yml`. They do **not** include `document`, `schemaField`, or `container` — those types are

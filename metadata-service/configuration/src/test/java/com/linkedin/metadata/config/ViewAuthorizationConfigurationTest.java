@@ -33,7 +33,9 @@ public class ViewAuthorizationConfigurationTest {
         .forEach(environment.getPropertySources()::addLast);
 
     String defaultValue =
-        environment.getRequiredProperty("authorization.view.unrestrictedEntityTypes.defaultValue");
+        environment.resolvePlaceholders(
+            environment.getRequiredProperty(
+                "authorization.view.unrestrictedEntityTypes.defaultValue"));
     assertFalse(
         Arrays.stream(defaultValue.split(","))
             .map(String::trim)
