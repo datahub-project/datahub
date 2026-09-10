@@ -610,7 +610,9 @@ export class LineageBasePage extends BasePage {
     // readouts a column renders beside itself share that prefix and are not columns.
     // eslint-disable-next-line playwright/no-raw-locators -- prefix match on generated per-column test ids
     const testIds = await list
-      .locator('[data-testid^="column-"]:not([data-testid^="column-lineage-control-"])')
+      .locator(
+        '[data-testid^="column-"]:not([data-testid^="column-lineage-control-"]):not([data-testid^="column-lineage-count-"])',
+      )
       .evaluateAll((els) => els.map((el) => el.getAttribute('data-testid') ?? ''));
     return testIds.map((id) => id.slice('column-'.length));
   }
