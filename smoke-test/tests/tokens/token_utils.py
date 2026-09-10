@@ -186,7 +186,7 @@ def removeUser(session, urn):
 
 
 def listUsers(session, query: Optional[str] = None):
-    input = {
+    input: Dict[str, Any] = {
         "start": 0,
         "count": 20,
     }
