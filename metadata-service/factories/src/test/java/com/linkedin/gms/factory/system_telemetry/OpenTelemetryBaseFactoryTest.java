@@ -468,12 +468,10 @@ public class OpenTelemetryBaseFactoryTest {
         var resource = readable.toSpanData().getResource();
 
         assertEquals(
-            resource.getAttribute(AttributeKey.stringKey("service.name")),
-            "datahub-mae-consumer");
+            resource.getAttribute(AttributeKey.stringKey("service.name")), "datahub-mae-consumer");
         assertEquals(
             resource.getAttribute(AttributeKey.stringKey("k8s.namespace.name")), "test-tenant");
-        assertEquals(
-            resource.getAttribute(AttributeKey.stringKey("service.namespace")), "datahub");
+        assertEquals(resource.getAttribute(AttributeKey.stringKey("service.namespace")), "datahub");
       } finally {
         span.end();
       }
