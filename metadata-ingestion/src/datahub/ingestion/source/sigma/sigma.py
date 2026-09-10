@@ -412,6 +412,21 @@ class _ResolvedRef:
     ref: BracketRef
 
 
+@dataclass(frozen=True)
+class _UnresolvedChartColumn:
+    """A chart column that fell back to a self-reference, and why.
+
+    Carries the causes its refs recorded so the /schema measurement can report
+    which gap that endpoint would close, rather than a single total consistent
+    with closing any of them.
+    """
+
+    element_id: str
+    column: str
+    column_id: str
+    reasons: FrozenSet[str]
+
+
 @dataclass
 class _CustomSqlRegistration:
     """Carries the per-kind variant parameters for _register_customsql_with_aggregator."""
@@ -637,9 +652,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # call site and a run whose every read 401s reports "DataHub has not
         # ingested this table" for the whole warehouse.
         self._warehouse_schema_unreadable: Set[str] = set()
-        # (elementId, column, columnId) for this workbook's unresolved columns,
-        # drained once per workbook by the /schema measurement.
-        self._pending_schema_probe: List[Tuple[str, str, str]] = []
+        # This workbook's unresolved columns, drained once per workbook by the
+        # /schema measurement.
+        self._pending_schema_probe: List[_UnresolvedChartColumn] = []
         # Intra-DM element ancestry, keyed by dataModelId.
         self._dm_ancestors_cache: Dict[str, Dict[str, Set[str]]] = {}
         # Built once per run, lazily, by _ensure_global_warehouse_index.
@@ -5976,6 +5991,52 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.chart_ref_miss_reasons[key] = (
                 self.reporter.chart_ref_miss_reasons.get(key, 0) + 1
             )
+            if known:
+                # "The name exists in a model this workbook loads" is the whole
+                # of what this bucket says, and that is not enough to judge
+                # whether the ref is recoverable. Split it by whether a
+                # candidate actually OWNS the column: exactly one owner means
+                # the ref is real and our candidate list was too narrow,
+                # several means the name is ambiguous, none means the name
+                # match is a coincidence. Those need different responses and
+                # the single counter cannot tell them apart.
+                candidates = (
+                    self._dm_element_index_for(workbook_dm_url_ids).get(
+                        ref.source.strip().lower()
+                    )
+                    or []
+                )
+                wanted = (ref.column or "").strip().lower()
+                owners = [
+                    urn
+                    for urn in candidates
+                    if wanted in (self.dm_element_urn_to_cols.get(urn) or {})
+                ]
+                outcome = (
+                    "unique_owner"
+                    if len(owners) == 1
+                    else "several_owners"
+                    if len(owners) > 1
+                    else "no_candidate_owns_the_column"
+                )
+                self.reporter.chart_ref_name_in_loaded_dm_outcomes[outcome] = (
+                    self.reporter.chart_ref_name_in_loaded_dm_outcomes.get(outcome, 0)
+                    + 1
+                )
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "CHART REF MISS DETAIL element %s ref=%r -> %s: name matches "
+                        "%d DM element(s) this workbook loads, %d of which own column "
+                        "%r. candidates=%r owners=%r",
+                        chart_element_id,
+                        ref.raw,
+                        outcome,
+                        len(candidates),
+                        len(owners),
+                        ref.column,
+                        candidates[:5],
+                        owners[:5],
+                    )
         if not logger.isEnabledFor(logging.DEBUG):
             return
         logger.debug(
@@ -6527,6 +6588,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         all_sibling: bool,
         all_unresolvable_mixed: bool,
         formulas_incomplete: bool,
+        reasons: FrozenSet[str] = frozenset(),
     ) -> None:
         """File one self-referential column under the reason it got there.
 
@@ -6552,7 +6614,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             column_id = element.column_id_by_name.get(column)
             if column_id:
                 self._pending_schema_probe.append(
-                    (element.elementId, column, column_id)
+                    _UnresolvedChartColumn(
+                        element_id=element.elementId,
+                        column=column,
+                        column_id=column_id,
+                        reasons=reasons,
+                    )
                 )
             logger.debug(
                 "chart element %s column %r: self-ref fallback with "
@@ -6620,6 +6687,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             all_param = False
             all_sibling = False
             all_unresolvable_mixed = False
+            # Bound unconditionally: the counter call below reads it even for a
+            # column with no formula, where no ref was ever attempted.
+            misses_before: Dict[str, int] = dict(self.reporter.chart_ref_miss_reasons)
 
             if formula is not None:
                 refs = extract_bracket_refs(formula)
@@ -6633,7 +6703,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     # arithmetic across two full runs to notice -- because
                     # every counter that DID fire looked healthy. This makes a
                     # missed attribution self-reporting, whatever the cause.
-                    misses_before = sum(self.reporter.chart_ref_miss_reasons.values())
                     for ref in refs:
                         if ref.is_parameter:
                             param_count += 1
@@ -6681,10 +6750,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             # look here for a resolver defect". Kept separate from
                             # the two pure cases, which answer different questions.
                             all_unresolvable_mixed = True
-                        elif (
-                            sum(self.reporter.chart_ref_miss_reasons.values())
-                            == misses_before
-                        ):
+                        elif self.reporter.chart_ref_miss_reasons == misses_before:
                             # This column is about to be counted as "a real ref
                             # failed" while contributing nothing to the
                             # breakdown -- so the breakdown cannot be
@@ -6774,6 +6840,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     all_sibling=all_sibling,
                     all_unresolvable_mixed=all_unresolvable_mixed,
                     formulas_incomplete=formulas_incomplete,
+                    # Which causes this column's refs recorded, so the /schema
+                    # measurement can say WHICH gap it would close rather than
+                    # only how many columns in total.
+                    reasons=frozenset(
+                        reason
+                        for reason, count in self.reporter.chart_ref_miss_reasons.items()
+                        if count != misses_before.get(reason, 0)
+                    ),
                 )
                 fields.append(
                     InputFieldClass(
@@ -7526,7 +7600,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         return found
 
     def _measure_schema_resolvable_refs(
-        self, workbook: Workbook, unresolved: List[Tuple[str, str, str]]
+        self, workbook: Workbook, unresolved: List["_UnresolvedChartColumn"]
     ) -> None:
         """How many unresolved chart columns does /schema explain? Measure only.
 
@@ -7553,8 +7627,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         for sheet in sheets.values():
             for column_id, column in (sheet.get("columns") or {}).items():
                 column_formula.setdefault(column_id, column.get("formula"))
-        for element_id, column_name, column_id in unresolved:
-            formula = column_formula.get(column_id)
+        for item in unresolved:
+            formula = column_formula.get(item.column_id)
             if formula is None:
                 self.reporter.chart_ref_schema_column_absent += 1
                 continue
@@ -7571,9 +7645,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ]
             if cross_sheet:
                 self.reporter.chart_ref_schema_cross_sheet_resolvable += 1
+                # Bucket by the cause the column was already filed under, so
+                # the measurement says WHICH gap this endpoint would close.
+                # A single total cannot: it would be consistent with closing
+                # the 6,679 or the 1,065 or a slice of each, and those are
+                # different decisions about whether to build the resolver.
+                for reason in item.reasons or {"none_recorded"}:
+                    self.reporter.chart_ref_schema_resolvable_by_reason[reason] = (
+                        self.reporter.chart_ref_schema_resolvable_by_reason.get(
+                            reason, 0
+                        )
+                        + 1
+                    )
                 self.reporter.chart_ref_schema_samples.append(
-                    f"{element_id}.{column_name}: columnId={column_id} "
-                    f"-> sheet/column {cross_sheet}"
+                    f"{item.element_id}.{item.column}: columnId={item.column_id} "
+                    f"reasons={sorted(item.reasons)} -> sheet/column {cross_sheet}"
                 )
             elif warehouse:
                 self.reporter.chart_ref_schema_warehouse_resolvable += 1

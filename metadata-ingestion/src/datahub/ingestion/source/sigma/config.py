@@ -543,6 +543,19 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Element, column, columnId and the sheet/column path it points at, for the
     # cross-sheet cases -- enough to hand-verify a sample before trusting it.
     chart_ref_schema_samples: LossyList[str] = field(default_factory=LossyList)
+    # The cross-sheet count above, split by the cause the column was already
+    # filed under. A single total is consistent with closing the 6,679
+    # "element named but not a lineage upstream" refs, or the 1,065 whose name
+    # exists in a loaded Data Model, or a slice of each -- and those are
+    # different decisions about whether to build a resolver on this endpoint.
+    chart_ref_schema_resolvable_by_reason: Dict[str, int] = field(default_factory=dict)
+    # Splits unknown_source_but_name_exists_in_a_data_model_this_workbook_loads
+    # by whether a same-named element actually OWNS the referenced column:
+    # exactly one owner means the ref is real and the candidate list was too
+    # narrow; several means the name is ambiguous and cannot be resolved by
+    # name at all; none means the name match is a coincidence. The single
+    # counter cannot tell them apart, and they need different responses.
+    chart_ref_name_in_loaded_dm_outcomes: Dict[str, int] = field(default_factory=dict)
     # 'datasheet' nodes whose nodeId is a bare element id, admitted as sheet
     # upstreams. The emit-time element lookup drops any that do not match a
     # real element, so this is an attempt count, not an emitted-edge count.

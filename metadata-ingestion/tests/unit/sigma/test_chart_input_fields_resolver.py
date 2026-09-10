@@ -900,6 +900,68 @@ class TestBridgeWarehouseColumnName:
 # ---------------------------------------------------------------------------
 
 
+class TestNameInLoadedDataModelOutcomes:
+    """Split "the name exists in a model this workbook loads" by ownership.
+
+    That bucket held 1,065 refs on one tenant and the number alone cannot be
+    acted on: it is consistent with a candidate list that is too narrow, with
+    names that are genuinely ambiguous, and with pure coincidence -- which need
+    three different responses. The dev tenant has no instance of this case at
+    all, so these paths are unreachable there and only a test can show they
+    fire.
+    """
+
+    _URN = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm1.a,PROD)"
+    _OTHER = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm1.b,PROD)"
+
+    def _resolve(self, *, urns: List[str], cols: List[str]) -> SigmaSource:
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src.dm_element_urn_by_name = {"dm1": {"DIM_A": list(urns)}}
+        src.dm_element_urn_to_cols = {u: {c.lower(): c for c in cols} for u in urns}
+        src.dm_key_by_element_urn = {}
+        src._resolve_chart_formula_upstream(
+            _make_ref("DIM_A", "Col A"),
+            chart_element_id="e1",
+            chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={},
+            workbook_dm_url_ids=frozenset({"dm1"}),
+        )
+        return src
+
+    def test_one_owner_means_the_candidate_list_was_too_narrow(self) -> None:
+        src = self._resolve(urns=[self._URN], cols=["Col A"])
+        assert src.reporter.chart_ref_name_in_loaded_dm_outcomes == {"unique_owner": 1}
+
+    def test_several_owners_cannot_be_resolved_by_name_at_all(self) -> None:
+        src = self._resolve(urns=[self._URN, self._OTHER], cols=["Col A"])
+        assert src.reporter.chart_ref_name_in_loaded_dm_outcomes == {
+            "several_owners": 1
+        }
+
+    def test_no_owner_means_the_name_match_is_a_coincidence(self) -> None:
+        src = self._resolve(urns=[self._URN], cols=["Unrelated"])
+        assert src.reporter.chart_ref_name_in_loaded_dm_outcomes == {
+            "no_candidate_owns_the_column": 1
+        }
+
+    def test_the_outcome_is_counted_without_debug_logging(self) -> None:
+        """The counter must not depend on the log level.
+
+        The detail line is DEBUG-gated; an earlier draft gated the counter with
+        it, which would have reported 0 on any run without --debug.
+        """
+        logging.disable(logging.CRITICAL)
+        try:
+            src = self._resolve(urns=[self._URN], cols=["Col A"])
+        finally:
+            logging.disable(logging.NOTSET)
+        assert src.reporter.chart_ref_name_in_loaded_dm_outcomes == {"unique_owner": 1}
+
+
 class TestChartColumnAccountingCheck:
     """The counters reconcile themselves, so a future gap is one line to find.
 
