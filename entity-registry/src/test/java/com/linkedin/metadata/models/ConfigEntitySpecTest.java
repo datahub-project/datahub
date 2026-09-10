@@ -26,19 +26,15 @@ public class ConfigEntitySpecTest {
   }
 
   @Test
-  public void testConfigEntitySpecWithDefaultSearchIndexGroup() {
+  public void testConfigEntitySpecWithUnsetSearchGroup() {
     AspectSpec mockAspectSpec = createMockAspectSpec("testAspect");
 
     ConfigEntitySpec entitySpec =
-        new ConfigEntitySpec(
-            "testEntity",
-            "testKey",
-            Arrays.asList(mockAspectSpec),
-            EntityAnnotation.DEFAULT_SEARCH_GROUP);
+        new ConfigEntitySpec("testEntity", "testKey", Arrays.asList(mockAspectSpec), null);
 
     assertEquals(entitySpec.getName(), "testEntity");
     assertEquals(entitySpec.getKeyAspectName(), "testKey");
-    assertEquals(entitySpec.getSearchGroup(), EntityAnnotation.DEFAULT_SEARCH_GROUP);
+    assertEquals(entitySpec.getSearchGroup(), null);
     assertEquals(entitySpec.getAspectSpecs().size(), 1);
     assertNotNull(entitySpec.getAspectSpec("testAspect"));
   }

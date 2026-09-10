@@ -83,6 +83,8 @@
     "context.statusFilter.placeholder": "All",
     "context.statusFilter.published": "Published",
     "context.statusFilter.unpublished": "Unpublished",
+    "context.viewMayBeHidingResults": "Your selected view may also be hiding results.",
+    "context.clearSelectedView": "Clear view",
     "sidebarSort.ariaLabel": "Sort",
     "sidebarSort.tooltip": "Sort",
     "sidebarSort.nameAtoZ": "Name A to Z",
