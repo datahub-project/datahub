@@ -6,10 +6,12 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -72,6 +74,49 @@ public final class EntityTypeUtils {
                 "authorization.view.unrestrictedEntityTypes / VIEW_UNRESTRICTED_ENTITY_TYPES")));
   }
 
+  /** Resolves entity names to the canonical spelling registered in the entity registry. */
+  @Nonnull
+  public static Set<String> canonicalizeEntityNames(
+      @Nullable Set<String> entityNames, @Nonnull EntityRegistry entityRegistry) {
+    if (entityNames == null || entityNames.isEmpty()) {
+      return Collections.emptySet();
+    }
+
+    return canonicalizeEntityNames(entityNames, canonicalNamesByLowercase(entityRegistry));
+  }
+
+  @Nonnull
+  private static Set<String> canonicalizeEntityNames(
+      @Nullable Set<String> entityNames, @Nonnull Map<String, String> canonicalNamesByLowercase) {
+    if (entityNames == null || entityNames.isEmpty()) {
+      return Collections.emptySet();
+    }
+
+    Set<String> canonicalNames = new LinkedHashSet<>();
+    for (String entityName : entityNames) {
+      canonicalizeEntityName(entityName, canonicalNamesByLowercase).ifPresent(canonicalNames::add);
+    }
+    return canonicalNames;
+  }
+
+  @Nonnull
+  public static Optional<String> canonicalizeEntityName(
+      @Nullable String entityName, @Nonnull EntityRegistry entityRegistry) {
+    return canonicalizeEntityName(entityName, canonicalNamesByLowercase(entityRegistry));
+  }
+
+  public static boolean containsEntity(
+      @Nullable Set<String> entityNames,
+      @Nonnull EntityRegistry entityRegistry,
+      @Nullable String entityName) {
+    Map<String, String> canonicalNamesByLowercase = canonicalNamesByLowercase(entityRegistry);
+    Optional<String> canonicalEntityName =
+        canonicalizeEntityName(entityName, canonicalNamesByLowercase);
+    return canonicalEntityName.isPresent()
+        && canonicalizeEntityNames(entityNames, canonicalNamesByLowercase)
+            .contains(canonicalEntityName.get());
+  }
+
   @Nonnull
   private static List<String> viewUnrestrictedFromRegistry(
       @Nullable EntityRegistry entityRegistry) {
@@ -112,6 +157,26 @@ public final class EntityTypeUtils {
         merged.add(name);
       }
     }
+  }
+
+  private static Optional<String> canonicalizeEntityName(
+      @Nullable String entityName, @Nonnull Map<String, String> canonicalNamesByLowercase) {
+    if (entityName == null || entityName.isBlank()) {
+      return Optional.empty();
+    }
+    String trimmed = entityName.trim();
+    return Optional.of(
+        canonicalNamesByLowercase.getOrDefault(trimmed.toLowerCase(Locale.ROOT), trimmed));
+  }
+
+  private static Map<String, String> canonicalNamesByLowercase(
+      @Nonnull EntityRegistry entityRegistry) {
+    Map<String, String> names = new LinkedHashMap<>();
+    entityRegistry.getEntitySpecs().values().stream()
+        .map(EntitySpec::getName)
+        .filter(name -> name != null && !name.isBlank())
+        .forEach(name -> names.putIfAbsent(name.toLowerCase(Locale.ROOT), name));
+    return names;
   }
 
   private static List<String> validateAndFilter(

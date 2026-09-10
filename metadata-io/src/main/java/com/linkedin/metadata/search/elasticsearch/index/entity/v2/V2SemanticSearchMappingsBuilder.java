@@ -9,7 +9,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
-import com.linkedin.metadata.search.semantic.SemanticSearchEntityUtils;
+import com.linkedin.metadata.search.utils.EntityTypeUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
@@ -191,7 +191,7 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
   private Collection<IndexMapping> addSemanticMappings(
       @Nonnull OperationContext opContext, Collection<IndexMapping> baseIndexMappings) {
     Set<String> enabledEntities =
-        SemanticSearchEntityUtils.canonicalizeEntityNames(
+        EntityTypeUtils.canonicalizeEntityNames(
             semanticConfig.getEnabledEntities(), opContext.getEntityRegistry());
     Map<String, Object> embeddingFieldConfig = buildEmbeddingFieldConfig();
     ArrayList<IndexMapping> semanticIndexMappings = new ArrayList<>();
@@ -203,8 +203,7 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
               .getEntityName(opContext, indexName)
               .flatMap(
                   name ->
-                      SemanticSearchEntityUtils.canonicalizeEntityName(
-                          name, opContext.getEntityRegistry()))
+                      EntityTypeUtils.canonicalizeEntityName(name, opContext.getEntityRegistry()))
               .orElse(null);
 
       // Only create semantic search index for enabled entities
