@@ -26,6 +26,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -111,6 +112,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
   private final int keywordMaxLength;
 
+  @Nonnull private final List<V3MappingContributor> mappingContributors;
+
   /**
    * Constructs a new MultiEntityMappingsBuilder with the given entity index configuration.
    *
@@ -125,15 +128,25 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    */
   public MultiEntityMappingsBuilder(@Nonnull EntityIndexConfiguration entityIndexConfiguration)
       throws IOException {
-    this(entityIndexConfiguration, ESUtils.KEYWORD_MAXLENGTH);
+    this(entityIndexConfiguration, ESUtils.KEYWORD_MAXLENGTH, List.of());
   }
 
   public MultiEntityMappingsBuilder(
       @Nonnull EntityIndexConfiguration entityIndexConfiguration, int keywordMaxLength)
       throws IOException {
+    this(entityIndexConfiguration, keywordMaxLength, List.of());
+  }
+
+  public MultiEntityMappingsBuilder(
+      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
+      int keywordMaxLength,
+      @Nonnull List<V3MappingContributor> mappingContributors)
+      throws IOException {
 
     this.entityIndexConfiguration = entityIndexConfiguration;
     this.keywordMaxLength = keywordMaxLength > 0 ? keywordMaxLength : ESUtils.KEYWORD_MAXLENGTH;
+    this.mappingContributors =
+        mappingContributors == null ? List.of() : List.copyOf(mappingContributors);
     String mappingConfig = entityIndexConfiguration.getV3().getMappingConfig();
     if (mappingConfig != null && !mappingConfig.trim().isEmpty()) {
       this.mappingBaseConfiguration =
@@ -174,19 +187,18 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @Nonnull OperationContext opContext,
       @Nonnull Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
     if (entityIndexConfiguration.getV3().isEnabled()) {
-      // Generate Index Mapping per group
-      return opContext.getEntityRegistry().getSearchGroups().stream()
+      return V3IndexKeys.groupEntitySpecs(opContext.getEntityRegistry()).keySet().stream()
           .map(
-              searchGroup -> {
+              indexKey -> {
                 Map<String, Object> mappings =
                     getMappingsForMultipleEntities(
-                        opContext.getEntityRegistry(), searchGroup, structuredProperties);
+                        opContext.getEntityRegistry(), indexKey, structuredProperties);
                 return IndexMapping.builder()
                     .indexName(
                         opContext
                             .getSearchContext()
                             .getIndexConvention()
-                            .getEntityIndexNameV3(opContext, searchGroup))
+                            .getEntityIndexNameV3(opContext, indexKey))
                     .mappings(mappings)
                     .build();
               })
@@ -226,7 +238,6 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       return result;
     }
 
-    // Group entity types by search group to build mappings per index
     Map<String, List<EntitySpec>> searchGroupToEntitySpecs = new HashMap<>();
 
     for (Urn entityTypeUrn : property.getEntityTypes()) {
@@ -241,13 +252,11 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
       EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityTypeName);
 
-      if (entitySpec != null && entitySpec.getSearchGroup() != null) {
-        String searchGroup = entitySpec.getSearchGroup();
-        searchGroupToEntitySpecs
-            .computeIfAbsent(searchGroup, k -> new ArrayList<>())
-            .add(entitySpec);
+      if (entitySpec != null) {
+        String indexKey = V3IndexKeys.resolve(entitySpec);
+        searchGroupToEntitySpecs.computeIfAbsent(indexKey, k -> new ArrayList<>()).add(entitySpec);
       } else {
-        log.warn("Missing entitySpec with searchGroup for entity type: {}", entityTypeName);
+        log.warn("Missing entitySpec for entity type: {}", entityTypeName);
       }
     }
 
@@ -352,8 +361,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
 
     // Extract entity specs from the registry based on searchGroup
-    Collection<EntitySpec> entitySpecs =
-        entityRegistry.getEntitySpecsBySearchGroup(searchGroup).values();
+    Collection<EntitySpec> entitySpecs = V3IndexKeys.entitySpecsForKey(entityRegistry, searchGroup);
 
     if (entitySpecs.isEmpty()) {
       log.warn("No entities found for search group '{}'", searchGroup);
@@ -442,6 +450,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
           MultiEntityMappingsUtils.mergeMappings(combinedMappings, mappingBaseConfiguration);
     }
 
+    applyMappingContributors(combinedMappings);
+
     // Build _search section with all copy_to destination fields
     Map<String, Object> searchSection =
         MultiEntityMappingsUtils.buildSearchSection(entitySpecs, combinedMappings);
@@ -454,6 +464,31 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     }
 
     return combinedMappings;
+  }
+
+  private void applyMappingContributors(@Nonnull Map<String, Object> combinedMappings) {
+    if (mappingContributors.isEmpty()) {
+      return;
+    }
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) combinedMappings.get("properties");
+    if (properties == null) {
+      properties = new HashMap<>();
+      combinedMappings.put("properties", properties);
+    }
+    for (V3MappingContributor contributor : mappingContributors) {
+      Map<String, Object> extras = contributor.extraRootProperties();
+      for (Map.Entry<String, Object> extra : extras.entrySet()) {
+        if (properties.containsKey(extra.getKey())
+            || MappingConstants.STRATEGY_OWNED_ROOT_FIELDS.contains(extra.getKey())) {
+          throw new IllegalArgumentException(
+              "V3 mapping contributor attempted to overwrite existing property '"
+                  + extra.getKey()
+                  + "'");
+        }
+        properties.put(extra.getKey(), extra.getValue());
+      }
+    }
   }
 
   /**

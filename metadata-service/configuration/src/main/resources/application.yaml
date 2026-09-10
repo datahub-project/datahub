@@ -753,6 +753,7 @@ elasticsearch:
     v3:
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:false}
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}
+      keywordReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED:false}
       analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
       mappingConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAPPING_CONFIG:search_entity_mapping_config.yaml}
       maxFieldsLimit: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAX_FIELDS_LIMIT:5000}

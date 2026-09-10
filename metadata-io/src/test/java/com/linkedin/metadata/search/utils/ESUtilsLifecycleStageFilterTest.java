@@ -9,6 +9,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -124,6 +126,25 @@ public class ESUtilsLifecycleStageFilterTest {
     // Only lifecycle stage filter, no removed filter
     assertEquals(query.mustNot().size(), 1);
     assertMustNotContainsTerm(query, LIFECYCLE_STAGE + KEYWORD_SUFFIX, PROPOSED_URN);
+  }
+
+  @Test
+  public void testV3AddsEntityTypeFilterEvenForEntityNamedIndex() {
+    SearchFlags flags = new SearchFlags().setIncludeSoftDeleted(true);
+    OperationContext opContext = mockOpContext(flags);
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+
+    BoolQueryBuilder query = QueryBuilders.boolQuery();
+    ESUtils.applyDefaultSearchFilters(
+        opContext, List.of("dataset"), null, query, Collections.emptySet(), entityIndex);
+
+    assertEquals(query.filter().size(), 1);
+    assertTrue(query.toString().contains("_entityType"));
+    assertTrue(query.toString().contains("dataset"));
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────

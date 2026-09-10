@@ -173,6 +173,16 @@ public class IndexConventionImplTest {
   }
 
   @Test
+  public void testEntityDocumentIdUrlEncodesUrn() {
+    EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
+    String urn = "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)";
+    assertEquals(
+        IndexConventionImpl.noPrefix("MD5", entityIndexConfiguration)
+            .getEntityDocumentId(UrnUtils.getUrn(urn)),
+        URLEncoder.encode(urn, java.nio.charset.StandardCharsets.UTF_8));
+  }
+
+  @Test
   public void testIsV2EntityIndex() {
     EntityIndexConfiguration entityIndexConfiguration = new EntityIndexConfiguration();
     IndexConvention indexConvention = IndexConventionImpl.noPrefix("MD5", entityIndexConfiguration);

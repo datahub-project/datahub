@@ -15,4 +15,10 @@ public class EntityIndexVersionConfiguration {
   private String analyzerConfig;
   private String mappingConfig;
   private Integer maxFieldsLimit;
+
+  /**
+   * When true, keyword search/browse reads V3 indices even if V2 is still enabled (dual-write
+   * cutover). Ignored when V3 is disabled.
+   */
+  private boolean keywordReadEnabled;
 }
