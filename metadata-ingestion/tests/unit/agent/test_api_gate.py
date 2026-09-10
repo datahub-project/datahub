@@ -8,6 +8,12 @@ ALLOWLIST = [
     "GET /reports/{token}/queries",
 ]
 
+# Same endpoints, but vouching for two query parameters. Several tests below
+# are about something else entirely (an encoded "#", URL resolution) and merely
+# use a query string as the vehicle; they run against this so the query rule
+# does not become the thing they accidentally assert.
+ALLOWLIST_WITH_PARAMS = [entry + "?filter&per_page" for entry in ALLOWLIST]
+
 
 def test_permits_a_listed_literal_path():
     check_api_request("GET", "/spaces", ALLOWLIST)
@@ -61,8 +67,16 @@ def test_rejects_a_relative_path():
         check_api_request("GET", "spaces", ALLOWLIST)
 
 
-def test_a_query_string_is_allowed_and_not_part_of_matching():
-    check_api_request("GET", "/spaces?filter=all&per_page=30", ALLOWLIST)
+def test_a_query_string_is_part_of_matching():
+    """This asserted the opposite -- that a query is allowed and not matched on
+    -- which is exactly the hole. urlsplit(...).path dropped it, so the gate
+    approved "/projects" while the client sent "/projects?include=cells", and a
+    parameter is how a REST endpoint is asked for more than its default. Hex
+    lists /projects and deliberately omits /cells; the omission was reachable
+    through the listed endpoint."""
+    check_api_request("GET", "/spaces?filter=all&per_page=30", ALLOWLIST_WITH_PARAMS)
+    with pytest.raises(ApiScopeError, match="query parameter"):
+        check_api_request("GET", "/spaces?filter=all&per_page=30", ALLOWLIST)
 
 
 def test_an_empty_allowlist_permits_nothing():
@@ -100,7 +114,7 @@ def test_an_encoded_hash_is_data_and_stays_usable(path):
     and the request issued is the one that was checked. Only a literal "#"
     starts a fragment, so the check reads the raw path rather than the decoded
     one, which is the single place here that distinction matters."""
-    check_api_request("GET", path, ALLOWLIST)
+    check_api_request("GET", path, ALLOWLIST_WITH_PARAMS)
 
 
 _BASE = "https://app.example.com/api/myworkspace"
@@ -141,7 +155,7 @@ def test_a_path_resolving_outside_the_api_base_is_refused(path):
     ],
 )
 def test_a_listed_path_still_matches_against_the_resolved_url(path):
-    check_api_request("GET", path, ALLOWLIST, base_url=_BASE)
+    check_api_request("GET", path, ALLOWLIST_WITH_PARAMS, base_url=_BASE)
 
 
 def test_the_gate_still_works_without_a_base_url():
@@ -209,3 +223,73 @@ def test_the_gate_and_the_sender_agree_on_the_url():
     _Provider().api("/projects")
     assert sent == [probe_api_url(base, "/projects")]
     assert "//projects" not in sent[0]
+
+
+# --- the query string is part of the request, so it is part of the check ----
+#
+# It was dropped before matching: urlsplit(...).path discards it, so the gate
+# approved "/projects" and the client sent "/projects?include=cells". A
+# parameter is how a REST endpoint is asked for more than its default, which
+# makes an unexamined query a hole in the statement the allowlist makes. Hex
+# lists /projects and deliberately omits /cells, and the omission was reachable
+# through the listed endpoint.
+
+_QUERY_ALLOWLIST = ["GET /projects?include&limit", "GET /data-connections"]
+_BASE = "https://app.example.com/api/ws"
+
+
+def test_an_undeclared_query_parameter_is_refused_on_a_listed_path():
+    with pytest.raises(ApiScopeError, match="query parameter"):
+        check_api_request(
+            "GET", "/data-connections?include=cells", _QUERY_ALLOWLIST, base_url=_BASE
+        )
+
+
+def test_a_declared_query_parameter_is_permitted():
+    check_api_request(
+        "GET", "/projects?include=cells&limit=10", _QUERY_ALLOWLIST, base_url=_BASE
+    )
+
+
+def test_one_undeclared_parameter_spoils_an_otherwise_declared_query():
+    with pytest.raises(ApiScopeError, match="'secret'"):
+        check_api_request(
+            "GET", "/projects?include=cells&secret=1", _QUERY_ALLOWLIST, base_url=_BASE
+        )
+
+
+def test_a_parameter_declared_on_one_endpoint_does_not_widen_another():
+    """The names live on the entry that declared them, not in a shared pool.
+    `include` is vouched for on /projects; that says nothing about
+    /data-connections."""
+    check_api_request("GET", "/projects?include=x", _QUERY_ALLOWLIST, base_url=_BASE)
+    with pytest.raises(ApiScopeError, match="query parameter"):
+        check_api_request(
+            "GET", "/data-connections?include=x", _QUERY_ALLOWLIST, base_url=_BASE
+        )
+
+
+def test_a_bare_question_mark_traversal_is_seen_as_the_parameter_it_is():
+    """`/reports/x?/../../../api/other_ws/spaces` is a listed path plus a
+    nonsense query. Harmless on the wire -- the server routes on the path --
+    but it read as "no query" before, which is the same blind spot that let
+    include=cells through."""
+    with pytest.raises(ApiScopeError, match="query parameter"):
+        check_api_request(
+            "GET", "/projects?/../../../other", _QUERY_ALLOWLIST, base_url=_BASE
+        )
+
+
+def test_a_listed_path_with_no_query_is_unaffected():
+    """The control. A gate that refuses everything proves nothing, and this
+    suite's first run of the fix did exactly that -- the allowlist entries were
+    written without the "GET " prefix, so _allowed_paths filtered them all out
+    and every case 'passed' by being denied."""
+    check_api_request("GET", "/projects", _QUERY_ALLOWLIST, base_url=_BASE)
+    check_api_request("GET", "/data-connections", _QUERY_ALLOWLIST, base_url=_BASE)
+
+
+def test_declaring_no_parameters_permits_no_query_at_all():
+    """Default deny: an entry that names none vouches for none."""
+    with pytest.raises(ApiScopeError, match="query parameter"):
+        check_api_request("GET", "/spaces?limit=1", ALLOWLIST)

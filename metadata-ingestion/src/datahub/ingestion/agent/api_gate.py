@@ -1,6 +1,7 @@
 import re
-from typing import Iterable, List, Optional, Pattern
-from urllib.parse import unquote, urlsplit
+from dataclasses import dataclass
+from typing import FrozenSet, Iterable, List, Optional, Pattern, Tuple
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 import requests
 
@@ -37,13 +38,37 @@ class ApiScopeError(ValueError):
     """
 
 
-def _compile(entry: str) -> Pattern[str]:
-    method, _, template = entry.partition(" ")
-    parts = [re.escape(p) for p in _PLACEHOLDER.split(template.strip())]
-    return re.compile(f"^{_SEGMENT.join(parts)}$")
+@dataclass(frozen=True)
+class _AllowedEndpoint:
+    """One allowlist entry, split into the two things a request must satisfy.
+
+    Kept together rather than as parallel lists because a parameter is only
+    permitted on the endpoint that declared it: hoisting the names into one
+    shared set would let a parameter listed on a harmless endpoint widen a
+    different one.
+    """
+
+    path: Pattern[str]
+    params: FrozenSet[str]
 
 
-def _allowed_paths(allowlist: Iterable[str]) -> List[Pattern[str]]:
+def _compile(entry: str) -> _AllowedEndpoint:
+    _method, _, template = entry.partition(" ")
+    path_template, _, query_template = template.strip().partition("?")
+    parts = [re.escape(p) for p in _PLACEHOLDER.split(path_template)]
+    return _AllowedEndpoint(
+        path=re.compile(f"^{_SEGMENT.join(parts)}$"),
+        # Names only, and deliberately: a value is opaque to this gate, so
+        # "GET /projects?include" permits include=anything. Naming the
+        # parameter is the connector author asserting the endpoint is safe with
+        # it -- the same judgement the path allowlist already rests on, and the
+        # ApiScopeError docstring is explicit that nothing here can check their
+        # work.
+        params=frozenset(name for name in query_template.split("&") if name),
+    )
+
+
+def _allowed_paths(allowlist: Iterable[str]) -> List[_AllowedEndpoint]:
     return [_compile(e) for e in allowlist if e.split(" ", 1)[0].upper() == READ_METHOD]
 
 
@@ -61,8 +86,17 @@ def probe_api_url(base_url: str, path: str) -> str:
     return f"{base_url.rstrip('/')}/{path.lstrip('/')}"
 
 
-def _effective_path(base_url: str, path: str) -> str:
-    """The path the client will actually request, resolved as the client resolves it.
+def _effective_path(base_url: str, path: str) -> Tuple[str, FrozenSet[str]]:
+    """What the client will actually request, resolved as the client resolves it.
+
+    Returns the path relative to the base AND the names of the query parameters
+    riding along with it. The query is part of the request and was being
+    dropped here: `urlsplit(...).path` discards it, so the gate matched
+    "/projects" and the client then sent "/projects?include=cells". A parameter
+    is how a REST endpoint is asked to return more than its default, so an
+    unexamined query is a hole in the very statement the allowlist makes --
+    Hex lists /projects and deliberately omits /cells, and the omission was
+    reachable through the listed endpoint.
 
     RestApiPassthrough.api sends f"{api_base_url}{path}", and requests then
     normalises dot segments and drops any fragment. Reproducing that here means
@@ -81,19 +115,26 @@ def _effective_path(base_url: str, path: str) -> str:
     # API router that decodes percent-escapes sees "/spaces/a/b/reports", an
     # endpoint nobody listed. Matching the decoded form is what the server will
     # actually route on.
-    resolved = unquote(urlsplit(prepared.url or "").path)
+    split = urlsplit(prepared.url or "")
+    resolved = unquote(split.path)
+    # keep_blank_values so "?include" counts as the parameter "include" rather
+    # than vanishing, and so a bare "?/../x" is seen as the (undeclared)
+    # parameter it is instead of passing as no query at all.
+    params = frozenset(
+        name for name, _ in parse_qsl(split.query, keep_blank_values=True)
+    )
     base_path = unquote(urlsplit(base_url).path).rstrip("/")
     if not base_path:
-        return resolved
+        return resolved, params
     if resolved == base_path:
-        return "/"
+        return "/", params
     if not resolved.startswith(base_path + "/"):
         raise ApiScopeError(
             f"'{path}' resolves to '{resolved}', outside this connector's API "
             f"base '{base_path}' -- the base is what scopes these credentials "
             f"to one workspace"
         )
-    return resolved[len(base_path) :]
+    return resolved[len(base_path) :], params
 
 
 def check_api_request(
@@ -163,8 +204,24 @@ def check_api_request(
     # gives the same resolution rather than falling back to
     # `decoded.split("?")[0]` -- which was the original buggy form and left the
     # %3F and %2F holes open for exactly the providers that declare no base.
-    bare = _effective_path(base_url or _SYNTHETIC_BASE, path)
-    if not any(pattern.match(bare) for pattern in _allowed_paths(allowlist)):
+    bare, params = _effective_path(base_url or _SYNTHETIC_BASE, path)
+    endpoints = _allowed_paths(allowlist)
+    matched = [e for e in endpoints if e.path.match(bare)]
+    if not matched:
         raise ApiScopeError(
             f"'{bare}' is not in this connector's allowlist of read endpoints"
+        )
+    # A parameter has to be permitted by the SAME entry whose path matched, and
+    # any matching entry will do -- two templates can both cover a path
+    # ("/projects" and "/{token}") while declaring different parameters, and
+    # refusing because the first one checked did not declare it would deny a
+    # request the allowlist does permit.
+    if not any(params <= endpoint.params for endpoint in matched):
+        undeclared = sorted(params - set().union(*(e.params for e in matched)))
+        raise ApiScopeError(
+            f"'{bare}' is listed, but the query parameter(s) "
+            f"{undeclared or sorted(params)} are not. A parameter can change "
+            f"what an endpoint returns, so the allowlist has to name the ones "
+            f"it vouches for -- add them as 'GET {bare}?<name>' if this "
+            f"endpoint is safe with them"
         )
