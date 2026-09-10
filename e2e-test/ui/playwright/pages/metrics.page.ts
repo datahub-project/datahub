@@ -8,7 +8,7 @@
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
-import { TIMEOUTS, LOAD_STATES } from '../utils/constants';
+import { TIMEOUTS } from '../utils/constants';
 
 export class MetricsPage extends BasePage {
   readonly navMetricsItem: Locator;
@@ -89,21 +89,18 @@ export class MetricsPage extends BasePage {
       localStorage.setItem('skipOnboardingTour', 'true');
     });
     await this.navigate('/metrics');
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await expect(this.sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
   }
 
   async navigateToSemanticModel(urn: string): Promise<void> {
     this.logger?.step('navigate to semantic model', { urn });
     await this.navigate(`/semanticModel/${encodeURIComponent(urn)}`);
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await expect(this.entityHeader).toBeVisible({ timeout: TIMEOUTS.LONG });
   }
 
   async navigateToMetric(urn: string): Promise<void> {
     this.logger?.step('navigate to metric', { urn });
     await this.navigate(`/metric/${encodeURIComponent(urn)}`);
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await expect(this.entityHeader).toBeVisible({ timeout: TIMEOUTS.LONG });
   }
 
@@ -212,12 +209,12 @@ export class MetricsPage extends BasePage {
 
   async clickSidebarModel(urn: string): Promise<void> {
     await this.sidebarModel(urn).click();
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    await expect(this.entityHeader).toBeVisible({ timeout: TIMEOUTS.LONG });
   }
 
   async clickSidebarMetric(urn: string): Promise<void> {
     await this.sidebarMetric(urn).click();
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    await expect(this.entityHeader).toBeVisible({ timeout: TIMEOUTS.LONG });
   }
 
   async searchSidebar(query: string): Promise<void> {
@@ -267,22 +264,18 @@ export class MetricsPage extends BasePage {
 
   async openSummaryTab(): Promise<void> {
     await this.summaryTab.click();
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
   async openDefinitionTab(): Promise<void> {
     await this.definitionTab.click();
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
   async openLineageTab(): Promise<void> {
     await this.lineageTab.click();
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
   async openPropertiesTab(): Promise<void> {
     await this.propertiesTab.click();
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
   async expectSemanticModelModulesVisible(): Promise<void> {
@@ -305,7 +298,8 @@ export class MetricsPage extends BasePage {
 
   /** Click a module row by visible label (EntityItem / Link). */
   async clickModuleItem(module: Locator, text: string): Promise<void> {
-    const link = module.getByRole('link', { name: new RegExp(text, 'i') }).first();
+    const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const link = module.getByRole('link', { name: new RegExp(escaped, 'i') }).first();
     if (await link.count()) {
       await expect(link).toBeVisible({ timeout: TIMEOUTS.LONG });
       await link.scrollIntoViewIfNeeded();

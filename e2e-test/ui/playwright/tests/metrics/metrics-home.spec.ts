@@ -8,7 +8,7 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { MetricsPage } from '../../pages/metrics.page';
-import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
+import { TIMEOUTS } from '../../utils/constants';
 import {
   EXPECTED_COUNTS,
   METRICS_FEATURE_FLAGS,
@@ -33,18 +33,15 @@ test.describe('Metrics home and sidebar', () => {
   test('hides Metrics nav and route when flag is off', async ({ page, apiMock }) => {
     await apiMock.setFeatureFlags(METRICS_FEATURE_FLAGS_OFF);
     await page.goto('/');
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await expect(metricsPage.navMetricsItem).toBeHidden({ timeout: TIMEOUTS.MEDIUM });
 
     await page.goto('/metrics');
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await expect(metricsPage.metricsPage).toBeHidden({ timeout: TIMEOUTS.MEDIUM });
     await expect(metricsPage.sidebar).toBeHidden({ timeout: TIMEOUTS.MEDIUM });
   });
 
   test('shows Metrics nav and populated home when flag is on', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await expect(metricsPage.navMetricsItem).toBeVisible({ timeout: TIMEOUTS.LONG });
 
     await metricsPage.openMetricsFromNav();

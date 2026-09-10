@@ -7,7 +7,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
 import { MetricsPage } from '../../pages/metrics.page';
-import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
+import { TIMEOUTS } from '../../utils/constants';
 import { METRICS_FEATURE_FLAGS, NAMES, SEMANTIC_MODEL_ORDERS_URN, TOTAL_REVENUE_URN } from './constants';
 
 test.use({ featureName: 'metrics' });
@@ -23,18 +23,10 @@ test.describe('Metrics global search', () => {
     await searchPage.navigateToHome();
   });
 
-  async function openSearchResultByUrn(page: import('@playwright/test').Page, urn: string): Promise<void> {
-    const preview = searchPage.getEntityPreviewLocator(urn);
-    await expect(preview).toBeVisible({ timeout: TIMEOUTS.LONG });
-    // Card click only selects the preview pane — navigate via the entity name link.
-    await preview.getByRole('link').first().click();
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-  }
-
   test('finds semantic model by name and opens Metrics-wrapped detail', async ({ page }) => {
     await searchPage.searchAndWait(NAMES.ORDERS_MODEL, 4000);
     await searchPage.expectHasResults();
-    await openSearchResultByUrn(page, SEMANTIC_MODEL_ORDERS_URN);
+    await searchPage.openResultByUrn(SEMANTIC_MODEL_ORDERS_URN);
 
     await expect(page).toHaveURL(/\/semanticModel\//, { timeout: TIMEOUTS.LONG });
     await metricsPage.expectEntityNamed(NAMES.ORDERS_MODEL);
@@ -44,7 +36,7 @@ test.describe('Metrics global search', () => {
   test('finds metric by name and opens Metrics-wrapped detail', async ({ page }) => {
     await searchPage.searchAndWait(NAMES.TOTAL_REVENUE, 4000);
     await searchPage.expectHasResults();
-    await openSearchResultByUrn(page, TOTAL_REVENUE_URN);
+    await searchPage.openResultByUrn(TOTAL_REVENUE_URN);
 
     await expect(page).toHaveURL(/\/metric\//, { timeout: TIMEOUTS.LONG });
     await metricsPage.expectEntityNamed(NAMES.TOTAL_REVENUE);
@@ -75,6 +67,8 @@ test.describe('Metrics global search', () => {
       await expect(page.getByText(NAMES.TOTAL_REVENUE, { exact: false }).first()).toBeVisible({
         timeout: TIMEOUTS.LONG,
       });
+    } else {
+      throw new Error('Type filter opened but neither Semantic Model nor Metric option was visible');
     }
   });
 
@@ -83,12 +77,11 @@ test.describe('Metrics global search', () => {
     await searchPage.expectHasResults();
     const searchUrl = page.url();
 
-    await openSearchResultByUrn(page, TOTAL_REVENUE_URN);
+    await searchPage.openResultByUrn(TOTAL_REVENUE_URN);
     await expect(page).toHaveURL(/\/metric\//, { timeout: TIMEOUTS.LONG });
 
     await page.goBack();
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await expect(page).toHaveURL(searchUrl);
+    await expect(page).toHaveURL(searchUrl, { timeout: TIMEOUTS.LONG });
     await expect(page.getByText(NAMES.TOTAL_REVENUE, { exact: false }).first()).toBeVisible({
       timeout: TIMEOUTS.LONG,
     });

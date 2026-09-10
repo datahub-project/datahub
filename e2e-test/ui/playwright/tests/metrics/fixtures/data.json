@@ -279,7 +279,6 @@
         "name": "PW Orders Model",
         "description": "Playwright semantic model over orders and customers.",
         "nativeDefinition": "semantic_model:\n  name: pw_orders_model\n  datasets: [ORDERS, CUSTOMERS]\n",
-        "datasets": [],
         "relationships": [
           {
             "name": "orders_to_customers",
@@ -1186,7 +1185,6 @@
         "name": "PW Payments Model",
         "description": "Playwright semantic model over payments.",
         "nativeDefinition": "semantic_model:\n  name: pw_payments_model\n",
-        "datasets": [],
         "lastModified": {
           "time": 1700000002000,
           "actor": "urn:li:corpuser:datahub"
