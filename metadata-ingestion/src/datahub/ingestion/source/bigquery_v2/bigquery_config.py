@@ -8,7 +8,6 @@ from typing import (
     Dict,
     List,
     Optional,
-    Sequence,
     Tuple,
     Union,
 )
@@ -27,6 +26,7 @@ from datahub.configuration.common import (
     ConfigModel,
     Filters,
     HiddenFromDocs,
+    Qualifier,
 )
 from datahub.configuration.env_vars import get_bigquery_schema_parallelism
 from datahub.configuration.source_common import (
@@ -232,7 +232,7 @@ class GcsDatasetLineageProviderConfigBase(ConfigModel):
 
 
 class BigQueryFilterConfig(SQLFilterConfig):
-    project_ids: List[str] = Field(
+    project_ids: Annotated[List[str], Qualifier()] = Field(
         default_factory=list,
         description=(
             "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
@@ -293,18 +293,6 @@ class BigQueryFilterConfig(SQLFilterConfig):
     schema_pattern: HiddenFromDocs[AllowDenyPattern] = Field(
         default=AllowDenyPattern.allow_all(),
     )
-
-    def probe_qualifying_container(
-        self, parent_path: Sequence[str] = ()
-    ) -> Optional[str]:
-        """The caller's project wins -- a recipe may name several. Falling
-        back to the configured one when it pins exactly one keeps
-        `probe filter` answerable without a --parent for the common
-        single-project recipe; with several and no parent, say nothing
-        rather than guess."""
-        if parent_path:
-            return parent_path[-1]
-        return self.project_ids[0] if len(self.project_ids) == 1 else None
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> Any:

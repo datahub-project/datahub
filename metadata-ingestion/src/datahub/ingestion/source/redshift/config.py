@@ -1,13 +1,17 @@
 import logging
 from copy import deepcopy
 from enum import Enum
-from typing import Any, Callable, Dict, FrozenSet, List, Optional, Sequence
+from typing import Annotated, Any, Callable, Dict, FrozenSet, List, Optional
 
 from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    HiddenFromDocs,
+    Qualifier,
+)
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -100,7 +104,9 @@ class RedshiftConfig(
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
 ):
-    database: str = Field(default="dev", description="database")
+    database: Annotated[str, Qualifier(authoritative=True)] = Field(
+        default="dev", description="database"
+    )
 
     # Although Amazon Redshift is compatible with Postgres's wire format,
     # we actually want to use the sqlalchemy-redshift package and dialect
@@ -274,15 +280,6 @@ class RedshiftConfig(
         from datahub.ingestion.source.redshift.query import REDSHIFT_DEFAULT_SCHEMAS
 
         return frozenset(REDSHIFT_DEFAULT_SCHEMAS)
-
-    def probe_qualifying_container(
-        self, parent_path: Sequence[str] = ()
-    ) -> Optional[str]:
-        """A Redshift recipe connects to exactly one database, so `database`
-        is the only qualifier ingestion ever uses -- parent_path is accepted
-        and ignored on purpose, since honouring a different one would answer
-        about a database this recipe does not read."""
-        return self.database
 
     def probe_filter_target(
         self,

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Set
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, Qualifier
 from datahub.ingestion.agent.introspect import pattern_field_for_config
 from datahub.ingestion.agent.verdicts import (
     UNFILTERED,
@@ -268,13 +268,43 @@ def _qualified_container(config: Any, parent_path: Sequence[str]) -> Optional[st
     implies none (Snowflake selects databases by pattern) gets None, which
     leaves the bare-name verdict plus a warning rather than a guess.
     """
-    resolver = getattr(config, "probe_qualifying_container", None)
-    if callable(resolver):
-        container = resolver(parent_path=tuple(parent_path))
-        return str(container) if container else None
-    # A config outside the SQL family (or a test double) declares none; the
-    # caller's parent is the only thing left, and no parent means no answer.
-    return parent_path[-1] if parent_path else None
+    declared, authoritative = _declared_qualifier(config)
+    if authoritative and declared:
+        # Redshift: one database per recipe, so honouring a different
+        # --parent would answer about a database it does not read.
+        return declared
+    if parent_path:
+        return parent_path[-1]
+    return declared
+
+
+def _declared_qualifier(config: Any) -> Tuple[Optional[str], bool]:
+    """The container a Qualifier-marked field names, and whether it wins.
+
+    Read off the field rather than from a method the connector declares:
+    Filters() already establishes that idiom, and a method saying "my
+    container is self.project_ids" restates the field's own name in a worse
+    place. Returns (value, authoritative); a list field qualifies only when
+    it pins exactly one value, since several have no single answer to give
+    without guessing.
+    """
+    fields = getattr(type(config), "model_fields", None)
+    if not fields:
+        return None, False
+    for name, info in fields.items():
+        marker = next(
+            (m for m in info.metadata if isinstance(m, Qualifier)),
+            None,
+        )
+        if marker is None:
+            continue
+        value = getattr(config, name, None)
+        if isinstance(value, str) and value:
+            return value, marker.authoritative
+        if isinstance(value, (list, tuple)) and len(value) == 1:
+            return str(value[0]), marker.authoritative
+        return None, marker.authoritative
+    return None, False
 
 
 def _qualified_schema_match(

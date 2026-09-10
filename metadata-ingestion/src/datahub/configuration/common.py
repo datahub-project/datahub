@@ -522,6 +522,35 @@ class Filters:
     kind: str
 
 
+@dataclasses.dataclass(frozen=True)
+class Qualifier:
+    """Declares that this field names the container a probe qualifies with.
+
+    Sibling of Filters above, and for the same reason: the field already
+    knows this, so the framework reads it rather than each connector
+    declaring a method that restates the field's own name.
+
+        project_ids: Annotated[List[str], Qualifier()] = Field(...)
+
+    A qualified schema or table name is `<container>.<schema>[.<entity>]`,
+    and the container normally comes from the caller -- a recipe may span
+    several databases or projects and only the caller knows which one it is
+    asking about. This marks the field to fall back to when the caller names
+    none, which keeps `probe filter` answerable without a --parent for the
+    common single-container recipe.
+
+    `authoritative` inverts that: the config wins over the caller. Redshift
+    connects to exactly one database, so honouring a different --parent
+    would answer about a database the recipe does not read.
+
+    A list field qualifies only when it pins exactly one value; several have
+    no single answer to give without guessing, and guessing produces a
+    confident verdict about a different object.
+    """
+
+    authoritative: bool = False
+
+
 class KeyValuePattern(ConfigModel):
     """
     The key-value pattern is used to map a regex pattern to a set of values.
