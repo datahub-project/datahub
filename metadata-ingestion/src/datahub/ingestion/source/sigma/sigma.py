@@ -637,6 +637,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # call site and a run whose every read 401s reports "DataHub has not
         # ingested this table" for the whole warehouse.
         self._warehouse_schema_unreadable: Set[str] = set()
+        # (elementId, column, columnId) for this workbook's unresolved columns,
+        # drained once per workbook by the /schema measurement.
+        self._pending_schema_probe: List[Tuple[str, str, str]] = []
         # Intra-DM element ancestry, keyed by dataModelId.
         self._dm_ancestors_cache: Dict[str, Dict[str, Set[str]]] = {}
         # Built once per run, lazily, by _ensure_global_warehouse_index.
@@ -6546,6 +6549,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter.chart_input_fields_self_ref_fallback += 1
         if refs:
             self.reporter.chart_input_fields_self_ref_unresolved_refs += 1
+            column_id = element.column_id_by_name.get(column)
+            if column_id:
+                self._pending_schema_probe.append(
+                    (element.elementId, column, column_id)
+                )
             logger.debug(
                 "chart element %s column %r: self-ref fallback with "
                 "unresolved refs=%r segment_counts=%r",
@@ -6992,6 +7000,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ).as_workunit()
 
             all_input_fields.extend(element_input_fields)
+
+        # One /schema call per workbook, after every element is resolved, and
+        # only when something failed -- a workbook that resolved cleanly has
+        # nothing to measure and should not pay for the call.
+        pending = self._pending_schema_probe
+        self._pending_schema_probe = []
+        self._measure_schema_resolvable_refs(workbook, pending)
 
     def _gen_pages_workunit(
         self,
@@ -7490,6 +7505,83 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._check_chart_column_accounting()
         return self.reporter
 
+    @staticmethod
+    def _schema_name_refs(formula: Any) -> List[List[str]]:
+        """Every ``nameRef`` path in a /schema formula tree, however nested.
+
+        A reference can sit under a binOp, a callOp's args, or a path
+        projection, so this walks the whole tree rather than reading the top
+        level. Returning the raw paths keeps the caller free to classify them.
+        """
+        found: List[List[str]] = []
+        stack: List[Any] = [formula]
+        while stack:
+            node = stack.pop()
+            if isinstance(node, dict):
+                if node.get("type") == "nameRef" and isinstance(node.get("path"), list):
+                    found.append([str(p) for p in node["path"]])
+                stack.extend(node.values())
+            elif isinstance(node, list):
+                stack.extend(node)
+        return found
+
+    def _measure_schema_resolvable_refs(
+        self, workbook: Workbook, unresolved: List[Tuple[str, str, str]]
+    ) -> None:
+        """How many unresolved chart columns does /schema explain? Measure only.
+
+        Nothing here changes what is emitted. The question it answers is worth
+        one API call per workbook: the name-based resolver was removed because
+        an inferred edge is indistinguishable from a stated one, and this
+        endpoint states the same dependency by ID. Before building a resolver
+        on it, size the win on real data -- the last name-based path measured
+        1,106 edges and was deleted, and that number was only knowable after
+        the fact.
+
+        ``unresolved`` is (elementId, column name, columnId) for the columns
+        that fell back to a self-reference with refs that failed.
+        """
+        if not unresolved:
+            return
+        schema = self.sigma_api.get_workbook_schema(workbook.workbookId)
+        if schema is None:
+            self.reporter.chart_ref_schema_unavailable += len(unresolved)
+            return
+        sheets = schema.get("sheets") or {}
+        # A column id is unique within a sheet, so index it across all of them.
+        column_formula: Dict[str, Any] = {}
+        for sheet in sheets.values():
+            for column_id, column in (sheet.get("columns") or {}).items():
+                column_formula.setdefault(column_id, column.get("formula"))
+        for element_id, column_name, column_id in unresolved:
+            formula = column_formula.get(column_id)
+            if formula is None:
+                self.reporter.chart_ref_schema_column_absent += 1
+                continue
+            refs = self._schema_name_refs(formula)
+            cross_sheet = [
+                path
+                for path in refs
+                if len(path) == 2
+                and path[0] in sheets
+                and not path[0].startswith("inode-")
+            ]
+            warehouse = [
+                path for path in refs if len(path) == 2 and path[0].startswith("inode-")
+            ]
+            if cross_sheet:
+                self.reporter.chart_ref_schema_cross_sheet_resolvable += 1
+                self.reporter.chart_ref_schema_samples.append(
+                    f"{element_id}.{column_name}: columnId={column_id} "
+                    f"-> sheet/column {cross_sheet}"
+                )
+            elif warehouse:
+                self.reporter.chart_ref_schema_warehouse_resolvable += 1
+            elif refs:
+                self.reporter.chart_ref_schema_sibling_only += 1
+            else:
+                self.reporter.chart_ref_schema_no_refs += 1
+
     def _check_chart_column_accounting(self) -> None:
         """Reconcile the chart-column counters against each other, in-run.
 
@@ -7504,13 +7596,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         ingestion that is otherwise emitting correct metadata.
         """
         r = self.reporter
+        # Build fresh and assign once. get_report() is called repeatedly during
+        # a run -- the periodic report -- so reading the previous result back in
+        # made the check depend on its own output: the first call wrote
+        # reconciles=1, and every call after that saw a non-empty dict and
+        # reported a failure with no residual to justify it. Caught on a dev
+        # tenant that reconciles perfectly.
+        check: Dict[str, int] = {}
         fallback_parts = (
             r.chart_input_fields_formulas_not_fetched
             + r.chart_input_fields_self_ref_no_formula
             + r.chart_input_fields_self_ref_unresolved_refs
         )
         if fallback_parts != r.chart_input_fields_self_ref_fallback:
-            r.chart_column_accounting_check["fallback_split_residual"] = (
+            check["fallback_split_residual"] = (
                 r.chart_input_fields_self_ref_fallback - fallback_parts
             )
 
@@ -7529,9 +7628,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # carry several refs -- so reasons should be >= columns. Fewer means
         # some column recorded nothing at all.
         if distinct_reasons < r.chart_input_fields_self_ref_unresolved_refs:
-            r.chart_column_accounting_check["unattributed_columns"] = (
+            check["unattributed_columns"] = (
                 r.chart_input_fields_self_ref_unresolved_refs - distinct_reasons
             )
-        r.chart_column_accounting_check["reconciles"] = (
-            0 if r.chart_column_accounting_check else 1
-        )
+        check["reconciles"] = 0 if check else 1
+        r.chart_column_accounting_check = check

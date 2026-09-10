@@ -513,6 +513,36 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Checking them in-run is the difference between noticing a gap in the next
     # report and noticing it two runs later, if at all.
     chart_column_accounting_check: Dict[str, int] = field(default_factory=dict)
+    # Measurement only -- nothing below changes what is emitted.
+    #
+    # /workbooks/{id}/columns gives a formula as the string a user typed
+    # ("[Some Element/Order Number]"), so resolving it means matching a display
+    # NAME. /workbooks/{id}/schema gives the same formula parsed, with refs as
+    # IDs. These count how many currently-unresolved chart columns that endpoint
+    # would explain, so a resolver built on it can be justified before it is
+    # written rather than measured after. The last name-based path was removed
+    # having produced 1,106 edges -- a number only knowable in hindsight.
+    #
+    # cross_sheet is the interesting one: a stated dependency on another sheet's
+    # column, by id, which is exactly what the name matcher was guessing at.
+    chart_ref_schema_cross_sheet_resolvable: int = 0
+    # The formula refers to a warehouse column by inode. Some of these already
+    # resolve through the warehouse path; overlap is expected.
+    chart_ref_schema_warehouse_resolvable: int = 0
+    # Only same-sheet sibling refs, which name no upstream and are already
+    # counted as skipped elsewhere.
+    chart_ref_schema_sibling_only: int = 0
+    # The endpoint has the column but its formula contains no reference at all.
+    chart_ref_schema_no_refs: int = 0
+    # /schema has no entry for that columnId -- the two endpoints disagree about
+    # what the workbook contains, which is itself worth knowing.
+    chart_ref_schema_column_absent: int = 0
+    # The call failed, so these columns are unmeasured rather than unresolvable.
+    chart_ref_schema_unavailable: int = 0
+    workbook_schema_fetch_failed: int = 0
+    # Element, column, columnId and the sheet/column path it points at, for the
+    # cross-sheet cases -- enough to hand-verify a sample before trusting it.
+    chart_ref_schema_samples: LossyList[str] = field(default_factory=LossyList)
     # 'datasheet' nodes whose nodeId is a bare element id, admitted as sheet
     # upstreams. The emit-time element lookup drops any that do not match a
     # real element, so this is an attempt count, not an emitted-edge count.

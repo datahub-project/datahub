@@ -999,6 +999,44 @@ class SigmaAPI:
             )
         return None
 
+    def get_workbook_schema(self, workbook_id: str) -> Optional[Dict[str, Any]]:
+        """GET /workbooks/{id}/schema -- formulas as a parsed AST, refs by ID.
+
+        ``/columns`` returns a formula as the string a user typed,
+        ``[Some Element/Order Number]``, so resolving it means matching a
+        DISPLAY NAME. Names repeat across elements and Sigma's per-element
+        ``/lineage`` does not declare every element a formula reaches, which is
+        why a large share of chart refs cannot be resolved and why matching them
+        by name was tried and removed as unattributable.
+
+        This endpoint returns the same formula as a tree whose leaves are
+        ``{"type": "nameRef", "path": [...]}``, and the path carries IDS:
+
+            ["<sheetId>", "<columnId>"]         another sheet's column
+            ["inode-<urlId>", "<NATIVE_NAME>"]  a warehouse column
+            ["<columnId>"]                      a sibling column of this sheet
+
+        An id cannot be ambiguous the way a name can, so a dependency read from
+        here is stated by Sigma rather than inferred. Currently used only to
+        MEASURE how many unresolved refs it would explain -- see
+        _measure_schema_resolvable_refs. Never fatal: a failure here must not
+        change what the run emits.
+        """
+        try:
+            response = self._get_api_call(
+                f"{self.config.api_url}/workbooks/{workbook_id}/schema"
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except Exception:
+            self._log_http_error(
+                message=f"Unable to fetch schema for workbook {workbook_id}.",
+                report_warning=False,
+            )
+            self.report.workbook_schema_fetch_failed += 1
+            return None
+        return payload if isinstance(payload, dict) else None
+
     def get_workbook_column_formulas(
         self, workbook_id: str
     ) -> Tuple[Dict[str, Dict[str, Optional[str]]], Dict[str, Dict[str, str]]]:

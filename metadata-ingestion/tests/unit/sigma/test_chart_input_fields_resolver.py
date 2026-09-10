@@ -97,6 +97,7 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source._known_dm_element_index = None
     source.dm_element_urn_by_name = {}
     source._chart_cols_memo = None
+    source._pending_schema_probe = []
     return source
 
 
@@ -955,6 +956,26 @@ class TestChartColumnAccountingCheck:
 
         assert r.chart_column_accounting_check["unattributed_columns"] == 2
         assert r.chart_column_accounting_check["reconciles"] == 0
+
+    def test_the_check_does_not_read_its_own_previous_result(self) -> None:
+        """get_report() runs repeatedly -- the periodic report calls it.
+
+        Deriving "reconciles" from whether the dict was empty made the second
+        call see the first call's own output and report a failure with no
+        residual behind it. A dev tenant that reconciles perfectly showed
+        ``{'reconciles': 0}`` and nothing else.
+        """
+        src = self._source()
+        r = src.reporter
+        r.chart_input_fields_self_ref_fallback = 3
+        r.chart_input_fields_self_ref_unresolved_refs = 3
+        r.chart_ref_miss_reasons = {"source_name_unknown_to_this_workbook": 3}
+
+        src.get_report()
+        src.get_report()
+        src.get_report()
+
+        assert r.chart_column_accounting_check == {"reconciles": 1}
 
     def test_the_synthetic_sub_keys_are_not_double_counted(self) -> None:
         """They split an existing reason; counting them would mask a real gap.
