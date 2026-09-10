@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, FrozenSet, List, Optional, Set
+from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 import sqlglot
 from sqlglot import exp
@@ -134,6 +134,12 @@ _STATEMENT_KEYWORDS: Dict[type, str] = {
 }
 
 
+# The same node types as a tuple, for walking the tree rather than reading
+# only its root. Command is included: a nested statement sqlglot could not
+# model is exactly as unclearable as a top-level one.
+_WRITE_NODES: Tuple[type, ...] = tuple(_STATEMENT_KEYWORDS) + (exp.Command,)
+
+
 class SqlScopeError(ValueError):
     """A query was refused because it is not a read of catalog metadata.
 
@@ -182,6 +188,37 @@ def check_query_scope(
         raise SqlScopeError(
             "only SELECT queries over catalog metadata are permitted; this "
             "statement is not a SELECT"
+        )
+
+    # The check above reads only the ROOT node, and that is not enough: a
+    # Postgres data-modifying CTE puts the write *inside* a query.
+    #
+    #   WITH orders AS (SELECT 1),
+    #        x AS (DELETE FROM orders RETURNING 1)
+    #   SELECT * FROM x
+    #
+    # parses to a Select -- an exp.Query -- whose CTE body is an exp.Delete,
+    # so it cleared a gate whose entire promise is read-only. Worse, the
+    # unqualified DELETE target was then excused by _visible_cte_names as "a
+    # CTE alias reads as an unqualified table", which is true of a read
+    # reference and false of a write target: Postgres resolves the DELETE to
+    # the real table, never to the CTE. Proven against a live Postgres 16 --
+    # rows were deleted through `probe run sql`. INSERT, UPDATE and DROP take
+    # the same shape.
+    #
+    # So the statement type is judged over the whole tree. This runs before
+    # _check_functions and the table walk because it is the broader refusal:
+    # a write is refused whatever it touches, in or out of scope.
+    # Annotated because _WRITE_NODES is a Tuple[type, ...], which loses the
+    # element type that find_all's overloads infer from literal arguments.
+    write: exp.Expr
+    for write in statement.find_all(*_WRITE_NODES):
+        keyword = _STATEMENT_KEYWORDS.get(type(write))
+        raise SqlScopeError(
+            f"only SELECT queries are permitted; this contains "
+            f"{'a ' + keyword if keyword else 'a statement'} "
+            f"that the probe cannot clear as read-only. A data-modifying CTE "
+            f"is still a write, however the query reads at the top level"
         )
 
     # Before walking tables: a projection-only call such as

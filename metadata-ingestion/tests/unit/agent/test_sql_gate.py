@@ -279,3 +279,69 @@ def test_an_unmodelled_statement_does_not_leak_a_parser_node_name():
     message = str(exc.value)
     assert "ALIAS" not in message.upper()
     assert "SELECT" in message
+
+
+# --- a write hidden inside a read ------------------------------------------
+#
+# The gate type-checked only the ROOT node. A Postgres data-modifying CTE puts
+# the write inside a query, so
+#
+#   WITH orders AS (SELECT 1), x AS (DELETE FROM orders RETURNING 1)
+#   SELECT * FROM x
+#
+# parses to a Select -- an exp.Query -- and cleared a gate whose entire
+# promise is read-only. The unqualified DELETE target was then excused by
+# _visible_cte_names as "a CTE alias reads as an unqualified table", true of a
+# read reference and false of a write target: Postgres resolves the DELETE to
+# the real table.
+#
+# Proven end to end against a live Postgres 16 before the fix: `probe run sql`
+# exited 0 with a normal-looking result and the table went from 3 rows to 0.
+#
+# The pre-existing test covered only top-level DML, which is exactly why this
+# survived it.
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        # Each shadows the CTE name over the real table, which is what made
+        # the unqualified target look like a CTE reference.
+        "WITH orders AS (SELECT 1), x AS (DELETE FROM orders RETURNING 1) SELECT * FROM x",
+        "WITH orders AS (SELECT 1), x AS (INSERT INTO orders VALUES (1) RETURNING 1) SELECT * FROM x",
+        "WITH orders AS (SELECT 1), x AS (UPDATE orders SET a=1 RETURNING 1) SELECT * FROM x",
+        "WITH t AS (SELECT 1), x AS (DROP TABLE t) SELECT * FROM x",
+        # Without the shadowing, so the table is qualified and in scope --
+        # this must be refused for being a write, not for being out of scope.
+        "WITH x AS (DELETE FROM information_schema.tables RETURNING 1) SELECT * FROM x",
+    ],
+)
+def test_a_write_inside_a_cte_is_still_a_write(sql):
+    with pytest.raises(SqlScopeError):
+        check_query_scope(sql, platform="postgres", scope=_postgres_scope())
+
+
+def test_the_refusal_says_it_is_a_write_not_a_scope_problem():
+    """The message decides what the agent does next. "out of scope" sends it
+    to qualify the table; it needs to be told the statement writes."""
+    with pytest.raises(SqlScopeError, match="DELETE"):
+        check_query_scope(
+            "WITH x AS (DELETE FROM information_schema.tables RETURNING 1) "
+            "SELECT * FROM x",
+            platform="postgres",
+            scope=_postgres_scope(),
+        )
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "WITH t AS (SELECT table_name FROM information_schema.tables) SELECT * FROM t",
+        "WITH a AS (SELECT 1), b AS (SELECT * FROM a) SELECT * FROM b",
+        "SELECT * FROM information_schema.tables",
+    ],
+)
+def test_an_ordinary_cte_query_still_works(sql):
+    """The control. Refusing every WITH would be a cheap way to pass the tests
+    above and would break the legitimate catalog queries CTEs are used for."""
+    check_query_scope(sql, platform="postgres", scope=_postgres_scope())
