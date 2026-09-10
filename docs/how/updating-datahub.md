@@ -97,6 +97,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Ingestion / Iceberg)** The Iceberg source improves support for table format version 3: column defaults appear in field descriptions, nanosecond timestamp bounds are profiled, and field statistics exclude delete files. The PyIceberg dependency remains on 0.11.x; geospatial columns are not supported. See [#19635](https://github.com/datahub-project/datahub/pull/19635). **Action:** none.
+
 - **(GMS / AWS clients)** Shared object-storage `S3Client` and `StsClient` no longer fall through to the AWS SDK default credential chain when only a region is set. That path allocated a new IRSA `StsAssumeRoleWithWebIdentityCredentialsProvider` per builder. Clients are created from the shared `DefaultCredentialsProvider` bean, LocalStack dummy credentials (`AWS_ENDPOINT_URL`), or skipped. Iceberg catalog FileIO uses warehouse-vended static keys only. **Action:** none if GMS already has a shared AWS credentials bean or LocalStack; object storage / STS stay unavailable until credentials are explicit.
 
 - **(GMS / GraphQL thread pool)** When `GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL=true`, pool sizes no longer default to `availableProcessors() * 5 / * 100` (which followed node vCPU on Kubernetes). Defaults are 8-core equivalents: core `40`, max `800`, `SynchronousQueue` (`GRAPHQL_CONCURRENCY_QUEUE_SIZE=0`). GraphQL resolver fan-out is blocking I/O, so a small bounded queue plus `CallerRunsPolicy` on the Jetty thread can starve nested work; set `QUEUE_SIZE > 0` only if you want an `ArrayBlockingQueue`. Restore node-scaled sizing with `GRAPHQL_CONCURRENCY_SCALE_WITH_PROCESSORS=true`, or sentinels `CORE_POOL_SIZE < 0`, `MAX_POOL_SIZE <= 0`. The dedicated pool remains **off** by default.

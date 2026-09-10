@@ -2,6 +2,20 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+#### Iceberg table format version 3 (V3)
+
+Tables using Iceberg format versions 1, 2, and 3 are ingested, including tables written with the [V3 table format](https://iceberg.apache.org/spec/#table-format-versions). The table's `format-version` is surfaced as a dataset custom property.
+
+For V3-specific schema features:
+
+- Column defaults (`initial-default` and `write-default`) appear in the field description as `Field default value: <value>`. When both defaults are present and differ, the initial default is additionally noted as `Initial default value: <value>`.
+- Nanosecond-precision timestamps (`timestamp_ns`, `timestamptz_ns`) are mapped to `timestamp-micros`, losing sub-microsecond precision; the original Iceberg type is preserved in the field's native data type.
+- `unknown` columns are mapped to strings, with the original type preserved in the field's native data type.
+- Collection defaults (lists, maps, and structs) cannot be deserialized by PyIceberg 0.11.x.
+- Geospatial columns (`geometry` and `geography`) require a newer PyIceberg release and are not supported by the current 0.11.x dependency.
+
+Profiling notes for tables with row deletions: per-file statistics come from data files only (position/equality delete files are excluded), but those statistics reflect the state at write time — rows later removed by delete files or deletion vectors are still counted in per-file null counts and min/max bounds. The profile's row count comes from the snapshot summary's `total-records`; it counts records in data files and may include rows removed by delete files or deletion vectors.
+
 #### Setting up connection to an Iceberg catalog
 
 There are multiple servers compatible with the Iceberg Catalog specification. DataHub's `iceberg` connector uses `pyiceberg`
@@ -455,6 +469,11 @@ For advanced Iceberg behavior and tuning, refer to:
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+- Iceberg views are not ingested; only tables.
+- Nanosecond-precision timestamps degrade to microsecond precision in schema fields (the native data type preserves the original type).
+- Geospatial (`geometry`/`geography`) columns are unsupported by the current PyIceberg 0.11.x dependency.
+- Profiling statistics exclude delete files but reflect per-file state at write time, so rows later removed by deletes or deletion vectors remain counted in per-field statistics (see [Iceberg table format version 3 (V3)](#iceberg-table-format-version-3-v3)).
 
 ### Troubleshooting
 
