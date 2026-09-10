@@ -21,6 +21,27 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 
+# java.net.URLEncoder's unreserved set; everything else costs three bytes per
+# UTF-8 byte. Duplicated from the source module rather than imported, because
+# config must not depend on the emitter.
+_URLENCODER_SAFE = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-*_"
+)
+# GMS rejects a urn over 512 encoded bytes. platform_instance sits inside every
+# urn this source emits and, unlike a connector name, CANNOT be shortened -- the
+# entity would then belong to a different instance. So a platform_instance whose
+# encoded form eats the budget makes every urn unemittable no matter what else
+# is done, and the only useful moment to say so is recipe load. 200 is generous:
+# a 100-character CJK instance encodes to 900 bytes and was measured producing
+# 1009-byte urns.
+_MAX_PLATFORM_INSTANCE_BYTES = 200
+
+
+def _encoded_len(value: str) -> int:
+    return sum(
+        1 if c in _URLENCODER_SAFE or c == " " else 3 * len(c.encode()) for c in value
+    )
+
 
 def _resolved_env(value: Optional[str], default: str, field: str) -> str:
     """A foreign-platform env field, defaulted and normalised like `env` itself.
@@ -154,6 +175,29 @@ class SnowflakeOpenflowSourceConfig(
             "recipe -- that distinction does not survive a recipe round-trip."
         ),
     )
+
+    @model_validator(mode="after")
+    def platform_instance_must_leave_room_in_the_urn(
+        self,
+    ) -> "SnowflakeOpenflowSourceConfig":
+        for field, value in (
+            ("platform_instance", self.platform_instance),
+            ("snowflake_platform_instance", self.snowflake_platform_instance),
+            ("source_platform_instance", self.source_platform_instance),
+        ):
+            if value is None:
+                continue
+            encoded = _encoded_len(value)
+            if encoded > _MAX_PLATFORM_INSTANCE_BYTES:
+                raise ValueError(
+                    f"{field} is {encoded} bytes once URL-encoded, over the "
+                    f"{_MAX_PLATFORM_INSTANCE_BYTES}-byte limit this source "
+                    "allows. It appears in every urn and cannot be shortened "
+                    "the way a connector name can, so a longer one would make "
+                    "urns that DataHub rejects. Non-ASCII characters cost three "
+                    "bytes each once encoded."
+                )
+        return self
 
     @model_validator(mode="after")
     def default_snowflake_env_to_env(self) -> "SnowflakeOpenflowSourceConfig":

@@ -77,3 +77,29 @@ def test_invalid_source_env_is_rejected():
         SnowflakeOpenflowSourceConfig.model_validate(
             {**MINIMAL, "source_env": "NOT_AN_ENV"}
         )
+
+
+@pytest.mark.parametrize(
+    ("value", "accepted"),
+    [
+        pytest.param("prod", True, id="ordinary"),
+        pytest.param("x" * 200, True, id="at the limit"),
+        pytest.param("x" * 201, False, id="one byte over"),
+        pytest.param("数" * 100, False, id="CJK, 900 bytes encoded"),
+    ],
+)
+def test_a_platform_instance_that_would_break_every_urn_is_rejected_at_load(
+    value: str, accepted: bool
+) -> None:
+    # platform_instance appears in every urn this source emits and, unlike a
+    # connector name, cannot be shortened -- shortening it would move the
+    # entity to a different instance. So once its encoded form eats the
+    # 512-byte budget, NO urn is emittable and no amount of name-fitting
+    # helps: a 100-character CJK instance was measured producing 1009-byte
+    # urns. Recipe load is the only useful moment to say so.
+    recipe = {**MINIMAL, "platform_instance": value}
+    if accepted:
+        assert SnowflakeOpenflowSourceConfig.model_validate(recipe)
+    else:
+        with pytest.raises(ValueError, match="once URL-encoded"):
+            SnowflakeOpenflowSourceConfig.model_validate(recipe)
