@@ -1,10 +1,13 @@
+import urllib.parse
+
+import pytest
+
 from datahub.ingestion.source.common.subtypes import DataFlowSubTypes, DataJobSubTypes
 from datahub.ingestion.source.snowflake.snowflake_openflow import (
-    _MAX_READABLE_JOB_NAME,
     ConnectorTableLineage,
-    _table_job_name,
     build_connector_flow,
     build_connector_table_job,
+    urn_fits,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_models import (
     OpenflowConnector,
@@ -100,29 +103,54 @@ def test_display_name_prefers_the_human_label():
     assert flow.display_name == "Postgres CDC"
 
 
-def test_a_long_table_name_falls_back_to_a_stable_digest() -> None:
-    # The readable id would blow the urn-length budget, so it degrades to a
-    # hash. hashlib rather than the builtin salted hash() specifically so the
-    # id is the SAME on the next run -- a per-process salt would rename the
-    # entity every ingest and orphan the previous one.
-    connector = OpenflowConnector(name="c" * 120, runtime_name="r" * 120)
+@pytest.mark.parametrize(
+    ("name_len", "runtime_len"),
+    [
+        pytest.param(120, 120, id="two 120-char identifiers"),
+        pytest.param(255, 255, id="two max-length Snowflake identifiers"),
+    ],
+)
+def test_a_long_name_keeps_both_urns_inside_what_gms_accepts(
+    name_len: int, runtime_len: int
+) -> None:
+    # The limit GMS enforces is on the URL-ENCODED urn (512 bytes,
+    # UrnValidationUtil.URN_NUM_BYTES_LIMIT), not on any component of it. An
+    # earlier guard bounded the job NAME to 200 characters, was measured as
+    # correct against that number, and still produced a 573-byte DataJob urn --
+    # because the job urn nests the flow urn, so connector.key appears twice.
+    # GMS rejects the aspect and that table's lineage is lost. Assert the thing
+    # the server measures.
+    connector = OpenflowConnector(name="c" * name_len, runtime_name="r" * runtime_len)
     pair = ConnectorTableLineage(
         source_schema="public",
         source_table="t",
         outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)",
     )
 
-    first = _table_job_name(connector, pair)
-    second = _table_job_name(connector, pair)
+    flow = build_connector_flow(connector, platform_instance=None, env="PROD")
+    job = build_connector_table_job(connector, flow, pair)
 
-    assert first == second, "the fallback id must be stable across runs"
-    # The point of the budget: the result must actually fit inside it.
-    assert len(first) <= _MAX_READABLE_JOB_NAME
-    # The key prefix is truncated, not carried whole -- that is what keeps the
-    # result inside the budget when the key alone would exceed it.
-    prefix, digest = first.rsplit("/", 1)
-    assert connector.key.startswith(prefix)
-    assert len(digest) == 16 and digest != "public.t"
+    assert urn_fits(flow.urn), len(urllib.parse.quote_plus(str(flow.urn)))
+    assert urn_fits(job.urn), len(urllib.parse.quote_plus(str(job.urn)))
+    # Stable across runs: a per-process salt would rename the entity every
+    # ingest and orphan the previous one.
+    assert str(job.urn) == str(build_connector_table_job(connector, flow, pair).urn)
+
+
+def test_an_ordinary_name_is_left_readable() -> None:
+    # The shortening must not fire for normal names, or every urn becomes a hash.
+    connector = OpenflowConnector(name="pg_cdc", runtime_name="MyRuntime")
+    pair = ConnectorTableLineage(
+        source_schema="public",
+        source_table="mytable",
+        outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.mytable,PROD)",
+    )
+
+    flow = build_connector_flow(connector, platform_instance=None, env="PROD")
+    job = build_connector_table_job(connector, flow, pair)
+
+    assert str(flow.urn) == "urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD)"
+    assert str(job.urn).endswith("MyRuntime/pg_cdc/public.mytable)")
 
 
 def test_a_short_table_name_stays_readable() -> None:
@@ -132,4 +160,6 @@ def test_a_short_table_name_stays_readable() -> None:
         source_table="t",
         outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)",
     )
-    assert _table_job_name(connector, pair) == "rt/conn/public.t"
+    flow = build_connector_flow(connector, platform_instance=None, env="PROD")
+    job = build_connector_table_job(connector, flow, pair)
+    assert str(job.urn).endswith("rt/conn/public.t)")

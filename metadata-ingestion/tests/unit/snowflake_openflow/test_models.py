@@ -9,6 +9,7 @@ from datahub.ingestion.source.snowflake.snowflake_openflow_models import (
     _resolve_per_key,
     get_datetime,
     merge_show_and_history,
+    timestamp_shape,
 )
 
 
@@ -652,3 +653,14 @@ def test_no_history_view_row_relies_on_a_bare_name_column() -> None:
         assert "NAME" not in row
         assert "STATUS" not in row
         assert "KEY" not in row
+
+
+def test_timestamp_shape_masks_digits_so_the_report_names_a_format_not_a_value() -> (
+    None
+):
+    # The report has to say WHICH rendering it could not read without echoing
+    # the row. The digits are the value; the punctuation is the format.
+    assert timestamp_shape("01/02/2024 15:04:05") == "NN/NN/NNNN NN:NN:NN"
+    assert timestamp_shape("  2024-01-01T00:00:00Z  ") == "NNNN-NN-NNTNN:NN:NNZ"
+    # Bounded, so a pathological value cannot flood the report.
+    assert len(timestamp_shape("9" * 500)) == 40

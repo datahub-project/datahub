@@ -45,6 +45,16 @@ class SnowflakeOpenflowReport(StaleEntityRemovalSourceReport):
     # SHOW calls that came back at exactly the row cap, so the inventory they
     # produced may be short. See _warn_if_show_truncated.
     num_show_results_at_row_cap: int = 0
+    # Distinct CREATED_ON renderings that were present but unparseable. Non-zero
+    # means ordering is degraded, and unordered rows resolve as deleted.
+    num_unparseable_timestamps: int = 0
+    # Objects filtered out because a lifecycle row said DELETED_ON. Worth
+    # surfacing because a history-only key is EITHER genuinely deleted OR
+    # invisible to SHOW for privilege reasons, and the two look identical here.
+    num_objects_treated_as_deleted: int = 0
+    # Runtimes skipped because their deployment was not visible. Skipped, not
+    # un-nested: the runtime container URN embeds the deployment key.
+    num_runtimes_without_deployment_parent: int = 0
     # The history views paged. Expected on a churning account; the signal is
     # that a single page is NOT the norm there.
     num_history_pages_beyond_first: int = 0

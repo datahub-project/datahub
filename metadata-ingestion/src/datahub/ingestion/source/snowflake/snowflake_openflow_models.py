@@ -48,7 +48,13 @@ def get_col(row: Dict[str, Any], *names: str) -> Optional[Any]:
     folded = {str(key).upper(): value for key, value in row.items()}
     for name in names:
         value = folded.get(name.upper())
-        if value is not None:
+        # An empty string counts as absent, not as present-but-blank. This is
+        # not tidiness: `deleted_on` is the deletion predicate, tested with
+        # `is None`, so a blank DELETED_ON would mark a live object deleted and
+        # stateful ingestion would soft-delete it. Treating "" as absent also
+        # lets the next spelling in `names` be tried rather than short-circuiting
+        # on a blank value of the first.
+        if value is not None and value != "":
             return value
     return None
 
@@ -66,8 +72,25 @@ _TZ_SUFFIX = re.compile(r"\s*([+-]\d{2}):?(\d{2})$")
 _UTC_DESIGNATOR = re.compile(r"\s*[Zz]$")
 
 
+def timestamp_shape(value: str) -> str:
+    """A timestamp rendering with its digits masked, for reporting.
+
+    The report needs to name a rendering it could not read without echoing the
+    value itself, and the shape is the part that identifies the format.
+    """
+    return re.sub(r"\d", "N", value.strip())[:40]
+
+
 def _parse_timestamp(value: str) -> Optional[datetime]:
-    """A Snowflake timestamp rendering as a datetime, or None if unrecognised."""
+    """A Snowflake timestamp rendering as a datetime, or None if unrecognised.
+
+    A failure here is NOT cosmetic and must not stay silent: an unparsed value
+    sorts at the epoch, epochs TIE, and _resolve_per_key breaks a tie in favour
+    of CLOSED -- so every key owning a closed row would resolve deleted. One
+    format was fixed before; the detection never existed. TIMESTAMP_OUTPUT_FORMAT
+    is a session/account parameter an operator can change without touching this
+    recipe, so the next format is a configuration change away.
+    """
     normalised = _UTC_DESIGNATOR.sub("+00:00", value.strip())
     normalised = _TZ_SUFFIX.sub(r"\1:\2", normalised).replace(" ", "T", 1)
     try:

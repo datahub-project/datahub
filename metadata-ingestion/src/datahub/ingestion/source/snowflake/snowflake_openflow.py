@@ -6,6 +6,7 @@ import json
 import logging
 import pathlib
 import tempfile
+import urllib.parse
 from functools import cached_property
 from typing import (
     Any,
@@ -65,12 +66,15 @@ from datahub.ingestion.source.snowflake.snowflake_openflow_config import (
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_models import (
     COL_CONNECTOR_URL,
+    COL_CREATED_ON,
     OpenflowConnector,
     OpenflowDeployment,
     OpenflowRuntime,
     RowModel,
+    get_col,
     get_str,
     merge_show_and_history,
+    timestamp_shape,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_query import (
     SnowflakeOpenflowQuery,
@@ -155,7 +159,12 @@ _MAX_RUNTIMES_FOR_URL_LOOKUP = 500
 
 # Beyond this the readable per-table job id is replaced by a content hash, so
 # the DataJob urn cannot outgrow what DataHub accepts.
-_MAX_READABLE_JOB_NAME = 200
+# GMS rejects an aspect whose URL-encoded urn exceeds this; see
+# metadata-utils UrnValidationUtil.URN_NUM_BYTES_LIMIT.
+_MAX_URN_BYTES = 512
+# How much of the readable name a shortened id keeps. Small enough that the
+# result fits even when the name appears twice in a nested urn.
+_SHORTENED_PREFIX = 80
 
 _RETRY_MAX_ATTEMPTS = 3
 # Seconds. Produces waits of ~1s then ~2s. Read at call time rather than baked
@@ -383,7 +392,16 @@ def _url_shape(source_url: Optional[str]) -> str:
     if not source_url:
         return "<absent>"
     scheme, separator, _ = source_url.partition("://")
-    return f"{scheme}://..." if separator else f"{source_url[:16]}..."
+    if separator:
+        return f"{scheme}://..."
+    # No "://" means an unrecognised layout -- a DSN-style `user:pass@host`, an
+    # Oracle thin URL, a hand-rolled property string. Precisely the input whose
+    # structure cannot be reasoned about, so NOTHING of it is echoed. An earlier
+    # revision returned source_url[:16] here, which rendered
+    # `user=admin;password=hunter2;...` as `user=admin;passw...` into a
+    # persisted, operator-visible report. Sixteen arbitrary characters carry no
+    # diagnostic value that a length does not.
+    return f"<unrecognised, {len(source_url)} chars>"
 
 
 @dataclasses.dataclass
@@ -603,8 +621,33 @@ def build_connector_flow(
     #   - Snowsight allows several connectors to share a display name, so the bare
     #     name collides across runtimes.
     # CONNECTOR_ID is carried in custom properties instead.
+    flow = _flow_with_name(
+        connector, connector.key, platform_instance, env, parent_container, external_url
+    )
+    if urn_fits(flow.urn):
+        return flow
+    # Measured against the entity's OWN urn rather than a character budget, so
+    # this cannot drift from however the SDK composes it.
+    return _flow_with_name(
+        connector,
+        _shortened(connector.key),
+        platform_instance,
+        env,
+        parent_container,
+        external_url,
+    )
+
+
+def _flow_with_name(
+    connector: OpenflowConnector,
+    name: str,
+    platform_instance: Optional[str],
+    env: str,
+    parent_container: Optional[OpenflowRuntimeKey],
+    external_url: Optional[str],
+) -> DataFlow:
     return DataFlow(
-        name=connector.key,
+        name=name,
         platform=PLATFORM,
         platform_instance=platform_instance,
         env=env,
@@ -621,33 +664,60 @@ def build_connector_flow(
     )
 
 
-def _table_job_name(connector: OpenflowConnector, pair: ConnectorTableLineage) -> str:
-    """Stable id for one replicated table.
+def urn_fits(urn: object) -> bool:
+    """Whether GMS will accept this URN's length.
+
+    The limit is on the URL-ENCODED urn, not on any component of it -- see
+    UrnValidationUtil.URN_NUM_BYTES_LIMIT. That distinction is the whole point:
+    an earlier guard here bounded the job NAME to 200 characters and was
+    measured as correct against that number, while the DataJob urn it produced
+    was 573 bytes, because the urn embeds connector.key TWICE (once on its own,
+    once inside the flow urn it nests under). GMS rejects the aspect and the
+    table's lineage is lost. Bound the thing the server actually measures.
+    """
+    return len(urllib.parse.quote_plus(str(urn))) <= _MAX_URN_BYTES
+
+
+def _shortened(readable: str) -> str:
+    """A stable, shorter stand-in for a name whose urn does not fit.
 
     hashlib rather than the builtin hash: the builtin is salted per process, so
-    a fallback id built from it would name a different entity on every run.
+    an id built from it would name a different entity on every run.
     """
-    table = f"{pair.source_schema}.{pair.source_table}"
-    readable = f"{connector.key}/{table}"
-    if len(readable) <= _MAX_READABLE_JOB_NAME:
-        return readable
-    # Hash the WHOLE readable name, and truncate the key prefix so the result
-    # actually fits. An earlier revision hashed only the table half and carried
-    # connector.key verbatim -- but that is two Snowflake identifiers of up to
-    # 255 characters each, so the "budget" produced a 258-character id against
-    # a 200-character limit. A guard that does not bound its own output is
-    # worse than none, because it reads as if the case were handled.
     digest = hashlib.md5(readable.encode("utf-8")).hexdigest()[:16]
-    prefix = connector.key[: _MAX_READABLE_JOB_NAME - len(digest) - 1]
-    return f"{prefix}/{digest}"
+    return f"{readable[:_SHORTENED_PREFIX]}~{digest}"
+
+
+def _table_job_name(connector: OpenflowConnector, pair: ConnectorTableLineage) -> str:
+    return f"{connector.key}/{pair.source_schema}.{pair.source_table}"
 
 
 def build_connector_table_job(
     connector: OpenflowConnector, flow: DataFlow, pair: ConnectorTableLineage
 ) -> DataJob:
     """One DataJob per replicated table, carrying that table's edge alone."""
+    job = _job_with_name(connector, flow, pair, _table_job_name(connector, pair))
+    if urn_fits(job.urn):
+        return job
+    # The job urn nests the flow urn, so it carries connector.key twice and can
+    # exceed the cap while the flow's own urn is comfortably inside it. Measured
+    # on the built entity for the same reason as the flow.
+    return _job_with_name(
+        connector,
+        flow,
+        pair,
+        _shortened(_table_job_name(connector, pair)),
+    )
+
+
+def _job_with_name(
+    connector: OpenflowConnector,
+    flow: DataFlow,
+    pair: ConnectorTableLineage,
+    name: str,
+) -> DataJob:
     return DataJob(
-        name=_table_job_name(connector, pair),
+        name=name,
         flow=flow,
         display_name=f"{pair.source_schema}.{pair.source_table}",
         subtype=DataJobSubTypes.OPENFLOW_CONNECTOR_SYNC,
@@ -1417,15 +1487,22 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             if len(page) < SnowflakeOpenflowQuery.PAGE_SIZE:
                 break
 
-            next_created_on = page[-1].get("CREATED_ON")
+            # Through get_col like every other column read in this package. This
+            # was the one place reading an exact uppercase key, in a module whose
+            # accessor exists precisely because the views' casing is not
+            # guaranteed -- and it is the read that decides whether pages 2..N
+            # are fetched at all, so a miss here silently truncates the whole
+            # history to one page while blaming the data for being NULL.
+            next_created_on = get_col(page[-1], COL_CREATED_ON)
             if next_created_on is None:
-                # Guard 1: a NULL CREATED_ON on the page boundary would make the
-                # cursor the literal string "None", and the next predicate
+                # Guard 1: an absent or NULL CREATED_ON on the page boundary would
+                # make the cursor the literal string "None", and the next predicate
                 # `WHERE CREATED_ON >= 'None'` is nonsense rather than an error.
                 self.report.warning(
-                    title="Cannot paginate past a NULL CREATED_ON",
-                    message="A full page ended with a row whose CREATED_ON is NULL, "
-                    "so the cursor cannot advance. Results may be incomplete.",
+                    title="Cannot paginate past a missing CREATED_ON",
+                    message="A full page ended with a row whose CREATED_ON is "
+                    "NULL or absent from the view, so the cursor cannot advance. "
+                    "Results may be incomplete.",
                 )
                 break
             next_cursor = str(next_created_on)
@@ -1484,12 +1561,36 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         """
         parsed: List[RowModel] = []
         dropped = 0
+        unparseable_shapes: Set[str] = set()
         for row in rows:
             item = model.from_row(row)
             if item is None:
                 dropped += 1
-            else:
-                parsed.append(item)
+                continue
+            # A CREATED_ON that is PRESENT but did not parse is the dangerous
+            # case, and it is only visible here, where the raw row and the model
+            # are both in hand: get_datetime collapses "absent" and
+            # "unparseable" into the same None. Unparsed rows sort at the epoch,
+            # epochs tie, and a tie resolves CLOSED over OPEN -- so a format
+            # change alone can report objects deleted.
+            raw_created_on = get_col(row, COL_CREATED_ON)
+            if raw_created_on is not None and item.created_at is None:
+                unparseable_shapes.add(timestamp_shape(str(raw_created_on)))
+            parsed.append(item)
+        if unparseable_shapes:
+            self.report.num_unparseable_timestamps += len(unparseable_shapes)
+            self.report.warning(
+                title="Timestamp rendering not understood",
+                message=(
+                    "CREATED_ON was present but could not be parsed, so those "
+                    "rows cannot be ordered against each other. Ordering decides "
+                    "which lifecycle row wins, and an unordered row is resolved "
+                    "as deleted, so affected objects may be reported deleted. "
+                    "Most likely TIMESTAMP_OUTPUT_FORMAT was changed for this "
+                    "session, user or account."
+                ),
+                context=f"{object_type} ({surface}): {sorted(unparseable_shapes)}",
+            )
         if dropped:
             self.report.num_rows_missing_identity += dropped
             self.report.warning(
@@ -1533,6 +1634,29 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         merged, mixed_keys = merge_show_and_history(show, history)
         self.report.num_keys_with_mixed_lifecycle_rows += mixed_keys
         live = [row for row in merged if row.deleted_on is None]
+        treated_as_deleted = len(merged) - len(live)
+        if treated_as_deleted:
+            # A history-only key is EITHER genuinely deleted OR invisible to
+            # SHOW for privilege reasons -- merge_show_and_history's own
+            # comment says so, and the two are indistinguishable here. With
+            # DELETION_DETECTION on, 'this run declared N objects deleted' is
+            # the one number worth checking before the checkpoint commits.
+            self.report.num_objects_treated_as_deleted += treated_as_deleted
+            # info, not warning: deletions are the ordinary case for a source
+            # that declares DELETION_DETECTION, and an account that deletes
+            # anything would otherwise carry a warning it can never clear --
+            # which is how warnings stop being read. The number is what matters.
+            self.report.info(
+                title="Objects reported deleted",
+                message=(
+                    "These objects were absent from SHOW and carried a "
+                    "DELETED_ON in the history view, so they are treated as "
+                    "deleted and, with stateful ingestion enabled, "
+                    "soft-deleted. A lost MONITOR grant looks identical to a "
+                    "deletion here, so check the count is what you expect."
+                ),
+                context=f"{object_type}: {treated_as_deleted}",
+            )
         if not live:
             self.report.report_empty_inventory(object_type)
         return [
@@ -1650,12 +1774,22 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                     # waiver shape as _report_connector_without_runtime_parent
                     # applies one level down for runtime_pattern.
                     self._filtered_parent_runtimes.add(runtime.name)
+                    # Counted as well as waived. Cascading a deployment
+                    # exclusion to its runtimes is intended, but an operator
+                    # who adds one deny rule and watches a set of runtimes
+                    # disappear needs a number that says so.
+                    self.report.report_dropped_runtime(runtime.key)
                 else:
+                    self.report.num_runtimes_without_deployment_parent += 1
                     self.report.warning(
-                        title="Runtime with no visible parent deployment",
-                        message="The runtime's deployment is not visible to this "
-                        "role, so the runtime container cannot be nested. Grant "
-                        "MONITOR on the deployment.",
+                        title="Runtime skipped: no visible parent deployment",
+                        message="The runtime is SKIPPED ENTIRELY rather than "
+                        "emitted without a parent: its container URN embeds the "
+                        "deployment key, so there is no un-nested URN to emit "
+                        "that would not duplicate the runtime once the "
+                        "deployment becomes visible. With stateful ingestion a "
+                        "previously-ingested copy is therefore soft-deleted. "
+                        "Grant MONITOR on the deployment.",
                         context=runtime.key,
                     )
                 continue

@@ -115,7 +115,7 @@ def test_paged_history_stops_on_null_created_on_boundary():
     assert rows == full_page
     assert len(calls) == 1
     titles = _warning_titles(source.report)
-    assert "Cannot paginate past a NULL CREATED_ON" in titles
+    assert "Cannot paginate past a missing CREATED_ON" in titles
     assert source.report.num_history_pages_beyond_first == 0
 
 
@@ -199,7 +199,7 @@ def test_paged_history_multi_page_collects_all_rows_and_advances_cursor():
     assert source.report.num_history_pages_beyond_first == 2
     # Neither guard fired: the cursor genuinely advanced on every page.
     titles = _warning_titles(source.report)
-    assert "Cannot paginate past a NULL CREATED_ON" not in titles
+    assert "Cannot paginate past a missing CREATED_ON" not in titles
     assert "Pagination stalled on identical timestamps" not in titles
 
 
@@ -298,7 +298,9 @@ def test_orphaned_runtime_is_skipped_with_warning_and_no_exception():
     assert workunits  # the visible deployment still emits containers
     assert source.report.num_deployments == 1
     assert source.report.num_runtimes == 0
-    assert "Runtime with no visible parent deployment" in _warning_titles(source.report)
+    assert "Runtime skipped: no visible parent deployment" in _warning_titles(
+        source.report
+    )
 
 
 # --- Lifecycle: the three methods the framework itself calls -----------------
@@ -885,7 +887,7 @@ def test_excluding_a_deployment_produces_no_grant_monitor_warnings() -> None:
     # Neither the runtime-level nor the cascaded connector-level warning.
     # (An unrelated "no config location" warning is expected: the stub
     # connector carries no version_location_uri, which is not what this pins.)
-    assert "Runtime with no visible parent deployment" not in _warning_titles(
+    assert "Runtime skipped: no visible parent deployment" not in _warning_titles(
         source.report
     )
     assert "Connector with no visible parent runtime" not in _warning_titles(
@@ -908,7 +910,7 @@ def test_a_genuinely_orphaned_runtime_still_warns() -> None:
     list(source.get_workunits_internal())
 
     assert _warning_titles(source.report) == [
-        "Runtime with no visible parent deployment"
+        "Runtime skipped: no visible parent deployment"
     ]
 
 
@@ -1188,3 +1190,45 @@ def test_an_ordinary_history_view_is_not_escalated(
 
     assert source.report.num_history_pages_beyond_first == 1
     assert "History view is unusually large" not in _warning_titles(source.report)
+
+
+def test_a_present_but_unparseable_created_on_is_counted_and_warned() -> None:
+    # The dangerous case, and the one that is only visible where the raw row and
+    # the parsed model are both in hand: get_datetime collapses "column absent"
+    # and "value unparseable" into the same None. An unparsed row sorts at the
+    # epoch, epochs tie, and a tie resolves CLOSED over OPEN -- so a change to
+    # TIMESTAMP_OUTPUT_FORMAT alone can report live objects deleted. The format
+    # was fixed once before; the detection never existed.
+    source = _make_source()
+    source._query_rows = _fake_query_rows(  # type: ignore[assignment]
+        SnowflakeOpenflowQuery.show_runtimes(),
+        "OPENFLOW_RUNTIME_HISTORY",
+        [
+            {"key": "rt-1", "name": "one", "CREATED_ON": "01/02/2024 15:04:05"},
+            {"key": "rt-2", "name": "two", "CREATED_ON": "2024-01-01 00:00:00"},
+        ],
+        [],
+    )
+
+    runtimes = source._fetch_runtimes()
+
+    # The rows are still emitted -- an unreadable timestamp costs ordering, not
+    # the object.
+    assert sorted(r.key for r in runtimes) == ["rt-1", "rt-2"]
+    assert source.report.num_unparseable_timestamps == 1
+    assert "Timestamp rendering not understood" in _warning_titles(source.report)
+
+
+def test_a_parseable_created_on_raises_no_timestamp_warning() -> None:
+    source = _make_source()
+    source._query_rows = _fake_query_rows(  # type: ignore[assignment]
+        SnowflakeOpenflowQuery.show_runtimes(),
+        "OPENFLOW_RUNTIME_HISTORY",
+        [{"key": "rt-1", "name": "one", "CREATED_ON": "2024-01-01 00:00:00.000 -0800"}],
+        [],
+    )
+
+    source._fetch_runtimes()
+
+    assert source.report.num_unparseable_timestamps == 0
+    assert "Timestamp rendering not understood" not in _warning_titles(source.report)
