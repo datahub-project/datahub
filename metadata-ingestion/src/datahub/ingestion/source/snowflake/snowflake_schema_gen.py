@@ -1,6 +1,7 @@
 import itertools
 import json
 import logging
+import re
 import time
 from collections import defaultdict
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
@@ -148,6 +149,112 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
+
+# CUSTOM_INCREMENTAL dynamic tables hide their MERGE inside a REFRESH USING (...) clause that
+# sqlglot can't parse within CREATE DYNAMIC TABLE, so the whole statement degrades to a Command.
+_REFRESH_USING_RE = re.compile(r"refresh\s+using\s*\(", re.IGNORECASE)
+_MERGE_INTO_RE = re.compile(r"\bmerge\s+into\b", re.IGNORECASE)
+# `self` as a table reference or leading column qualifier, but not a trailing `alias.self` access.
+_SELF_REF_RE = re.compile(r"(?<![\w.])self\b", re.IGNORECASE)
+
+
+def _blank_sql_noise(sql: str) -> str:
+    """Return ``sql`` with string literals, quoted identifiers and ``--`` / ``/* */`` comments
+    overwritten by spaces, preserving length so offsets still map back to the original text. Scanning
+    this copy keeps a stray ``refresh using (``, a ``merge into``, a parenthesis, or the ``self``
+    keyword that lives inside a literal, a quoted identifier or a comment from being mistaken for real
+    SQL. Covers single-quoted ``'..'`` and dollar-quoted ``$$..$$`` strings, double-quoted ``".."``
+    identifiers (each with its doubled-delimiter escape), and both comment forms."""
+    out = list(sql)
+    i, n = 0, len(sql)
+    while i < n:
+        char = sql[i]
+        if (
+            char == "'" or char == '"'
+        ):  # string / quoted identifier; doubled delimiter escapes it
+            delim = char
+            out[i] = " "
+            i += 1
+            while i < n:
+                if sql[i] == delim:
+                    if i + 1 < n and sql[i + 1] == delim:
+                        out[i] = out[i + 1] = " "
+                        i += 2
+                        continue
+                    out[i] = " "
+                    i += 1
+                    break
+                out[i] = " "
+                i += 1
+        elif (
+            char == "$" and i + 1 < n and sql[i + 1] == "$"
+        ):  # dollar-quoted string $$...$$
+            out[i] = out[i + 1] = " "
+            i += 2
+            while i < n and not (sql[i] == "$" and i + 1 < n and sql[i + 1] == "$"):
+                out[i] = " "
+                i += 1
+            if i < n:
+                out[i] = out[i + 1] = " "
+                i += 2
+        elif char == "-" and i + 1 < n and sql[i + 1] == "-":  # line comment to EOL
+            while i < n and sql[i] != "\n":
+                out[i] = " "
+                i += 1
+        elif char == "/" and i + 1 < n and sql[i + 1] == "*":  # block comment
+            out[i] = out[i + 1] = " "
+            i += 2
+            while i < n and not (sql[i] == "*" and i + 1 < n and sql[i + 1] == "/"):
+                out[i] = " "
+                i += 1
+            if i < n:
+                out[i] = out[i + 1] = " "
+                i += 2
+        else:
+            i += 1
+    return "".join(out)
+
+
+def _extract_custom_incremental_merge(definition: str) -> Optional[str]:
+    """Return the inner MERGE from a dynamic table's ``REFRESH USING (...)`` clause so it can be
+    parsed for upstream and column lineage, or None when the clause is absent, its parentheses are
+    unbalanced, or its body is not a MERGE. The scan runs on a comment-and-string-blanked copy so a
+    stray ``refresh using (`` or parenthesis inside a comment or string can't hijack or truncate
+    extraction; the body is then sliced from the original text (offsets align) to keep its literals
+    intact for parsing."""
+    scan = _blank_sql_noise(definition)
+    match = _REFRESH_USING_RE.search(scan)
+    if not match:
+        return None
+    depth = 0
+    for i in range(match.end() - 1, len(scan)):
+        char = scan[i]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                if not _MERGE_INTO_RE.search(scan[match.end() : i]):
+                    return None
+                body = definition[match.end() : i].strip()
+                return body or None
+    return None
+
+
+def _normalize_self_reference(merge_body: str, dt_identifier: str) -> str:
+    """Rewrite Snowflake's ``self`` pseudo-reference (the dynamic table referring to itself) to the
+    table's real qualified name, so the aggregator's self-reference guards -- which compare against
+    the DT's own urn -- recognize and drop it. A ``self`` on the MERGE *source* side otherwise
+    resolves to a phantom ``<db>.<schema>.self`` upstream whenever the schema resolver can't override
+    it (e.g. a lineage-only run with no graph). Runs on the comment/string/identifier-blanked copy so
+    a ``self`` inside a literal or a quoted ``"self"`` identifier is left untouched; only the bare
+    ``self`` keyword (which Snowflake reserves for the DT self-reference) is rewritten."""
+    scan = _blank_sql_noise(merge_body)
+    result = merge_body
+    # Replace right-to-left so each match's offsets stay valid as the length changes.
+    for match in reversed(list(_SELF_REF_RE.finditer(scan))):
+        result = result[: match.start()] + dt_identifier + result[match.end() :]
+    return result
 
 
 class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
@@ -609,9 +716,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self, table: SnowflakeDynamicTable, db_name: str, schema_name: str
     ) -> None:
         assert self.aggregator is not None  # caller (_process_tables) guards on this
-        downstream_urn = self.identifiers.gen_dataset_urn(
-            self.identifiers.get_dataset_identifier(table.name, schema_name, db_name)
+        dt_identifier = self.identifiers.get_dataset_identifier(
+            table.name, schema_name, db_name
         )
+        downstream_urn = self.identifiers.gen_dataset_urn(dt_identifier)
         # INPUTS feeds two paths: a table-level fallback when the DDL is present but unparseable, and
         # direct known lineage when the DDL is unavailable.
         input_urns = self._dynamic_table_input_urns(table)
@@ -619,9 +727,12 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         # table itself in INPUTS, which would produce a self-loop.
         input_urns = [urn for urn in input_urns if urn != downstream_urn]
         if table.definition:
+            merge_body = _extract_custom_incremental_merge(table.definition)
+            if merge_body:
+                merge_body = _normalize_self_reference(merge_body, dt_identifier)
             self.aggregator.add_view_definition(
                 view_urn=downstream_urn,
-                view_definition=table.definition,
+                view_definition=merge_body or table.definition,
                 default_db=db_name,
                 default_schema=schema_name,
                 table_level_fallback_upstreams=input_urns,
@@ -660,12 +771,20 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 )
             )
         # Register lineage outside the include_technical_schema gate (like view definitions) so a
-        # lineage-only run still gets dynamic-table upstreams.
+        # lineage-only run still gets dynamic-table upstreams. Guard per table: an unhandled error
+        # would abort the whole schema scan (this runs in a ThreadedIteratorExecutor worker).
         if self.aggregator:
             for dynamic_table in dynamic_tables:
-                self._register_dynamic_table_upstreams(
-                    dynamic_table, db_name, schema_name
-                )
+                try:
+                    self._register_dynamic_table_upstreams(
+                        dynamic_table, db_name, schema_name
+                    )
+                except Exception as e:
+                    self.structured_reporter.warning(
+                        "Failed to register dynamic table lineage",
+                        f"{db_name}.{schema_name}.{dynamic_table.name}",
+                        exc=e,
+                    )
 
         if self.config.include_technical_schema:
             data_reader = self.make_data_reader()

@@ -87,6 +87,10 @@ logger = logging.getLogger(__name__)
 
 _SYS_VIEW_PLACEHOLDER_PREFIX = "$SYS_VIEW_"
 
+# Snowflake's per-refresh bookkeeping statement for a dynamic table
+# (`alter dynamic table /* NAME */ identifier(<id>) refresh at <ts>`), as tagged in QUERY_HISTORY.
+REFRESH_DYNAMIC_TABLE_QUERY_TYPE = "REFRESH_DYNAMIC_TABLE_AT_REFRESH_VERSION"
+
 
 @dataclass(frozen=True)
 class _AuditLogObjectClassification:
@@ -216,7 +220,8 @@ class SnowflakeQueriesExtractorReport(Report):
     stored_proc_lineage: Optional[StoredProcLineageReport] = None
 
     num_ddl_queries_dropped: int = 0
-    num_dynamic_table_stmts_filtered: int = 0
+    num_dynamic_table_refresh_stmts_filtered: int = 0
+    num_dynamic_table_write_stmts_filtered: int = 0
     num_stream_queries_observed: int = 0
     num_stream_queries_clean_fast_path: int = 0
     num_stream_bypass_by_query_type: Dict[str, int] = dataclasses.field(
@@ -251,7 +256,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         graph: Optional[DataHubGraph] = None,
         schema_resolver: Optional[SchemaResolver] = None,
         discovered_tables: Optional[List[str]] = None,
-        dynamic_table_names: Optional[Set[str]] = None,
+        dynamic_table_identifiers: Optional[Set[str]] = None,
     ):
         self.connection = connection
 
@@ -260,9 +265,12 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         self.filters = filters
         self.identifiers = identifiers
         self.discovered_tables = set(discovered_tables) if discovered_tables else None
-        # Dynamic tables whose query-log rows are suppressed; see _row_modifies_dynamic_table.
-        self.dynamic_table_names = (
-            set(dynamic_table_names) if dynamic_table_names else set()
+        # Dynamic tables whose query-log rows are suppressed (see _row_modifies_dynamic_table). Held
+        # by reference to schema-gen's set, not copied, so construction order vs discovery is moot.
+        self.dynamic_table_identifiers = (
+            dynamic_table_identifiers
+            if dynamic_table_identifiers is not None
+            else set()
         )
         self.redundant_run_skip_handler = redundant_run_skip_handler
 
@@ -375,8 +383,12 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
     def _row_modifies_dynamic_table(self, row: Dict[str, Any]) -> bool:
         """True if a query-log row writes a known dynamic table. Those rows are the table's own
         refresh; their derived lineage is spurious (self-loops, phantom column lineage), so the caller
-        drops them and lets the definition/INPUTS path be authoritative for dynamic-table lineage."""
-        if not self.dynamic_table_names:
+        drops them and lets the definition/INPUTS path be authoritative for dynamic-table lineage.
+
+        Scope is intentionally the schema-discovered dynamic tables (the ones that also receive
+        definition/INPUTS lineage). DTs only the standalone queries source or allowlist-only DBs
+        surface are left unsuppressed: they have no replacement lineage."""
+        if not self.dynamic_table_identifiers:
             return False
         objects_modified = row.get("OBJECTS_MODIFIED")
         if isinstance(objects_modified, str):
@@ -384,6 +396,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 objects_modified = json.loads(objects_modified)
             except json.JSONDecodeError:
                 return False
+            # Reuse this parse downstream; OBJECTS_MODIFIED is the largest column in the row.
+            row["OBJECTS_MODIFIED"] = objects_modified
         # Runs outside the per-row try/except, so an unexpected non-list shape must return, not raise:
         # a raise here would abort the whole query-log stage rather than skip one row.
         if not isinstance(objects_modified, list):
@@ -397,7 +411,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             identifier = self.identifiers.get_dataset_identifier_from_qualified_name(
                 name
             )
-            if identifier in self.dynamic_table_names:
+            if identifier in self.dynamic_table_identifiers:
                 return True
         return False
 
@@ -581,14 +595,17 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 assert isinstance(row, dict)
 
                 # Every dynamic-table refresh normalizes to the same DataHub query fingerprint, so
-                # keeping them cross-attributes one table's upstreams onto others. Drop them.
+                # keeping them cross-attributes one table's upstreams onto others. Dropped for every
+                # config (unlike the DT-scoped OBJECTS_MODIFIED check below). Skipping the whole row
+                # also drops its usage/operation signal, which is intended: a refresh is
+                # Snowflake-internal, not user activity, so it should not count as usage of the sources.
                 if row.get("QUERY_TYPE") == REFRESH_DYNAMIC_TABLE_QUERY_TYPE:
-                    self.report.num_dynamic_table_stmts_filtered += 1
+                    self.report.num_dynamic_table_refresh_stmts_filtered += 1
                     continue
 
                 # A statement that writes a dynamic table names it in OBJECTS_MODIFIED.
                 if self._row_modifies_dynamic_table(row):
-                    self.report.num_dynamic_table_stmts_filtered += 1
+                    self.report.num_dynamic_table_write_stmts_filtered += 1
                     continue
 
                 try:
@@ -660,7 +677,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
         res = {}
         for key, value in row.items():
-            if key in json_fields and value:
+            if key in json_fields and isinstance(value, str) and value:
                 value = json.loads(value)
             key = key.lower()
             res[key] = value
@@ -1514,10 +1531,6 @@ SELECT * FROM query_access_history
 ORDER BY QUERY_START_TIME ASC
 """
 
-
-# Snowflake's per-refresh bookkeeping statement for a dynamic table
-# (`alter dynamic table /* NAME */ identifier(<id>) refresh at <ts>`), as tagged in QUERY_HISTORY.
-REFRESH_DYNAMIC_TABLE_QUERY_TYPE = "REFRESH_DYNAMIC_TABLE_AT_REFRESH_VERSION"
 
 SNOWFLAKE_QUERY_TYPE_MAPPING = {
     "INSERT": QueryType.INSERT,

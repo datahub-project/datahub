@@ -3,7 +3,7 @@ import itertools
 import json
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Set
 from unittest.mock import Mock, patch
 
 import pytest
@@ -760,7 +760,7 @@ class TestSnowflakeQueryParser:
 
         # The refresh row is dropped before the parser; only the SELECT reaches it.
         assert parsed_query_types == ["SELECT"]
-        assert extractor.report.num_dynamic_table_stmts_filtered == 1
+        assert extractor.report.num_dynamic_table_refresh_stmts_filtered == 1
 
     def test_parse_query_with_valid_columns_returns_preparsed_query(self):
         """Test that queries with all valid column names return PreparsedQuery."""
@@ -3851,7 +3851,7 @@ class TestDynamicTableLineageSuppression:
     CREATE ... AS SELECT) are dropped before parsing, so the definition/INPUTS path is authoritative
     for dynamic-table lineage and the spurious self-loop / phantom-CLL edges never get emitted."""
 
-    def _extractor(self, dynamic_table_names):
+    def _extractor(self, dynamic_table_identifiers):
         mock_connection = Mock()
         mock_connection.query.return_value = []
         config = SnowflakeQueriesExtractorConfig(
@@ -3871,7 +3871,7 @@ class TestDynamicTableLineageSuppression:
                 structured_reporter=structured_report,
             ),
             redundant_run_skip_handler=None,
-            dynamic_table_names=dynamic_table_names,
+            dynamic_table_identifiers=dynamic_table_identifiers,
         )
 
     def _row(self, objects_modified, query_id="dt-q1", query_type="MERGE"):
@@ -3941,7 +3941,7 @@ class TestDynamicTableLineageSuppression:
         """A row writing a known dynamic table is dropped before parsing; a row writing a regular
         table is not."""
         dt_id = self._dt_identifier()
-        extractor = self._extractor(dynamic_table_names={dt_id})
+        extractor = self._extractor(dynamic_table_identifiers={dt_id})
         rows = [
             self._row(self._modified("PROD.PUBLIC.MY_DT"), query_id="dt-row"),
             self._row(
@@ -3952,22 +3952,22 @@ class TestDynamicTableLineageSuppression:
         reached = self._reached_parser(extractor, rows)
 
         assert reached == ["regular-row"]
-        assert extractor.report.num_dynamic_table_stmts_filtered == 1
+        assert extractor.report.num_dynamic_table_write_stmts_filtered == 1
 
     def test_empty_dynamic_table_set_no_suppression(self):
         """With no known dynamic tables (e.g. standalone queries mode) nothing is suppressed."""
-        extractor = self._extractor(dynamic_table_names=set())
+        extractor = self._extractor(dynamic_table_identifiers=set())
         rows = [self._row(self._modified("PROD.PUBLIC.MY_DT"), query_id="dt-row")]
 
         reached = self._reached_parser(extractor, rows)
 
         assert reached == ["dt-row"]
-        assert extractor.report.num_dynamic_table_stmts_filtered == 0
+        assert extractor.report.num_dynamic_table_write_stmts_filtered == 0
 
     def test_modified_object_missing_name_does_not_crash(self):
         """A modified-object entry without objectName is skipped, not fatal (row reaches the parser)."""
         dt_id = self._dt_identifier()
-        extractor = self._extractor(dynamic_table_names={dt_id})
+        extractor = self._extractor(dynamic_table_identifiers={dt_id})
         rows = [
             self._row([{"objectDomain": "Table", "columns": []}], query_id="noname-row")
         ]
@@ -3975,7 +3975,7 @@ class TestDynamicTableLineageSuppression:
         reached = self._reached_parser(extractor, rows)
 
         assert reached == ["noname-row"]
-        assert extractor.report.num_dynamic_table_stmts_filtered == 0
+        assert extractor.report.num_dynamic_table_write_stmts_filtered == 0
 
     def test_malformed_objects_modified_does_not_abort_stage(self):
         """Unexpected OBJECTS_MODIFIED shapes (invalid JSON, a non-list, a non-dict element, or a
@@ -3983,7 +3983,7 @@ class TestDynamicTableLineageSuppression:
         query-log stage and silently drop every remaining row. Each such row instead falls through to
         the parser."""
         dt_id = self._dt_identifier()
-        extractor = self._extractor(dynamic_table_names={dt_id})
+        extractor = self._extractor(dynamic_table_identifiers={dt_id})
         invalid_json = self._row(
             self._modified("PROD.PUBLIC.REGULAR_TABLE"), query_id="invalid-json"
         )
@@ -4034,10 +4034,38 @@ class TestDynamicTableLineageSuppression:
         dt_id = ids.get_dataset_identifier(
             "MY_DT", "PUBLIC", "PROD"
         )  # the collection method
-        extractor = self._extractor(dynamic_table_names={dt_id})
+        extractor = self._extractor(dynamic_table_identifiers={dt_id})
         rows = [self._row(self._modified("PROD.PUBLIC.MY_DT"), query_id="dt-row")]
 
         reached = self._reached_parser(extractor, rows)
 
         assert reached == []  # dropped: the lookup form matched the collected form
-        assert extractor.report.num_dynamic_table_stmts_filtered == 1
+        assert extractor.report.num_dynamic_table_write_stmts_filtered == 1
+
+    def test_dynamic_table_identifiers_held_by_reference_reflects_late_population(self):
+        """The extractor holds the DT identifier set by reference, so tables discovered after it is
+        constructed are still suppressed. A copy would silently turn a construct-before-discovery
+        reordering into a no-op."""
+        shared: Set[str] = (
+            set()
+        )  # empty at construction, as if built before schema discovery
+        extractor = self._extractor(dynamic_table_identifiers=shared)
+        shared.add(self._dt_identifier())  # discovery populates the set afterwards
+        rows = [self._row(self._modified("PROD.PUBLIC.MY_DT"), query_id="dt-row")]
+
+        reached = self._reached_parser(extractor, rows)
+
+        assert reached == []  # suppressed via the identifier added after construction
+
+    def test_parse_audit_log_row_accepts_preparsed_objects_modified(self):
+        """_parse_audit_log_row must accept an already-parsed OBJECTS_MODIFIED (a list) rather than
+        re-parsing it; json.loads on a list would raise TypeError."""
+        dt_id = self._dt_identifier()
+        extractor = self._extractor(dynamic_table_identifiers={dt_id})
+        row = self._row(self._modified("PROD.PUBLIC.REGULAR_TABLE"), query_id="regular")
+        row["OBJECTS_MODIFIED"] = self._modified(
+            "PROD.PUBLIC.REGULAR_TABLE"
+        )  # already parsed
+
+        # Must not raise (a missing isinstance guard would json.loads(list) -> TypeError).
+        list(extractor._parse_audit_log_row(row, {}))

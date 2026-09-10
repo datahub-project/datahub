@@ -872,7 +872,7 @@ class SnowflakeV2Source(
             redundant_run_skip_handler=redundant_run_skip_handler,
             schema_resolver=schema_resolver,
             discovered_tables=self.discovered_datasets,
-            dynamic_table_names=schema_extractor.dynamic_table_identifiers,
+            dynamic_table_identifiers=schema_extractor.dynamic_table_identifiers,
             graph=self.ctx.graph,
         )
 
