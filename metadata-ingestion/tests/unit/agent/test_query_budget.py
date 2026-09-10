@@ -163,7 +163,7 @@ def test_the_attempt_is_still_installed_even_though_it_is_not_claimed(monkeypatc
     "url,expected_fragment",
     [
         ("postgresql://u:p@h/db", "statement_timeout"),
-        ("redshift+psycopg2://u:p@h/db", "statement_timeout"),
+        ("cockroachdb://u:p@h/db", "statement_timeout"),
     ],
 )
 def test_the_sqlalchemy_family_gets_a_timeout_through_its_engine(
@@ -181,6 +181,79 @@ def test_the_sqlalchemy_family_gets_a_timeout_through_its_engine(
     options = engine_options(_Config(), budget=QueryBudget(timeout_seconds=30))
     rendered = str(options.get("connect_args", {}))
     assert expected_fragment in rendered, f"no server-side timeout for {url}"
+
+
+def test_redshift_gets_no_connect_arg_because_its_driver_is_not_libpq():
+    """This list used to include redshift, and a live cluster refused every
+    probe connection: `TypeError: connect() got an unexpected keyword argument
+    'options'`.
+
+    The `-c setting` string is libpq's, and Redshift's SQLAlchemy driver is
+    redshift+redshift_connector -- pure Python, never links libpq. The old test
+    passed because it asked about `redshift+psycopg2://`, a URL no config
+    produces; _scheme_of truncates at the `+`, so the fiction was invisible.
+    Hence the real scheme here.
+    """
+
+    class _Config:
+        def get_sql_alchemy_url(self) -> str:
+            return "redshift+redshift_connector://u:p@h/db"
+
+    options = engine_options(_Config(), budget=QueryBudget(timeout_seconds=30))
+    assert "options" not in options.get("connect_args", {})
+
+
+def test_redshift_still_gets_a_ceiling_and_still_claims_it():
+    """Moved off connect_args, not dropped. Unlike the MySQL family there is no
+    ambiguity to survive -- statement_timeout is Redshift's one spelling -- so
+    the statement is left to fail loudly and the budget may still report it."""
+    url = "redshift+redshift_connector://u:p@h/db"
+    assert applies_statement_timeout(url, 30)
+    assert effective_budget(url, QueryBudget(timeout_seconds=30)).timeout_seconds == 30
+
+
+def test_redshift_sets_its_ceiling_outside_a_transaction(monkeypatch):
+    """A plain SET is transactional in the Postgres family, so without
+    autocommit the rollback SQLAlchemy issues on pool return silently undoes
+    it. The first version of this listener did exactly that: the statement was
+    sent, nothing raised, and the session sat at statement_timeout = 0.
+
+    Asserting the statement was executed is what missed it. Assert the
+    connection was in autocommit while it ran.
+    """
+    executed: List[str] = []
+    autocommit_during: List[bool] = []
+
+    class _Cursor:
+        def __init__(self, conn):
+            self._conn = conn
+
+        def execute(self, sql):
+            executed.append(sql)
+            autocommit_during.append(self._conn.autocommit)
+
+        def close(self):
+            pass
+
+    class _Conn:
+        autocommit = False
+
+        def cursor(self):
+            return _Cursor(self)
+
+    listeners: List = []
+    monkeypatch.setattr(
+        sqlalchemy.event,
+        "listen",
+        lambda target, name, fn: listeners.append(fn),
+    )
+    install_statement_timeout(object(), "redshift+redshift_connector://u:p@h/db", 30)
+    connection = _Conn()
+    listeners[0](connection, None)
+
+    assert executed == ["SET statement_timeout = 30000"]
+    assert autocommit_during == [True], "the SET would be rolled back"
+    assert connection.autocommit is False, "autocommit must be handed back"
 
 
 def test_a_dialect_with_no_known_timeout_knob_is_left_alone():

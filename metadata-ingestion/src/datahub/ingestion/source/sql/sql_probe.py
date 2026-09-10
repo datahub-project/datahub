@@ -40,9 +40,53 @@ def _postgres_timeout(seconds: int) -> Dict[str, Any]:
 _TIMEOUT_CONNECT_ARGS: Dict[str, Any] = {
     "postgresql": _postgres_timeout,
     "postgres": _postgres_timeout,
-    "redshift": _postgres_timeout,
     "cockroachdb": _postgres_timeout,
 }
+
+# Redshift is NOT in that table, though it speaks the Postgres dialect and was
+# listed there until a live cluster refused every probe connection with
+# `TypeError: connect() got an unexpected keyword argument 'options'`. The
+# `-c setting` string is a libpq feature and Redshift's SQLAlchemy driver is
+# redshift+redshift_connector, a pure-Python implementation that never links
+# libpq -- so the row was the exact failure the comment above warns about, a
+# knob passed before it was known to be safe.
+#
+# It still gets a ceiling, applied after connecting instead. Unlike the MySQL
+# family below there is no ambiguity to survive here: `statement_timeout` is
+# Redshift's one documented spelling, in milliseconds, so a server that refuses
+# it is a genuine anomaly rather than an expected dialect difference. The
+# statement is therefore left to fail loudly -- a safety control that quietly
+# does not apply is the thing QueryBudget's docstring warns against, and
+# failing closed on one is the right direction.
+_REDSHIFT_SCHEME = "redshift"
+
+
+def _install_redshift_statement_timeout(engine: Any, seconds: int) -> None:
+    # lazy: sqlalchemy is only needed once a probe actually runs
+    from sqlalchemy import event
+
+    def _set_timeout(dbapi_connection: Any, _record: Any) -> None:
+        # autocommit, and this is the whole reason the MySQL version above does
+        # not need it: in the Postgres family a plain SET is transactional, so
+        # the setting is undone by the rollback SQLAlchemy issues when the
+        # connection goes back to the pool. Written without this, the listener
+        # ran, raised nothing, and left the session at
+        # `current_setting('statement_timeout') = 0` -- a ceiling that reads as
+        # applied and is not, which is exactly what QueryBudget warns about and
+        # is invisible to any test that only checks the statement was sent.
+        prior = dbapi_connection.autocommit
+        dbapi_connection.autocommit = True
+        try:
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute(f"SET statement_timeout = {seconds * 1000}")
+            finally:
+                cursor.close()
+        finally:
+            dbapi_connection.autocommit = prior
+
+    event.listen(engine, "connect", _set_timeout)
+
 
 # The MySQL family cannot use connect_args at all. MySQL 5.7.8+ bounds a statement
 # with max_execution_time (milliseconds); MariaDB uses max_statement_time (seconds)
@@ -108,8 +152,11 @@ def install_statement_timeout(engine: Any, url: str, seconds: Optional[int]) -> 
     needs one. A no-op for every dialect whose ceiling is already on the engine."""
     if seconds is None or seconds <= 0:
         return
-    if _scheme_of(url) in _MYSQL_SCHEMES:
+    scheme = _scheme_of(url)
+    if scheme in _MYSQL_SCHEMES:
         _install_mysql_statement_timeout(engine, seconds)
+    elif scheme == _REDSHIFT_SCHEME:
+        _install_redshift_statement_timeout(engine, seconds)
 
 
 def _timeout_connect_args(url: str, seconds: Optional[int]) -> Dict[str, Any]:
@@ -122,8 +169,11 @@ def _timeout_connect_args(url: str, seconds: Optional[int]) -> Dict[str, Any]:
 def applies_statement_timeout(url: str, seconds: Optional[int]) -> bool:
     """Whether a server-side ceiling can be *shown* to bound every probe statement.
 
-    Only the connect_args dialects qualify. There the setting rides on the
-    connection itself, so it is deterministic and covers whatever is then sent.
+    The connect_args dialects qualify: the setting rides on the connection
+    itself, so it is deterministic and covers whatever is then sent. Redshift
+    qualifies too, on the same reasoning by a different route -- its ceiling is
+    a post-connect SET, but of an unambiguous setting that is not allowed to
+    fail quietly, so a connection that exists has it.
 
     The MySQL family is deliberately excluded even though install_statement_timeout
     still makes the attempt, for two independent reasons:
@@ -144,7 +194,8 @@ def applies_statement_timeout(url: str, seconds: Optional[int]) -> bool:
     """
     if seconds is None or seconds <= 0:
         return False
-    return _scheme_of(url) in _TIMEOUT_CONNECT_ARGS
+    scheme = _scheme_of(url)
+    return scheme in _TIMEOUT_CONNECT_ARGS or scheme == _REDSHIFT_SCHEME
 
 
 def effective_budget(url: str, budget: QueryBudget) -> QueryBudget:
