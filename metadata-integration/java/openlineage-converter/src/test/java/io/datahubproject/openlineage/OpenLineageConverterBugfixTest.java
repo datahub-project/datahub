@@ -166,6 +166,74 @@ public class OpenLineageConverterBugfixTest {
         "nested field under array<struct> v2: " + paths);
   }
 
+  @Test
+  public void v2FieldPathsUseCanonicalTypeTokens() {
+    OpenLineage ol = new OpenLineage(PRODUCER);
+    // An array anywhere in the schema forces v2 fieldPaths for every field, so the parameterized
+    // siblings below must still produce spec-conformant [type=...] tokens.
+    OpenLineage.SchemaDatasetFacetFields tags =
+        ol.newSchemaDatasetFacetFieldsBuilder().name("tags").type("array<string>").build();
+    OpenLineage.SchemaDatasetFacetFields name =
+        ol.newSchemaDatasetFacetFieldsBuilder().name("name").type("varchar(255)").build();
+    OpenLineage.SchemaDatasetFacetFields amount =
+        ol.newSchemaDatasetFacetFieldsBuilder().name("amount").type("decimal(10,2)").build();
+    OpenLineage.SchemaDatasetFacet schema =
+        ol.newSchemaDatasetFacetBuilder()
+            .fields(java.util.Arrays.asList(tags, name, amount))
+            .build();
+    OpenLineage.InputDataset ds =
+        ol.newInputDatasetBuilder()
+            .namespace("s3://bucket")
+            .name("db.table")
+            .facets(ol.newDatasetFacetsBuilder().schema(schema).build())
+            .build();
+
+    java.util.Set<String> paths =
+        OpenLineageToDataHub.getSchemaMetadata(ds, config()).getFields().stream()
+            .map(f -> f.getFieldPath())
+            .collect(java.util.stream.Collectors.toSet());
+
+    assertTrue(
+        paths.contains("[version=2.0].[type=struct].[type=string].name"),
+        "varchar(255) should canonicalize to [type=string]: " + paths);
+    assertTrue(
+        paths.contains("[version=2.0].[type=struct].[type=decimal].amount"),
+        "decimal(10,2) should drop its parameters: " + paths);
+  }
+
+  @Test
+  public void v2ContainerElementTypesSurviveCommasInParameters() {
+    OpenLineage ol = new OpenLineage(PRODUCER);
+    // Splitting the angle-bracket payload naively on ',' breaks decimal(10,2) into "decimal(10".
+    OpenLineage.SchemaDatasetFacetFields prices =
+        ol.newSchemaDatasetFacetFieldsBuilder().name("prices").type("array<decimal(10,2)>").build();
+    OpenLineage.SchemaDatasetFacetFields rates =
+        ol.newSchemaDatasetFacetFieldsBuilder()
+            .name("rates")
+            .type("map<string,decimal(10,2)>")
+            .build();
+    OpenLineage.SchemaDatasetFacet schema =
+        ol.newSchemaDatasetFacetBuilder().fields(java.util.Arrays.asList(prices, rates)).build();
+    OpenLineage.InputDataset ds =
+        ol.newInputDatasetBuilder()
+            .namespace("s3://bucket")
+            .name("db.table")
+            .facets(ol.newDatasetFacetsBuilder().schema(schema).build())
+            .build();
+
+    java.util.Set<String> paths =
+        OpenLineageToDataHub.getSchemaMetadata(ds, config()).getFields().stream()
+            .map(f -> f.getFieldPath())
+            .collect(java.util.stream.Collectors.toSet());
+
+    assertTrue(
+        paths.contains("[version=2.0].[type=struct].[type=array].[type=decimal].prices"),
+        "array<decimal(10,2)> element type should be decimal: " + paths);
+    assertTrue(
+        paths.contains("[version=2.0].[type=struct].[type=map].[type=decimal].rates"),
+        "map<string,decimal(10,2)> value type should be decimal: " + paths);
+  }
+
   // ---- eventType handling ----
 
   private static OpenLineage.RunEventBuilder baseEvent(OpenLineage ol) {

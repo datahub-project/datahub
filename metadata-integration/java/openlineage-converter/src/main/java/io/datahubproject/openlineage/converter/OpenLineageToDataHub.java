@@ -1607,16 +1607,15 @@ public class OpenLineageToDataHub {
     return orchestrator;
   }
 
-  public static SchemaFieldDataType.Type convertOlFieldTypeToDHFieldType(
-      String openLineageFieldType) {
-    if (openLineageFieldType == null) {
-      return SchemaFieldDataType.Type.create(new NullType());
+  // OpenLineage field types are free-form strings and vary by producer: case (Spark lowercase
+  // vs Trino/JDBC uppercase), synonyms (int/integer/bigint), and parameter/element suffixes
+  // (varchar(255), decimal(10,2), array<string>, struct<...>). Reduce one to a lowercase base
+  // token so equivalent types resolve identically everywhere the type string is interpreted.
+  private static String baseTypeToken(String rawType) {
+    if (rawType == null) {
+      return "";
     }
-    // OpenLineage field types are free-form strings and vary by producer: case (Spark lowercase
-    // vs Trino/JDBC uppercase), synonyms (int/integer/bigint), and parameter/element suffixes
-    // (varchar(255), decimal(10,2), array<string>, struct<...>). Normalize to a lowercase base
-    // token so equivalent types resolve to the same DataHub type instead of falling to NullType.
-    String base = openLineageFieldType.trim().toLowerCase(Locale.ROOT);
+    String base = rawType.trim().toLowerCase(Locale.ROOT);
     int cut = base.length();
     int paren = base.indexOf('(');
     int angle = base.indexOf('<');
@@ -1626,8 +1625,70 @@ public class OpenLineageToDataHub {
     if (angle >= 0) {
       cut = Math.min(cut, angle);
     }
-    base = base.substring(0, cut).trim();
+    return base.substring(0, cut).trim();
+  }
+
+  // Canonical [type=...] token for a v2 fieldPath. field-path-spec-v2 expects a small, Avro-shaped
+  // vocabulary, so producer-specific spellings are folded onto one name per family: a Trino
+  // varchar(255) and a Spark string must yield the same path or column-level lineage between them
+  // will not join. Types with no Avro counterpart (decimal, date, timestamp) keep their base token.
+  private static String canonicalV2TypeToken(String rawType) {
+    String base = baseTypeToken(rawType);
     switch (base) {
+      case "varchar":
+      case "char":
+      case "nvarchar":
+      case "nchar":
+      case "character":
+      case "varying":
+      case "text":
+      case "uuid":
+        return "string";
+      case "integer":
+      case "smallint":
+      case "tinyint":
+      case "short":
+      case "byte":
+        return "int";
+      case "bigint":
+        return "long";
+      case "real":
+        return "float";
+      case "numeric":
+      case "number":
+      case "money":
+        return "decimal";
+      case "bool":
+        return "boolean";
+      case "varbinary":
+      case "binary":
+      case "blob":
+        return "bytes";
+      case "record":
+      case "row":
+        return "struct";
+      case "list":
+        return "array";
+      case "uniontype":
+        return "union";
+      case "timestamp_ntz":
+      case "timestamp_tz":
+      case "timestamptz":
+      case "datetime":
+        return "timestamp";
+      case "":
+        return "unknown";
+      default:
+        return base;
+    }
+  }
+
+  public static SchemaFieldDataType.Type convertOlFieldTypeToDHFieldType(
+      String openLineageFieldType) {
+    if (openLineageFieldType == null) {
+      return SchemaFieldDataType.Type.create(new NullType());
+    }
+    switch (baseTypeToken(openLineageFieldType)) {
       case "string":
       case "varchar":
       case "char":
@@ -1744,7 +1805,7 @@ public class OpenLineageToDataHub {
     } else if (base.startsWith("struct") || base.startsWith("record") || hasChildren) {
       tokens.add("[type=struct]");
     } else {
-      tokens.add("[type=" + (base.isEmpty() ? "unknown" : base) + "]");
+      tokens.add("[type=" + canonicalV2TypeToken(rawType) + "]");
     }
     return tokens;
   }
@@ -1760,15 +1821,34 @@ public class OpenLineageToDataHub {
     int open = rawType.indexOf('<');
     int close = rawType.lastIndexOf('>');
     if (open >= 0 && close > open) {
-      String[] params = rawType.substring(open + 1, close).split(",");
-      if (index < params.length) {
-        String param = params[index].trim().toLowerCase(Locale.ROOT);
-        int nested = param.indexOf('<');
-        String simple = nested > 0 ? param.substring(0, nested) : param;
-        return simple.isEmpty() ? "unknown" : simple;
+      List<String> params = splitTopLevelParams(rawType.substring(open + 1, close));
+      if (index < params.size()) {
+        return canonicalV2TypeToken(params.get(index));
       }
     }
     return "unknown";
+  }
+
+  // Split a container's angle-bracket payload on its top-level commas only. A naive split(",")
+  // also cuts inside parameters and nested generics, turning map<string,decimal(10,2)> into the
+  // bogus element type "decimal(10".
+  private static List<String> splitTopLevelParams(String params) {
+    List<String> out = new ArrayList<>();
+    int depth = 0;
+    int start = 0;
+    for (int i = 0; i < params.length(); i++) {
+      char c = params.charAt(i);
+      if (c == '<' || c == '(') {
+        depth++;
+      } else if (c == '>' || c == ')') {
+        depth--;
+      } else if (c == ',' && depth == 0) {
+        out.add(params.substring(start, i));
+        start = i + 1;
+      }
+    }
+    out.add(params.substring(start));
+    return out;
   }
 
   // v2 is only required when array or union types are present; every other schema (including nested
