@@ -33,8 +33,5 @@ export function buildEditableSchemaFieldInfoMaps(
 export default function useEditableSchemaFieldInfoMaps(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
 ): EditableFieldInfoMaps {
-    return useMemo(
-        () => buildEditableSchemaFieldInfoMaps(editableSchemaMetadata),
-        [editableSchemaMetadata],
-    );
+    return useMemo(() => buildEditableSchemaFieldInfoMaps(editableSchemaMetadata), [editableSchemaMetadata]);
 }
