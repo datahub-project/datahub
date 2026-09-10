@@ -93,6 +93,12 @@ describe('getParentPath', () => {
         expect(getParentPath('order_id')).toBeNull();
     });
 
+    it('returns null for v2 top-level fields (does not split dots inside [version=2.0])', () => {
+        expect(getParentPath('[version=2.0].[type=struct].address')).toBeNull();
+        expect(getParentPath('[version=2.0].[type=string].name')).toBeNull();
+        expect(getParentPath('[key=True].[version=2.0].[type=struct].address')).toBeNull();
+    });
+
     it('returns struct parent for nested fields', () => {
         expect(getParentPath('[version=2.0].[type=struct].address.[type=struct].street')).toBe(
             '[version=2.0].[type=struct].address',
@@ -123,14 +129,22 @@ describe('groupByFieldPath', () => {
         expect(rows[0].children).toBeUndefined();
     });
 
-    it('keeps v2 top-level fields at depth 0 when the computed parent path is absent', () => {
+    it('keeps v2 top-level fields at depth 0', () => {
         const top = '[version=2.0].[type=struct].address';
-        // Dot-splitting `[version=2.0]` yields a synthetic parent path that is not a real field.
-        expect(getParentPath(top)).toBe('[version=2.0]');
         const rows = groupByFieldPath([field(top)], { showKeySchema: false });
         expect(rows).toHaveLength(1);
         expect(rows[0].fieldPath).toBe(top);
         expect(rows[0].depth).toBe(0);
+        expect(rows[0].parent).toBeUndefined();
+    });
+
+    it('does not nest v2 top-level fields under a coincidental [version=2.0] row', () => {
+        const versionToken = '[version=2.0]';
+        const top = '[version=2.0].[type=struct].address';
+        const rows = groupByFieldPath([field(versionToken), field(top)], { showKeySchema: false });
+        expect(rows.map((r) => r.fieldPath)).toEqual([versionToken, top]);
+        expect(rows[1].depth).toBe(0);
+        expect(rows[1].parent).toBeUndefined();
     });
 
     it('nests struct children under their parent', () => {

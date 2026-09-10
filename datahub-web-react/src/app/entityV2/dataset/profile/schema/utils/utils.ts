@@ -58,10 +58,16 @@ export function pathMatchesExact(fieldPathA?: string | null, fieldPathB?: string
     return fieldPathA === fieldPathB;
 }
 
+// Split a DataHub field path into tokens without breaking dots inside bracket annotations
+// such as `[version=2.0]`. Naive `split('.')` would turn that into `[version=2` / `0]`.
+export function splitFieldPathTokens(fieldPath: string): string[] {
+    return fieldPath.match(/\[[^\]]*\]|[^.]+/g) ?? [];
+}
+
 // Compute the expected parent fieldPath for a given fieldPath in O(path-depth) time,
 // without scanning previously-seen sibling rows. Returns null for top-level fields.
 export function getParentPath(fieldPath: string): string | null {
-    const tokens = fieldPath.split('.');
+    const tokens = splitFieldPathTokens(fieldPath);
     const isQualifyingUnionField = tokens[tokens.length - 3] === UNION_TOKEN;
 
     if (isQualifyingUnionField) {

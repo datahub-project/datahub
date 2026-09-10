@@ -21,6 +21,7 @@ import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/componen
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
 import useBusinessAttributeRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useBusinessAttributeRenderer';
 import useDescriptionRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useDescriptionRenderer';
+import useEditableSchemaFieldInfoMaps from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
 import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
@@ -201,7 +202,8 @@ export default function SchemaTable({
 
     const schemaFields = schemaMetadata ? schemaMetadata.fields : inputFields;
 
-    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false);
+    const fieldInfoMaps = useEditableSchemaFieldInfoMaps(editableSchemaMetadata);
+    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false, fieldInfoMaps);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats, expandedDrawerFieldPath);
     const tagRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
@@ -212,6 +214,7 @@ export default function SchemaTable({
         filterText,
         false,
         true,
+        fieldInfoMaps,
     );
     const termRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
@@ -222,10 +225,11 @@ export default function SchemaTable({
         filterText,
         false,
         true,
+        fieldInfoMaps,
     );
-    const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata);
-    const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata);
-    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
+    const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata, fieldInfoMaps);
+    const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata, fieldInfoMaps);
+    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata, fieldInfoMaps);
     const businessAttributeRenderer = useBusinessAttributeRenderer(filterText, false);
     const schemaTitleRenderer = useSchemaTitleRenderer(entityUrn, schemaMetadata, filterText);
     const schemaTypeRenderer = useSchemaTypeRenderer();
@@ -461,9 +465,11 @@ export default function SchemaTable({
         [expandedDrawerFieldPath, expandedRows, expandedRowPrefixes],
     );
 
-    // `rows` is groupByFieldPath output: top-level roots only, all with depth 0. Nested rows
-    // live on `.children`, so this stays false unless a future caller passes a flattened list.
-    const hasSomeRowsWithDepthGreaterThanZero = useMemo(() => rows.some((row) => (row.depth || 0) > 0), [rows]);
+    // groupByFieldPath returns roots (depth 0) with nested rows on `.children`.
+    const hasSomeRowsWithDepthGreaterThanZero = useMemo(
+        () => rows.some((row) => (row.depth || 0) > 0 || (row.children?.length ?? 0) > 0),
+        [rows],
+    );
 
     const [schemaFieldDrawerFieldPath, setSchemaFieldDrawerFieldPath] = useState(expandedDrawerFieldPath);
     useDebounce(() => setSchemaFieldDrawerFieldPath(expandedDrawerFieldPath), KEYBOARD_CONTROL_DEBOUNCE_MS, [

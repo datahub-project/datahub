@@ -1,5 +1,7 @@
 import { normalizeFieldPathKey } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
-import useEditableSchemaFieldInfoMaps from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
+import useEditableSchemaFieldInfoMaps, {
+    EditableFieldInfoMaps,
+} from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import { EditableSchemaMetadata, GlobalTags, SchemaField } from '@src/types.generated';
 
 type ReturnValue = {
@@ -12,8 +14,10 @@ type ReturnType = (record: SchemaField, defaultUneditableTags?: GlobalTags | nul
 
 export default function useExtractFieldTagsInfo(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
+    fieldInfoMaps?: EditableFieldInfoMaps,
 ): ReturnType {
-    const { exactMap, v2NormalizedMap } = useEditableSchemaFieldInfoMaps(editableSchemaMetadata);
+    const fallbackMaps = useEditableSchemaFieldInfoMaps(fieldInfoMaps ? undefined : editableSchemaMetadata);
+    const { exactMap, v2NormalizedMap } = fieldInfoMaps ?? fallbackMaps;
 
     return (record: SchemaField, defaultUneditableTags: GlobalTags | null = null) => {
         // Three tag locations: schema field entity, EditableSchemaMetadata, SchemaMetadata (uneditable)
