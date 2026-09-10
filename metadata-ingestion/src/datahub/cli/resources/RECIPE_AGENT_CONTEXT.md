@@ -45,11 +45,17 @@ as `***` everywhere. If a name comes back masked, that is why; it is not a probe
    datahub recipe describe <source_type>
    ```
 
-2. **Scaffold** — a starter recipe with secrets as `${ENV_VAR}` references
+2. **Scaffold** — a starter recipe: required fields, and secrets as `${ENV_VAR}` references
 
    ```bash
    datahub recipe scaffold <source_type> > recipe.yml
    ```
+
+   Pattern fields are deliberately absent. Writing one at all replaces the connector's own
+   default, both halves — a scaffolded `database_pattern: {allow: [".*"], deny: []}` would
+   switch off Snowflake's built-in deny of `SNOWFLAKE_SAMPLE_DATA` and Kafka's of `^_.*`. Add a
+   pattern only when you mean to narrow something, and use `describe` to see what the default
+   already denies.
 
 3. **Edit** — modify the recipe locally, keeping secrets as `${ENV_VAR}`.
 
@@ -58,6 +64,10 @@ as `***` everywhere. If a name comes back masked, that is why; it is not a probe
    ```bash
    datahub recipe validate recipe.yml
    ```
+
+   It validates the recipe **as resolved**, so `${ENV_VAR}` in an integer or boolean field is
+   fine; an unresolvable reference is reported by name. The plaintext-secret warning covers
+   nested config too, including free-form dicts like Kafka's `consumer_config`.
 
 5. **Explore** — see what is actually in the source (below).
 
@@ -108,25 +118,33 @@ datahub recipe probe run sql --recipe recipe.yml --limit 50 \
   --query "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
 ```
 
-Only **single SELECT statements over catalog schemas** are permitted — the framework checks
-the query before the connector sees it —
-`information_schema`, plus `pg_catalog` on Postgres-likes. Anything else is refused before
-the database sees it, with exit code 2 and a message naming the reference that failed:
+Only **single SELECT statements over catalog metadata** are permitted — the framework checks
+the query before the connector sees it. `information_schema` is allowed as a whole schema;
+everything else is allowed **relation by relation**, because "it lives in a catalog schema" does
+not mean "it is metadata": `pg_catalog.pg_stats` holds sampled values out of your user columns,
+and `pg_stat_statements` holds query text with literals in it. Anything not listed is refused
+before the database sees it, with exit code 2 and a message naming the reference that failed and
+what this source does permit:
 
 ```json
 {
-  "error": "'public.orders' is outside the catalog metadata this probe may read; permitted schemas: information_schema"
+  "error": "'pg_catalog.pg_stats' is outside the catalog metadata this probe may read; this source permits schemas ['information_schema'] and 21 individually listed relations"
 }
 ```
 
 Refusals you should expect, and not try to work around: user tables, unqualified table names,
-multiple statements, non-SELECT statements, and vendor-specific functions (`pg_read_file`,
-`dblink`, `load_file`). BigQuery addresses catalog views as
-`<dataset>.INFORMATION_SCHEMA.TABLES`, which is understood.
+multiple statements, non-SELECT statements, vendor-specific functions (`pg_read_file`,
+`dblink`, `load_file`), and **a write hidden inside a query** — `WITH x AS (DELETE ... RETURNING
 
-Results come back as `columns` plus positional `rows`, with `truncated` telling you whether
-more exist beyond `--limit`. `--limit` is clamped to 1000 however large a value you pass, so
-narrow the query rather than raising the limit when a listing comes back truncated.
+1. SELECT \* FROM x`is a data-modifying CTE, and it is refused however read-only the outer
+statement looks. BigQuery addresses catalog views as`<dataset>.INFORMATION_SCHEMA.TABLES`,
+   which is understood.
+
+Results come back as `columns` plus positional `rows`, and **every** probe result carries a
+top-level `truncated` — the typed listings as well as `sql`. Read it before concluding you have
+seen everything. `--limit` is clamped to 1000 however large a value you pass, and a command that
+takes no `--limit` is capped at the same 1000, so narrow the query or the schema rather than
+raising the limit when a listing comes back truncated.
 
 **Some sources expose an `api` command**, a read passthrough to their own API, for questions
 no typed command answers:
@@ -140,8 +158,10 @@ getter exists — it returns the names patterns are matched against, whereas a r
 you guessing which field that is.
 
 Both passthroughs can be switched off for a deployment
-(`DATAHUB_PROBE_DISABLE_RAW_ACCESS`). If you see that named in a refusal, the typed commands are
-still available — use those and do not look for another route to raw access.
+(`DATAHUB_PROBE_DISABLE_RAW_ACCESS`). The refusal tells you what is left for **this** connector,
+because it varies: most have typed commands to fall back on, but Snowflake and BigQuery expose
+`sql` as their only command, so switching it off withholds their probe entirely. Read what the
+message names and do not look for another route to raw access.
 
 ## Which levels a source has, and in what order
 
@@ -224,8 +244,32 @@ explains a surprising verdict:
 the kind — MySQL copies `table_pattern` into `view_pattern`, so a view is decided by the
 latter. Edit the field the output names.
 
-**Test a pattern before committing to it** with `--try-allow` / `--try-deny`, which judge
-against a hypothetical instead of the recipe's own:
+**`excluded_by` is not always a pattern.** A recipe can switch a whole kind off, and that
+overrules any pattern:
+
+```json
+{ "name": "some_view", "included": false, "excluded_by": "include_views" }
+```
+
+Seeing a config flag there means editing `include_views: true`, not the pattern — the pattern
+never got a say.
+
+**`filtering` says why `pattern_field` is null**, which the null alone cannot:
+
+| value        | meaning                                                                 |
+| ------------ | ----------------------------------------------------------------------- |
+| `by_pattern` | a field decided; `pattern_field` names it                               |
+| `unfiltered` | the source declares nothing filters this level — every name is included |
+| `unresolved` | no field could be found and none was declared absent                    |
+
+`unresolved` is the one to act on: it usually means the kind is wrong for this source rather
+than that the source filters nothing. The warning beside it lists the kinds the source does
+declare — a two-tier source like MySQL has no `Schema` level, so ask about `Database`.
+
+**Test a pattern before committing to it** with `--try-allow` / `--try-deny`. Each replaces
+only its own half of the recipe's pattern — passing `--try-deny` alone keeps the recipe's allow
+list, so you are testing the deny you asked about rather than an allow-all you did not. The
+`tried` field in the output echoes both halves as they were applied:
 
 ```bash
 datahub recipe probe filter --recipe recipe.yml --kind Table --parent public \
@@ -238,6 +282,10 @@ datahub recipe probe filter --recipe recipe.yml --kind Table --parent public \
 
 - Probe output is **metadata only** — names, types, DDL, constraints, counts. Never table
   rows or message payloads. If you need row data, you are outside this tool's purpose.
+- **Identity columns are withheld even from permitted relations.** A catalog view can be worth
+  reading for its shape and still name a person: `ACCOUNT_USAGE.ACCESS_HISTORY.USER_NAME` comes
+  back as `***`. The column is kept so you can see it exists; the value is not returned. That is
+  a deliberate withholding, not a failure, and not something to work around.
 - The scope check on the `sql` command narrows what a query can reach; it is **not** a security
   boundary. Recommend the recipe authenticate as a read-only role scoped to catalog metadata.
 - An empty result **with** warnings means part of it could not be read — never "this is
