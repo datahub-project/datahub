@@ -1339,6 +1339,49 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 raise RuntimeError("GET reported no error but produced no local file")
             return decode_config_payload(downloaded[0].read_bytes())
 
+    def _edge_within_urn_limits(
+        self, pair: ConnectorTableLineage, connector: OpenflowConnector
+    ) -> Optional[ConnectorTableLineage]:
+        """The edge with any over-long endpoint removed, or None if unusable.
+
+        A dataset urn here is FOREIGN -- this source does not create those
+        datasets, it points at what the warehouse ingestion emitted -- so
+        unlike a connector name it cannot be shortened: a shortened urn joins
+        to nothing. Three 255-character Snowflake identifiers already make an
+        839-byte urn, and CJK identifiers reach the thousands, so the only
+        honest options are to skip and say so, or to emit an aspect the server
+        discards.
+
+        The outlet IS the edge, so an over-long one costs the whole job. An
+        over-long inlet costs only the upstream half, which is the same
+        degradation the existing inlet-skipped counter already describes.
+        """
+        if not urn_fits(pair.outlet):
+            self.report.num_urns_too_long += 1
+            self.report.warning(
+                title="Lineage edge skipped: destination urn too long",
+                message=(
+                    "The destination dataset's urn exceeds what DataHub "
+                    "accepts, and it cannot be shortened without pointing at a "
+                    "dataset that does not exist. The edge is skipped rather "
+                    "than emitted for the server to discard."
+                ),
+                context=f"{connector.key}: {encoded_urn_len(pair.outlet)} bytes",
+            )
+            return None
+        if pair.inlet is not None and not urn_fits(pair.inlet):
+            self.report.num_upstream_inlets_skipped += 1
+            self.report.warning(
+                title="Upstream dropped: source urn too long",
+                message=(
+                    "The upstream dataset's urn exceeds what DataHub accepts, "
+                    "so the downstream half of this edge is emitted without it."
+                ),
+                context=f"{connector.key}: {encoded_urn_len(pair.inlet)} bytes",
+            )
+            return dataclasses.replace(pair, inlet=None)
+        return pair
+
     def _urn_is_emittable(self, urn: object, key: str, kind: str) -> bool:
         """Whether this urn is short enough for GMS, reported if it is not.
 
@@ -1970,7 +2013,10 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 for pair in self._lineage_for_connector(connector):
                     # One job per replicated table, so each edge keeps the 1:1
                     # pairing this connector's configuration actually states.
-                    job = build_connector_table_job(connector, flow, pair)
+                    emittable = self._edge_within_urn_limits(pair, connector)
+                    if emittable is None:
+                        continue
+                    job = build_connector_table_job(connector, flow, emittable)
                     if not self._urn_is_emittable(job.urn, connector.key, "DataJob"):
                         continue
                     yield from job.as_workunits()

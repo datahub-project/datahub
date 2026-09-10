@@ -12,6 +12,7 @@ from datahub.ingestion.source.snowflake.snowflake_openflow import (
     CONFIG_FILENAME,
     CONNECTOR_DEFINITION_PLATFORM,
     SCHEMA_STRATEGY_SOURCE_SCHEMA,
+    ConnectorTableLineage,
     SnowflakeOpenflowSource,
     _canvas_url,
     _parse_table_names,
@@ -1281,3 +1282,51 @@ def test_table_names_that_fail_to_parse_are_not_reported_as_absent() -> None:
 
     assert lineage.source_tables == []
     assert lineage.unparseable_tables == ["nodots", "alsonodots"]
+
+
+def _long_pair(
+    schema: str, table: str, inlet: Optional[str] = None
+) -> ConnectorTableLineage:
+    name = f"destdb.{schema}.{table}"
+    return ConnectorTableLineage(
+        source_schema=schema,
+        source_table=table,
+        outlet=f"urn:li:dataset:(urn:li:dataPlatform:snowflake,{name},PROD)",
+        inlet=inlet,
+    )
+
+
+def test_an_over_long_destination_urn_skips_the_edge_rather_than_emitting_it() -> None:
+    # These urns are FOREIGN -- the source points at what the warehouse
+    # ingestion emitted -- so they cannot be shortened the way a connector name
+    # can: a shortened urn joins to nothing. Three 255-character Snowflake
+    # identifiers already make an 839-byte urn. Skipping and saying so beats
+    # emitting an aspect GMS discards.
+    source = _make_source()
+    connector = OpenflowConnector(name="c", runtime_name="rt")
+
+    assert (
+        source._edge_within_urn_limits(_long_pair("s" * 255, "t" * 255), connector)
+        is None
+    )
+    assert source.report.num_urns_too_long == 1
+    assert "Lineage edge skipped: destination urn too long" in [
+        e.title for e in source.report.warnings
+    ]
+
+
+def test_an_over_long_upstream_urn_costs_only_the_upstream_half() -> None:
+    source = _make_source()
+    connector = OpenflowConnector(name="c", runtime_name="rt")
+    huge_inlet = "urn:li:dataset:(urn:li:dataPlatform:postgres," + "u" * 600 + ",PROD)"
+
+    kept = source._edge_within_urn_limits(
+        _long_pair("public", "t", inlet=huge_inlet), connector
+    )
+
+    assert kept is not None
+    assert kept.inlet is None, "the downstream half must survive"
+    assert source.report.num_upstream_inlets_skipped == 1
+    assert "Upstream dropped: source urn too long" in [
+        e.title for e in source.report.warnings
+    ]
