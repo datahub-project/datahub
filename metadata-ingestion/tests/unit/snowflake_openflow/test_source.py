@@ -1236,3 +1236,31 @@ def test_a_parseable_created_on_raises_no_timestamp_warning() -> None:
 
     assert source.report.num_unparseable_timestamps == 0
     assert "Timestamp rendering not understood" not in _warning_titles(source.report)
+
+
+def test_an_unemittable_urn_is_skipped_and_reported_not_emitted() -> None:
+    # The last rung of the shortening ladder returns its candidate whether or
+    # not it fits, because there is nothing shorter to try. Config validation
+    # should make that unreachable, which is precisely why it must be loud if
+    # reached: it would mean a cause nobody anticipated. Emitting an aspect the
+    # server discards, silently, is the failure mode this whole source has been
+    # audited for.
+    source = _make_source()
+
+    class _Huge:
+        def __str__(self) -> str:
+            return "u" * 600
+
+    assert not source._urn_is_emittable(_Huge(), "rt/conn", "DataFlow")
+    assert source.report.num_urns_too_long == 1
+    assert "Entity skipped: urn too long" in _warning_titles(source.report)
+
+
+def test_an_ordinary_urn_is_emittable_and_silent() -> None:
+    source = _make_source()
+
+    assert source._urn_is_emittable(
+        "urn:li:dataFlow:(openflow,rt/conn,PROD)", "rt/conn", "DataFlow"
+    )
+    assert source.report.num_urns_too_long == 0
+    assert _warning_titles(source.report) == []

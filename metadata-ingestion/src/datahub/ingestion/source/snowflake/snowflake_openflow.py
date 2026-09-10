@@ -1339,6 +1339,33 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 raise RuntimeError("GET reported no error but produced no local file")
             return decode_config_payload(downloaded[0].read_bytes())
 
+    def _urn_is_emittable(self, urn: object, key: str, kind: str) -> bool:
+        """Whether this urn is short enough for GMS, reported if it is not.
+
+        _fitted shortens until the urn fits and, if even the digest-only
+        candidate does not, returns it anyway -- there is nothing shorter it
+        can try. That last case used to return silently, in a source that
+        counts or warns on every other kind of loss, so an aspect GMS discards
+        looked identical to one it stored. Config validation makes it
+        unreachable for the known cause (an oversized platform_instance), which
+        is exactly why it must say something if it is ever reached: it would
+        mean a cause nobody has thought of.
+        """
+        if urn_fits(urn):
+            return True
+        self.report.num_urns_too_long += 1
+        self.report.warning(
+            title="Entity skipped: urn too long",
+            message=(
+                "Even the shortest id this source can generate produced a urn "
+                "over the limit DataHub accepts, so the entity is skipped "
+                "rather than emitted for the server to discard. Something "
+                "other than the connector name is consuming the budget."
+            ),
+            context=f"{kind} for {key}: {encoded_urn_len(urn)} bytes",
+        )
+        return False
+
     def _lineage_for_connector(
         self, connector: OpenflowConnector
     ) -> List[ConnectorTableLineage]:
@@ -1928,6 +1955,8 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 parent_container=parent_runtime_key,
                 external_url=self._read_connector_url(connector),
             )
+            if not self._urn_is_emittable(flow.urn, connector.key, "DataFlow"):
+                continue
             yield from flow.as_workunits()
             if connector.owner:
                 self.report.num_owners_emitted += 1
@@ -1941,9 +1970,10 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 for pair in self._lineage_for_connector(connector):
                     # One job per replicated table, so each edge keeps the 1:1
                     # pairing this connector's configuration actually states.
-                    yield from build_connector_table_job(
-                        connector, flow, pair
-                    ).as_workunits()
+                    job = build_connector_table_job(connector, flow, pair)
+                    if not self._urn_is_emittable(job.urn, connector.key, "DataJob"):
+                        continue
+                    yield from job.as_workunits()
                     self.report.num_table_jobs += 1
                     if connector.owner:
                         # Per-table jobs carry the connector's owner too, so

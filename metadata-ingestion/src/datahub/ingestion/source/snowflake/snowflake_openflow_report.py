@@ -51,6 +51,10 @@ class SnowflakeOpenflowReport(StaleEntityRemovalSourceReport):
     # SHOW calls that came back at exactly the row cap, so the inventory they
     # produced may be short. See _fail_if_show_truncated.
     num_show_results_at_row_cap: int = 0
+    # Entities skipped because no id this source can generate makes their urn
+    # short enough for DataHub. Config validation should make this unreachable,
+    # so non-zero means an unanticipated cause. See _urn_is_emittable.
+    num_urns_too_long: int = 0
     # Distinct CREATED_ON renderings that were present but unparseable. Non-zero
     # means ordering is degraded, and unordered rows resolve as deleted.
     num_unparseable_timestamps: int = 0
