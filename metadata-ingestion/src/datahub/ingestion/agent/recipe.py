@@ -14,13 +14,31 @@ def _secret_field_names(source_type: str) -> Set[str]:
 
 
 def scaffold(source_type: str) -> Dict[str, object]:
+    """A minimal recipe for this source: its required fields, and its secrets
+    as ${REF} placeholders.
+
+    Pattern fields are deliberately absent. Emitting
+    `{"allow": [".*"], "deny": []}` for each looked helpful and was the
+    opposite: it *overwrites* the connector's own deny defaults, so a
+    scaffolded recipe ingested more than the same recipe without the line.
+    Snowflake stops denying ^SNOWFLAKE$ and ^SNOWFLAKE_SAMPLE_DATA$, Kafka
+    stops denying ^_.* so __consumer_offsets becomes a dataset, Mode picks up
+    Personal spaces, Teradata picks up all 43 of its system databases. This is
+    the first command an agent runs, and it was handing back a recipe strictly
+    worse than the connector's defaults with nothing saying so.
+
+    Emitting the real default instead would freeze it: a deny list copied into
+    a recipe today does not gain the entry DataHub adds tomorrow. Omitting the
+    field is what keeps the connector's own default live, and `describe` is
+    where an agent learns which pattern fields exist and what they default to.
+    """
     spec = describe_source(source_type)
     config: Dict[str, object] = {}
     for f in spec.fields:
         if f.kind == FieldKind.SECRET:
             config[f.name] = "${" + f.name.upper() + "}"
         elif f.kind == FieldKind.PATTERN:
-            config[f.name] = {"allow": [".*"], "deny": []}
+            continue
         elif f.required:
             config[f.name] = ""
     return {"source": {"type": source_type, "config": config}}

@@ -615,3 +615,44 @@ def test_an_ordinary_recipe_gets_no_such_warning():
     probe = _probe(_cfg())
     probe.spaces()
     assert not any("personal" in w for w in probe.warnings), probe.warnings
+
+
+def test_a_paging_failure_keeps_the_spaces_already_read():
+    """An ingestion regression this branch introduced and then fixed.
+
+    The original populated space_info *inside* the page loop with the
+    `except ModeRequestError` outside it, so a workspace whose second page
+    500s still ingested the first. Extracting fetch_spaces turned it into a
+    buffered list, so the exception escaped before anything was returned,
+    _get_space_name_and_tokens caught it with an empty dict, and the run
+    emitted no dashboards, charts or datasets at all.
+
+    Asserting on the probe would not have caught this -- the probe wants the
+    failure to surface. The loss is on the ingestion side, so that is what
+    this drives.
+    """
+    from requests.exceptions import HTTPError
+
+    from datahub.ingestion.source.mode import ModeSource, ModeSourceReport
+
+    # ModeRequestError is a TUPLE of exception classes, not a class, so the
+    # stub raises a member of it rather than the name itself.
+
+    source = ModeSource.__new__(ModeSource)
+    source.config = _cfg()
+    source.report = ModeSourceReport()
+    source.workspace_uri = _WORKSPACE
+
+    def _pages(url, key, per_page):
+        yield [{"token": "sp1", "name": "Kept"}]
+        raise HTTPError("page 2 exploded")
+
+    source._get_paged_request_json = _pages  # type: ignore[method-assign]
+
+    space_info = source._get_space_name_and_tokens()
+
+    assert space_info == {"sp1": "Kept"}, (
+        "the page read before the failure was discarded; ingestion would emit "
+        "nothing for this workspace"
+    )
+    assert source.report.failures, "and the failure must still be reported"

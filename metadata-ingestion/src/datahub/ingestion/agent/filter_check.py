@@ -326,16 +326,42 @@ def check_filters(
             )
 
     tried: Optional[Dict[str, List[str]]] = None
+    recipe_pattern = (
+        AllowDenyPattern.allow_all()
+        if pattern_field is None
+        else getattr(config, pattern_field)
+    )
     if try_allow or try_deny:
+        # Each half replaces only its own half. `allow=[".*"] if not try_allow`
+        # threw the recipe's allow list away whenever only --try-deny was
+        # given, so "what if I added this deny" was answered against an
+        # allow-all nobody asked for: on a recipe with allow ['^analytics$'],
+        # a --try-deny matching nothing flipped every other database from
+        # excluded to included, and the caller reads that as "the deny I am
+        # testing is harmless". The CLI documents --try-allow as replacing
+        # allow and --try-deny as "as --try-allow, for deny"; this is what
+        # that says.
         pattern = AllowDenyPattern(
-            allow=list(try_allow) if try_allow else [".*"],
-            deny=list(try_deny) if try_deny else [],
+            allow=list(try_allow) if try_allow else list(recipe_pattern.allow),
+            deny=list(try_deny) if try_deny else list(recipe_pattern.deny),
         )
         tried = {"allow": list(pattern.allow), "deny": list(pattern.deny)}
-    elif pattern_field is None:
-        pattern = AllowDenyPattern.allow_all()
+        if pattern_field is not None:
+            # The hypothetical has to reach the STRUCTURAL rules too, not just
+            # the pattern comparison below. Redshift's and BigQuery's
+            # probe_schema_verdict_override read the pattern off the config
+            # themselves (they call is_schema_allowed with it), and the
+            # verdict they return short-circuits the pattern branch -- so
+            # --try-allow was silently ignored for every source that declares
+            # one, which on BigQuery is every schema query, since
+            # match_fully_qualified_names defaults True. `tried` still echoed
+            # the hypothetical, so the result claimed to have applied it.
+            #
+            # A shallow copy on purpose: model_copy(deep=True) would clone the
+            # cached RDS IAM token manager along with its minted token.
+            config = config.model_copy(update={pattern_field: pattern})
     else:
-        pattern = getattr(config, pattern_field)
+        pattern = recipe_pattern
 
     prefix = ".".join(parent_path)
     results: List[FilterVerdict] = []

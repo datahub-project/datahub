@@ -259,7 +259,11 @@ def _fetch_spaces(source: ModeSource) -> List[Dict[str, Any]]:
     lives here, since mode.py's space_pattern filter is exactly what a probe
     must not apply (see test_spaces_apply_space_pattern)."""
     with soft_on_status(403, 404, context="workspace spaces listing"):
-        spaces = source.fetch_spaces()
+        # list() here on purpose: fetch_spaces yields per space so an
+        # ingestion run keeps what it read before a paging failure, but a
+        # probe has no streaming consumer and needs the failure to surface
+        # before it reports a count.
+        spaces = list(source.fetch_spaces())
     if source.config.exclude_restricted:
         spaces = [s for s in spaces if not is_restricted_space(s)]
     return spaces

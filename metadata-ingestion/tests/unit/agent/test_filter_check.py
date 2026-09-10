@@ -4,7 +4,10 @@ import pytest
 
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.verdicts import UNFILTERED, pattern_verdict
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 
 MYSQL_CONFIG: Dict[str, object] = {
     "host_port": "localhost:3306",
@@ -445,3 +448,77 @@ def test_the_flag_defaults_to_on_so_ordinary_recipes_are_unaffected():
     )
     assert result.results[0].included is True
     assert result.results[0].excluded_by is None
+
+
+# --- the hypothetical has to actually be the hypothetical ------------------
+
+
+def test_try_allow_reaches_a_source_that_decides_structurally():
+    """`structural or (...)` short-circuited the pattern branch, and the
+    structural rule reads the pattern off the config itself -- so --try-allow
+    was ignored by every source declaring probe_schema_verdict_override.
+    On BigQuery that is every schema query, since match_fully_qualified_names
+    defaults True. `tried` still echoed the hypothetical, so the result
+    claimed to have applied what it ignored."""
+    config = {
+        "host_port": "h:5439",
+        "database": "dev",
+        "username": "u",
+        "password": "p",
+        "match_fully_qualified_names": True,
+        "schema_pattern": {"allow": ["^nomatch$"]},
+    }
+    unchanged = check_filters(
+        source_type="redshift",
+        config_dict=config,
+        kind="Schema",
+        parent_path=[],
+        names=["public"],
+    )
+    assert unchanged.results[0].included is False
+
+    hypothetical = check_filters(
+        source_type="redshift",
+        config_dict=config,
+        kind="Schema",
+        parent_path=[],
+        names=["public"],
+        try_allow=[".*"],
+    )
+    assert hypothetical.results[0].included is True, (
+        "--try-allow was echoed in `tried` but not applied"
+    )
+
+
+def test_try_deny_alone_keeps_the_recipes_allow_list():
+    """`allow=['.*'] if not try_allow` discarded the recipe's own allow list,
+    so "what if I added this deny" was answered against an allow-all. Every
+    name outside the recipe's allow flipped to included, and the caller reads
+    that as the deny being harmless."""
+    result = check_filters(
+        source_type="mysql",
+        config_dict={**MYSQL_CONFIG, "database_pattern": {"allow": ["^analytics$"]}},
+        kind=str(DatasetContainerSubTypes.DATABASE),
+        parent_path=[],
+        names=["other_db"],
+        try_deny=["^zzz"],
+    )
+    assert result.tried == {"allow": ["^analytics$"], "deny": ["^zzz"]}
+    assert result.results[0].included is False
+    assert result.results[0].excluded_by == "database_pattern"
+
+
+def test_try_allow_alone_keeps_the_recipes_deny_list():
+    """The mirror image, so neither half can regress on its own."""
+    result = check_filters(
+        source_type="mysql",
+        config_dict={**MYSQL_CONFIG, "database_pattern": {"deny": ["^secret_db$"]}},
+        kind=str(DatasetContainerSubTypes.DATABASE),
+        parent_path=[],
+        names=["secret_db", "analytics"],
+        try_allow=[".*"],
+    )
+    assert result.tried == {"allow": [".*"], "deny": ["^secret_db$"]}
+    by_name = {v.name: v for v in result.results}
+    assert by_name["secret_db"].included is False
+    assert by_name["analytics"].included is True

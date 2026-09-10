@@ -926,7 +926,7 @@ class ModeSource(StatefulIngestionSourceBase):
             else user_json.get("email")
         )
 
-    def fetch_spaces(self) -> List[dict]:
+    def fetch_spaces(self) -> Iterator[dict]:
         """Every space this recipe would see. Raises on HTTP failure.
 
         Not "unfiltered", which this said until a reviewer read the next line:
@@ -939,8 +939,19 @@ class ModeSource(StatefulIngestionSourceBase):
 
         Failures stay raisable either way, so the probe can tell "no spaces"
         from "could not list spaces".
+
+        A generator, and that is load-bearing rather than a style choice.
+        Extracting this from _get_space_name_and_tokens turned it into a
+        buffered list, and buffering silently dropped partial success: the
+        original populated space_info *inside* the page loop with the
+        `except ModeRequestError` outside it, so a workspace whose second
+        page 500s still ingested the first. Buffered, the exception escapes
+        before anything is returned, the caller catches it with an empty
+        dict, and the run emits no dashboards, charts or datasets at all --
+        an ingestion regression, not just a probe one. Yielding per space
+        restores it: whatever reached the caller before the failure has
+        already been consumed.
         """
-        spaces: List[dict] = []
         logger.debug(f"Retrieving spaces for {self.workspace_uri}")
         with self.report.space_get_timer:
             for spaces_page in self._get_paged_request_json(
@@ -953,8 +964,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     f"Read {len(spaces_page)} spaces records from workspace {self.workspace_uri}"
                 )
                 self.report.num_spaces_retrieved += len(spaces_page)
-                spaces.extend(spaces_page)
-        return spaces
+                yield from spaces_page
 
     def _get_space_name_and_tokens(self) -> dict:
         space_info = {}

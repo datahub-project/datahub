@@ -76,3 +76,45 @@ def test_an_absent_or_null_config_still_means_no_config(recipe_config):
     written, so it must not be rejected as malformed."""
     result = validate_recipe({"source": {"type": "demo-data", **recipe_config}})
     assert "must be a mapping" not in str(result["errors"])
+
+
+def test_scaffold_does_not_overwrite_a_connectors_deny_defaults():
+    """It emitted {"allow": [".*"], "deny": []} for every pattern field, which
+    is not a helpful default but an override: the scaffolded recipe ingested
+    MORE than the same recipe without the line. Snowflake stopped denying
+    ^SNOWFLAKE_SAMPLE_DATA$, Kafka stopped denying ^_.* so __consumer_offsets
+    became a dataset. This is the first command an agent runs."""
+    from datahub.ingestion.agent.probe_methods import config_class_for
+    from datahub.ingestion.agent.recipe import scaffold
+
+    for source_type, field in (
+        ("snowflake", "database_pattern"),
+        ("kafka", "topic_patterns"),
+    ):
+        source = scaffold(source_type)["source"]
+        assert isinstance(source, dict)
+        config = source["config"]
+        assert isinstance(config, dict)
+        assert field not in config, (
+            f"{source_type}.{field} in the scaffold overrides the connector's "
+            f"own deny list"
+        )
+        # And the connector's default really does carry denies worth keeping,
+        # so the assertion above is protecting something.
+        model_field = config_class_for(source_type).model_fields[field]
+        default = model_field.get_default(call_default_factory=True)
+        assert default.deny, f"{source_type}.{field} has no deny default"
+
+
+def test_scaffold_still_emits_secrets_and_required_fields():
+    """The control: omitting pattern fields must not turn into omitting
+    everything."""
+    from datahub.ingestion.agent.recipe import scaffold
+
+    source = scaffold("snowflake")["source"]
+    assert isinstance(source, dict)
+    config = source["config"]
+    assert isinstance(config, dict) and config, "scaffold produced nothing"
+    assert any(str(v).startswith("${") for v in config.values()), (
+        "no secret placeholders emitted"
+    )
