@@ -55,6 +55,9 @@ class SnowflakeOpenflowReport(StaleEntityRemovalSourceReport):
     # short enough for DataHub. Config validation should make this unreachable,
     # so non-zero means an unanticipated cause. See _urn_is_emittable.
     num_urns_too_long: int = 0
+    # Connectors whose owning role name makes a corpGroup urn too long for
+    # DataHub. Ownership is omitted rather than emitted and rejected.
+    num_owners_dropped_urn_too_long: int = 0
     # Distinct CREATED_ON renderings that were present but unparseable. Non-zero
     # means ordering is degraded, and unordered rows resolve as deleted.
     num_unparseable_timestamps: int = 0

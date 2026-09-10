@@ -14,33 +14,16 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
+from datahub.ingestion.source.snowflake.snowflake_openflow_urns import (
+    MAX_PLATFORM_INSTANCE_BYTES,
+    encoded_urn_len,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-
-# java.net.URLEncoder's unreserved set; everything else costs three bytes per
-# UTF-8 byte. Duplicated from the source module rather than imported, because
-# config must not depend on the emitter.
-_URLENCODER_SAFE = frozenset(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-*_"
-)
-# GMS rejects a urn over 512 encoded bytes. platform_instance sits inside every
-# urn this source emits and, unlike a connector name, CANNOT be shortened -- the
-# entity would then belong to a different instance. So a platform_instance whose
-# encoded form eats the budget makes every urn unemittable no matter what else
-# is done, and the only useful moment to say so is recipe load. 200 is generous:
-# a 100-character CJK instance encodes to 900 bytes and was measured producing
-# 1009-byte urns.
-_MAX_PLATFORM_INSTANCE_BYTES = 200
-
-
-def _encoded_len(value: str) -> int:
-    return sum(
-        1 if c in _URLENCODER_SAFE or c == " " else 3 * len(c.encode()) for c in value
-    )
 
 
 def _resolved_env(value: Optional[str], default: str, field: str) -> str:
@@ -187,11 +170,11 @@ class SnowflakeOpenflowSourceConfig(
         ):
             if value is None:
                 continue
-            encoded = _encoded_len(value)
-            if encoded > _MAX_PLATFORM_INSTANCE_BYTES:
+            encoded = encoded_urn_len(value)
+            if encoded > MAX_PLATFORM_INSTANCE_BYTES:
                 raise ValueError(
                     f"{field} is {encoded} bytes once URL-encoded, over the "
-                    f"{_MAX_PLATFORM_INSTANCE_BYTES}-byte limit this source "
+                    f"{MAX_PLATFORM_INSTANCE_BYTES}-byte limit this source "
                     "allows. It appears in every urn and cannot be shortened "
                     "the way a connector name can, so a longer one would make "
                     "urns that DataHub rejects. Non-ASCII characters cost three "

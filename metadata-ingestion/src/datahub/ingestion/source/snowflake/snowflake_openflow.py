@@ -83,6 +83,11 @@ from datahub.ingestion.source.snowflake.snowflake_openflow_report import (
     LARGE_HISTORY_MESSAGE,
     SnowflakeOpenflowReport,
 )
+from datahub.ingestion.source.snowflake.snowflake_openflow_urns import (
+    FLOW_URN_BUDGET,
+    MAX_URN_BYTES,
+    encoded_urn_len,
+)
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
@@ -164,17 +169,6 @@ _MAX_RUNTIMES_FOR_URL_LOOKUP = 500
 
 # Beyond this the readable per-table job id is replaced by a content hash, so
 # the DataJob urn cannot outgrow what DataHub accepts.
-# GMS rejects an aspect whose URL-encoded urn exceeds this; see
-# metadata-utils UrnValidationUtil.URN_NUM_BYTES_LIMIT.
-_MAX_URN_BYTES = 512
-# A DataJob urn nests its DataFlow urn whole, so the flow must leave room for a
-# job to exist at all: "urn:li:dataJob:(" + <flow urn> + "," + <job id> + ")".
-# Encoded, the wrapper is 24 + 3 + 3 bytes and the smallest job id the ladder
-# can produce is a 16-character digest, so 48 bytes of headroom. Without this a
-# flow could sit at 509 bytes -- legal on its own -- and no job under it could
-# ever fit, which is precisely what the previous revision shipped.
-_NESTED_JOB_HEADROOM = 48
-_FLOW_URN_BUDGET = _MAX_URN_BYTES - _NESTED_JOB_HEADROOM
 # How much of the readable name a shortened id may keep, tried longest-first.
 # The 0 is the floor and is load-bearing: it means the digest alone, which is
 # ASCII and therefore fits whatever the identifier's encoding cost.
@@ -584,7 +578,22 @@ OWNERSHIP_TYPE = OwnershipTypeClass.TECHNICAL_OWNER
 
 
 def _owner_group_urn(owner: Optional[str]) -> Optional[str]:
-    return make_group_urn(owner) if owner else None
+    """The owning role as a corpGroup urn, or None if it will not fit.
+
+    Owner.owner is a Urn-typed field, so UrnAnnotationValidator walks it and
+    applies the same 512-byte limit as an entity's own urn -- an over-long one
+    costs the whole Ownership aspect, not just the owner. A Snowflake role name
+    is an identifier of up to 255 characters, which is fine in ASCII (278
+    bytes) and is not in CJK: 165 characters already encode to 1508.
+
+    None here rather than a shortened urn, for the same reason as the lineage
+    endpoints: a corpGroup urn names a real group, and a truncated one names a
+    different one or nothing at all. The caller counts it.
+    """
+    if not owner:
+        return None
+    urn = make_group_urn(owner)
+    return urn if urn_fits(urn) else None
 
 
 def _owner_classes(owner: Optional[str]) -> Optional[List[OwnerClass]]:
@@ -642,7 +651,7 @@ def build_connector_flow(
             connector, name, platform_instance, env, parent_container, external_url
         ),
         connector.key,
-        _FLOW_URN_BUDGET,
+        FLOW_URN_BUDGET,
     )
 
 
@@ -672,25 +681,7 @@ def _flow_with_name(
     )
 
 
-# java.net.URLEncoder leaves only these unencoded; everything else becomes %XX
-# per UTF-8 byte, and a space becomes "+". Python's quote_plus does NOT agree:
-# it passes "~" through where Java writes %7E, and encodes "*" where Java does
-# not. The "~" direction is the dangerous one -- it UNDER-measures, so a urn
-# could pass this check and still be rejected by GMS.
-_JAVA_URLENCODER_SAFE = frozenset(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-*_"
-)
-
-
-def encoded_urn_len(urn: object) -> int:
-    """The length GMS measures: java.net.URLEncoder.encode(urn).length()."""
-    return sum(
-        1 if char in _JAVA_URLENCODER_SAFE or char == " " else 3 * len(char.encode())
-        for char in str(urn)
-    )
-
-
-def urn_fits(urn: object, budget: int = _MAX_URN_BYTES) -> bool:
+def urn_fits(urn: object, budget: int = MAX_URN_BYTES) -> bool:
     """Whether GMS will accept this URN's length.
 
     The limit is on the URL-ENCODED urn, not on any component of it -- see
@@ -708,7 +699,7 @@ EntityT = TypeVar("EntityT", DataFlow, DataJob)
 
 
 def _fitted(
-    build: Callable[[str], EntityT], readable: str, budget: int = _MAX_URN_BYTES
+    build: Callable[[str], EntityT], readable: str, budget: int = MAX_URN_BYTES
 ) -> EntityT:
     """The entity built from `readable`, shortened until its urn fits.
 
@@ -1338,6 +1329,32 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             if not downloaded:
                 raise RuntimeError("GET reported no error but produced no local file")
             return decode_config_payload(downloaded[0].read_bytes())
+
+    def _account_for_owner(self, connector: OpenflowConnector) -> None:
+        """Count the ownership aspect, or report that it had to be dropped.
+
+        Owner.owner is a Urn-typed field, so UrnAnnotationValidator applies the
+        512-byte limit to it and an over-long one costs the whole Ownership
+        aspect. _owner_group_urn returns None in that case, which silently
+        omits ownership from every entity of this connector -- so the count
+        belongs here, where the connector is known.
+        """
+        if not connector.owner:
+            return
+        if _owner_group_urn(connector.owner) is None:
+            self.report.num_owners_dropped_urn_too_long += 1
+            self.report.warning(
+                title="Ownership dropped: owner urn too long",
+                message=(
+                    "The owning role's corpGroup urn exceeds what DataHub "
+                    "accepts, and it cannot be shortened without naming a "
+                    "different group. Ownership is omitted for this "
+                    "connector's entities; everything else is unaffected."
+                ),
+                context=connector.key,
+            )
+        else:
+            self.report.num_owners_emitted += 1
 
     def _edge_within_urn_limits(
         self, pair: ConnectorTableLineage, connector: OpenflowConnector
@@ -2001,8 +2018,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             if not self._urn_is_emittable(flow.urn, connector.key, "DataFlow"):
                 continue
             yield from flow.as_workunits()
-            if connector.owner:
-                self.report.num_owners_emitted += 1
+            self._account_for_owner(connector)
             # No connector-level DataJob. The DataFlow above already IS the
             # connector -- identical name, properties, ownership and external
             # link -- so an anchor job duplicated it as a task inside its own

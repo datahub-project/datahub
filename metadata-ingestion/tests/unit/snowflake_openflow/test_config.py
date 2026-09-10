@@ -3,6 +3,9 @@ import pytest
 from datahub.ingestion.source.snowflake.snowflake_openflow_config import (
     SnowflakeOpenflowSourceConfig,
 )
+from datahub.ingestion.source.snowflake.snowflake_openflow_urns import (
+    MAX_PLATFORM_INSTANCE_BYTES,
+)
 
 MINIMAL = {
     "connection": {
@@ -79,27 +82,28 @@ def test_invalid_source_env_is_rejected():
         )
 
 
-@pytest.mark.parametrize(
-    ("value", "accepted"),
-    [
-        pytest.param("prod", True, id="ordinary"),
-        pytest.param("x" * 200, True, id="at the limit"),
-        pytest.param("x" * 201, False, id="one byte over"),
-        pytest.param("数" * 100, False, id="CJK, 900 bytes encoded"),
-    ],
-)
-def test_a_platform_instance_that_would_break_every_urn_is_rejected_at_load(
-    value: str, accepted: bool
-) -> None:
-    # platform_instance appears in every urn this source emits and, unlike a
-    # connector name, cannot be shortened -- shortening it would move the
-    # entity to a different instance. So once its encoded form eats the
-    # 512-byte budget, NO urn is emittable and no amount of name-fitting
-    # helps: a 100-character CJK instance was measured producing 1009-byte
-    # urns. Recipe load is the only useful moment to say so.
-    recipe = {**MINIMAL, "platform_instance": value}
-    if accepted:
-        assert SnowflakeOpenflowSourceConfig.model_validate(recipe)
-    else:
-        with pytest.raises(ValueError, match="once URL-encoded"):
-            SnowflakeOpenflowSourceConfig.model_validate(recipe)
+def test_a_platform_instance_that_would_break_every_urn_is_rejected_at_load() -> None:
+    # Expressed against the derived limit rather than literal lengths, because
+    # the literal is what drifted last time: the limit was a hardcoded 200
+    # while the builders accepted 403. test_dataflow.py pins the constant
+    # against the real builders; this pins the validator against the constant.
+    #
+    # platform_instance appears in every urn and, unlike a connector name,
+    # cannot be shortened -- shortening it would name a different instance --
+    # so once its encoded form eats the budget no urn is emittable at all.
+    ok = "x" * MAX_PLATFORM_INSTANCE_BYTES
+    assert SnowflakeOpenflowSourceConfig.model_validate(
+        {**MINIMAL, "platform_instance": ok}
+    )
+
+    with pytest.raises(ValueError, match="once URL-encoded"):
+        SnowflakeOpenflowSourceConfig.model_validate(
+            {**MINIMAL, "platform_instance": ok + "x"}
+        )
+
+    # Non-ASCII is the surprising case: three bytes per character once encoded,
+    # so a name far shorter than the limit can still exceed it.
+    with pytest.raises(ValueError, match="once URL-encoded"):
+        SnowflakeOpenflowSourceConfig.model_validate(
+            {**MINIMAL, "platform_instance": "\u6570" * MAX_PLATFORM_INSTANCE_BYTES}
+        )

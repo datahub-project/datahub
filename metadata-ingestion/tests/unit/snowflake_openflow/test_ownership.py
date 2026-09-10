@@ -211,3 +211,34 @@ def test_connector_owner_is_counted_on_the_report():
     # per-table job carries an owner either. A connector WITH tables is covered
     # by the integration golden, which asserts ownership on each table job.
     assert source.report.num_owners_emitted == 1
+
+
+def test_an_owning_role_whose_urn_is_too_long_drops_ownership_and_says_so() -> None:
+    # Owner.owner is a Urn-typed field, so UrnAnnotationValidator applies the
+    # same 512-byte limit as an entity's own urn -- an over-long one costs the
+    # WHOLE Ownership aspect, not just the owner. A Snowflake role is an
+    # identifier of up to 255 characters: fine in ASCII (278 bytes), not in
+    # CJK, where 165 characters already encode to 1508. Not shortened, for the
+    # same reason as a dataset urn: a truncated corpGroup names a different
+    # group or none.
+    source = _make_source()
+    connector = OpenflowConnector(name="c", runtime_name="rt", owner="数" * 165)
+
+    source._account_for_owner(connector)
+
+    assert source.report.num_owners_dropped_urn_too_long == 1
+    assert source.report.num_owners_emitted == 0
+    assert "Ownership dropped: owner urn too long" in [
+        e.title for e in source.report.warnings
+    ]
+
+
+def test_an_ordinary_owning_role_is_counted_not_dropped() -> None:
+    source = _make_source()
+
+    source._account_for_owner(
+        OpenflowConnector(name="c", runtime_name="rt", owner="ANALYST")
+    )
+
+    assert source.report.num_owners_emitted == 1
+    assert source.report.num_owners_dropped_urn_too_long == 0

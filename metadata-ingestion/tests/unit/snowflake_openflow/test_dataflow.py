@@ -13,6 +13,9 @@ from datahub.ingestion.source.snowflake.snowflake_openflow import (
 from datahub.ingestion.source.snowflake.snowflake_openflow_models import (
     OpenflowConnector,
 )
+from datahub.ingestion.source.snowflake.snowflake_openflow_urns import (
+    MAX_PLATFORM_INSTANCE_BYTES,
+)
 
 CONNECTOR = OpenflowConnector(
     connector_id="1",
@@ -211,3 +214,39 @@ def test_the_length_measured_is_the_one_gms_measures() -> None:
     assert encoded_urn_len("a*b") == 3  # quote_plus says 5
     assert encoded_urn_len("a b") == 3  # space is "+", one byte
     assert encoded_urn_len("\u6570") == 9  # one CJK char, three utf-8 bytes
+
+
+def test_the_platform_instance_limit_matches_what_the_builders_actually_accept() -> (
+    None
+):
+    # The config limit is derived from constants, and a derivation can drift
+    # from the thing it describes. This binary-searches the REAL builders for
+    # the longest platform_instance whose urns still fit, and asserts the
+    # config rejects exactly one byte past it -- so the constant cannot become
+    # either too strict (rejecting recipes that would work, which a hardcoded
+    # 200 did, refusing 203 valid bytes) or too loose (accepting recipes whose
+    # every aspect GMS discards).
+    pair = ConnectorTableLineage(
+        source_schema="public",
+        source_table="t",
+        outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)",
+    )
+
+    def both_fit(instance: str) -> bool:
+        connector = OpenflowConnector(name="c" * 255, runtime_name="r" * 255)
+        flow = build_connector_flow(connector, platform_instance=instance, env="PROD")
+        job = build_connector_table_job(connector, flow, pair)
+        return urn_fits(flow.urn) and urn_fits(job.urn)
+
+    low, high = 0, 600
+    while low < high:
+        mid = (low + high + 1) // 2
+        if both_fit("x" * mid):
+            low = mid
+        else:
+            high = mid - 1
+
+    assert low == MAX_PLATFORM_INSTANCE_BYTES, (
+        f"the config limit is {MAX_PLATFORM_INSTANCE_BYTES} but the builders "
+        f"accept up to {low}"
+    )
