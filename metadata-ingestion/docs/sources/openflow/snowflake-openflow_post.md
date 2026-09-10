@@ -85,8 +85,8 @@ downstream would report it.
 
 **The ingestion succeeds but no Openflow objects appear.** Almost always a missing `MONITOR` grant
 rather than an empty account, because `SHOW OPENFLOW …` is privilege-filtered and returns zero rows
-without an error. Check with `SHOW GRANTS TO ROLE <role>` and `SHOW FUTURE GRANTS IN SCHEMA
-<db>.<schema>` — remember FUTURE grants appear only in the latter.
+without an error. Check the role's grants with `SHOW GRANTS TO ROLE`, and its future grants with
+`SHOW FUTURE GRANTS IN SCHEMA` — FUTURE grants appear only in the latter.
 
 **Lineage points at Snowflake tables that do not exist in DataHub.** `snowflake_platform_instance`
 and `snowflake_env` must match your `snowflake` recipe exactly. A mismatch produces well-formed URNs
