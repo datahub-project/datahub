@@ -1,3 +1,27 @@
+# EVERY urn this connector emits, and what bounds its length. Enumerated from
+# the golden file's aspects rather than from memory, because seven separate
+# length defects were found here one at a time, each fix guarding the case it
+# had just been shown while leaving a sibling unmeasured. If a new aspect or
+# urn-typed field is added, add its row here and say what bounds it.
+#
+#   dataFlow entity urn            _fitted ladder + _urn_is_emittable
+#   dataJob entity urn             _fitted (flow reserves NESTED_JOB_HEADROOM)
+#   dataJobInputOutput in/out      _edge_within_urn_limits (foreign; skipped,
+#                                  never shortened -- they must match what the
+#                                  warehouse ingestion wrote)
+#   ownership owners[].owner       _owner_group_urn returns None if it will not
+#                                  fit; Owner.owner is a Urn field, so
+#                                  UrnAnnotationValidator length-checks it
+#   dataPlatformInstance.instance  MAX_PLATFORM_INSTANCE_BYTES (480 bytes at
+#                                  the limit, measured)
+#   container entity urns          GUID: ContainerKey hashes its parts, so the
+#                                  urn is 55 bytes whatever the input
+#   browsePathsV2 path[].urn/.id   container urns, so GUID-bounded
+#   container.container            parent container urn, GUID-bounded
+#   dataJobInfo.flowUrn            the flow urn, already bounded above
+#   dataPlatformInstance.platform  the constant "openflow"
+#   ownership lastModified.actor   a constant corpuser urn
+#
 # Shared by the config module and the source. It lives on its own because the
 # source imports the config, so the config cannot import the source -- and an
 # earlier revision resolved that by duplicating the encoder into both, which
