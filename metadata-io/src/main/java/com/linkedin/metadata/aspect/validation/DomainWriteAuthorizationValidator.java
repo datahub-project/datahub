@@ -35,9 +35,10 @@ import lombok.experimental.Accessors;
  *
  * <p>CREATE / UPSERT establishing domains still match Create/Edit Entity against proposed domains.
  * Updates on existing entities (including {@code PATCH}) accept {@code EDIT_ENTITY} <em>or</em>
- * {@code EDIT_DOMAINS_PRIVILEGE}; domain resource filters still apply. {@code PATCH} requires the
- * actor to be allowed for both before and after domains when before membership exists (after-only
- * when establishing first domains).
+ * {@code EDIT_DOMAINS_PRIVILEGE}; domain resource filters still apply. {@code PATCH} on a missing
+ * entity is authorized as Create/Edit Entity only. On an existing entity, PATCH requires the actor
+ * to be allowed for both before and after domains when before membership exists (after-only when
+ * establishing first domains).
  *
  * <p>In-transaction {@code validatePreCommit} re-checks when a user session is present (sync):
  * before+after Edit when domains already exist, otherwise Create/Edit establish against proposed
@@ -99,6 +100,22 @@ public class DomainWriteAuthorizationValidator extends AbstractAspectAuthorizati
                   "Unauthorized to edit domains via PATCH on entity "
                       + urn
                       + " (could not resolve proposed domains from patch)"));
+          continue;
+        }
+        ApiOperation patchOperation =
+            DomainWriteAuthorizationUtils.resolveApiOperation(ChangeType.PATCH, exists);
+        if (ApiOperation.CREATE.equals(patchOperation)) {
+          boolean allowed =
+              DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+                  session, urn, ApiOperation.CREATE, true, afterDomains);
+          if (!allowed) {
+            failures.add(
+                authFailure(
+                    item,
+                    "Unauthorized to create domains on entity "
+                        + urn
+                        + domainsAuthHint(false, true)));
+          }
           continue;
         }
         if (!DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(

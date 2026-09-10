@@ -205,8 +205,8 @@ public final class DomainWriteAuthorizationUtils {
       case CREATE:
         return UPDATE;
       case PATCH:
-        // PATCH never uses CREATE_ENTITY — always Edit Entity.
-        return UPDATE;
+        // PATCH on a missing entity is a create; Edit Domain must not suffice.
+        return entityExists ? UPDATE : CREATE;
       case UPSERT:
       case UPDATE:
       case RESTATE:

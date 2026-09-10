@@ -113,10 +113,14 @@ public class DomainWriteAuthorizationUtilsTest {
   }
 
   @Test
-  public void testResolveApiOperation_patchAlwaysUpdate() {
+  public void testResolveApiOperation_patchMissingEntityUsesCreate() {
     assertEquals(
         DomainWriteAuthorizationUtils.resolveApiOperation(ChangeType.PATCH, false),
-        ApiOperation.UPDATE);
+        ApiOperation.CREATE);
+  }
+
+  @Test
+  public void testResolveApiOperation_patchExistingUsesUpdate() {
     assertEquals(
         DomainWriteAuthorizationUtils.resolveApiOperation(ChangeType.PATCH, true),
         ApiOperation.UPDATE);
