@@ -9,6 +9,7 @@
     "empty.title": "Tom ordliste",
     "list.error": "Kunne ikke laste ordlisten! En uventet feil oppsto.",
     "list.loading": "Laster ordliste...",
+    "page.contactAdmin": "Ta kontakt med DataHub-administratoren din for å sette opp Ordliste.",
     "page.createGlossary": "Opprett ordliste",
     "page.subtitle": "Klassifiser dataressursene og kolonnene dine med dataordbøker",
     "page.title": "Ordliste",
