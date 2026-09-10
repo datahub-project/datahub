@@ -130,8 +130,16 @@ def _pattern_field_for_config_class(
     fields = getattr(config_cls, "model_fields", {})
     for name in _pattern_field_candidates(kind):
         field = fields.get(name)
-        if field is not None and is_pattern_field(field.annotation):
-            return name
+        if field is None or not is_pattern_field(field.annotation):
+            continue
+        if _is_hidden_field(config_cls, name):
+            # Same rule as the instance-level loop in pattern_field_for_config;
+            # see the comment there. Both branches need it -- the instance
+            # check only reached this field when it happened to be set, so
+            # skipping it there alone left the default path resolving the
+            # deprecated alias anyway.
+            continue
+        return name
     return None
 
 
@@ -187,9 +195,40 @@ def pattern_field_for_config(config: Any, kind: ProbeNodeKind) -> Optional[str]:
     if hinted is not None:
         return hinted
     for name in _pattern_field_candidates(kind):
-        if isinstance(getattr(config, name, None), AllowDenyPattern):
-            return name
+        if not isinstance(getattr(config, name, None), AllowDenyPattern):
+            continue
+        if _is_hidden_field(config_cls, name):
+            # The convention is a guess, and a field hidden from the docs is
+            # not one a recipe is meant to set -- it is a deprecated alias
+            # kept for compatibility. Resolving to one gives a confident
+            # wrong verdict: on every two-tier source, `schema_pattern` is a
+            # HiddenFromDocs alias that pydantic_renamed_field has already
+            # emptied into `database_pattern`, so it reads allow-all. A
+            # legacy mysql recipe with schema_pattern allow ['^analytics$']
+            # had `probe filter --kind Schema` report other_db as included,
+            # filtering "by_pattern", no warning -- while ingestion, matching
+            # on database_pattern, drops it.
+            #
+            # Skipping it lets the resolution fall through to "no field for
+            # this kind", which is what makes the "declares no kind" warning
+            # fire and name the kind the source really has (Database).
+            continue
+        return name
     return _pattern_field_for_config_class(config_cls, kind)
+
+
+def _is_hidden_field(config_cls: type, name: str) -> bool:
+    """Whether this field is HiddenFromDocs, i.e. not one a recipe should set.
+
+    HiddenFromDocs is Annotated[..., SkipJsonSchema()], so the marker is in
+    the field's metadata rather than on FieldInfo itself.
+    """
+    from pydantic.json_schema import SkipJsonSchema
+
+    fields = getattr(config_cls, "model_fields", None)
+    if not fields or name not in fields:
+        return False
+    return any(isinstance(m, SkipJsonSchema) for m in fields[name].metadata)
 
 
 def _type_name(annotation: object) -> str:

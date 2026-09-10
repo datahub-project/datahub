@@ -522,6 +522,46 @@ def _bounded_kwargs(
     return {**call_kwargs, spec.row_limit_param: limit + 1}
 
 
+def _refuse_withheld_passthrough(spec: ProbeMethodSpec, source_type: str) -> None:
+    """The operator's kill switch, checked before anything connects.
+
+    It used to live in _enforce_gates, which runs inside `with
+    builder(config)` -- i.e. after the provider has authenticated. So on a
+    source that was slow or down, the operator's "raw access is off here"
+    never appeared: the caller got a connection error instead and went off to
+    fix credentials for a command that was never going to run. Nothing here
+    needs the provider, so nothing here should wait for one.
+
+    The message also promised more than it could deliver. Snowflake and
+    BigQuery expose `sql` as their ONLY probe command, so "this connector's
+    other probe commands still work" was false exactly where it mattered
+    most, and env_vars said the same. It now says what is true for this
+    connector, which means asking what else it has.
+    """
+    if spec.scoped_sql_param is None and spec.scoped_path_param is None:
+        return
+    if not get_disable_agent_probe_raw_access():
+        return
+    others = sorted(
+        other.command
+        for other in list_probe_methods(source_type)
+        if other.command != spec.command
+        and other.scoped_sql_param is None
+        and other.scoped_path_param is None
+    )
+    remaining = (
+        f"this connector's other probe commands still work: {', '.join(others)}"
+        if others
+        else f"'{source_type}' declares no other probe command, so its probe is "
+        f"fully withheld here"
+    )
+    raise ValueError(
+        f"probe command '{spec.command}' takes a caller-supplied query or "
+        f"path, and raw probe access is switched off here "
+        f"(DATAHUB_PROBE_DISABLE_RAW_ACCESS); {remaining}"
+    )
+
+
 def _enforce_gates(
     spec: ProbeMethodSpec, provider: object, call_kwargs: Dict[str, object]
 ) -> None:
@@ -533,21 +573,10 @@ def _enforce_gates(
     "declare, framework enforces" split as Filters(...) on a config field.
 
     Needs the live provider, since the dialect and the endpoint allowlist are
-    properties of the connector's client, not of the declaration.
+    properties of the connector's client, not of the declaration. The one
+    check that does NOT need it -- the raw-access kill switch -- runs earlier,
+    in _refuse_withheld_passthrough; see there for why the difference matters.
     """
-    is_passthrough = (
-        spec.scoped_sql_param is not None or spec.scoped_path_param is not None
-    )
-    if is_passthrough and get_disable_agent_probe_raw_access():
-        # Withholds only the passthroughs; typed getters take no caller-supplied
-        # query or path, so there is nothing in them to withhold.
-        raise ValueError(
-            f"probe command '{spec.command}' takes a caller-supplied query or "
-            f"path, and raw probe access is switched off here "
-            f"(DATAHUB_PROBE_DISABLE_RAW_ACCESS); this connector's other probe "
-            f"commands still work"
-        )
-
     if spec.scoped_sql_param is not None:
         # Lazy import: the gates pull in sqlglot, which a probe that runs no
         # queries should not pay for.
@@ -648,6 +677,10 @@ def run_probe_method(
     # reported limit 3 and truncated false for a listing cut off at 2.
     coerced_kwargs = _coerce_kwargs(specs[command], kwargs)
     call_kwargs = _bounded_kwargs(specs[command], coerced_kwargs)
+    # Before the config is even built, let alone a connection opened: this is
+    # the operator's switch, and it must not depend on the source being
+    # reachable.
+    _refuse_withheld_passthrough(specs[command], source_type)
     config = config_class_for(source_type).model_validate(config_dict)
     builder = getattr(provider_cls, "for_config", None)
     if not callable(builder):

@@ -400,9 +400,15 @@ def get_disable_agent_probe_raw_access() -> bool:
     Refuse the recipe probe's raw passthrough commands (`sql`, `api`).
 
     For an operator who does not want an agent issuing its own queries or API
-    calls against a source at all. The probe's typed listings keep working, so
-    recipe diagnosis still functions -- this withholds only the commands that
-    take a caller-supplied query or path.
+    calls against a source at all. It withholds only the commands that take a
+    caller-supplied query or path.
+
+    On most connectors the typed listings keep working, so recipe diagnosis
+    still functions -- this said so unconditionally and was wrong about the
+    two that matter most. Snowflake and BigQuery expose `sql` as their ONLY
+    probe command, so setting this withholds their probe entirely. The
+    refusal message names what is left for the connector in hand rather than
+    promising something in general.
 
     An environment variable rather than a recipe field because the agent authors
     the recipe: a field there would let it grant itself the access. Set it where

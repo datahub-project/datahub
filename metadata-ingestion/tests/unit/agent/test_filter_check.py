@@ -349,7 +349,7 @@ def test_redshift_ignores_the_parent_and_uses_its_own_database():
     assert match.target == "prod.analytics"
 
 
-@pytest.mark.parametrize("source_type", ["postgres", "mysql", "mssql"])
+@pytest.mark.parametrize("source_type", ["postgres", "mssql"])
 def test_schema_verdicts_work_on_a_source_that_inherits_the_base_hook(source_type):
     """The two connectors overriding probe_schema_verdict_override were the only
     ones any Schema-kind test touched, so widening the hook's signature broke
@@ -366,7 +366,6 @@ def test_schema_verdicts_work_on_a_source_that_inherits_the_base_hook(source_typ
             "password": "p",
             "database": "d",
         },
-        "mysql": {"host_port": "h:3306", "username": "u", "password": "p"},
         "mssql": {"host_port": "h:1433", "username": "u", "password": "p"},
     }
     result = check_filters(
@@ -383,6 +382,50 @@ def test_schema_verdicts_work_on_a_source_that_inherits_the_base_hook(source_typ
     results = result["results"]
     assert isinstance(results, list)
     assert [v["name"] for v in results] == ["public", "information_schema"]
+
+
+def test_a_two_tier_source_has_no_schema_level_and_says_so():
+    """mysql was in the parametrisation above, asserting
+    pattern_field == "schema_pattern" -- which was asserting the bug.
+
+    On every two-tier source `schema_pattern` is a HiddenFromDocs alias that
+    pydantic_renamed_field has already emptied into `database_pattern`, so it
+    reads allow-all. A legacy recipe with schema_pattern allow ['^analytics$']
+    had `probe filter --kind Schema` report other_db as included, filtering
+    "by_pattern", no warning -- while ingestion drops it. The convention now
+    skips deprecated aliases, so the resolution falls through to "no field for
+    this kind" and the warning names the level the source really has.
+
+    The base-hook signature this parametrisation guards is still covered by
+    postgres and mssql, which have real schemas.
+    """
+    config: Dict[str, object] = {
+        "host_port": "h:3306",
+        "username": "u",
+        "password": "p",
+        "schema_pattern": {"allow": ["^analytics$"]},
+    }
+    result = check_filters(
+        source_type="mysql",
+        config_dict=config,
+        kind="Schema",
+        parent_path=[],
+        names=["other_db"],
+    )
+    assert result.pattern_field is None
+    assert result.filtering == "unresolved"
+    assert any("Database" in w for w in result.warnings), result.warnings
+
+    # And the question the caller meant gives ingestion's own answer.
+    as_database = check_filters(
+        source_type="mysql",
+        config_dict=config,
+        kind=str(DatasetContainerSubTypes.DATABASE),
+        parent_path=[],
+        names=["other_db"],
+    )
+    assert as_database.pattern_field == "database_pattern"
+    assert as_database.results[0].included is False
 
 
 # --- a kind switched off wholesale is not a pattern question ----------------

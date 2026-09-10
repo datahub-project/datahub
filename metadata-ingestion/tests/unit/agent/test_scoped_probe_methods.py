@@ -18,6 +18,7 @@ from datahub.ingestion.agent.probe_methods import (
     ProbeMethodSpec,
     _bounded_kwargs,
     _enforce_gates,
+    _refuse_withheld_passthrough,
     probe_method,
 )
 from datahub.ingestion.agent.sql_gate import SqlScopeError
@@ -222,19 +223,43 @@ def test_an_operator_can_switch_raw_access_off_entirely(monkeypatch):
     monkeypatch.setenv("DATAHUB_PROBE_DISABLE_RAW_ACCESS", "true")
     provider = FakeSqlProvider()
     with pytest.raises(ValueError, match="DATAHUB_PROBE_DISABLE_RAW_ACCESS"):
-        _enforce_gates(
-            _spec(provider, "sql"),
-            provider,
-            {"query": "SELECT table_name FROM information_schema.tables"},
-        )
+        _refuse_withheld_passthrough(_spec(provider, "sql"), "postgres")
     assert provider.ran == []
+
+
+def test_the_switch_is_checked_before_anything_connects(monkeypatch):
+    """It lived in _enforce_gates, which runs inside `with builder(config)` --
+    after the provider has authenticated. On a source that was slow or down
+    the operator's refusal never appeared: the caller got a connection error
+    and went off to fix credentials for a command that was never going to
+    run. Nothing in this check needs a provider, so it takes none."""
+    import inspect as _inspect
+
+    monkeypatch.setenv("DATAHUB_PROBE_DISABLE_RAW_ACCESS", "true")
+    params = _inspect.signature(_refuse_withheld_passthrough).parameters
+    assert "provider" not in params, (
+        "taking a provider is what put this behind authentication"
+    )
+
+
+def test_the_refusal_does_not_promise_commands_the_connector_lacks(monkeypatch):
+    """Snowflake and BigQuery expose `sql` as their ONLY probe command, so
+    "this connector's other probe commands still work" was false exactly
+    where the switch matters most."""
+    monkeypatch.setenv("DATAHUB_PROBE_DISABLE_RAW_ACCESS", "true")
+    provider = FakeSqlProvider()
+    with pytest.raises(ValueError, match="fully withheld"):
+        _refuse_withheld_passthrough(_spec(provider, "sql"), "snowflake")
+    # And a connector that does have others still says so.
+    with pytest.raises(ValueError, match="other probe commands still work"):
+        _refuse_withheld_passthrough(_spec(provider, "sql"), "postgres")
 
 
 def test_the_switch_covers_api_passthrough_too(monkeypatch):
     monkeypatch.setenv("DATAHUB_PROBE_DISABLE_RAW_ACCESS", "true")
     provider = FakeApiProvider()
     with pytest.raises(ValueError, match="DATAHUB_PROBE_DISABLE_RAW_ACCESS"):
-        _enforce_gates(_spec(provider, "api"), provider, {"path": "/spaces"})
+        _refuse_withheld_passthrough(_spec(provider, "api"), "mode")
 
 
 def test_the_switch_leaves_typed_getters_working(monkeypatch):
