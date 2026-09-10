@@ -63,9 +63,16 @@ ENV UV_PYTHON_INSTALL_DIR=/opt/python
 ENV UV_NO_CACHE=1
 RUN uv python install ${PYTHON_VERSION}
 
-ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi
-ENV UV_DEFAULT_INDEX=${PIP_MIRROR_URL}
+ARG UV_PROFILE=default
+ARG DEFAULT_INDEX_URL=""
+ARG EXTRA_INDEX_URLS=""
+RUN --mount=type=bind,source=./docker/snippets/uv,target=/tmp/uv-config \
+    mkdir -p $HOME/.config/uv && \
+    if [ "${UV_PROFILE}" = "custom" ] || [ -n "${EXTRA_INDEX_URLS}" ]; then \
+        PROFILES_DIR=/tmp/uv-config/profiles BASE_PROFILE="${UV_PROFILE}" UV_PROFILE="${UV_PROFILE}" DEFAULT_INDEX_URL="${DEFAULT_INDEX_URL}" EXTRA_INDEX_URLS="${EXTRA_INDEX_URLS}" bash /tmp/uv-config/generate-config.sh > $HOME/.config/uv/uv.toml; \
+    else \
+        cp /tmp/uv-config/profiles/${UV_PROFILE}.toml $HOME/.config/uv/uv.toml; \
+    fi
 
 USER datahub
 WORKDIR $HOME
