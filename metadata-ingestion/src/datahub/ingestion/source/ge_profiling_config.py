@@ -194,10 +194,9 @@ class GEProfilingConfig(GEProfilingBaseConfig):
 
     # Merges same-table aggregates into one flat SELECT instead of one CTE
     # each, turning N table scans into one. Requires query_combiner_enabled.
-    # Off by default; flip in a follow-up after validation.
     query_combiner_flatten_enabled: bool = Field(
         default=False,
-        description="*Experimental.* Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Requires `query_combiner_enabled`; has no effect on its own. Off by default. COUNT(DISTINCT) columns are capped per statement to bound server memory.",
+        description="Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Requires `query_combiner_enabled`; has no effect on its own. Off by default. COUNT(DISTINCT) columns are capped per statement to bound server memory.",
     )
 
     # Duplicated from DEFAULT_MAX_DISTINCT_PER_STATEMENT rather than imported,
@@ -205,7 +204,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     # sqlalchemy. A drift test keeps the two in lockstep.
     max_distinct_per_statement: pydantic.PositiveInt = Field(
         default=5,
-        description="*Experimental, only used when `query_combiner_flatten_enabled` is on.* "
+        description="Only used when `query_combiner_flatten_enabled` is on. "
         "Maximum COUNT(DISTINCT) columns allowed in one flattened statement. Each one "
         "builds a distinct-value tree in server memory, so merging too many trades a "
         "scan problem for a memory problem. The default is a starting point, not a "

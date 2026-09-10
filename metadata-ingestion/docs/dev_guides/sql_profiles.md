@@ -61,7 +61,7 @@ Profiling issues one query per metric per column, so a wide table can cost hundr
 
 ### Aggregate flattening
 
-`profiling.query_combiner_flatten_enabled` (off by default, experimental) goes further for same-shape aggregates over the same table: instead of one CTE per metric, it emits a single `SELECT count(*), min(v), max(v) FROM t`. That collapses many scans into one, which matters most on row stores such as MySQL where each scan reads the whole table.
+`profiling.query_combiner_flatten_enabled` (off by default) goes further for same-shape aggregates over the same table: instead of one CTE per metric, it emits a single `SELECT count(*), min(v), max(v) FROM t`. That collapses many scans into one, which matters most on row stores such as MySQL where each scan reads the whole table.
 
 ```yaml
 source:
