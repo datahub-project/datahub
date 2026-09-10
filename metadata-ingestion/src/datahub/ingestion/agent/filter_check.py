@@ -23,6 +23,19 @@ from datahub.ingestion.source.common.subtypes import (
 # (include_view_lineage, include_usage_stats, include_table_location_lineage)
 # govern what ELSE is emitted about an object, not whether the object itself
 # is -- a verdict about a name has nothing to say about them.
+# The kinds this module compares by identity -- the structural rules read
+# them straight off the enums. Kept beside _INCLUDE_FLAG_FOR_KIND because
+# both are the reason --kind has to be canonicalised before anything reads
+# it (see _canonical_kind).
+_STRUCTURAL_KINDS = frozenset(
+    {
+        str(DatasetSubTypes.TABLE),
+        str(DatasetSubTypes.VIEW),
+        str(DatasetContainerSubTypes.SCHEMA),
+        str(DatasetContainerSubTypes.DATABASE),
+    }
+)
+
 _INCLUDE_FLAG_FOR_KIND = {
     str(DatasetSubTypes.TABLE): "include_tables",
     str(DatasetSubTypes.VIEW): "include_views",
@@ -242,6 +255,34 @@ def _structural_verdict(
     return None
 
 
+def _canonical_kind(source_type: str, config: Any, kind: str) -> str:
+    """The declared spelling of a kind the caller may have cased differently.
+
+    `--kind` was compared two ways at once. The `<kind>_pattern` name
+    convention lowercases (introspect._pattern_field_candidates), so
+    `--kind table` resolved table_pattern happily -- while every structural
+    rule here compares against a StrEnum value and so matched only `Table`.
+    The result was two opposite verdicts for the same question, with nothing
+    reporting an unrecognised kind because pattern resolution had succeeded:
+
+        --kind Table  (include_tables: false) -> excluded_by include_tables
+        --kind table  (include_tables: false) -> included
+        --kind Schema (redshift, qualified)   -> target dev.public, included
+        --kind schema (redshift, qualified)   -> target public, excluded
+
+    Canonicalised once, here, so everything downstream reads one spelling. A
+    kind nothing declares is returned untouched, which is what keeps the
+    "declares no kind" warning below able to fire.
+    """
+    if kind in _STRUCTURAL_KINDS:
+        return kind
+    lowered = kind.lower()
+    for declared in sorted(_declared_kinds(source_type, config) | _STRUCTURAL_KINDS):
+        if declared.lower() == lowered:
+            return declared
+    return kind
+
+
 def _declared_kinds(source_type: str, config: Any) -> Set[str]:
     """The kinds this source's probe methods name, as far as is knowable without
     a connection.
@@ -294,6 +335,7 @@ def check_filters(
             seen.add(message)
             warnings.append(message)
 
+    kind = _canonical_kind(source_type, config, kind)
     resolved = pattern_field_for_config(config, kind)
     # Both of these report every name included, and the answer is right either
     # way -- the question is "would these be ingested", and where nothing

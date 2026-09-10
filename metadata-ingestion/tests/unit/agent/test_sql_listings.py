@@ -136,3 +136,55 @@ def test_every_sql_connector_can_now_enumerate_without_a_query():
             )
         }
         assert {"containers", "tables", "views"} <= commands, source_type
+
+
+def test_passthrough_sql_is_not_reparsed_for_bind_parameters():
+    """execute(text(sql)) parses the SQL for `:name` binds, and the regex
+    fires on a colon after any non-word character -- inside a string literal,
+    or an array slice. A query the gate had already cleared then died at
+    execute with StatementError, which recipe_cli maps to EXIT_CONNECTION:
+    the agent is told the source is unreachable when the connection was fine.
+    Verified against a live MySQL before the fix -- exit 3.
+
+    Asserted on the call rather than the outcome, because the outcome needs a
+    server: what matters is that the driver gets the string untouched.
+    """
+    from datahub.ingestion.source.sql.sqlalchemy_probe import (
+        SqlAlchemyMetadataProbe,
+    )
+
+    sent = []
+
+    class _Result:
+        def fetchmany(self, n):
+            return []
+
+        def keys(self):
+            return []
+
+    class _Conn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def exec_driver_sql(self, query):
+            sent.append(query)
+            return _Result()
+
+        def execute(self, *args, **kwargs):  # pragma: no cover
+            raise AssertionError(
+                "execute(text(...)) reparses the SQL; use exec_driver_sql"
+            )
+
+    class _Engine:
+        def connect(self):
+            return _Conn()
+
+    probe = SqlAlchemyMetadataProbe.__new__(SqlAlchemyMetadataProbe)
+    probe._engine = _Engine()  # type: ignore[assignment]
+
+    sql = "SELECT * FROM information_schema.columns WHERE column_default = '{\"k\":v}'"
+    probe.execute_catalog_query(sql, limit=10)
+    assert sent == [sql], "the driver must receive the query verbatim"

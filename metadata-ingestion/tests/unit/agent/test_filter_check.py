@@ -522,3 +522,70 @@ def test_try_allow_alone_keeps_the_recipes_deny_list():
     by_name = {v.name: v for v in result.results}
     assert by_name["secret_db"].included is False
     assert by_name["analytics"].included is True
+
+
+# --- one spelling of --kind ------------------------------------------------
+
+
+@pytest.mark.parametrize("kind", ["Table", "table", "TABLE"])
+def test_kind_casing_does_not_change_the_verdict(kind):
+    """--kind was compared two ways at once: the `<kind>_pattern` name
+    convention lowercases, so `table` resolved table_pattern happily, while
+    every structural rule compares against a StrEnum value and matched only
+    `Table`. Two opposite verdicts for the same question, and no warning,
+    because pattern resolution had succeeded."""
+    result = check_filters(
+        source_type="postgres",
+        config_dict={
+            "host_port": "h:5432",
+            "database": "db",
+            "username": "u",
+            "password": "p",
+            "include_tables": False,
+        },
+        kind=kind,
+        parent_path=["public"],
+        names=["orders"],
+    )
+    assert result.results[0].included is False
+    assert result.results[0].excluded_by == "include_tables"
+
+
+@pytest.mark.parametrize("kind", ["Schema", "schema"])
+def test_kind_casing_does_not_change_the_match_target(kind):
+    """The same divergence on the other side: a lower-cased kind skipped the
+    schema override, so Redshift judged the bare name against a pattern
+    ingestion matches as database.schema."""
+    result = check_filters(
+        source_type="redshift",
+        config_dict={
+            "host_port": "h:5439",
+            "database": "dev",
+            "username": "u",
+            "password": "p",
+            "match_fully_qualified_names": True,
+        },
+        kind=kind,
+        parent_path=[],
+        names=["public"],
+    )
+    assert result.results[0].target == "dev.public"
+
+
+def test_a_kind_nothing_declares_is_left_alone_and_still_warns():
+    """The control. Canonicalising must not swallow a typo -- that warning is
+    the only thing standing between a misspelled kind and a confident
+    'everything included'."""
+    result = check_filters(
+        source_type="postgres",
+        config_dict={
+            "host_port": "h:5432",
+            "database": "db",
+            "username": "u",
+            "password": "p",
+        },
+        kind="Sproket",
+        parent_path=["public"],
+        names=["orders"],
+    )
+    assert result.warnings

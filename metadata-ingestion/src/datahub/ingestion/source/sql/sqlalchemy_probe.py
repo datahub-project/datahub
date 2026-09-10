@@ -1,6 +1,6 @@
 from typing import Dict, List, Optional
 
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect
 from sqlalchemy.engine import Engine
 
 from datahub.ingestion.agent.probe_methods import probe_method
@@ -94,7 +94,17 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
         with self._engine.connect() as conn:
-            result = conn.execute(text(query))
+            # exec_driver_sql, not execute(text(...)): text() parses the SQL
+            # for `:name` bind parameters, and its regex fires on a colon
+            # after any non-word character -- inside a string literal, or an
+            # array slice. `WHERE column_default = '{"k":v}'` and
+            # `SELECT a[:2] ...` both become queries with an unbound
+            # parameter, so a query the gate has already cleared dies at
+            # execute with StatementError, which recipe_cli's fallback maps
+            # to EXIT_CONNECTION -- telling the agent the source is
+            # unreachable when the connection was fine. This SQL is opaque
+            # passthrough and must not be reinterpreted.
+            result = conn.exec_driver_sql(query)
             rows = result.fetchmany(limit)
             return CatalogRows(
                 columns=list(result.keys()), rows=[list(row) for row in rows]
