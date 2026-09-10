@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, TypeVar
 
 from datahub.ingestion.agent.probe_methods import clamp_item_limit, probe_method
+from datahub.ingestion.agent.redact import mask_identity_columns
 from datahub.ingestion.agent.sql_gate import CatalogScope
 
 # `__enter__` must hand back the concrete provider, not this base: a caller writing
@@ -199,8 +200,12 @@ def sql_result(
     way still cannot emit more than MAX_PROBE_ITEMS.
     """
     limit = clamp_item_limit(limit)
+    # Identity columns are masked here for the same reason the limit is clamped
+    # here: it is the last thing every provider's result passes through, so a
+    # provider that builds rows some other way cannot route around it.
+    safe_rows = mask_identity_columns(columns, rows[:limit])
     kept: List[List[object]] = [
-        [_json_safe(value) for value in row] for row in rows[:limit]
+        [_json_safe(value) for value in row] for row in safe_rows
     ]
     return {
         "columns": list(columns),

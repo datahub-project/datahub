@@ -1,4 +1,4 @@
-from typing import Dict, List, Set, Tuple
+from typing import Any, Dict, FrozenSet, List, Sequence, Set, Tuple
 
 _MASK = "***"
 
@@ -11,6 +11,55 @@ _MASK = "***"
 # credential. Whole-value matches are still masked at any length, so this
 # narrows the blast radius rather than dropping protection.
 _MIN_SUBSTRING_SECRET_LEN = 4
+
+# Result columns whose values name a person rather than describe shape. A
+# catalog relation can be admitted for the structure it carries and still have
+# one column that is identity: ACCOUNT_USAGE.ACCESS_HISTORY is the case that
+# forced this -- it is how Snowflake lineage works, and whether it is empty is
+# the difference between "lineage will work" and "lineage silently returns
+# nothing", so refusing the whole relation costs a real capability. Masking the
+# column keeps the answer and drops the identity.
+#
+# Matched on the whole column name, case-insensitively, not as a substring:
+# over-masking is its own failure. `owner` is a role on most catalog views and
+# stays readable; a column literally called `email` does not.
+_PII_COLUMN_NAMES: FrozenSet[str] = frozenset(
+    {
+        "user_name",
+        "username",
+        "user_email",
+        "email",
+        "email_address",
+        "login_name",
+        "display_name",
+    }
+)
+
+
+def mask_identity_columns(
+    columns: Sequence[str], rows: Sequence[Sequence[Any]]
+) -> List[List[Any]]:
+    """Replace values in identity columns with the redaction marker.
+
+    The column is kept, not dropped. An agent that cannot see USER_NAME should
+    still know the view has one -- silently narrowing a result is the failure
+    this interface exists to prevent, and a masked value says "withheld" where
+    a missing column says nothing at all.
+    """
+    masked_at = [
+        i for i, name in enumerate(columns) if str(name).lower() in _PII_COLUMN_NAMES
+    ]
+    if not masked_at:
+        return [list(row) for row in rows]
+    out: List[List[Any]] = []
+    for row in rows:
+        copy = list(row)
+        for i in masked_at:
+            if i < len(copy) and copy[i] is not None:
+                copy[i] = _MASK
+        out.append(copy)
+    return out
+
 
 _SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
     "password",
