@@ -317,6 +317,13 @@ class SQLAlchemyQueryCombinerReport(Report):
     flatten_gate_errors: int = 0
     flatten_singletons: int = 0
 
+    # Recovery ladder, each rung strictly worse than the one above.
+    # failures - cte_recoveries is the number of groups that ended up serial,
+    # where the flat path costs round trips instead of saving scans.
+    flat_group_failures: int = 0
+    flat_group_cte_recoveries: int = 0
+    flat_group_serial_fallbacks: int = 0
+
     query_exceptions: int = 0
 
 
@@ -728,23 +735,30 @@ class SQLAlchemyQueryCombiner:
         # Scoped, not the global _execute_queue_fallback, which would demote
         # futures never attempted (measured: scans_avoided 4 -> 0).
         for members in groups.values():
+            # Precomputed: a diagnostic string must not be able to raise inside
+            # the except and skip the recovery it is announcing.
+            froms = members[0][1].query.get_final_froms()
             try:
                 self._execute_flat_group(members)
             except Exception as e:
+                # Counted before the raise, so a disabled fallback still shows.
+                self.report.flat_group_failures += 1
                 if not self.serial_execution_fallback_enabled:
                     raise
                 self.report.query_exceptions += 1
                 logger.warning(
                     f"Failed to execute flat group of {len(members)} queries "
-                    f"over {members[0][1].query.get_final_froms()} "
-                    f"({type(e).__name__}); will attempt CTE re-route."
+                    f"over {froms} ({type(e).__name__}); will attempt CTE "
+                    f"re-route."
                 )
                 logger.debug("Failed to execute flat group", exc_info=e)
                 group_queue = {k: fut for k, fut in members if not fut.done}
                 if group_queue:
                     try:
                         self._execute_cte_combine(group_queue)
+                        self.report.flat_group_cte_recoveries += 1
                     except Exception as e2:
+                        self.report.flat_group_serial_fallbacks += 1
                         # Warning, not debug: the first failure already warned,
                         # so a silent second one reads as a successful recovery.
                         logger.warning(

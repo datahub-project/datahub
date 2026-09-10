@@ -1990,3 +1990,71 @@ class TestExecuteAggregateGuard:
         conn.execute_aggregate(table, sa.func.count())
         conn.execute_aggregate(table, sa.literal_column("MEDIAN(v)"))
         conn.execute_aggregate(table, sa.literal_column("MEDIAN(v)").label("median"))
+
+
+class TestRowCountRungChoice:
+    """get_row_count is the one site where the wrong rung is a correctness bug."""
+
+    @staticmethod
+    def _adapter() -> Any:
+        return GenericAdapter(
+            config=ProfilingConfig(enabled=True),
+            report=SQLSourceReport(),
+            base_engine=sa.create_engine("sqlite://"),
+        )
+
+    def test_sampled_row_count_is_not_flattenable(self) -> None:
+        # Flattening would drop the sample clause and count the whole table,
+        # reporting a full count as a sampled one.
+        conn = MagicMock()
+        conn.execute_single_row.return_value.scalar.return_value = 10
+        table = sa.table("t", sa.column("v"))
+
+        self._adapter().get_row_count(table, conn, sample_clause="TABLESAMPLE (10)")
+
+        conn.execute_aggregate.assert_not_called()
+        assert "TABLESAMPLE" in str(conn.execute_single_row.call_args.args[0])
+
+    def test_unsampled_row_count_is_flattenable(self) -> None:
+        conn = MagicMock()
+        conn.execute_aggregate.return_value.scalar.return_value = 10
+        table = sa.table("t", sa.column("v"))
+
+        self._adapter().get_row_count(table, conn)
+
+        conn.execute_single_row.assert_not_called()
+        conn.execute_aggregate.assert_called_once()
+
+
+class TestExecuteAggregateTagging:
+    """Dropping the tag on this one line disables flattening everywhere."""
+
+    def test_aggregates_are_tagged_flattenable(self) -> None:
+        from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+            FLATTENABLE_EXECUTION_OPTION,
+            SINGLE_ROW_EXECUTION_OPTION,
+        )
+
+        raw = MagicMock()
+        table = sa.table("t", sa.column("v"))
+        ProfilingConnection(raw).execute_aggregate(table, sa.func.count())
+
+        opts = raw.execute.call_args.args[0].get_execution_options()
+        assert opts[SINGLE_ROW_EXECUTION_OPTION] is True
+        assert opts[FLATTENABLE_EXECUTION_OPTION] is True
+
+    def test_opaque_literal_needs_an_explicit_claim(self) -> None:
+        # Nothing can tell MEDIAN(v) from v inside a literal_column, so the
+        # caller has to say which it is.
+        from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+            FLATTENABLE_EXECUTION_OPTION,
+        )
+
+        table = sa.table("t", sa.column("v"))
+        for claim, expected in ((False, False), (True, True)):
+            raw = MagicMock()
+            ProfilingConnection(raw).execute_aggregate(
+                table, sa.literal_column("MEDIAN(v)"), literal_is_aggregate=claim
+            )
+            opts = raw.execute.call_args.args[0].get_execution_options()
+            assert opts.get(FLATTENABLE_EXECUTION_OPTION, False) is expected

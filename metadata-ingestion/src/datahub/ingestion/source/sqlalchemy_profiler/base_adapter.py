@@ -41,26 +41,38 @@ class ProfilingConnection:
     def __init__(self, conn: Connection) -> None:
         self._conn = conn
 
-    def execute_aggregate(self, table: Any, expr: ColumnElement[Any]) -> Any:
+    def execute_aggregate(
+        self,
+        table: Any,
+        expr: ColumnElement[Any],
+        literal_is_aggregate: bool = False,
+    ) -> Any:
         """Execute one aggregate over a whole table.
 
-        The query is built here, so it cannot carry a WHERE, GROUP BY or LIMIT.
-        That is what makes it safe to merge with other aggregates over the same
-        table into a single flat SELECT.
+        `expr` must collapse the whole table to a single row -- count, min,
+        max, avg, stddev, a native median. That is the merge contract: the
+        query is built here so it cannot carry a WHERE, GROUP BY or LIMIT, but
+        clause-absence alone is not enough. `SELECT v FROM t` has no clauses
+        and still returns N rows; merged with real aggregates it becomes
+        `SELECT count(*), v FROM t`, which returns one row on MySQL and SQLite
+        and silently drops the rest.
+
+        A non-aggregate is detected and run uncombined instead, so results stay
+        correct and only the batching is lost. sa.literal_column is opaque --
+        nothing can tell `MEDIAN(v)` from `v` -- so pass
+        literal_is_aggregate=True to assert that yours collapses to one row.
         """
         query = sa.select([expr]).select_from(table)
 
-        # A plain column merged with real aggregates emits
-        # `SELECT count(*), v FROM t`, which returns one row on MySQL and
-        # SQLite and silently drops the rest. Run it untagged rather than
-        # raising: results stay correct, only the batching is lost.
-        # literal_column is fine -- several adapters build their median that
-        # way, often labelled.
         inner = expr.element if isinstance(expr, Label) else expr
-        if isinstance(inner, ColumnClause) and not inner.is_literal:
+        # None: a function, which returns one row by construction.
+        # False: a plain column. True: a literal_column, opaque either way.
+        is_opaque = bool(inner.is_literal) if isinstance(inner, ColumnClause) else None
+        if is_opaque is False or (is_opaque is True and not literal_is_aggregate):
             logger.warning(
-                f"execute_aggregate expects an aggregate but got a plain column "
-                f"({expr}); running it uncombined."
+                f"execute_aggregate expects an expression that returns one row "
+                f"but got {expr}; running it uncombined. If it is an aggregate, "
+                f"pass literal_is_aggregate=True."
             )
             return self._conn.execute(query)
 
@@ -570,7 +582,12 @@ class PlatformAdapter(ABC):
         if expr is not None:
             try:
                 # Return raw result to preserve database-native formatting.
-                return conn.execute_aggregate(table, expr).scalar()
+                # A median expression collapses the table to one row by
+                # definition, including the literal_column forms several
+                # adapters use (quantile(), PERCENTILE_CONT, APPROX_QUANTILES).
+                return conn.execute_aggregate(
+                    table, expr, literal_is_aggregate=True
+                ).scalar()
             except SQLAlchemyError as e:
                 logger.debug(
                     f"Native MEDIAN expression failed for column {column}; "
