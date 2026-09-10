@@ -33,9 +33,11 @@ import lombok.experimental.Accessors;
 /**
  * Authorizes {@code domains} writes for domain-separated writers.
  *
- * <p>CREATE / UPSERT establishing domains still match Create/Edit against proposed domains. {@code
- * PATCH} always uses Edit Entity and requires the actor to be allowed for both before and after
- * domains when before membership exists (after-only when establishing first domains).
+ * <p>CREATE / UPSERT establishing domains still match Create/Edit Entity against proposed domains.
+ * Updates on existing entities (including {@code PATCH}) accept {@code EDIT_ENTITY} <em>or</em>
+ * {@code EDIT_DOMAINS_PRIVILEGE}; domain resource filters still apply. {@code PATCH} requires the
+ * actor to be allowed for both before and after domains when before membership exists (after-only
+ * when establishing first domains).
  *
  * <p>In-transaction {@code validatePreCommit} re-checks when a user session is present (sync):
  * before+after Edit when domains already exist, otherwise Create/Edit establish against proposed
@@ -106,7 +108,7 @@ public class DomainWriteAuthorizationValidator extends AbstractAspectAuthorizati
                   item,
                   "Unauthorized to edit domains on entity "
                       + urn
-                      + " (domain-scoped Edit Entity policy does not allow before and/or after domains)"));
+                      + " (requires EDIT_DOMAINS_PRIVILEGE or EDIT_ENTITY for current and proposed domains)"));
         }
         continue;
       }
@@ -131,9 +133,7 @@ public class DomainWriteAuthorizationValidator extends AbstractAspectAuthorizati
                     + (exists ? "edit" : "create")
                     + " domains on entity "
                     + urn
-                    + (useProposed
-                        ? " (proposed domain does not match domain-scoped write policy)"
-                        : "")));
+                    + domainsAuthHint(exists, useProposed)));
       }
     }
     return failures;
@@ -178,7 +178,7 @@ public class DomainWriteAuthorizationValidator extends AbstractAspectAuthorizati
                   item,
                   "Unauthorized to edit domains on entity "
                       + urn
-                      + " (domain-scoped Edit Entity policy does not allow before and/or after domains)"));
+                      + " (requires EDIT_DOMAINS_PRIVILEGE or EDIT_ENTITY for current and proposed domains)"));
         }
         continue;
       }
@@ -198,7 +198,7 @@ public class DomainWriteAuthorizationValidator extends AbstractAspectAuthorizati
                     + (exists ? "edit" : "create")
                     + " domains on entity "
                     + urn
-                    + " (proposed domain does not match domain-scoped write policy)"));
+                    + domainsAuthHint(exists, true)));
       }
     }
     return failures.stream();
@@ -217,5 +217,21 @@ public class DomainWriteAuthorizationValidator extends AbstractAspectAuthorizati
       return true;
     }
     return opContext.isSystemAuth();
+  }
+
+  /**
+   * Privilege hint for ingest-time domain auth failures. Create still requires Create/Edit Entity;
+   * updates accept Edit Domain or Edit Entity. Domain-scoped policies are mentioned only when the
+   * check evaluated proposed domains.
+   */
+  static String domainsAuthHint(boolean entityExists, boolean usedProposedDomains) {
+    String privileges =
+        entityExists
+            ? "requires EDIT_DOMAINS_PRIVILEGE or EDIT_ENTITY"
+            : "requires CREATE_ENTITY or EDIT_ENTITY";
+    if (usedProposedDomains) {
+      return " (" + privileges + "; proposed domain must match any domain-scoped write policy)";
+    }
+    return " (" + privileges + ")";
   }
 }

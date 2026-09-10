@@ -39,14 +39,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Helpers for domain-separated writers: privilege selection by entity existence, proposed-domain
- * resolution (including PATCH apply), and authorizing writes against domain-scoped Create/Edit
- * policies (including before/after Edit reconciliation for {@code domains} PATCH).
+ * resolution (including PATCH apply), and authorizing {@code domains} writes against domain-scoped
+ * Create/Edit Entity policies or the aspect-specific Edit Domain privilege (including before/after
+ * reconciliation for {@code domains} PATCH).
  */
 @Slf4j
 public final class DomainWriteAuthorizationUtils {
@@ -222,7 +224,31 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Authorize domain-scoped {@code EDIT_ENTITY} for a domains write given before/after membership.
+   * Privileges that can authorize a {@code domains} aspect write.
+   *
+   * <p>{@link ApiOperation#UPDATE} (set / clear / move on an existing entity) accepts {@code
+   * EDIT_ENTITY} <em>or</em> {@code EDIT_DOMAINS_PRIVILEGE}. Domain resource filters still apply to
+   * whichever privilege matches. {@link ApiOperation#CREATE} stays Create/Edit Entity only so Edit
+   * Domain cannot create entities.
+   */
+  @Nonnull
+  public static Disjunctive<Conjunctive<PoliciesConfig.Privilege>> lookupDomainsAspectPrivileges(
+      @Nonnull ApiOperation apiOperation, @Nonnull String entityType) {
+    Disjunctive<Conjunctive<PoliciesConfig.Privilege>> entityPrivileges =
+        AuthUtil.lookupAPIPrivilege(ENTITY, apiOperation, entityType);
+    if (apiOperation != UPDATE) {
+      return entityPrivileges;
+    }
+    return new Disjunctive<>(
+        Stream.concat(
+                entityPrivileges.stream(),
+                Stream.of(Conjunctive.of(PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE)))
+            .collect(Collectors.toList()));
+  }
+
+  /**
+   * Authorize a domains write given before/after membership. Update-path checks accept Edit Domain
+   * or Edit Entity; domain-scoped policies must still match the seeded domain field.
    *
    * <ul>
    *   <li>No before domains: match against after only (first-domains pattern).
@@ -444,8 +470,11 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Authorize a write against the entity resource, optionally seeding the session resource-spec
-   * cache with proposed domains (plus ancestors) so domain-scoped policies can match.
+   * Authorize a {@code domains} write against the entity resource, optionally seeding the session
+   * resource-spec cache with proposed domains (plus ancestors) so domain-scoped policies can match.
+   *
+   * <p>On {@link ApiOperation#UPDATE}, {@code EDIT_DOMAINS_PRIVILEGE} is sufficient; Create still
+   * requires Create/Edit Entity.
    */
   public static boolean isAuthorizedEntityWrite(
       @Nonnull AuthorizationSession session,
@@ -463,7 +492,7 @@ public final class DomainWriteAuthorizationUtils {
     return AuthUtil.isAuthorized(
         session,
         AuthUtil.buildDisjunctivePrivilegeGroup(
-            AuthUtil.lookupAPIPrivilege(ENTITY, apiOperation, urn.getEntityType())),
+            lookupDomainsAspectPrivileges(apiOperation, urn.getEntityType())),
         resourceSpec);
   }
 
