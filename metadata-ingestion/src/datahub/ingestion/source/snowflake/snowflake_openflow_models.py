@@ -17,6 +17,10 @@ COL_DEPLOYMENT_NAME = "DEPLOYMENT_NAME"
 COL_RUNTIME = "RUNTIME"
 COL_RUNTIME_NAME = "RUNTIME_NAME"
 COL_CONNECTOR_NAME = "CONNECTOR_NAME"
+# Every dual-surface lookup lists the SHOW spelling first, then the view's.
+# A raw row only ever carries one of them, so the order cannot change a result;
+# it is uniform so that a reader never has to check whether a given call is the
+# exception.
 # The ACCOUNT_USAGE views prefix an object's OWN name and status with its type
 # (DEPLOYMENT_NAME / DEPLOYMENT_STATUS ...), where SHOW calls them plainly `name`
 # and `status`. Verified against a live account: NO history view has a bare NAME
@@ -107,15 +111,16 @@ class OpenflowDeployment:
     status: Optional[str] = None
     owner: Optional[str] = None
     display_name: Optional[str] = None
-    created_on: Optional[str] = None
-    # Parsed form of created_on, used for ORDERING. The string is kept
-    # for the pagination cursor, which Snowflake parses itself.
+    # The timestamp, parsed, used for ORDERING in _resolve_per_key. The raw
+    # string is deliberately NOT retained: the pagination cursor reads
+    # CREATED_ON straight off the row dict, so a second copy on the model
+    # had no reader.
     created_at: Optional[datetime] = None
     deleted_on: Optional[str] = None
 
     @classmethod
     def from_row(cls, row: Dict[str, Any]) -> Optional["OpenflowDeployment"]:
-        key = get_str(row, COL_DEPLOYMENT_KEY, COL_KEY)
+        key = get_str(row, COL_KEY, COL_DEPLOYMENT_KEY)
         if key is None:
             return None
         return cls(
@@ -124,7 +129,6 @@ class OpenflowDeployment:
             status=get_str(row, COL_STATUS, COL_DEPLOYMENT_STATUS),
             owner=get_str(row, COL_OWNER),
             display_name=get_str(row, COL_DISPLAY_NAME),
-            created_on=get_str(row, COL_CREATED_ON),
             created_at=get_datetime(row, COL_CREATED_ON),
             deleted_on=get_str(row, COL_DELETED_ON),
         )
@@ -141,15 +145,16 @@ class OpenflowRuntime:
     object_database: Optional[str] = None
     object_schema: Optional[str] = None
     execute_as_role: Optional[str] = None
-    created_on: Optional[str] = None
-    # Parsed form of created_on, used for ORDERING. The string is kept
-    # for the pagination cursor, which Snowflake parses itself.
+    # The timestamp, parsed, used for ORDERING in _resolve_per_key. The raw
+    # string is deliberately NOT retained: the pagination cursor reads
+    # CREATED_ON straight off the row dict, so a second copy on the model
+    # had no reader.
     created_at: Optional[datetime] = None
     deleted_on: Optional[str] = None
 
     @classmethod
     def from_row(cls, row: Dict[str, Any]) -> Optional["OpenflowRuntime"]:
-        key = get_str(row, COL_RUNTIME_KEY, COL_KEY)
+        key = get_str(row, COL_KEY, COL_RUNTIME_KEY)
         if key is None:
             return None
         return cls(
@@ -162,7 +167,6 @@ class OpenflowRuntime:
             object_database=get_str(row, COL_DATABASE_NAME),
             object_schema=get_str(row, COL_SCHEMA_NAME),
             execute_as_role=get_str(row, COL_EXECUTE_AS_ROLE, COL_EXECUTE_AS_ROLE_NAME),
-            created_on=get_str(row, COL_CREATED_ON),
             created_at=get_datetime(row, COL_CREATED_ON),
             deleted_on=get_str(row, COL_DELETED_ON),
         )
@@ -190,9 +194,10 @@ class OpenflowConnector:
     # CONNECTOR_URL.
     database_name: Optional[str] = None
     schema_name: Optional[str] = None
-    created_on: Optional[str] = None
-    # Parsed form of created_on, used for ORDERING. The string is kept
-    # for the pagination cursor, which Snowflake parses itself.
+    # The timestamp, parsed, used for ORDERING in _resolve_per_key. The raw
+    # string is deliberately NOT retained: the pagination cursor reads
+    # CREATED_ON straight off the row dict, so a second copy on the model
+    # had no reader.
     created_at: Optional[datetime] = None
     deleted_on: Optional[str] = None
 
@@ -218,7 +223,6 @@ class OpenflowConnector:
             version_location_uri=get_str(row, COL_DEFAULT_VERSION_LOCATION_URI),
             database_name=get_str(row, COL_DATABASE_NAME),
             schema_name=get_str(row, COL_SCHEMA_NAME),
-            created_on=get_str(row, COL_CREATED_ON),
             created_at=get_datetime(row, COL_CREATED_ON),
             deleted_on=get_str(row, COL_DELETED_ON),
         )

@@ -1,3 +1,4 @@
+import gzip
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import pytest
@@ -11,7 +12,10 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow import (
     _MAX_RUNTIMES_FOR_URL_LOOKUP as _MAX,
+    OpenflowLineage,
     SnowflakeOpenflowSource,
+    decode_config_payload,
+    parse_connector_config,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_config import (
     SnowflakeOpenflowSourceConfig,
@@ -1032,3 +1036,155 @@ def test_an_inventory_below_the_row_cap_is_not_flagged(
 
     assert source.report.num_show_results_at_row_cap == 0
     assert "Inventory may be truncated" not in _warning_titles(source.report)
+
+
+def test_the_inclusive_cursor_overlap_row_does_not_duplicate_an_object() -> None:
+    # The cursor predicate is `CREATED_ON >= cursor`, not `>`, deliberately: a
+    # strict cursor drops every row sharing the boundary timestamp. The price is
+    # that the boundary row comes back on the next page, and the comment in
+    # _history_query claims that is free because merge_show_and_history is keyed
+    # on row.key and collapses it. That claim was prose only -- the existing
+    # multi-page test uses a fake that ignores the cursor, so its pages never
+    # actually overlap. This one reproduces the real `>=` behaviour.
+    page_size = SnowflakeOpenflowQuery.PAGE_SIZE
+    history = [
+        {
+            "RUNTIME_KEY": f"rt-{i}",
+            "RUNTIME_NAME": f"runtime_{i}",
+            "CREATED_ON": f"2024-01-01 00:00:{i % 60:02d}.000",
+            "DELETED_ON": None,
+        }
+        for i in range(page_size + 1)
+    ]
+
+    def fake_query_rows(query: str) -> List[Dict[str, Any]]:
+        if query == SnowflakeOpenflowQuery.show_runtimes():
+            return []
+        # Emulate `WHERE CREATED_ON >= cursor` against the full history, which
+        # is what re-serves the boundary row.
+        marker = "CREATED_ON >= '"
+        if marker in query:
+            cursor = query.split(marker, 1)[1].split("'", 1)[0]
+            rows = [r for r in history if str(r["CREATED_ON"]) >= cursor]
+        else:
+            rows = history
+        return rows[:page_size]
+
+    source = _make_source()
+    source._query_rows = fake_query_rows  # type: ignore[method-assign]
+
+    runtimes = source._fetch_runtimes()
+
+    keys = [r.key for r in runtimes]
+    assert len(keys) == len(set(keys)), f"the overlap row was not collapsed: {keys}"
+    assert set(keys) == {f"rt-{i}" for i in range(page_size + 1)}
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        pytest.param({"configuration": {"a": 1}}, id="configuration is an object"),
+        pytest.param({"configuration": ["source"]}, id="sections are strings"),
+        pytest.param(
+            {"configuration": [{"name": "source", "properties": "x"}]},
+            id="properties is a string",
+        ),
+        pytest.param({}, id="no configuration key"),
+    ],
+)
+def test_a_structurally_odd_config_yields_no_lineage_instead_of_raising(
+    payload: Dict[str, Any],
+) -> None:
+    # All valid JSON, so the download path sees nothing wrong. Three of these
+    # used to raise AttributeError out of parse_connector_config, which
+    # get_workunits_internal calls with no guard -- one malformed file aborted
+    # the whole run and took every other connector's metadata with it.
+    assert parse_connector_config(payload) == OpenflowLineage()
+
+
+@pytest.mark.parametrize(
+    ("payload", "label"),
+    [
+        (b"[]", "array"),
+        (b'"a string"', "string"),
+        (b"7", "number"),
+        (b"null", "null"),
+    ],
+)
+def test_a_config_payload_that_is_not_a_json_object_is_refused(
+    payload: bytes, label: str
+) -> None:
+    # Exercises the real decision, not a fake standing in for it. The earlier
+    # version of this test replaced _download_connector_config wholesale, so
+    # deleting the isinstance check left the suite green -- caught by mutation,
+    # which is why the check now lives in a function a test can reach.
+    with pytest.raises(RuntimeError, match="expected a JSON object"):
+        decode_config_payload(payload)
+
+
+def test_a_well_formed_config_payload_decodes() -> None:
+    assert decode_config_payload(b'{"configuration": []}') == {"configuration": []}
+
+
+def test_a_gzipped_config_payload_decodes() -> None:
+    # GET may deliver the file compressed depending on how it was staged.
+    body = gzip.compress(b'{"configuration": []}')
+    assert decode_config_payload(body) == {"configuration": []}
+
+
+def test_a_failed_config_read_costs_only_that_connector() -> None:
+    # The end-to-end guarantee: the failure is counted and warned, and
+    # _lineage_for_connector returns empty rather than propagating.
+    source = _make_source()
+
+    def fake_download(uri: str) -> Dict[str, Any]:
+        raise RuntimeError("expected a JSON object, got list")
+
+    source._download_connector_config = fake_download  # type: ignore[assignment]
+    connector = OpenflowConnector(
+        name="c", runtime_name="rt", version_location_uri="@db.schema.stage/v1"
+    )
+
+    assert source._lineage_for_connector(connector) == []
+    assert source.report.num_config_reads_failed == 1
+    assert "Could not read connector configuration" in _warning_titles(source.report)
+
+
+def test_an_unusually_large_history_view_is_escalated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The other two O(N) surfaces in this source warn when they get large; this
+    # one only counted. Threshold patched down so the test states the boundary
+    # rather than paging fifty thousand rows.
+    monkeypatch.setattr(snowflake_openflow, "_HISTORY_PAGES_BEFORE_WARNING", 2)
+    page_size = SnowflakeOpenflowQuery.PAGE_SIZE
+    pages = [
+        [_row(f"2024-01-0{p + 1}T00:00:{i % 60:02d}") for i in range(page_size)]
+        for p in range(3)
+    ] + [[_row("2024-01-09T00:00:00")]]
+    source = _make_source()
+    source._query_rows = lambda query: pages.pop(0)  # type: ignore[assignment,method-assign]
+
+    source._paged_history(lambda cursor: f"q cursor={cursor}")
+
+    assert "History view is unusually large" in _warning_titles(source.report)
+
+
+def test_an_ordinary_history_view_is_not_escalated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(snowflake_openflow, "_HISTORY_PAGES_BEFORE_WARNING", 2)
+    page_size = SnowflakeOpenflowQuery.PAGE_SIZE
+    # The short final page counts too, so this is exactly 2 -- the boundary
+    # itself, which must stay quiet.
+    pages = [
+        [_row(f"2024-01-01T00:00:{i % 60:02d}") for i in range(page_size)],
+        [_row("2024-01-09T00:00:00")],
+    ]
+    source = _make_source()
+    source._query_rows = lambda query: pages.pop(0)  # type: ignore[assignment,method-assign]
+
+    source._paged_history(lambda cursor: f"q cursor={cursor}")
+
+    assert source.report.num_history_pages_beyond_first == 1
+    assert "History view is unusually large" not in _warning_titles(source.report)

@@ -38,7 +38,7 @@ def test_absent_optional_columns_do_not_raise():
     deployment = OpenflowDeployment.from_row({"name": "D", "key": "k"})
     assert deployment is not None
     assert deployment.status is None
-    assert deployment.created_on is None
+    assert deployment.created_at is None
 
 
 def test_row_without_identity_key_returns_none():
@@ -105,7 +105,7 @@ def test_merge_prefers_show_for_location_and_history_for_ids():
     assert merged[0].object_database == "MY_DB"
     # The view wins for what only it carries.
     assert merged[0].execute_as_role == "RUNTIME_ROLE"
-    assert merged[0].created_on == "2026-09-03T00:00:00"
+    assert merged[0].created_at == datetime(2026, 9, 3, tzinfo=timezone.utc)
 
 
 def test_merge_treats_show_only_object_as_new_not_deleted():
@@ -515,7 +515,9 @@ def test_an_unparseable_created_on_never_displaces_a_usable_one() -> None:
     resolved, _ = _resolve_per_key([row for row in rows if row])
 
     assert len(resolved) == 1
-    assert resolved[0].created_on == "2024-01-01 00:00:00"
+    # Asserted on the PARSED value: the raw string is no longer carried, and it
+    # was the parsed one that decided this ordering anyway.
+    assert resolved[0].created_at == datetime(2024, 1, 1, tzinfo=timezone.utc)
 
 
 @pytest.mark.parametrize(

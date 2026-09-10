@@ -143,6 +143,14 @@ SCHEMA_STRATEGY_SOURCE_SCHEMA = "SOURCE_SCHEMA"
 # include_connector_external_url explicitly overrides it at any size.
 # Snowflake caps SHOW output at this many rows and does not flag the truncation.
 _SHOW_ROW_CAP = 10_000
+# A history view is read in full, however many pages that takes -- correctness
+# does not depend on this number. It exists because the other two O(N) surfaces
+# in this source (the SHOW row cap and the per-runtime DESCRIBE threshold) both
+# escalate to a warning when they get large and this one did not, so a view that
+# turned out to be event-style rather than incarnation-style -- a row per status,
+# version and config change -- would just get quietly slower. Whether these views
+# are event-style is not something the docs settle, so the operator gets told.
+_HISTORY_PAGES_BEFORE_WARNING = 50
 _MAX_RUNTIMES_FOR_URL_LOOKUP = 500
 
 # Beyond this the readable per-table job id is replaced by a content hash, so
@@ -439,13 +447,50 @@ def _parse_table_names(raw: str) -> Tuple[List[Tuple[str, str]], List[str]]:
     return tables, unparseable
 
 
+def decode_config_payload(content: bytes) -> Dict[str, Any]:
+    """The downloaded config bytes as a JSON object, or raise.
+
+    Separated from the download so the decision it makes is reachable by a test
+    without a stage, a temporary directory or a GET. It was inline first, and a
+    mutation pass showed the isinstance check could be deleted with the whole
+    suite still green -- the only test covering it faked the download and so
+    never ran this code at all.
+
+    Valid JSON is not necessarily a config. Raising on a non-object routes an
+    array/string/number payload into the caller's counted-and-warned path,
+    costing this connector its lineage and nothing else. Returning it instead
+    would reach parse_connector_config, whose .get() would raise AttributeError
+    out of get_workunits_internal and abort the WHOLE run -- every other
+    connector's metadata lost to one malformed file.
+    """
+    # Whether a staged file arrives gzip-compressed depends on how it was
+    # staged, not on anything this connector controls. Detected via the magic
+    # bytes rather than a ".gz" suffix, which is a naming convention GET
+    # applies rather than a guarantee.
+    if content[:2] == b"\x1f\x8b":
+        content = gzip.decompress(content)
+    parsed = json.loads(content)
+    if not isinstance(parsed, dict):
+        raise RuntimeError(f"expected a JSON object, got {type(parsed).__name__}")
+    return parsed
+
+
 def parse_connector_config(config_json: Dict[str, Any]) -> OpenflowLineage:
     # Iterate EVERY section. Descending into configuration[0] only finds the
     # destination on connectors that happen to list it first.
     lineage = OpenflowLineage()
-    for section in config_json.get("configuration") or []:
+    sections = config_json.get("configuration")
+    for section in sections if isinstance(sections, list) else []:
+        # `configuration` is an array of objects in every config seen, but this
+        # file is written by Openflow and read here without a schema, so a
+        # differently-shaped one must degrade to no lineage rather than take
+        # the run down with it.
+        if not isinstance(section, dict):
+            continue
         name = section.get("name")
-        properties = section.get("properties") or {}
+        properties = section.get("properties")
+        if not isinstance(properties, dict):
+            properties = {}
         if name == SECTION_SOURCE:
             source_url: Optional[str] = None
             for candidate_key in PROP_SOURCE_URL_CANDIDATES:
@@ -1164,15 +1209,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             downloaded = list(pathlib.Path(local_dir).iterdir())
             if not downloaded:
                 raise RuntimeError("GET reported no error but produced no local file")
-            content = downloaded[0].read_bytes()
-            # Whether a staged file arrives gzip-compressed depends on how
-            # it was staged (Snowflake's AUTO_COMPRESS behaviour), not on
-            # anything this connector controls. Detected via the gzip magic
-            # bytes rather than trusting a ".gz" filename suffix, since the
-            # suffix is a naming convention GET applies, not a guarantee.
-            if content[:2] == b"\x1f\x8b":
-                content = gzip.decompress(content)
-            return json.loads(content)
+            return decode_config_payload(downloaded[0].read_bytes())
 
     def _lineage_for_connector(
         self, connector: OpenflowConnector
@@ -1414,6 +1451,17 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             # population. The boundary-row loss it warned about is closed by the
             # inclusive cursor in snowflake_openflow_query.py.
             self.report.num_history_pages_beyond_first += pages - 1
+            if pages > _HISTORY_PAGES_BEFORE_WARNING:
+                self.report.warning(
+                    title="History view is unusually large",
+                    message=(
+                        f"Reading it took {pages} pages of "
+                        f"{SnowflakeOpenflowQuery.PAGE_SIZE}. The whole view is "
+                        "still read, so metadata is complete, but the run will "
+                        "be slower than expected and this is worth checking."
+                    ),
+                    context=f"{pages} pages",
+                )
         return rows
 
     def _parse_rows(
@@ -1540,6 +1588,12 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         # otherwise occupy the None key, and a runtime whose deployment_name is
         # also None would match it and nest under an unrelated parent. The
         # runtime map below guards the same way, for the same reason.
+        # No ambiguity guard here, unlike the runtime map below, and the
+        # asymmetry is deliberate: SHOW OPENFLOW RUNTIMES and SHOW OPENFLOW
+        # CONNECTORS both return database_name/schema_name while SHOW OPENFLOW
+        # DEPLOYMENTS returns neither, so deployments are account-scoped and
+        # their names are unique. Two schemas can each hold a runtime called
+        # `default`; two deployments cannot share a name.
         by_deployment_name = {
             deployment.name: deployment for deployment in deployments if deployment.name
         }
