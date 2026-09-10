@@ -1,6 +1,7 @@
 package com.linkedin.metadata.config;
 
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import java.util.Arrays;
 import org.springframework.boot.env.YamlPropertySourceLoader;
@@ -31,12 +32,18 @@ public class ViewAuthorizationConfigurationTest {
         .load("application", new ClassPathResource("application.yaml"))
         .forEach(environment.getPropertySources()::addLast);
 
-    String defaultAdd =
-        environment.getRequiredProperty("authorization.view.unrestrictedEntityTypes.add");
+    String defaultValue =
+        environment.getRequiredProperty("authorization.view.unrestrictedEntityTypes.defaultValue");
     assertFalse(
-        Arrays.stream(defaultAdd.split(","))
+        Arrays.stream(defaultValue.split(","))
             .map(String::trim)
             .anyMatch(entityType::equalsIgnoreCase),
-        entityType + " must not be in stock VIEW_UNRESTRICTED_ENTITY_TYPES_ADD");
+        entityType + " must not be in the stock unrestricted defaults");
+    assertTrue(
+        environment
+            .resolvePlaceholders(
+                environment.getRequiredProperty("authorization.view.unrestrictedEntityTypes.add"))
+            .isEmpty(),
+        "VIEW_UNRESTRICTED_ENTITY_TYPES_ADD must default to empty");
   }
 }

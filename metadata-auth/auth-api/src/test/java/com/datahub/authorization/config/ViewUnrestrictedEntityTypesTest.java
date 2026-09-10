@@ -11,6 +11,7 @@ public class ViewUnrestrictedEntityTypesTest {
   public void testEmptyDefaults() {
     ViewUnrestrictedEntityTypes config = ViewUnrestrictedEntityTypes.builder().build();
     assertTrue(config.isEmpty());
+    assertEquals(config.parsedDefaultValue(), List.of());
     assertEquals(config.parsedValue(), List.of());
     assertEquals(config.parsedAdd(), List.of());
     assertEquals(config.parsedRemove(), List.of());
@@ -34,11 +35,13 @@ public class ViewUnrestrictedEntityTypesTest {
   public void testValueAddRemoveCanCombine() {
     ViewUnrestrictedEntityTypes config =
         ViewUnrestrictedEntityTypes.builder()
+            .defaultValue("dataHubPolicy,assertion")
             .value("corpuser,corpGroup,container")
             .add("actionRequest")
             .remove("container")
             .build();
     assertFalse(config.isEmpty());
+    assertEquals(config.parsedDefaultValue(), List.of("datahubpolicy", "assertion"));
     assertEquals(config.parsedValue(), List.of("corpuser", "corpgroup", "container"));
     assertEquals(config.parsedAdd(), List.of("actionrequest"));
     assertEquals(config.parsedRemove(), List.of("container"));

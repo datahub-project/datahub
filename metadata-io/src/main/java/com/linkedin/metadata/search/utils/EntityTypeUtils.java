@@ -24,9 +24,9 @@ import lombok.extern.slf4j.Slf4j;
  * <p>For search entity-type lists there is no registry baseline — empty config yields an empty
  * result (production defaults come from {@code application.yaml}).
  *
- * <p>For view-unrestricted types, the baseline is entity specs with {@code viewUnrestricted: true}
- * in the entity registry. A non-empty config {@code value} replaces that baseline; {@code add} /
- * {@code remove} always overlay.
+ * <p>For view-unrestricted types, the effective default is entity specs with {@code
+ * viewUnrestricted: true} plus the application {@code defaultValue}. A non-empty config {@code
+ * value} replaces that default; {@code add} / {@code remove} always mutate the selected baseline.
  *
  * <p>Order from baseline/{@code value} then {@code add} is preserved; duplicates are dropped
  * case-insensitively (first occurrence wins). Unknown registry names are soft-dropped with a warn.
@@ -55,10 +55,15 @@ public final class EntityTypeUtils {
   public static Set<String> resolve(
       @Nullable ViewUnrestrictedEntityTypes config, @Nullable EntityRegistry entityRegistry) {
     final List<String> registryBaseline = viewUnrestrictedFromRegistry(entityRegistry);
+    final List<String> defaultValue =
+        config == null ? Collections.emptyList() : config.parsedDefaultValue();
     final List<String> value = config == null ? Collections.emptyList() : config.parsedValue();
     final List<String> add = config == null ? Collections.emptyList() : config.parsedAdd();
     final List<String> remove = config == null ? Collections.emptyList() : config.parsedRemove();
-    final List<String> baseline = value.isEmpty() ? registryBaseline : value;
+    final List<String> baseline =
+        value.isEmpty()
+            ? mergeOrdered(registryBaseline, defaultValue, Collections.emptyList())
+            : value;
 
     if (baseline.isEmpty() && add.isEmpty() && remove.isEmpty()) {
       return Set.of();
