@@ -110,7 +110,7 @@ def test_paged_history_stops_on_null_created_on_boundary():
         return full_page
 
     source._query_rows = fake_query_rows  # type: ignore[method-assign]
-    rows = source._paged_history(lambda cursor: f"query cursor={cursor}")
+    rows = source._paged_history(lambda cursor: f"query cursor={cursor}", "runtimes")
 
     assert rows == full_page
     assert len(calls) == 1
@@ -139,7 +139,7 @@ def test_paged_history_stops_on_non_advancing_cursor():
         return tied_page
 
     source._query_rows = fake_query_rows  # type: ignore[method-assign]
-    rows = source._paged_history(lambda cursor: f"query cursor={cursor}")
+    rows = source._paged_history(lambda cursor: f"query cursor={cursor}", "runtimes")
 
     # Page 1: cursor None -> "…:00" advances the cursor once. Page 2: the
     # cursor recomputes to the same "…:00" value, and the guard stops there.
@@ -168,7 +168,7 @@ def test_paged_history_normal_termination_stays_quiet():
         return short_page
 
     source._query_rows = fake_query_rows  # type: ignore[method-assign]
-    rows = source._paged_history(lambda cursor: f"query cursor={cursor}")
+    rows = source._paged_history(lambda cursor: f"query cursor={cursor}", "runtimes")
 
     assert rows == short_page
     assert len(calls) == 1
@@ -192,7 +192,7 @@ def test_paged_history_multi_page_collects_all_rows_and_advances_cursor():
         return f"query cursor={cursor}"
 
     source._query_rows = fake_query_rows  # type: ignore[method-assign]
-    rows = source._paged_history(builder)
+    rows = source._paged_history(builder, "runtimes")
 
     assert rows == page1 + page2 + page3
     assert cursors_seen == [None, page1[-1]["CREATED_ON"], page2[-1]["CREATED_ON"]]
@@ -1167,7 +1167,7 @@ def test_an_unusually_large_history_view_is_escalated(
     source = _make_source()
     source._query_rows = lambda query: pages.pop(0)  # type: ignore[assignment,method-assign]
 
-    source._paged_history(lambda cursor: f"q cursor={cursor}")
+    source._paged_history(lambda cursor: f"q cursor={cursor}", "runtimes")
 
     assert "History view is unusually large" in _warning_titles(source.report)
 
@@ -1186,7 +1186,7 @@ def test_an_ordinary_history_view_is_not_escalated(
     source = _make_source()
     source._query_rows = lambda query: pages.pop(0)  # type: ignore[assignment,method-assign]
 
-    source._paged_history(lambda cursor: f"q cursor={cursor}")
+    source._paged_history(lambda cursor: f"q cursor={cursor}", "runtimes")
 
     assert source.report.num_history_pages_beyond_first == 1
     assert "History view is unusually large" not in _warning_titles(source.report)

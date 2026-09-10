@@ -18,6 +18,7 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TypeVar,
     Union,
 )
 from urllib.parse import urlparse
@@ -80,6 +81,7 @@ from datahub.ingestion.source.snowflake.snowflake_openflow_query import (
     SnowflakeOpenflowQuery,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_report import (
+    LARGE_HISTORY_MESSAGE,
     SnowflakeOpenflowReport,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
@@ -166,9 +168,10 @@ _MAX_RUNTIMES_FOR_URL_LOOKUP = 500
 # GMS rejects an aspect whose URL-encoded urn exceeds this; see
 # metadata-utils UrnValidationUtil.URN_NUM_BYTES_LIMIT.
 _MAX_URN_BYTES = 512
-# How much of the readable name a shortened id keeps. Small enough that the
-# result fits even when the name appears twice in a nested urn.
-_SHORTENED_PREFIX = 80
+# How much of the readable name a shortened id may keep, tried longest-first.
+# The 0 is the floor and is load-bearing: it means the digest alone, which is
+# ASCII and therefore fits whatever the identifier's encoding cost.
+_SHORTENED_PREFIXES = (80, 40, 20, 0)
 
 _RETRY_MAX_ATTEMPTS = 3
 # Seconds. Produces waits of ~1s then ~2s. Read at call time rather than baked
@@ -625,20 +628,13 @@ def build_connector_flow(
     #   - Snowsight allows several connectors to share a display name, so the bare
     #     name collides across runtimes.
     # CONNECTOR_ID is carried in custom properties instead.
-    flow = _flow_with_name(
-        connector, connector.key, platform_instance, env, parent_container, external_url
-    )
-    if urn_fits(flow.urn):
-        return flow
     # Measured against the entity's OWN urn rather than a character budget, so
     # this cannot drift from however the SDK composes it.
-    return _flow_with_name(
-        connector,
-        _shortened(connector.key),
-        platform_instance,
-        env,
-        parent_container,
-        external_url,
+    return _fitted(
+        lambda name: _flow_with_name(
+            connector, name, platform_instance, env, parent_container, external_url
+        ),
+        connector.key,
     )
 
 
@@ -682,14 +678,32 @@ def urn_fits(urn: object) -> bool:
     return len(urllib.parse.quote_plus(str(urn))) <= _MAX_URN_BYTES
 
 
-def _shortened(readable: str) -> str:
-    """A stable, shorter stand-in for a name whose urn does not fit.
+EntityT = TypeVar("EntityT", DataFlow, DataJob)
 
-    hashlib rather than the builtin hash: the builtin is salted per process, so
-    an id built from it would name a different entity on every run.
+
+def _fitted(build: Callable[[str], EntityT], readable: str) -> EntityT:
+    """The entity built from `readable`, shortened until its urn fits.
+
+    Shortening by CHARACTERS is not enough, which is the trap this replaces: the
+    limit is on the URL-ENCODED urn, and one CJK character encodes to nine bytes
+    and one emoji to twelve. An 80-character prefix of a CJK name is 720 bytes of
+    urn on its own, so a single shorten-and-return produced a 1550-byte DataJob
+    urn -- rejected by GMS, and the table's lineage lost. Measured, not reasoned.
+
+    So each candidate is built and measured, and the ladder ends at the digest
+    alone, which is 16 ASCII characters and therefore always fits. hashlib
+    rather than the builtin hash: the builtin is salted per process, so the id
+    would name a different entity on every run.
     """
+    entity = build(readable)
+    if urn_fits(entity.urn):
+        return entity
     digest = hashlib.md5(readable.encode("utf-8")).hexdigest()[:16]
-    return f"{readable[:_SHORTENED_PREFIX]}~{digest}"
+    for prefix in _SHORTENED_PREFIXES:
+        entity = build(f"{readable[:prefix]}~{digest}" if prefix else digest)
+        if urn_fits(entity.urn):
+            return entity
+    return entity
 
 
 def _table_job_name(connector: OpenflowConnector, pair: ConnectorTableLineage) -> str:
@@ -700,17 +714,12 @@ def build_connector_table_job(
     connector: OpenflowConnector, flow: DataFlow, pair: ConnectorTableLineage
 ) -> DataJob:
     """One DataJob per replicated table, carrying that table's edge alone."""
-    job = _job_with_name(connector, flow, pair, _table_job_name(connector, pair))
-    if urn_fits(job.urn):
-        return job
     # The job urn nests the flow urn, so it carries connector.key twice and can
-    # exceed the cap while the flow's own urn is comfortably inside it. Measured
-    # on the built entity for the same reason as the flow.
-    return _job_with_name(
-        connector,
-        flow,
-        pair,
-        _shortened(_table_job_name(connector, pair)),
+    # exceed the cap while the flow's own urn is comfortably inside it. The flow
+    # handed in here is already fitted, so only the job half can still overflow.
+    return _fitted(
+        lambda name: _job_with_name(connector, flow, pair, name),
+        _table_job_name(connector, pair),
     )
 
 
@@ -1475,7 +1484,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         return pairs
 
     def _paged_history(
-        self, builder: Callable[[Optional[str]], str]
+        self, builder: Callable[[Optional[str]], str], object_type: str
     ) -> List[Dict[str, Any]]:
         # Cursor pagination on CREATED_ON. Three things here are deliberate; the
         # first two are guards against defects demonstrated before this was written.
@@ -1537,13 +1546,13 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             if pages > _HISTORY_PAGES_BEFORE_WARNING:
                 self.report.warning(
                     title="History view is unusually large",
-                    message=(
-                        f"Reading it took {pages} pages of "
-                        f"{SnowflakeOpenflowQuery.PAGE_SIZE}. The whole view is "
-                        "still read, so metadata is complete, but the run will "
-                        "be slower than expected and this is worth checking."
-                    ),
-                    context=f"{pages} pages",
+                    # Constant message, varying part in context -- three views
+                    # with three different page counts must aggregate to one
+                    # structured-log entry, not three. Same rule as
+                    # EMPTY_INVENTORY_MESSAGE in the report module.
+                    message=LARGE_HISTORY_MESSAGE,
+                    context=f"{object_type}: {pages} pages of "
+                    f"{SnowflakeOpenflowQuery.PAGE_SIZE}",
                 )
         return rows
 
@@ -1633,7 +1642,10 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         self._warn_if_show_truncated(show_rows, object_type)
         show = self._parse_rows(model, show_rows, object_type, "SHOW")
         history = self._parse_rows(
-            model, self._paged_history(history_query), object_type, "ACCOUNT_USAGE"
+            model,
+            self._paged_history(history_query, object_type),
+            object_type,
+            "ACCOUNT_USAGE",
         )
         merged, mixed_keys = merge_show_and_history(show, history)
         self.report.num_keys_with_mixed_lifecycle_rows += mixed_keys

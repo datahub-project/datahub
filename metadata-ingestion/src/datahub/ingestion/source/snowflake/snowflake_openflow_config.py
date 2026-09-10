@@ -22,6 +22,24 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 
+def _resolved_env(value: Optional[str], default: str, field: str) -> str:
+    """A foreign-platform env field, defaulted and normalised like `env` itself.
+
+    Shared by snowflake_env and source_env so the two cannot drift. Both fold
+    case exactly as EnvConfigMixin.env_must_be_one_of does: without it,
+    `env: prod` is accepted and normalised while `snowflake_env: prod` -- the
+    same word, in an adjacent field documented as needing to match -- is
+    rejected outright. Both also validate eagerly, so a typo fails at
+    recipe-load time rather than deep inside lineage emission.
+    """
+    if value is None:
+        return default
+    normalised = value.upper()
+    if normalised not in ALL_ENV_TYPES:
+        raise ValueError(f"{field} must be one of {ALL_ENV_TYPES}, found {value}")
+    return normalised
+
+
 class SnowflakeOpenflowSourceConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
@@ -139,22 +157,9 @@ class SnowflakeOpenflowSourceConfig(
 
     @model_validator(mode="after")
     def default_snowflake_env_to_env(self) -> "SnowflakeOpenflowSourceConfig":
-        if self.snowflake_env is None:
-            self.snowflake_env = self.env
-        else:
-            # Fold case exactly as EnvConfigMixin.env_must_be_one_of does
-            # for `env`. Without this, `env: prod` is accepted and
-            # normalised while `snowflake_env: prod` -- the same word, in an
-            # adjacent field documented as needing to match -- is
-            # rejected outright.
-            self.snowflake_env = self.snowflake_env.upper()
-        # Validate eagerly, so a typo'd snowflake_env fails at recipe-load time the
-        # way a typo'd `env` already does. Without this the bad value survives
-        # config validation and only raises deep inside lineage emission.
-        if self.snowflake_env not in ALL_ENV_TYPES:
-            raise ValueError(
-                f"snowflake_env must be one of {ALL_ENV_TYPES}, found {self.snowflake_env}"
-            )
+        self.snowflake_env = _resolved_env(
+            self.snowflake_env, self.env, "snowflake_env"
+        )
         return self
 
     source_convert_urns_to_lowercase: bool = Field(
@@ -173,21 +178,7 @@ class SnowflakeOpenflowSourceConfig(
 
     @model_validator(mode="after")
     def default_source_env_to_env(self) -> "SnowflakeOpenflowSourceConfig":
-        if self.source_env is None:
-            self.source_env = self.env
-        else:
-            # Fold case exactly as EnvConfigMixin.env_must_be_one_of does
-            # for `env`. Without this, `env: prod` is accepted and
-            # normalised while `source_env: prod` -- the same word, in an
-            # adjacent field documented as needing to match -- is
-            # rejected outright.
-            self.source_env = self.source_env.upper()
-        # Validated eagerly for the same reason as snowflake_env above: a typo'd
-        # source_env yields a well-formed upstream URN pointing nowhere.
-        if self.source_env not in ALL_ENV_TYPES:
-            raise ValueError(
-                f"source_env must be one of {ALL_ENV_TYPES}, found {self.source_env}"
-            )
+        self.source_env = _resolved_env(self.source_env, self.env, "source_env")
         return self
 
     def get_snowflake_identifier_config(self) -> SnowflakeIdentifierConfig:

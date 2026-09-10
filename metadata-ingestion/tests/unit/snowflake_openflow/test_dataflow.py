@@ -104,6 +104,9 @@ def test_display_name_prefers_the_human_label():
 
 
 @pytest.mark.parametrize(
+    "char", ["c", "\u6570", "\U0001f600"], ids=["ascii", "cjk", "emoji"]
+)
+@pytest.mark.parametrize(
     ("name_len", "runtime_len"),
     [
         pytest.param(120, 120, id="two 120-char identifiers"),
@@ -111,7 +114,7 @@ def test_display_name_prefers_the_human_label():
     ],
 )
 def test_a_long_name_keeps_both_urns_inside_what_gms_accepts(
-    name_len: int, runtime_len: int
+    name_len: int, runtime_len: int, char: str
 ) -> None:
     # The limit GMS enforces is on the URL-ENCODED urn (512 bytes,
     # UrnValidationUtil.URN_NUM_BYTES_LIMIT), not on any component of it. An
@@ -120,7 +123,12 @@ def test_a_long_name_keeps_both_urns_inside_what_gms_accepts(
     # because the job urn nests the flow urn, so connector.key appears twice.
     # GMS rejects the aspect and that table's lineage is lost. Assert the thing
     # the server measures.
-    connector = OpenflowConnector(name="c" * name_len, runtime_name="r" * runtime_len)
+    # Non-ASCII is the case a character budget silently gets wrong: one CJK
+    # character URL-encodes to nine bytes and one emoji to twelve, so an
+    # 80-character prefix is 720 or 960 bytes of urn by itself. Shortening once
+    # and returning produced a 1550-byte DataJob urn for a CJK name -- inside
+    # the character budget, far outside what GMS stores.
+    connector = OpenflowConnector(name=char * name_len, runtime_name=char * runtime_len)
     pair = ConnectorTableLineage(
         source_schema="public",
         source_table="t",

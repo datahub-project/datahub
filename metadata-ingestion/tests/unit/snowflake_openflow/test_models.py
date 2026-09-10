@@ -686,3 +686,29 @@ def test_a_connector_row_missing_half_its_identity_is_not_usable(
     # one half cannot be given a degraded key -- it is not a connector. The
     # caller counts these; see _parse_rows.
     assert OpenflowConnector.from_row(row) is None
+
+
+def test_a_blank_deleted_on_leaves_the_object_live() -> None:
+    # get_col treats "" as absent, and this is the branch that matters:
+    # deleted_on is the deletion predicate, tested with `is None`, so a blank
+    # DELETED_ON would mark a live object deleted and stateful ingestion would
+    # soft-delete it.
+    row = {"RUNTIME_KEY": "rt-1", "RUNTIME_NAME": "one", "DELETED_ON": ""}
+
+    parsed = OpenflowRuntime.from_row(row)
+
+    assert parsed is not None
+    assert parsed.deleted_on is None
+
+
+def test_a_blank_first_spelling_falls_through_to_the_next() -> None:
+    # The other half of the same branch. A row carrying both spellings with the
+    # first one blank must resolve to the second, not short-circuit on the
+    # blank -- otherwise a view that starts emitting "" for a column the source
+    # also knows by another name loses the value entirely.
+    row = {"NAME": "", "RUNTIME_NAME": "the_real_name", "RUNTIME_KEY": "rt-1"}
+
+    parsed = OpenflowRuntime.from_row(row)
+
+    assert parsed is not None
+    assert parsed.name == "the_real_name"

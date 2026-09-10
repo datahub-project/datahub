@@ -9,6 +9,12 @@ from datahub.utilities.lossy_collections import LossyList
 # for structured-log grouping, so a dynamic value in either creates a separate
 # bucket per object type. code_style.md classes that as a BLOCKER. The object
 # type goes in `context` instead.
+LARGE_HISTORY_MESSAGE = (
+    "Reading this history view took more pages than expected. The whole view is "
+    "still read, so metadata is complete, but the run will be slower than "
+    "expected and this is worth checking."
+)
+
 EMPTY_INVENTORY_MESSAGE = (
     "No Openflow objects of this type were returned. This can mean the account has "
     "none, but it can equally mean the ingestion role lacks MONITOR on them: "
