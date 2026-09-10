@@ -523,13 +523,16 @@ class AbstractLineage(ABC):
             extraction.references or extraction.unresolvable
         ):
             # A cleanup-recoverable T-SQL preamble (USE/GO/SET/DROP ahead of the SELECT)
-            # fails the raw parse and would otherwise discard the whole table's lineage,
+            # either fails the raw parse or collapses the batch into a single opaque
+            # Command, and in both cases would otherwise discard the whole table's lineage,
             # native tables included. remove_drop_statement strips those statements, so
-            # retry extraction on the cleaned query. This runs only after the first parse
-            # has already failed, so — unlike running cleanup up front — it cannot corrupt
-            # a federation string literal that a successful first parse would have
-            # preserved. The rewritten_query from this retry is already cleaned, so the
-            # caller's later remove_drop_statement pass is a no-op.
+            # retry extraction on the cleaned query. The retry is reached only when the
+            # first pass extracted no federation at all (references and unresolvable both
+            # empty — either the parse failed or nothing federation-like was found), so —
+            # unlike running cleanup up front — the regex cleanup has no preserved
+            # federation string literal it could corrupt. The rewritten_query from this
+            # retry is already cleaned, so the caller's later remove_drop_statement pass is
+            # a no-op.
             cleaned_query = native_sql_parser.remove_drop_statement(query)
             if (
                 cleaned_query != query
