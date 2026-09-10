@@ -430,13 +430,21 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     if not declared_own and not _has_own_source_class(ctx.config):
         # No Source to ask, so the shim below would answer `schema.entity`
         # -- which drops the top level for every non-SQLAlchemy SQL source.
-        # All four of them match `container.schema.entity`, so the framework
-        # builds it rather than each connector declaring the same f-string.
-        # A connector whose builder does something this cannot (Snowflake's
-        # and Redshift's route through their own, so ingestion and the probe
-        # cannot drift) overrides probe_filter_target and never reaches here.
-        if database:
-            return f"{database}.{schema}.{ctx.name}"
+        # All four match `container.schema.entity`, so the framework builds
+        # it rather than each connector declaring the same f-string.
+        #
+        # The container comes from the same resolution the Schema level
+        # uses, not from parent_path alone: Qualifier(authoritative=True)
+        # is how Redshift says its single configured database wins over a
+        # --parent naming another, and the table level has to honour that
+        # too or the two levels answer about different databases.
+        # lazy: agent.introspect is only needed once a probe runs
+        from datahub.ingestion.agent.introspect import declared_qualifier
+
+        declared, authoritative = declared_qualifier(ctx.config)
+        container = declared if (authoritative and declared) else (database or declared)
+        if container:
+            return f"{container}.{schema}.{ctx.name}"
         ctx.warn(
             "no parent container given, so these were judged on "
             "'schema.entity'; this source matches a fully qualified name, so "

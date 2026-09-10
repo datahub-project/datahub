@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
-from typing import Callable, Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set
 
 import pydantic
 from pydantic import Field, ValidationInfo, field_validator, model_validator
@@ -38,7 +38,6 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
 from datahub.ingestion.source.sql.sql_config import (
-    _NO_PARENT_WARNING,
     SQLCommonConfig,
     SQLFilterConfig,
 )
@@ -305,26 +304,6 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             schema_pattern.deny.append(r".*INFORMATION_SCHEMA$")
 
         return self
-
-    def probe_filter_target(
-        self,
-        schema: str,
-        entity: str,
-        warn: Callable[[str], None],
-        database: Optional[str] = None,
-    ) -> Optional[str]:
-        """`database.schema.table`, via the connector's own builder."""
-        if not database:
-            warn(_NO_PARENT_WARNING.format(level="database"))
-            return None
-        # lazy: snowflake_utils pulls the connector's own dependency chain in.
-        from datahub.ingestion.source.snowflake.snowflake_utils import (
-            _combine_identifier_parts,
-        )
-
-        return _combine_identifier_parts(
-            db_name=database, schema_name=schema, table_name=entity
-        )
 
 
 class SnowflakeIdentifierConfig(

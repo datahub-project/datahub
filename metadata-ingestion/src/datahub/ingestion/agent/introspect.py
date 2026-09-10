@@ -2,13 +2,18 @@ import re
 import types
 import typing
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from pydantic import SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Filters,
+    Qualifier,
+)
 from datahub.ingestion.agent.models import (
     FieldKind,
     FieldSpec,
@@ -229,6 +234,35 @@ def _is_hidden_field(config_cls: type, name: str) -> bool:
     if not fields or name not in fields:
         return False
     return any(isinstance(m, SkipJsonSchema) for m in fields[name].metadata)
+
+
+def declared_qualifier(config: Any) -> Tuple[Optional[str], bool]:
+    """The container a Qualifier-marked field names, and whether it wins.
+
+    Read off the field rather than from a method the connector declares:
+    Filters() already establishes that idiom, and a method saying "my
+    container is self.project_ids" restates the field's own name in a worse
+    place. Returns (value, authoritative); a list field qualifies only when
+    it pins exactly one value, since several have no single answer to give
+    without guessing.
+    """
+    fields = getattr(type(config), "model_fields", None)
+    if not fields:
+        return None, False
+    for name, info in fields.items():
+        marker = next(
+            (m for m in info.metadata if isinstance(m, Qualifier)),
+            None,
+        )
+        if marker is None:
+            continue
+        value = getattr(config, name, None)
+        if isinstance(value, str) and value:
+            return value, marker.authoritative
+        if isinstance(value, (list, tuple)) and len(value) == 1:
+            return str(value[0]), marker.authoritative
+        return None, marker.authoritative
+    return None, False
 
 
 def _type_name(annotation: object) -> str:

@@ -1,7 +1,7 @@
 import logging
 from copy import deepcopy
 from enum import Enum
-from typing import Annotated, Any, Callable, Dict, FrozenSet, List, Optional
+from typing import Annotated, Any, Dict, FrozenSet, List, Optional
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -280,20 +280,6 @@ class RedshiftConfig(
         from datahub.ingestion.source.redshift.query import REDSHIFT_DEFAULT_SCHEMAS
 
         return frozenset(REDSHIFT_DEFAULT_SCHEMAS)
-
-    def probe_filter_target(
-        self,
-        schema: str,
-        entity: str,
-        warn: Callable[[str], None],
-        database: Optional[str] = None,
-    ) -> Optional[str]:
-        """`database.schema.table`, via the builder redshift.py also uses.
-
-        `database` is ignored for the reason probe_qualifying_container
-        ignores parent_path: this recipe reads exactly one.
-        """
-        return dataset_name(self.database, schema, entity)
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> "RedshiftConfig":

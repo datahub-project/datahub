@@ -492,16 +492,20 @@ def test_bigquery_tables_are_judged_on_the_qualified_name_ingestion_uses():
             {"account_id": "a", "username": "u", "password": "p", "warehouse": "w"},
             "database",
         ),
-        ("bigquery", {"project_ids": ["p1"]}, "project"),
+        # Two projects, because one is now answerable without a --parent:
+        # Qualifier() on project_ids supplies it. That is the fallback doing
+        # its job, not a degrade, so the case that must still warn is the
+        # one with no single answer to give.
+        ("bigquery", {"project_ids": ["p1", "p2"]}, "container"),
     ],
 )
 def test_a_missing_parent_degrades_loudly_rather_than_inventing_one(
     source_type, config_dict, word
 ):
-    """One recipe spans several databases/projects, so unlike Redshift there
-    is nothing on the config to fall back to. Guessing would give a verdict
-    about an object in a different database; the partial answer plus a
-    warning is the honest one."""
+    """One recipe spans several databases/projects, so there is nothing to
+    fall back to. Guessing would give a verdict about an object in a
+    different database; the partial answer plus a warning is the honest
+    one."""
     result = check_filters(
         source_type=source_type,
         config_dict=config_dict,
@@ -510,3 +514,22 @@ def test_a_missing_parent_degrades_loudly_rather_than_inventing_one(
         names=["t1"],
     )
     assert any(word in w for w in result.warnings), result.warnings
+
+
+def test_a_single_pinned_container_needs_no_parent():
+    """The other side of the same coin: Qualifier() on project_ids means a
+    single-project recipe is answerable without --parent, which is the
+    common case and used to warn."""
+    result = check_filters(
+        source_type="bigquery",
+        config_dict={
+            "project_ids": ["p1"],
+            "table_pattern": {"allow": [r"^p1\.ds1\.t1$"]},
+        },
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["ds1"],
+        names=["t1"],
+    )
+    assert result.results[0].target == "p1.ds1.t1"
+    assert result.results[0].included is True
+    assert not result.warnings, result.warnings
