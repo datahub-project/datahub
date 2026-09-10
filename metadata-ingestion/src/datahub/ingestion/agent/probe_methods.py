@@ -180,7 +180,15 @@ def _resolve_annotation(
         non_none = [a for a in get_args(ann) if a is not type(None)]
         if len(non_none) == 1:
             ann = non_none[0]
-            required = False  # Optional[...] => caller may omit it
+            # Only the annotation is unwrapped. `required` deliberately stays
+            # as the default decided it: Optional[...] says the parameter
+            # ACCEPTS None, not that it may be left out. Setting it False here
+            # advertised `def f(self, x: Optional[str])` as omittable and then
+            # called the method without x, so omitting it raised TypeError and
+            # recipe_cli mapped that to exit 2 -- "your input was wrong" for
+            # input the framework itself had described as optional. Latent
+            # today (no probe method has an Optional without a default), which
+            # is the only reason it never fired; three reviewers flagged it.
     if ann not in _TYPE_NAMES:
         raise TypeError(
             f"probe method '{fn_name}' parameter '{pname}' must be annotated "

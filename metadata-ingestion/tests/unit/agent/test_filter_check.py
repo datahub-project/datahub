@@ -380,3 +380,68 @@ def test_schema_verdicts_work_on_a_source_that_inherits_the_base_hook(source_typ
     results = result["results"]
     assert isinstance(results, list)
     assert [v["name"] for v in results] == ["public", "information_schema"]
+
+
+# --- a kind switched off wholesale is not a pattern question ----------------
+#
+# `probe filter --kind View` reported "included: true" for a view that
+# `include_views: false` guarantees ingestion will never emit. The pattern was
+# consulted and answered honestly; the flag that overrules it was not read at
+# all, so the command whose only job is verdicts gave one ingestion does not
+# make.
+
+
+def test_a_view_is_excluded_when_the_recipe_switched_views_off():
+    result = check_filters(
+        source_type="mysql",
+        config_dict={**MYSQL_CONFIG, "include_views": False},
+        kind=str(DatasetSubTypes.VIEW),
+        parent_path=["information_schema"],
+        names=["some_view"],
+    )
+    verdict = result.results[0]
+    assert verdict.included is False
+    # Named, so a caller editing the recipe changes the line that decided --
+    # reporting view_pattern here would send them to edit a pattern that had
+    # no say.
+    assert verdict.excluded_by == "include_views"
+
+
+def test_a_table_is_excluded_when_the_recipe_switched_tables_off():
+    result = check_filters(
+        source_type="mysql",
+        config_dict={**MYSQL_CONFIG, "include_tables": False},
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["information_schema"],
+        names=["orders"],
+    )
+    assert result.results[0].included is False
+    assert result.results[0].excluded_by == "include_tables"
+
+
+def test_the_flag_for_one_kind_does_not_decide_the_other():
+    """include_views must not suppress tables, and vice versa. The two share a
+    lookup, so a mistake there would silently exclude everything."""
+    result = check_filters(
+        source_type="mysql",
+        config_dict={**MYSQL_CONFIG, "include_views": False},
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["information_schema"],
+        names=["orders"],
+    )
+    assert result.results[0].included is True
+
+
+def test_the_flag_defaults_to_on_so_ordinary_recipes_are_unaffected():
+    """Both default true, and a config that has no such field at all (Kafka,
+    Mode) must fall through to the pattern rather than be reported excluded by
+    a flag it does not have -- hence getattr with a True default."""
+    result = check_filters(
+        source_type="mysql",
+        config_dict=MYSQL_CONFIG,
+        kind=str(DatasetSubTypes.VIEW),
+        parent_path=["information_schema"],
+        names=["some_view"],
+    )
+    assert result.results[0].included is True
+    assert result.results[0].excluded_by is None

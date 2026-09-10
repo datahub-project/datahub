@@ -8,7 +8,25 @@ from datahub.ingestion.agent.verdicts import (
     ClassifyContext,
     Verdict,
 )
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
+
+# Kinds a recipe can switch off wholesale, and the flag that does it. When one
+# is false ingestion emits nothing of that kind, whatever the pattern says --
+# so reporting a pattern verdict for it is a verdict ingestion does not make,
+# and `probe filter --kind View` answered "included: true" for a view that
+# `include_views: false` guarantees will never appear.
+#
+# Only these two. The other include_* flags on these configs
+# (include_view_lineage, include_usage_stats, include_table_location_lineage)
+# govern what ELSE is emitted about an object, not whether the object itself
+# is -- a verdict about a name has nothing to say about them.
+_INCLUDE_FLAG_FOR_KIND = {
+    str(DatasetSubTypes.TABLE): "include_tables",
+    str(DatasetSubTypes.VIEW): "include_views",
+}
 
 
 @dataclass
@@ -181,6 +199,15 @@ def _structural_verdict(
             # Postgres templates, SQL Server's system databases: dropped
             # whatever database_pattern says.
             return Verdict(False, "default_database")
+        return None
+
+    flag = _INCLUDE_FLAG_FOR_KIND.get(kind)
+    if flag is not None:
+        # getattr, not a hard read: a non-SQL config has no such field, and a
+        # kind it never emits should fall through to the pattern rather than
+        # be reported excluded by a flag that does not exist.
+        if getattr(config, flag, True) is False:
+            return Verdict(False, flag)
         return None
 
     if kind != DatasetContainerSubTypes.SCHEMA:

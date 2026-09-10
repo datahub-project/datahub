@@ -445,3 +445,42 @@ def test_a_plain_failures_list_recorded_before_a_raise_is_not_discarded(monkeypa
     )
     with pytest.raises(ProbeReadFailed, match="403 Forbidden"):
         pm.run_probe_method("hex", {}, "projects", {})
+
+
+# --- what "required" means -------------------------------------------------
+
+
+def test_optional_says_nullable_and_the_default_says_omittable():
+    """These were conflated: any Optional[...] was advertised required=False,
+    so a parameter with no default was described as omittable and then invoked
+    without it -- TypeError, which recipe_cli maps to exit 2, blaming the
+    caller for input the framework had described as optional."""
+
+    class Provider:
+        @probe_method()
+        def one(self, must: Optional[str]) -> str:
+            """Nullable, but you still have to pass it."""
+            return str(must)
+
+        @probe_method()
+        def two(self, may: Optional[str] = None) -> str:
+            """Nullable and omittable."""
+            return str(may)
+
+    specs = {c: s for c, s in _iter_specs(Provider)}
+    assert {p.name: p.required for p in specs["one"].params} == {"must": True}
+    assert {p.name: p.required for p in specs["two"].params} == {"may": False}
+
+
+def test_a_plain_parameter_with_a_default_is_still_omittable():
+    class Provider:
+        @probe_method()
+        def cmd(self, needed: str, limit: int = 10) -> str:
+            """Two shapes."""
+            return needed
+
+    spec = dict(_iter_specs(Provider))["cmd"]
+    assert {p.name: p.required for p in spec.params} == {
+        "needed": True,
+        "limit": False,
+    }

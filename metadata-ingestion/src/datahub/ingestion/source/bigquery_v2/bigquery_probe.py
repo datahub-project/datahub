@@ -63,9 +63,11 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
         ),
     )
 
-    # maximum_bytes_billed is the strongest ceiling any dialect here offers: the
-    # job is refused before it runs rather than cancelled partway, so it bounds
-    # spend rather than just how long we wait for it.
+    # Both of these are real, server-side and enforced by BigQuery itself --
+    # this is the only dialect here where that is true of the time ceiling as
+    # well as the cost one. maximum_bytes_billed is the stronger of the two:
+    # the job is refused before it runs rather than cancelled partway, so it
+    # bounds spend rather than just duration.
     query_budget = QueryBudget(timeout_seconds=30, max_bytes_billed=_MAX_BYTES_BILLED)
 
     def __init__(self, client: Any) -> None:
@@ -84,9 +86,20 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
         # lazy: the bigquery client library is only needed once a probe runs
         from google.cloud.bigquery import QueryJobConfig
 
+        timeout = self.query_budget.timeout_seconds
         job_config = QueryJobConfig(
             maximum_bytes_billed=self.query_budget.max_bytes_billed,
             use_query_cache=True,
+            # Server-side, and this is the whole point of it. The budget
+            # already declared timeout_seconds=30, but the only thing applying
+            # it was `.result(timeout=...)` below -- which bounds how long the
+            # CLIENT waits and neither cancels the job nor stops it billing.
+            # A ceiling that reads as present and is not is exactly what
+            # QueryBudget's docstring warns against, and it is the same defect
+            # the Redshift ceiling had: the statement was issued, nothing
+            # raised, and nothing was bounded. job_timeout_ms is BigQuery's
+            # own cancel-the-job knob, so the declared 30s is now true.
+            job_timeout_ms=timeout * 1000 if timeout is not None else None,
             # Labels are the strongest attribution of the three dialects that
             # offer any: they reach INFORMATION_SCHEMA.JOBS and the billing
             # export, so probe cost is separable from ingestion cost rather
@@ -99,8 +112,11 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
         # not stream an entire result set to be thrown away. It does NOT cap the
         # bill -- BigQuery charges for bytes scanned whatever the page size -- which
         # is what job_config above is for.
+        # Both ceilings, and they are not redundant: job_timeout_ms stops the
+        # job, this stops us waiting on a call that is hung for some other
+        # reason (a stalled fetch of an already-finished job's pages).
         iterator = self._client.query(query, job_config=job_config).result(
-            max_results=limit, timeout=self.query_budget.timeout_seconds
+            max_results=limit, timeout=timeout
         )
         columns = [field.name for field in iterator.schema]
         return CatalogRows(

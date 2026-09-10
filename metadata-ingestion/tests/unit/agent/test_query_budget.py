@@ -84,6 +84,50 @@ def test_bigquery_refuses_the_job_over_a_byte_ceiling():
     assert captured["timeout"] == probe.query_budget.timeout_seconds
 
 
+def test_bigquerys_declared_timeout_bounds_the_job_not_just_our_wait():
+    """The budget declared timeout_seconds=30 and only `.result(timeout=...)`
+    applied it -- which bounds how long the CLIENT waits, and neither cancels
+    the job nor stops it billing. A ceiling that reads as present and is not
+    is what QueryBudget's docstring warns against, and it is the same defect
+    the Redshift ceiling had. job_timeout_ms is BigQuery's own
+    cancel-the-job knob.
+
+    Asserting only `.result(timeout=...)` is what missed it for two reviewers'
+    worth of review, so this asserts the job config.
+    """
+
+    captured = {}
+
+    class _FakeIterator:
+        schema = []
+
+        def __iter__(self):
+            return iter(())
+
+    class _FakeJob:
+        def result(self, max_results=None, timeout=None, **kwargs):
+            captured["timeout"] = timeout
+            return _FakeIterator()
+
+    class _FakeClient:
+        def query(self, query, job_config=None):
+            captured["job_config"] = job_config
+            return _FakeJob()
+
+    probe = BigQueryMetadataProbe(_FakeClient())
+    probe.execute_catalog_query("SELECT 1", 10)
+
+    seconds = probe.query_budget.timeout_seconds
+    assert seconds is not None
+    # A string, not an int: the client keeps it in the raw API properties, and
+    # the live API echoes back jobTimeoutMs '30000'. Compared as a number so
+    # the test pins the value rather than that representation.
+    assert int(captured["job_config"].job_timeout_ms) == seconds * 1000
+    # Both, and they are not redundant: one stops the job, the other stops us
+    # waiting on a call hung for some other reason.
+    assert captured["timeout"] == seconds
+
+
 def test_snowflake_asks_the_server_to_stop_rather_than_stopping_waiting():
     """STATEMENT_TIMEOUT_IN_SECONDS is server-side; abandoning the cursor is not.
 
