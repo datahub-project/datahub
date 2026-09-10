@@ -67,12 +67,12 @@ export default function ForeignKeySection({ expandedField, schemaMetadata }: Pro
 
     return (
         <>
-            {constraints.map((constraint) => (
+            {constraints.map((constraint, index) => (
                 <SidebarSection
-                    key={constraint.name}
+                    key={constraint.name ?? index}
                     title={t('fieldForeignKey.foreignKeyTo')}
                     content={
-                        <ConstraintBody data-testid={`foreign-key-${constraint.name}`}>
+                        <ConstraintBody data-testid={`foreign-key-${constraint.name ?? index}`}>
                             {constraint.foreignDataset ? (
                                 <CompactEntityNameComponent entity={constraint.foreignDataset} showFullTooltip />
                             ) : (
