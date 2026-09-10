@@ -220,6 +220,7 @@ def merge_field_governance(
     tags: Optional[GlobalTagsClass],
     terms: Optional[GlossaryTermsClass],
     synthetic_tag_urns: AbstractSet[str],
+    # Only ever from editableSchemaMetadata; see the field on FieldGovernance.
     editable_description: Optional[str] = None,
 ) -> None:
     customer_tags = strip_synthetic_subtype_tags(tags, synthetic_tag_urns)
@@ -294,6 +295,8 @@ def collect_dataset_field_governance(
     if isinstance(schema_metadata, SchemaMetadataClass) and schema_metadata.fields:
         for schema_field in schema_metadata.fields:
             column_name = simple_column_name(schema_field.fieldPath)
+            # Deliberately no editable_description here: a schemaMetadata
+            # description is ingestion-authored. See FieldGovernance.
             merge_field_governance(
                 by_column,
                 column_name,
@@ -500,6 +503,9 @@ def merge_field_governance_into_editable_schema(
         prior_description = prior.description if prior is not None else None
         by_path[field_path] = EditableSchemaFieldInfoClass(
             fieldPath=field_path,
+            # Source first so a human-authored description travels, destination
+            # second so one authored only here is not wiped. Only ever an
+            # editable description on either side -- see FieldGovernance.
             description=field_gov.editable_description or prior_description,
             globalTags=union_global_tags(prior_tags, field_gov.global_tags),
             glossaryTerms=union_glossary_terms(prior_terms, field_gov.glossary_terms),
