@@ -23,7 +23,18 @@ _MIN_SUBSTRING_SECRET_LEN = 4
 # Matched on the whole column name, case-insensitively, not as a substring:
 # over-masking is its own failure. `owner` is a role on most catalog views and
 # stays readable; a column literally called `email` does not.
-_PII_COLUMN_NAMES: FrozenSet[str] = frozenset(
+#
+# Read by TWO layers, and it has to be, because neither covers the other:
+#
+#   sql_gate refuses a query that NAMES one of these columns. Masking here
+#   matches the driver's output names, so the caller picks the name and
+#   therefore picks whether masking applies -- `USER_NAME AS u`,
+#   `LOWER(user_name)`, `ARRAY_AGG(user_name)` all came back in the clear
+#   until the gate started looking at the projection.
+#
+#   This masker covers `SELECT *`, which names no column for the gate to
+#   refuse and whose output names ARE the real ones.
+WITHHELD_COLUMN_NAMES: FrozenSet[str] = frozenset(
     {
         "user_name",
         "username",
@@ -47,7 +58,9 @@ def mask_identity_columns(
     a missing column says nothing at all.
     """
     masked_at = [
-        i for i, name in enumerate(columns) if str(name).lower() in _PII_COLUMN_NAMES
+        i
+        for i, name in enumerate(columns)
+        if str(name).lower() in WITHHELD_COLUMN_NAMES
     ]
     if not masked_at:
         return [list(row) for row in rows]

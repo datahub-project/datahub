@@ -43,11 +43,28 @@ logger = logging.getLogger(__name__)
 # live fixtures, one `SELECT 1 ... LIMIT 1` here is the only difference between
 # them, so this is the read that answers "will lineage actually work".
 #
-# USER_NAME is identity, and so sits against the `users` exclusion above. It is
-# not the trade it first looks like: the scope model is relation-level and cannot
-# say "read this view but not that column", but redact.mask_identity_columns can,
-# and does -- every row leaving sql_result has it replaced with the redaction
-# marker. The relation is admitted for its shape; the identity in it is withheld.
+# USER_NAME is identity, and so sits against the `users` exclusion above. The
+# relation is admitted for its shape and the column is withheld -- but the
+# first version of this comment claimed that was settled by
+# redact.mask_identity_columns alone, "every row leaving sql_result has it
+# replaced with the redaction marker", and that was false. Masking matches the
+# DRIVER's output column names, so the caller picked the name and therefore
+# picked whether masking applied:
+#
+#   SELECT USER_NAME AS u        -> unmasked
+#   SELECT LOWER(user_name)      -> unmasked
+#   SELECT ARRAY_AGG(user_name)  -> unmasked, and that is the whole account's
+#                                   user directory in one row -- exactly the
+#                                   account_usage.users content excluded above
+#
+# It takes two layers, and each covers what the other cannot. sql_gate refuses
+# a query that NAMES the column, anywhere in the statement, so an alias or a
+# wrapper has nothing to hide behind. The masker covers `SELECT *`, which
+# names no column for the gate to catch and whose output names are the real
+# ones. Both read redact.WITHHELD_COLUMN_NAMES, so they cannot drift.
+#
+# The emptiness read this relation is admitted for is unaffected: `SELECT 1
+# ... LIMIT 1` projects no columns at all.
 # `views` is admitted with its VIEW_DEFINITION column, and a reviewer was right
 # to ask: that is the stored CREATE VIEW SQL, and a view body can embed
 # literals (`... WHERE country = 'DE'`). Admitted anyway, and the reason is

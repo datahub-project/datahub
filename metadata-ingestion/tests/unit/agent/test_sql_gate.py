@@ -426,3 +426,67 @@ def test_an_ordinary_catalog_read_still_works(dialect, sql):
     """The control for the whole list above. Refusing everything would pass
     every case in it and make the command useless."""
     check_query_scope(sql, platform=dialect, scope=_postgres_scope())
+
+
+# --- naming a withheld column, however you spell it ------------------------
+#
+# The masker matches the DRIVER's output column names, so until the gate
+# started reading the projection the caller chose whether masking applied.
+# test_pii_columns.py covers case variation and substring non-matching --
+# both shaped to the assumption. None of these were covered, and every one
+# of them worked.
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        # an alias renames the column out of the masker's reach
+        "SELECT user_name AS u FROM snowflake.account_usage.access_history",
+        "SELECT user_name u FROM snowflake.account_usage.access_history",
+        # so does any wrapper, and none of these are exp.Anonymous
+        "SELECT LOWER(user_name) FROM snowflake.account_usage.access_history",
+        "SELECT SUBSTR(user_name, 1, 3) FROM snowflake.account_usage.access_history",
+        "SELECT MAX(user_name) FROM snowflake.account_usage.access_history",
+        # the whole directory in one row
+        "SELECT ARRAY_AGG(user_name) FROM snowflake.account_usage.access_history",
+        "SELECT LISTAGG(user_name, ',') FROM snowflake.account_usage.access_history",
+        # a predicate answers the same question one bit at a time
+        "SELECT query_id FROM snowflake.account_usage.access_history WHERE user_name = 'alice'",
+        # and nesting hides the name from a projection-only check
+        "SELECT u FROM (SELECT user_name AS u FROM snowflake.account_usage.access_history)",
+    ],
+)
+def test_naming_a_withheld_column_is_refused(sql):
+    from datahub.ingestion.source.snowflake.snowflake_probe import (
+        SnowflakeMetadataProbe,
+    )
+
+    with pytest.raises(SqlScopeError, match="names a person"):
+        check_query_scope(
+            sql, platform="snowflake", scope=SnowflakeMetadataProbe.catalog_scope
+        )
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        # the read the relation is admitted for -- projects no columns at all
+        "SELECT 1 AS present FROM snowflake.account_usage.access_history LIMIT 1",
+        # names no column either, so the masker handles it on the way out
+        "SELECT * FROM snowflake.account_usage.access_history",
+        # and everything structural in the same view stays readable
+        "SELECT query_id, query_start_time FROM snowflake.account_usage.access_history",
+        "SELECT count(*) FROM snowflake.account_usage.access_history",
+    ],
+)
+def test_the_rest_of_the_relation_stays_readable(sql):
+    """The control, and the reason this is a column rule rather than dropping
+    the relation: emptiness on access_history is how an agent tells a
+    Standard account from an Enterprise one."""
+    from datahub.ingestion.source.snowflake.snowflake_probe import (
+        SnowflakeMetadataProbe,
+    )
+
+    check_query_scope(
+        sql, platform="snowflake", scope=SnowflakeMetadataProbe.catalog_scope
+    )

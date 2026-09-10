@@ -241,8 +241,49 @@ def check_query_scope(
     # table-based check alone never sees it.
     _check_functions(statement)
 
+    _check_withheld_columns(statement)
+
     for table in statement.find_all(exp.Table):
         _check_table(table, scope=permitted, platform=platform)
+
+
+def _check_withheld_columns(statement: exp.Expr) -> None:
+    """Refuse a query that names a column whose values are withheld.
+
+    redact.mask_identity_columns blanks these on the way out, and that was
+    stated as sufficient -- snowflake_probe said the relation could be
+    admitted because "every row leaving sql_result has it replaced with the
+    redaction marker". It was not sufficient, because masking matches the
+    DRIVER's output column names and the caller chooses those:
+
+        SELECT USER_NAME AS u       FROM ...access_history   -> unmasked
+        SELECT LOWER(user_name)     FROM ...access_history   -> unmasked
+        SELECT ARRAY_AGG(user_name) FROM ...access_history   -> unmasked,
+            and that last one is the account's whole user directory in a
+            single row -- the account_usage.users content the exclusion
+            list calls personal data.
+
+    So the name is refused where it is written, before any of that. Checked
+    over every column reference rather than the projection alone: a
+    `WHERE user_name = 'alice'` that returns rows answers the same question
+    one bit at a time.
+
+    What this deliberately does NOT refuse is `SELECT *`, which names no
+    column -- there the driver's output names are the real ones and the
+    masker handles it. The two layers cover what the other cannot, which is
+    why they read one shared set.
+    """
+    # lazy: redact is cheap, but this keeps the import beside its one use
+    from datahub.ingestion.agent.redact import WITHHELD_COLUMN_NAMES
+
+    for column in statement.find_all(exp.Column):
+        if column.name.lower() in WITHHELD_COLUMN_NAMES:
+            raise SqlScopeError(
+                f"'{column.name}' names a person rather than describing shape, "
+                f"so this probe does not return it. The relation is readable -- "
+                f"select the columns you need, or `SELECT *`, where the value is "
+                f"masked on the way out"
+            )
 
 
 def _check_functions(statement: exp.Expr) -> None:
