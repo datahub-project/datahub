@@ -1452,3 +1452,18 @@ def test_browse_path_leads_with_the_platform_instance_when_set():
         "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,analytics)"
     )
     assert aspect.path[1].urn is None
+
+
+def test_browse_path_folds_an_instance_equal_to_the_project_name():
+    # Mirrors the fold _build_path already applies to the urn: DataHub's
+    # documented multi-project dbt setup sets platform_instance to the project
+    # name, and a repeated level would be one extra click partitioning nothing.
+    workunits = _emit(
+        _mapper(platform_instance=_PROJECT), [_sm_node("orders", _ORDERS)]
+    )
+
+    _, aspect = _aspects(workunits, BrowsePathsV2Class)[0]
+    assert [e.id for e in aspect.path] == [_PROJECT]
+    assert aspect.path[0].urn == (
+        f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,{_PROJECT})"
+    )

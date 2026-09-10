@@ -297,17 +297,21 @@ class DbtSemanticModelMapper:
         connector a real container hierarchy, or explicit paths throughout, is
         a broader change than this feature and is deliberately left out of it.
         """
+        instance = self.config.platform_instance
         entries: List[BrowsePathEntryClass] = []
-        if self.config.platform_instance:
+        if instance:
             entries.append(
                 BrowsePathEntryClass(
-                    id=self.config.platform_instance,
-                    urn=make_dataplatform_instance_urn(
-                        DBT_PLATFORM, self.config.platform_instance
-                    ),
+                    id=instance,
+                    urn=make_dataplatform_instance_urn(DBT_PLATFORM, instance),
                 )
             )
-        entries.append(BrowsePathEntryClass(id=self.project_name))
+        # Same fold as _build_path: the documented multi-project dbt setup sets
+        # platform_instance to the project name, and a second identical level
+        # would partition nothing. Keep the instance entry, which carries the
+        # dataPlatformInstance urn the project-only entry has no equivalent of.
+        if instance != self.project_name:
+            entries.append(BrowsePathEntryClass(id=self.project_name))
         return [BrowsePathsV2Class(path=entries)]
 
     def _prepare(
