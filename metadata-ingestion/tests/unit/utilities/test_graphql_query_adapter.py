@@ -20,6 +20,7 @@ from graphql import (
 from graphql.utilities import introspection_from_schema
 
 from datahub.utilities.graphql_query_adapter import (
+    _SCHEMA_DISK_CACHE,
     SCHEMA_FAILURE_TTL_SECONDS,
     SCHEMA_TTL_SECONDS,
     QueryProjector,
@@ -32,10 +33,7 @@ from datahub.utilities.graphql_query_adapter import (
 @pytest.fixture(autouse=True)
 def _isolate_disk_cache(tmp_path):
     """Prevent tests from reading/writing the real ~/.datahub/schema_cache."""
-    with patch(
-        "datahub.utilities.graphql_query_adapter.DISK_CACHE_DIR",
-        str(tmp_path / "schema_cache"),
-    ):
+    with patch.object(_SCHEMA_DISK_CACHE, "_dir", tmp_path / "schema_cache"):
         yield
 
 
@@ -993,10 +991,7 @@ class TestDiskCache:
         """Introspection is saved to disk; a new projector loads it without introspecting."""
         graph = _make_mock_graph(old_server_schema, commit_hash="disk_test_hash")
 
-        with patch(
-            "datahub.utilities.graphql_query_adapter.DISK_CACHE_DIR",
-            str(tmp_path / "schema_cache"),
-        ):
+        with patch.object(_SCHEMA_DISK_CACHE, "_dir", tmp_path / "schema_cache"):
             # First projector: introspects and saves to disk
             projector1 = QueryProjector()
             projector1.adapt_query(SIMPLE_QUERY, graph)
@@ -1022,10 +1017,7 @@ class TestDiskCache:
 
     def test_disk_cache_miss_on_different_commit(self, old_server_schema, tmp_path):
         """Changing commit hash causes disk cache miss and fresh introspection."""
-        with patch(
-            "datahub.utilities.graphql_query_adapter.DISK_CACHE_DIR",
-            str(tmp_path / "schema_cache"),
-        ):
+        with patch.object(_SCHEMA_DISK_CACHE, "_dir", tmp_path / "schema_cache"):
             graph1 = _make_mock_graph(old_server_schema, commit_hash="hash_v1")
             projector = QueryProjector()
             projector.adapt_query(SIMPLE_QUERY, graph1)
@@ -1053,16 +1045,13 @@ class TestDiskCache:
         self, old_server_schema, tmp_path
     ):
         """Corrupt cache file causes fallback to live introspection."""
-        with patch(
-            "datahub.utilities.graphql_query_adapter.DISK_CACHE_DIR",
-            str(tmp_path / "schema_cache"),
-        ):
+        with patch.object(_SCHEMA_DISK_CACHE, "_dir", tmp_path / "schema_cache"):
             # Write a corrupt cache file
             graph = _make_mock_graph(old_server_schema, commit_hash="corrupt_test")
             projector = QueryProjector()
 
             # Pre-create corrupt file at the expected path
-            cache_path = projector._disk_cache_path(
+            cache_path = _SCHEMA_DISK_CACHE._path(
                 "http://localhost:8080", "corrupt_test"
             )
             cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1082,10 +1071,7 @@ class TestDiskCache:
         graph = _make_mock_graph(old_server_schema)
         graph.server_config.commit_hash = None
 
-        with patch(
-            "datahub.utilities.graphql_query_adapter.DISK_CACHE_DIR",
-            str(tmp_path / "schema_cache"),
-        ):
+        with patch.object(_SCHEMA_DISK_CACHE, "_dir", tmp_path / "schema_cache"):
             projector = QueryProjector()
             projector.adapt_query(SIMPLE_QUERY, graph)
 
@@ -1098,10 +1084,7 @@ class TestDiskCache:
         """Cache files older than 7 days are cleaned up."""
         import os
 
-        with patch(
-            "datahub.utilities.graphql_query_adapter.DISK_CACHE_DIR",
-            str(tmp_path / "schema_cache"),
-        ):
+        with patch.object(_SCHEMA_DISK_CACHE, "_dir", tmp_path / "schema_cache"):
             cache_dir = tmp_path / "schema_cache"
             cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1257,10 +1240,7 @@ class TestDiskCacheResilience:
         parent.chmod(0o444)
 
         try:
-            with patch(
-                "datahub.utilities.graphql_query_adapter.DISK_CACHE_DIR",
-                str(parent / "schema_cache"),
-            ):
+            with patch.object(_SCHEMA_DISK_CACHE, "_dir", parent / "schema_cache"):
                 graph = _make_mock_graph(
                     old_server_schema, commit_hash="perm_denied_test"
                 )
@@ -1275,7 +1255,7 @@ class TestDiskCacheResilience:
         graph = _make_mock_graph(old_server_schema, commit_hash="symlink_test")
         projector = QueryProjector()
 
-        cache_path = projector._disk_cache_path("http://localhost:8080", "symlink_test")
+        cache_path = _SCHEMA_DISK_CACHE._path("http://localhost:8080", "symlink_test")
         cache_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Create a symlink pointing to a decoy file
@@ -1295,7 +1275,7 @@ class TestDiskCacheResilience:
         graph = _make_mock_graph(old_server_schema, commit_hash="symlink_save_test")
         projector = QueryProjector()
 
-        cache_path = projector._disk_cache_path(
+        cache_path = _SCHEMA_DISK_CACHE._path(
             "http://localhost:8080", "symlink_save_test"
         )
         cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1316,7 +1296,7 @@ class TestDiskCacheResilience:
         graph = _make_mock_graph(old_server_schema, commit_hash="bad_schema_test")
         projector = QueryProjector()
 
-        cache_path = projector._disk_cache_path(
+        cache_path = _SCHEMA_DISK_CACHE._path(
             "http://localhost:8080", "bad_schema_test"
         )
         cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1333,7 +1313,7 @@ class TestDiskCacheResilience:
         graph = _make_mock_graph(old_server_schema, commit_hash="empty_file_test")
         projector = QueryProjector()
 
-        cache_path = projector._disk_cache_path(
+        cache_path = _SCHEMA_DISK_CACHE._path(
             "http://localhost:8080", "empty_file_test"
         )
         cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1347,7 +1327,7 @@ class TestDiskCacheResilience:
         graph = _make_mock_graph(old_server_schema, commit_hash="binary_test")
         projector = QueryProjector()
 
-        cache_path = projector._disk_cache_path("http://localhost:8080", "binary_test")
+        cache_path = _SCHEMA_DISK_CACHE._path("http://localhost:8080", "binary_test")
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_bytes(b"\x00\x01\x02\xff\xfe\xfd")
 
@@ -1365,8 +1345,6 @@ class TestDiskCacheResilience:
             f = cache_dir / f"old_{i}.json"
             f.write_text("{}")
             os.utime(f, (old_mtime, old_mtime))
-
-        projector = QueryProjector()
 
         # Delete some files mid-cleanup to simulate race condition
         original_unlink = Path.unlink
@@ -1387,7 +1365,7 @@ class TestDiskCacheResilience:
 
         with patch.object(Path, "unlink", racing_unlink):
             # Should not raise despite files disappearing
-            projector._cleanup_old_cache_files(cache_dir, max_age_days=7)
+            _SCHEMA_DISK_CACHE._cleanup()
 
     def test_gms_server_none_skips_disk_cache(self, old_server_schema, tmp_path):
         """graph._gms_server=None doesn't crash; disk cache is skipped."""
@@ -1454,7 +1432,7 @@ class TestDiskCacheResilience:
         def failing_dump(obj, fp):
             raise IOError("disk full")
 
-        with patch("datahub.utilities.graphql_query_adapter.json.dump", failing_dump):
+        with patch("datahub.utilities.server_state_disk_cache.json.dump", failing_dump):
             projector.adapt_query(SIMPLE_QUERY, graph)
 
         # No leftover .tmp files

@@ -48,6 +48,16 @@ meta_mapping:
     config:
       link: {{ $match }}
       description: "Documentation Link"
+  business_domain:
+    match: ".*"
+    operation: "add_domain"
+    config:
+      domain: "{{ $match }}"
+  data_load_frequency:
+    match: ".*"
+    operation: "add_structured_property"
+    config:
+      structured_property_urn: "urn:li:structuredProperty:io.acme.data_load_frequency"
 column_meta_mapping:
   terms_list:
     match: ".*"
@@ -64,6 +74,11 @@ column_meta_mapping:
     operation: "add_tag"
     config:
       tag: "pii"
+  classification:
+    match: ".*"
+    operation: "add_structured_property"
+    config:
+      structured_property_urn: "urn:li:structuredProperty:io.acme.classification"
 ```
 
 We support the following operations:
@@ -77,10 +92,12 @@ We support the following operations:
    - You can use commas to specify multiple owners - e.g. `business_owner: "jane,john,urn:li:corpGroup:data-team"`.
 
 5. add_doc_link - Requires `link` and `description` properties in config. Upon ingestion run, this will overwrite current links in the institutional knowledge section with this new link. The anchor text is defined here in the meta_mappings as `description`.
+6. add_domain - Adds the dataset to a DataHub Domain. The `domain` config value can be a short ID (e.g. `Marketing`) or a fully-qualified URN (`urn:li:domain:Marketing`). Supports `{{ $match }}` substitution.
+7. add_structured_property - Assigns a value to a [DataHub Structured Property](../../../../docs/features/feature-guides/properties/overview.md). Required config: `structured_property_urn` (full URN or qualified name). Optional config: `value` (literal or `{{ $match }}` template; defaults to the raw meta value, preserving numeric types) and `value_type` (`string` or `number`). Multiple rules targeting the same property URN have their values aggregated into a single assignment. The structured property itself must be defined in DataHub before ingestion runs — this operation only assigns values, it does not create the property definition.
 
 Note:
 
-1. The dbt `meta_mapping` config works at the model level, while the `column_meta_mapping` config works at the column level. The `add_owner` operation is not supported at the column level.
+1. The dbt `meta_mapping` config works at the model level, while the `column_meta_mapping` config works at the column level. The `add_owner` operation is not supported at the column level. The `add_structured_property` operation is supported at both levels — at the column level it produces a `structuredProperties` aspect attached to each matching `schemaField` URN.
 2. For string meta properties we support regex matching.
 3. **List support**: YAML lists are now supported in meta properties. Each item in the list that matches the regex pattern will be processed.
 

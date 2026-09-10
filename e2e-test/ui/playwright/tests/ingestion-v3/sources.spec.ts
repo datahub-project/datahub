@@ -2,6 +2,7 @@ import { SnowflakeFormDetails } from '@pages/ingestion/base/sources/SnowflakeSou
 import { test } from '../../fixtures/base-test';
 import { IngestionV3Page } from '../../pages/ingestion/v3/ingestion-v3.page';
 import { generateRandomString, withRandomSuffix } from '../../utils/random';
+import { INGESTION_CLI_VERSION } from '../../utils/constants';
 
 // Pre-seeded source names from tests/ingestion-v3/fixtures/data.json
 const EXECUTE_SOURCE = 'playwright v3 execute source';
@@ -92,6 +93,7 @@ test.describe('ingestion sources', () => {
         await ingestionPage.sourcesTab.customSource.fillForm();
       },
       shouldRun: true,
+      cliVersion: INGESTION_CLI_VERSION,
     });
     cleanup.track(sourceUrn);
   });

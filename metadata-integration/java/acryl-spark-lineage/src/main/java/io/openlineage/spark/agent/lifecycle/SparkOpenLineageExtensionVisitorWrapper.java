@@ -1,5 +1,5 @@
 /*
-/* Copyright 2018-2025 contributors to the OpenLineage project
+/* Copyright 2018-2026 contributors to the OpenLineage project
 /* SPDX-License-Identifier: Apache-2.0
 */
 package io.openlineage.spark.agent.lifecycle;
@@ -91,12 +91,12 @@ public final class SparkOpenLineageExtensionVisitorWrapper {
             .anyMatch(
                 objectAndMethod -> {
                   try {
-                    return (boolean)
-                        objectAndMethod.getRight().invoke(objectAndMethod.getLeft(), object);
+                    return (boolean) objectAndMethod.right.invoke(objectAndMethod.left, object);
                   } catch (Exception e) {
                     log.error(
                         "Can't invoke 'isDefinedAt' method on {} class instance",
-                        objectAndMethod.getLeft().getClass().getCanonicalName());
+                        objectAndMethod.left.getClass().getCanonicalName(),
+                        e);
                   }
                   return false;
                 });
@@ -120,21 +120,20 @@ public final class SparkOpenLineageExtensionVisitorWrapper {
         try {
           Map<String, Object> result =
               (Map<String, Object>)
-                  objectAndMethod
-                      .getRight()
-                      .invoke(
-                          objectAndMethod.getLeft(),
-                          lineageNode,
-                          sparkListenerEventName,
-                          sqlContext,
-                          parameters);
+                  objectAndMethod.right.invoke(
+                      objectAndMethod.left,
+                      lineageNode,
+                      sparkListenerEventName,
+                      sqlContext,
+                      parameters);
           if (result != null && !result.isEmpty()) {
             return objectMapper.convertValue(result, DatasetIdentifier.class);
           }
         } catch (Exception e) {
           log.warn(
               "Can't invoke apply method on {} class instance",
-              objectAndMethod.getLeft().getClass().getCanonicalName());
+              objectAndMethod.left.getClass().getCanonicalName(),
+              e);
         }
       }
     }
@@ -186,16 +185,16 @@ public final class SparkOpenLineageExtensionVisitorWrapper {
         try {
           Map<String, Object> result =
               (Map<String, Object>)
-                  objectAndMethod
-                      .getRight()
-                      .invoke(objectAndMethod.getLeft(), lineageNode, sparkListenerEventName);
+                  objectAndMethod.right.invoke(
+                      objectAndMethod.left, lineageNode, sparkListenerEventName);
           if (result != null && !result.isEmpty()) {
             return result;
           }
         } catch (Exception e) {
           log.error(
               "Can't invoke apply method on {} class instance",
-              objectAndMethod.getLeft().getClass().getCanonicalName());
+              objectAndMethod.left.getClass().getCanonicalName(),
+              e);
         }
       }
     }

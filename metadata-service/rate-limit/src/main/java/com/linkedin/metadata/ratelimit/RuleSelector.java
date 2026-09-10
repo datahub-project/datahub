@@ -46,10 +46,20 @@ final class RuleSelector {
   @Nullable
   CompiledRateLimitRule selectCapacityRule(
       @Nonnull String path, @Nonnull String method, @Nullable String operationName) {
+    return selectCapacityRule(path, method, operationName, null);
+  }
+
+  @Nullable
+  CompiledRateLimitRule selectCapacityRule(
+      @Nonnull String path,
+      @Nonnull String method,
+      @Nullable String operationName,
+      @Nullable ClientClass clientClass) {
     return capacityRules.stream()
         .filter(rule -> rule.matchesPath(pathMatcher, path))
         .filter(rule -> rule.matchesMethod(method))
         .filter(rule -> rule.matchesOperation(operationName))
+        .filter(rule -> rule.matchesClientClass(clientClass))
         .max((left, right) -> CompiledRateLimitRule.compareSpecificity(left, right))
         .orElse(null);
   }
@@ -57,10 +67,20 @@ final class RuleSelector {
   @Nullable
   CompiledRateLimitRule selectEndpointRule(
       @Nonnull String path, @Nonnull String method, @Nullable String operationName) {
+    return selectEndpointRule(path, method, operationName, null);
+  }
+
+  @Nullable
+  CompiledRateLimitRule selectEndpointRule(
+      @Nonnull String path,
+      @Nonnull String method,
+      @Nullable String operationName,
+      @Nullable ClientClass clientClass) {
     return endpointRules.stream()
         .filter(rule -> rule.matchesPath(pathMatcher, path))
         .filter(rule -> rule.matchesMethod(method))
         .filter(rule -> rule.matchesOperation(operationName))
+        .filter(rule -> rule.matchesClientClass(clientClass))
         .max((left, right) -> CompiledRateLimitRule.compareSpecificity(left, right))
         .orElse(null);
   }
@@ -111,6 +131,9 @@ final class RuleSelector {
 
     if (config.getCapacity().getRules() != null) {
       for (RateLimitProperties.Rule ruleConfig : config.getCapacity().getRules()) {
+        if (!ruleConfig.isEnabled()) {
+          continue;
+        }
         if (!graphql.isOperationRulesEnabled()
             && ruleConfig.getGraphqlOperationNames() != null
             && !ruleConfig.getGraphqlOperationNames().isEmpty()) {
@@ -131,6 +154,9 @@ final class RuleSelector {
     List<CompiledRateLimitRule> rules = new ArrayList<>();
     if (config.getEndpoint().getRules() != null) {
       for (RateLimitProperties.Rule ruleConfig : config.getEndpoint().getRules()) {
+        if (!ruleConfig.isEnabled()) {
+          continue;
+        }
         if (!graphql.isOperationRulesEnabled()
             && ruleConfig.getGraphqlOperationNames() != null
             && !ruleConfig.getGraphqlOperationNames().isEmpty()) {

@@ -1,6 +1,11 @@
 extend type Mutation {
   """
-  Upsert a Custom Assertion
+  Upsert a Custom Assertion.
+
+  Updates fully replace assertionInfo / customAssertion (same contract as
+  native freshness / volume / field / SQL / schema assertion monitor upserts).
+  Callers must resend any fields they want to keep; omitted optional fields
+  are cleared.
   """
   upsertCustomAssertion(
     """
@@ -50,12 +55,23 @@ input UpsertCustomAssertionInput {
   description: String!
 
   """
-  The dataset field targeted by this assertion, if any.
+  Optional dataset column name targeted by this assertion.
+  When set, DataHub builds a schemaField URN from entityUrn + fieldPath.
+  Omit for dataset-level assertions. Do not pass a full schemaField URN — use the bare column name.
+  Deprecated: Use fieldPaths instead for multi-column support.
   """
   fieldPath: String
 
   """
-  The external Platform associated with the assertion
+  Optional dataset column names targeted by this assertion.
+  Use this for assertions involving multiple columns. As with fieldPath, provide bare
+  column names — DataHub builds the schemaField URNs from entityUrn + each path.
+  """
+  fieldPaths: [String!]
+
+  """
+  The external Platform associated with the assertion.
+  Required. Provide either PlatformInput.urn or PlatformInput.name (at least one).
   """
   platform: PlatformInput!
 
@@ -68,6 +84,71 @@ input UpsertCustomAssertionInput {
   Logic comprising a raw, unstructured assertion. for example - custom SQL query for the assertion.
   """
   logic: String
+
+  """
+  Scope of the assertion (column, rows, schema, etc.). Optional structured metadata for display.
+  """
+  scope: DatasetAssertionScope
+
+  """
+  Standardized assertion aggregation / metric.
+  """
+  aggregation: AssertionStdAggregation
+
+  """
+  Standardized assertion operator.
+  """
+  operator: AssertionStdOperator
+
+  """
+  Standard parameters required for the assertion.
+  """
+  parameters: AssertionStdParametersInput
+
+  """
+  Native assertion type (platform-specific), e.g. Great Expectations expectation name.
+  """
+  nativeType: String
+
+  """
+  Native parameters required for the assertion.
+  """
+  nativeParameters: [StringMapEntryInput!]
+}
+
+"""
+Input for AssertionStdParameters.
+"""
+input AssertionStdParametersInput {
+  """
+  The value parameter of an assertion
+  """
+  value: AssertionStdParameterInput
+
+  """
+  The maxValue parameter of an assertion
+  """
+  maxValue: AssertionStdParameterInput
+
+  """
+  The minValue parameter of an assertion
+  """
+  minValue: AssertionStdParameterInput
+}
+
+"""
+Input for a single AssertionStdParameter.
+"""
+input AssertionStdParameterInput {
+  """
+  The parameter value
+  """
+  value: String!
+
+  """
+  The type of the parameter
+  """
+  type: AssertionStdParameterType!
 }
 
 """
@@ -129,12 +210,14 @@ Input representing A Data Platform
 """
 input PlatformInput {
   """
-  Urn of platform
+  Urn of platform (for example urn:li:dataPlatform:great-expectations).
+  Provide urn or name — at least one is required.
   """
   urn: String
 
   """
-  Name of platform
+  Name of platform (for example great-expectations). Used when urn is not provided.
+  Provide urn or name — at least one is required.
   """
   name: String
 }
@@ -251,13 +334,25 @@ extend type AssertionInfo {
   The time that the status last changed and the actor who changed it
   """
   lastUpdated: AuditStamp
+
+  """
+  Custom properties for the assertion (key/value pairs that do not fit
+  into an explicit AssertionInfo field). Used by external tools to attach
+  additional context that surfaces in the assertion details panel.
+  """
+  customProperties: [CustomPropertiesEntry!]
 }
 
 extend type Assertion {
   """
+  The dataset targeted by this assertion.
+  """
+  dataset: Dataset @aspectMapping(aspects: ["assertionInfo"])
+
+  """
   The actions associated with the Assertion
   """
-  actions: AssertionActions
+  actions: AssertionActions @aspectMapping(aspects: ["assertionActions"])
 }
 
 """
@@ -1060,8 +1155,45 @@ type CustomAssertionInfo {
 
   """
   The field serving as input to the assertion, if any.
+  Deprecated: Prefer fields for multi-column support. Still populated when a single field is set.
   """
   field: SchemaFieldRef
+
+  """
+  The fields serving as input to the assertion, if any.
+  Merges deprecated singular field and fields for backward compatibility.
+  """
+  fields: [SchemaFieldRef!]
+
+  """
+  Scope of the assertion (column, rows, schema, etc.).
+  """
+  scope: DatasetAssertionScope
+
+  """
+  Standardized assertion aggregation / metric.
+  """
+  aggregation: AssertionStdAggregation
+
+  """
+  Standardized assertion operator.
+  """
+  operator: AssertionStdOperator
+
+  """
+  Standard parameters required for the assertion.
+  """
+  parameters: AssertionStdParameters
+
+  """
+  Native assertion type (platform-specific).
+  """
+  nativeType: String
+
+  """
+  Native parameters required for the assertion.
+  """
+  nativeParameters: [StringMapEntry!]
 
   """
   Logic comprising a raw, unstructured assertion.

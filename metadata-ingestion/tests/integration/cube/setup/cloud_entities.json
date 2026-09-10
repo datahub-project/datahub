@@ -1,0 +1,73 @@
+{
+  "data": {
+    "entities": [
+      {
+        "type": "cube",
+        "name": "orders",
+        "title": "Orders",
+        "description": "Order transactions",
+        "table_references": [{ "schema": "public", "table": "orders" }],
+        "cube_references": ["users"],
+        "measures": [
+          {
+            "name": "count",
+            "title": "Count",
+            "type": "count",
+            "member_references": [],
+            "column_references": [
+              { "schema": "public", "table": "orders", "column": "id" }
+            ]
+          }
+        ],
+        "dimensions": [
+          {
+            "name": "id",
+            "title": "Id",
+            "type": "number",
+            "is_primary_key": true,
+            "column_references": [
+              { "schema": "public", "table": "orders", "column": "id" }
+            ]
+          },
+          {
+            "name": "status",
+            "title": "Status",
+            "type": "string",
+            "is_primary_key": false,
+            "column_references": [
+              { "schema": "public", "table": "orders", "column": "status" }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "view",
+        "name": "orders_view",
+        "title": "Orders View",
+        "description": "Curated, query-ready orders",
+        "table_references": [],
+        "cube_references": ["orders"],
+        "measures": [
+          {
+            "name": "count",
+            "title": "Count",
+            "type": "count",
+            "member_references": ["orders.count"],
+            "column_references": []
+          }
+        ],
+        "dimensions": [
+          {
+            "name": "status",
+            "title": "Status",
+            "type": "string",
+            "is_primary_key": false,
+            "member_references": ["orders.status"],
+            "column_references": []
+          }
+        ]
+      }
+    ]
+  },
+  "pagination": { "offset": 0, "limit": 100, "total": 2 }
+}

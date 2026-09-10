@@ -1,0 +1,11 @@
+{
+    "boundary.onPremActionMessage": "Kérjük, jelentse a böngészőjében megjelenő hibaüzeneteket a DataHub-adminisztrátorának",
+    "bulkEditUnauthorized": "A tömeges szerkesztéshez kiválasztott elemek között olyan entitások is szerepeltek, amelyek frissítésére nincs jogosultsága. A végrehajtott tömeges szerkesztés nem lesz mentve.",
+    "fallback.defaultMessage": "Csapatunkat értesítettük erről a váratlan hibáról, és dolgozunk a megoldáson.",
+    "fallback.subtitle": "Valami nem a terv szerint alakult.",
+    "fallback.title": "Hoppá!",
+    "section.description": "Váratlan hiba történt. Kérjük, próbálja újra később, vagy forduljon az adminisztrátorához",
+    "section.needSupport": "<bold>Segítségre van szüksége?</bold> Tekintse meg ezeket az erőforrásokat:",
+    "section.title": "Valami hiba történt.",
+    "unauthorized": "Nincs jogosultsága. Kérjük, forduljon a DataHub-adminisztrátorához."
+}

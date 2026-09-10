@@ -48,5 +48,5 @@ public interface GraphQueryDAO {
       @Nullable String keepAlive,
       @Nullable Integer count);
 
-  void cleanupPointInTime(String pitId);
+  void cleanupPointInTime(@Nonnull OperationContext opContext, String pitId);
 }

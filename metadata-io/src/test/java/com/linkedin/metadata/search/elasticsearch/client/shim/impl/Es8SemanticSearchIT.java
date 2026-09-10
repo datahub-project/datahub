@@ -10,6 +10,8 @@ import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
@@ -35,6 +37,9 @@ public class Es8SemanticSearchIT {
 
   private ElasticsearchContainer container;
   private Es8SearchClientShim shim;
+
+  private static final OperationContext OP_CONTEXT =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   @BeforeClass(alwaysRun = true)
   public void setUp() {
@@ -87,11 +92,13 @@ public class Es8SemanticSearchIT {
     EmbeddingBatch.Chunk c1 =
         new EmbeddingBatch.Chunk(new float[] {0.9f, 0.1f, 0.0f, 0.0f}, "alpha", 0, 0, 5, 1);
     shim.indexEmbeddings(
+        OP_CONTEXT,
         new EmbeddingBatch("doc_v2_semantic", "urn:doc:1", "gemini_embedding_001", List.of(c1)));
 
     EmbeddingBatch.Chunk c2 =
         new EmbeddingBatch.Chunk(new float[] {0.0f, 0.0f, 0.1f, 0.9f}, "beta", 0, 0, 4, 1);
     shim.indexEmbeddings(
+        OP_CONTEXT,
         new EmbeddingBatch("doc_v2_semantic", "urn:doc:2", "gemini_embedding_001", List.of(c2)));
 
     // Explicitly refresh the index so documents are immediately searchable without a sleep.
@@ -99,6 +106,7 @@ public class Es8SemanticSearchIT {
 
     KnnSearchResponse out =
         shim.searchKnn(
+            OP_CONTEXT,
             KnnSearchRequest.builder()
                 .indexName("doc_v2_semantic")
                 .vectorField("embeddings.gemini_embedding_001.chunks.vector")
@@ -129,7 +137,7 @@ public class Es8SemanticSearchIT {
             List.of(new EmbeddingBatch.Chunk(new float[] {0.1f, 0.2f}, "x", 0, 0, 1, 1)));
 
     try {
-      shim.indexEmbeddings(wrongDim);
+      shim.indexEmbeddings(OP_CONTEXT, wrongDim);
       fail("Expected an exception for dimension mismatch (vector has 2 dims, index expects 4)");
     } catch (ElasticsearchException expected) {
       // ES rejects the document because the vector dimension does not match the mapping.

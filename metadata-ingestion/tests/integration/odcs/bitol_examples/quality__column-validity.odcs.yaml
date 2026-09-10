@@ -1,0 +1,32 @@
+# Vendored verbatim (below this header) from the Open Data Contract Standard
+# repository, tag v3.1.0: docs/examples/quality/column-validity.odcs.yaml
+# https://github.com/bitol-io/open-data-contract-standard (Apache-2.0; see /NOTICE)
+version: 1.0.0
+apiVersion: v3.1.0
+kind: DataContract
+id: 53581432-6c55-4ba2-a65f-72344a91553a
+status: active
+name: my_table
+schema:
+  - name: Air_Quality
+    description: Air quality of the city of New York
+    authoritativeDefinitions:
+      - url: https://catalog.data.gov/dataset/air-quality
+        type: Reference definition on Data.gov
+    dataGranularityDescription: Raw records
+    physicalType: table
+    properties:
+    - name: air_quality_status
+      primaryKey: true
+      logicalType: string
+      physicalType: varchar
+      quality:
+      - metric: invalidValues
+        mustBeLessOrEqualTo: 5
+        unit: percent
+        arguments:
+          validValues: ["", null, "n/a"]
+        description: This column should be filled in 95% of the time
+        dimension: conformity
+        severity: error
+        businessImpact: operational

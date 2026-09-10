@@ -1,0 +1,14 @@
+[
+  {
+    "technicalName": "SAP.TIME.M_TIME_DIMENSION"
+  },
+  {
+    "technicalName": "SAP.TIME.M_TIME_DIMENSION_TDAY"
+  },
+  {
+    "technicalName": "SAP.TIME.M_TIME_DIMENSION_TMONTH"
+  },
+  {
+    "technicalName": "SAP.TIME.M_TIME_DIMENSION_TQUARTER"
+  }
+]

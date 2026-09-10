@@ -1,0 +1,26 @@
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.19.3
+    container_name: test-opensearch
+    ports:
+      - "29201:9200"
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65535
+        hard: 65535
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "curl -sf http://localhost:9200/_cluster/health || exit 1"
+      interval: 10s
+      timeout: 10s
+      retries: 24
+      start_period: 30s

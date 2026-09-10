@@ -5,14 +5,9 @@ It uses GraphQL introspection and AST transformation to remove unsupported field
 enabling clients to work with servers of different versions.
 """
 
-import hashlib
-import json
 import logging
-import os
-import tempfile
 import threading
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Tuple, cast
 
 from graphql import (
@@ -33,6 +28,8 @@ from graphql import (
 from graphql.language.visitor import REMOVE
 from graphql.utilities import build_client_schema, get_introspection_query
 
+from datahub.utilities.server_state_disk_cache import ServerStateDiskCache
+
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
 
@@ -42,8 +39,12 @@ SCHEMA_TTL_SECONDS: float = 600.0  # 10 min backstop TTL
 SCHEMA_FAILURE_TTL_SECONDS: float = 60.0  # 1 min negative cache
 QUERY_CACHE_MAX_SIZE: int = 128
 PARSE_CACHE_MAX_SIZE: int = 128
-DISK_CACHE_DIR: str = os.path.join(os.path.expanduser("~"), ".datahub", "schema_cache")
 _MAX_INLINE_DEPTH: int = 10  # guard against pathological fragment nesting
+
+# Persists introspection across processes; keyed by server URL + commit hash,
+# so it invalidates on server upgrade. The in-memory cache (with TTL) sits in
+# front of this; see _get_schema.
+_SCHEMA_DISK_CACHE = ServerStateDiskCache("schema_cache")
 
 
 class _FragmentInliner(Visitor):
@@ -668,106 +669,22 @@ class QueryProjector:
                 self._schema_fetched_at = time.monotonic()
                 raise
 
-    def _disk_cache_path(self, server_url: str, commit_hash: str) -> Path:
-        """Get the disk cache file path for a given server + commit hash."""
-        cache_dir = Path(DISK_CACHE_DIR)
-        key = hashlib.sha256(f"{server_url}:{commit_hash}".encode()).hexdigest()[:32]
-        return cache_dir / f"{key}.json"
-
-    def _load_from_disk(
-        self, server_url: str, commit_hash: str
-    ) -> Optional[GraphQLSchema]:
-        """Try to load cached introspection from disk. Returns None on miss/error."""
-        try:
-            path = self._disk_cache_path(server_url, commit_hash)
-            # Reject symlinks to prevent symlink attacks
-            if path.is_symlink():
-                logger.warning(f"Ignoring symlinked cache file: {path}")
-                return None
-            # Use direct read (no exists() check) to avoid TOCTOU race
-            data: IntrospectionQuery = json.loads(path.read_text(encoding="utf-8"))
-            schema = build_client_schema(data)
-            logger.debug(f"Loaded schema from disk cache: {path}")
-            return schema
-        except FileNotFoundError:
-            return None
-        except Exception as e:
-            logger.debug(f"Disk cache miss or error: {e}")
-        return None
-
-    def _save_to_disk(
-        self, server_url: str, commit_hash: str, introspection_data: dict
-    ) -> None:
-        """Save introspection result to disk cache. Best-effort, never raises.
-
-        Uses atomic write (tempfile + rename) to prevent truncated files on crash.
-        Rejects symlinks to prevent symlink attacks.
-        """
-        try:
-            path = self._disk_cache_path(server_url, commit_hash)
-            # Reject symlinks to prevent writing through to unintended targets
-            if path.is_symlink():
-                logger.warning(f"Refusing to write to symlinked cache path: {path}")
-                return
-            path.parent.mkdir(parents=True, exist_ok=True)
-            # Atomic write: write to temp file then rename to avoid truncated files
-            fd, tmp_path = tempfile.mkstemp(
-                dir=str(path.parent), suffix=".tmp", prefix=".schema_"
-            )
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8") as f:
-                    json.dump(introspection_data, f)
-                os.replace(tmp_path, str(path))
-                logger.debug(f"Saved schema to disk cache: {path}")
-            except BaseException:
-                # Clean up temp file on any failure (including KeyboardInterrupt)
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
-                raise
-            self._cleanup_old_cache_files(path.parent, max_age_days=7)
-        except Exception as e:
-            logger.debug(f"Failed to write disk cache: {e}")
-
-    def _cleanup_old_cache_files(self, cache_dir: Path, max_age_days: int) -> None:
-        """Remove cache files older than max_age_days. Best-effort, per-file error handling.
-
-        Also removes stale .tmp files from interrupted atomic writes (e.g., on
-        Windows where os.replace can fail if the target is locked).
-        """
-        try:
-            cutoff = time.time() - (max_age_days * 86400)
-            for f in cache_dir.glob("*.json"):
-                try:
-                    if f.stat().st_mtime < cutoff:
-                        f.unlink()
-                        logger.debug(f"Cleaned up old cache file: {f}")
-                except FileNotFoundError:
-                    pass  # Another process already deleted it
-                except Exception:
-                    pass  # Permission errors, etc. — skip this file
-            # Clean up stale temp files (older than 1 hour)
-            tmp_cutoff = time.time() - 3600
-            for f in cache_dir.glob(".schema_*.tmp"):
-                try:
-                    if f.stat().st_mtime < tmp_cutoff:
-                        f.unlink()
-                except Exception:
-                    pass
-        except Exception as e:
-            logger.debug(f"Cache cleanup error: {e}")
-
     def _introspect_schema(self, graph: "DataHubGraph") -> GraphQLSchema:
         """Introspect the server's GraphQL schema, with on-disk caching."""
         server_url = getattr(graph, "_gms_server", None)
         commit_hash = self._get_commit_hash(graph)
 
-        # Try disk cache first (requires both server_url and commit_hash)
+        # Try disk cache first (requires both server_url and commit_hash).
         if server_url and commit_hash:
-            disk_schema = self._load_from_disk(server_url, commit_hash)
-            if disk_schema is not None:
-                return disk_schema
+            cached = _SCHEMA_DISK_CACHE.get(server_url, commit_hash)
+            if cached is not None:
+                try:
+                    schema = build_client_schema(cast(IntrospectionQuery, cached))
+                    logger.debug("Loaded schema from disk cache")
+                    return schema
+                except Exception as e:
+                    # Valid JSON but not a usable introspection result — re-fetch.
+                    logger.debug(f"Ignoring unusable cached introspection: {e}")
 
         introspection_query = get_introspection_query()
 
@@ -781,9 +698,9 @@ class QueryProjector:
             # execute_graphql already unwraps result["data"]
             schema = build_client_schema(cast(IntrospectionQuery, result))
 
-            # Save to disk cache (requires both server_url and commit_hash)
+            # Save to disk cache (requires both server_url and commit_hash).
             if server_url and commit_hash:
-                self._save_to_disk(server_url, commit_hash, result)
+                _SCHEMA_DISK_CACHE.put(server_url, commit_hash, result)
 
             logger.info("Successfully introspected server GraphQL schema")
             return schema

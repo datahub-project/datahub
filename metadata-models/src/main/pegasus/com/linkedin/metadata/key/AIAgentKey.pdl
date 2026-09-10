@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an AI Agent entity
+ */
+@Aspect = {
+  "name": "aiAgentKey"
+}
+record AIAgentKey {
+  /**
+   * Unique identifier for the agent, e.g. "ask-datahub" or a generated UUID
+   */
+  @Searchable = {}
+  id: string
+}

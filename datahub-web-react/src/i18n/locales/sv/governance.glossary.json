@@ -1,0 +1,21 @@
+{
+    "card.nodeGroupCountTooltip_one": "Innehåller {{count}} termgrupp",
+    "card.nodeGroupCountTooltip_other": "Innehåller {{count}} termgrupper",
+    "card.termCountTooltip_one": "Innehåller {{count}} term",
+    "card.termCountTooltip_other": "Innehåller {{count}} termer",
+    "empty.addTerm": "Lägg till term",
+    "empty.addTermGroup": "Lägg till termgrupp",
+    "empty.description": "Skapa termer och termgrupper för att organisera datatillgångar med ett gemensamt vokabulär.",
+    "empty.title": "Tom ordlista",
+    "list.error": "Kunde inte läsa in ordlistan! Ett oväntat fel uppstod.",
+    "list.loading": "Läser in ordlistan...",
+    "page.createGlossary": "Skapa ordlista",
+    "page.subtitle": "Klassificera dina datatillgångar och kolumner med hjälp av dataordböcker",
+    "page.title": "Ordlista",
+    "section.glossaryTerms": "Termer",
+    "section.termGroups": "Termgrupper",
+    "sidebar.collapse": "Fäll ihop ordlistan",
+    "sidebar.expand": "Fäll ut ordlistan",
+    "sidebar.home": "Ordlistans startsida",
+    "sidebar.section.allTerms": "Alla termer"
+}

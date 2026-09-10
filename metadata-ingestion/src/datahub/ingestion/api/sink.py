@@ -2,7 +2,17 @@ import datetime
 import logging
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Generic, List, Optional, Type, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generic,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    cast,
+)
 
 from typing_extensions import Self
 
@@ -16,6 +26,9 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUn
 from datahub.ingestion.api.report import Report
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +166,25 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
     ) -> None:
         # must call callback when done.
         pass
+
+    def flush(self) -> None:
+        """Block until all buffered/in-flight writes are delivered.
+
+        Called by the pipeline before committing state, so that async sinks can
+        confirm delivery (and record any failures on their report) before the
+        commit gate reads sink failures. Default is a no-op for synchronous
+        sinks; async sinks (e.g. datahub-kafka) should override.
+        """
+        pass
+
+    def to_graph(self) -> Optional["DataHubGraph"]:
+        """Return a DataHubGraph for features that need a GMS client (e.g.
+        stateful ingestion) when this sink is the injected default.
+
+        Default None (no graph -> such features are disabled). Sinks that can
+        provide one (e.g. datahub-kafka via its REST fallback) should override.
+        """
+        return None
 
     def get_report(self) -> SinkReportType:
         return self.report

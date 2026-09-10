@@ -1,5 +1,6 @@
 import { Icon } from '@components';
-import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -23,6 +24,16 @@ const CheckboxWrapper = styled.div`
     margin-left: auto;
 `;
 
+const CaretSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    margin-right: 4px;
+`;
+
 interface OptionProps<OptionType extends NestedSelectOption> {
     option: OptionType;
     selectedOptions: OptionType[];
@@ -38,6 +49,7 @@ interface OptionProps<OptionType extends NestedSelectOption> {
     hideParentCheckbox?: boolean;
     isParentOptionLabelExpanded?: boolean;
     implicitlySelectChildren: boolean;
+    selectChildrenWithParent: boolean;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
 }
 
@@ -56,6 +68,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
     hideParentCheckbox,
     isParentOptionLabelExpanded,
     implicitlySelectChildren,
+    selectChildrenWithParent,
     renderCustomOptionText,
 }: OptionProps<OptionType>) => {
     const [loadingParentUrns, setLoadingParentUrns] = useState<string[]>([]);
@@ -76,6 +89,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
             selectableChildren,
             areParentsSelectable,
             implicitlySelectChildren,
+            selectChildrenWithParent,
             isMultiSelect: !!isMultiSelect,
             addOptions,
             removeOptions,
@@ -105,7 +119,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             setLoadingParentUrns((previousIds) => [...previousIds, option.value]);
                             loadData?.(option);
                         }
-                        if (option.isParent) {
+                        if (option.isParent && !areParentsSelectable) {
                             setIsOpen(!isOpen);
                         } else {
                             selectOption();
@@ -118,20 +132,13 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                         cursor:
                             isLoadingParentChildList && loadingParentUrns.includes(option.value) ? 'wait' : 'pointer',
                         display: 'flex',
+                        alignItems: 'center',
                         justifyContent: hideParentCheckbox ? 'space-between' : 'normal',
                     }}
                     data-testid={`${option.isParent ? 'parent' : 'child'}-option-${option.value}`}
                 >
-                    {renderCustomOptionText ? (
-                        renderCustomOptionText(option)
-                    ) : (
-                        <>
-                            {option.isParent && <strong>{option.label}</strong>}
-                            {!option.isParent && <>{option.label}</>}
-                        </>
-                    )}
-                    {option.isParent && (
-                        <Icon
+                    {option.isParent ? (
+                        <CaretSlot
                             onClick={(e) => {
                                 e.stopPropagation();
                                 e.preventDefault();
@@ -141,14 +148,26 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                                     loadData?.(option);
                                 }
                             }}
-                            icon={CaretLeft}
-                            rotate={isOpen ? '90' : '270'}
-                            size="xl"
-                            color="gray"
-                            style={{ cursor: 'pointer', marginLeft: '4px' }}
-                        />
+                        >
+                            <Icon
+                                icon={isOpen ? CaretDown : CaretRight}
+                                size="md"
+                                color="gray"
+                                style={{ cursor: 'pointer' }}
+                            />
+                        </CaretSlot>
+                    ) : (
+                        <CaretSlot aria-hidden />
                     )}
-                    {!(hideParentCheckbox && option.isParent) && (
+                    {renderCustomOptionText ? (
+                        renderCustomOptionText(option)
+                    ) : (
+                        <>
+                            {option.isParent && <strong>{option.label}</strong>}
+                            {!option.isParent && <>{option.label}</>}
+                        </>
+                    )}
+                    {isMultiSelect && !(hideParentCheckbox && option.isParent) && (
                         <CheckboxWrapper>
                             <Checkbox
                                 isChecked={isImplicitlySelected || isSelected}
@@ -188,6 +207,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             areParentsSelectable={areParentsSelectable}
                             setSelectedOptions={setSelectedOptions}
                             implicitlySelectChildren={implicitlySelectChildren}
+                            selectChildrenWithParent={selectChildrenWithParent}
                             renderCustomOptionText={renderCustomOptionText}
                         />
                     ))}

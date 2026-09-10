@@ -23,12 +23,25 @@ Security Tests:
 
 import re
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
+from pydantic import ValidationError
+
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    BigQueryFilterConfig,
+    BigQueryIdentifierConfig,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQueryQueriesExtractorReport,
 )
+from datahub.ingestion.source.bigquery_v2.common import (
+    BigQueryFilter,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+    BigQueryQueriesExtractor,
+    BigQueryQueriesExtractorConfig,
     _all_scanned_regions_empty,
     _build_enriched_query_log_query,
     _build_user_filter,
@@ -1239,3 +1252,55 @@ class TestBigQueryConfigValidator:
         assert (
             BigQueryQueriesExtractorConfig().region_qualifiers_auto_discovery is False
         )
+
+
+class TestQueriesExtractorUsageConfigWiring:
+    """Tests for usage.format_sql_queries / include_top_n_queries / queries_character_limit
+    being forwarded from BigQueryQueriesExtractorConfig into the SqlParsingAggregator."""
+
+    def _build_extractor(self, config):
+        filters = BigQueryFilter(BigQueryFilterConfig(), MagicMock())
+        identifiers = BigQueryIdentifierBuilder(BigQueryIdentifierConfig(), MagicMock())
+        return BigQueryQueriesExtractor(
+            connection=MagicMock(),
+            schema_api=MagicMock(),
+            config=config,
+            structured_report=MagicMock(),
+            filters=filters,
+            identifiers=identifiers,
+        )
+
+    def test_top_n_queries_too_big_for_character_limit_rejected_at_parse_time(self):
+        # The standalone bigquery-queries source uses BigQueryQueriesExtractorConfig
+        # directly (not via BigQueryUsageConfig, which already validates this combo),
+        # so this class needs its own copy of the check - otherwise an inconsistent
+        # combo only blows up later inside BaseUsageConfig(...) mid-ingestion.
+        with pytest.raises(ValidationError) as excinfo:
+            BigQueryQueriesExtractorConfig(top_n_queries=2, queries_character_limit=20)
+        assert "top_n_queries is set to 2 but it can be maximum 1" in str(excinfo.value)
+
+    @pytest.mark.parametrize("value", [True, False])
+    def test_format_sql_queries_forwarded_to_aggregator(self, value):
+        # format_sql_queries is dual-target: it drives both the aggregator's own
+        # format_queries kwarg and usage_config.format_sql_queries.
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.queries_extractor.SqlParsingAggregator"
+        ) as mock_aggregator_cls:
+            self._build_extractor(
+                BigQueryQueriesExtractorConfig(format_sql_queries=value)
+            )
+            _, kwargs = mock_aggregator_cls.call_args
+            assert kwargs["format_queries"] is value
+            assert kwargs["usage_config"].format_sql_queries is value
+
+    @pytest.mark.parametrize(
+        "field,value",
+        [("include_top_n_queries", False), ("queries_character_limit", 1000)],
+    )
+    def test_usage_config_field_forwarded_to_aggregator(self, field, value):
+        with patch(
+            "datahub.ingestion.source.bigquery_v2.queries_extractor.SqlParsingAggregator"
+        ) as mock_aggregator_cls:
+            self._build_extractor(BigQueryQueriesExtractorConfig(**{field: value}))
+            _, kwargs = mock_aggregator_cls.call_args
+            assert getattr(kwargs["usage_config"], field) == value

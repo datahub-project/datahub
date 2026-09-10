@@ -36,11 +36,14 @@ const BadgeContainer = styled.div`
 
 interface Props {
     structuredProperties?: StructuredProperties | null;
+    platformUrn?: string | null;
 }
 
-const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
+const StructuredPropertyBadge = ({ structuredProperties, platformUrn }: Props) => {
     const { t } = useTranslation('entity.shared.containers');
-    const badgeStructuredProperty = structuredProperties?.properties?.find(filterForAssetBadge);
+    const badgeStructuredProperty = structuredProperties?.properties?.find((prop) =>
+        filterForAssetBadge(prop, platformUrn),
+    );
 
     const propRow = badgeStructuredProperty ? mapStructuredPropertyToPropertyRow(badgeStructuredProperty) : undefined;
 

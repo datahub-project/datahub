@@ -67,6 +67,20 @@ This product includes/uses Spring Framework (http://projects.spring.io/spring-fr
 Copyright (c) 2002- the original author or authors
 License: Apache 2.0 - http://www.apache.org/licenses/LICENSE-2.0
 
+This product includes/uses Open Data Contract Standard (https://github.com/bitol-io/open-data-contract-standard)
+Copyright Bitol authors (Linux Foundation AI & Data Foundation).
+License: Apache 2.0 - http://www.apache.org/licenses/LICENSE-2.0
+The JSON Schema files in
+metadata-ingestion/src/datahub/ingestion/source/odcs/odcs_schema/
+are unmodified copies pinned to upstream release tags v3.0.2 and v3.1.0.
+The test fixture
+metadata-ingestion/tests/integration/odcs/odcs_bitol_full_example.odcs.yaml
+is the upstream v3.1.0 full example (docs/examples/all/full-example.odcs.yaml)
+with a provenance header prepended. The test fixtures under
+metadata-ingestion/tests/integration/odcs/bitol_examples/
+are the upstream v3.1.0 documentation examples (docs/examples/...), each with
+a provenance header prepended.
+
 
 ========================================================================
 External dependencies

@@ -1,6 +1,12 @@
 {
     "changeHistoryDrawer.title": "Detalles del historial de cambios",
     "changeHistoryGraph.operationsMade": "Operaciones realizadas en esta tabla:",
+    "changeHistoryGraph.operation.alter": "Alterar",
+    "changeHistoryGraph.operation.create": "Crear",
+    "changeHistoryGraph.operation.delete": "Eliminar",
+    "changeHistoryGraph.operation.drop": "Descartar",
+    "changeHistoryGraph.operation.insert": "Insertar",
+    "changeHistoryGraph.operation.update": "Actualizar",
     "changeHistoryGraph.statName": "historial de cambios",
     "changeHistoryGraph.title": "Historial de cambios",
     "changeHistoryPopover.noChangesThisDay": "No hay cambios este día",

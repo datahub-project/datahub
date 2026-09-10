@@ -90,6 +90,7 @@ public class EntityAssertionsResolver
                     .map(entities::get) // null for hard-deleted urns
                     .filter(Objects::nonNull)
                     .map(r -> AssertionMapper.map(context, r))
+                    .filter(assertion -> assertion.getInfo() != null)
                     .filter(assertion -> includeSoftDeleted || !isSoftDeleted(assertion))
                     .collect(Collectors.toList());
 

@@ -17,6 +17,7 @@ import { ExecutionCancelInfo } from '@app/ingestV2/executions/types';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { useIngestionOnboardingRedesignV1 } from '@app/ingestV2/hooks/useIngestionOnboardingRedesignV1';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
+import SourceTypeFilter from '@app/ingestV2/shared/components/filters/SourceTypeFilter';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
 import IngestionSourceRefetcher from '@app/ingestV2/source/IngestionSourceRefetcher';
 import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
@@ -28,6 +29,7 @@ import {
     removeFromListIngestionSourcesCache,
     updateListIngestionSourcesCache,
 } from '@app/ingestV2/source/cacheUtils';
+import type { IngestionSourceListDeepLinkState } from '@app/ingestV2/source/multiStepBuilder/ingestionCreatePage.types';
 import {
     DEFAULT_SOURCE_SORT_CRITERION,
     buildOwnerEntities,
@@ -130,6 +132,8 @@ interface Props {
     setSourceFilter: (sourceFilter: number | undefined) => void;
     searchQuery?: string;
     setSearchQuery: (query: string) => void;
+    sourceTypes?: string[];
+    setSourceTypes: (sourceTypes: string[]) => void;
 }
 
 export const IngestionSourceList = ({
@@ -144,6 +148,8 @@ export const IngestionSourceList = ({
     setSourceFilter: setSourceFilterFromUrl,
     searchQuery: searchQueryFromUrl,
     setSearchQuery: setSearchQueryFromUrl,
+    sourceTypes: sourceTypesFromUrl,
+    setSourceTypes: setSourceTypesFromUrl,
 }: Props) => {
     const { t } = useTranslation('ingestion');
     const { t: tc } = useTranslation('common.actions');
@@ -200,6 +206,7 @@ export const IngestionSourceList = ({
     const [sourceUrnToExecute, setSourceUrnToExecute] = useState<string | null>();
     const [sourceUrnToDelete, setSourceUrnToDelete] = useState<string | null>(null);
     const [isModalWaiting, setIsModalWaiting] = useState<boolean>(false);
+    const [createModalInitialState, setCreateModalInitialState] = useState<SourceBuilderState | undefined>();
 
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
@@ -208,6 +215,9 @@ export const IngestionSourceList = ({
 
     const sourceFilter = useMemo(() => sourceFilterFromUrl ?? IngestionSourceType.ALL, [sourceFilterFromUrl]);
     const prevSourceFilter = usePrevious(sourceFilter);
+
+    const sourceTypes = useMemo(() => sourceTypesFromUrl ?? [], [sourceTypesFromUrl]);
+    const prevSourceTypes = usePrevious(sourceTypes);
 
     // Debounce the search query
     useDebounce(
@@ -229,6 +239,13 @@ export const IngestionSourceList = ({
         }
     }, [sourceFilter, setPage, prevSourceFilter]);
 
+    // When source type filter changes, reset page to 1
+    useEffect(() => {
+        if (prevSourceTypes !== undefined && prevSourceTypes !== sourceTypes) {
+            setPage(1);
+        }
+    }, [sourceTypes, setPage, prevSourceTypes]);
+
     /**
      * Show or hide system ingestion sources using a hidden command S command.
      */
@@ -244,8 +261,11 @@ export const IngestionSourceList = ({
                 negated: sourceFilter !== IngestionSourceType.CLI,
             });
         }
+        if (sourceTypes.length) {
+            draftFilters.push({ field: 'type', values: sourceTypes });
+        }
         return draftFilters;
-    }, [sourceFilter, hideSystemSources]);
+    }, [sourceFilter, hideSystemSources, sourceTypes]);
 
     const queryInputs = useMemo(
         () => ({
@@ -290,6 +310,16 @@ export const IngestionSourceList = ({
     const isLastPage = totalSources <= pageSize * page;
     // this is required when the ingestion source has not been created
     const [selectedSourceType, setSelectedSourceType] = useState<string | undefined>(undefined);
+
+    useEffect(() => {
+        const deepLinkState = location.state as IngestionSourceListDeepLinkState | undefined;
+        if (deepLinkState?.openCreateIngestionModal && deepLinkState.initialBuilderState) {
+            setCreateModalInitialState(deepLinkState.initialBuilderState);
+            setSelectedSourceType(deepLinkState.sourceType);
+            setShowCreateModal(true);
+            history.replace({ pathname: location.pathname, search: location.search });
+        }
+    }, [history, location.pathname, location.search, location.state, setShowCreateModal]);
 
     useEffect(() => {
         setFinalSources((prev) => prev.filter((source) => !removedUrns.includes(source.urn)));
@@ -608,6 +638,7 @@ export const IngestionSourceList = ({
         setShowCreateModal(false);
         setIsViewingRecipe(false);
         setFocusSourceUrn(undefined);
+        setCreateModalInitialState(undefined);
     };
 
     const onChangeSort = useCallback(
@@ -657,6 +688,11 @@ export const IngestionSourceList = ({
                                 size="lg"
                                 data-testid="ingestions-type-filter"
                             />
+                            <SourceTypeFilter
+                                values={sourceTypes}
+                                onUpdate={setSourceTypesFromUrl}
+                                hideSystemSources={hideSystemSources}
+                            />
                         </SearchContainer>
                         <FilterButtonsContainer>
                             <RefreshButton onClick={() => refetch()} id={INGESTION_REFRESH_SOURCES_ID} />
@@ -702,7 +738,11 @@ export const IngestionSourceList = ({
                 )}
             </SourceContainer>
             <IngestionSourceBuilderModal
-                initialState={mapSourceTypeAliases(removeExecutionsFromIngestionSource(focusSource))}
+                initialState={
+                    focusSource
+                        ? mapSourceTypeAliases(removeExecutionsFromIngestionSource(focusSource))
+                        : createModalInitialState
+                }
                 open={showCreateModal}
                 onSubmit={onSubmit}
                 onCancel={onCancel}

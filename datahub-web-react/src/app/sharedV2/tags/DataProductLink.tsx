@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import PillRemoveIcon from '@app/sharedV2/icons/PillRemoveIcon';
@@ -23,11 +24,19 @@ const DataProductLinkContainer = styled(Link)`
 
 const DataProductWrapper = styled.span`
     display: inline-block;
-    margin-bottom: 8px;
 `;
 
 const RemoveIcon = styled(PillRemoveIcon)`
     margin-left: 4px;
+`;
+
+const PillDeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
 `;
 
 const IconWrapper = styled.div`
@@ -62,6 +71,16 @@ function DataProductContent({ dataProduct, name, closable, onClose, tagStyle, fo
         <StyledTag style={tagStyle} fontSize={fontSize}>
             <IconWrapper>{entityRegistry.getIcon(EntityType.DataProduct, 16, IconStyleType.ACCENT)}</IconWrapper>
             {displayName}
+            {dataProduct.deprecation && dataProduct.deprecation.deprecated && (
+                <PillDeprecationSlot>
+                    <DeprecationIcon
+                        urn={dataProduct.urn}
+                        deprecation={dataProduct.deprecation}
+                        showUndeprecate={false}
+                        showText={false}
+                    />
+                </PillDeprecationSlot>
+            )}
             {closable && <RemoveIcon onClick={onClose} />}
         </StyledTag>
     );

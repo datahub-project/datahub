@@ -44,6 +44,8 @@ from datahub.metadata.schema_classes import (
         ("row(x bigint, y double)", "row"),
         ("array(row(x bigint, y double))", "array"),
         ("map(varchar, varchar)", "map"),
+        ("DECIMAL(38, 2)", "decimal"),
+        ("VARCHAR(20)", "varchar"),
     ],
 )
 def test_resolve_trino_modified_type(data_type, expected_data_type):
@@ -209,7 +211,9 @@ def test_type_conflicts_across_platforms():
         "Type 'map' conflicts: SPARK=<class 'datahub.metadata._internal_schema_classes.RecordTypeClass'> vs TRINO=<class 'datahub.metadata._internal_schema_classes.MapTypeClass'>",
         "Type 'map' conflicts: SPARK=<class 'datahub.metadata._internal_schema_classes.RecordTypeClass'> vs ATHENA=<class 'datahub.metadata._internal_schema_classes.MapTypeClass'>",
         "Type 'interval' conflicts: POSTGRES=None vs VERTICA=<class 'datahub.metadata._internal_schema_classes.TimeTypeClass'>",
-        "Type 'point' conflicts: POSTGRES=None vs NEO4J=<class 'datahub.metadata._internal_schema_classes.StringTypeClass'>",
+        "Type 'point' conflicts: POSTGRES=<class 'datahub.metadata._internal_schema_classes.BytesTypeClass'> vs NEO4J=<class 'datahub.metadata._internal_schema_classes.StringTypeClass'>",
+        "Type 'geometry' conflicts: POSTGRES=<class 'datahub.metadata._internal_schema_classes.BytesTypeClass'> vs VERTICA=None",
+        "Type 'geography' conflicts: POSTGRES=<class 'datahub.metadata._internal_schema_classes.BytesTypeClass'> vs VERTICA=None",
     }
 
     # Convert conflicts to set for comparison

@@ -3,8 +3,9 @@ import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, Nod
 import 'reactflow/dist/style.css';
 import styled from 'styled-components';
 
+import LineageEmptyGraphNudge from '@app/lineage/LineageEmptyGraphNudge';
 import LineageAnnotationNode, {
-    LINEAGE_ANNOTATION_NODE,
+    LINEAGE_ANNOTATION_NODE_NAME,
 } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
 import LineageBoundingBoxNode, {
     LINEAGE_BOUNDING_BOX_NODE_NAME,
@@ -25,7 +26,7 @@ import LineageTransformationNode, {
     LINEAGE_TRANSFORMATION_NODE_NAME,
 } from '@app/lineageV3/LineageTransformationNode/LineageTransformationNode';
 import LineageVisualizationContext from '@app/lineageV3/LineageVisualizationContext';
-import { LineageDisplayContext, TRANSITION_DURATION_MS } from '@app/lineageV3/common';
+import { LineageDisplayContext, LineageNodesContext, TRANSITION_DURATION_MS } from '@app/lineageV3/common';
 import LineageControls from '@app/lineageV3/controls/LineageControls';
 import SearchControl from '@app/lineageV3/controls/SearchControl';
 import ZoomControls from '@app/lineageV3/controls/ZoomControls';
@@ -35,9 +36,20 @@ import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBui
 const StyledReactFlow = styled(ReactFlow)<{ isDraggingBoundingBox: boolean; $edgesOnTop: boolean }>`
     ${({ isDraggingBoundingBox }) =>
         !isDraggingBoundingBox &&
-        `.react-flow__node-lineage-entity:not(.dragging) {
+        `
+        .react-flow__node-lineage-entity:not(.dragging) {
             transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;
-        }`}
+        }
+        .react-flow__node-lineage-bounding-box:not(.dragging) {
+            transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;        
+        }
+        `}
+
+    /* Hovered nodes render above their neighbors, so overlays like the expand/contract
+       controls are not hidden behind other nodes. Overrides React Flow's inline z-index. */
+    .react-flow__node-lineage-entity:hover {
+        z-index: 1000 !important;
+    }
 `;
 
 // TODO: Bring back after figuring out how to no overlap expand / contract actions
@@ -53,7 +65,7 @@ const nodeTypes: NodeTypes = {
     [LINEAGE_TRANSFORMATION_NODE_NAME]: LineageTransformationNode,
     [LINEAGE_FILTER_NODE_NAME]: LineageFilterNodeBasic,
     [LINEAGE_BOUNDING_BOX_NODE_NAME]: LineageBoundingBoxNode,
-    [LINEAGE_ANNOTATION_NODE]: LineageAnnotationNode,
+    [LINEAGE_ANNOTATION_NODE_NAME]: LineageAnnotationNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -128,6 +140,7 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                         <ZoomControls />
                         <SearchControl />
                         <LineageControls />
+                        <LineageEmptyGraphNudgePanel />
                         <MiniMap position="bottom-right" ariaLabel={null} pannable zoomable />
                     </>
                 )}
@@ -162,4 +175,18 @@ function useHandleKeyboardDeselect(setSelectedColumn: (value: string | null) => 
             document.removeEventListener('keydown', handleKeyPress);
         };
     }, [setSelectedColumn]);
+}
+
+function LineageEmptyGraphNudgePanel() {
+    const { rootUrn, adjacencyList, nodes, showGhostEntities, setShowGhostEntities } = useContext(LineageNodesContext);
+
+    return (
+        <LineageEmptyGraphNudge
+            rootUrn={rootUrn}
+            adjacencyList={adjacencyList}
+            nodes={nodes}
+            showGhostEntities={showGhostEntities}
+            setShowGhostEntities={setShowGhostEntities}
+        />
+    );
 }

@@ -1,5 +1,9 @@
 {
     "groups.addMembersError": "Mitglieder konnten nicht zur Gruppe hinzugefügt werden. Bitte füge sie manuell hinzu.",
+    "groups.addMembersFailure": "Hinzufügen von Gruppenmitgliedern fehlgeschlagen: \n {{error}}",
+    "groups.addMembersModal.searchPlaceholder": "Benutzer suchen...",
+    "groups.addMembersModal.title": "Gruppenmitglieder hinzufügen",
+    "groups.addMembersSuccess": "Gruppenmitglieder hinzugefügt!",
     "groups.copyUrn": "URN kopieren",
     "groups.createButton": "Gruppe erstellen",
     "groups.createError": "Gruppe konnte nicht erstellt werden!:\n{{error}}",
@@ -15,7 +19,7 @@
     "groups.createModal.name.label": "Name",
     "groups.createModal.name.placeholder": "Ein Name für deine Gruppe",
     "groups.createModal.name.validationError.empty": "Gib einen Gruppennamen ein.",
-    "groups.createModal.name.validationError.tooLong": "Der Name darf maximal 50 Zeichen lang sein.",
+    "groups.createModal.name.validationError.tooLong": "Der Name darf maximal 250 Zeichen lang sein.",
     "groups.createModal.title": "Neue Gruppe erstellen",
     "groups.createOwnerError": "Du konntest nicht automatisch als Owner der Gruppe hinzugefügt werden. Bitte füge dich manuell als Owner hinzu.",
     "groups.createSuccess": "Gruppe erstellt!",

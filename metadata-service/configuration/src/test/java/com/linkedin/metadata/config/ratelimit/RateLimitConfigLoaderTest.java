@@ -1,308 +1,202 @@
 package com.linkedin.metadata.config.ratelimit;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
-import io.datahubproject.metadata.context.ObjectMapperContext;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import org.springframework.mock.env.MockEnvironment;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class RateLimitConfigLoaderTest {
 
-  private final RateLimitConfigLoader loader =
-      new RateLimitConfigLoader(
-          ObjectMapperContext.DEFAULT.getObjectMapper(),
-          ObjectMapperContext.DEFAULT.getYamlMapper());
+  private static final String CLASSPATH_FIXTURE = "rate-limit-loader-classpath.yaml";
+  private static final String OVERRIDE_FIXTURE = "rate-limit-loader-override.yaml";
 
-  @Test
-  public void testBuilderAppliesFieldDefaults() {
-    RateLimitProperties config = RateLimitProperties.builder().build();
-    assertTrue(config.isFailOpen());
-    assertEquals(config.getMinRetryAfterSeconds(), 60);
-    assertEquals(config.getRetryAfterJitterPercent(), 10);
-    assertEquals(
-        config.getExcludedPaths(),
-        "/health,/health/live,/actuator/prometheus,/openapi/v1/rate-limits/**");
+  private RateLimitConfigLoader loader;
 
-    CapacityLimitConfig capacityDefaults = config.getCapacity().getDefaultCapacity();
-    assertTrue(capacityDefaults.isEnabled());
-    assertEquals(capacityDefaults.getInitialLimit(), 200);
-    assertEquals(capacityDefaults.getMinLimit(), 20);
-    assertEquals(capacityDefaults.getMaxLimit(), 5000);
-
-    CapacityLimitConfig builtCapacity = CapacityLimitConfig.builder().build();
-    assertTrue(builtCapacity.isEnabled());
-    assertEquals(builtCapacity.getInitialLimit(), 200);
-    assertEquals(builtCapacity.getMinLimit(), 20);
-    assertEquals(builtCapacity.getMaxLimit(), 5000);
+  @BeforeMethod
+  public void setUp() {
+    loader = new RateLimitConfigLoader(new ObjectMapper(), new YAMLMapper());
   }
 
   @Test
-  public void testExternalFileReplacesRules() throws Exception {
-    RateLimitProperties base = new RateLimitProperties();
-    base.getConfigFile().setEnabled(true);
-    base.getCapacity().getGraphql().setPathPattern("/api/graphql");
+  public void defaultClasspathFilePreservesSpringScalars() {
+    RateLimitProperties spring = springBase();
+    RateLimitProperties effective = loader.loadEffective(spring);
 
-    Path temp = Files.createTempFile("rate-limits", ".yaml");
-    Files.writeString(
-        temp,
-        """
-        rateLimits:
-          endpoint:
-            enabled: true
-            rules:
-              - id: auth-signup
-                pathPattern: /auth/signUp
-                methods: [POST]
-                capacity: 100
-                refillTokens: 100
-                refillPeriodSeconds: 60
-        """);
-    base.getConfigFile().setPath(temp.toString());
-
-    RateLimitProperties effective = loader.loadEffective(base);
-    assertTrue(effective.getEndpoint().isEnabled());
-    assertEquals(effective.getEndpoint().getRules().size(), 1);
-    assertEquals(effective.getEndpoint().getRules().get(0).getId(), "auth-signup");
-  }
-
-  @Test
-  public void testPartialJsonOverlayPreservesUnsetFields() {
-    RateLimitProperties base = new RateLimitProperties();
-    base.setFailOpen(true);
-    base.getCapacity().setEnabled(true);
-    base.getCapacity().getDefaultCapacity().setInitialLimit(200);
-
-    loader.applyJsonOverlay(
-        """
-        {
-          "endpoint": {
-            "rules": [
-              {
-                "id": "auth-signup",
-                "pathPattern": "/auth/signUp",
-                "methods": ["POST"],
-                "capacity": 50,
-                "refillTokens": 50,
-                "refillPeriodSeconds": 60
-              }
-            ]
-          }
-        }
-        """,
-        base,
-        "test");
-
-    assertTrue(base.isFailOpen());
-    assertTrue(base.getCapacity().isEnabled());
-    assertEquals(base.getCapacity().getDefaultCapacity().getInitialLimit(), 200);
-    assertEquals(base.getEndpoint().getRules().size(), 1);
-  }
-
-  @Test
-  public void testJsonOverlayCanDisableCapacity() {
-    RateLimitProperties base = new RateLimitProperties();
-    base.getCapacity().setEnabled(true);
-
-    loader.applyJsonOverlay("{\"capacity\": {\"enabled\": false}}", base, "test");
-
-    assertFalse(base.getCapacity().isEnabled());
-  }
-
-  @Test
-  public void testMissingExternalFileContinuesWithDefaults() {
-    RateLimitProperties base = new RateLimitProperties();
-    base.getConfigFile().setEnabled(true);
-    base.getConfigFile().setPath("/nonexistent/rate-limits-does-not-exist.yaml");
-    base.getCapacity().setEnabled(true);
-    base.getCapacity().getGraphql().setPathPattern("/api/graphql");
-
-    RateLimitProperties effective = loader.loadEffective(base);
-
-    assertTrue(effective.getCapacity().isEnabled());
+    assertEquals(effective.getMinRetryAfterSeconds(), 60);
+    assertEquals(effective.getRetryAfterJitterPercent(), 10);
     assertTrue(effective.getEndpoint().getRules().isEmpty());
   }
 
   @Test
-  public void testValidateAcceptsNullRules() {
-    RateLimitProperties config = new RateLimitProperties();
-    config.getCapacity().getGraphql().setPathPattern("/api/graphql");
-    config.getCapacity().setRules(null);
-    config.getEndpoint().setRules(null);
-    loader.validate(config);
-    assertTrue(config.getCapacity().getRules().isEmpty());
-    assertTrue(config.getEndpoint().getRules().isEmpty());
+  public void configuredFileReplacesClasspathDocument() {
+    RateLimitProperties classpath = springBase();
+    classpath.getConfigFile().setPath(CLASSPATH_FIXTURE);
+    RateLimitProperties fromClasspath = loader.loadEffective(classpath);
+    assertEquals(fromClasspath.getEndpoint().getRules().get(0).getId(), "classpath-rule");
+    assertEquals(fromClasspath.getMinRetryAfterSeconds(), 90);
+
+    RateLimitProperties mounted = springBase();
+    mounted.getConfigFile().setPath(OVERRIDE_FIXTURE);
+    RateLimitProperties fromFile = loader.loadEffective(mounted);
+    assertEquals(fromFile.getEndpoint().getRules().size(), 1);
+    assertEquals(fromFile.getEndpoint().getRules().get(0).getId(), "aspects-ingest");
+    assertEquals(fromFile.getMinRetryAfterSeconds(), 120);
   }
 
   @Test
-  public void testValidationRejectsInvalidEndpointRule() {
-    RateLimitProperties config = new RateLimitProperties();
-    config.getCapacity().getGraphql().setPathPattern("/api/graphql");
-    config
-        .getEndpoint()
-        .setRules(
-            java.util.List.of(
-                RateLimitProperties.Rule.builder()
-                    .id("bad-endpoint")
-                    .pathPattern("/auth/signUp")
-                    .methods(java.util.List.of("POST"))
-                    .build()));
-    try {
-      loader.validate(config);
-      throw new AssertionError("Expected validation failure");
-    } catch (IllegalStateException e) {
-      assertTrue(e.getMessage().contains("bad-endpoint"));
-    }
+  public void jsonOverlayReplacesEndpointRulesAndMergesHeavyResolvers() {
+    RateLimitProperties spring = springBase();
+    spring.getConfigFile().setPath(OVERRIDE_FIXTURE);
+    spring.setConfigJson(
+        "{\"endpoint\":{\"rules\":[{\"id\":\"json-rule\",\"pathPattern\":\"/openapi/**\","
+            + "\"methods\":[\"GET\"],\"capacity\":5,\"refillTokens\":5,\"refillPeriodSeconds\":60}]},"
+            + "\"scoped\":{\"heavyResolvers\":{\"getEntities\":"
+            + "{\"capacity\":250,\"refillTokens\":50,\"refillPeriodSeconds\":60}}}}");
+
+    RateLimitProperties effective = loader.loadEffective(spring);
+
+    List<RateLimitProperties.Rule> rules = effective.getEndpoint().getRules();
+    assertEquals(rules.size(), 1);
+    assertEquals(rules.get(0).getId(), "json-rule");
+    assertEquals(
+        effective.getScoped().getHeavyResolvers().get("searchAcrossEntities").getCapacity(), 50);
+    assertEquals(effective.getScoped().getHeavyResolvers().get("getEntities").getCapacity(), 250);
+    assertEquals(effective.getMinRetryAfterSeconds(), 120);
+    assertTrue(effective.isFailOpen());
   }
 
   @Test
-  public void testValidationRejectsMissingGraphqlPathPattern() {
-    RateLimitProperties config = new RateLimitProperties();
-    config.getCapacity().getGraphql().setPathPattern(null);
-    try {
-      loader.validate(config);
-      throw new AssertionError("Expected validation failure");
-    } catch (IllegalStateException e) {
-      assertTrue(e.getMessage().contains("capacity.graphql.pathPattern is required"));
-    }
+  public void partialJsonOverlayPreservesUnsetFields() {
+    RateLimitProperties spring = springBase();
+    spring.setFailOpen(true);
+    spring.setConfigJson("{\"endpoint\":{\"enabled\":true}}");
+
+    RateLimitProperties effective = loader.loadEffective(spring);
+    assertTrue(effective.getEndpoint().isEnabled());
+    assertTrue(effective.isFailOpen());
+    assertEquals(effective.getMinRetryAfterSeconds(), 60);
   }
 
   @Test
-  public void testValidationRejectsInvalidRetryAfterJitterPercent() {
-    RateLimitProperties config = new RateLimitProperties();
-    config.getCapacity().getGraphql().setPathPattern("/api/graphql");
-    config.setRetryAfterJitterPercent(101);
-
-    try {
-      loader.validate(config);
-      throw new AssertionError("Expected validation failure");
-    } catch (IllegalStateException e) {
-      assertTrue(e.getMessage().contains("retryAfterJitterPercent must be between 0 and 100"));
-    }
+  public void malformedJsonFailsStartup() {
+    RateLimitProperties spring = springBase();
+    spring.setConfigJson("{not-json");
+    assertThrows(IllegalStateException.class, () -> loader.loadEffective(spring));
   }
 
   @Test
-  public void testValidationRejectsInvalidDefaultCapacityOrdering() {
-    RateLimitProperties config = new RateLimitProperties();
-    config.getCapacity().getGraphql().setPathPattern("/api/graphql");
-    config.getCapacity().getDefaultCapacity().setMinLimit(500);
-    config.getCapacity().getDefaultCapacity().setInitialLimit(100);
-
-    try {
-      loader.validate(config);
-      throw new AssertionError("Expected validation failure");
-    } catch (IllegalStateException e) {
-      assertTrue(e.getMessage().contains("capacity.default minLimit must be <= initialLimit"));
-    }
+  public void missingMountedFileFailsStartup() {
+    RateLimitProperties spring = springBase();
+    spring.getConfigFile().setPath("file:/tmp/datahub-missing-rate-limits-does-not-exist.yaml");
+    assertThrows(IllegalStateException.class, () -> loader.loadEffective(spring));
   }
 
   @Test
-  public void testMalformedJsonOverlayThrows() {
-    RateLimitProperties base = new RateLimitProperties();
-    try {
-      loader.applyJsonOverlay("{not-json", base, "test");
-      throw new AssertionError("Expected parse failure");
-    } catch (IllegalStateException e) {
-      assertTrue(e.getMessage().contains("Failed to parse rate limit overlay"));
-    }
+  public void wrappedDatahubPathAndBareFragmentsBothBind() {
+    RateLimitProperties wrapped = springBase();
+    wrapped.getConfigFile().setPath(OVERRIDE_FIXTURE);
+    assertEquals(
+        loader.loadEffective(wrapped).getEndpoint().getRules().get(0).getId(), "aspects-ingest");
+
+    RateLimitProperties rateLimitsWrapper = springBase();
+    rateLimitsWrapper.getConfigFile().setPath("rate-limit-loader-bare-wrapper.yaml");
+    assertEquals(
+        loader.loadEffective(rateLimitsWrapper).getEndpoint().getRules().get(0).getId(),
+        "bare-wrapper-rule");
+
+    RateLimitProperties fragment = springBase();
+    fragment.getConfigFile().setPath("rate-limit-loader-bare-fragment.yaml");
+    assertEquals(
+        loader.loadEffective(fragment).getEndpoint().getRules().get(0).getId(),
+        "bare-fragment-rule");
   }
 
   @Test
-  public void testValidationRejectsCapacityRuleMissingLimitFields() {
-    RateLimitProperties config = new RateLimitProperties();
-    config.getCapacity().getGraphql().setPathPattern("/api/graphql");
-    config
-        .getCapacity()
-        .setRules(
-            java.util.List.of(
-                RateLimitProperties.Rule.builder()
-                    .id("missing-limits")
-                    .pathPattern("/entities")
-                    .methods(java.util.List.of("POST"))
-                    .build()));
+  public void fileUriAndBareFilesystemPathBothOpen() throws Exception {
+    Path yaml = Files.createTempFile("rate-limits-override", ".yaml");
+    Files.writeString(
+        yaml,
+        "datahub:\n  gms:\n    rateLimits:\n      endpoint:\n        rules:\n"
+            + "          - id: fs-rule\n            pathPattern: /aspects**\n"
+            + "            methods: [POST]\n            capacity: 1\n"
+            + "            refillTokens: 1\n            refillPeriodSeconds: 60\n");
 
-    try {
-      loader.validate(config);
-      throw new AssertionError("Expected validation failure");
-    } catch (IllegalStateException e) {
-      assertTrue(e.getMessage().contains("missing-limits"));
-    }
+    RateLimitProperties fileUri = springBase();
+    fileUri.getConfigFile().setPath("file:" + yaml.toAbsolutePath());
+    assertEquals(loader.loadEffective(fileUri).getEndpoint().getRules().get(0).getId(), "fs-rule");
+
+    RateLimitProperties bare = springBase();
+    bare.getConfigFile().setPath(yaml.toAbsolutePath().toString());
+    assertEquals(loader.loadEffective(bare).getEndpoint().getRules().get(0).getId(), "fs-rule");
   }
 
   @Test
-  public void testValidationRejectsGraphqlOperationNamesOnNonGraphqlPath() {
-    RateLimitProperties config = new RateLimitProperties();
-    config.getCapacity().getGraphql().setPathPattern("/api/graphql");
-    config
-        .getCapacity()
-        .setRules(
-            java.util.List.of(
-                RateLimitProperties.Rule.builder()
-                    .id("bad-graphql-path")
-                    .pathPattern("/entities")
-                    .methods(java.util.List.of("POST"))
-                    .graphqlOperationNames(java.util.List.of("getMe"))
-                    .initialLimit(10)
-                    .maxLimit(100)
-                    .build()));
-
-    try {
-      loader.validate(config);
-      throw new AssertionError("Expected validation failure");
-    } catch (IllegalStateException e) {
-      assertTrue(
-          e.getMessage().contains("graphqlOperationNames must use capacity.graphql.pathPattern"));
-    }
+  public void overlayDoesNotOverwriteConfigFilePointer() {
+    RateLimitProperties spring = springBase();
+    spring.getConfigFile().setPath(OVERRIDE_FIXTURE);
+    RateLimitProperties effective = loader.loadEffective(spring);
+    assertEquals(effective.getConfigFile().getPath(), OVERRIDE_FIXTURE);
   }
 
   @Test
-  public void testValidationRejectsNegativeMinRetryAfterSeconds() {
-    RateLimitProperties config = new RateLimitProperties();
-    config.getCapacity().getGraphql().setPathPattern("/api/graphql");
-    config.setMinRetryAfterSeconds(-1);
+  public void rulesOnlyFileKeepsSpringEndpointEnabledAndGraphqlPath() {
+    RateLimitProperties spring = springBase();
+    spring.getEndpoint().setEnabled(true);
+    spring.getCapacity().setEnabled(true);
+    spring.getCapacity().getGraphql().setOperationRulesEnabled(true);
+    spring.getConfigFile().setPath(OVERRIDE_FIXTURE);
 
-    try {
-      loader.validate(config);
-      throw new AssertionError("Expected validation failure");
-    } catch (IllegalStateException e) {
-      assertTrue(e.getMessage().contains("minRetryAfterSeconds must be >= 0"));
-    }
+    RateLimitProperties effective = loader.loadEffective(spring);
+    assertTrue(effective.getEndpoint().isEnabled());
+    assertTrue(effective.getCapacity().isEnabled());
+    assertEquals(effective.getCapacity().getGraphql().getPathPattern(), "/api/graphql");
+    assertTrue(effective.getCapacity().getGraphql().isOperationRulesEnabled());
+    assertEquals(effective.getEndpoint().getRules().get(0).getId(), "aspects-ingest");
   }
 
   @Test
-  public void testWrapperGettersAndSetters() {
-    RateLimitConfigLoader.RateLimitPropertiesWrapper wrapper =
-        new RateLimitConfigLoader.RateLimitPropertiesWrapper();
-    RateLimitProperties properties = new RateLimitProperties();
-    wrapper.setRateLimits(properties);
-    assertEquals(wrapper.getRateLimits(), properties);
+  public void capacityRulesOverlayKeepsGraphqlPath() {
+    RateLimitProperties spring = springBase();
+    spring.getCapacity().setEnabled(true);
+    spring.setConfigJson(
+        "{\"capacity\":{\"rules\":[{\"id\":\"graphql-search-capacity\","
+            + "\"pathPattern\":\"/api/graphql\",\"methods\":[\"POST\"],"
+            + "\"graphqlOperationNames\":[\"searchAcrossEntities\"],"
+            + "\"initialLimit\":30,\"maxLimit\":400}]}}");
+
+    RateLimitProperties effective = loader.loadEffective(spring);
+    assertTrue(effective.getCapacity().isEnabled());
+    assertEquals(effective.getCapacity().getGraphql().getPathPattern(), "/api/graphql");
+    assertEquals(effective.getCapacity().getRules().get(0).getId(), "graphql-search-capacity");
   }
 
   @Test
-  public void testValidationRejectsNonPositiveCapacityRuleLimits() {
-    RateLimitProperties config = new RateLimitProperties();
-    config.getCapacity().getGraphql().setPathPattern("/api/graphql");
-    config
-        .getCapacity()
-        .setRules(
-            java.util.List.of(
-                RateLimitProperties.Rule.builder()
-                    .id("bad-capacity")
-                    .pathPattern("/api/graphql")
-                    .methods(java.util.List.of("POST"))
-                    .initialLimit(0)
-                    .maxLimit(100)
-                    .build()));
+  public void environmentPointersSupplyFileAndJsonWhenBeanOmitsThem() {
+    RateLimitProperties spring = springBase();
+    MockEnvironment environment = new MockEnvironment();
+    environment.setProperty(RateLimitConfigLoader.RATE_LIMITS_CONFIG_FILE_ENV, OVERRIDE_FIXTURE);
+    environment.setProperty(
+        RateLimitConfigLoader.RATE_LIMITS_CONFIG_JSON_ENV, "{\"endpoint\":{\"enabled\":true}}");
 
-    try {
-      loader.validate(config);
-      throw new AssertionError("Expected validation failure");
-    } catch (IllegalStateException e) {
-      assertTrue(
-          e.getMessage()
-              .contains("Capacity rate limit rule bad-capacity initialLimit must be > 0"));
-    }
+    RateLimitProperties effective = loader.loadEffective(spring, environment);
+    assertEquals(effective.getEndpoint().getRules().get(0).getId(), "aspects-ingest");
+    assertTrue(effective.getEndpoint().isEnabled());
+  }
+
+  private static RateLimitProperties springBase() {
+    RateLimitProperties spring = new RateLimitProperties();
+    spring.setMinRetryAfterSeconds(60);
+    spring.setRetryAfterJitterPercent(10);
+    spring.setFailOpen(true);
+    spring.getCapacity().getGraphql().setPathPattern("/api/graphql");
+    return spring;
   }
 }

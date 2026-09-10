@@ -9,6 +9,7 @@ import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.FieldAssertionInfo;
 import com.linkedin.assertion.FieldAssertionType;
+import com.linkedin.assertion.FieldMetricAssertion;
 import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.SchemaAssertionInfo;
@@ -18,6 +19,7 @@ import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.schema.SchemaFieldSpec;
 import java.util.function.Function;
 import org.testng.annotations.Test;
 
@@ -25,6 +27,18 @@ public class AssertionUtilsTest {
 
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
+
+  @Test
+  public void testGetFieldPathFromFieldMetricAssertion() {
+    FieldAssertionInfo fieldInfo =
+        new FieldAssertionInfo()
+            .setType(FieldAssertionType.FIELD_METRIC)
+            .setEntity(TEST_DATASET_URN)
+            .setFieldMetricAssertion(
+                new FieldMetricAssertion().setField(new SchemaFieldSpec().setPath("event_id")));
+
+    assertEquals(AssertionUtils.getFieldPathFromFieldAssertion(fieldInfo), "event_id");
+  }
 
   // ==================== isValidSubProperty Tests ====================
 

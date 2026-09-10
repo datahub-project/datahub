@@ -1,6 +1,6 @@
 # bump_schema_versions.py
 
-A pre-commit CLI tool that automatically bumps `schemaVersion` annotations on PDL aspect files whenever their content — or the content of any record/enum/typeref they depend on (via `includes` **or** as a field type) — changes relative to the base branch.
+A pre-commit CLI tool that automatically bumps `schemaVersion` annotations on PDL aspect files whenever their content — or the content of any record/enum/typeref they depend on (via `includes` **or** as a field type) — changes **incompatibly** relative to the base branch. Purely additive, backward-compatible changes (see [Backward-compatible changes](#backward-compatible-changes-are-not-bumped)) are left untouched.
 
 ## Why this exists
 
@@ -129,6 +129,34 @@ DataHubIngestionSourceSchedule.pdl  ← changed (non-aspect)
   └─ used as field type in DataHubIngestionSourceInfo.pdl  (aspect → bumped)
 ```
 
+### Backward-compatible changes are not bumped
+
+`schemaVersion` exists so that migration tooling can detect when data stored at an older version needs transformation before it can be read at the newer version. A change that is purely **additive** leaves every previously-serialized aspect valid and complete, so it requires no migration — and therefore no bump. This matches the Additive vs Breaking taxonomy in [`report_aspect_changes.py`](report_pdl_aspect_changes.md): only breaking changes require a version hop.
+
+Before a changed file is considered for bumping (and before it can cascade a bump into dependents), the tool checks whether its only diff vs the base branch is backward-compatible. If so, the file is ignored exactly like a comment-only change.
+
+A change is treated as backward-compatible when **all** of the following hold (aligned with the report tool's `fields()` / Additive bucket):
+
+- Every field present on the base branch keeps the same name, type, and optional-ness (field **defaults** are ignored, matching the report).
+- Every field's `@Searchable`, `@Relationship`, `@SearchableRef`, `@TimeseriesField`, and `@TimeseriesFieldCollection` annotations are unchanged (see [Reindex-relevant annotations](#reindex-relevant-annotations) below). All other field annotations (e.g. `@deprecated`, `@compliance`, `@UrnValidation`) are ignored.
+- Every newly added record field is declared `optional`.
+- Every enum symbol present on the base branch is still present (new symbols may be added).
+- `includes` clauses are unchanged.
+- The `@Aspect` annotation is unchanged **except** for `schemaVersion` itself (this is what lets a maintainer intentionally remove a version that was bumped for an additive-only change — e.g. CorpUserInfo / #18278).
+
+Anything else — removing or renaming a field, changing a field's type, flipping optional↔required, adding a non-optional field, removing an enum symbol, changing/adding/removing a reindex-relevant annotation on an existing field, or any construct the conservative parser cannot model (e.g. `typeref`) — is treated as a real change and bumps normally. The detector **fails closed**: any parse ambiguity resolves toward bumping, because a missed bump (and its skipped migration) is far more dangerous than an unnecessary one.
+
+#### Reindex-relevant annotations
+
+`schemaVersion` also has to catch changes that don't alter a field's serialized shape at all but do
+change how it's indexed. `@Searchable`, `@Relationship`, and `@SearchableRef` drive Elasticsearch
+field/graph-edge mapping; `@TimeseriesField` and `@TimeseriesFieldCollection` drive timeseries field
+indexing. Changing one of these on an existing field — e.g. flipping a `@Searchable` `fieldType`
+from `KEYWORD` to `TEXT` — requires a reindex, so it is bump-worthy even though the field's PDL type
+and optionality never moved. This whitelist (`BUMP_WORTHY_ANNOTATIONS` in the script) is intentionally
+narrow: every other field annotation continues to be parsed-and-discarded exactly as before, so it
+never enters the bump decision.
+
 ### Step 4 — Bump the version
 
 For each affected aspect:
@@ -226,5 +254,5 @@ Add to `.pre-commit-config.yaml`:
 
 - Only PDL files under PDL_ROOTS (or default `metadata-models/src/main/pegasus/`) are scanned for the include graph.
 - Only records with an `@Aspect` annotation get a version bump; plain records and union types are skipped.
-- The tool does not validate that the schema change is backwards-compatible — it only tracks that _a_ change occurred.
+- Backward-compatible changes (additive optional fields, added enum symbols, new type definitions) do not bump — see [Backward-compatible changes](#backward-compatible-changes-are-not-bumped). The backward-compatibility check is intentionally conservative and models only records and enums; it fails closed (bumps) on anything it cannot parse, so it never waves through a change it does not fully understand.
 - Deleted aspects (files removed in the diff) are not processed.

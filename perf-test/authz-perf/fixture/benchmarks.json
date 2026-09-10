@@ -1,0 +1,684 @@
+{
+  "schema_version": 3,
+  "personas": [
+    {
+      "persona": "persona-admin",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:internal-domain-0001"
+          },
+          "expected_status_code": 200
+        }
+      ]
+    },
+    {
+      "persona": "persona-direct-role",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:domain-0001"
+          },
+          "expected_status_code": 200
+        }
+      ]
+    },
+    {
+      "persona": "persona-domain-owner",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:domain-0001"
+          },
+          "expected_status_code": 403
+        }
+      ]
+    },
+    {
+      "persona": "persona-domain-policy-user",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:internal-domain-0003"
+          },
+          "assertions": {
+            "domain.privileges.canViewEntity": true
+          },
+          "expected_status_code": 200
+        }
+      ]
+    },
+    {
+      "persona": "persona-dual-aspect",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:domain-0001"
+          },
+          "expected_status_code": 200
+        }
+      ]
+    },
+    {
+      "persona": "persona-group-policy-actor",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:domain-0001"
+          },
+          "expected_status_code": 403
+        }
+      ]
+    },
+    {
+      "persona": "persona-heavy-groups",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:domain-0001"
+          },
+          "expected_status_code": 200
+        }
+      ]
+    },
+    {
+      "persona": "persona-light-groups",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:domain-0001"
+          },
+          "expected_status_code": 200
+        }
+      ]
+    },
+    {
+      "persona": "persona-moderate-groups",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:domain-0001"
+          },
+          "expected_status_code": 200
+        }
+      ]
+    },
+    {
+      "persona": "persona-multi-domain-policy",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:domain-0009"
+          },
+          "expected_status_code": 403
+        }
+      ]
+    },
+    {
+      "persona": "persona-native-groups",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:domain-0001"
+          },
+          "expected_status_code": 200
+        }
+      ]
+    },
+    {
+      "persona": "persona-p90-groups",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:domain-0001"
+          },
+          "expected_status_code": 200
+        }
+      ]
+    },
+    {
+      "persona": "persona-platform-all-users",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:domain-0001"
+          },
+          "expected_status_code": 403
+        }
+      ]
+    },
+    {
+      "persona": "persona-policy-direct",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:domain-0001"
+          },
+          "expected_status_code": 403
+        }
+      ]
+    },
+    {
+      "persona": "persona-role-via-groups",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:domain-0001"
+          },
+          "expected_status_code": 403
+        }
+      ]
+    },
+    {
+      "persona": "persona-sso-groups",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:domain-0001"
+          },
+          "expected_status_code": 200
+        }
+      ]
+    },
+    {
+      "persona": "persona-zero-authz",
+      "scenarios": [
+        {
+          "operation": "getMe",
+          "variables": {},
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getSearchResultsForMultiple",
+          "variables": {
+            "input": {
+              "types": [
+                "DOMAIN"
+              ],
+              "query": "*",
+              "start": 0,
+              "count": 20
+            }
+          },
+          "expected_status_code": 200
+        },
+        {
+          "operation": "getDomain",
+          "variables": {
+            "urn": "urn:li:domain:internal-domain-0003"
+          },
+          "expected_status_code": 403
+        }
+      ]
+    }
+  ],
+  "query_specs": {
+    "getMe": {
+      "operation_name": "getMe",
+      "root": "me",
+      "variables": [],
+      "root_args": {},
+      "paths": [
+        "CorpGroup.name",
+        "CorpGroup.properties.displayName",
+        "CorpGroup.urn",
+        "DataHubRole.urn",
+        "me.corpUser.editableProperties.displayName",
+        "me.corpUser.editableProperties.persona.urn",
+        "me.corpUser.editableProperties.pictureLink",
+        "me.corpUser.editableProperties.platforms.urn",
+        "me.corpUser.editableProperties.skills",
+        "me.corpUser.editableProperties.teams",
+        "me.corpUser.editableProperties.title",
+        "me.corpUser.info.active",
+        "me.corpUser.info.displayName",
+        "me.corpUser.info.email",
+        "me.corpUser.info.firstName",
+        "me.corpUser.info.fullName",
+        "me.corpUser.info.lastName",
+        "me.corpUser.info.title",
+        "me.corpUser.settings.ai.memoryEnabled",
+        "me.corpUser.settings.appearance.showSimplifiedHomepage",
+        "me.corpUser.settings.appearance.showThemeV2",
+        "me.corpUser.settings.contextDocuments.pageTemplate.urn",
+        "me.corpUser.settings.homePage.dismissedAnnouncementUrns",
+        "me.corpUser.settings.locale.language",
+        "me.corpUser.settings.views.defaultView.urn",
+        "me.corpUser.type",
+        "me.corpUser.urn",
+        "me.corpUser.username"
+      ],
+      "expand_types": [
+        {
+          "parent_path": "me.platformPrivileges",
+          "type": "PlatformPrivileges"
+        }
+      ],
+      "field_overrides": {
+        "me.corpUser.groups": {
+          "field": "relationships",
+          "args": {
+            "input": {
+              "types": [
+                "IsMemberOfGroup",
+                "IsMemberOfNativeGroup"
+              ],
+              "direction": "OUTGOING",
+              "start": 0,
+              "count": 50
+            }
+          }
+        },
+        "me.corpUser.roles": {
+          "field": "relationships",
+          "args": {
+            "input": {
+              "types": [
+                "IsMemberOfRole"
+              ],
+              "direction": "OUTGOING",
+              "start": 0,
+              "count": 50
+            }
+          }
+        }
+      },
+      "required_paths": [
+        "me.corpUser.urn"
+      ]
+    },
+    "getSearchResultsForMultiple": {
+      "operation_name": "getSearchResultsForMultiple",
+      "root": "searchAcrossEntities",
+      "variables": [
+        {
+          "name": "input",
+          "type": "SearchAcrossEntitiesInput!"
+        }
+      ],
+      "root_args": {
+        "input": "$input"
+      },
+      "paths": [
+        "CorpGroup.name",
+        "CorpGroup.properties.displayName",
+        "CorpUser.properties.displayName",
+        "CorpUser.username",
+        "Domain.parentDomains.domains.properties.name",
+        "Domain.parentDomains.domains.urn",
+        "Domain.properties.name",
+        "searchAcrossEntities.count",
+        "searchAcrossEntities.facets.aggregations.count",
+        "searchAcrossEntities.facets.aggregations.value",
+        "searchAcrossEntities.facets.displayName",
+        "searchAcrossEntities.facets.field",
+        "searchAcrossEntities.searchResults.entity.type",
+        "searchAcrossEntities.searchResults.entity.urn",
+        "searchAcrossEntities.searchResults.matchedFields.entity.type",
+        "searchAcrossEntities.searchResults.matchedFields.entity.urn",
+        "searchAcrossEntities.searchResults.matchedFields.name",
+        "searchAcrossEntities.searchResults.matchedFields.value",
+        "searchAcrossEntities.start",
+        "searchAcrossEntities.total"
+      ],
+      "expand_types": [],
+      "field_overrides": {},
+      "required_paths": []
+    },
+    "getDomain": {
+      "operation_name": "getDomain",
+      "root": "domain",
+      "variables": [
+        {
+          "name": "urn",
+          "type": "String!"
+        }
+      ],
+      "root_args": {
+        "urn": "$urn"
+      },
+      "paths": [
+        "domain.id",
+        "domain.ownership.owners.owner.name",
+        "domain.ownership.owners.owner.urn",
+        "domain.ownership.owners.owner.username",
+        "domain.ownership.owners.type",
+        "domain.parentDomains.domains.properties.name",
+        "domain.parentDomains.domains.urn",
+        "domain.properties.description",
+        "domain.properties.name",
+        "domain.status.removed",
+        "domain.type",
+        "domain.urn"
+      ],
+      "expand_types": [
+        {
+          "parent_path": "domain.privileges",
+          "type": "EntityPrivileges"
+        }
+      ],
+      "field_overrides": {},
+      "required_paths": []
+    }
+  }
+}

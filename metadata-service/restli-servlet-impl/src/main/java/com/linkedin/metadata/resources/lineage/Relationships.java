@@ -39,6 +39,7 @@ import com.linkedin.restli.server.annotations.RestLiSimpleResource;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
@@ -79,6 +80,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
   }
 
   private RelatedEntitiesResult getRelatedEntities(
+      @Nonnull OperationContext opContext,
       String rawUrn,
       Set<String> relationshipTypes,
       RelationshipDirection direction,
@@ -88,7 +90,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     start = start == null ? 0 : start;
     count = count == null ? MAX_DOWNSTREAM_CNT : count;
 
-    return _graphService.findRelatedEntities(systemOperationContext,
+    return _graphService.findRelatedEntities(opContext,
         null,
         newFilter("urn", rawUrn),
         null,
@@ -121,9 +123,9 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     Urn urn = UrnUtils.getUrn(rawUrn);
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "getRelationships", urn.getEntityType()), _authorizer, auth, true);
+                    "getRelationships", urn.getEntityType()).withUsageOperation(UsageOperation.LINEAGE_QUERY), _authorizer, auth, true);
 
     if (!isAPIAuthorizedUrns(
             opContext,
@@ -134,10 +136,10 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     }
     RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
     final Set<String> relationshipTypes = Set.of(relationshipTypesParam);
-    return RestliUtils.toTask(systemOperationContext,
+    return RestliUtils.toTask(opContext,
         () -> {
           final RelatedEntitiesResult relatedEntitiesResult =
-              getRelatedEntities(rawUrn, relationshipTypes, direction, start, count);
+              getRelatedEntities(opContext, rawUrn, relationshipTypes, direction, start, count);
           final EntityRelationshipArray entityArray =
               new EntityRelationshipArray(
                   relatedEntitiesResult.getEntities().stream()
@@ -171,9 +173,9 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     Urn urn = Urn.createFromString(rawUrn);
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "deleteRelationships", urn.getEntityType()), _authorizer, auth, true);
+                    "deleteRelationships", urn.getEntityType()).withUsageOperation(UsageOperation.ENTITY_DELETE), _authorizer, auth, true);
 
     if (!isAPIAuthorizedUrns(
             opContext,
@@ -182,7 +184,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity: " + rawUrn);
     }
-    _graphService.removeNode(systemOperationContext, urn);
+    _graphService.removeNode(opContext, urn);
     return new UpdateResponse(HttpStatus.S_200_OK);
   }
 
@@ -200,9 +202,9 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     final Urn urn = Urn.createFromString(urnStr);
 
     final Authentication auth = AuthenticationContext.getAuthentication();
-    final OperationContext opContext = OperationContext.asSession(
+    final OperationContext opContext = RestliUtils.asSession(
             systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
-                    "getLineage", urn.getEntityType()), _authorizer, auth, true);
+                    "getLineage", urn.getEntityType()).withUsageOperation(UsageOperation.LINEAGE_QUERY), _authorizer, auth, true);
 
     if (!isAPIAuthorizedUrns(
             opContext,
@@ -211,9 +213,9 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity lineage: " + urnStr);
     }
-    return RestliUtils.toTask(systemOperationContext,
+    return RestliUtils.toTask(opContext,
         () ->
-            _graphService.getLineage(systemOperationContext,
+            _graphService.getLineage(opContext,
                 urn,
                 LineageDirection.valueOf(direction),
                 start != null ? start : 0,

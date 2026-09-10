@@ -4,6 +4,7 @@ import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
@@ -32,6 +33,18 @@ const StyledHighlight = styled(Highlight)<{ $maxWidth?: number }>`
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: ${(props) => (props.$maxWidth ? `${props.$maxWidth}px` : '120px')};
+`;
+
+// The DeprecationIcon renders a 16x16 SVG by default. Inside a tag pill it sits next to the
+// 12px PillRemoveIcon (X), so we constrain its SVG size to match for visual balance. Popover
+// content is portalled to document.body, so this selector only affects the inline trigger SVG.
+const PillDeprecationSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
 `;
 
 interface Props {
@@ -147,6 +160,18 @@ export default function Tag({
                         variant={highlightTag ? 'highlighted' : 'default'}
                         size={fontSize && fontSize <= 10 ? 'sm' : 'md'}
                         dataTestId={`tag-${displayName}-pill`}
+                        rightAdornment={
+                            tag.tag.deprecation && tag.tag.deprecation.deprecated ? (
+                                <PillDeprecationSlot>
+                                    <DeprecationIcon
+                                        urn={tag.tag.urn}
+                                        deprecation={tag.tag.deprecation}
+                                        showUndeprecate={false}
+                                        showText={false}
+                                    />
+                                </PillDeprecationSlot>
+                            ) : undefined
+                        }
                         onRemove={
                             canRemove && !readOnly
                                 ? (e) => {

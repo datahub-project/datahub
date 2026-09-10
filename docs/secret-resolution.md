@@ -54,9 +54,26 @@ All backends are checked and values are merged. If the same secret exists in mul
 
 For example, if `DB_PASSWORD` is set as an environment variable and also created in the DataHub UI, the value from DataHub is used.
 
+:::caution Remote Executor — DataHub UI Secrets
+On DataHub Cloud with a [Remote Executor](managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md), the **DataHub** backend is convenient but weaker for strict security: credentials are stored in DataHub and returned in plaintext to the executor over the API (TLS) at job time. Prefer **File**, **Environment**, or cloud secret manager backends. See [Secret security considerations](managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md#secret-security-considerations).
+:::
+
+:::note Secure by default — blocking human secret reads
+GMS defaults to `SECRET_SERVICE_CALLER_GUARD_MODE=ENFORCE`, which prevents browser sessions and user PATs from fetching plaintext secret values via `getSecretValues`. This does **not** stop a trusted ingestion worker — **datahub-actions** in OSS or an **embedded executor** on DataHub Cloud — from resolving UI secrets at job time. Use local backends when credentials must stay in your environment.
+:::
+
 :::note DataHub Cloud
 On DataHub Cloud, the File and Environment backends are only applicable when using a [Remote Executor](managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md).
 :::
+
+### Remote Executor: recommended backends
+
+| Backend                      | When to use                                                          |
+| ---------------------------- | -------------------------------------------------------------------- |
+| **File** (`/mnt/secrets/`)   | Kubernetes-mounted secrets; runtime updates without executor restart |
+| **Environment**              | Simple env vars on the executor container                            |
+| **AWS / GCP Secret Manager** | Runtime lookup from your cloud account (executor-side integration)   |
+| **DataHub UI**               | Convenience only; not recommended for security-sensitive deployments |
 
 ---
 

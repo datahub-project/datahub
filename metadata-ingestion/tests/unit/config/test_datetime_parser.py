@@ -6,8 +6,7 @@ import time_machine
 from datahub.configuration.datetimes import parse_user_datetime
 
 
-# FIXME: Ideally we'd use tz_offset here to test this code in a non-UTC timezone.
-@time_machine.travel("2021-09-01 10:02:03", tick=False)
+@time_machine.travel("2021-09-01 10:02:03+00:00", tick=False)
 def test_user_time_parser():
     # Absolute times.
     assert parse_user_datetime("2022-01-01 01:02:03 UTC") == datetime(

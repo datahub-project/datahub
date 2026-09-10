@@ -1,4 +1,4 @@
-import { Button, Checkbox, Typography } from 'antd';
+import { Button, Checkbox, Text } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -26,7 +26,7 @@ const CancelButton = styled(Button)`
     }
 `;
 
-const SelectionText = styled(Typography.Text)`
+const SelectionText = styled(Text)`
     white-space: nowrap;
 `;
 
@@ -37,7 +37,7 @@ const StyledCheckbox = styled(Checkbox)`
 
 const StyledButton = styled(Button)`
     margin-left: 8px;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.textBrand};
 `;
 
 type Props = {
@@ -92,22 +92,22 @@ export const SearchSelectBar = ({
         <>
             <CheckboxContainer>
                 <StyledCheckbox
-                    checked={isSelectAll || areAllEntitiesSelected}
-                    onChange={(e) => {
-                        onChangeSelectAll(e.target.checked as boolean);
+                    isChecked={isSelectAll || areAllEntitiesSelected}
+                    onCheckboxChange={(checked) => {
+                        onChangeSelectAll(checked);
                         setAreAllEntitiesSelected?.(false);
                     }}
                     id="search-select-bar"
-                    disabled={limit !== undefined && limit > 0}
+                    isDisabled={limit !== undefined && limit > 0}
                 />
-                <SelectionText strong type="secondary">
+                <SelectionText type="span" weight="bold" color="textSecondary">
                     {areAllEntitiesSelected
                         ? t('embeddedSearch.allAssetsSelectedCount', { count: totalResults })
                         : t('embeddedSearch.selectedCount', { count: selectedEntityCount })}
                 </SelectionText>
                 {areAllEntitiesSelected && (
                     <StyledButton
-                        type="text"
+                        variant="text"
                         onClick={() => {
                             onChangeSelectAll(false);
                             setAreAllEntitiesSelected?.(false);
@@ -122,7 +122,7 @@ export const SearchSelectBar = ({
                 <ActionsContainer>
                     {showActions && <SearchSelectActions selectedEntities={selectedEntities} refetch={refetch} />}
                     {showCancel && (
-                        <CancelButton onClick={onClickCancel} type="link">
+                        <CancelButton onClick={onClickCancel} variant="link">
                             {tc('done')}
                         </CancelButton>
                     )}

@@ -1,0 +1,10 @@
+{
+    "defaultTemplateBar.editingWarning": "Redigerer organisasjonens standard startside",
+    "header.discoverLabel": "Oppdag",
+    "error.failedToAddSummaryElement": "Kunne ikke legge til sammendragselement",
+    "error.failedToRemoveSummaryElement": "Kunne ikke fjerne sammendragselement",
+    "error.failedToReplaceSummaryElement": "Kunne ikke erstatte sammendragselement",
+    "error.noTemplateAvailable": "Ingen mal tilgjengelig for oppdatering",
+    "toast.editedDescription": "For å tilbakestille startsiden din, klikk på \"Tilbakestill til organisasjonens standard\"",
+    "toast.editedTitle": "Du har redigert startsiden din"
+}

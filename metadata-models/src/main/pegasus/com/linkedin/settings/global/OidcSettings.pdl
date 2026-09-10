@@ -98,4 +98,19 @@ record OidcSettings {
    *  ADVANCED. Which jws algorithm to use.
    */
   preferredJwsAlgorithm2: optional string
+
+  /**
+   * ADVANCED. Restrict login to users who belong to at least one of these groups (matched against the groups claim). Empty or unset disables group-based access enforcement.
+   */
+  requiredGroups: optional array[string]
+
+  /**
+   * ADVANCED. Message shown to users who are denied login because they are not a member of any required group.
+   */
+  accessDeniedMessage: optional string
+
+  /**
+   * ADVANCED. URL to redirect denied users to (e.g. an internal access-request page). When set, takes precedence over the access denied message.
+   */
+  accessDeniedRedirectUrl: optional string
 }

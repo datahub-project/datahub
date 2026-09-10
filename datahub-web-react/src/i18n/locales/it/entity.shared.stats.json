@@ -1,0 +1,13 @@
+{
+    "graph.empty": "Al momento non sono state raccolte statistiche per questo asset.",
+    "graph.rowCount_one": "{{formattedCount}} riga",
+    "graph.rowCount_other": "{{formattedCount}} righe",
+    "graph.statName": "numero di righe",
+    "graph.title": "Numero di righe",
+    "percentile.high": "Alto",
+    "percentile.low": "Basso",
+    "percentile.med": "Medio",
+    "upstream.directUpstreams": "A monte diretti",
+    "upstream.indirectUpstreams": "A monte indiretti",
+    "upstream.unhealthy": "Alcuni elementi a monte non sono integri"
+}

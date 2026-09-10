@@ -30,20 +30,20 @@ public interface GraphService {
   /**
    * Adds an edge to the graph. This creates the source and destination nodes, if they do not exist.
    */
-  void addEdge(final Edge edge);
+  void addEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge);
 
   /**
    * Adds or updates an edge to the graph. This creates the source and destination nodes, if they do
    * not exist.
    */
-  void upsertEdge(final Edge edge);
+  void upsertEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge);
 
   /**
    * Remove an edge from the graph.
    *
    * @param edge the edge to delete
    */
-  void removeEdge(final Edge edge);
+  void removeEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge);
 
   /**
    * Find related entities (nodes) connected to a source entity via edges of given relationship
@@ -207,7 +207,7 @@ public interface GraphService {
   default void configure() {}
 
   /** Removes all edges and nodes from the graph. */
-  void clear();
+  void clear(@Nonnull OperationContext opContext);
 
   /** Whether or not this graph service supports multi-hop */
   default boolean supportsMultiHop() {
@@ -222,7 +222,10 @@ public interface GraphService {
    * @param edgeUrnTypes which URNs to update (source, destination, lifecycleOwner, etc)
    */
   default void setEdgeStatus(
-      @Nonnull Urn urn, boolean removed, @Nonnull EdgeUrnType... edgeUrnTypes) {}
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      boolean removed,
+      @Nonnull EdgeUrnType... edgeUrnTypes) {}
 
   /**
    * Access graph edges

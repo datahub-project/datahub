@@ -1,0 +1,74 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "34b55fcc472e208a390a2a021b06ae3d3dd77a9b3807eb315b549a997c42c245",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_a,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_b,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "a_color",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_a,PROD)",
+                    "column": "widget"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "`a`.`widget`.`color` AS `a_color`"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "b_size",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_b,PROD)",
+                    "column": "widget"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "`b`.`widget`.`size` AS `b_size`"
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_a,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_b,PROD)"
+            ],
+            "on_clause": "`a`.`id` = `b`.`a_id`",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_a,PROD)",
+                    "column": "id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_b,PROD)",
+                    "column": "a_id"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT a.widget.color AS a_color, b.widget.size AS b_size FROM my_schema.table_a AS a JOIN my_schema.table_b AS b ON a.id = b.a_id"
+    }
+}

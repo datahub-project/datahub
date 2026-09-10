@@ -12,14 +12,15 @@ fi
 
 shopt -s nullglob
 files=()
+trivy_count=0 grype_count=0
 if [[ "${SCAN_WITH_TRIVY:-}" == "true" ]]; then
   for f in scan-reports/trivy/*.json; do
-    [[ -f "${f}" ]] && files+=("${f}")
+    [[ -f "${f}" ]] && files+=("${f}") && trivy_count=$((trivy_count + 1))
   done
 fi
 if [[ "${SCAN_WITH_GRYPE:-}" == "true" ]]; then
   for f in scan-reports/grype/*.json; do
-    [[ -f "${f}" ]] && files+=("${f}")
+    [[ -f "${f}" ]] && files+=("${f}") && grype_count=$((grype_count + 1))
   done
 fi
 raw_files=()
@@ -28,6 +29,23 @@ if [[ "${SCAN_WITH_GRYPE:-}" == "true" ]]; then
     [[ -f "${f}" ]] && raw_files+=("${f}")
   done
 fi
+echo "Collected ${trivy_count} trivy + ${grype_count} grype merged report(s), ${#raw_files[@]} grype raw report(s)."
+
+# A scanner whose matrix job succeeded must have produced report files; zero files here means
+# they were lost between upload and download (e.g. artifact path/layout drift) — fail loudly
+# instead of silently syncing partial results. A failed scanner job only warns: partial sync of
+# the other scanner is still valuable, and the "Fail on scanner errors" step reds the run anyway.
+check_scanner_files() {
+  local scanner="$1" enabled="$2" result="$3" count="$4"
+  [[ "${enabled}" == "true" && "${count}" -eq 0 ]] || return 0
+  if [[ "${result}" == "success" ]]; then
+    echo "::error::${scanner} scan job succeeded but no merged ${scanner} report JSONs were found; findings would be silently dropped (check artifact upload/download paths)."
+    exit 1
+  fi
+  echo "::warning::No merged ${scanner} report JSONs (scan job result: ${result:-unknown}); syncing without ${scanner} findings."
+}
+check_scanner_files trivy "${SCAN_WITH_TRIVY:-}" "${SCAN_TRIVY_RESULT:-}" "${trivy_count}"
+check_scanner_files grype "${SCAN_WITH_GRYPE:-}" "${SCAN_GRYPE_RESULT:-}" "${grype_count}"
 
 if [[ ${#files[@]} -eq 0 ]]; then
   echo "::notice::No merged scan report JSONs (e.g. all matrix scanner jobs failed or produced no files). Skipping Linear sync."

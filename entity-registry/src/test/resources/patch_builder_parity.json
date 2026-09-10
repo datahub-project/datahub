@@ -65,6 +65,94 @@
       }
     ]
   },
+  "domains_add": {
+    "arrayPrimaryKeys": {
+      "domainAssociations": [
+        "attribution\u241fsource",
+        "domain"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/domainAssociations//urn:li:domain:testDomain",
+        "value": {
+          "domain": "urn:li:domain:testDomain"
+        }
+      }
+    ]
+  },
+  "domains_add_attributed": {
+    "arrayPrimaryKeys": {
+      "domainAssociations": [
+        "attribution\u241fsource",
+        "domain"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/domainAssociations/urn:li:dataHubAction:testSource/urn:li:domain:testDomain",
+        "value": {
+          "attribution": {
+            "actor": "urn:li:corpuser:datahub",
+            "source": "urn:li:dataHubAction:testSource",
+            "sourceDetail": {},
+            "time": 0
+          },
+          "domain": "urn:li:domain:testDomain"
+        }
+      }
+    ]
+  },
+  "domains_add_with_context": {
+    "arrayPrimaryKeys": {
+      "domainAssociations": [
+        "attribution\u241fsource",
+        "domain"
+      ]
+    },
+    "patch": [
+      {
+        "op": "add",
+        "path": "/domainAssociations//urn:li:domain:testDomain",
+        "value": {
+          "context": "testContext",
+          "domain": "urn:li:domain:testDomain"
+        }
+      }
+    ]
+  },
+  "domains_remove": {
+    "arrayPrimaryKeys": {
+      "domainAssociations": [
+        "domain",
+        "attribution\u241fsource"
+      ]
+    },
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/domainAssociations/urn:li:domain:testDomain",
+        "value": {}
+      }
+    ]
+  },
+  "domains_remove_attributed": {
+    "arrayPrimaryKeys": {
+      "domainAssociations": [
+        "attribution\u241fsource",
+        "domain"
+      ]
+    },
+    "patch": [
+      {
+        "op": "remove",
+        "path": "/domainAssociations/urn:li:dataHubAction:testSource/urn:li:domain:testDomain",
+        "value": {}
+      }
+    ]
+  },
   "globalTags_add": {
     "arrayPrimaryKeys": {
       "tags": [

@@ -1,0 +1,89 @@
+namespace com.linkedin.repository
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Code-specific properties for a Repository entity.
+ *
+ * A Repository is a first-class representation of a source-code repository
+ * (GitHub, GitLab, internal SCM, etc.). It is the genesis node of the
+ * software -> data lifecycle (repo -> service -> api -> app -> dataset) and
+ * produces the services/APIs/apps cataloged elsewhere. It is NOT tabular
+ * (no columns / queries / stats / quality / preview).
+ */
+@Aspect = {
+  "name": "repositoryProperties"
+}
+record RepositoryProperties {
+
+  /**
+   * Display name of the repository, shown in UI and search results.
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  name: string
+
+  /**
+   * Description of what this repository contains.
+   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
+  description: optional string
+
+  /**
+   * The default branch of the repository (e.g. "main", "master").
+   */
+  defaultBranch: optional string
+
+  /**
+   * The programming languages used in the repository (e.g. ["Python", "TypeScript"]),
+   * conventionally ordered most-prevalent first. Repositories are frequently
+   * polyglot, so this is modeled as a list rather than a single value.
+   */
+  languages: optional array[string]
+
+  /**
+   * The license of the repository (e.g. "Apache-2.0", "MIT").
+   */
+  license: optional string
+
+  /**
+   * A link to the repository's homepage or documentation.
+   */
+  homepageUrl: optional string
+
+  /**
+   * Whether the repository is archived (read-only / no longer maintained).
+   */
+  archived: optional boolean
+
+  /**
+   * When this repository was created.
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME",
+      "queryByDefault": false
+    }
+  }
+  created: optional AuditStamp
+
+  /**
+   * When this repository was last modified.
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME",
+      "queryByDefault": false
+    }
+  }
+  lastModified: optional AuditStamp
+}

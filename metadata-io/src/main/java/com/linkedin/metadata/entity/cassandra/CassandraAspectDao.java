@@ -637,13 +637,19 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  @Nonnull
-  public PartitionedStream<EbeanAspectV2> streamAspectBatches(
-      @Nonnull final OperationContext operationContext, @Nonnull final RestoreIndicesArgs args) {
-    // Not implemented for Cassandra — return an empty partitioned stream so consumers don't NPE.
-    return PartitionedStream.<EbeanAspectV2>builder()
-        .delegateStream(java.util.stream.Stream.empty())
-        .build();
+  @Nullable
+  public <R> R streamAspectBatches(
+      @Nonnull final OperationContext operationContext,
+      @Nonnull final RestoreIndicesArgs args,
+      @Nonnull final Function<PartitionedStream<EbeanAspectV2>, R> consumer) {
+    // Not implemented for Cassandra — hand the consumer an empty partitioned stream so it doesn't
+    // NPE. There is nothing to scope here.
+    try (PartitionedStream<EbeanAspectV2> partitioned =
+        PartitionedStream.<EbeanAspectV2>builder()
+            .delegateStream(java.util.stream.Stream.empty())
+            .build()) {
+      return consumer.apply(partitioned);
+    }
   }
 
   @Override

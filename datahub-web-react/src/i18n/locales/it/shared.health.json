@@ -1,0 +1,15 @@
+{
+    "failAssertions": "Visualizza le Asserzioni non riuscite →",
+    "failChecks": "Visualizza i controlli non riusciti →",
+    "failIncidents": "Visualizza gli incidenti attivi →",
+    "passAssertions": "Tutte le Asserzioni sono superate",
+    "passChecks": "Tutti i controlli sono superati",
+    "passIncidents": "Nessun incidente attivo",
+    "summaryHealthy": "Questo asset è in buono stato",
+    "summaryUnhealthy": "Questo asset potrebbe non essere in buono stato",
+    "typeAssertions": "Asserzioni",
+    "typeIncidents": "Incidenti",
+    "typeTests": "Test",
+    "warnAssertions": "Alcune Asserzioni presentano problemi.",
+    "warnChecks": "Alcuni controlli presentano problemi."
+}

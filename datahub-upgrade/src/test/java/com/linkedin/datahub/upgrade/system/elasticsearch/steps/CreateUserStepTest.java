@@ -130,18 +130,23 @@ public class CreateUserStepTest {
           .when(
               () ->
                   IndexRoleUtils.createAwsOpenSearchRole(
-                      Mockito.any(), Mockito.anyString(), Mockito.anyString()))
+                      Mockito.any(OperationContext.class),
+                      Mockito.any(
+                          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
+                      Mockito.anyString(),
+                      Mockito.anyString()))
           .thenAnswer(invocation -> null);
       indexRoleUtilsMock
           .when(
               () ->
                   IndexRoleUtils.createAwsOpenSearchUser(
-                      Mockito.any(),
+                      Mockito.any(OperationContext.class),
+                      Mockito.any(
+                          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
                       Mockito.anyString(),
                       Mockito.anyString(),
                       Mockito.anyString(),
-                      Mockito.anyString(),
-                      Mockito.any()))
+                      Mockito.anyString()))
           .thenAnswer(invocation -> null);
 
       // Act
@@ -175,7 +180,9 @@ public class CreateUserStepTest {
           .when(
               () ->
                   IndexRoleUtils.createElasticsearchCloudUser(
-                      Mockito.any(),
+                      Mockito.any(OperationContext.class),
+                      Mockito.any(
+                          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
                       Mockito.anyString(),
                       Mockito.anyString(),
                       Mockito.anyString(),
@@ -307,7 +314,9 @@ public class CreateUserStepTest {
           .when(
               () ->
                   IndexRoleUtils.createElasticsearchCloudUser(
-                      Mockito.any(),
+                      Mockito.any(OperationContext.class),
+                      Mockito.any(
+                          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
                       Mockito.anyString(),
                       Mockito.anyString(),
                       Mockito.anyString(),
@@ -344,7 +353,9 @@ public class CreateUserStepTest {
           .when(
               () ->
                   IndexRoleUtils.createElasticsearchCloudUser(
-                      Mockito.any(),
+                      Mockito.any(OperationContext.class),
+                      Mockito.any(
+                          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
                       Mockito.anyString(),
                       Mockito.anyString(),
                       Mockito.anyString(),
@@ -381,7 +392,9 @@ public class CreateUserStepTest {
           .when(
               () ->
                   IndexRoleUtils.createElasticsearchCloudUser(
-                      Mockito.any(),
+                      Mockito.any(OperationContext.class),
+                      Mockito.any(
+                          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
                       Mockito.anyString(),
                       Mockito.anyString(),
                       Mockito.anyString(),
@@ -423,13 +436,21 @@ public class CreateUserStepTest {
           .when(
               () ->
                   IndexRoleUtils.createAwsOpenSearchRole(
-                      Mockito.any(), Mockito.anyString(), Mockito.anyString()))
+                      Mockito.any(OperationContext.class),
+                      Mockito.any(
+                          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
+                      Mockito.anyString(),
+                      Mockito.anyString()))
           .thenAnswer(invocation -> null);
       indexRoleUtilsMock
           .when(
               () ->
                   IndexRoleUtils.createAwsOpenSearchRoleMapping(
-                      Mockito.any(), Mockito.anyString(), Mockito.anyString()))
+                      Mockito.any(OperationContext.class),
+                      Mockito.any(
+                          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents.class),
+                      Mockito.anyString(),
+                      Mockito.anyString()))
           .thenAnswer(invocation -> null);
 
       // Act

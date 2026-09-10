@@ -34,11 +34,13 @@ import io.openlineage.spark.agent.util.ScalaConversionUtils;
 import io.openlineage.spark.api.SparkOpenLineageConfig;
 import java.net.URISyntaxException;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkContext$;
@@ -60,7 +62,10 @@ import scala.Option;
 public class DatahubSparkListener extends SparkListener {
   private static final Logger log = LoggerFactory.getLogger(DatahubSparkListener.class);
   private final Map<String, Instant> batchLastUpdated = new HashMap<String, Instant>();
-  private final OpenLineageSparkListener listener;
+  private OpenLineageSparkListener listener;
+  // Ensures the "lineage disabled for this application" warning is logged at most once per app,
+  // rather than repeating the per-event DEBUG line every time an inert listener is skipped.
+  private final AtomicBoolean inertListenerWarned = new AtomicBoolean(false);
   private DatahubEventEmitter emitter;
   private Config datahubConf = ConfigFactory.empty();
   private SparkAppContext appContext;
@@ -78,7 +83,8 @@ public class DatahubSparkListener extends SparkListener {
   public DatahubSparkListener(SparkConf conf) throws URISyntaxException {
     this.conf = ((SparkConf) Objects.requireNonNull(conf)).clone();
 
-    listener = new OpenLineageSparkListener(conf);
+    // Listener will be created lazily in initializeContextFactoryIfNotInitialized
+    // after we can inject our custom DatahubEventEmitter via ContextFactory
     log.info(
         "Initializing DatahubSparkListener. Version: {} with Spark version: {}",
         VersionUtil.getVersion(),
@@ -103,7 +109,10 @@ public class DatahubSparkListener extends SparkListener {
 
     log.info("Application start called");
     this.appContext = getSparkAppContext(applicationStart);
-    initializeContextFactoryIfNotInitialized();
+    initializeContextFactoryIfNotInitialized(applicationStart.appName());
+    if (listenerNotReady(applicationStart)) {
+      return;
+    }
     listener.onApplicationStart(applicationStart);
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.info("onApplicationStart completed successfully in {} ms", elapsedTime);
@@ -291,6 +300,9 @@ public class DatahubSparkListener extends SparkListener {
     initializeContextFactoryIfNotInitialized();
 
     log.debug("Application end called");
+    if (listenerNotReady(applicationEnd)) {
+      return;
+    }
     listener.onApplicationEnd(applicationEnd);
     if (datahubConf.hasPath(STREAMING_JOB) && (datahubConf.getBoolean(STREAMING_JOB))) {
       return;
@@ -307,8 +319,12 @@ public class DatahubSparkListener extends SparkListener {
 
   public void onTaskEnd(SparkListenerTaskEnd taskEnd) {
     long startTime = System.currentTimeMillis();
+    initializeContextFactoryIfNotInitialized();
 
     log.debug("Task end called");
+    if (listenerNotReady(taskEnd)) {
+      return;
+    }
     listener.onTaskEnd(taskEnd);
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.debug("onTaskEnd completed successfully in {} ms", elapsedTime);
@@ -316,8 +332,12 @@ public class DatahubSparkListener extends SparkListener {
 
   public void onJobEnd(SparkListenerJobEnd jobEnd) {
     long startTime = System.currentTimeMillis();
+    initializeContextFactoryIfNotInitialized();
 
     log.debug("Job end called");
+    if (listenerNotReady(jobEnd)) {
+      return;
+    }
     listener.onJobEnd(jobEnd);
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.debug("onJobEnd completed successfully in {} ms", elapsedTime);
@@ -328,6 +348,9 @@ public class DatahubSparkListener extends SparkListener {
     initializeContextFactoryIfNotInitialized();
 
     log.debug("Job start called");
+    if (listenerNotReady(jobStart)) {
+      return;
+    }
     listener.onJobStart(jobStart);
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.debug("onJobStart completed successfully in {} ms", elapsedTime);
@@ -335,7 +358,12 @@ public class DatahubSparkListener extends SparkListener {
 
   public void onOtherEvent(SparkListenerEvent event) {
     long startTime = System.currentTimeMillis();
+    initializeContextFactoryIfNotInitialized();
+
     log.debug("Other event called {}", event.getClass().getName());
+    if (listenerNotReady(event)) {
+      return;
+    }
     listener.onOtherEvent(event);
   }
 
@@ -361,6 +389,118 @@ public class DatahubSparkListener extends SparkListener {
                             Tag.of("openlineage.spark.integration.version", Versions.getVersion()),
                             Tag.of("openlineage.spark.version", sparkVersion),
                             Tag.of("openlineage.spark.disabled.facets", disabledFacets))));
+  }
+
+  /**
+   * Lazy initialization can leave {@link #listener} null — when the listener is disabled, when
+   * there is no active {@code SparkContext}/{@code SparkEnv} yet, or when config parsing fails.
+   * Every event handler must guard on this so a failed or disabled init is a clean no-op instead of
+   * an NPE thrown back into Spark's listener bus.
+   */
+  private boolean listenerNotReady(SparkListenerEvent event) {
+    if (listener == null) {
+      // A persistently-null listener means the agent emits nothing for the whole application, but
+      // the individual init failure paths only log at DEBUG (or, for the no-active-context path,
+      // not
+      // at all). Surface the app-level consequence once at WARN so an inert agent isn't invisible
+      // at
+      // the default log level; keep the per-event noise at DEBUG.
+      if (inertListenerWarned.compareAndSet(false, true)) {
+        log.warn(
+            "DataHub Spark lineage is disabled for this application; no lineage events will be "
+                + "emitted. The OpenLineage listener could not be initialized (check earlier logs "
+                + "for a configuration or endpoint parse error, or a missing active SparkContext).");
+      }
+      log.debug(
+          "OpenLineage listener is not initialized; skipping {}", event.getClass().getSimpleName());
+      return true;
+    }
+    return false;
+  }
+
+  static final String OL_DISABLED_TRIMMERS_KEY = "spark.openlineage.dataset.disabledTrimmers";
+
+  /**
+   * DataHub tri-state override for OpenLineage's built-in dataset-name trimmers. {@code true}
+   * forces them on, {@code false} forces them off; when unset the default depends on whether
+   * PathSpec is configured (see {@link #configureDatasetTrimmers}).
+   */
+  static final String DATAHUB_ENABLE_TRIMMERS_KEY =
+      "spark.datahub.metadata.dataset.openLineageTrimmersEnabled";
+
+  static final String OL_PATH_SPEC_KEY_SUFFIX = "." + SparkConfigParser.PATH_SPEC_LIST_KEY;
+
+  static final String DATAHUB_FILE_PARTITION_REGEXP_KEY =
+      "spark.datahub." + SparkConfigParser.FILE_PARTITION_REGEXP_PATTERN;
+
+  /** Fully-qualified class names of OpenLineage's built-in dataset-name trimmers. */
+  static final String OL_DEFAULT_DISABLED_TRIMMERS =
+      "io.openlineage.client.dataset.partition.trimmer.DateTrimmer;"
+          + "io.openlineage.client.dataset.partition.trimmer.KeyValueTrimmer;"
+          + "io.openlineage.client.dataset.partition.trimmer.MultiDirDateTrimmer;"
+          + "io.openlineage.client.dataset.partition.trimmer.YearMonthTrimmer";
+
+  /**
+   * Decide whether OpenLineage's built-in dataset-name trimmers (on by default since OL 1.39) run.
+   * They collide with DataHub's PathSpec ({@code RemovePathPatternUtils}), which runs afterward:
+   * the trimmer strips partition segments before PathSpec matches, causing double-transformation
+   * and breaking {@code path_spec} patterns that reference those segments. Resolution order:
+   *
+   * <ul>
+   *   <li>if the user pinned OpenLineage's native {@code disabledTrimmers} key directly, respect
+   *       it;
+   *   <li>else if {@code spark.datahub.metadata.dataset.openLineageTrimmersEnabled} is set, honor
+   *       it;
+   *   <li>else (default) disable the trimmers only when DataHub already does its own path trimming
+   *       — i.e. a {@code path_spec_list} or {@code file_partition_regexp} is configured — and
+   *       leave upstream trimming on otherwise.
+   * </ul>
+   *
+   * Deeper integration of the two mechanisms is tracked in ING-2959.
+   */
+  static void configureDatasetTrimmers(SparkConf sparkConf) {
+    // This decision silently changes how dataset URNs are named, so log the chosen branch at INFO:
+    // a mis-detection is otherwise only discoverable by spotting broken/orphaned URNs after a run.
+    // A directly-pinned OpenLineage key always wins.
+    if (sparkConf.contains(OL_DISABLED_TRIMMERS_KEY)) {
+      log.info(
+          "OpenLineage dataset-name trimmers: honoring explicitly-set {} (leaving it untouched).",
+          OL_DISABLED_TRIMMERS_KEY);
+      return;
+    }
+    boolean disableTrimmers;
+    if (sparkConf.contains(DATAHUB_ENABLE_TRIMMERS_KEY)) {
+      boolean enabled = sparkConf.getBoolean(DATAHUB_ENABLE_TRIMMERS_KEY, true);
+      disableTrimmers = !enabled;
+      log.info(
+          "OpenLineage dataset-name trimmers: {} by explicit {}={}.",
+          enabled ? "kept enabled" : "disabled",
+          DATAHUB_ENABLE_TRIMMERS_KEY,
+          enabled);
+    } else if (isDatahubPathTrimmingConfigured(sparkConf)) {
+      disableTrimmers = true;
+      log.info(
+          "OpenLineage dataset-name trimmers: auto-disabled because DataHub path trimming "
+              + "(path_spec_list or file_partition_regexp) is configured. Set {}=true to force them on.",
+          DATAHUB_ENABLE_TRIMMERS_KEY);
+    } else {
+      disableTrimmers = false;
+      log.info(
+          "OpenLineage dataset-name trimmers: left enabled (OpenLineage default) — no DataHub "
+              + "path trimming configured.");
+    }
+    if (disableTrimmers) {
+      sparkConf.set(OL_DISABLED_TRIMMERS_KEY, OL_DEFAULT_DISABLED_TRIMMERS);
+    }
+  }
+
+  private static boolean isDatahubPathTrimmingConfigured(SparkConf sparkConf) {
+    if (sparkConf.contains(DATAHUB_FILE_PARTITION_REGEXP_KEY)) {
+      return true;
+    }
+    return Arrays.stream(sparkConf.getAll())
+        .anyMatch(
+            t -> t._1().startsWith("spark.datahub.") && t._1().endsWith(OL_PATH_SPEC_KEY_SUFFIX));
   }
 
   private void initializeContextFactoryIfNotInitialized() {
@@ -391,6 +531,7 @@ public class DatahubSparkListener extends SparkListener {
     }
     try {
       SparkLineageConf datahubConfig = loadDatahubConfig(appContext, null);
+      configureDatasetTrimmers(sparkConf);
       SparkOpenLineageConfig config = ArgumentParser.parse(sparkConf);
       // Needs to be done before initializing OpenLineageClient
       initializeMetrics(config);
@@ -398,7 +539,13 @@ public class DatahubSparkListener extends SparkListener {
       emitter.setConfig(datahubConfig);
       contextFactory = new ContextFactory(emitter, meterRegistry, config);
       circuitBreaker = new CircuitBreakerFactory(config.getCircuitBreaker()).build();
-      OpenLineageSparkListener.init(contextFactory);
+
+      // In OpenLineage 1.37.0+, the static init() method was removed.
+      // Instead, we use overrideDefaultFactoryForTests() to inject our custom ContextFactory
+      // before creating the listener. The method name says "ForTests" but it's the official
+      // way to inject a custom emitter - see OpenLineageSparkListener source code.
+      OpenLineageSparkListener.overrideDefaultFactoryForTests(contextFactory);
+      listener = new OpenLineageSparkListener(sparkConf);
     } catch (URISyntaxException e) {
       log.error("Unable to parse OpenLineage endpoint. Lineage events will not be collected", e);
     }

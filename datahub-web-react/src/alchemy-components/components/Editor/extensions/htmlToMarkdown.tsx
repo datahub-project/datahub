@@ -101,6 +101,7 @@ const turndownService = new TurndownService({
         replacement: (_, node, options) => {
             invariant(isElementDomNode(node.firstChild), {
                 code: ErrorConstant.EXTENSION,
+                /* untranslated-text -- defensive assertion message for malformed HTML input, not user-facing */
                 message: `Invalid node \`${node.firstChild?.nodeName}\` encountered for codeblock when converting html to markdown.`,
             });
 
@@ -121,6 +122,7 @@ const turndownService = new TurndownService({
         replacement: (_, node) => {
             invariant(isElementDomNode(node), {
                 code: ErrorConstant.EXTENSION,
+                /* untranslated-text -- defensive assertion message for malformed HTML input, not user-facing */
                 message: `Invalid node \`${node.nodeName}\` encountered for mentions when converting html to markdown.`,
             });
             const urn = node.getAttribute(DATAHUB_MENTION_ATTRS.urn);
@@ -141,6 +143,7 @@ const turndownService = new TurndownService({
         replacement: (_, node) => {
             invariant(isElementDomNode(node), {
                 code: ErrorConstant.EXTENSION,
+                /* untranslated-text -- defensive assertion message for malformed HTML input, not user-facing */
                 message: `Invalid node \`${node.nodeName}\` encountered for file nodes when converting html to markdown.`,
             });
 
@@ -172,6 +175,18 @@ const turndownService = new TurndownService({
             );
         },
         replacement: (content) => `<u>${content}</u>`,
+    })
+    /* Preserve <details>/<summary> disclosure widgets as raw HTML so they survive the
+       markdown roundtrip and are re-parsed by the DetailsExtension on load.
+       The `open` attribute is stripped here so expansion state is never written to the
+       stored markdown — it is purely ephemeral view state. */
+    .addRule('details', {
+        filter: (node) => node.nodeName === 'DETAILS',
+        replacement: (_, node: any) => {
+            const clone = (node as HTMLElement).cloneNode(true) as HTMLElement;
+            clone.removeAttribute('open');
+            return `\n\n${clone.outerHTML}\n\n`;
+        },
     })
     /* Add support for handling font size change */
     .addRule('fontSize', {

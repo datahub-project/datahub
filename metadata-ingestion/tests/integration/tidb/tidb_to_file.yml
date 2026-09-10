@@ -1,0 +1,14 @@
+run_id: tidb-test
+
+source:
+  type: tidb
+  config:
+    username: root
+    password: ""
+    host_port: "localhost:${TIDB_PORT}"
+    database: datahub_test
+
+sink:
+  type: file
+  config:
+    filename: "./tidb_mces.json"

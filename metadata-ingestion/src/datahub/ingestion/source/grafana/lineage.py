@@ -278,16 +278,17 @@ class LineageExtractor:
                 upstream_lineages.append(
                     FineGrainedLineageClass(
                         downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                        downstreams=[
-                            make_schema_field_urn(
-                                dataset_urn, col_lineage.downstream.column
-                            )
-                        ],
+                        downstreams=(
+                            [
+                                make_schema_field_urn(
+                                    dataset_urn, col_lineage.downstream.column
+                                )
+                            ]
+                            if col_lineage.downstream.column
+                            else []
+                        ),
                         upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                        upstreams=[
-                            make_schema_field_urn(col.table, col.column)
-                            for col in col_lineage.upstreams
-                        ],
+                        upstreams=col_lineage.upstream_schema_field_urns(),
                     )
                 )
 

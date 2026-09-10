@@ -159,6 +159,9 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
     name: string;
     nameExtra?: React.ReactNode;
     nameHighlight?: { text: string; color: string };
+
+    // Rendered when there are no platform icons
+    typeIcon?: React.ReactNode;
     platformIcons: string[];
     menuActions?: React.ReactNode[];
 
@@ -185,6 +188,7 @@ function LineageCard(
         name,
         nameExtra,
         nameHighlight,
+        typeIcon,
         platformIcons,
         menuActions,
         extraDetails,
@@ -204,6 +208,7 @@ function LineageCard(
             ) : (
                 <CardWrapper {...props} ref={ref}>
                     <PlatformIconsWrapper>
+                        {platformIcons.length === 0 && typeIcon}
                         {platformIcons.map((icon) => (
                             /* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) internal alt fallback, not user-facing */
                             <PlatformIcon key={icon} src={icon} alt="Platform" />

@@ -41,4 +41,7 @@ public class AuthenticationConfiguration {
   private long passwordResetTokenExpirationMs;
 
   private TokenServiceConfiguration tokenService;
+
+  /** Policy for personal / service-account access token durations. */
+  private AccessTokenConfiguration accessTokens = AccessTokenConfiguration.defaults();
 }

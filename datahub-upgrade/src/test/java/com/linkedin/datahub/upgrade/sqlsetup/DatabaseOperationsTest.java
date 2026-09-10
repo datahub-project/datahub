@@ -245,6 +245,35 @@ public class DatabaseOperationsTest {
   }
 
   @Test
+  public void testMysqlEnsureAspectTableCollationConvertsWhenWrong() throws SQLException {
+    when(mockConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true);
+    // One or more key columns use a non-utf8mb4_bin collation.
+    when(mockResultSet.getInt(1)).thenReturn(1);
+    when(mockConnection.createStatement()).thenReturn(mockStatement);
+
+    mysqlOps.ensureAspectTableCollation(mockConnection);
+
+    verify(mockStatement)
+        .execute(
+            "ALTER TABLE metadata_aspect_v2 CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_bin");
+  }
+
+  @Test
+  public void testMysqlEnsureAspectTableCollationSkipsWhenCorrect() throws SQLException {
+    when(mockConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true);
+    // All key columns already utf8mb4_bin -> the "wrong collation" count is zero.
+    when(mockResultSet.getInt(1)).thenReturn(0);
+
+    mysqlOps.ensureAspectTableCollation(mockConnection);
+
+    verify(mockConnection, never()).createStatement();
+  }
+
+  @Test
   public void testPostgresPostSetupDropsInvalidIndexThenCreates() throws SQLException {
     // Simulate pg_index returning a row (invalid index exists)
     when(mockConnection.prepareStatement(org.mockito.ArgumentMatchers.anyString()))

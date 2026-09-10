@@ -62,7 +62,11 @@ export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ gr
                                 <Trans
                                     t={t}
                                     i18nKey="assertionSummary.tooltipTitle"
-                                    values={{ groupName: group.name, statusText: status.text }}
+                                    values={{
+                                        count: group.summary[key],
+                                        groupName: group.name,
+                                        statusText: status.text,
+                                    }}
                                     components={{
                                         anchor: (
                                             <Link

@@ -10,9 +10,13 @@ export type DatePickerProps = {
     disabledDate?: (value: DatePickerValue) => boolean;
     variant?: DatePickerVariant;
     placeholder?: string;
+    'data-testid'?: string;
+    label?: string;
+    showTime?: boolean | Record<string, any>;
+    format?: string;
 };
 
-export type DatePickerState = {
+type DatePickerState = {
     open?: boolean;
     value?: DatePickerValue;
     setValue?: React.Dispatch<React.SetStateAction<DatePickerValue>>;
@@ -23,7 +27,7 @@ export type ExtendedInputRenderProps = React.InputHTMLAttributes<HTMLInputElemen
     datePickerState: DatePickerState;
 };
 
-export type AntdDatePickerProps = React.ComponentProps<typeof AntdDatePicker>;
+type AntdDatePickerProps = React.ComponentProps<typeof AntdDatePicker>;
 
 export type DatePickerValue = Dayjs | null | undefined;
 

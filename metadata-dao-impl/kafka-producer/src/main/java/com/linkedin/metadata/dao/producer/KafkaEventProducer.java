@@ -121,7 +121,7 @@ public class KafkaEventProducer extends EventProducer {
 
   @Override
   @WithSpan
-  public Future<?> produceMetadataChangeProposal(
+  protected Future<?> doProduceMetadataChangeProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final MetadataChangeProposal metadataChangeProposal) {

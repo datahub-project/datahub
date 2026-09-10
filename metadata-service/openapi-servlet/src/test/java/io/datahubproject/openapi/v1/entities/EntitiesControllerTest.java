@@ -247,6 +247,31 @@ public class EntitiesControllerTest {
   }
 
   @Test
+  public void testDeleteEntitiesWithExistingContextDoesNotOpenSession() throws Exception {
+    Set<Urn> entityUrns =
+        Set.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"));
+
+    try (MockedStatic<OperationContext> opContext = Mockito.mockStatic(OperationContext.class);
+        MockedStatic<AuthUtil> authUtil = Mockito.mockStatic(AuthUtil.class)) {
+
+      OperationContext existingContext = mock(OperationContext.class);
+      authUtil.when(() -> AuthUtil.isAPIAuthorizedEntityUrns(any(), any(), any())).thenReturn(true);
+
+      RollbackRunResult rollbackResult = mock(RollbackRunResult.class);
+      when(entityService.deleteUrn(any(), any())).thenReturn(rollbackResult);
+
+      ResponseEntity<?> response =
+          controller.deleteEntities(
+              existingContext, "urn:li:corpuser:testuser", entityUrns, false, false);
+
+      assertEquals(response.getStatusCode(), HttpStatus.OK);
+      verify(entityService, times(1)).deleteUrn(eq(existingContext), any());
+      opContext.verify(
+          () -> OperationContext.asSession(any(), any(), any(), any(), anyBoolean()), never());
+    }
+  }
+
+  @Test
   public void testGetEntitiesWithException() throws Exception {
     // Given
     String[] urns = {"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"};

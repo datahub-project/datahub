@@ -1,0 +1,10 @@
+{
+    "appearance.subTitle": "Megjelenési beállítások kezelése.",
+    "appearance.title": "Megjelenés",
+    "language.description": "Válassza ki a kívánt megjelenítési nyelvet",
+    "language.title": "Felhasználói felület nyelve",
+    "noSettings": "Nem találhatók megjelenési beállítások.",
+    "showApplications.description": "Az alkalmazások az adatok rendszerezésének egy másik módja, a domainekhez hasonlóan. Alapértelmezés szerint rejtve vannak.",
+    "showApplications.successMessage": "Beállítás frissítve!",
+    "showApplications.title": "Alkalmazások megjelenítése"
+}

@@ -25,7 +25,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -192,7 +191,10 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
             .map(
                 entity -> {
                   String baseIndex =
-                      opContext.getSearchContext().getIndexConvention().getEntityIndexName(entity);
+                      opContext
+                          .getSearchContext()
+                          .getIndexConvention()
+                          .getEntityIndexName(opContext, entity);
                   return appendSemanticSuffix(baseIndex);
                 })
             .collect(Collectors.toList());
@@ -239,7 +241,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
         new SemanticIndexConvention(opContext.getSearchContext().getIndexConvention());
     Filter transformedFilters =
         postFilters != null
-            ? SearchUtil.transformFilterForEntities(postFilters, semanticIndexConvention)
+            ? SearchUtil.transformFilterForEntities(opContext, postFilters, semanticIndexConvention)
             : null;
 
     // 6) Build filters using ESUtils with proper field types
@@ -264,12 +266,33 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
 
     // 7) Build field set using same logic as keyword search
     Set<String> fieldsToFetch =
-        new HashSet<>(SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH);
+        SearchDocFieldFetchConfig.resolve(
+            SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH,
+            opContext.getSearchContext().getSearchFlags());
 
     // 8) Execute kNN query via the engine-specific SearchClientShim path
     List<SearchEntity> hits =
         executeKnn(
-            opContext.getObjectMapper(), indices, queryEmbedding, k, finalFilterMap, fieldsToFetch);
+            opContext,
+            opContext.getObjectMapper(),
+            indices,
+            queryEmbedding,
+            k,
+            finalFilterMap,
+            fieldsToFetch);
+
+    // Apply relevance floor: drop hits scoring below minScore so a caller (e.g. an agent) can
+    // abstain rather than surface weak matches. Post-kNN filtering keeps this engine-agnostic
+    // across the ES8 and OpenSearch shims.
+    final com.linkedin.metadata.query.SearchFlags searchFlags =
+        opContext.getSearchContext().getSearchFlags();
+    final Float minScore = searchFlags != null ? searchFlags.getMinScore() : null;
+    if (minScore != null) {
+      hits =
+          hits.stream()
+              .filter(h -> h.getScore() != null && h.getScore() >= minScore)
+              .collect(Collectors.toList());
+    }
 
     // 9) Slice [from, from+pageSize)
     if (from >= hits.size()) {
@@ -323,8 +346,8 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
    * Executes a kNN query via {@link SearchClientShim#searchKnn} so the correct engine-specific
    * query format (ES 8 or OpenSearch 2) is used.
    *
+   * @param opContext operation context threaded to the shim
    * @param objectMapper the operation context's configured mapper, used to serialize extra fields
-   *     consistently with the rest of the search subsystem (e.g. {@code Include.NON_NULL})
    * @param indices list of semantic index names to search (comma-joined for multi-index)
    * @param vector query embedding vector
    * @param k number of nearest neighbors to retrieve
@@ -333,6 +356,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
    * @return list of {@link SearchEntity} constructed from kNN hits
    */
   private List<SearchEntity> executeKnn(
+      @Nonnull OperationContext opContext,
       @Nonnull ObjectMapper objectMapper,
       @Nonnull List<String> indices,
       @Nonnull float[] vector,
@@ -358,7 +382,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
             .build();
 
     try {
-      KnnSearchResponse response = searchClient.searchKnn(request);
+      KnnSearchResponse response = searchClient.searchKnn(opContext, request);
       log.info("kNN search returned {} hits", response.hits().size());
 
       List<SearchEntity> results = new ArrayList<>(response.hits().size());

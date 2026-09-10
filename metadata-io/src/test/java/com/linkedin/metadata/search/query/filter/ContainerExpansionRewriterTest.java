@@ -4,16 +4,20 @@ import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.models.graph.Edge;
@@ -21,6 +25,13 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.config.search.QueryFilterRewriterConfiguration;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.graph.cache.EntityGraphBinding;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
+import com.linkedin.metadata.graph.cache.GraphReadResult;
+import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
+import com.linkedin.metadata.graph.cache.KnownEntityGraph;
+import com.linkedin.metadata.graph.cache.ReadMode;
+import com.linkedin.metadata.graph.cache.TraversalDirection;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
@@ -34,6 +45,7 @@ import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -404,5 +416,254 @@ public class ContainerExpansionRewriterTest
             testQuery),
         expectedRewrite,
         "Expected rewrite of nested filters and pass through for non-container fields");
+  }
+
+  @Test
+  public void testTermsQueryRewriteUsesEntityGraphCacheWhenAvailable() {
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder().graphId("container").source(GraphSnapshotSource.GRAPH).build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.CONTAINER))
+        .thenReturn(Optional.of(binding));
+    when(entityGraphCache.expand(
+            eq("container"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of(parentUrn)),
+            anyInt(),
+            eq(EntityGraphCache.USE_DEFINITION_MAX_DEPTH),
+            eq(ReadMode.CACHED)))
+        .thenReturn(GraphReadResult.fromVertices(Set.of(parentUrn, childUrn)));
+
+    EntityRegistry entityRegistry = new TestEntityRegistry();
+    CachingAspectRetriever mockAspectRetriever = mock(CachingAspectRetriever.class);
+    when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+
+    OperationContext cacheOpContext =
+        opContext.toBuilder()
+            .retrieverContext(
+                io.datahubproject.metadata.context.RetrieverContext.builder()
+                    .aspectRetriever(mockAspectRetriever)
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(() -> entityRegistry))
+                    .graphRetriever(mockGraphRetriever)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .entityGraphCache(entityGraphCache)
+                    .build())
+            .build(opContext.getSessionAuthentication(), false);
+
+    ContainerExpansionRewriter test = getTestRewriter();
+    TermsQueryBuilder testQuery = QueryBuilders.termsQuery(FIELD_NAME, parentUrn);
+    TermsQueryBuilder expectedRewrite = QueryBuilders.termsQuery(FIELD_NAME, childUrn, parentUrn);
+
+    assertEquals(
+        test.rewrite(
+            cacheOpContext,
+            QueryFilterRewriterContext.builder()
+                .condition(Condition.DESCENDANTS_INCL)
+                .searchType(QueryFilterRewriterSearchType.FULLTEXT_SEARCH)
+                .queryFilterRewriteChain(mock(QueryFilterRewriteChain.class))
+                .build(false),
+            testQuery),
+        expectedRewrite);
+
+    verify(mockGraphRetriever, never())
+        .scrollRelatedEntities(
+            any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), any(), any());
+  }
+
+  /**
+   * `limit` caps the size of the expanded filter. The early-exit budget counted the current
+   * frontier twice -- once as the urns being queried and once as already-visited -- so a filter
+   * carrying several urns lost that much of its budget, and one carrying at least half the limit in
+   * roots barely expanded at all. Batched container filters do carry many urns.
+   */
+  @Test
+  public void testExpansionHonorsConfiguredLimit() {
+    final int limit = 10;
+    ContainerExpansionRewriter test =
+        ContainerExpansionRewriter.builder()
+            .config(
+                new QueryFilterRewriterConfiguration.ExpansionRewriterConfiguration(true, 1, limit))
+            .build();
+
+    List<String> roots =
+        List.of("urn:li:container:root0", "urn:li:container:root1", "urn:li:container:root2");
+
+    // One ancestor per page, always another page available: the limit is the only thing that stops
+    // the walk.
+    when(mockGraphRetriever.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING)),
+            any(),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenAnswer(
+            invocation -> {
+              String scrollId = invocation.getArgument(7);
+              int page = scrollId == null ? 0 : Integer.parseInt(scrollId);
+              return new RelatedEntitiesScrollResult(
+                  100,
+                  1,
+                  String.valueOf(page + 1),
+                  List.of(
+                      new RelatedEntities(
+                          "IsPartOf",
+                          roots.get(0),
+                          "urn:li:container:ancestor" + page,
+                          RelationshipDirection.OUTGOING,
+                          null)));
+            });
+
+    TermsQueryBuilder rewritten =
+        test.rewrite(
+            opContext,
+            QueryFilterRewriterContext.builder()
+                .condition(Condition.ANCESTORS_INCL)
+                .searchType(QueryFilterRewriterSearchType.FULLTEXT_SEARCH)
+                .queryFilterRewriteChain(mock(QueryFilterRewriteChain.class))
+                .build(false),
+            QueryBuilders.termsQuery(FIELD_NAME, roots));
+
+    assertEquals(
+        rewritten.values().size(),
+        limit,
+        "Expected the expanded filter to use the whole configured limit, counting each urn once");
+  }
+
+  /**
+   * RELATED_INCL has two implementations: an entity-graph-cache read that expands each direction
+   * from the roots, and a graph traversal that walks descendants and then ancestors of that
+   * expanded set. For the same hierarchy they have to produce the same filter, otherwise results
+   * depend on whether the cache happens to be warm.
+   */
+  @Test
+  public void testRelatedInclCacheAndTraversalAgree() {
+    ContainerExpansionRewriter test = getTestRewriter();
+    // Expanded values come back sorted.
+    TermsQueryBuilder expected =
+        QueryBuilders.termsQuery(FIELD_NAME, childUrn, parentUrn, grandParentUrn);
+
+    // Traversal: descendants of the root, then ancestors of the root plus those descendants.
+    when(mockGraphRetriever.scrollRelatedEntities(
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
+            eq(
+                QueryUtils.newDisjunctiveFilter(
+                    buildCriterion("urn", Condition.EQUAL, List.of(parentUrn)))),
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
+            eq(EMPTY_FILTER),
+            eq(Set.of("IsPartOf")),
+            eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+            eq(Edge.EDGE_SORT_CRITERION),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                1,
+                1,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        "IsPartOf", childUrn, parentUrn, RelationshipDirection.INCOMING, null))));
+    when(mockGraphRetriever.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING)),
+            any(),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                1,
+                1,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        "IsPartOf",
+                        parentUrn,
+                        grandParentUrn,
+                        RelationshipDirection.OUTGOING,
+                        null))));
+
+    TermsQueryBuilder viaTraversal =
+        test.rewrite(
+            opContext,
+            QueryFilterRewriterContext.builder()
+                .condition(Condition.RELATED_INCL)
+                .searchType(QueryFilterRewriterSearchType.FULLTEXT_SEARCH)
+                .queryFilterRewriteChain(mock(QueryFilterRewriteChain.class))
+                .build(false),
+            QueryBuilders.termsQuery(FIELD_NAME, parentUrn));
+
+    assertEquals(viaTraversal, expected, "Expected the traversal to walk both directions");
+
+    // Cache: each direction expanded from the roots, then unioned.
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder().graphId("container").source(GraphSnapshotSource.GRAPH).build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.CONTAINER))
+        .thenReturn(Optional.of(binding));
+    when(entityGraphCache.expand(
+            eq("container"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of(parentUrn)),
+            anyInt(),
+            eq(EntityGraphCache.USE_DEFINITION_MAX_DEPTH),
+            eq(ReadMode.CACHED)))
+        .thenReturn(GraphReadResult.fromVertices(Set.of(parentUrn, childUrn)));
+    when(entityGraphCache.expand(
+            eq("container"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(TraversalDirection.FORWARD),
+            eq(Set.of(parentUrn)),
+            anyInt(),
+            eq(EntityGraphCache.USE_DEFINITION_MAX_DEPTH),
+            eq(ReadMode.CACHED)))
+        .thenReturn(GraphReadResult.fromVertices(Set.of(parentUrn, grandParentUrn)));
+
+    EntityRegistry entityRegistry = new TestEntityRegistry();
+    CachingAspectRetriever cachingAspectRetriever = mock(CachingAspectRetriever.class);
+    when(cachingAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+    OperationContext cacheOpContext =
+        opContext.toBuilder()
+            .retrieverContext(
+                io.datahubproject.metadata.context.RetrieverContext.builder()
+                    .aspectRetriever(cachingAspectRetriever)
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(() -> entityRegistry))
+                    .graphRetriever(mockGraphRetriever)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .entityGraphCache(entityGraphCache)
+                    .build())
+            .build(opContext.getSessionAuthentication(), false);
+
+    TermsQueryBuilder viaCache =
+        test.rewrite(
+            cacheOpContext,
+            QueryFilterRewriterContext.builder()
+                .condition(Condition.RELATED_INCL)
+                .searchType(QueryFilterRewriterSearchType.FULLTEXT_SEARCH)
+                .queryFilterRewriteChain(mock(QueryFilterRewriteChain.class))
+                .build(false),
+            QueryBuilders.termsQuery(FIELD_NAME, parentUrn));
+
+    assertEquals(
+        viaCache,
+        viaTraversal,
+        "Expected the cached and traversed RELATED_INCL expansions to produce the same filter");
   }
 }

@@ -61,7 +61,7 @@ public class UpdateSecretResolver implements DataFetcher<CompletableFuture<Strin
                   DataHubSecretValueMapper.map(
                       response,
                       input.getName(),
-                      secretService.encrypt(input.getValue()),
+                      secretService.encrypt(context.getOperationContext(), input.getValue()),
                       input.getDescription(),
                       null);
 

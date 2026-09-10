@@ -1,0 +1,13 @@
+{
+    "resultText.failing": "Sikertelen",
+    "resultText.passing": "Sikeres",
+    "summary.allFailing": "Minden teszt sikertelen",
+    "summary.allPassing": "Minden teszt sikeres",
+    "summary.countsSubtitle": "{{passing}} sikeres teszt, {{failing}} sikertelen teszt",
+    "summary.noTestsRun": "Nem futott le teszt",
+    "summary.someFailing": "Néhány teszt sikertelen",
+    "summary.statusTooltip": "Ez az állapot az egyes tesztek legutóbbi futtatásán alapul.",
+    "testResults.empty": "Nem található teszt :(",
+    "testResults.noEvaluations": "Nincsenek kiértékelések",
+    "testResults.title": "Governance tesztek eredményei"
+}

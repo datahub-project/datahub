@@ -13,6 +13,8 @@
     "nav.permissions": "Permissões",
     "nav.personal": "Pessoal",
     "nav.preferences": "Preferências",
+    "nav.collapseSidebar": "Recolher barra lateral de configurações",
+    "nav.expandSidebar": "Expandir barra lateral de configurações",
     "nav.usersGroups": "Usuários e Grupos",
     "nav.views": "Visualizações",
     "subTitle": "Gerencie suas configurações",

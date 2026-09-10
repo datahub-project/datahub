@@ -1,4 +1,5 @@
-import { Select, Typography } from 'antd';
+import { Text } from '@components';
+import { Select } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -31,13 +32,10 @@ export default function OwnershipTypesSelect({ selectedOwnerTypeUrn, ownershipTy
                 const ownershipTypeDescription = ownershipType?.info?.description || '';
                 return (
                     <Select.Option key={ownershipTypeUrn} value={ownershipTypeUrn}>
-                        <Typography.Text>{ownershipTypeName}</Typography.Text>
-                        <Typography.Paragraph
-                            style={{ wordWrap: 'break-word', whiteSpace: 'break-spaces' }}
-                            type="secondary"
-                        >
+                        <Text type="span">{ownershipTypeName}</Text>
+                        <Text style={{ wordWrap: 'break-word', whiteSpace: 'break-spaces' }} color="textSecondary">
                             {ownershipTypeDescription}
-                        </Typography.Paragraph>
+                        </Text>
                     </Select.Option>
                 );
             })}

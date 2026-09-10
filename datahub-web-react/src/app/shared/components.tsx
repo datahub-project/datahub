@@ -22,14 +22,19 @@ export const BodyGridExpander = styled.div<{ isOpen: boolean }>`
     grid-template-rows: ${(props) => (props.isOpen ? '1fr' : '0fr')};
     transition: grid-template-rows 250ms;
     overflow: hidden;
+    max-width: 100%;
+    position: relative;
 `;
 
 export const BodyContainer = styled.div`
     min-height: 0;
+    position: relative;
+    max-width: 100%;
+    overflow: hidden;
 `;
 
 export const WhiteButton = styled(Button)`
-    background-color: white;
-    color: ${(props) => props.theme.styles['primary-color']};
+    background-color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.textBrand};
     text-shadow: none;
 `;

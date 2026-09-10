@@ -20,4 +20,19 @@ public class SearchConfiguration {
   private GraphQueryConfiguration graph;
   private WordGramConfiguration wordGram;
   private SearchValidationConfiguration validation;
+
+  /**
+   * Configurable entity-type lists (value/add/remove). Production defaults live in {@code
+   * application.yaml}. Env vars: {@code SEARCH_*_ENTITY_TYPES}, {@code SEARCH_*_ENTITY_TYPES_ADD},
+   * {@code SEARCH_*_ENTITY_TYPES_REMOVE}.
+   */
+  private EntityTypeListConfig defaultEntityTypes;
+
+  private EntityTypeListConfig autocompleteEntityTypes;
+
+  private EntityTypeListConfig browseEntityTypes;
+
+  private EntityTypeListConfig prioritizedSourceEntityTypes;
+
+  private EntityTypeListConfig prioritizedDatahubEntityTypes;
 }

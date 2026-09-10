@@ -22,6 +22,16 @@ using generic URN type for the source and destination.
 We also introduce a `@Relationship` [annotation](../modeling/extending-the-metadata-model.md/#relationship) to
 limit the allowed source and destination URN types.
 
+### Aspect ownership uniqueness
+
+Each directed edge signature — `(source entity type, destination entity type, relationship name)` — may be produced by
+**exactly one aspect** on that source entity. Multiple fields within the same aspect may share a signature (for example
+a legacy URN array and a newer Edge array). The same aspect may be attached to many source entity types.
+
+This is enforced when entity specs are built (model / registry load) and again when registries are merged at GMS
+startup — including custom / plugin entity registries. Relationship edge uniqueness failures from plugins are never
+soft-ignored, even when `IGNORE_FAILURE_WHEN_LOADING_ENTITY_REGISTRY_PLUGIN` is true.
+
 While it’s possible to model relationships in rest.li
 as [association resources](https://linkedin.github.io/rest.li/modeling/modeling#association), which often get stored as
 mapping tables, it is far more common to model them as "foreign keys" field in a metadata aspect. For instance,

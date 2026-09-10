@@ -221,6 +221,7 @@ jobs:
                 sigma)               echo "sigma" ;;
                 snowflake)           echo "snowflake" ;;
                 tableau)             echo "tableau" ;;
+                unity)               echo "databricks" ;;
               esac
             done | sort -u | paste -sd ',')
 

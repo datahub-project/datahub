@@ -2,11 +2,14 @@ package com.linkedin.metadata.search.opensearch;
 
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.ShimConfigurationBuilder;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import io.datahubproject.test.search.config.SearchTestContainerConfiguration;
 import java.io.IOException;
@@ -37,6 +40,9 @@ public class SearchClientShimOpenSearchIntegrationTest extends AbstractTestNGSpr
 
   @Autowired private GenericContainer<?> openSearchContainer;
   @Autowired private SearchClientShim<?> searchClientShim;
+
+  private static final OperationContext OP_CONTEXT =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   @Test
   public void testShimCreation() {
@@ -94,19 +100,23 @@ public class SearchClientShimOpenSearchIntegrationTest extends AbstractTestNGSpr
     // Test index creation
     CreateIndexRequest createRequest = new CreateIndexRequest(TEST_INDEX);
     CreateIndexResponse createResponse =
-        searchClientShim.createIndex(createRequest, RequestOptions.DEFAULT);
+        searchClientShim.createIndex(
+            OperationFingerprint.EMPTY, createRequest, RequestOptions.DEFAULT);
     assertNotNull(createResponse);
     assertTrue(createResponse.isAcknowledged());
 
     // Test index exists
     GetIndexRequest getRequest = new GetIndexRequest(TEST_INDEX);
-    boolean exists = searchClientShim.indexExists(getRequest, RequestOptions.DEFAULT);
+    boolean exists =
+        searchClientShim.indexExists(
+            OperationFingerprint.EMPTY, getRequest, RequestOptions.DEFAULT);
     assertTrue(exists);
 
     // Test refreshIndex
     RefreshRequest refreshRequest = new RefreshRequest(TEST_INDEX);
     RefreshResponse refreshResponse =
-        searchClientShim.refreshIndex(refreshRequest, RequestOptions.DEFAULT);
+        searchClientShim.refreshIndex(
+            OperationFingerprint.EMPTY, refreshRequest, RequestOptions.DEFAULT);
     assertNotNull(refreshResponse);
   }
 
@@ -119,7 +129,8 @@ public class SearchClientShimOpenSearchIntegrationTest extends AbstractTestNGSpr
     searchSourceBuilder.query(QueryBuilders.matchAllQuery());
     searchRequest.source(searchSourceBuilder);
 
-    SearchResponse searchResponse = searchClientShim.search(searchRequest, RequestOptions.DEFAULT);
+    SearchResponse searchResponse =
+        searchClientShim.search(OP_CONTEXT, searchRequest, RequestOptions.DEFAULT);
     assertNotNull(searchResponse);
     assertNotNull(searchResponse.getHits());
   }

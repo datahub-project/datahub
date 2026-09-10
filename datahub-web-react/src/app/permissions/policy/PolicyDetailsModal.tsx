@@ -1,9 +1,10 @@
-import { Button, Divider, Modal, Tag, Typography } from 'antd';
-import React from 'react';
+import { Heading, Modal, Pill, Text } from '@components';
+import { Divider } from 'antd';
+import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { extractTypeFromUrn } from '@app/entity/shared/utils';
 import AvatarsGroup from '@app/permissions/AvatarsGroup';
 import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
 import {
@@ -12,11 +13,13 @@ import {
     getFieldValues,
     mapResourceTypeToDisplayName,
 } from '@app/permissions/policy/policyUtils';
+import { CompactEntityNameComponent } from '@app/recommendations/renderer/component/CompactEntityNameComponent';
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
 import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
+import { useGetIngestionSourceNamesLazyQuery } from '@graphql/ingestion.generated';
+import { Entity, EntityType, Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -38,33 +41,22 @@ const PolicyContainer = styled.div`
     }
 `;
 
-const ButtonsContainer = styled.div`
-    display: flex;
-    width: 100%;
-    justify-content: flex-end;
-    align-items: center;
-`;
-
 const ThinDivider = styled(Divider)`
     margin-top: 8px;
     margin-bottom: 8px;
 `;
 
-const PoliciesTag = styled(Tag)`
-    && {
-        border-radius: 2px !important;
+const Privileges = styled.div`
+    & > div {
+        margin-top: 5px !important;
     }
 `;
 
-const PrivilegeTag = styled(Tag)`
-    && {
-        border-radius: 2px !important;
-    }
-`;
-const Privileges = styled.div`
-    & ${PrivilegeTag}:nth-child(n+1) {
-        margin-top: 5px !important;
-    }
+const FieldHeaderContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
 `;
 
 /**
@@ -73,31 +65,64 @@ const Privileges = styled.div`
 export default function PolicyDetailsModal({ policy, open, onClose, privileges }: Props) {
     const { t } = useTranslation('settings.permissions');
     const { t: tc } = useTranslation('common.actions');
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
     const isGlossaryBasedPoliciesEnabled = useIsGlossaryBasedPoliciesEnabled();
 
     const isActive = policy?.state === PolicyState.Active;
     const isMetadataPolicy = policy?.type === PolicyType.Metadata;
 
-    const resources = convertLegacyResourceFilter(policy?.resources);
+    const resources = useMemo(() => convertLegacyResourceFilter(policy?.resources), [policy?.resources]);
     const resourceTypes = getFieldValues(resources?.filter, TYPE, RESOURCE_TYPE) || [];
     const dataPlatformInstances = getFieldValues(resources?.filter, 'DATA_PLATFORM_INSTANCE') || [];
-    const resourceEntities = getFieldValues(resources?.filter, URN, RESOURCE_URN) || [];
+    const resourceEntities = useMemo(
+        () => getFieldValues(resources?.filter, URN, RESOURCE_URN) || [],
+        [resources?.filter],
+    );
+    const resourceTypeCondition =
+        getFieldCondition(resources?.filter, TYPE, RESOURCE_TYPE) || PolicyMatchCondition.Equals;
     const resourceFilterCondition =
         getFieldCondition(resources?.filter, URN, RESOURCE_URN) || PolicyMatchCondition.Equals;
     const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
+    const domainCondition = getFieldCondition(resources?.filter, 'DOMAIN') || PolicyMatchCondition.Equals;
     const containers = getFieldValues(resources?.filter, 'CONTAINER') || [];
+    const containerCondition = getFieldCondition(resources?.filter, 'CONTAINER') || PolicyMatchCondition.Equals;
+    const tags = getFieldValues(resources?.filter, 'TAG') || [];
+    const tagCondition = getFieldCondition(resources?.filter, 'TAG') || PolicyMatchCondition.Equals;
     const glossaryEntities = getFieldValues(resources?.filter, 'GLOSSARY') || [];
+    const glossaryCondition = getFieldCondition(resources?.filter, 'GLOSSARY') || PolicyMatchCondition.Equals;
 
     const {
         config: { policiesConfig },
     } = useAppConfig();
 
-    const actionButtons = (
-        <ButtonsContainer>
-            <Button onClick={onClose}>{tc('close')}</Button>
-        </ButtonsContainer>
+    // Ingestion sources aren't in the entity registry and the policy query doesn't resolve
+    // them into entities, so look their names up directly (same as the policy edit form).
+    const [getIngestionSourceNames, { data: sourceNamesData }] = useGetIngestionSourceNamesLazyQuery();
+    const ingestionSourceUrns = useMemo(
+        () =>
+            resourceEntities
+                .map((value) => value.value)
+                .filter((urn) => extractTypeFromUrn(urn) === EntityType.IngestionSource),
+        [resourceEntities],
     );
+
+    useEffect(() => {
+        if (ingestionSourceUrns.length > 0) {
+            getIngestionSourceNames({ variables: { urns: ingestionSourceUrns } });
+        }
+    }, [ingestionSourceUrns, getIngestionSourceNames]);
+
+    const ingestionSourceNames = useMemo(() => {
+        const sources = sourceNamesData?.listIngestionSources?.ingestionSources || [];
+        return new Map(sources.map((source) => [source.urn, source.name]));
+    }, [sourceNamesData]);
+
+    const modalButtons = [
+        {
+            text: tc('close'),
+            onClick: onClose,
+        },
+    ];
 
     const getDisplayName = (entity) => {
         if (!entity) {
@@ -106,181 +131,244 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
         return entityRegistry.getDisplayName(entity.type, entity);
     };
 
-    const getEntityTag = (criterionValue) => {
-        return (
-            (criterionValue.entity && (
-                <Link
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                    to={() => `${entityRegistry.getEntityUrl(criterionValue.entity!.type, criterionValue.value)}`}
-                >
-                    {getDisplayName(criterionValue.entity)}
-                </Link>
-            )) || <Typography.Text>{criterionValue.value}</Typography.Text>
-        );
+    const getConditionLabel = (condition: PolicyMatchCondition) => {
+        switch (condition) {
+            case PolicyMatchCondition.Equals:
+                return t('policyForm.condition.equals');
+            case PolicyMatchCondition.NotEquals:
+                return t('policyForm.condition.notEquals');
+            case PolicyMatchCondition.StartsWith:
+                return t('policyForm.condition.startsWith');
+            default:
+                return condition;
+        }
     };
 
-    const getWildcardUrnTag = (criterionValue) => {
-        return <Typography.Text>{criterionValue.value}*</Typography.Text>;
+    const renderValueDisplay = (label: string, condition: PolicyMatchCondition, entity?: Maybe<Entity>) => {
+        if (condition === PolicyMatchCondition.StartsWith) {
+            return <Text size="md">{label}</Text>;
+        }
+
+        // Unregistered types (e.g. ingestion sources) get a plain pill.
+        if (!entity || !entityRegistry.hasEntity(entity.type)) {
+            return <Pill label={label} size="md" />;
+        }
+
+        // Registered entities use CompactEntityNameComponent for link + tooltip.
+        return <CompactEntityNameComponent entity={entity} />;
+    };
+
+    const renderFieldWithCondition = (fieldLabel: string, condition: PolicyMatchCondition) => {
+        return (
+            <FieldHeaderContainer>
+                <Heading type="h5" size="md" weight="bold" color="text">
+                    {fieldLabel}
+                </Heading>
+                <Pill label={getConditionLabel(condition)} color="primary" size="sm" clickable={false} />
+            </FieldHeaderContainer>
+        );
     };
 
     const resourceOwnersField = (actors) => {
         if (!actors?.resourceOwners) {
-            return <PoliciesTag>{t('details.ownersNo')}</PoliciesTag>;
+            return <Pill label={t('details.ownersNo')} size="md" />;
         }
         if ((actors?.resolvedOwnershipTypes?.length ?? 0) > 0) {
             return (
-                <div>{actors?.resolvedOwnershipTypes?.map((type) => <PoliciesTag>{type.info.name}</PoliciesTag>)}</div>
+                <div>
+                    {actors?.resolvedOwnershipTypes?.map((type: any) => (
+                        <Pill key={type.urn} label={type.info.name} size="sm" />
+                    ))}
+                </div>
             );
         }
-        return <PoliciesTag>{t('details.ownersYesAll')}</PoliciesTag>;
+        return <Pill label={t('details.ownersYesAll')} size="md" />;
     };
 
     return (
-        <Modal title={policy?.name} open={open} onCancel={onClose} closable width={800} footer={actionButtons}>
+        <Modal title={policy?.name} open={open} onCancel={onClose} closable width={800} buttons={modalButtons}>
             <PolicyContainer>
                 <div>
-                    <Typography.Title level={5}>{t('column.type')}</Typography.Title>
+                    <Heading type="h5" size="md" weight="bold" color="text">
+                        {t('column.type')}
+                    </Heading>
                     <ThinDivider />
-                    <PoliciesTag>{policy?.type}</PoliciesTag>
+                    <Pill label={policy?.type} />
                 </div>
                 <div>
-                    <Typography.Title level={5}>{t('column.state')}</Typography.Title>
+                    <Heading type="h5" size="md" weight="bold" color="text">
+                        {t('column.state')}
+                    </Heading>
                     <ThinDivider />
-                    <Tag color={isActive ? 'green' : 'red'}>{policy?.state}</Tag>
+                    <Pill label={policy?.state} color={isActive ? 'green' : 'red'} />
                 </div>
                 <div>
-                    <Typography.Title level={5}>{t('column.description')}</Typography.Title>
+                    <Heading type="h5" size="md" weight="bold" color="text">
+                        {t('column.description')}
+                    </Heading>
                     <ThinDivider />
-                    <Typography.Text type="secondary">{policy?.description}</Typography.Text>
+                    <Text type="span" color="textSecondary">
+                        {policy?.description || '-'}
+                    </Text>
                 </div>
                 {isMetadataPolicy && (
                     <>
                         <div>
-                            <Typography.Title level={5}>{t('details.assetTypeLabel')}</Typography.Title>
+                            {renderFieldWithCondition(t('details.assetTypeLabel'), resourceTypeCondition)}
                             <ThinDivider />
                             {(resourceTypes?.length &&
-                                resourceTypes.map((value, key) => {
-                                    return (
-                                        // eslint-disable-next-line react/no-array-index-key
-                                        <PoliciesTag key={`type-${value.value}-${key}`}>
-                                            <Typography.Text>
-                                                {mapResourceTypeToDisplayName(
-                                                    value.value,
-                                                    policiesConfig?.resourcePrivileges || [],
-                                                )}
-                                            </Typography.Text>
-                                        </PoliciesTag>
-                                    );
-                                })) || <PoliciesTag>{t('details.tagAll')}</PoliciesTag>}
+                                resourceTypes.map((value) =>
+                                    renderValueDisplay(
+                                        mapResourceTypeToDisplayName(
+                                            value.value,
+                                            policiesConfig?.resourcePrivileges || [],
+                                        ) || '',
+                                        resourceTypeCondition,
+                                    ),
+                                )) || <Pill label={t('details.tagAll')} size="md" />}
                         </div>
                         <div>
-                            <Typography.Title level={5}>{t('details.assetsLabel')}</Typography.Title>
+                            {renderFieldWithCondition(t('details.assetsLabel'), resourceFilterCondition)}
                             <ThinDivider />
                             {(resourceEntities?.length &&
-                                resourceEntities.map((value, key) => {
-                                    return (
-                                        // eslint-disable-next-line react/no-array-index-key
-                                        <PoliciesTag key={`resource-${value.value}-${key}`}>
-                                            {resourceFilterCondition &&
-                                            resourceFilterCondition === PolicyMatchCondition.StartsWith
-                                                ? getWildcardUrnTag(value)
-                                                : getEntityTag(value)}
-                                        </PoliciesTag>
-                                    );
-                                })) || <PoliciesTag>{t('details.tagAll')}</PoliciesTag>}
+                                resourceEntities.map((value) =>
+                                    renderValueDisplay(
+                                        getDisplayName(value.entity) ||
+                                            ingestionSourceNames.get(value.value) ||
+                                            value.value,
+                                        resourceFilterCondition,
+                                        value.entity,
+                                    ),
+                                )) || <Pill label={t('details.tagAll')} size="md" />}
                         </div>
                         {dataPlatformInstances?.length > 0 && (
                             <div>
-                                <Typography.Title level={5}>{t('details.dataPlatformInstancesLabel')}</Typography.Title>
+                                <Heading type="h5" size="md" weight="bold" color="text">
+                                    {t('details.dataPlatformInstancesLabel')}
+                                </Heading>
                                 <ThinDivider />
-                                {dataPlatformInstances.map((value, key) => {
-                                    return (
+                                {dataPlatformInstances.map((value, key) => (
+                                    <Pill
                                         // eslint-disable-next-line react/no-array-index-key
-                                        <PoliciesTag key={`dataPlatformInstance-${value.value}-${key}`}>
-                                            <Typography.Text>{getDisplayName(value.entity)}</Typography.Text>
-                                        </PoliciesTag>
-                                    );
-                                })}
+                                        key={`dataPlatformInstance-${value.value}-${key}`}
+                                        label={getDisplayName(value.entity) || value.value}
+                                        size="md"
+                                    />
+                                ))}
                             </div>
                         )}
                         <div>
-                            <Typography.Title level={5}>{t('details.domainsLabel')}</Typography.Title>
+                            {renderFieldWithCondition(t('details.domainsLabel'), domainCondition)}
                             <ThinDivider />
                             {(domains?.length &&
-                                domains.map((value, key) => {
-                                    return (
-                                        // eslint-disable-next-line react/no-array-index-key
-                                        <PoliciesTag key={`domain-${value.value}-${key}`}>
-                                            {getEntityTag(value)}
-                                        </PoliciesTag>
-                                    );
-                                })) || <PoliciesTag>{t('details.tagAll')}</PoliciesTag>}
+                                domains.map((value) =>
+                                    renderValueDisplay(
+                                        getDisplayName(value.entity) || value.value,
+                                        domainCondition,
+                                        value.entity,
+                                    ),
+                                )) || <Pill label={t('details.tagAll')} size="md" />}
                         </div>
                         <div>
-                            <Typography.Title level={5}>{t('details.containersLabel')}</Typography.Title>
+                            {renderFieldWithCondition(t('details.containersLabel'), containerCondition)}
                             <ThinDivider />
                             {(containers?.length &&
-                                containers.map((value, key) => {
-                                    return (
-                                        // eslint-disable-next-line react/no-array-index-key
-                                        <PoliciesTag key={`containers-${value.value}-${key}`}>
-                                            {getEntityTag(value)}
-                                        </PoliciesTag>
-                                    );
-                                })) || <PoliciesTag>{t('details.tagAll')}</PoliciesTag>}
+                                containers.map((value) =>
+                                    renderValueDisplay(
+                                        getDisplayName(value.entity) || value.value,
+                                        containerCondition,
+                                        value.entity,
+                                    ),
+                                )) || <Pill label={t('details.tagAll')} size="md" />}
+                        </div>
+                        <div>
+                            {renderFieldWithCondition(t('details.tagsLabel'), tagCondition)}
+                            <ThinDivider />
+                            {(tags?.length &&
+                                tags.map((value) =>
+                                    renderValueDisplay(
+                                        getDisplayName(value.entity) || value.value,
+                                        tagCondition,
+                                        value.entity,
+                                    ),
+                                )) || <Pill label={t('details.tagAll')} size="md" />}
                         </div>
                         {isGlossaryBasedPoliciesEnabled && (
                             <div>
-                                <Typography.Title level={5}>{t('details.glossaryTermsLabel')}</Typography.Title>
+                                {renderFieldWithCondition(t('details.glossaryTermsLabel'), glossaryCondition)}
                                 <ThinDivider />
                                 {(glossaryEntities?.length &&
-                                    glossaryEntities.map((value, key) => {
-                                        return (
-                                            // eslint-disable-next-line react/no-array-index-key
-                                            <PoliciesTag key={`glossary-${value.value}-${key}`}>
-                                                {getEntityTag(value)}
-                                            </PoliciesTag>
-                                        );
-                                    })) || <PoliciesTag>{t('details.tagNone')}</PoliciesTag>}
+                                    glossaryEntities.map((value) =>
+                                        renderValueDisplay(
+                                            getDisplayName(value.entity) || value.value,
+                                            glossaryCondition,
+                                            value.entity,
+                                        ),
+                                    )) || <Pill label={t('details.tagAll')} size="md" />}
                             </div>
                         )}
                     </>
                 )}
                 <Privileges>
-                    <Typography.Title level={5}>{t('privilegesLabel')}</Typography.Title>
+                    <Heading type="h5" size="md" weight="bold" color="text">
+                        {t('privilegesLabel')}
+                    </Heading>
                     <ThinDivider />
                     {privileges?.map((priv, key) => (
                         // eslint-disable-next-line react/no-array-index-key
-                        <PrivilegeTag key={`${priv}-${key}`}>{priv?.name}</PrivilegeTag>
+                        <Pill key={`${priv}-${key}`} label={priv?.name || ''} size="sm" />
                     ))}
                 </Privileges>
                 <div>
-                    <Typography.Title level={5}>{t('details.appliesToOwnersLabel')}</Typography.Title>
+                    <Heading type="h5" size="md" weight="bold" color="text">
+                        {t('details.appliesToOwnersLabel')}
+                    </Heading>
                     <ThinDivider />
                     {resourceOwnersField(policy?.actors)}
                 </div>
                 <div>
-                    <Typography.Title level={5}>{t('details.appliesToUsersLabel')}</Typography.Title>
+                    <Heading type="h5" size="md" weight="bold" color="text">
+                        {t('details.appliesToUsersLabel')}
+                    </Heading>
                     <ThinDivider />
-                    <AvatarsGroup users={policy?.actors?.resolvedUsers} entityRegistry={entityRegistry} maxCount={50} />
-                    {policy?.actors?.allUsers ? <Tag>{t('allUsers')}</Tag> : null}
+                    {policy?.actors?.allUsers ? (
+                        <Pill label={t('allUsers')} size="md" />
+                    ) : (
+                        <AvatarsGroup
+                            users={policy?.actors?.resolvedUsers}
+                            entityRegistry={entityRegistry}
+                            maxCount={50}
+                            title=""
+                        />
+                    )}
                 </div>
                 <div>
-                    <Typography.Title level={5}>{t('details.appliesToGroupsLabel')}</Typography.Title>
+                    <Heading type="h5" size="md" weight="bold" color="text">
+                        {t('details.appliesToGroupsLabel')}
+                    </Heading>
+                    <ThinDivider />
+                    {policy?.actors?.allGroups ? (
+                        <Pill label={t('allGroups')} size="md" />
+                    ) : (
+                        <AvatarsGroup
+                            groups={policy?.actors?.resolvedGroups}
+                            entityRegistry={entityRegistry}
+                            maxCount={50}
+                            title=""
+                        />
+                    )}
+                </div>
+                <div>
+                    <Heading type="h5" size="md" weight="bold" color="text">
+                        {t('details.appliesToRolesLabel')}
+                    </Heading>
                     <ThinDivider />
                     <AvatarsGroup
-                        groups={policy?.actors?.resolvedGroups}
+                        roles={policy?.actors?.resolvedRoles}
                         entityRegistry={entityRegistry}
                         maxCount={50}
+                        title=""
                     />
-                    {policy?.actors?.allGroups ? <Tag>{t('allGroups')}</Tag> : null}
-                </div>
-                <div>
-                    <Typography.Title level={5}>{t('details.appliesToRolesLabel')}</Typography.Title>
-                    <ThinDivider />
-                    <AvatarsGroup roles={policy?.actors?.resolvedRoles} entityRegistry={entityRegistry} maxCount={50} />
                 </div>
             </PolicyContainer>
         </Modal>

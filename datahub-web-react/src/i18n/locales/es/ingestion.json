@@ -156,6 +156,8 @@
     "status.rolledBack": "Revertido",
     "status.rollingBack": "Revirtiendo",
     "status.running": "En ejecución",
+    "status.succeeded": "Correcto",
+    "status.succeededWithWarnings": "Correcto con advertencias",
     "status.success": "Correcto",
     "status.upForRetry": "Pendiente de reintento"
 }

@@ -108,6 +108,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
         .ownerUrn(newOwner.getOwner())
         .ownerType(newOwner.getType())
         .ownerTypeUrn(newOwner.getTypeUrn())
+        .attribution(newOwner.getAttribution())
         .auditStamp(auditStamp)
         .build();
   }
@@ -126,6 +127,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
         .ownerUrn(oldOwner.getOwner())
         .ownerType(oldOwner.getType())
         .ownerTypeUrn(oldOwner.getTypeUrn())
+        .attribution(oldOwner.getAttribution())
         .auditStamp(auditStamp)
         .build();
   }

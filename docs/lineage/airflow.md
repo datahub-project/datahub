@@ -58,25 +58,26 @@ No additional configuration is required to use the plugin. However, there are so
 enabled = True  # default
 ```
 
-| Name                               | Default value        | Description                                                                                                                      |
-| ---------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| enabled                            | true                 | If the plugin should be enabled.                                                                                                 |
-| conn_id                            | datahub_rest_default | The name of the datahub rest connection.                                                                                         |
-| cluster                            | prod                 | name of the airflow cluster, this is equivalent to the `env` of the instance                                                     |
-| platform_instance                  | None                 | The instance of the platform that all assets produced by this plugin belong to. It is optional.                                  |
-| capture_ownership_info             | true                 | Extract DAG ownership.                                                                                                           |
-| capture_ownership_as_group         | false                | When extracting DAG ownership, treat DAG owner as a group rather than a user                                                     |
-| capture_tags_info                  | true                 | Extract DAG tags.                                                                                                                |
-| capture_executions                 | true                 | Extract task runs and success/failure statuses. This will show up in DataHub "Runs" tab.                                         |
-| materialize_iolets                 | true                 | Create or un-soft-delete all entities referenced in lineage.                                                                     |
-| enable_extractors                  | true                 | Enable automatic lineage extraction.                                                                                             |
-| disable_openlineage_plugin         | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                                                                  |
-| enable_multi_statement_sql_parsing | false                | Parse multiple SQL statements within a single task. Resolves temp tables and merges lineage across statements in one execution.  |
-| log_level                          | _no change_          | [debug] Set the log level for the plugin.                                                                                        |
-| debug_emitter                      | false                | [debug] If true, the plugin will log the emitted events.                                                                         |
-| dag_filter_str                     | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                   |
-| enable_datajob_lineage             | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                                                 |
-| capture_airflow_assets             | true                 | Capture native Airflow Assets/Datasets as DataHub lineage. See [Native Airflow Assets/Datasets](#native-airflow-assetsdatasets). |
+| Name                               | Default value        | Description                                                                                                                                                                                                                 |
+| ---------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| enabled                            | true                 | If the plugin should be enabled.                                                                                                                                                                                            |
+| conn_id                            | datahub_rest_default | The name of the datahub rest connection.                                                                                                                                                                                    |
+| cluster                            | prod                 | name of the airflow cluster, this is equivalent to the `env` of the instance                                                                                                                                                |
+| platform_instance                  | None                 | The instance of the platform that all assets produced by this plugin belong to. It is optional.                                                                                                                             |
+| capture_ownership_info             | true                 | Extract DAG ownership.                                                                                                                                                                                                      |
+| capture_ownership_as_group         | false                | When extracting DAG ownership, treat DAG owner as a group rather than a user                                                                                                                                                |
+| capture_tags_info                  | true                 | Extract DAG tags.                                                                                                                                                                                                           |
+| capture_executions                 | true                 | Extract task runs and success/failure statuses. This will show up in DataHub "Runs" tab.                                                                                                                                    |
+| materialize_iolets                 | true                 | Create or un-soft-delete all entities referenced in lineage.                                                                                                                                                                |
+| enable_extractors                  | true                 | Enable automatic lineage extraction.                                                                                                                                                                                        |
+| disable_openlineage_plugin         | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                                                                                                                                                             |
+| enable_multi_statement_sql_parsing | false                | Parse multiple SQL statements within a single task. Resolves temp tables and merges lineage across statements in one execution.                                                                                             |
+| log_level                          | _no change_          | [debug] Set the log level for the plugin.                                                                                                                                                                                   |
+| debug_emitter                      | false                | [debug] If true, the plugin will log the emitted events.                                                                                                                                                                    |
+| dag_filter_str                     | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                                                                                                              |
+| enable_datajob_lineage             | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                                                                                                                                            |
+| capture_airflow_assets             | true                 | Capture native Airflow Assets/Datasets as DataHub lineage. See [Native Airflow Assets/Datasets](#native-airflow-assetsdatasets).                                                                                            |
+| emit_mode                          | ASYNC                | Emit mode for writes to DataHub. `ASYNC` (default) avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees. |
 
 ## Automatic lineage extraction
 
@@ -586,7 +587,7 @@ We try to support Airflow releases for ~2 years after their release. This is a b
 
 We no longer officially support Airflow 2.x — Apache has EOLed the 2.x line. To keep using the plugin against Airflow 2.x, pin `acryl-datahub-airflow-plugin <= 1.6.0` (the last release with Airflow 2 support). Airflow 3.0+ is supported.
 
-We previously had two implementations of the plugin - v1 and v2. The v2 plugin is now the default, and the v1 plugin has since been removed. The v1 plugin had many limitations, chiefly that it does not support automatic lineage extraction. Docs for the v1 plugin can be accessed in our [docs archive](https://docs-website-r5eolot5n-acryldata.vercel.app/docs/lineage/airflow#datahub-plugin-v1).
+We previously had two implementations of the plugin - v1 and v2. The v2 plugin is now the default, and the v1 plugin has since been removed. The v1 plugin had many limitations, chiefly that it does not support automatic lineage extraction. Docs for the v1 plugin can be accessed in our [docs archive](https://archive.docs.datahub.com/docs/0.15.0/lineage/airflow#datahub-plugin-v1).
 
 All recent versions require Python 3.10+.
 
@@ -598,7 +599,7 @@ All recent versions require Python 3.10+.
 - Airflow 2.7 - 2.10, use acryl-datahub-airflow-plugin <= 1.6.0 (v2 plugin; the last release with Airflow 2 support).
 - Airflow 3.0+ is supported by the current release.
 
-DataHub also previously supported an Airflow [lineage backend](https://airflow.apache.org/docs/apache-airflow/2.2.0/lineage.html#lineage-backend) implementation. The lineage backend functionality was pretty limited - it did not support automatic lineage extraction, did not capture task failures, and did not work in AWS MWAA - and so it has been removed from the codebase. The [documentation for the lineage backend](https://docs-website-1wmaehubl-acryldata.vercel.app/docs/lineage/airflow/#using-datahubs-airflow-lineage-backend-deprecated) has been archived.
+DataHub also previously supported an Airflow [lineage backend](https://airflow.apache.org/docs/apache-airflow/2.2.0/lineage.html#lineage-backend) implementation. The lineage backend functionality was pretty limited - it did not support automatic lineage extraction, did not capture task failures, and did not work in AWS MWAA - and so it has been removed from the codebase. The [documentation for the lineage backend](https://archive.docs.datahub.com/docs/0.10.5/lineage/airflow#using-datahubs-airflow-lineage-backend-deprecated) has been archived.
 
 ## Additional references
 

@@ -1,4 +1,4 @@
-import { Input } from '@components';
+import { ButtonTabs, Input } from '@components';
 import { Form } from 'antd';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { UploadFileForm } from '@app/entityV2/shared/components/links/UploadFileForm';
 import { UrlLinkForm } from '@app/entityV2/shared/components/links/UrlLinkForm';
 import { LinkFormData, LinkFormVariant } from '@app/entityV2/shared/components/links/types';
-import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';
 import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
 
 interface Props {

@@ -27,14 +27,14 @@ export const PaginationContainer = styled.div`
             color: ${(props) => props.theme.colors.textTertiary};
 
             :hover {
-                color: ${({ theme }) => theme.styles?.['primary-color']};
+                color: ${({ theme }) => theme.colors.textBrand};
             }
         }
     }
 
     .ant-pagination-item-active > a {
         background: ${(props) => props.theme.colors.bgSurfaceBrand};
-        color: ${({ theme }) => theme.styles?.['primary-color']};
+        color: ${({ theme }) => theme.colors.textBrand};
         font-weight: 700;
     }
 
@@ -68,7 +68,7 @@ export const PaginationContainer = styled.div`
                 box-shadow: ${(props) => props.theme.colors.shadowXs};
 
                 :hover {
-                    color: ${({ theme }) => theme.styles?.['primary-color']};
+                    color: ${({ theme }) => theme.colors.textBrand};
                 }
             }
         }
@@ -80,7 +80,7 @@ export const PaginationContainer = styled.div`
             box-shadow: ${(props) => props.theme.colors.shadowXs};
 
             button {
-                color: ${({ theme }) => theme.styles?.['primary-color']};
+                color: ${({ theme }) => theme.colors.textBrand};
             }
         }
     }
@@ -96,7 +96,7 @@ export const PaginationContainer = styled.div`
     .ant-pagination-jump-prev {
         :hover {
             .ant-pagination-item-link-icon {
-                color: ${({ theme }) => theme.styles?.['primary-color']};
+                color: ${({ theme }) => theme.colors.textBrand};
             }
         }
     }

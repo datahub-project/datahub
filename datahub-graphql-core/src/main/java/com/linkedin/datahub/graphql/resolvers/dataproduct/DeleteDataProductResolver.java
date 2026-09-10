@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.domain.Domains;
@@ -37,14 +38,16 @@ public class DeleteDataProductResolver implements DataFetcher<CompletableFuture<
           Domains domains =
               _dataProductService.getDataProductDomains(
                   context.getOperationContext(), dataProductUrn);
-          if (domains != null && domains.hasDomains() && domains.getDomains().size() > 0) {
-            // get first domain since we only allow one domain right now
-            Urn domainUrn = UrnUtils.getUrn(domains.getDomains().get(0).toString());
-            if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProducts(
-                context, domainUrn)) {
-              throw new AuthorizationException(
-                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
-            }
+          // Manage Data Products on any associated domain authorizes deletion. The
+          // DELETE privilege on the data product itself is the fallback: without it,
+          // a data product with no domain would be undeletable by anyone (including
+          // admins), because the domain-scoped check fails closed on an empty domain
+          // set and no domain-scoped policy can match a product without domains.
+          if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProductsOnAnyDomain(
+                  context, domains)
+              && !AuthorizationUtils.canDeleteEntity(dataProductUrn, context)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
 
           try {

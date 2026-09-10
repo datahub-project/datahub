@@ -5,13 +5,14 @@ import { ClockClockwise } from '@phosphor-icons/react/dist/csr/ClockClockwise';
 import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 import { Spinner } from '@phosphor-icons/react/dist/csr/Spinner';
 import { X } from '@phosphor-icons/react/dist/csr/X';
+import i18next from 'i18next';
 import { DefaultTheme } from 'styled-components';
 import YAML from 'yamljs';
 
 import EntityRegistry from '@app/entity/EntityRegistry';
 import { SourceConfig } from '@app/ingest/source/builder/types';
 import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingest/source/types';
-import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '@graphql/ingestion.generated';
 import { EntityType, ExecutionRequestResult, FacetMetadata } from '@types';
@@ -75,16 +76,17 @@ export const getExecutionRequestStatusIcon = (status?: string) => {
 
 export const getExecutionRequestStatusDisplayText = (status?: string) => {
     return (
-        (status === RUNNING && 'Running') ||
-        (status === SUCCESS && 'Succeeded') ||
-        (status === SUCCEEDED_WITH_WARNINGS && 'Succeeded With Warnings') ||
-        (status === FAILURE && 'Failed') ||
-        (status === CANCELLED && 'Cancelled') ||
-        (status === UP_FOR_RETRY && 'Up for Retry') ||
-        (status === ROLLED_BACK && 'Rolled Back') ||
-        (status === ROLLING_BACK && 'Rolling Back') ||
-        (status === ROLLBACK_FAILED && 'Rollback Failed') ||
-        (status === ABORTED && 'Aborted') ||
+        (status === RUNNING && i18next.t('ingestion:status.running')) ||
+        (status === SUCCESS && i18next.t('ingestion:status.succeeded')) ||
+        (status === SUCCEEDED_WITH_WARNINGS && i18next.t('ingestion:status.succeededWithWarnings')) ||
+        (status === FAILURE && i18next.t('ingestion:status.failed')) ||
+        (status === CANCELLED && i18next.t('ingestion:status.cancelled')) ||
+        (status === UP_FOR_RETRY && i18next.t('ingestion:status.upForRetry')) ||
+        (status === ROLLED_BACK && i18next.t('ingestion:status.rolledBack')) ||
+        (status === ROLLING_BACK && i18next.t('ingestion:status.rollingBack')) ||
+        (status === ROLLBACK_FAILED && i18next.t('ingestion:status.rollbackFailed')) ||
+        (status === ABORTED && i18next.t('ingestion:status.aborted')) ||
+        /* untranslated-text -- raw status enum fallback when status is unrecognized */
         status
     );
 };
@@ -92,25 +94,25 @@ export const getExecutionRequestStatusDisplayText = (status?: string) => {
 export const getExecutionRequestSummaryText = (status: string) => {
     switch (status) {
         case RUNNING:
-            return 'Ingestion is running...';
+            return i18next.t('ingestion:executions.summaryRunning');
         case SUCCESS:
-            return 'Ingestion completed with no errors or warnings.';
+            return i18next.t('ingestion:executions.summarySuccess');
         case SUCCEEDED_WITH_WARNINGS:
-            return 'Ingestion completed with some warnings.';
+            return i18next.t('ingestion:executions.summarySucceededWithWarnings');
         case FAILURE:
-            return 'Ingestion failed to complete, or completed with errors.';
+            return i18next.t('ingestion:executions.summaryFailure');
         case CANCELLED:
-            return 'Ingestion was cancelled.';
+            return i18next.t('ingestion:executions.summaryCancelled');
         case ROLLED_BACK:
-            return 'Ingestion was rolled back.';
+            return i18next.t('ingestion:executions.summaryRolledBack');
         case ROLLING_BACK:
-            return 'Ingestion is in the process of rolling back.';
+            return i18next.t('ingestion:executions.summaryRollingBack');
         case ROLLBACK_FAILED:
-            return 'Ingestion rollback failed.';
+            return i18next.t('ingestion:executions.summaryRollbackFailed');
         case ABORTED:
-            return 'Ingestion job got aborted due to worker restart.';
+            return i18next.t('ingestion:executions.summaryAborted');
         default:
-            return 'Ingestion status not recognized.';
+            return i18next.t('ingestion:executions.summaryUnknown');
     }
 };
 
@@ -140,7 +142,7 @@ export const validateURL = (fieldName: string) => {
             if (!value || isURLValid) {
                 return Promise.resolve();
             }
-            return Promise.reject(new Error(`A valid ${fieldName} is required.`));
+            return Promise.reject(new Error(i18next.t('ingestion:source.validUrlRequired', { fieldName })));
         },
     };
 };
@@ -169,7 +171,7 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
     ): StructuredReportLogEntry[] => {
         return Object.entries(items).map(([rawMessage, context]) => ({
             level,
-            title: 'An unexpected issue occurred',
+            title: i18next.t('ingestion:report.unexpectedIssue'),
             message: rawMessage,
             context,
         }));
@@ -186,7 +188,7 @@ const transformToStructuredReport = (structuredReportObj: any): StructuredReport
 
                 return {
                     level,
-                    title: item.title || 'An unexpected issue occurred',
+                    title: item.title || i18next.t('ingestion:report.unexpectedIssue'),
                     message: item.message,
                     context: item.context,
                 };
@@ -414,7 +416,10 @@ export const extractEntityTypeCountsFromFacets = (
             .forEach((agg) =>
                 finalCounts.push({
                     count: agg.count,
-                    displayName: pluralize(agg.count, capitalizeFirstLetterOnly(agg.value) || ''),
+                    displayName: i18next.t('ingestion:source.entityTypeNameCount', {
+                        count: agg.count,
+                        type: capitalizeFirstLetterOnly(agg.value) || '',
+                    }),
                 }),
             );
         entityTypeFacets.aggregations

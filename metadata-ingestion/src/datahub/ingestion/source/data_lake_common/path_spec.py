@@ -148,6 +148,17 @@ class PathSpec(ConfigModel):
         description="The tables_filter_pattern configuration field uses regular expressions to filter the tables part of the Pathspec for ingestion, allowing fine-grained control over which tables are included or excluded based on specified patterns. The default setting allows all tables.",
     )
 
+    emit_folders_only: bool = Field(
+        False,
+        description="If set, this path_spec emits each matching storage folder as a DataHub "
+        "Container and creates no dataset entities. Folder depth is set by the number of "
+        "wildcard levels in `include` (e.g. `.../*/` one level deep, `.../*/*/` two levels). "
+        "`exclude` and `include_hidden_folders` still apply to the folder walk; file/dataset "
+        "fields (`file_types`, `default_extension`, `table_name`, `tables_filter_pattern`) are "
+        "rejected since no datasets are produced. `include` must end at a folder and must not "
+        "contain `{table}` or `**`.",
+    )
+
     def is_path_hidden(self, path: str) -> bool:
         # Split the path into directories and filename
         dirs, filename = os.path.split(path)
@@ -233,6 +244,23 @@ class PathSpec(ConfigModel):
 
         return True
 
+    def folder_allowed(self, path: str) -> bool:
+        """Filter for folders-only traversal. Applies the folder-relevant rules —
+        hidden-folder skipping and `exclude` — but not the file-extension or table-name
+        checks in `allowed`/`dir_allowed`, since folders-only produces no files or datasets.
+        `is_path_hidden` inspects every path component and `exclude` globs match the full
+        path, so filtering a resolved leaf also drops hidden/excluded ancestors."""
+        if self.is_path_hidden(path) and not self.include_hidden_folders:
+            return False
+        if self.exclude:
+            candidate = path.rstrip("/")
+            for exclude_path in self.exclude:
+                if pathlib.PurePath(candidate).globmatch(
+                    exclude_path.rstrip("/"), flags=pathlib.GLOBSTAR
+                ):
+                    return False
+        return True
+
     @classmethod
     def get_parsable_include(cls, include: str) -> str:
         parsable_include = include
@@ -277,6 +305,42 @@ class PathSpec(ConfigModel):
         By combining related validations, we ensure they execute in the correct sequence
         and have access to all field values after Pydantic has processed defaults.
         """
+        # Folders-only path specs catalog storage paths; they have no dataset/table
+        # concept, and depth must be explicit wildcard levels (not recursive **).
+        if self.emit_folders_only:
+            if "{table}" in self.include:
+                raise ValueError(
+                    "path_spec.include cannot contain '{table}' when "
+                    "emit_folders_only is set"
+                )
+            if "**" in self.include:
+                raise ValueError(
+                    "path_spec.include cannot contain '**' when "
+                    "emit_folders_only is set; use explicit '*' levels to set depth"
+                )
+            # File/dataset-selection fields have no effect in folders-only mode. Reject
+            # them explicitly rather than silently ignoring a value the user set.
+            # (exclude and include_hidden_folders DO apply and are handled in the walk.)
+            if self.table_name is not None:
+                raise ValueError(
+                    "path_spec.table_name is not applicable when emit_folders_only is set"
+                )
+            if self.default_extension is not None:
+                raise ValueError(
+                    "path_spec.default_extension is not applicable when "
+                    "emit_folders_only is set"
+                )
+            if self.file_types != SUPPORTED_FILE_TYPES:
+                raise ValueError(
+                    "path_spec.file_types is not applicable when emit_folders_only is set"
+                )
+            if self.tables_filter_pattern != AllowDenyPattern.allow_all():
+                raise ValueError(
+                    "path_spec.tables_filter_pattern is not applicable when "
+                    "emit_folders_only is set; use exclude to skip folders"
+                )
+            return self
+
         # Handle autodetect_partitions logic first
         if self.autodetect_partitions:
             include = self.include

@@ -12,6 +12,9 @@ query getTag($urn: String!) {
         ownership {
             ...ownershipFields
         }
+        deprecation {
+            ...deprecationFields
+        }
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
             ...autoRenderAspectFields
         }

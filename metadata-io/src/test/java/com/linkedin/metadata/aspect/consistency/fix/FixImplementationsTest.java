@@ -291,7 +291,8 @@ public class FixImplementationsTest {
 
     assertTrue(result.isSuccess());
     assertEquals(result.getAction(), ConsistencyFixType.DELETE_INDEX_DOCUMENTS);
-    verify(mockEsSystemMetadataDAO).deleteByUrn(TEST_URN.toString());
+    verify(mockEsSystemMetadataDAO)
+        .deleteByUrn(any(OperationContext.class), eq(TEST_URN.toString()));
     verify(mockEntitySearchService)
         .deleteDocument(mockOpContext, "assertion", getExpectedDocId(TEST_URN));
     verify(mockGraphService).removeNode(mockOpContext, TEST_URN);
@@ -313,7 +314,7 @@ public class FixImplementationsTest {
 
     assertTrue(result.isSuccess());
     assertTrue(result.getDetails().contains("2 entities"));
-    verify(mockEsSystemMetadataDAO, times(2)).deleteByUrn(anyString());
+    verify(mockEsSystemMetadataDAO, times(2)).deleteByUrn(any(OperationContext.class), anyString());
     verify(mockEntitySearchService, times(2)).deleteDocument(any(), anyString(), anyString());
     verify(mockGraphService, times(2)).removeNode(any(), any(Urn.class));
   }
@@ -333,7 +334,7 @@ public class FixImplementationsTest {
 
     assertTrue(result.isSuccess());
     // Verify no actual deletions in dry-run mode
-    verify(mockEsSystemMetadataDAO, never()).deleteByUrn(anyString());
+    verify(mockEsSystemMetadataDAO, never()).deleteByUrn(any(OperationContext.class), anyString());
     verify(mockEntitySearchService, never()).deleteDocument(any(), anyString(), anyString());
     verify(mockGraphService, never()).removeNode(any(), any(Urn.class));
   }
@@ -342,7 +343,8 @@ public class FixImplementationsTest {
   public void testDeleteIndexDocumentsFixContinuesOnPartialFailure() {
     // System metadata delete succeeds
     BulkByScrollResponse mockResponse = mock(BulkByScrollResponse.class);
-    when(mockEsSystemMetadataDAO.deleteByUrn(anyString())).thenReturn(mockResponse);
+    when(mockEsSystemMetadataDAO.deleteByUrn(any(OperationContext.class), anyString()))
+        .thenReturn(mockResponse);
     // Search delete fails
     doThrow(new RuntimeException("Search delete failed"))
         .when(mockEntitySearchService)
@@ -366,7 +368,8 @@ public class FixImplementationsTest {
     ConsistencyFixDetail result = deleteIndexDocumentsFix.apply(mockOpContext, issue, false);
 
     assertTrue(result.isSuccess());
-    verify(mockEsSystemMetadataDAO).deleteByUrn(TEST_URN.toString());
+    verify(mockEsSystemMetadataDAO)
+        .deleteByUrn(any(OperationContext.class), eq(TEST_URN.toString()));
   }
 
   @Test
@@ -374,7 +377,7 @@ public class FixImplementationsTest {
     // When ALL index operations fail, the fix reports failure
     doThrow(new RuntimeException("System metadata delete failed"))
         .when(mockEsSystemMetadataDAO)
-        .deleteByUrn(anyString());
+        .deleteByUrn(any(OperationContext.class), anyString());
     doThrow(new RuntimeException("Search delete failed"))
         .when(mockEntitySearchService)
         .deleteDocument(any(), anyString(), anyString());

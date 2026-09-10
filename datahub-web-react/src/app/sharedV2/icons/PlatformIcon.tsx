@@ -4,7 +4,9 @@ import React, { useCallback, useRef, useState } from 'react';
 import styled, { CSSObject, css, useTheme } from 'styled-components/macro';
 
 import { IconStyleType } from '@app/entityV2/Entity';
+import { PLATFORM_URN_TO_LOGO } from '@app/ingestV2/source/builder/constants';
 import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
+import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataPlatform, EntityType } from '@types';
@@ -19,11 +21,12 @@ type PlatformIconProps = {
     title?: string;
     imageStyles?: CSSObject | undefined;
     className?: string;
+    customLogoUrl?: string;
     onError?: () => void;
     dataTestId?: string;
 };
 
-const IconContainer = styled.div<{ background?: string; styles: CSSObject | undefined }>`
+const IconContainer = styled.div<{ background?: string; styles: CSSObject | undefined; size: number }>`
     display: flex;
     align-items: center;
     justify-content: center;
@@ -31,6 +34,7 @@ const IconContainer = styled.div<{ background?: string; styles: CSSObject | unde
     padding: 6px;
     border-radius: 8px;
     background-color: ${(props) => props.background || 'transparent'};
+    font-size: ${(props) => props.size}px;
     ${({ styles }) => (styles ? css(styles) : undefined)};
 `;
 
@@ -53,6 +57,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     styles,
     imageStyles,
     className,
+    customLogoUrl,
     onError,
     dataTestId,
 }) => {
@@ -60,7 +65,16 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
     const imgRef = useRef<HTMLImageElement>(null);
     const entityRegistry = useEntityRegistry();
     const theme = useTheme();
-    const logoUrl = platform?.properties?.logoUrl;
+    // Logo resolution order:
+    //   1. Explicit `customLogoUrl` prop (caller override)
+    //   2. The platform's persisted `properties.logoUrl` (set via ingestion / admin UI)
+    //   3. Bundled fallback in PLATFORM_URN_TO_LOGO — keeps common platforms (Notion,
+    //      Confluence, GitHub, Snowflake, ...) showing the right logo even when GMS
+    //      has no logoUrl populated, instead of falling through to the default cylinder.
+    const logoUrl =
+        customLogoUrl ??
+        platform?.properties?.logoUrl ??
+        (platform?.urn ? PLATFORM_URN_TO_LOGO[platform.urn] : undefined);
 
     const handleError = useCallback(() => {
         const img = imgRef.current;
@@ -71,9 +85,16 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
         onError?.();
     }, [onError, setBackground, theme.colors.bgSurface]);
 
+    const defaultIcon = platform?.properties?.logical ? (
+        <LogicalPlatformDefaultIcon size={size} />
+    ) : (
+        entityRegistry.getIcon(entityType, size, IconStyleType.ACCENT, color)
+    );
+
     return (
         <IconContainer
             background={background}
+            size={size}
             styles={styles}
             title={title}
             className={className}
@@ -99,7 +120,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({
                     onError={handleError}
                 />
             ) : (
-                entityRegistry.getIcon(entityType, size, IconStyleType.ACCENT, color)
+                defaultIcon
             )}
         </IconContainer>
     );

@@ -5,4 +5,5 @@ import lombok.Data;
 @Data
 public class GraphQLOtelConfiguration {
   private boolean enableOtelGraphqlTraces;
+  private ResolverSpansConfiguration resolverSpans;
 }

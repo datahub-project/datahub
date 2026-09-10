@@ -106,6 +106,6 @@ def get_adapter(
 
         adapter_class = GenericAdapter
 
-    logger.debug(f"Using {adapter_class.__name__} for platform '{platform}'")
+    logger.info(f"Using {adapter_class.__name__} for platform '{platform}'")
 
     return adapter_class(config, report, base_engine)

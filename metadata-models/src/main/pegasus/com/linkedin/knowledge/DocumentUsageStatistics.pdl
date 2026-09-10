@@ -1,0 +1,49 @@
+namespace com.linkedin.knowledge
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+import com.linkedin.dataset.DatasetUserUsageCounts
+
+/**
+ * Experimental (Subject to breaking change) -- Stats corresponding to a document's usage.
+ *
+ * If this aspect represents the latest snapshot of the statistics about a Document, the eventGranularity field should be null.
+ * If this aspect represents a bucketed window of usage statistics (e.g. over a day), then the eventGranularity field should be set accordingly.
+ */
+@Aspect = {
+  "name": "documentUsageStatistics",
+  "type": "timeseries",
+}
+record DocumentUsageStatistics includes TimeseriesAspectBase {
+  /**
+   * The total number of times this document has been read by a human in this bucket (e.g. UI views).
+   * Follows the dataset/chart convention that a view count is a human view; agent reads are tracked separately in agentViewsCount.
+   */
+  @TimeseriesField = {}
+  viewsCount: optional int
+
+  /**
+   * The total number of times this document has been read by an AI agent in this bucket,
+   * counted when an MCP tool returns the document. Disjoint from viewsCount (the two never
+   * overlap). Agent identity is intentionally not tracked, so agents never appear in userCounts.
+   */
+  @TimeseriesField = {}
+  agentViewsCount: optional int
+
+  /**
+   * Number of distinct human users that read this document in this bucket
+   */
+  @TimeseriesField = {}
+  uniqueUserCount: optional int
+
+  /**
+   * Timestamp (epoch millis) the document was last read, by either a human or an agent
+   */
+  @TimeseriesField = {}
+  lastViewedAt: optional long
+
+  /**
+   * Human users within this bucket, with frequency counts. Agent reads are excluded.
+   */
+  @TimeseriesFieldCollection = {"key":"user"}
+  userCounts: optional array[DatasetUserUsageCounts]
+}

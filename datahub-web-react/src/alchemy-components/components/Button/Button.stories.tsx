@@ -6,7 +6,7 @@ import React from 'react';
 import { GridList } from '@components/.docs/mdx-components';
 import { ButtonVariantValues } from '@components/components/Button/types';
 import { MATERIAL_UI_ICONS } from '@components/components/Icon/constants';
-import { SizeValues } from '@components/theme/config';
+import { ColorValues, SizeValues } from '@components/theme/config';
 
 import { Button, buttonDefaults } from '.';
 
@@ -45,7 +45,7 @@ const meta = {
         },
         color: {
             description: 'The color of the Button.',
-            options: ['violet', 'green', 'red', 'gray'],
+            options: Object.values(ColorValues).filter((c) => c !== 'black' && c !== 'white'),
             table: {
                 defaultValue: { summary: buttonDefaults.color },
             },
@@ -173,10 +173,12 @@ export const states = () => (
 
 export const colors = () => (
     <GridList>
-        <Button>Violet Button</Button>
+        <Button>Primary Button</Button>
+        <Button color="violet">Violet Button</Button>
         <Button color="green">Green Button</Button>
         <Button color="red">Red Button</Button>
         <Button color="blue">Blue Button</Button>
+        <Button color="yellow">Yellow Button</Button>
         <Button color="gray">Gray Button</Button>
     </GridList>
 );

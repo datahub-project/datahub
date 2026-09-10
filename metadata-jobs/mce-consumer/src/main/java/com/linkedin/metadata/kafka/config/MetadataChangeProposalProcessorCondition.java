@@ -12,7 +12,6 @@ public class MetadataChangeProposalProcessorCondition implements Condition {
     Environment env = context.getEnvironment();
     return ("true".equals(env.getProperty("MCE_CONSUMER_ENABLED"))
             || "true".equals(env.getProperty("MCP_CONSUMER_ENABLED")))
-        && !Boolean.parseBoolean(
-            env.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"));
+        && !Boolean.parseBoolean(env.getProperty("metadataChangeProposal.consumer.batch.enabled"));
   }
 }

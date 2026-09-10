@@ -21,7 +21,7 @@ from datahub.ingestion.source.sql.hana.hana_schema_gen import (
 )
 from datahub.ingestion.source.sql.hana.hana_utils import HanaIdentifierBuilder
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource, SqlWorkUnit
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("SAP HANA", id="hana")
 @config_class(HanaConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")

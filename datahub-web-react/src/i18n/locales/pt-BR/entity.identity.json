@@ -1,5 +1,9 @@
 {
     "groups.addMembersError": "Falha ao adicionar membros ao grupo. Por favor, adicione-os manualmente.",
+    "groups.addMembersFailure": "Falha ao adicionar membros do grupo: \n {{error}}",
+    "groups.addMembersModal.searchPlaceholder": "Buscar usuários...",
+    "groups.addMembersModal.title": "Adicionar membros do grupo",
+    "groups.addMembersSuccess": "Membros do grupo adicionados!",
     "groups.copyUrn": "Copiar URN",
     "groups.createButton": "Criar Grupo",
     "groups.createError": "Falha ao criar grupo!:\n{{error}}",
@@ -15,7 +19,7 @@
     "groups.createModal.name.label": "Nome",
     "groups.createModal.name.placeholder": "Um nome para o seu grupo",
     "groups.createModal.name.validationError.empty": "Informe um nome para o grupo.",
-    "groups.createModal.name.validationError.tooLong": "O nome deve ter no máximo 50 caracteres.",
+    "groups.createModal.name.validationError.tooLong": "O nome deve ter no máximo 250 caracteres.",
     "groups.createModal.title": "Criar novo grupo",
     "groups.createOwnerError": "Falha ao adicioná-lo automaticamente como responsável do grupo. Por favor, adicione-se como responsável manualmente.",
     "groups.createSuccess": "Grupo criado!",

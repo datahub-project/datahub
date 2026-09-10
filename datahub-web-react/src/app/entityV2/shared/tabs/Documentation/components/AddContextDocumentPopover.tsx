@@ -1,12 +1,17 @@
 import { useApolloClient } from '@apollo/client';
+import { toast } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import { message } from 'antd';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
-import { createDefaultDocumentInput, extractRelatedAssetUrns, mergeUrns } from '@app/document/utils/documentUtils';
+import {
+    computeRelatedEntitiesForLinkChange,
+    createDefaultDocumentInput,
+    extractRelatedAssetUrns,
+    extractRelatedDocumentUrns,
+} from '@app/document/utils/documentUtils';
 import { DocumentPopoverBase } from '@app/homeV2/layout/sidebar/documents/shared/DocumentPopoverBase';
 import { Button } from '@src/alchemy-components';
 
@@ -27,77 +32,125 @@ const NewDocumentButton = styled(Button)`
 interface AddContextDocumentPopoverProps {
     /** The URN of the current entity to link documents to */
     entityUrn: string;
-    /** Callback when a document is selected/created and modal should be opened */
+    /** Callback when a document is created and its modal should be opened */
     onDocumentSelected: (documentUrn: string) => void;
+    /** Callback fired after a document's link state changes so the caller can refetch. */
+    onDocumentsLinked?: () => void;
     /** Callback when popover should close */
     onClose: () => void;
+    /**
+     * URNs of documents already linked to the entity. These render pre-checked, and
+     * form the baseline that Save diffs against to decide what to link/unlink.
+     */
+    linkedDocumentUrns?: string[];
 }
 
 /**
- * Popover for adding context documents to an entity.
- * Allows users to:
- * - Select an existing document (updates its relatedAssets)
- * - Create a new document at root level
- * - Create a new document as a child of any existing document
+ * Popover for managing which context documents are linked to an entity.
+ *
+ * The checkboxes are a view of the entity's Resources: already-linked docs open
+ * pre-checked, and toggling a box stages an add/remove without persisting. Saving
+ * diffs the staged selection against what was linked and applies every add + remove
+ * in one pass, then refetches and closes. Creating a new document (root or child)
+ * links it to the entity and opens it in the editor.
  */
 export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps> = ({
     entityUrn,
     onDocumentSelected,
+    onDocumentsLinked,
     onClose,
+    linkedDocumentUrns,
 }) => {
     const { t } = useTranslation('entity.profile.documentation');
     const [isCreating, setIsCreating] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    // The set of docs linked when the popover opened — the baseline we diff against
+    // on Save. Captured once so a background refetch can't shift the baseline mid-edit.
+    const initialUrns = useRef<Set<string>>(new Set(linkedDocumentUrns ?? []));
+    // Staged selection: seeded from the baseline, toggled locally, persisted on Save.
+    const [checkedUrns, setCheckedUrns] = useState<Set<string>>(() => new Set(linkedDocumentUrns ?? []));
     const apolloClient = useApolloClient();
     const [createDocumentMutation] = useCreateDocumentMutation();
     const { updateRelatedEntities } = useUpdateDocument();
 
+    const handleToggleDocument = useCallback((documentUrn: string, isNowChecked: boolean) => {
+        setCheckedUrns((prev) => {
+            const next = new Set(prev);
+            if (isNowChecked) next.add(documentUrn);
+            else next.delete(documentUrn);
+            return next;
+        });
+    }, []);
+
+    // Diff the staged selection against the baseline to find what to link / unlink.
+    const { addedUrns, removedUrns } = useMemo(() => {
+        const added = [...checkedUrns].filter((urn) => !initialUrns.current.has(urn));
+        const removed = [...initialUrns.current].filter((urn) => !checkedUrns.has(urn));
+        return { addedUrns: added, removedUrns: removed };
+    }, [checkedUrns]);
+
+    const hasChanges = addedUrns.length > 0 || removedUrns.length > 0;
+
     /**
-     * Handle selecting an existing document - fetch current relatedAssets and merge
+     * Fetch a document and set its link to the current entity to `shouldBeLinked`.
+     * A document can be linked to a regular entity (relatedAssets) or to another
+     * document (relatedDocuments); we edit whichever list the current entity belongs
+     * to and leave the other untouched. Returns whether the write succeeded.
      */
-    const handleSelectExistingDocument = useCallback(
-        async (documentUrn: string) => {
-            setIsCreating(true);
+    const applyLink = useCallback(
+        async (documentUrn: string, shouldBeLinked: boolean): Promise<boolean> => {
             try {
-                // Fetch the document to get current relatedAssets
                 const { data } = await apolloClient.query({
                     query: GetDocumentDocument,
                     variables: { urn: documentUrn, includeParentDocuments: false },
-                    fetchPolicy: 'cache-first', // Use cache if available, otherwise fetch
+                    fetchPolicy: 'network-only',
                 });
 
                 const document = data?.document;
-                if (!document) {
-                    throw new Error('Document not found');
-                }
+                if (!document) return false;
 
-                // Extract existing related asset URNs and merge with entity URN
-                const existingAssetUrns = extractRelatedAssetUrns(document);
-                const mergedAssetUrns = mergeUrns(existingAssetUrns, [entityUrn]);
-
-                // Update document with merged relatedAssets
-                const success = await updateRelatedEntities({
-                    urn: documentUrn,
-                    relatedAssets: mergedAssetUrns,
+                const { relatedAssets, relatedDocuments } = computeRelatedEntitiesForLinkChange({
+                    entityUrn,
+                    existingAssetUrns: extractRelatedAssetUrns(document),
+                    existingRelatedDocumentUrns: extractRelatedDocumentUrns(document),
+                    shouldBeLinked,
                 });
 
-                if (success) {
-                    // Open the document in modal
-                    onDocumentSelected(documentUrn);
-                    onClose();
-                } else {
-                    message.error(t('failedToLinkDocument'));
-                    // Keep popover open on error
-                }
+                return await updateRelatedEntities({
+                    urn: documentUrn,
+                    relatedAssets,
+                    relatedDocuments,
+                });
             } catch (error) {
-                console.error('Failed to update document related assets:', error);
-                message.error(t('failedToLinkDocument'));
-                // Keep popover open on error
-            } finally {
-                setIsCreating(false);
+                console.error('Failed to update document link', documentUrn, error);
+                return false;
             }
         },
-        [entityUrn, apolloClient, updateRelatedEntities, onDocumentSelected, onClose, t],
+        [entityUrn, apolloClient, updateRelatedEntities],
     );
+
+    const handleSave = useCallback(async () => {
+        if (!hasChanges) return;
+        setIsSaving(true);
+        const results = await Promise.all([
+            ...addedUrns.map((urn) => applyLink(urn, true)),
+            ...removedUrns.map((urn) => applyLink(urn, false)),
+        ]);
+        const failureCount = results.filter((ok) => !ok).length;
+        const successCount = results.length - failureCount;
+
+        if (failureCount > 0) {
+            toast.error(t('failedToLinkDocument'));
+        }
+        // Reset the spinner before unmounting on success so we never set state on an
+        // unmounted component (onClose tears this popover down).
+        setIsSaving(false);
+        if (successCount > 0) {
+            toast.success(t('resourcesUpdated'));
+            onDocumentsLinked?.();
+            onClose();
+        }
+    }, [hasChanges, addedUrns, removedUrns, applyLink, onDocumentsLinked, onClose, t]);
 
     /**
      * Handle creating a new document
@@ -126,7 +179,7 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
                 onClose();
             } catch (error) {
                 console.error('Failed to create document:', error);
-                message.error(t('failedToCreateDocument'));
+                toast.error(t('failedToCreateDocument'));
                 // Keep popover open on error
             } finally {
                 setIsCreating(false);
@@ -150,8 +203,6 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
     return (
         <DocumentPopoverBase
             headerContent={headerContent}
-            onSelectDocument={handleSelectExistingDocument}
-            onSelectSearchResult={handleSelectExistingDocument}
             onCreateChild={handleCreateDocument}
             hideActions={false}
             hideActionsMenu
@@ -160,6 +211,12 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
             // Search all document types (both native and external/ingested)
             // to allow linking documents from third-party sources like Notion
             sourceTypes={[DocumentSourceType.Native, DocumentSourceType.External]}
+            multiSelect
+            checkedUrns={checkedUrns}
+            onToggleUrn={handleToggleDocument}
+            onSave={handleSave}
+            saveDisabled={!hasChanges}
+            isSaving={isSaving}
         />
     );
 };

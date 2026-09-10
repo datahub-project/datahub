@@ -5,11 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LOCALE_MAP } from '@app/i18n/constants';
 import { useLanguageSync } from '@app/i18n/hooks/useLanguageSync';
 import { useLocaleConfig } from '@app/i18n/hooks/useLocaleConfig';
-import dayjs from '@utils/dayjs';
+import { setDayjsLocale } from '@utils/dayjs';
 
 vi.mock('@app/i18n/hooks/useLocaleConfig');
 vi.mock('i18next', () => ({ default: { changeLanguage: vi.fn() } }));
-vi.mock('@utils/dayjs', () => ({ default: { locale: vi.fn() } }));
+vi.mock('@utils/dayjs', () => ({ setDayjsLocale: vi.fn().mockResolvedValue(undefined) }));
 
 const mockUseLocaleConfig = vi.mocked(useLocaleConfig);
 
@@ -24,7 +24,7 @@ describe('useLanguageSync', () => {
         renderHook(() => useLanguageSync());
 
         expect(i18next.changeLanguage).toHaveBeenCalledWith('en');
-        expect(dayjs.locale).toHaveBeenCalledWith('en');
+        expect(setDayjsLocale).toHaveBeenCalledWith('en');
     });
 
     it('re-syncs when locale config changes', () => {
@@ -37,6 +37,6 @@ describe('useLanguageSync', () => {
         rerender();
 
         expect(i18next.changeLanguage).toHaveBeenCalledWith('de');
-        expect(dayjs.locale).toHaveBeenCalledWith('de');
+        expect(setDayjsLocale).toHaveBeenCalledWith('de');
     });
 });

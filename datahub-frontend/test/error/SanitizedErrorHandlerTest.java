@@ -8,12 +8,16 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import play.api.OptionalSourceMapper;
 import play.mvc.Http;
 import play.mvc.Result;
 import play.test.Helpers;
 import scala.Option;
 
+@SetEnvironmentVariable(
+    key = "DATAHUB_SECRET",
+    value = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 public class SanitizedErrorHandlerTest {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();

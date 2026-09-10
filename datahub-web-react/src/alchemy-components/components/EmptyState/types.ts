@@ -4,11 +4,13 @@ import { IconProps } from '@components/components/Icon/types';
 
 export type EmptyStateSize = 'sm' | 'default' | 'lg';
 
-export interface EmptyStateAction {
+interface EmptyStateAction {
     label: string;
     onClick: () => void;
     icon?: IconProps;
+    iconPosition?: 'left' | 'right';
     variant?: 'filled' | 'secondary' | 'text';
+    dataTestId?: string;
 }
 
 export interface EmptyStateProps {

@@ -241,4 +241,38 @@ public class GenericPatchTemplateTest {
     Assert.assertTrue(tagToSourceMap.containsKey("urn:li:tag:newTag"));
     Assert.assertEquals(tagToSourceMap.get("urn:li:tag:newTag"), "");
   }
+
+  @Test
+  public void testRecordTypedFlatKeyFieldIsNotReinjectedAsString() throws Exception {
+    // Keying by the record-typed `attribution` field must not inject the scalar path segment into
+    // it, which would produce a string where a record is expected and fail validation.
+    GlobalTags initialTags = new GlobalTags();
+    initialTags.setTags(new TagAssociationArray());
+
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp("add");
+    patchOp.setPath("/tags/urn:li:platformResource:my-source/urn:li:tag:tag1");
+    patchOp.setValue(Map.of("tag", "urn:li:tag:tag1"));
+
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder()
+            .patch(List.of(patchOp))
+            .arrayPrimaryKeys(Map.of("tags", Arrays.asList("attribution", "source")))
+            .build();
+
+    GenericPatchTemplate<GlobalTags> template =
+        GenericPatchTemplate.<GlobalTags>builder()
+            .genericJsonPatch(genericJsonPatch)
+            .templateType(GlobalTags.class)
+            .templateDefault(new GlobalTags())
+            .build();
+
+    GlobalTags patchedTags = template.applyPatch(initialTags);
+
+    Assert.assertNotNull(patchedTags.getTags());
+    Assert.assertEquals(patchedTags.getTags().size(), 1);
+    TagAssociation tag = patchedTags.getTags().get(0);
+    Assert.assertEquals(tag.getTag().toString(), "urn:li:tag:tag1");
+    Assert.assertNull(tag.getAttribution());
+  }
 }

@@ -1229,6 +1229,8 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildAspectRefResponseSchema(final String aspectName) {
+    // aspectName is the Pegasus schema name (already PascalCase); do not apply
+    // toUpperFirst — it mangles names like AiContext into AIContext.
     final Schema result =
         newSchema()
             .type(TYPE_OBJECT)
@@ -1256,13 +1258,14 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildAspectRefRequestSchema(final String aspectName) {
+    // aspectName is the Pegasus schema name (already PascalCase); do not apply
+    // toUpperFirst — it mangles names like AiContext into AIContext.
     final Schema result =
         newSchema()
             .type(TYPE_OBJECT)
             .description(ASPECT_DESCRIPTION)
             .required(List.of(PROPERTY_VALUE))
-            .addProperty(
-                PROPERTY_VALUE, newSchema().$ref(PATH_DEFINITIONS + toUpperFirst(aspectName)));
+            .addProperty(PROPERTY_VALUE, newSchema().$ref(PATH_DEFINITIONS + aspectName));
     result.addProperty(
         NAME_SYSTEM_METADATA,
         newSchema()
@@ -1780,6 +1783,8 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {
+    // aspect is the Pegasus schema name (already PascalCase); do not apply
+    // toUpperFirst — it mangles names like AiContext into AIContext.
     final Schema result = newSchema();
 
     result.setType(TYPE_OBJECT);
@@ -1787,11 +1792,9 @@ public class OpenAPIV3Generator {
     result.setNullable(true);
     final String internalRef;
     if (withSystemMetadata) {
-      internalRef =
-          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_RESPONSE_SUFFIX);
+      internalRef = String.format(FORMAT_PATH_DEFINITIONS, aspect, ASPECT_RESPONSE_SUFFIX);
     } else {
-      internalRef =
-          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX);
+      internalRef = String.format(FORMAT_PATH_DEFINITIONS, aspect, ASPECT_REQUEST_SUFFIX);
     }
     result.setOneOf(List.of(newSchema().$ref(internalRef), newSchema().type(TYPE_NULL)));
     return result;

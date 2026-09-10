@@ -24,6 +24,7 @@ export enum EntityMenuItems {
     MOVE,
     DELETE, // acryl-main only
     EDIT, // acryl-main only
+    EDIT_GLOSSARY,
     ANNOUNCE, // acryl-main only
     RAISE_INCIDENT,
     LINK_VERSION,

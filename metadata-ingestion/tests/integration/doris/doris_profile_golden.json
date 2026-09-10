@@ -1095,7 +1095,8 @@
                     "nullCount": 0,
                     "nullProportion": 0.0
                 }
-            ]
+            ],
+            "sizeInBytes": 0
         }
     },
     "systemMetadata": {
@@ -1186,7 +1187,8 @@
                         "2026-05-15 16:39:42"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 0
         }
     },
     "systemMetadata": {
@@ -1307,7 +1309,8 @@
                         "2026-05-15 16:39:42"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 0
         }
     },
     "systemMetadata": {

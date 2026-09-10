@@ -18,6 +18,7 @@ dependencies {
   implementation externalDependency.guice
   implementation externalDependency.slf4jApi
   implementation externalDependency.opentelemetryApi
+  implementation externalDependency.servletApi
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok

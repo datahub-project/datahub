@@ -6,6 +6,7 @@ import styled from 'styled-components';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { PreviewType } from '@app/entityV2/Entity';
+import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { getNumberWithOrdinal } from '@app/entityV2/shared/utils';
@@ -14,7 +15,7 @@ import HealthIcon from '@app/previewV2/HealthIcon';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 
-import { Deprecation, Health, Maybe } from '@types';
+import { DataPlatform, Deprecation, Health, Maybe } from '@types';
 
 const EntityTitleContainer = styled.div`
     display: flex;
@@ -76,6 +77,7 @@ interface EntityHeaderProps {
     degree?: number;
     connectionName?: Maybe<string>;
     previewData?: GenericEntityProperties | null;
+    refetchDeprecation?: (formData?: DeprecationFormData) => void;
 }
 
 const EntityHeader: React.FC<EntityHeaderProps> = ({
@@ -90,6 +92,7 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
     degree,
     connectionName,
     previewData,
+    refetchDeprecation,
 }) => {
     const { t } = useTranslation('entity.preview');
     const linkProps = useEmbeddedProfileLinkProps();
@@ -120,10 +123,19 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
                 </Tooltip>
             )}
             {deprecation?.deprecated && (
-                <DeprecationIcon urn={urn} deprecation={deprecation} showUndeprecate showText={false} />
+                <DeprecationIcon
+                    urn={urn}
+                    deprecation={deprecation}
+                    showUndeprecate
+                    showText={false}
+                    refetch={refetchDeprecation}
+                />
             )}
             {health && <HealthIcon urn={urn} health={health} baseUrl={url} />}
-            <StructuredPropertyBadge structuredProperties={previewData?.structuredProperties} />
+            <StructuredPropertyBadge
+                structuredProperties={previewData?.structuredProperties}
+                platformUrn={(previewData?.platform as DataPlatform | undefined)?.urn}
+            />
             <VersioningBadge versionProperties={previewData?.versionProperties ?? undefined} showPopover={false} />
         </EntityTitleContainer>
     );

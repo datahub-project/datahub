@@ -9,7 +9,7 @@ import {
     DetailsColumn,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTableColumns';
 import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
-import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
+import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
 
 import { Assertion, AssertionRunStatus, DataContract } from '@types';
@@ -143,8 +143,6 @@ export const AcrylAssertionsTable = ({
             assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
             assertion.runEvents.runEvents[0].result?.externalUrl,
         assertion,
-        monitor:
-            (assertion as any).monitor?.relationships?.length && (assertion as any).monitor?.relationships[0]?.entity,
     }));
 
     const assertionsTableCols = [

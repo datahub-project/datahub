@@ -3,8 +3,11 @@ namespace com.linkedin.assertion
 import com.linkedin.common.Urn
 
 /**
-* Attributes that are applicable to single-Dataset Assertions
+* @deprecated Attributes for legacy DATASET assertions.
+* New external integrations should emit AssertionType.CUSTOM with CustomAssertionInfo
+* (which now carries the same structured display fields). Retained for backward-compatible reads.
 **/
+@deprecated = "Use CustomAssertionInfo with AssertionType.CUSTOM for external assertions."
 record DatasetAssertionInfo {
     /**
     * The dataset targeted by this assertion.
@@ -24,32 +27,7 @@ record DatasetAssertionInfo {
     * Scope of the Assertion. What part of the dataset does this assertion apply to?
     **/
     @Searchable = {}
-    scope: enum DatasetAssertionScope {
-      /**
-      * This assertion applies to dataset column(s)
-      */
-      DATASET_COLUMN
-
-      /**
-      * This assertion applies to entire rows of the dataset
-      */
-      DATASET_ROWS
-
-      /**
-      * This assertion applies to the storage size of the dataset
-      */
-      DATASET_STORAGE_SIZE
-
-      /**
-      * This assertion applies to the schema of the dataset
-      */
-      DATASET_SCHEMA
-
-      /**
-      * The scope of the assertion is unknown
-      */
-      UNKNOWN
-    }
+    scope: DatasetAssertionScope
 
     /**
     * One or more dataset schema fields that are targeted by this assertion.

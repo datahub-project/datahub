@@ -6,6 +6,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_C
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
@@ -79,7 +80,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
 
   private final IndexConvention _indexConvention =
       IndexConventionImpl.noPrefix("MD5", SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
-  private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
+  private final String _indexName =
+      _indexConvention.getIndexName(OperationFingerprint.EMPTY, INDEX_NAME);
   private ElasticSearchGraphService _client;
   private OperationContext operationContext;
 
@@ -95,7 +97,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @BeforeMethod
   public void wipe() throws Exception {
     syncAfterWrite();
-    _client.clear();
+    _client.clear(operationContext);
     syncAfterWrite();
   }
 
@@ -336,7 +338,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
         new DatasetUrn(new DataPlatformUrn("snowflake"), "test", FabricType.TEST);
     TagUrn tagUrn = new TagUrn("newTag");
     Edge edge = new Edge(datasetUrn, tagUrn, TAG_RELATIONSHIP, null, null, null, null, null);
-    getGraphService().addEdge(edge);
+    getGraphService().addEdge(operationContext, edge);
     syncAfterWrite();
     RelatedEntitiesResult result =
         getGraphService()
@@ -351,7 +353,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
                 0,
                 100);
     assertEquals(result.getTotal(), 1);
-    getGraphService().removeEdge(edge);
+    getGraphService().removeEdge(operationContext, edge);
     syncAfterWrite();
     result =
         getGraphService()
@@ -397,7 +399,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
             // One with null values, should always be returned
             new Edge(dataset5Urn, dataset2Urn, downstreamOf, null, null, null, null, null));
 
-    edges.forEach(getGraphService()::addEdge);
+    edges.forEach(edge -> getGraphService().addEdge(operationContext, edge));
     syncAfterWrite();
 
     // Without timestamps
@@ -440,7 +442,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
                 null,
                 null));
 
-    edges.forEach(getGraphService()::addEdge);
+    edges.forEach(edge -> getGraphService().addEdge(operationContext, edge));
     syncAfterWrite();
 
     // Without timestamps
@@ -475,7 +477,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
             // One with null values, should always be returned
             new Edge(dataset5Urn, dataset2Urn, downstreamOf, null, null, null, null, null));
 
-    edges.forEach(getGraphService()::addEdge);
+    edges.forEach(edge -> getGraphService().addEdge(operationContext, edge));
     syncAfterWrite();
 
     EntityLineageResult result = getUpstreamLineage(dataset2Urn, null, null, 10);

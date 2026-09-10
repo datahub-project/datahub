@@ -11,7 +11,17 @@
                         "displayName": "Hester Bevan",
                         "firstName": "Hester",
                         "lastName": "Bevan",
-                        "fullName": "Hester Bevan"
+                        "fullName": "Hester Bevan",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     }
                 },
                 {
@@ -43,7 +53,17 @@
                         "displayName": "Evalyn Haas",
                         "firstName": "Evalyn",
                         "lastName": "Haas",
-                        "fullName": "Evalyn Haas"
+                        "fullName": "Evalyn Haas",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     }
                 },
                 {

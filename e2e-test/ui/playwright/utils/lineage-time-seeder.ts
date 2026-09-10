@@ -1,5 +1,5 @@
 /**
- * Time-range lineage seeder for lineage-v2 tests.
+ * Time-range lineage seeder for lineage graph tests.
  *
  * Seeds DataJob and dataset lineage edges with relative timestamps so that
  * time-range filter tests can verify that edges created at different times
@@ -25,9 +25,27 @@
  *     factor_income → gnp  (created 8 days ago, updated 8 days ago — removed since then)
  */
 
+import * as path from 'path';
 import type { APIRequestContext } from '@playwright/test';
 import { gmsUrl } from './constants';
 import type { DataHubLogger } from './logger';
+import { withArtifactLock, writeJsonAtomic } from '../helpers/seeder-utils';
+
+/**
+ * Run-scoped so cross-worker dedupe lasts for one `npx playwright test`
+ * invocation only. Timestamps in this seeder are relative to Date.now(); a
+ * sticky `.seeded/lineage-time-range.json` would skip reseeding on later local
+ * runs and leave stale absolute edges that break moving-window assertions.
+ *
+ * Shared across workers via CI run id+attempt, or the Playwright runner's pid
+ * (workers are child processes of that runner).
+ */
+function lineageTimeRangeStateFile(): string {
+  const runId = process.env.GITHUB_RUN_ID
+    ? `${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT ?? '1'}`
+    : `ppid-${process.ppid}`;
+  return path.join(__dirname, '../.seeded', `lineage-time-range-${runId}.json`);
+}
 
 // ── Timestamp helpers ─────────────────────────────────────────────────────────
 
@@ -199,10 +217,37 @@ async function ingestProposal(
 // ── Public seeding entry point ────────────────────────────────────────────────
 
 /**
- * Seed all time-range lineage scenarios.
- * Safe to call multiple times — each call simply overwrites the aspect.
+ * Seed all time-range lineage scenarios, guarded by withArtifactLock on a
+ * run-scoped state file so it only actually runs once across workers in this
+ * Playwright invocation (not across later local runs — timestamps are relative
+ * to Date.now()).
+ *
+ * Two different spec files (v3-lineage-impact-analysis.spec.ts and
+ * v3-lineage-graph.spec.ts) each call this from their own test.beforeAll,
+ * on the — previously correct only under workers:1 — assumption that
+ * "once per describe block" means "once, period". Under workers_per_shard
+ * > 1 (or just fullyParallel scheduling these two files onto different
+ * workers), both beforeAll hooks can run concurrently, each doing its own
+ * delete-then-recreate of the SAME shared dataJobInputOutput/upstreamLineage
+ * aspects (see doSeedTimeRangeLineage). Deletes and the graph-edge writes
+ * they gate on propagate asynchronously, so interleaving two independent
+ * delete/recreate sequences can leave a partially-overwritten, wrong-
+ * timestamp result even though each sequence alone is correct -- exactly
+ * the class of bug the seeding fixture's global-data race was.
  */
 export async function seedTimeRangeLineage(
+  request: APIRequestContext,
+  gmsToken: string,
+  logger?: DataHubLogger,
+): Promise<void> {
+  const stateFile = lineageTimeRangeStateFile();
+  await withArtifactLock(stateFile, async () => {
+    await doSeedTimeRangeLineage(request, gmsToken, logger);
+    writeJsonAtomic(stateFile, { seededAt: new Date().toISOString() });
+  });
+}
+
+async function doSeedTimeRangeLineage(
   request: APIRequestContext,
   gmsToken: string,
   logger?: DataHubLogger,

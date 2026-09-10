@@ -157,6 +157,12 @@ The `status` aspect indicates whether a schema field is active or has been soft-
 
 The `testResults` aspect can store results of data quality tests run on specific fields, linking test outcomes directly to the columns they validate.
 
+### Incidents
+
+Schema fields participate in the shared incidents subsystem, which lets a data quality problem be tracked against the specific column it affects rather than the whole dataset. Incidents are raised on a field with the `raiseIncident` GraphQL mutation (or the Python SDK) and read back through the `incidents` field on the `SchemaFieldEntity` GraphQL type. The field carries a rolled-up `incidentsSummary` aspect that is maintained automatically as incidents are raised and resolved. Because a single incident can reference several entities, one incident can link the affected column, its parent dataset, and a downstream model under a single lifecycle.
+
+Reading incidents on a field follows the same rule as reading any other field metadata through GraphQL, so it depends on the `schemaFieldEntityFetchEnabled` feature flag described under [Feature Flag Dependency](#feature-flag-dependency). Raising and resolving incidents is unaffected by that flag.
+
 ### SubTypes
 
 The `subTypes` aspect allows categorization of schema fields beyond their data type, enabling custom classification schemes.
@@ -253,6 +259,18 @@ Best practices:
 - Ingestion connectors should use dataset-level aspects (`schemaMetadata`)
 - UI edits typically use dataset-level aspects (`editableSchemaMetadata`)
 - Direct schemaField entity updates are useful for programmatic bulk operations or when working with field-level lineage
+
+### Domains and ownership (optional MCP mirroring)
+
+`schemaField` supports the `domains` and `ownership` aspects. Operators can opt in to copy those aspects from the parent dataset onto each field via MCP side effects:
+
+- `MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED` (master — also materializes field key/aliases/status)
+- `MCP_SIDE_EFFECTS_SCHEMA_FIELD_DOMAIN_ENABLED`
+- `MCP_SIDE_EFFECTS_SCHEMA_FIELD_OWNERSHIP_ENABLED`
+
+While a sub-flag is on, dataset domain/ownership upserts and deletes are mirrored to the corresponding field aspects.
+
+**Historical inventory:** After changing these flags, run (or wait for) the non-blocking system-update step `GenerateSchemaFieldsFromSchemaMetadata` with `SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED=true`. That step's upgrade id is fingerprinted by the effective domain/ownership flags, so a **first-time** enable or disable of a given combination gets a fresh pass: enable backfills from stored dataset aspects; disable deletes field `domains`/`ownership` for the off flag(s). **Disable cleanup is not provenance-aware** — it removes the aspect from every field under each scanned dataset, including aspects written directly on the schemaField (not only mirrored copies). **Toggling in cycles** (returning to a fingerprint that already SUCCEEDED) does **not** re-run — use **manual reprocess** (`SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_REPROCESS=true`) or clear/modify the `dataHubUpgradeResult` on that fingerprint's `dataHubUpgrade` URN (either is valid). See [Updating DataHub](../../../how/updating-datahub.md) and [Environment Variables](../../../deploy/environment-vars.md#schema-fields-configuration).
 
 ### Feature Flag Dependency
 

@@ -43,21 +43,25 @@ describe('Alert', () => {
         expect(screen.queryByText('All changes saved.')).not.toBeInTheDocument();
     });
 
-    it('should render an action element when provided', () => {
+    it('should render an action button when provided', () => {
+        const onClick = vi.fn();
         renderAlert({
             title: 'Error',
             variant: 'error',
-            action: <button type="button">Retry</button>,
+            action: { label: 'Retry', onClick },
         });
 
-        expect(screen.getByText('Retry')).toBeInTheDocument();
+        const retryButton = screen.getByRole('button', { name: 'Retry' });
+        expect(retryButton).toBeInTheDocument();
+        fireEvent.click(retryButton);
+        expect(onClick).toHaveBeenCalledOnce();
     });
 
     it('should still render the action when actionPlacement is "topRight"', () => {
         renderAlert({
             title: 'Error',
             variant: 'error',
-            action: <button type="button">Retry</button>,
+            action: { label: 'Retry', onClick: () => {} },
             actionPlacement: 'topRight',
             onClose: () => {},
         });
@@ -83,7 +87,7 @@ describe('Alert', () => {
         expect(screen.queryByRole('button', { name: /close/i })).not.toBeInTheDocument();
     });
 
-    it.each<AlertVariant>(['success', 'error', 'warning', 'info', 'brand', 'unknown'])(
+    it.each<AlertVariant>(['success', 'error', 'warning', 'info', 'brand', 'gray'])(
         'should render without errors for variant "%s"',
         (variant) => {
             const { container } = renderAlert({ variant, title: `${variant} alert` });

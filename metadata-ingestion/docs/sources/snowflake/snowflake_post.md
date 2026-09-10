@@ -377,6 +377,17 @@ SELECT 'PROD_DB.PUBLIC.TABLE' RLIKE 'PROD_DB\\.PUBLIC\\..*';  -- TRUE
 
 DataHub supports ingestion of Snowflake Semantic Views, which are business-defined views that define metrics, dimensions, and relationships for consistent data modeling and AI-powered analytics.
 
+A semantic view is ingested in one of two representations, selected by the `semantic_views.emit_semantic_model_entities` flag (see below):
+
+- **Legacy dataset** (subtype `Semantic View`): its dimension, fact, and metric columns are tagged `DIMENSION`/`FACT`/`METRIC` on the schema, table-level synonyms are stored as custom properties, and table-level (and, with `column_lineage`, column-level) lineage to the underlying base tables is emitted as a standard dataset `upstreamLineage` aspect.
+- **semanticModel / metric / logical-dataset entities:** each semantic view becomes its own **semanticModel** entity (name, description, relationships, and the `CREATE SEMANTIC VIEW` DDL as its native definition). Each logical table the view exposes becomes its own **dataset** entity (subtype `Semantic Model Dataset`) carrying a `semanticModelProperties` membership pointer (`IsPartOf`) to the model and a `schemaMetadata` projection of its dimension/fact columns; per-field semantic metadata (type, expression, dimension) lives on `semanticFieldAnnotation` aspects on each column's `schemaField` entity, and the logical dataset carries `upstreamLineage` to its physical base table. Each `METRIC` column becomes a separate **metric** entity with `metricInfo.semanticModel` (`ModeledBy`) membership. Metrics with dataset inputs carry `metricUpstreams.datasetUpstreams` to those Semantic Model Dataset(s); derived-only metrics reach SMDs transitively via `metricRelationships.derivedFrom`. Direct lineage is `Metric → Logical Dataset → Physical Dataset` (or `Metric → Metric → Logical Dataset → Physical Dataset` for derived metrics), with the SemanticModel acting as a non-lineage container.
+
+The flag is tri-state and server-aware:
+
+- **Unset (default):** auto-resolved from the server. On DataHub Cloud ≥ `2.1.0` it is enabled unless the Metrics feature is explicitly disabled; it stays off on older Cloud, on OSS/self-hosted (which is recipe-driven — see below), and with no DataHub connection (e.g. a file sink). If the Metrics feature-flag probe cannot be read (a transient auth/network/GraphQL error), the connector fails closed to legacy datasets rather than emitting the new entities.
+- **`true`:** request emission. On DataHub Cloud, still subject to the hard blocks above — below `2.1.0`, with Metrics off, or when the Metrics probe cannot be read, the connector warns and falls back to legacy datasets. On OSS/self-hosted, `true` enables emission.
+- **`false`:** always force legacy dataset behavior, overriding any server-side auto-enable.
+
 ##### Configuration
 
 Semantic view ingestion is disabled by default (requires Snowflake Enterprise Edition or above). You can enable it using the following configuration options:
@@ -386,6 +397,7 @@ Semantic view ingestion is disabled by default (requires Snowflake Enterprise Ed
 semantic_views:
   enabled: true # Default: false
   column_lineage: true # Default: false - enable column-level lineage
+  include_queries: true # Default: false - emit query entities for queries against semantic views
 
 # Filter semantic views using regex patterns
 semantic_view_pattern:
@@ -398,10 +410,22 @@ semantic_view_pattern:
 
 ##### Features
 
-- **Metadata Extraction**: Extracts semantic view definitions (YAML), columns, comments, and timestamps
-- **Lineage Support**: Semantic views participate in lineage extraction like regular views
+- **Metadata Extraction**: Extracts each semantic view's columns, tags, comments, and timestamps
+- **Lineage Support**: Semantic views participate in table-level lineage extraction like regular views, and column-level lineage when `column_lineage` is enabled
 - **Tags Support**: Tags applied to semantic views are extracted if `extract_tags` is enabled
-- **External URLs**: Direct links to Snowflake Snowsight UI for semantic views
+- **External URLs**: Snowsight links are emitted only in the legacy dataset representation; `semanticModel` entities carry no Snowsight URL
+- **Query Entities**: When `include_queries` is enabled, queries against semantic views are ingested as query entities
+
+##### What changes with `emit_semantic_model_entities`
+
+- Views become **semanticModel** entities (plus a **metric** per `METRIC` column and a **logical-dataset** per logical table) instead of a single Dataset; the legacy dataset URN, subtype, and dataset-specific aspects no longer apply.
+- Lineage is emitted on the logical-dataset entities (table-level `upstreamLineage` to each logical table's physical base table, plus column-level fine-grained lineage when `column_lineage: true`). Metrics with dataset inputs carry `metricUpstreams.datasetUpstreams` to those Semantic Model Dataset(s); derived-only metrics reach SMDs transitively via `metricRelationships.derivedFrom`. Direct lineage is `Metric → Logical Dataset → Physical Dataset` (or `Metric → Metric → Logical Dataset → Physical Dataset` for derived metrics), with the SemanticModel as a non-lineage container.
+- `include_usage` is ignored (semanticModel/logical-dataset entities carry no usage statistics; usage is emitted only in the legacy dataset representation). `include_queries` still emits query entities, attributed to the semanticModel.
+- Semantic models (and their logical datasets) have no container aspect, so they don't appear on database/schema pages — find them via search, lineage, or the metrics experience.
+- **Requires** a GMS that registers `semanticModel`/`metric`/`semanticFieldAnnotation`. On Cloud the connector auto-enables only at ≥ `2.1.0` (which implies they're present), else warns and falls back; on OSS it is recipe-driven, so run a compatible server before setting `true`.
+- **Limitation:** a downstream `FROM SEMANTIC_VIEW(...)` can't declare the semanticModel as an upstream (`upstreamLineage` is dataset-URN-typed); with `use_queries_v2`, parsing may resolve it to the old (soft-deleted) dataset URN.
+- **Limitation:** no effect when `include_technical_schema: false` (semantic-view processing is skipped).
+- **Caveat:** the URN has no `env`, so the same account in two environments collides — use a distinct `platform_instance` per environment.
 
 ##### Requirements
 
@@ -451,6 +475,34 @@ pipe_pattern:
   allow:
     - "MY_DB.MY_SCHEMA.*"
 ```
+
+#### Column Name Casing
+
+Snowflake stores unquoted identifiers in uppercase, but quoted identifiers keep the case you wrote them in. Two columns in the same table can therefore differ only by case — `"col"` and `"COL"` are distinct columns.
+
+By default DataHub lowercases column names when building field paths, so such columns collapse onto a single field path. The duplicate is then dropped before the schema is written, so the column disappears from DataHub entirely and its column-level lineage, tags, and profile are lost. Ingestion reports a warning whenever it detects this, so you can find affected tables without changing any configuration.
+
+Set `preserve_column_case: true` to keep Snowflake's casing and the columns distinct:
+
+```yaml
+source:
+  type: snowflake
+  config:
+    # Dataset URNs stay lowercase so lineage matches other platforms.
+    convert_urns_to_lowercase: true
+    # Column field paths keep Snowflake's casing.
+    preserve_column_case: true
+```
+
+This option is independent of `convert_urns_to_lowercase`: you can keep dataset URNs lowercase — which you usually want, so lineage resolves against other sources — while preserving column casing. If `convert_urns_to_lowercase` is already `false`, ordinary tables and views keep their column casing regardless. Semantic-model logical datasets are the exception: their field paths have always been uppercased, and only `preserve_column_case: true` stops that.
+
+Treat it as a one-way door. The value is part of every column's `schemaField` URN, so changing it after data has been ingested re-keys each column: `...,col)` becomes `...,COL)`. Column-level tags, glossary terms, documentation, and assertions that users attached in the UI point at the old URNs and are orphaned. Choose a value before your first ingestion run and leave it unchanged.
+
+If you also run the `snowflake-queries` source against the same account, set `preserve_column_case` the same way in both recipes. The two sources build field paths independently, and a mismatch means the column-level lineage from one will not resolve against the schema from the other.
+
+Sources that read Snowflake columns from elsewhere need the same consideration, because they decide the casing themselves rather than reading it back from the schema. Tableau lowercases Snowflake column names when building column-level lineage; dbt has its own `convert_column_urns_to_lowercase`, which defaults to `true` for Snowflake targets; ThoughtSpot has its own `preserve_column_case`, which defaults to lowercasing to match Snowflake's historical behaviour. With `preserve_column_case: true` here, those defaults no longer line up, and column-level lineage from those sources will point at field paths this source does not emit.
+
+Profiling handles these columns too. The SQLAlchemy driver folds reflected column names before DataHub sees them, so the profiler re-reads the column list and addresses each column by its as-stored, quoted name. With `preserve_column_case: true` every column gets its own profile, matched to its own schema field. With the option off, the pair shares one field path, so a single profile is emitted for it — mirroring the schema, where the duplicate field is dropped.
 
 ### Limitations
 

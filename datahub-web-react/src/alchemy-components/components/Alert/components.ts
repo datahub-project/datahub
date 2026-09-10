@@ -10,7 +10,7 @@ const VARIANT_THEME_MAP: Record<AlertVariant, { bg: string; text: string; icon: 
     warning: { bg: 'bgSurfaceWarning', text: 'textWarning', icon: 'iconWarning' },
     info: { bg: 'bgSurfaceInfo', text: 'textInformation', icon: 'iconInformation' },
     brand: { bg: 'bgSurfaceBrand', text: 'textBrand', icon: 'iconBrand' },
-    unknown: { bg: 'bgSurface', text: 'textSecondary', icon: 'icon' },
+    gray: { bg: 'bgSurface', text: 'textSecondary', icon: 'icon' },
 };
 
 // Outer container is a vertical stack: header row, then description, errorMessage,
@@ -103,4 +103,5 @@ export const AlertErrorMessage = styled.div(({ theme }) => ({
     fontSize: '13px',
     overflowWrap: 'break-word' as const,
     wordBreak: 'break-all' as const,
+    marginTop: '8px',
 }));

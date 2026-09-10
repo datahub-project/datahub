@@ -6,16 +6,18 @@ import dataclasses
 import json
 import logging
 import re
-import traceback
+import threading
 from datetime import datetime
 from decimal import Decimal
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
     Optional,
+    Set,
     Tuple,
     Union,
 )
@@ -37,9 +39,16 @@ from datahub.ingestion.source.profiling.common import (
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters import get_adapter
-from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+    PlatformAdapter,
+    ProfilingConnection,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
+)
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    IS_SQLALCHEMY_1_4,
+    SQLAlchemyQueryCombiner,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner_runner import (
     FutureResult,
@@ -54,6 +63,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     EditableSchemaMetadata,
+    SchemaMetadata,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import (
     PartitionTypeClass,
@@ -66,12 +76,9 @@ from datahub.metadata.schema_classes import (
     QuantileClass,
     ValueFrequencyClass,
 )
+from datahub.metadata.urns import TagUrn
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sqlalchemy_query_combiner import (
-    IS_SQLALCHEMY_1_4,
-    SQLAlchemyQueryCombiner,
-)
 
 
 def _get_columns_to_ignore_sampling(
@@ -105,113 +112,56 @@ def _get_columns_to_ignore_sampling(
     """
     logger.debug("Collecting columns to ignore for sampling")
 
-    ignore_table: bool = False
-    columns_to_ignore: List[str] = []
-
     if not tags_to_ignore:
-        return ignore_table, columns_to_ignore
+        return False, []
 
+    # TagUrn() accepts both full URNs and bare names, normalising both to the name portion.
+    tags_set = {TagUrn(t).name for t in tags_to_ignore}
     dataset_urn = mce_builder.make_dataset_urn(
         name=dataset_name, platform=platform, env=env
     )
-
     datahub_graph = get_default_graph(ClientMode.INGESTION)
 
-    # Check dataset-level tags
     dataset_tags = datahub_graph.get_tags(dataset_urn)
-    if dataset_tags:
-        ignore_table = any(
-            tag_association.tag.split("urn:li:tag:")[1] in tags_to_ignore
-            for tag_association in dataset_tags.tags
+    if dataset_tags and any(
+        TagUrn.from_string(ta.tag).name in tags_set for ta in dataset_tags.tags
+    ):
+        return True, []
+
+    # Collect from both aspects; use a set to deduplicate across them.
+    # SchemaMetadata holds ingestion-sourced column tags (e.g. from Snowflake).
+    # EditableSchemaMetadata holds tags applied via the DataHub UI.
+    columns_to_ignore: set[str] = set()
+
+    schema_metadata = datahub_graph.get_aspect(
+        entity_urn=dataset_urn, aspect_type=SchemaMetadata
+    )
+    if schema_metadata:
+        columns_to_ignore.update(
+            field.fieldPath
+            for field in schema_metadata.fields
+            if field.globalTags
+            and any(
+                TagUrn.from_string(ta.tag).name in tags_set
+                for ta in field.globalTags.tags
+            )
         )
 
-    # If table-level tag found, ignore entire table
-    if not ignore_table:
-        # Check column-level tags
-        metadata = datahub_graph.get_aspect(
-            entity_urn=dataset_urn, aspect_type=EditableSchemaMetadata
+    editable_metadata = datahub_graph.get_aspect(
+        entity_urn=dataset_urn, aspect_type=EditableSchemaMetadata
+    )
+    if editable_metadata:
+        columns_to_ignore.update(
+            field.fieldPath
+            for field in editable_metadata.editableSchemaFieldInfo
+            if field.globalTags
+            and any(
+                TagUrn.from_string(ta.tag).name in tags_set
+                for ta in field.globalTags.tags
+            )
         )
 
-        if metadata:
-            for schemaField in metadata.editableSchemaFieldInfo:
-                if schemaField.globalTags:
-                    columns_to_ignore.extend(
-                        schemaField.fieldPath
-                        for tag_association in schemaField.globalTags.tags
-                        if tag_association.tag.split("urn:li:tag:")[1] in tags_to_ignore
-                    )
-
-    return ignore_table, columns_to_ignore
-
-
-def _is_single_row_query_method(query: Any) -> bool:
-    """
-    Determine if a query method returns a single row.
-
-    This is used by SQLAlchemyQueryCombiner to optimize query batching.
-    For the custom profiler, we assume all our stat methods return single rows
-    except for histogram and value frequencies which return multiple rows.
-
-    Why this is still needed despite FutureResult making batching explicit:
-    FutureResult marks methods as batchable at the API level, but the query combiner
-    intercepts at the SQLAlchemy connection level and needs runtime checking for safety.
-
-    NOTE: Code duplication with ge_data_profiler.py
-    This function is duplicated from the GE profiler implementation. We maintain
-    separate implementations because:
-    1. The GE profiler has additional complexity (filename checks, GE-specific methods)
-       that doesn't apply to our direct SQLAlchemy implementation
-    2. The GE profiler will eventually be removed entirely, at which point this
-       duplication will be resolved naturally
-
-    FUTURE: Query tagging approach (not implemented yet)
-    A cleaner approach would be to use SQLAlchemy 1.4's execution_options() to
-    tag queries directly:
-        query.execution_options(datahub_single_row=True)
-
-    We're not implementing this yet because:
-    1. SQLAlchemyQueryCombiner currently requires a callable (is_single_row_query_method)
-       that inspects the call stack
-    2. Migrating to query tagging would require modifying ~20 query generation sites
-       in stats_calculator.py
-    3. We'd need to update query_combiner.py to check execution_options first, then
-       fall back to the callable for GE profiler compatibility
-    4. Once GE profiler is removed, we can migrate both the query combiner and this
-       profiler to use query tagging exclusively
-
-    For now, traceback inspection is battle-tested (used by GE profiler in production)
-    and the performance overhead (~1-5 microseconds) is negligible in the profiling context.
-    """
-    # Methods that return single rows (scalar results)
-    SINGLE_ROW_QUERY_METHODS = {
-        "get_row_count",
-        "get_column_min",
-        "get_column_max",
-        "get_column_mean",
-        "get_column_stdev",
-        "get_column_unique_count",
-        "get_column_non_null_count",
-        "get_column_median",
-    }
-
-    # Methods that return multiple rows
-    MULTI_ROW_QUERY_METHODS = {
-        "get_column_histogram",
-        "get_column_value_frequencies",
-        "get_column_distinct_value_frequencies",
-        "get_column_quantiles",  # May return multiple values but as a single row array
-    }
-
-    # Check the call stack to see which method is calling
-    stack = traceback.extract_stack()
-    for frame in reversed(stack):
-        if frame.name in MULTI_ROW_QUERY_METHODS:
-            return False
-        if frame.name in SINGLE_ROW_QUERY_METHODS:
-            return True
-
-    # Default: assume single row for optimization
-    return True
+    return False, list(columns_to_ignore)
 
 
 if TYPE_CHECKING:
@@ -426,6 +376,7 @@ class SQLAlchemyProfiler:
         config: ProfilingConfig,
         platform: str,
         env: str = "PROD",
+        field_path_transform: Optional[Callable[[str], str]] = None,
     ):
         self.report = report
         self.config = config
@@ -433,6 +384,16 @@ class SQLAlchemyProfiler:
         self.total_row_count = 0
 
         self.env = env
+        # How a stored column name becomes the field path the source emitted.
+        # A SQLAlchemy source emits reflection's normalized name, which is what
+        # the adapters return. A source that names columns by a rule of its own --
+        # Snowflake's depends on config this layer cannot see -- passes that rule
+        # in, so the translation still happens in one place.
+        self.field_path_transform = field_path_transform
+
+        # One adapter per worker thread rather than per table, so the Inspector
+        # it caches survives long enough to be worth caching. See _thread_adapter.
+        self._adapter_local = threading.local()
 
         # TRICKY: The call to `.engine` is quite important here. Connection.connect()
         # returns a "branched" connection, which does not actually use a new underlying
@@ -456,6 +417,20 @@ class SQLAlchemyProfiler:
             )
 
         self.platform = platform.lower()
+
+        # Resolve the profiling isolation level once, not per table. None (the
+        # default) means "set nothing", so the whole table profile runs under one
+        # transaction — unchanged from before this option existed. The per-table
+        # path only re-applies the resolved level (see the conn.execution_options
+        # call in _generate_single_profile).
+        isolation_level = self.config.profiling_isolation_level
+        self._profiling_isolation_level: Optional[str] = (
+            isolation_level.value if isolation_level is not None else None
+        )
+        # One log line per profiler instance if the isolation level is rejected —
+        # the structured report already dedups, but the logger does not. A profiler
+        # is built per database, so a multi-database run emits one line per database.
+        self._isolation_level_warning_logged = False
 
     def _get_columns_to_profile(self, table: sa.Table, dataset_name: str) -> List[str]:
         """Get list of columns to profile based on config and patterns."""
@@ -1027,7 +1002,6 @@ class SQLAlchemyProfiler:
             SQLAlchemyQueryCombiner(
                 enabled=self.config.query_combiner_enabled,
                 catch_exceptions=self.config.catch_exceptions,
-                is_single_row_query_method=_is_single_row_query_method,
                 serial_execution_fallback_enabled=True,
             ).activate() as query_combiner,
         ):
@@ -1100,7 +1074,6 @@ class SQLAlchemyProfiler:
     def _profile_row_count(
         self,
         runner: QueryCombinerRunner,
-        query_combiner: SQLAlchemyQueryCombiner,
         sql_table: sa.Table,
         profile: DatasetProfileClass,
         context: ProfilingContext,
@@ -1123,14 +1096,12 @@ class SQLAlchemyProfiler:
             f"Getting row count for {pretty_name}: use_estimation={use_estimation}"
         )
 
-        # Schedule row count query (returns FutureResult)
-        row_count_future = runner.get_row_count(
-            sql_table, use_estimation=use_estimation
-        )
-
-        # Flush Stage 1: Execute row count query
+        # Stage 1: row count. Executes on exit from the batch block.
         logger.debug(f"profiling {pretty_name}: flushing stage 1 (row count)")
-        query_combiner.flush()
+        with runner.batch() as batch:
+            row_count_future = batch.get_row_count(
+                sql_table, use_estimation=use_estimation
+            )
 
         # Extract row count result with exception handling
         try:
@@ -1173,6 +1144,93 @@ class SQLAlchemyProfiler:
 
         return row_count
 
+    def _ignore_list_as_stored_names(
+        self,
+        ignore_paths: List[str],
+        sql_table: sa.Table,
+        adapter: "PlatformAdapter",
+        conn: Connection,
+    ) -> List[str]:
+        """Translate tag-derived field paths into the names profiling uses.
+
+        `tags_to_ignore_sampling` is resolved against the dataset in DataHub, so
+        it comes back as emitted field paths. Profiling addresses columns by
+        their stored name, which on a normalizing dialect is a different string,
+        and the membership tests downstream would simply never hit.
+
+        Compared exactly. Two columns differing only by case are two columns, and
+        on a platform where both can exist, tagging one must not silence the other.
+        """
+        if not ignore_paths:
+            return ignore_paths
+        wanted = set(ignore_paths)
+        return [
+            str(column.name)
+            for column in sql_table.columns
+            if self._emitted_field_path(str(column.name), adapter, conn) in wanted
+        ]
+
+    def _emitted_field_path(
+        self, stored_name: str, adapter: "PlatformAdapter", conn: Connection
+    ) -> str:
+        """The field path the source emitted for a column profiling addresses.
+
+        str() sheds sqlalchemy's quoted_name, a str subclass whose .lower() and
+        .upper() return self when the identifier is quoted -- right for SQL, but
+        it makes every downstream fold silently do nothing.
+        """
+        stored_name = str(stored_name)
+        if self.field_path_transform is not None:
+            return self.field_path_transform(stored_name)
+        return adapter.field_path_for(stored_name, conn)
+
+    def _to_emitted_field_paths(
+        self,
+        field_profiles: List[DatasetFieldProfileClass],
+        adapter: "PlatformAdapter",
+        conn: Connection,
+        pretty_name: str,
+    ) -> List[DatasetFieldProfileClass]:
+        """Translate stored column names into the paths the source emitted.
+
+        Profiling addresses columns by their stored identifier so that two columns
+        differing only by case stay distinct all the way through. A profile has to
+        attach to schemaMetadata, though, so the identifier becomes a field path
+        exactly once, here, at the boundary.
+
+        Two stored names can translate to one path — that is what a case collision
+        looks like once folded — and the schema declares a single field for them.
+        Keep the first, since a second profile on one field path is dropped
+        downstream anyway, and report it: the surviving profile carries whichever
+        column came first, so the statistics under the folded path may belong to
+        the other column, and which one wins moves with column order.
+        """
+        translated: List[DatasetFieldProfileClass] = []
+        seen: Set[str] = set()
+        collapsed: List[str] = []
+        for field_profile in field_profiles:
+            stored_name = str(field_profile.fieldPath)
+            field_profile.fieldPath = self._emitted_field_path(
+                stored_name, adapter, conn
+            )
+            if field_profile.fieldPath in seen:
+                collapsed.append(f"{stored_name} -> {field_profile.fieldPath}")
+                continue
+            seen.add(field_profile.fieldPath)
+            translated.append(field_profile)
+        if collapsed:
+            self.report.warning(
+                title="Column statistics dropped for a case-folded column",
+                message="Columns differing only by case fold to one field path, "
+                "which the schema declares once, so only the first column's "
+                "statistics are kept. The statistics under that path may belong "
+                "to either column, and which one survives depends on column "
+                "order. Enable the source's case-preserving option, if it has "
+                "one, to keep the columns distinct.",
+                context=f"{pretty_name}: {sorted(collapsed)}",
+            )
+        return translated
+
     def _create_field_profiles(
         self, all_columns: List[str], columns_to_profile_set: set
     ) -> List[DatasetFieldProfileClass]:
@@ -1198,7 +1256,6 @@ class SQLAlchemyProfiler:
     def _schedule_cardinality_queries(
         self,
         runner: QueryCombinerRunner,
-        query_combiner: SQLAlchemyQueryCombiner,
         sql_table: sa.Table,
         columns_to_profile_set: set,
         pretty_name: str,
@@ -1213,29 +1270,29 @@ class SQLAlchemyProfiler:
             Dict mapping column name to dict of FutureResults
         """
         cardinality_futures = {}
-        for column in sql_table.columns:
-            col_name = column.name
+        with runner.batch() as batch:
+            for column in sql_table.columns:
+                col_name = column.name
 
-            if col_name not in columns_to_profile_set:
-                continue
+                if col_name not in columns_to_profile_set:
+                    continue
 
-            # Schedule non-null count (returns FutureResult)
-            cardinality_futures[col_name] = {
-                "non_null": runner.get_column_non_null_count(sql_table, col_name)
-            }
+                # Schedule non-null count (returns FutureResult)
+                cardinality_futures[col_name] = {
+                    "non_null": batch.get_column_non_null_count(sql_table, col_name)
+                }
 
-            # Schedule unique count if needed (returns FutureResult)
-            if self.config.include_field_distinct_count:
-                cardinality_futures[col_name]["unique"] = (
-                    runner.get_column_unique_count(sql_table, col_name)
-                )
+                # Schedule unique count if needed (returns FutureResult)
+                if self.config.include_field_distinct_count:
+                    cardinality_futures[col_name]["unique"] = (
+                        batch.get_column_unique_count(sql_table, col_name)
+                    )
 
-        # Flush Stage 2: Execute ALL cardinality queries in ONE batch
+        # Stage 2 executed every cardinality query in ONE batch on block exit.
         logger.debug(
-            f"profiling {pretty_name}: flushing stage 2 "
+            f"profiling {pretty_name}: flushed stage 2 "
             f"({len(cardinality_futures)} columns - cardinality)"
         )
-        query_combiner.flush()
 
         return cardinality_futures
 
@@ -1363,7 +1420,6 @@ class SQLAlchemyProfiler:
     def _schedule_numeric_queries(
         self,
         runner: QueryCombinerRunner,
-        query_combiner: SQLAlchemyQueryCombiner,
         sql_table: sa.Table,
         columns_with_types: Dict[
             str,
@@ -1388,64 +1444,64 @@ class SQLAlchemyProfiler:
             Dict mapping column name to dict of FutureResults
         """
         numeric_stats_futures: Dict[str, Dict[str, FutureResult[Any]]] = {}
-        for col_name, (
-            _column_profile,
-            col_type,
-            _cardinality,
-            _non_null_count,
-        ) in columns_with_types.items():
-            # Only calculate stats if not ignoring sampling for this column
-            if ignore_table_sampling or col_name in columns_list_to_ignore_sampling:
-                continue
+        with runner.batch() as batch:
+            for col_name, (
+                _column_profile,
+                col_type,
+                _cardinality,
+                _non_null_count,
+            ) in columns_with_types.items():
+                # Only calculate stats if not ignoring sampling for this column
+                if ignore_table_sampling or col_name in columns_list_to_ignore_sampling:
+                    continue
 
-            # Schedule numeric stats for numeric columns (INT, FLOAT, NUMERIC)
-            # This matches GE profiler which computes stats for all three types
-            if col_type in (
-                ProfilerDataType.INT,
-                ProfilerDataType.FLOAT,
-                ProfilerDataType.NUMERIC,
-            ):
-                numeric_stats_futures[col_name] = {}
-                if self.config.include_field_min_value:
-                    numeric_stats_futures[col_name]["min"] = runner.get_column_min(
-                        sql_table, col_name
-                    )
-                if self.config.include_field_max_value:
-                    numeric_stats_futures[col_name]["max"] = runner.get_column_max(
-                        sql_table, col_name
-                    )
-                if self.config.include_field_mean_value:
-                    numeric_stats_futures[col_name]["mean"] = runner.get_column_mean(
-                        sql_table, col_name
-                    )
-                if self.config.include_field_stddev_value:
-                    numeric_stats_futures[col_name]["stdev"] = runner.get_column_stdev(
-                        sql_table, col_name
-                    )
-                if self.config.include_field_median_value:
-                    numeric_stats_futures[col_name]["median"] = (
-                        runner.get_column_median(sql_table, col_name)
-                    )
+                # Schedule numeric stats for numeric columns (INT, FLOAT, NUMERIC)
+                # This matches GE profiler which computes stats for all three types
+                if col_type in (
+                    ProfilerDataType.INT,
+                    ProfilerDataType.FLOAT,
+                    ProfilerDataType.NUMERIC,
+                ):
+                    numeric_stats_futures[col_name] = {}
+                    if self.config.include_field_min_value:
+                        numeric_stats_futures[col_name]["min"] = batch.get_column_min(
+                            sql_table, col_name
+                        )
+                    if self.config.include_field_max_value:
+                        numeric_stats_futures[col_name]["max"] = batch.get_column_max(
+                            sql_table, col_name
+                        )
+                    if self.config.include_field_mean_value:
+                        numeric_stats_futures[col_name]["mean"] = batch.get_column_mean(
+                            sql_table, col_name
+                        )
+                    if self.config.include_field_stddev_value:
+                        numeric_stats_futures[col_name]["stdev"] = (
+                            batch.get_column_stdev(sql_table, col_name)
+                        )
+                    if self.config.include_field_median_value:
+                        numeric_stats_futures[col_name]["median"] = (
+                            batch.get_column_median(sql_table, col_name)
+                        )
 
-            # Schedule min/max for datetime columns
-            elif col_type == ProfilerDataType.DATETIME:
-                numeric_stats_futures[col_name] = {}
-                if self.config.include_field_min_value:
-                    numeric_stats_futures[col_name]["min"] = runner.get_column_min(
-                        sql_table, col_name
-                    )
-                if self.config.include_field_max_value:
-                    numeric_stats_futures[col_name]["max"] = runner.get_column_max(
-                        sql_table, col_name
-                    )
+                # Schedule min/max for datetime columns
+                elif col_type == ProfilerDataType.DATETIME:
+                    numeric_stats_futures[col_name] = {}
+                    if self.config.include_field_min_value:
+                        numeric_stats_futures[col_name]["min"] = batch.get_column_min(
+                            sql_table, col_name
+                        )
+                    if self.config.include_field_max_value:
+                        numeric_stats_futures[col_name]["max"] = batch.get_column_max(
+                            sql_table, col_name
+                        )
 
-        # Flush Stage 3: Execute ALL numeric stats queries in ONE batch
+        # Stage 3 executed every numeric stats query in ONE batch on block exit.
         if numeric_stats_futures:
             logger.debug(
-                f"profiling {pretty_name}: flushing stage 3 "
+                f"profiling {pretty_name}: flushed stage 3 "
                 f"({len(numeric_stats_futures)} columns - numeric stats)"
             )
-            query_combiner.flush()
 
         return numeric_stats_futures
 
@@ -1544,6 +1600,24 @@ class SQLAlchemyProfiler:
                     pretty_name=pretty_name,
                 )
 
+    def _thread_adapter(self, platform: str) -> PlatformAdapter:
+        """The calling thread's adapter, built once and reused across its tables.
+
+        An adapter's only state is the Inspector it caches, and dialects memoize
+        a whole schema's columns on that Inspector. Built per table, the cache
+        never outlives its first use and every table on a normalizing dialect
+        pays a schema-wide get_columns. Built per thread, the pool's workers pay
+        one apiece.
+
+        Per thread rather than per profiler because tables are profiled
+        concurrently and an Inspector's info cache is a plain dict.
+        """
+        adapter = getattr(self._adapter_local, platform, None)
+        if adapter is None:
+            adapter = get_adapter(platform, self.config, self.report, self.base_engine)
+            setattr(self._adapter_local, platform, adapter)
+        return adapter
+
     def _generate_single_profile(
         self,
         query_combiner: SQLAlchemyQueryCombiner,
@@ -1554,6 +1628,7 @@ class SQLAlchemyProfiler:
         custom_sql: Optional[str] = None,
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
+        row_count: Optional[int] = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
         """Generate a single dataset profile."""
@@ -1575,17 +1650,64 @@ class SQLAlchemyProfiler:
             custom_sql=custom_sql,
             pretty_name=pretty_name,
             partition=partition,
+            row_count=row_count,
         )
 
         # Get platform-specific adapter
-        adapter = get_adapter(platform, self.config, self.report, self.base_engine)
+        adapter = self._thread_adapter(platform)
 
         with PerfTimer() as timer:
             try:
                 logger.info(f"Profiling {pretty_name}")
                 with self.base_engine.connect() as conn:
+                    isolation_level = self._profiling_isolation_level
+                    if isolation_level is not None:
+                        # Must be the first operation on this connection — the
+                        # isolation level cannot be changed once a transaction is in
+                        # progress. Re-applied on every checkout because SQLAlchemy
+                        # reverts it on pool return. The rebind is required: on the
+                        # pinned SQLAlchemy 1.4 (<2), execution_options returns a
+                        # branched copy, not self.
+                        try:
+                            conn = conn.execution_options(
+                                isolation_level=isolation_level
+                            )
+                        except Exception as e:
+                            # Broad by necessity: execution_options calls
+                            # dialect.set_isolation_level directly, bypassing
+                            # SQLAlchemy's DBAPI exception wrapping, so a server or
+                            # proxy refusal arrives as a raw driver error. Warn and
+                            # continue with the original (transactional) connection.
+                            # The structured report dedups by title+message; the
+                            # logger does not, so gate it on a per-run flag to emit
+                            # one line per run. Profiling runs in a ThreadPoolExecutor
+                            # so a race may emit two — acceptable, no lock.
+                            self.report.warning(
+                                title="Profiling: isolation level unavailable",
+                                message=(
+                                    "The database or SQLAlchemy dialect did "
+                                    "not accept the requested session "
+                                    "isolation level. Profiling will run one "
+                                    "transaction per table, which can block "
+                                    "VACUUM (Postgres) or grow the InnoDB undo "
+                                    "log (MySQL) for the duration of each "
+                                    "table's profile."
+                                ),
+                                context=(
+                                    f"Asset: {pretty_name}; "
+                                    f"isolation_level={isolation_level}"
+                                ),
+                                exc=e,
+                                log=not self._isolation_level_warning_logged,
+                            )
+                            self._isolation_level_warning_logged = True
+                            if not self.config.catch_exceptions:
+                                raise
                     # Setup profiling using platform adapter
                     # This handles temp tables, sampling, and creates sql_table
+                    # Takes the real Connection: setup does DDL and reflection
+                    # (autoload_with), and runs on the main greenlet where the
+                    # query combiner never applies.
                     try:
                         context = adapter.setup_profiling(context, conn)
                     except Exception as e:
@@ -1610,8 +1732,10 @@ class SQLAlchemyProfiler:
                     sql_table = context.sql_table
 
                     # Initialize query combiner runner with adapter
+                    # Statistic queries go through the facade so each one
+                    # declares its row shape for the query combiner.
                     runner = QueryCombinerRunner(
-                        conn=conn,
+                        conn=ProfilingConnection(conn),
                         platform=platform,
                         adapter=adapter,
                         query_combiner=query_combiner,
@@ -1631,7 +1755,9 @@ class SQLAlchemyProfiler:
                                 dict(limit=self.config.limit, offset=self.config.offset)
                             ),
                         )
-                    elif custom_sql:
+                    elif custom_sql or context.is_sampled:
+                        # GE profiler uses custom_sql for sampling; SQLAlchemy
+                        # adapter sets context.is_sampled via temp table
                         profile.partitionSpec = PartitionSpecClass(
                             type=PartitionTypeClass.QUERY, partition="SAMPLE"
                         )
@@ -1674,7 +1800,6 @@ class SQLAlchemyProfiler:
                     # ----------------------------------------------------------------
                     row_count = self._profile_row_count(
                         runner=runner,
-                        query_combiner=query_combiner,
                         sql_table=sql_table,
                         profile=profile,
                         context=context,
@@ -1726,6 +1851,10 @@ class SQLAlchemyProfiler:
                         self.env,
                     )
 
+                    columns_list_to_ignore_sampling = self._ignore_list_as_stored_names(
+                        columns_list_to_ignore_sampling, sql_table, adapter, conn
+                    )
+
                     all_columns = [col.name for col in sql_table.columns]
                     columns_to_profile_set = set(columns_to_profile)
 
@@ -1741,7 +1870,6 @@ class SQLAlchemyProfiler:
                     # ----------------------------------------------------------------
                     cardinality_futures = self._schedule_cardinality_queries(
                         runner=runner,
-                        query_combiner=query_combiner,
                         sql_table=sql_table,
                         columns_to_profile_set=columns_to_profile_set,
                         pretty_name=pretty_name,
@@ -1762,7 +1890,6 @@ class SQLAlchemyProfiler:
                     # ----------------------------------------------------------------
                     numeric_stats_futures = self._schedule_numeric_queries(
                         runner=runner,
-                        query_combiner=query_combiner,
                         sql_table=sql_table,
                         columns_with_types=columns_with_types,
                         ignore_table_sampling=ignore_table_sampling,
@@ -1782,7 +1909,9 @@ class SQLAlchemyProfiler:
                         platform=platform,
                     )
 
-                    profile.fieldProfiles = field_profiles
+                    profile.fieldProfiles = self._to_emitted_field_paths(
+                        field_profiles, adapter, conn, pretty_name
+                    )
 
                     time_taken = timer.elapsed_seconds()
                     logger.info(
@@ -1831,5 +1960,14 @@ class SQLAlchemyProfiler:
                 )
                 return None
             finally:
+                # Record elapsed for every table, including failures: the most expensive
+                # tables are precisely those that OOM/timeout/raise — which exit via the
+                # except branches above and would otherwise never be recorded. `timer`
+                # started at the top of this `with PerfTimer()` block, so elapsed here
+                # covers the full attempt regardless of exit path. Recorded before
+                # adapter.cleanup so a raising cleanup cannot lose the entry.
+                self.report.profiling_time_taken_per_table_secs[pretty_name] = (
+                    timer.elapsed_seconds()
+                )
                 # Cleanup temp resources using adapter
                 adapter.cleanup(context)

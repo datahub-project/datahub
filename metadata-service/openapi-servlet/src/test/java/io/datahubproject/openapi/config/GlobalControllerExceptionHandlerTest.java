@@ -3,7 +3,10 @@ package io.datahubproject.openapi.config;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
@@ -287,6 +290,31 @@ public class GlobalControllerExceptionHandlerTest {
   }
 
   @Test
+  public void testHandleValidationExceptionPreservesAuthorizationFromCollectionCtor() {
+    // Regression: AspectsBatchImpl used to throw ValidationException(String) which dropped the
+    // collection, so AUTHORIZATION subtype mapped to HTTP 400 instead of 403.
+    when(mockRequest.getRequestURI()).thenReturn("/openapi/v3/entity/dataset");
+
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
+    BatchItem item = mock(BatchItem.class);
+    when(item.getUrn()).thenReturn(mock(com.linkedin.common.urn.Urn.class));
+    when(item.getAspectName()).thenReturn("domains");
+    when(item.getChangeType()).thenReturn(com.linkedin.events.metadata.ChangeType.UPSERT);
+    collection.addException(
+        AspectValidationException.forAuth(item, "Unauthorized to create domains on entity"));
+
+    ValidationException ex = new ValidationException(collection);
+
+    ResponseEntity<Map<String, String>> response =
+        exceptionHandler.handleValidationException(ex, mockRequest);
+
+    assertEquals(response.getStatusCode(), HttpStatus.FORBIDDEN);
+    assertNotNull(response.getBody());
+    assertEquals(response.getBody().get("error"), "Authorization Error");
+    assertTrue(response.getBody().get("message").contains("Unauthorized"));
+  }
+
+  @Test
   public void testHandleValidationExceptionWithPrecondition() {
     when(mockRequest.getRequestURI()).thenReturn("/test/endpoint");
 
@@ -507,6 +535,38 @@ public class GlobalControllerExceptionHandlerTest {
     double count =
         meterRegistry.counter("datahub.http.async_timeout", "request_path", "unknown").count();
     assertEquals(count, 1.0);
+  }
+
+  @Test
+  public void testHandleDatabaseTransactionConflict() {
+    DatabaseTransactionConflictException ex =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40001");
+
+    ResponseEntity<Map<String, Object>> response =
+        exceptionHandler.handleDatabaseTransactionConflict(ex);
+
+    assertEquals(response.getStatusCode(), HttpStatus.SERVICE_UNAVAILABLE);
+    assertNotNull(response.getBody());
+    assertEquals(
+        response.getBody().get("error"),
+        "Failed to add after 3 retries due to transaction conflict");
+    assertEquals(response.getBody().get("code"), DatabaseTransactionConflictException.CODE);
+    assertEquals(response.getBody().get("retryable"), true);
+    assertEquals(response.getHeaders().getFirst("Retry-After"), "1");
+  }
+
+  @Test
+  public void testHandleDatabaseTransactionConflict_usesConfiguredRetryAfter() {
+    DatabaseTransactionConflictException ex =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40001", null, 5L);
+
+    ResponseEntity<Map<String, Object>> response =
+        exceptionHandler.handleDatabaseTransactionConflict(ex);
+
+    assertEquals(response.getStatusCode(), HttpStatus.SERVICE_UNAVAILABLE);
+    assertEquals(response.getHeaders().getFirst("Retry-After"), "5");
   }
 
   private static void injectMetricUtils(

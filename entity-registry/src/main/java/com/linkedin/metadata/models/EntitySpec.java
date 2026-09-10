@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 
 /** A specification of a DataHub Entity */
@@ -45,11 +46,21 @@ public interface EntitySpec {
   TyperefDataSchema getAspectTyperefSchema();
 
   /**
-   * Gets the search group for this entity.
+   * Gets the search group for this entity, or {@code null} when unset (entity-named V3 index).
    *
-   * @return the search group name
+   * @return the search group name, or null if the entity is not assigned to a group
    */
+  @Nullable
   String getSearchGroup();
+
+  /**
+   * Whether this entity type bypasses view authorization checks when view authorization is enabled.
+   * Authored via {@code viewUnrestricted} in entity-registry.yml (wired onto {@link
+   * EntityAnnotation}).
+   */
+  default boolean isViewUnrestricted() {
+    return getEntityAnnotation().isViewUnrestricted();
+  }
 
   default List<SearchableFieldSpec> getSearchableFieldSpecs() {
     return getAspectSpecs().stream()

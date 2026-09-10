@@ -1,0 +1,97 @@
+[
+  {
+    "auditHeader": null,
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:io.datahub.test.formsSmokeProperty",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"io.datahub.test.formsSmokeProperty\", \"displayName\": \"Forms Smoke Property\", \"description\": \"Structured property backing the forms smoke test prompt\", \"valueType\": \"urn:li:dataType:datahub.string\", \"cardinality\": \"SINGLE\", \"entityTypes\": [\"urn:li:entityType:datahub.dataset\", \"urn:li:entityType:datahub.chart\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-forms",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-forms-sample-kafka-1,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "value": "{\"name\": \"test-forms-sample-kafka-1\", \"customProperties\": {}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-forms",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-forms-sample-kafka-2,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "value": "{\"name\": \"test-forms-sample-kafka-2\", \"customProperties\": {}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-forms",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-forms-sample-kafka-3,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "value": "{\"name\": \"test-forms-sample-kafka-3\", \"customProperties\": {}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-forms",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,test-forms-sample-chart)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+      "value": "{\"title\": \"test-forms-sample-chart\", \"description\": \"\", \"lastModified\": {\"created\": {\"time\": 1642233600000, \"actor\": \"urn:li:corpuser:datahub\"}}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-forms",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  }
+]

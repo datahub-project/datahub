@@ -9,6 +9,7 @@ import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
+import { pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { AboutFieldTab } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/AboutFieldTab';
 import DrawerFooter from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/DrawerFooter';
 import FieldHeader from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldHeader';
@@ -21,7 +22,7 @@ import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components
 import { SchemaTimelineSection } from '@app/entityV2/shared/tabs/Dataset/Timeline/SchemaTimelineSection';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { TabRenderType } from '@src/app/entityV2/shared/types';
+import { TabRenderType } from '@app/entityV2/shared/types';
 
 import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
 import { useGetEntitiesNotesQuery } from '@graphql/relationships.generated';
@@ -84,7 +85,7 @@ interface Props {
     expandedDrawerFieldPath: string | null;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
     openTimelineDrawer?: boolean;
-    setOpenTimelineDrawer?: any;
+    setOpenTimelineDrawer?: (open: boolean) => void;
     selectPreviousField?: () => void;
     selectNextField?: () => void;
     usageStats?: UsageQueryResult | null;
@@ -123,8 +124,8 @@ export default function SchemaFieldDrawer({
 
     const latestProfile = latestFullTableProfile || latestPartitionProfile;
 
-    const fieldProfile = latestProfile?.fieldProfiles?.find(
-        (profile) => profile.fieldPath === expandedField?.fieldPath,
+    const fieldProfile = latestProfile?.fieldProfiles?.find((profile) =>
+        pathMatchesInsensitiveToV2(profile.fieldPath, expandedField?.fieldPath),
     );
 
     const urn = (baseEntity && baseEntity.dataset && baseEntity.dataset?.urn) || '';
@@ -169,10 +170,6 @@ export default function SchemaFieldDrawer({
     const profiles = profilesData?.dataset?.datasetProfiles || [];
     const [selectedTabKey, setSelectedTabKey] = useState(defaultSelectedTabKey);
 
-    /**
-     * Fetches updated data profiles when the lookback window is changed in the Historical Chart view.
-     * @param lookbackWindow The new time window for data fetching.
-     */
     const fetchDataWithLookbackWindow = useCallback(
         (lookbackWindow: TimeWindow) => {
             if (urn) {
@@ -300,7 +297,7 @@ export default function SchemaFieldDrawer({
             {!!openTimelineDrawer && (
                 <StyledDrawer
                     open={!!openTimelineDrawer}
-                    onClose={() => setOpenTimelineDrawer(false)}
+                    onClose={() => setOpenTimelineDrawer?.(false)}
                     getContainer={() => document.getElementById('entity-profile-sidebar') as HTMLElement}
                     contentWrapperStyle={{ width: '33%' }}
                     mask={false}

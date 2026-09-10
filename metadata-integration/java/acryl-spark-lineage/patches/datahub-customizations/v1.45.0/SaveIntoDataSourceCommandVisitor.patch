@@ -1,0 +1,21 @@
+# Patch for DataHub customizations in SaveIntoDataSourceCommandVisitor.java
+# Upstream version: OpenLineage 1.45.0
+# Generated: 2026-04-01 18:17:06 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/SaveIntoDataSourceCommandVisitor.patch
+#
+--- /Users/treff7es/shadow/datahub/.claude/worktrees/fix-spark-output-lineage/metadata-integration/java/acryl-spark-lineage/patches/upstream-1.45.0/spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java	2026-04-01 20:05:37.966898430 +0200
++++ /Users/treff7es/shadow/datahub/.claude/worktrees/fix-spark-output-lineage/metadata-integration/java/acryl-spark-lineage/src/main/java/io/openlineage/spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java	2026-04-01 20:10:11.649522873 +0200
+@@ -155,6 +155,11 @@
+         .getClass()
+         .getCanonicalName()
+         .equals(JdbcRelationProvider.class.getCanonicalName())) {
++      if (!command.options().get("dbtable").isDefined()
++          || !command.options().get("url").isDefined()) {
++        log.warn("JDBC SaveIntoDataSource missing 'dbtable' or 'url' option; skipping lineage");
++        return Collections.emptyList();
++      }
+       String tableName = command.options().get("dbtable").get();
+       String url = command.options().get("url").get();
+       DatasetIdentifier identifier =

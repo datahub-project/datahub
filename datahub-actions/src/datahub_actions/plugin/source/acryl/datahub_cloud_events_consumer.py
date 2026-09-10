@@ -2,7 +2,6 @@ import logging
 import time
 from typing import List, Optional
 
-import requests
 from pydantic import BaseModel, Field
 from requests.exceptions import (
     ChunkedEncodingError,
@@ -143,10 +142,14 @@ class DataHubEventsConsumer:
         # Remove keys where the value is None
         params = {k: v for k, v in params.items() if v is not None}
 
-        # Pass along the session headers from the graph for authentication.
-        headers = dict(self.graph._session.headers)
-
-        response = requests.get(endpoint, params=params, headers=headers)
+        # Poll through the graph's authenticated session: per-request auth (e.g.
+        # an OAuth token provider in session.auth) only applies to requests made
+        # through it. The read timeout must outlast the server-side long poll,
+        # and a timeout is required at all — sessions have no default, so a
+        # half-open connection would otherwise hang this consumer forever.
+        response = self.graph.session.get(
+            endpoint, params=params, timeout=(poll_timeout_seconds or 30) + 30
+        )
         response.raise_for_status()
 
         external_events_response = ExternalEventsResponse.model_validate(

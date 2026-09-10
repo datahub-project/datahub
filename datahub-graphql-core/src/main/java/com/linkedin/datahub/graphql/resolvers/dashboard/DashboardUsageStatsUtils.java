@@ -35,6 +35,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -118,47 +119,51 @@ public class DashboardUsageStatsUtils {
       Filter filter,
       String dashboardUrn,
       TimeseriesAspectService timeseriesAspectService) {
-    AggregationSpec usersCountAggregation =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.SUM)
-            .setFieldPath("uniqueUserCount");
-    AggregationSpec viewsCountAggregation =
-        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("viewsCount");
-    AggregationSpec executionsCountAggregation =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.SUM)
-            .setFieldPath("executionsCount");
-
-    AggregationSpec usersCountCardinalityAggregation =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.CARDINALITY)
-            .setFieldPath("uniqueUserCount");
-    AggregationSpec viewsCountCardinalityAggregation =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.CARDINALITY)
-            .setFieldPath("viewsCount");
-    AggregationSpec executionsCountCardinalityAggregation =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.CARDINALITY)
-            .setFieldPath("executionsCount");
-
-    AggregationSpec[] aggregationSpecs =
-        new AggregationSpec[] {
-          usersCountAggregation,
-          viewsCountAggregation,
-          executionsCountAggregation,
-          usersCountCardinalityAggregation,
-          viewsCountCardinalityAggregation,
-          executionsCountCardinalityAggregation
-        };
     GenericTable dailyStats =
         timeseriesAspectService.getAggregatedStats(
             opContext,
             Constants.DASHBOARD_ENTITY_NAME,
             Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME,
-            aggregationSpecs,
+            getUsageBucketAggSpecs(),
             filter,
-            createUsageGroupingBuckets(CalendarInterval.DAY));
+            getDailyUsageGroupingBuckets());
+    return mapUsageAggregations(dailyStats, dashboardUrn);
+  }
+
+  /**
+   * The SUM + CARDINALITY aggregation specs for the daily-usage time buckets. Column order is load
+   * bearing: {@link #mapUsageAggregations} reads SUM values at rows 1-3 and CARDINALITY guards at
+   * rows 4-6.
+   */
+  public static AggregationSpec[] getUsageBucketAggSpecs() {
+    return new AggregationSpec[] {
+      new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("uniqueUserCount"),
+      new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("viewsCount"),
+      new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("executionsCount"),
+      new AggregationSpec()
+          .setAggregationType(AggregationType.CARDINALITY)
+          .setFieldPath("uniqueUserCount"),
+      new AggregationSpec()
+          .setAggregationType(AggregationType.CARDINALITY)
+          .setFieldPath("viewsCount"),
+      new AggregationSpec()
+          .setAggregationType(AggregationType.CARDINALITY)
+          .setFieldPath("executionsCount")
+    };
+  }
+
+  /** Daily ({@code CalendarInterval.DAY}) date-histogram grouping for the usage time buckets. */
+  public static GroupingBucket[] getDailyUsageGroupingBuckets() {
+    return createUsageGroupingBuckets(CalendarInterval.DAY);
+  }
+
+  /**
+   * Maps one dashboard's daily-usage aggregation table (from either {@code getAggregatedStats} or
+   * the per-URN slice of {@code batchGetAggregatedStats}) into usage aggregation buckets. Assumes
+   * the column layout produced by {@link #getUsageBucketAggSpecs} under a daily date-histogram.
+   */
+  public static List<DashboardUsageAggregation> mapUsageAggregations(
+      @Nonnull GenericTable dailyStats, String dashboardUrn) {
     List<DashboardUsageAggregation> buckets = new ArrayList<>();
 
     for (StringArray row : dailyStats.getRows()) {
@@ -188,7 +193,7 @@ public class DashboardUsageStatsUtils {
           throw new IllegalArgumentException("Failed to convert viewsCount from ES to int", e);
         }
       }
-      if (!row.get(3).equals(ES_NULL_VALUE) && !row.get(5).equals(ES_NULL_VALUE)) {
+      if (!row.get(3).equals(ES_NULL_VALUE) && !row.get(6).equals(ES_NULL_VALUE)) {
         try {
           if (Integer.valueOf(row.get(6)) != 0) {
             usageAggregationMetrics.setExecutionsCount(Integer.valueOf(row.get(3)));
@@ -279,7 +284,7 @@ public class DashboardUsageStatsUtils {
               "Failed to convert user usage count from ES to int", e);
         }
       }
-      if (!row.get(2).equals(ES_NULL_VALUE) && row.get(5).equals(ES_NULL_VALUE)) {
+      if (!row.get(2).equals(ES_NULL_VALUE) && !row.get(5).equals(ES_NULL_VALUE)) {
         try {
           if (Integer.valueOf(row.get(5)) != 0) {
             userUsageCount.setViewsCount(Integer.valueOf(row.get(2)));
@@ -303,7 +308,10 @@ public class DashboardUsageStatsUtils {
     }
 
     // Sort in descending order
-    userUsageCounts.sort((a, b) -> (b.getUsageCount() - a.getUsageCount()));
+    userUsageCounts.sort(
+        (a, b) ->
+            (Objects.requireNonNullElse(b.getUsageCount(), 0)
+                - Objects.requireNonNullElse(a.getUsageCount(), 0)));
     return userUsageCounts;
   }
 
@@ -316,48 +324,10 @@ public class DashboardUsageStatsUtils {
     return new GroupingBucket[] {timestampBucket};
   }
 
+  /** Builds a per-URN usage filter; see {@link #buildUsageFilter} for shared logic. */
   public static Filter createUsageFilter(
       String dashboardUrn, Long startTime, Long endTime, boolean byBucket) {
-    Filter filter = new Filter();
-    final ArrayList<Criterion> criteria = new ArrayList<>();
-
-    // Add filter for urn == dashboardUrn
-    Criterion dashboardUrnCriterion = buildCriterion(ES_FIELD_URN, Condition.EQUAL, dashboardUrn);
-    criteria.add(dashboardUrnCriterion);
-
-    if (startTime != null) {
-      // Add filter for start time
-      Criterion startTimeCriterion =
-          buildCriterion(
-              ES_FIELD_TIMESTAMP, Condition.GREATER_THAN_OR_EQUAL_TO, Long.toString(startTime));
-      criteria.add(startTimeCriterion);
-    }
-
-    if (endTime != null) {
-      // Add filter for end time
-      Criterion endTimeCriterion =
-          buildCriterion(
-              ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, Long.toString(endTime));
-      criteria.add(endTimeCriterion);
-    }
-
-    if (byBucket) {
-      // Add filter for presence of eventGranularity - only consider bucket stats and not absolute
-      // stats
-      // since unit is mandatory, we assume if eventGranularity contains unit, then it is not null
-      Criterion onlyTimeBucketsCriterion =
-          buildCriterion(ES_FIELD_EVENT_GRANULARITY, Condition.CONTAIN, "unit");
-      criteria.add(onlyTimeBucketsCriterion);
-    } else {
-      // Add filter for absence of eventGranularity - only consider absolute stats
-      Criterion excludeTimeBucketsCriterion = buildIsNullCriterion(ES_FIELD_EVENT_GRANULARITY);
-      criteria.add(excludeTimeBucketsCriterion);
-    }
-
-    filter.setOr(
-        new ConjunctiveCriterionArray(
-            ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria)))));
-    return filter;
+    return buildUsageFilter(dashboardUrn, startTime, endTime, byBucket);
   }
 
   public static Long timeMinusOneMonth(long time) {
@@ -366,5 +336,128 @@ public class DashboardUsageStatsUtils {
     return time - (31 * oneDayMillis + 1);
   }
 
+  /**
+   * Builds a usage filter without a per-URN criterion; see {@link #buildUsageFilter} for shared
+   * logic. Use this when calling batch APIs that add URN filtering internally.
+   */
+  public static Filter buildSharedUsageFilter(
+      @Nullable Long startTime, @Nullable Long endTime, boolean byBucket) {
+    return buildUsageFilter(null, startTime, endTime, byBucket);
+  }
+
+  private static Filter buildUsageFilter(
+      @Nullable String dashboardUrn,
+      @Nullable Long startTime,
+      @Nullable Long endTime,
+      boolean byBucket) {
+    final ArrayList<Criterion> criteria = new ArrayList<>();
+
+    if (dashboardUrn != null) {
+      // Add filter for urn == dashboardUrn
+      criteria.add(buildCriterion(ES_FIELD_URN, Condition.EQUAL, dashboardUrn));
+    }
+
+    if (startTime != null) {
+      // Add filter for start time
+      criteria.add(
+          buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.GREATER_THAN_OR_EQUAL_TO, Long.toString(startTime)));
+    }
+
+    if (endTime != null) {
+      // Add filter for end time
+      criteria.add(
+          buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, Long.toString(endTime)));
+    }
+
+    if (byBucket) {
+      // Add filter for presence of eventGranularity - only consider bucket stats and not absolute
+      // stats
+      // since unit is mandatory, we assume if eventGranularity contains unit, then it is not null
+      criteria.add(buildCriterion(ES_FIELD_EVENT_GRANULARITY, Condition.CONTAIN, "unit"));
+    } else {
+      // Add filter for absence of eventGranularity - only consider absolute stats
+      criteria.add(buildIsNullCriterion(ES_FIELD_EVENT_GRANULARITY));
+    }
+
+    Filter filter = new Filter();
+    filter.setOr(
+        new ConjunctiveCriterionArray(
+            ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria)))));
+    return filter;
+  }
+
+  /** Returns aggregation specs for counting distinct users via HyperLogLog cardinality. */
+  public static AggregationSpec[] getUniqueUserCountAggSpecs() {
+    return new AggregationSpec[] {
+      new AggregationSpec()
+          .setAggregationType(AggregationType.CARDINALITY)
+          .setFieldPath("userCounts.user")
+    };
+  }
+
+  /**
+   * Returns a STRING grouping bucket for {@code userCounts.user} capped at {@code size}, ordered by
+   * the first aggregation spec descending. ES returns exactly {@code size} buckets already ranked
+   * by metric — no client-side sort needed.
+   */
+  public static GroupingBucket[] getTopUsersGroupingBuckets(int size) {
+    return new GroupingBucket[] {
+      new GroupingBucket()
+          .setKey("userCounts.user")
+          .setType(GroupingBucketType.STRING_GROUPING_BUCKET)
+          .setSize(size)
+          .setOrderByMetric(true)
+          .setAscending(false)
+    };
+  }
+
+  /** Returns aggregation specs for summing per-user usage counts (used for top-N ordering). */
+  public static AggregationSpec[] getTopUsersSumAggSpecs() {
+    return new AggregationSpec[] {
+      new AggregationSpec()
+          .setAggregationType(AggregationType.SUM)
+          .setFieldPath("userCounts.usageCount")
+    };
+  }
+
+  /**
+   * Parses a {@link GenericTable} from a STRING-grouped top-users batch aggregation result into a
+   * list of {@link CorpUser}s. Expected column 0: userCounts.user URN. ES returns rows already
+   * ordered by metric descending (via {@code orderByMetric=true}), so no client-side sort is
+   * needed.
+   */
+  public static List<CorpUser> buildTopUsersFromBatchAggResult(@Nonnull GenericTable table) {
+    return table.getRows().stream()
+        .filter(row -> row.size() > 0 && !ES_NULL_VALUE.equals(row.get(0)))
+        .map(
+            row -> {
+              CorpUser user = new CorpUser();
+              user.setUrn(row.get(0));
+              return user;
+            })
+        .collect(Collectors.toList());
+  }
+
+  private static long parseCountOrZero(@Nullable String value) {
+    if (value == null || ES_NULL_VALUE.equals(value)) {
+      return 0L;
+    }
+    try {
+      return Long.parseLong(value);
+    } catch (NumberFormatException e) {
+      return 0L;
+    }
+  }
+
   private DashboardUsageStatsUtils() {}
+
+  /** Maps raw timeseries documents (e.g. from the batch loader) into dashboard usage metrics. */
+  public static List<DashboardUsageMetrics> mapDashboardUsageMetrics(
+      @Nullable QueryContext context, @Nonnull List<EnvelopedAspect> aspects) {
+    return aspects.stream()
+        .map(m -> DashboardUsageMetricMapper.map(context, m))
+        .collect(Collectors.toList());
+  }
 }

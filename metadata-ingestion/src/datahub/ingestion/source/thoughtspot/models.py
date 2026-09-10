@@ -552,9 +552,16 @@ class LogicalTableResponse(ThoughtSpotMetadataHeader):
         alias="physicalDatabaseName",
         description=(
             "External database/catalog name on the backing source. "
-            "Sourced from ``metadata_detail.physicalDatabaseName``. "
-            "Falls back to the connection's ``default_database`` when "
-            "absent."
+            "Sourced from "
+            "``metadata_detail.logicalTableContent.tableMappingInfo.databaseName`` "
+            "(see the flattening logic in ``client.py``) — NOT the "
+            "top-level ``physicalDatabaseName`` key this field's alias "
+            "might suggest. Falls back to the connection's "
+            "``default_database`` when absent, though TS doesn't "
+            "currently expose that at the connection level either (see "
+            "``ConnectionResponse.default_database``), so this field is "
+            "effectively the sole source for the database component of "
+            "cross-platform lineage URNs."
         ),
     )
 

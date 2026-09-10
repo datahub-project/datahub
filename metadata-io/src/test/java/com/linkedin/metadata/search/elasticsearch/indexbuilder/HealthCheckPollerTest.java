@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.CircuitBreakerState.HealthState;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -23,13 +24,16 @@ public class HealthCheckPollerTest {
 
   @Mock private ESIndexBuilder mockIndexBuilder;
   @Mock private CircuitBreakerState mockCircuitBreakerState;
+  @Mock private OperationContext mockOpContext;
 
   private HealthCheckPoller poller;
 
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
-    poller = new HealthCheckPoller(mockIndexBuilder, mockCircuitBreakerState, 15, 90.0, 10);
+    poller =
+        new HealthCheckPoller(
+            mockOpContext, mockIndexBuilder, mockCircuitBreakerState, 15, 90.0, 10);
   }
 
   /**
@@ -40,7 +44,8 @@ public class HealthCheckPollerTest {
   @Test
   public void testClusterUnresponsive_IOExceptionTransitionsToRED() throws IOException {
     // Setup: getClusterHealth() throws IOException (network failure)
-    when(mockIndexBuilder.getClusterHealth()).thenThrow(new IOException("Connection timeout"));
+    when(mockIndexBuilder.getClusterHealth(any(OperationContext.class)))
+        .thenThrow(new IOException("Connection timeout"));
 
     // Execute: poll should catch IOException and transition to RED
     poller.poll();
@@ -57,7 +62,7 @@ public class HealthCheckPollerTest {
   @Test
   public void testClusterUnresponsive_OpenSearchExceptionTransitionsToRED() throws IOException {
     // Setup: getClusterHealth() throws OpenSearchException (ES API error)
-    when(mockIndexBuilder.getClusterHealth())
+    when(mockIndexBuilder.getClusterHealth(any(OperationContext.class)))
         .thenThrow(new OpenSearchException("Cluster not available"));
 
     // Execute: poll should catch OpenSearchException and transition to RED
@@ -74,7 +79,8 @@ public class HealthCheckPollerTest {
   @Test
   public void testUnexpectedException_TransitionsToRED() throws IOException {
     // Setup: getClusterHealth() throws unexpected exception
-    when(mockIndexBuilder.getClusterHealth()).thenThrow(new RuntimeException("Unexpected error"));
+    when(mockIndexBuilder.getClusterHealth(any(OperationContext.class)))
+        .thenThrow(new RuntimeException("Unexpected error"));
 
     // Execute: poll should catch unexpected exception and transition to RED
     poller.poll();

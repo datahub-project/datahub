@@ -10,6 +10,7 @@ import com.linkedin.metadata.config.pgqueue.PgQueueConsumerPollSettings;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.metadata.kafka.DataHubUsageEventsProcessor;
 import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
+import com.linkedin.metadata.kafka.context.inbound.DefaultInboundBatchAffinityResolver;
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.listener.GenericKafkaListener;
@@ -65,7 +66,8 @@ public class PgQueueMaePollerSourcesConfiguration {
                 List.of(topic),
                 usageEventsPollMaxBatch(),
                 "pgqueue-usage-" + groupId,
-                sleep.emptyPoll(),
+                sleep.emptyPollMin(),
+                usageEventsEmptyPollSleep(),
                 sleep.missingTopic(),
                 sleep.errorRecovery(),
                 (logicalTopic, batch, ctx) -> {
@@ -159,6 +161,7 @@ public class PgQueueMaePollerSourcesConfiguration {
                         List.of(mclVersionedTopicName, mclTimeseriesTopicName),
                         metadataChangeLogPollMaxBatch(),
                         "pgqueue-mcl-" + gid,
+                        sleep.emptyPollMin(),
                         mclEmptyPollSleep,
                         sleep.missingTopic(),
                         sleep.errorRecovery(),
@@ -210,8 +213,22 @@ public class PgQueueMaePollerSourcesConfiguration {
     return PgQueueConsumerPollSettings.requireSleep(postgresSqlSetupProperties);
   }
 
+  private long usageEventsEmptyPollSleep() {
+    return PgQueueConsumerPollSettings.requireEmptyPollSleep(
+        Optional.ofNullable(configurationProvider.getMaeConsumer())
+            .map(MaeConsumerConfiguration::getPgQueue)
+            .map(MaeConsumerConfiguration.PgQueuePoll::getUsageEventsEmptyPollSleepMillis)
+            .orElse(null),
+        "maeConsumer.pgQueue.usageEventsEmptyPollSleepMillis");
+  }
+
   private long mclEmptyPollSleep() {
-    return PgQueueConsumerPollSettings.requireMclEmptyPollSleep(postgresSqlSetupProperties);
+    return PgQueueConsumerPollSettings.requireEmptyPollSleep(
+        Optional.ofNullable(configurationProvider.getMaeConsumer())
+            .map(MaeConsumerConfiguration::getPgQueue)
+            .map(MaeConsumerConfiguration.PgQueuePoll::getMetadataChangeLogEmptyPollSleepMillis)
+            .orElse(null),
+        "maeConsumer.pgQueue.metadataChangeLogEmptyPollSleepMillis");
   }
 
   private static PgQueuePollerRegistration buildBatchRegistration(
@@ -245,6 +262,7 @@ public class PgQueueMaePollerSourcesConfiguration {
         List.of(mclVersionedTopicName, mclTimeseriesTopicName),
         metadataChangeLogPollMaxBatch(configurationProvider),
         "pgqueue-mcl-batch-" + gid,
+        sleep.emptyPollMin(),
         mclEmptyPollSleep,
         sleep.missingTopic(),
         sleep.errorRecovery(),
@@ -266,6 +284,11 @@ public class PgQueueMaePollerSourcesConfiguration {
             }
           }
           if (!mcls.isEmpty()) {
+            // pgQueue is a single-deployment transport — affinity-aware partitioning
+            // (InboundBatchAffinityResolver, applied at the Kafka batch ingress points) is not
+            // wired here by design. Multi-affinity deployments use Kafka; pgQueue users are
+            // single-context single-deployment and invokeBatch under systemOperationContext is
+            // the intended behavior.
             for (MetadataChangeLogHook hook : initHooks) {
               try {
                 hook.invokeBatch(systemOperationContext, mcls);
@@ -338,13 +361,17 @@ public class PgQueueMaePollerSourcesConfiguration {
     Map<String, Set<String>> aspectsToDrop =
         parseAspectsToDrop(configurationProvider, objectMapper);
     MCLKafkaListener listener = new MCLKafkaListener();
+    // pgQueue paths don't slice batches via the affinity resolver (single-deployment transport,
+    // see class-level note). The no-op default satisfies the listener's init() signature without
+    // pulling InboundBatchAffinityResolver into Spring autowiring on this @Bean.
     return listener.init(
         systemOperationContext,
         consumerGroupId,
         groupHooks,
         fineGrained,
         aspectsToDrop,
-        inboundContextResolver);
+        inboundContextResolver,
+        new DefaultInboundBatchAffinityResolver());
   }
 
   private static Map<String, Set<String>> parseAspectsToDrop(

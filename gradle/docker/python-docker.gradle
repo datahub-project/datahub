@@ -1,34 +1,60 @@
-// Shared configuration for Python Docker image builds.
-// Apply this script after docker.gradle in any Python Docker build.gradle:
-//
-//   apply from: "../../gradle/docker/docker.gradle"
-//   apply from: "../../gradle/docker/python-docker.gradle"
-//
-// Provides:
-//   - netrc secret injection (via DATAHUB_NETRC_PATH or docker/snippets/uv/.netrc)
-//   - resolveUvBuildArgs(Map) — adds UV_PROFILE, DEFAULT_INDEX_URL, EXTRA_INDEX_URLS
+// Shared config for Python Docker image builds. Apply after docker.gradle.
+// Provides netrc secret injection and resolveUvBuildArgs (UV_PROFILE / index URLs).
+// Profile resolution (CLI -P > UV_DOCKER_PROFILE env > gradle.properties) is in settings.gradle.
+
+apply from: "${rootProject.projectDir}/gradle/python/netrc.gradle"
 
 def netrcFile = {
   def path = System.getenv("DATAHUB_NETRC_PATH") ?: "${rootProject.projectDir}/docker/snippets/uv/.netrc"
   def file = new File(path)
-  return file.exists() ? file.absolutePath : null
+  // An empty netrc (e.g. created unconditionally by CI without credentials) is skipped:
+  // the Dockerfile secret mounts are optional, and mounting a zero-byte secret only
+  // triggers buildx bake fs entitlement checks for paths outside the working directory.
+  return (file.exists() && file.length() > 0) ? file.absolutePath : null
 }()
 
+validateDatahubNetrc(netrcFile)
+
+def uvDockerProfile = gradle.ext['datahub.dependencies.python.uvDockerProfile']
+
 if (netrcFile) {
-  docker {
-    netrcPath = netrcFile
+  // Property.set required: DSL `=` can replace the Property with a String on this extension.
+  docker.netrcPath.set(netrcFile)
+  logger.lifecycle("[python-docker] netrc secret enabled for ${project.path}: ${netrcFile}")
+}
+
+tasks.withType(Exec).configureEach {
+  if (name == 'docker' || name == 'dockerFromCache') {
+    environment 'UV_DOCKER_PROFILE', uvDockerProfile
   }
 }
 
+// Layering: custom = from-scratch (requires pipExtraIndexUrl); existing profile =
+// copy + optional EXTRA_INDEX_URLS. Non-vanilla pipMirrorUrl rejected on existing profiles.
 ext.resolveUvBuildArgs = { Map args ->
   def pipMirrorUrl     = gradle.ext['datahub.dependencies.python.pipMirrorUrl']
   def pipExtraIndexUrl = gradle.ext['datahub.dependencies.python.pipExtraIndexUrl']
-  def uvProfile        = gradle.ext['datahub.dependencies.python.uvProfile']
-  def effectiveProfile = (uvProfile == 'default' && pipExtraIndexUrl) ? 'custom' : uvProfile
-  args.UV_PROFILE = effectiveProfile
-  if (effectiveProfile == 'custom') {
-    args.DEFAULT_INDEX_URL = pipMirrorUrl
-    if (pipExtraIndexUrl) {
+  def vanilla = "https://pypi.python.org/simple"
+  def mirror = pipMirrorUrl ? pipMirrorUrl.replaceAll('/+$', "") : ""
+  def mirrorIsOverride = mirror && mirror != vanilla
+  def hasExtra = pipExtraIndexUrl ? true : false
+  def isCustom = (uvDockerProfile == "custom")
+  gradle.ext['resolveUvProfileFile'](uvDockerProfile, true)
+  if (isCustom) {
+    if (!hasExtra) {
+      throw new GradleException(
+        "UV profile 'custom' requires pipExtraIndexUrl (got none). Set datahub.dependencies.python.pipExtraIndexUrl, or use an existing profile (default/chainguard/chainguard-ci).")
+    }
+    args.UV_PROFILE = "custom"
+    args.DEFAULT_INDEX_URL = mirrorIsOverride ? pipMirrorUrl : vanilla
+    args.EXTRA_INDEX_URLS = pipExtraIndexUrl
+  } else {
+    if (mirrorIsOverride) {
+      throw new GradleException(
+        "UV profile '${uvDockerProfile}' is an existing profile; a non-vanilla pipMirrorUrl (default-index override) would drop its own indexes. Either switch to uvDockerProfile=custom (from-scratch) or use pipExtraIndexUrl to add indexes on top.")
+    }
+    args.UV_PROFILE = uvDockerProfile
+    if (hasExtra) {
       args.EXTRA_INDEX_URLS = pipExtraIndexUrl
     }
   }

@@ -145,3 +145,161 @@ def test_fetch_streams_for_source(source):
         "order_date",
         "total",
     ]
+
+
+def test_fetch_streams_reports_ambiguous_stream_namespaces(source):
+    connection = AirbyteConnectionPartial(
+        connection_id="connection-1",
+        name="Test Connection",
+        source_id="source-1",
+        destination_id="destination-1",
+        status="active",
+        ambiguous_stream_namespaces={"users": ["public", "analytics"]},
+        sync_catalog=AirbyteSyncCatalog(
+            streams=[
+                AirbyteStreamConfig(
+                    stream=AirbyteStream(name="users", namespace=None),
+                    config={"selected": True},
+                )
+            ]
+        ),
+    )
+    pipeline_info = AirbytePipelineInfo(
+        workspace=AirbyteWorkspacePartial(
+            workspace_id="workspace-1", name="Test Workspace"
+        ),
+        connection=connection,
+        source=AirbyteSourcePartial(
+            source_id="source-1",
+            name="Test Source",
+            source_definition_id="source-def-1",
+            workspace_id="workspace-1",
+            configuration={"schema": "public"},
+        ),
+        destination=AirbyteDestinationPartial(
+            destination_id="destination-1",
+            name="Test Destination",
+            destination_definition_id="dest-def-1",
+            workspace_id="workspace-1",
+            configuration={},
+        ),
+    )
+
+    streams = source._fetch_streams_for_source(pipeline_info)
+
+    assert len(streams) == 1
+    assert streams[0].details.namespace == "public"
+    assert any(
+        "Ambiguous Stream Namespace" in str(warning)
+        for warning in source.report.warnings
+    )
+
+
+def _pipeline_with_connection(
+    connection: AirbyteConnectionPartial,
+) -> AirbytePipelineInfo:
+    return AirbytePipelineInfo(
+        workspace=AirbyteWorkspacePartial(
+            workspace_id="workspace-1", name="Test Workspace"
+        ),
+        connection=connection,
+        source=AirbyteSourcePartial(
+            source_id="source-1",
+            name="Test Source",
+            source_definition_id="source-def-1",
+            workspace_id="workspace-1",
+            configuration={},
+        ),
+        destination=AirbyteDestinationPartial(
+            destination_id="destination-1",
+            name="Test Destination",
+            destination_definition_id="dest-def-1",
+            workspace_id="workspace-1",
+            configuration={},
+        ),
+    )
+
+
+def _connection_with_one_stream(**overrides: object) -> AirbyteConnectionPartial:
+    return AirbyteConnectionPartial(
+        connection_id="connection-1",
+        name="Test Connection",
+        source_id="source-1",
+        destination_id="destination-1",
+        status="active",
+        sync_catalog=AirbyteSyncCatalog(
+            streams=[
+                AirbyteStreamConfig(
+                    stream=AirbyteStream(name="users", namespace="public"),
+                    config={"selected": True},
+                )
+            ]
+        ),
+        **overrides,
+    )
+
+
+def test_fetch_streams_warns_once_per_source_when_streams_api_missing(source):
+    """An unavailable /streams response costs namespaces and column-level
+    lineage, so it has to reach the report — but only once per source, not
+    once per connection. Must not raise a report.failure: that would disable
+    stale-entity removal for the whole run."""
+    pipeline_info = _pipeline_with_connection(
+        _connection_with_one_stream(
+            streams_api_unavailable=True,
+            streams_api_unavailable_status_code=500,
+            streams_api_unavailable_message="500 Internal Server Error",
+        )
+    )
+
+    source._fetch_streams_for_source(pipeline_info)
+    source._fetch_streams_for_source(pipeline_info)
+
+    matching = [
+        warning
+        for warning in source.report.warnings
+        if "Stream Metadata Unavailable" in str(warning)
+    ]
+    assert len(matching) == 1
+    assert "HTTP 500" in matching[0].context[0]
+    assert "detail=500 Internal Server Error" in matching[0].context[0]
+    assert "default_schema" in matching[0].message
+    assert not source.report.failures
+
+
+def test_fetch_streams_warns_with_no_status_for_connection_error(source):
+    pipeline_info = _pipeline_with_connection(
+        _connection_with_one_stream(
+            streams_api_unavailable=True,
+            streams_api_unavailable_message="Error connecting to Airbyte API",
+        )
+    )
+
+    source._fetch_streams_for_source(pipeline_info)
+
+    matching = [
+        warning
+        for warning in source.report.warnings
+        if "Stream Metadata Unavailable" in str(warning)
+    ]
+    assert len(matching) == 1
+    assert "no HTTP status (network or connection error)" in matching[0].context[0]
+    assert "detail=Error connecting to Airbyte API" in matching[0].context[0]
+    assert not source.report.failures
+
+
+def test_fetch_streams_reports_skipped_stream_payloads(source):
+    pipeline_info = _pipeline_with_connection(
+        _connection_with_one_stream(
+            skipped_stream_payloads=[
+                "configurations.streams[1] (orders): 1 invalid field(s)"
+            ]
+        )
+    )
+
+    source._fetch_streams_for_source(pipeline_info)
+
+    assert any(
+        "Unreadable Stream Payload" in str(warning)
+        for warning in source.report.warnings
+    )

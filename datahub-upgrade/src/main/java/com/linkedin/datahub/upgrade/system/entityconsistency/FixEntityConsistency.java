@@ -14,8 +14,9 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * A {@link NonBlockingSystemUpgrade} upgrade job that finds and fixes consistency issues.
  *
- * <p>By default, this upgrade runs in dry-run mode, which only logs what would be changed without
- * making actual modifications. Set dryRun=false to apply fixes.
+ * <p>Per-check mode under {@code systemUpdate.entityConsistency.checks} controls whether each check
+ * is disabled, dry-run, or active. Job-level {@code dryRun} is a safety ceiling. Orphan index
+ * document cleanup runs on a configurable cadence (default monthly).
  *
  * <p>Configuration is loaded from {@link EntityConsistencyConfiguration}.
  */

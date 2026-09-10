@@ -31,8 +31,14 @@ extend type Query {
   """
   Fetch the latest product update information from configured JSON source.
   Returns null if the JSON source is unavailable or feature is disabled.
+
+  Optional locale (e.g. "ja", "pt-BR") selects translated copy from the JSON
+  i18n map. Missing translations fall back to the default English fields.
   """
-  latestProductUpdate(refreshCache: Boolean = false): ProductUpdate
+  latestProductUpdate(
+    refreshCache: Boolean = false
+    locale: String
+  ): ProductUpdate
 }
 
 extend type Mutation {
@@ -98,6 +104,11 @@ type PlatformPrivileges {
   Whether the user should be able to create new Domains
   """
   createDomains: Boolean!
+
+  """
+  Whether the user should be able to create new Logical Models
+  """
+  createLogicalModels: Boolean!
 
   """
   Whether the user should be able to manage Domains
@@ -534,6 +545,16 @@ type AuthConfig {
   Whether token-based auth is enabled.
   """
   tokenAuthEnabled: Boolean!
+
+  """
+  Whether creating access tokens with no expiry is allowed.
+  """
+  allowNoExpiry: Boolean!
+
+  """
+  ISO-8601 durations that may be used when creating access tokens, in display order.
+  """
+  allowedAccessTokenDurations: [String!]!
 }
 
 """
@@ -668,11 +689,6 @@ type FeatureFlagsConfig {
   platformBrowseV2: Boolean!
 
   """
-  Whether to show the new lineage visualization.
-  """
-  lineageGraphV2: Boolean!
-
-  """
   Whether we should show CTAs in the UI related to moving to DataHub Cloud by DataHub.
   """
   showAcrylInfo: Boolean!
@@ -725,6 +741,12 @@ type FeatureFlagsConfig {
   Allows the V2 theme to be toggled by users.
   """
   themeV2Toggleable: Boolean!
+
+  """
+  If turned on, show the light/dark mode toggle in Appearance settings and apply the dark color theme.
+  Controlled by THEME_DARK_MODE_ENABLED.
+  """
+  themeDarkModeEnabled: Boolean!
 
   """
   Enables links to schema field-level lineage on lineage explorer.
@@ -805,6 +827,12 @@ type FeatureFlagsConfig {
   showStatsTabRedesign: Boolean!
 
   """
+  If enabled, render lineage filter nodes ("N shown of M" cards) in the lineage graph.
+  If disabled, pagination and search controls live on the expand/contract buttons instead.
+  """
+  showLineageFilterNodes: Boolean!
+
+  """
   If turned on, show the re-designed home page
   """
   showHomePageRedesign: Boolean!
@@ -813,11 +841,6 @@ type FeatureFlagsConfig {
   Whether product updates on the sidebar is enabled. Will go to oss.
   """
   showProductUpdates: Boolean!
-
-  """
-  Enables the redesign of the lineage v2 graph
-  """
-  lineageGraphV3: Boolean!
 
   """
   Enables logical models feature
@@ -843,6 +866,13 @@ type FeatureFlagsConfig {
   Enables displaying the dataset summary page
   """
   datasetSummaryPageV1: Boolean!
+
+  """
+  If turned on, enables the Metrics feature end-to-end: the Metrics page in the nav, the
+  /metrics route, and downstream backend wiring once the Metric entity ships.
+  Defaults off in OSS while the feature is in development.
+  """
+  metricsEnabled: Boolean!
 
   """
   Enables displaying the ingestion onboarding redesign
@@ -875,6 +905,13 @@ type FeatureFlagsConfig {
   hideLineageInSearchCards: Boolean!
 
   """
+  Whether the data product lineage view is enabled.
+  When enabled, navigating to lineage from a Data Product shows its member entities
+  and their upstream/downstream connections.
+  """
+  dataProductLineageEnabled: Boolean!
+
+  """
   If enabled, shows tests in the health icon on entity pages.
   """
   showTestsInHealthIcon: Boolean!
@@ -883,6 +920,19 @@ type FeatureFlagsConfig {
   If enabled, internationalization (i18n) features are active.
   """
   i18nEnabled: Boolean!
+
+  """
+  If enabled, the React app emits browser (RUM) OpenTelemetry spans (page load, route changes,
+  fetch/GraphQL), exported through the frontend /otel/v1/traces proxy and correlated with backend
+  traces. Controlled by BROWSER_TRACING_ENABLED.
+  """
+  browserTracingEnabled: Boolean!
+
+  """
+  If enabled, the React app emits Core Web Vitals (LCP/CLS/FID/FCP/TTFB) as OpenTelemetry spans.
+  Requires browserTracingEnabled. Controlled by BROWSER_WEB_VITALS_ENABLED.
+  """
+  browserWebVitalsEnabled: Boolean!
 }
 
 """
@@ -1013,7 +1063,13 @@ type ProductUpdate {
   id: String!
 
   """
-  Title of the update notification
+  Release month in YYYY-MM format, used to generate a localized default title when title is empty
+  """
+  releaseMonth: String
+
+  """
+  Optional title override for the update notification.
+  Empty when the UI should generate its localized monthly title.
   """
   title: String!
 
@@ -1060,13 +1116,13 @@ type ProductUpdate {
 
   """
   Call-to-action button text (deprecated, use primaryCtaText instead)
-  Kept for backward compatibility
+  Kept for backward compatibility. Empty when the UI should generate localized copy.
   """
   ctaText: String!
 
   """
   Call-to-action link URL, with telemetry client ID appended (deprecated, use primaryCtaLink instead)
-  Kept for backward compatibility
+  Kept for backward compatibility. Empty when the UI should generate the release URL from the update id.
   """
   ctaLink: String!
 

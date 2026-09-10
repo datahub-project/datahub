@@ -34,6 +34,7 @@ export function GraphCard({
     loading,
     graphHeight = '350px',
     width = '100%',
+    gap,
     renderGraph,
     renderControls,
     isEmpty,
@@ -53,7 +54,7 @@ export function GraphCard({
     };
 
     return (
-        <CardContainer maxWidth={width} data-testid={dataTestId}>
+        <CardContainer maxWidth={width} gap={gap} data-testid={dataTestId}>
             {showHeader && (
                 <GraphCardHeader>
                     <PageTitle title={title} subTitle={subTitle} variant="sectionHeader" />
@@ -69,7 +70,11 @@ export function GraphCard({
 
             {!loading && (
                 <GraphCardBody>
-                    <GraphContainer $height={graphHeight} $isEmpty={isEmpty}>
+                    <GraphContainer
+                        $height={graphHeight}
+                        $isEmpty={isEmpty}
+                        data-testid={isEmpty ? `${dataTestId}-chart-empty` : `${dataTestId}-chart`}
+                    >
                         {renderGraph()}
                     </GraphContainer>
                     {isEmpty &&
@@ -83,7 +88,7 @@ export function GraphCard({
                                     )}
                                     <Text>{resolvedEmptyMessage}</Text>
                                     {moreInfoModalContent && (
-                                        <LinkText color="primary" onClick={() => setShowInfoModal(true)}>
+                                        <LinkText color="hyperlinks" onClick={() => setShowInfoModal(true)}>
                                             {t('graphCard.moreInfo')}
                                         </LinkText>
                                     )}

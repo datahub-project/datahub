@@ -152,7 +152,10 @@ export const DocumentSummaryTab: React.FC<DocumentSummaryTabProps> = ({ onDelete
                             <Breadcrumb>
                                 {[...parentDocuments].reverse().map((parent, index) => (
                                     <React.Fragment key={parent.urn}>
-                                        <BreadcrumbLink onClick={() => handleParentClick(parent.urn)}>
+                                        <BreadcrumbLink
+                                            data-testid="parent-breadcrumb-link"
+                                            onClick={() => handleParentClick(parent.urn)}
+                                        >
                                             {parent.info?.title || t('document.untitledFallback')}
                                         </BreadcrumbLink>
                                         {index < parentDocuments.length - 1 && (

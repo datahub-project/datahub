@@ -5,12 +5,14 @@ import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.messaging.PgQueueMessagingTransportCondition;
 import com.linkedin.metadata.config.postgres.PgQueueSetupOptions;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
+import com.linkedin.metadata.event.PgQueueGenericProducer;
 import com.linkedin.metadata.event.PgQueueUsageEventPublisher;
 import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.queue.MetadataQueueStore;
 import com.linkedin.metadata.queue.PgQueuePayloadCompression;
 import com.linkedin.metadata.queue.QueueTopicDefaults;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
@@ -19,8 +21,12 @@ import org.springframework.context.annotation.Configuration;
 @Conditional(PgQueueMessagingTransportCondition.class)
 public class PgQueueUsageEventPublisherConfiguration {
 
-  @Bean(name = {"usageEventPublisher", "dataHubUsageEventProducer"})
-  public UsageEventPublisher pgQueueUsageEventPublisher(
+  /**
+   * OTEL {@code DataHubUsageSpanExporter} publishes backend audit/login events through this bean.
+   * Without it, usage export is skipped under pgQueue and the usage index stays empty.
+   */
+  @Bean(name = "dataHubUsageGenericProducer")
+  public PgQueueGenericProducer dataHubUsageGenericProducer(
       MetadataQueueStore metadataQueueStore,
       ObjectProvider<PostgresSqlSetupProperties> postgresSqlSetupPropertiesProvider,
       ObjectProvider<ConfigurationProvider> configurationProvider) {
@@ -31,8 +37,7 @@ public class PgQueueUsageEventPublisherConfiguration {
     QueueTopicDefaults defaults =
         queueOpts != null
             ? QueueTopicDefaults.fromPgQueueSetup(queueOpts)
-            : new QueueTopicDefaults(
-                1, 0, 0L, 0L, false, PgQueueUsageEventPublisher.JSON_CONTENT_TYPE);
+            : new QueueTopicDefaults(1, 0, 0L, 0L, false, PgQueueGenericProducer.JSON_CONTENT_TYPE);
     if (pgProps == null) {
       throw new IllegalStateException(
           "PostgresSqlSetupProperties is required when datahub.messaging.transport=pgqueue");
@@ -44,11 +49,18 @@ public class PgQueueUsageEventPublisherConfiguration {
     }
     PgQueuePayloadCompression payloadCompression =
         PgQueuePayloadCompression.fromConfig(payloadCompressionRaw);
-    PgQueueUsageEventPublisher publisher =
-        new PgQueueUsageEventPublisher(metadataQueueStore, queueOpts, defaults, payloadCompression);
+    PgQueueGenericProducer producer =
+        new PgQueueGenericProducer(metadataQueueStore, queueOpts, defaults, payloadCompression);
     if (cp != null && cp.getDatahub().isReadOnly()) {
-      publisher.setWritable(false);
+      producer.setWritable(false);
     }
-    return publisher;
+    return producer;
+  }
+
+  @Bean(name = {"usageEventPublisher", "dataHubUsageEventProducer"})
+  public UsageEventPublisher pgQueueUsageEventPublisher(
+      @Qualifier("dataHubUsageGenericProducer")
+          PgQueueGenericProducer dataHubUsageGenericProducer) {
+    return new PgQueueUsageEventPublisher(dataHubUsageGenericProducer);
   }
 }

@@ -1,5 +1,5 @@
 /*
-/* Copyright 2018-2025 contributors to the OpenLineage project
+/* Copyright 2018-2026 contributors to the OpenLineage project
 /* SPDX-License-Identifier: Apache-2.0
 */
 
@@ -7,10 +7,12 @@ package io.openlineage.spark.agent.util;
 
 import io.openlineage.client.utils.DatasetIdentifier;
 import io.openlineage.client.utils.filesystem.FilesystemDatasetUtils;
+import java.io.File;
 import java.net.URI;
 import java.util.Optional;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
@@ -41,11 +43,7 @@ public class PathUtils {
   public static DatasetIdentifier fromCatalogTable(
       CatalogTable catalogTable, SparkSession sparkSession) {
     URI locationUri;
-    if (catalogTable.storage() != null && catalogTable.storage().locationUri().isDefined()) {
-      locationUri = catalogTable.storage().locationUri().get();
-    } else {
-      locationUri = getDefaultLocationUri(sparkSession, catalogTable.identifier());
-    }
+    locationUri = getLocationUri(catalogTable, sparkSession);
     return fromCatalogTable(catalogTable, sparkSession, locationUri);
   }
 
@@ -60,30 +58,47 @@ public class PathUtils {
   @SneakyThrows
   public static DatasetIdentifier fromCatalogTable(
       CatalogTable catalogTable, SparkSession sparkSession, URI location) {
+    SparkContext sparkContext = sparkSession.sparkContext();
+    if (CatalogDatasetFacetUtils.isHiveCatalog(sparkSession, catalogTable.identifier())
+        && GoogleCloudPlatformUtils.isBigLakeHiveCatalog(sparkContext.getConf())) {
+      return fromURI(location)
+          .withSymlink(
+              nameFromTableIdentifier(catalogTable.identifier()),
+              "gcp_lakehouse",
+              DatasetIdentifier.SymlinkType.TABLE);
+    }
+    return fromTableIdentifier(catalogTable.identifier(), sparkContext, location);
+  }
+
+  @SneakyThrows
+  public static DatasetIdentifier fromTableIdentifier(
+      TableIdentifier identifier, SparkContext sparkContext, URI location) {
     // perform URL normalization
     DatasetIdentifier locationDataset = fromURI(location);
     URI locationUri = FilesystemDatasetUtils.toLocation(locationDataset);
 
     Optional<DatasetIdentifier> symlinkDataset = Optional.empty();
 
-    SparkContext sparkContext = sparkSession.sparkContext();
     SparkConf sparkConf = sparkContext.getConf();
     Configuration hadoopConf = sparkContext.hadoopConfiguration();
 
     Optional<URI> metastoreUri = getMetastoreUri(sparkContext);
     Optional<String> glueArn = AwsUtils.getGlueArn(sparkConf, hadoopConf);
-
     if (glueArn.isPresent()) {
       // Even if glue catalog is used, it will have a hive metastore URI
       // Use ARN format 'arn:aws:glue:{region}:{account_id}:table/{database}/{table}'
-      String tableName = nameFromTableIdentifier(catalogTable.identifier(), "/");
+      String tableName = nameFromTableIdentifier(identifier, "/");
       symlinkDataset =
           Optional.of(new DatasetIdentifier(GLUE_TABLE_PREFIX + tableName, glueArn.get()));
     } else if (metastoreUri.isPresent()) {
       // dealing with Hive tables
       URI hiveUri = prepareHiveUri(metastoreUri.get());
-      String tableName = nameFromTableIdentifier(catalogTable.identifier());
+      String tableName = nameFromTableIdentifier(identifier);
       symlinkDataset = Optional.of(FilesystemDatasetUtils.fromLocationAndName(hiveUri, tableName));
+    } else if (DatabricksUtils.isDatabricksUnityCatalogEnabled(sparkConf)) {
+      String tableName = nameFromTableIdentifier(identifier);
+      String namespace = StringUtils.substringBeforeLast(location.toString(), File.separator);
+      symlinkDataset = Optional.of(new DatasetIdentifier(tableName, namespace));
     } else {
       Optional<URI> warehouseLocation =
           getWarehouseLocation(sparkConf, hadoopConf)
@@ -96,25 +111,25 @@ public class PathUtils {
         if (!relativePath.equals(locationUri)) {
           // if there is no metastore, and table has custom location,
           // it cannot be accessed via default warehouse location
-          String tableName = nameFromTableIdentifier(catalogTable.identifier());
+          String tableName = nameFromTableIdentifier(identifier);
           symlinkDataset =
               Optional.of(
                   FilesystemDatasetUtils.fromLocationAndName(warehouseLocation.get(), tableName));
         } else {
           // Table is outside warehouse, but we create symlink to actual location + tableName
-          String tableName = nameFromTableIdentifier(catalogTable.identifier());
+          String tableName = nameFromTableIdentifier(identifier);
           symlinkDataset =
               Optional.of(FilesystemDatasetUtils.fromLocationAndName(locationUri, tableName));
         }
       }
     }
 
-    if (symlinkDataset.isPresent()) {
-      locationDataset.withSymlink(
-          symlinkDataset.get().getName(),
-          symlinkDataset.get().getNamespace(),
-          DatasetIdentifier.SymlinkType.TABLE);
-    }
+    symlinkDataset.ifPresent(
+        datasetIdentifier ->
+            locationDataset.withSymlink(
+                datasetIdentifier.getName(),
+                datasetIdentifier.getNamespace(),
+                DatasetIdentifier.SymlinkType.TABLE));
 
     return locationDataset;
   }
@@ -139,7 +154,18 @@ public class PathUtils {
     }
 
     // /warehouse/mydb.db/mytable
-    return new Path(warehouse, database + ".db", name);
+    return new Path(new Path(warehouse, database + ".db"), name);
+  }
+
+  public static Optional<URI> getMetastoreUri(SparkContext context) {
+    // make sure enableHiveSupport is called
+    Optional<String> setting =
+        SparkConfUtils.findSparkConfigKey(
+            context.getConf(), StaticSQLConf.CATALOG_IMPLEMENTATION().key());
+    if (!setting.isPresent() || !"hive".equals(setting.get())) {
+      return Optional.empty();
+    }
+    return SparkConfUtils.getMetastoreUri(context);
   }
 
   @SneakyThrows
@@ -148,7 +174,7 @@ public class PathUtils {
   }
 
   @SneakyThrows
-  private static Optional<URI> getWarehouseLocation(SparkConf sparkConf, Configuration hadoopConf) {
+  public static Optional<URI> getWarehouseLocation(SparkConf sparkConf, Configuration hadoopConf) {
     Optional<String> warehouseLocation =
         SparkConfUtils.findSparkConfigKey(sparkConf, StaticSQLConf.WAREHOUSE_PATH().key());
     if (!warehouseLocation.isPresent()) {
@@ -158,15 +184,14 @@ public class PathUtils {
     return warehouseLocation.map(URI::create);
   }
 
-  private static Optional<URI> getMetastoreUri(SparkContext context) {
-    // make sure enableHiveSupport is called
-    Optional<String> setting =
-        SparkConfUtils.findSparkConfigKey(
-            context.getConf(), StaticSQLConf.CATALOG_IMPLEMENTATION().key());
-    if (!setting.isPresent() || !"hive".equals(setting.get())) {
-      return Optional.empty();
+  private static URI getLocationUri(CatalogTable catalogTable, SparkSession sparkSession) {
+    URI locationUri;
+    if (catalogTable.storage() != null && catalogTable.storage().locationUri().isDefined()) {
+      locationUri = catalogTable.storage().locationUri().get();
+    } else {
+      locationUri = getDefaultLocationUri(sparkSession, catalogTable.identifier());
     }
-    return SparkConfUtils.getMetastoreUri(context);
+    return locationUri;
   }
 
   /** Get DatasetIdentifier name in format database.table or table */

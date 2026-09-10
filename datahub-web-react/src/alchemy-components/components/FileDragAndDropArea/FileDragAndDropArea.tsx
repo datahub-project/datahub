@@ -1,8 +1,11 @@
-import { Button, Icon, Text } from '@components';
 import { UploadSimple } from '@phosphor-icons/react/dist/csr/UploadSimple';
 import React, { useCallback, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { Button } from '@components/components/Button';
+import { Icon } from '@components/components/Icon';
+import { Text } from '@components/components/Text';
 
 const Container = styled.div<{ $dragActive?: boolean }>`
     padding: 16px;
@@ -54,9 +57,12 @@ const Description = styled.div``;
 interface Props {
     onFilesUpload?: (files: File[]) => Promise<void>;
     className?: string;
+    /** Custom description shown below the upload prompt. Set to null to hide. Defaults to i18n max size. */
+    description?: string | null;
+    fileInputTestId?: string;
 }
 
-export function FileDragAndDropArea({ onFilesUpload, className }: Props) {
+export function FileDragAndDropArea({ onFilesUpload, className, description, fileInputTestId }: Props) {
     const { t } = useTranslation('alchemy');
     const [dragActive, setDragActive] = useState<boolean>(false);
 
@@ -116,7 +122,7 @@ export function FileDragAndDropArea({ onFilesUpload, className }: Props) {
             >
                 <InnerContainer>
                     <IconContainer onDragLeave={(e) => e.stopPropagation()}>
-                        <Icon icon={UploadSimple} color="primary" size="2xl" />
+                        <Icon icon={UploadSimple} color="iconBrand" size="2xl" />
                     </IconContainer>
                     <ActionTextContainer>
                         <Text size="sm" weight="semiBold">
@@ -129,13 +135,22 @@ export function FileDragAndDropArea({ onFilesUpload, className }: Props) {
                             />
                         </Text>
                     </ActionTextContainer>
-                    <Description>
-                        <Text size="sm">{t('fileUpload.maxSize')}</Text>
-                    </Description>
+                    {description !== null && (
+                        <Description>
+                            <Text size="sm">{description ?? t('fileUpload.maxSize')}</Text>
+                        </Description>
+                    )}
                 </InnerContainer>
             </Container>
 
-            <input ref={inputRef} type="file" multiple onChange={onFileInputChange} style={{ display: 'none' }} />
+            <input
+                ref={inputRef}
+                type="file"
+                multiple
+                onChange={onFileInputChange}
+                style={{ display: 'none' }}
+                data-testid={fileInputTestId}
+            />
         </>
     );
 }

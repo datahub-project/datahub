@@ -3,6 +3,7 @@ import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVerti
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 
 import { TableWithInfiniteScroll } from '@components/components/Table/TableWithInfiniteScroll';
 
@@ -17,7 +18,7 @@ import {
     PropDescription,
     PropName,
 } from '@app/govern/structuredProperties/styledComponents';
-import { getDisplayName } from '@app/govern/structuredProperties/utils';
+import { getDisplayName, getFilteredSortedStructuredProperties } from '@app/govern/structuredProperties/utils';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
@@ -26,6 +27,7 @@ import { toLocalDateString, toRelativeTimeString } from '@src/app/shared/time/ti
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useBatchUpdateSoftDeletedMutation } from '@src/graphql/mutations.generated';
 import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
 import TableIcon from '@src/images/table-icon.svg?react';
 import { Entity, EntityType, StructuredPropertyEntity } from '@src/types.generated';
@@ -68,24 +70,18 @@ const StructuredPropsTable = ({
     const { t } = useTranslation('governance.structured-properties');
     const { t: tc } = useTranslation('common.actions');
     const { t: tl } = useTranslation('common.labels');
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const me = useUserContext();
     const canEditProps = me.platformPrivileges?.manageStructuredProperties;
 
     const structuredProperties = (searchQuery && (searchResults as StructuredPropertyEntity[])) || [];
 
-    // Filter the search results on just displayName based on the search query
-    const filteredProperties = structuredProperties
-        .filter((prop: StructuredPropertyEntity) =>
-            prop.definition?.displayName?.toLowerCase().includes(searchQuery.toLowerCase()),
-        )
-        .sort(
-            (propA, propB) =>
-                ((propB as StructuredPropertyEntity).definition.created?.time || 0) -
-                ((propA as StructuredPropertyEntity).definition.created?.time || 0),
-        );
+    // Filter on the displayed name (displayName, falling back to qualifiedName) and sort by newest first.
+    const filteredProperties = getFilteredSortedStructuredProperties(structuredProperties, searchQuery);
 
     const [deleteStructuredProperty] = useDeleteStructuredPropertyMutation();
+    const [batchUpdateSoftDeleted] = useBatchUpdateSoftDeletedMutation();
 
     const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
 
@@ -94,13 +90,26 @@ const StructuredPropsTable = ({
     const handleDeleteProperty = (property) => {
         const deleteEntity = property as StructuredPropertyEntity;
         showToastMessage(ToastType.LOADING, t('table.deleting'), 1);
-        deleteStructuredProperty({
+        // Soft-delete first: the backend rejects hard deletion of an active structured property,
+        // since hard deletion can permanently reserve the property's qualified name in the search
+        // index. Only hard-delete once the soft delete has succeeded.
+        batchUpdateSoftDeleted({
             variables: {
                 input: {
-                    urn: deleteEntity.urn,
+                    urns: [deleteEntity.urn],
+                    deleted: true,
                 },
             },
         })
+            .then(() =>
+                deleteStructuredProperty({
+                    variables: {
+                        input: {
+                            urn: deleteEntity.urn,
+                        },
+                    },
+                }),
+            )
             .then(() => {
                 analytics.event({
                     type: EventType.DeleteStructuredPropertyEvent,
@@ -150,8 +159,7 @@ const StructuredPropsTable = ({
                 return (
                     <NameColumn>
                         <IconContainer>
-                            {/* eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once brand purple token is added */}
-                            <TableIcon color="#705EE4" />
+                            <TableIcon color={theme.colors.iconBrand} />
                         </IconContainer>
                         <DataContainer>
                             <PropName

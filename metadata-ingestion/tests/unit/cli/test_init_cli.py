@@ -636,7 +636,7 @@ class TestSSOLogin:
 
         # Verify frontend URL derivation: 8080 -> 9002
         mock_browser_login.assert_called_once_with(
-            "http://localhost:9002", "ONE_MONTH", support=False
+            "http://localhost:9002", "ONE_MONTH", support=False, ticket_id=None
         )
 
     def test_sso_with_custom_duration(self, temp_config: Path, clean_env: None) -> None:
@@ -657,7 +657,7 @@ class TestSSOLogin:
 
         assert result.exit_code == 0
         mock_browser_login.assert_called_once_with(
-            "http://localhost:9002", "ONE_MONTH", support=False
+            "http://localhost:9002", "ONE_MONTH", support=False, ticket_id=None
         )
 
     def test_sso_with_acryl_cloud_url(self, temp_config: Path, clean_env: None) -> None:
@@ -677,7 +677,10 @@ class TestSSOLogin:
         assert result.exit_code == 0
         # For acryl.io, frontend URL is the base without /gms
         mock_browser_login.assert_called_once_with(
-            "https://my-instance.acryl.io", "ONE_HOUR", support=False
+            "https://my-instance.acryl.io",
+            "ONE_HOUR",
+            support=False,
+            ticket_id=None,
         )
 
     def test_sso_support_flag(self, temp_config: Path, clean_env: None) -> None:
@@ -697,7 +700,7 @@ class TestSSOLogin:
 
         assert result.exit_code == 0
         mock_browser_login.assert_called_once_with(
-            "https://customer.acryl.io", "ONE_HOUR", support=True
+            "https://customer.acryl.io", "ONE_HOUR", support=True, ticket_id=None
         )
 
     def test_support_without_sso_errors(
@@ -716,7 +719,7 @@ class TestSSOLogin:
             ],
         )
         assert result.exit_code != 0
-        assert "--support requires --sso" in result.output
+        assert "--support requires --oauth or --sso" in result.output
 
 
 class TestTokenDuration:

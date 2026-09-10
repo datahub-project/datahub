@@ -8,6 +8,6 @@ public class AuthorizationException extends DataHubGraphQLException {
   }
 
   public AuthorizationException(String message, Throwable cause) {
-    super(message, DataHubGraphQLErrorCode.UNAUTHORIZED);
+    super(message, DataHubGraphQLErrorCode.UNAUTHORIZED, cause);
   }
 }

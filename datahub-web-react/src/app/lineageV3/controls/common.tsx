@@ -18,14 +18,16 @@ export const ControlPanel = styled.div`
 `;
 
 export const ControlPanelTitle = styled.div`
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
-    color: ${(props) => props.theme.colors.textSecondary};
+    line-height: 16px;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 export const ControlPanelSubtext = styled.div`
-    color: ${(props) => props.theme.colors.textTertiary};
-    font-size: 10px;
-    font-weight: 500;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 16px;
+    color: ${(props) => props.theme.colors.text};
     margin-bottom: 8px;
 `;

@@ -1,4 +1,49 @@
-import { identifyAndAddParentRows } from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import {
+    getStructuredPropertyRows,
+    identifyAndAddParentRows,
+} from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+
+const PROPAGATED = { attribution: { sourceDetail: [{ key: 'propagated', value: 'true' }] } };
+
+const structuredProperty = (urn: string, propagated = false) => ({
+    structuredProperty: { urn, exists: true, definition: { displayName: urn, qualifiedName: urn, valueType: {} } },
+    values: [],
+    ...(propagated && PROPAGATED),
+});
+
+const entityWith = (properties: unknown[]) =>
+    ({ structuredProperties: { properties } }) as unknown as GenericEntityProperties;
+
+describe('getStructuredPropertyRows deduplication', () => {
+    it('collapses duplicate structured property urns to a single row', () => {
+        const rows = getStructuredPropertyRows(
+            entityWith([
+                structuredProperty('urn:li:structuredProperty:p'),
+                structuredProperty('urn:li:structuredProperty:p'),
+            ]),
+        );
+        expect(rows).toHaveLength(1);
+        expect(rows[0].structuredProperty?.urn).toBe('urn:li:structuredProperty:p');
+    });
+
+    it('prefers the user-applied entry over a propagated duplicate', () => {
+        const rows = getStructuredPropertyRows(
+            entityWith([
+                structuredProperty('urn:li:structuredProperty:p', true),
+                structuredProperty('urn:li:structuredProperty:p'),
+            ]),
+        );
+        expect(rows).toHaveLength(1);
+        expect(rows[0].attribution).toBeUndefined();
+    });
+
+    it('still keeps a propagated property that has no duplicate', () => {
+        const rows = getStructuredPropertyRows(entityWith([structuredProperty('urn:li:structuredProperty:p', true)]));
+        expect(rows).toHaveLength(1);
+        expect(rows[0].attribution).toBeDefined();
+    });
+});
 
 describe('identifyAndAddParentRows', () => {
     it('should not return parent rows when there are none', () => {

@@ -10,22 +10,25 @@ The ingestion is entry-type driven: each Universal Catalog `entry_type` maps to 
 
 ### Supported entry-type mapping
 
-| Google Cloud Knowledge Catalog (Dataplex) entry type short name | DataHub platform | Emitted entity                 | Parent relationship                    |
-| :-------------------------------------------------------------- | :--------------- | :----------------------------- | :------------------------------------- |
-| `bigquery-dataset`                                              | `bigquery`       | Container (`BigQuery Dataset`) | Parent is project container            |
-| `bigquery-table`                                                | `bigquery`       | Dataset (`Table`)              | Parent is BigQuery dataset container   |
-| `bigquery-view`                                                 | `bigquery`       | Dataset (`View`)               | Parent is BigQuery dataset container   |
-| `cloudsql-mysql-instance`                                       | `cloudsql`       | Container (`Instance`)         | Parent is project container            |
-| `cloudsql-mysql-database`                                       | `cloudsql`       | Container (`Database`)         | Parent is Cloud SQL instance container |
-| `cloudsql-mysql-table`                                          | `cloudsql`       | Dataset (`Table`)              | Parent is Cloud SQL database container |
-| `cloud-spanner-instance`                                        | `spanner`        | Container (`Instance`)         | Parent is project container            |
-| `cloud-spanner-database`                                        | `spanner`        | Container (`Database`)         | Parent is Spanner instance container   |
-| `cloud-spanner-table`                                           | `spanner`        | Dataset (`Table`)              | Parent is Spanner database container   |
-| `cloud-spanner-graph`                                           | `spanner`        | Dataset (`Graph`)              | Parent is Spanner database container   |
-| `cloud-bigtable-instance`                                       | `bigtable`       | Container (`Instance`)         | Parent is project container            |
-| `cloud-bigtable-table`                                          | `bigtable`       | Dataset (`Table`)              | Parent is Bigtable instance container  |
-| `pubsub-topic`                                                  | `pubsub`         | Dataset (`Topic`)              | Parent is project container            |
-| `vertexai-dataset`                                              | `vertexai`       | Dataset (`Table`)              | Parent is project container            |
+| Google Cloud Knowledge Catalog (Dataplex) entry type short name | DataHub platform     | Emitted entity                 | Parent relationship                    |
+| :-------------------------------------------------------------- | :------------------- | :----------------------------- | :------------------------------------- |
+| `bigquery-dataset`                                              | `bigquery`           | Container (`BigQuery Dataset`) | Parent is project container            |
+| `bigquery-table`                                                | `bigquery`           | Dataset (`Table`)              | Parent is BigQuery dataset container   |
+| `bigquery-view`                                                 | `bigquery`           | Dataset (`View`)               | Parent is BigQuery dataset container   |
+| `cloudsql-mysql-instance`                                       | `cloudsql`           | Container (`Instance`)         | Parent is project container            |
+| `cloudsql-mysql-database`                                       | `cloudsql`           | Container (`Database`)         | Parent is Cloud SQL instance container |
+| `cloudsql-mysql-table`                                          | `cloudsql`           | Dataset (`Table`)              | Parent is Cloud SQL database container |
+| `cloud-spanner-instance`                                        | `spanner`            | Container (`Instance`)         | Parent is project container            |
+| `cloud-spanner-database`                                        | `spanner`            | Container (`Database`)         | Parent is Spanner instance container   |
+| `cloud-spanner-table`                                           | `spanner`            | Dataset (`Table`)              | Parent is Spanner database container   |
+| `cloud-spanner-graph`                                           | `spanner`            | Dataset (`Graph`)              | Parent is Spanner database container   |
+| `cloud-bigtable-instance`                                       | `bigtable`           | Container (`Instance`)         | Parent is project container            |
+| `cloud-bigtable-table`                                          | `bigtable`           | Dataset (`Table`)              | Parent is Bigtable instance container  |
+| `pubsub-topic`                                                  | `pubsub`             | Dataset (`Topic`)              | Parent is project container            |
+| `vertexai-dataset`                                              | `vertexai`           | Dataset (`Table`)              | Parent is project container            |
+| `dataproc-metastore-service`                                    | `dataproc-metastore` | Container (`Service`)          | Parent is project container            |
+| `dataproc-metastore-database`                                   | `dataproc-metastore` | Container (`Database`)         | Parent is Metastore service container  |
+| `dataproc-metastore-table`                                      | `dataproc-metastore` | Dataset (`Table`)              | Parent is Metastore database container |
 
 ### Business Glossary mapping
 

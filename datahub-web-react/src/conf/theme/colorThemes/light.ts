@@ -21,7 +21,7 @@ const lightTheme: ColorTheme = {
     bgHover: colors.gray400,
     text: colors.gray800,
     textSecondary: colors.gray700,
-    textTertiary: colors.gray600,
+    textTertiary: colors.gray700,
     textBrand: colors.violet600,
     textBrandOnBgFill: colors.gray0,
     textOnFillBrand: colors.gray0,
@@ -159,6 +159,10 @@ const lightTheme: ColorTheme = {
     chartsGreenMedium: colors.mudgreen400,
     chartsGreenLow: colors.mudgreen200,
     chartsGreenBase: colors.mudgreen100,
+    chartsYellowHigh: colors.yellow600,
+    chartsYellowMedium: colors.yellow500,
+    chartsYellowLow: colors.yellow300,
+    chartsYellowBase: colors.yellow100,
     chartsBrandContrast: '#2200F9FF',
     chartsBrandHigh: colors.violet600,
     chartsBrandMedium: colors.violet500,
@@ -231,7 +235,7 @@ const lightTheme: ColorTheme = {
     colorPickerBrown: colors.brown300,
     colorPickerDarkGreen: colors.darkgreen300,
     colorPickerOlive: colors.olive300,
-    colorPickerDefault: colors.gray1200,
+    colorPickerDefault: colors.violet600,
 
     // Glossary Color Palette
     glossaryPaletteViolet: colors.violet400,

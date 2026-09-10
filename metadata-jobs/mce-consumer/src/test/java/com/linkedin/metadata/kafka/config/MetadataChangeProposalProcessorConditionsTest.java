@@ -35,8 +35,7 @@ public class MetadataChangeProposalProcessorConditionsTest {
     // Setup
     Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn("true");
     Mockito.when(mockEnvironment.getProperty("MCP_CONSUMER_ENABLED")).thenReturn(null);
-    Mockito.when(
-            mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
+    Mockito.when(mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled"))
         .thenReturn("false");
 
     // Execute
@@ -53,8 +52,7 @@ public class MetadataChangeProposalProcessorConditionsTest {
     // Setup
     Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn(null);
     Mockito.when(mockEnvironment.getProperty("MCP_CONSUMER_ENABLED")).thenReturn("true");
-    Mockito.when(
-            mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
+    Mockito.when(mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled"))
         .thenReturn("false");
 
     // Execute
@@ -71,8 +69,7 @@ public class MetadataChangeProposalProcessorConditionsTest {
     // Setup
     Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn("true");
     Mockito.when(mockEnvironment.getProperty("MCP_CONSUMER_ENABLED")).thenReturn("true");
-    Mockito.when(
-            mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
+    Mockito.when(mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled"))
         .thenReturn("true");
 
     // Execute
@@ -88,8 +85,7 @@ public class MetadataChangeProposalProcessorConditionsTest {
     // Setup
     Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn("false");
     Mockito.when(mockEnvironment.getProperty("MCP_CONSUMER_ENABLED")).thenReturn("false");
-    Mockito.when(
-            mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
+    Mockito.when(mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled"))
         .thenReturn("false");
 
     // Execute
@@ -107,8 +103,7 @@ public class MetadataChangeProposalProcessorConditionsTest {
     // Setup
     Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn("true");
     Mockito.when(mockEnvironment.getProperty("MCP_CONSUMER_ENABLED")).thenReturn(null);
-    Mockito.when(
-            mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
+    Mockito.when(mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled"))
         .thenReturn("true");
 
     // Execute
@@ -125,8 +120,7 @@ public class MetadataChangeProposalProcessorConditionsTest {
     // Setup
     Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn(null);
     Mockito.when(mockEnvironment.getProperty("MCP_CONSUMER_ENABLED")).thenReturn("true");
-    Mockito.when(
-            mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
+    Mockito.when(mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled"))
         .thenReturn("true");
 
     // Execute
@@ -143,8 +137,7 @@ public class MetadataChangeProposalProcessorConditionsTest {
     // Setup
     Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn("true");
     Mockito.when(mockEnvironment.getProperty("MCP_CONSUMER_ENABLED")).thenReturn("true");
-    Mockito.when(
-            mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
+    Mockito.when(mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled"))
         .thenReturn("true");
 
     // Execute
@@ -161,8 +154,7 @@ public class MetadataChangeProposalProcessorConditionsTest {
     // Setup
     Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn("true");
     Mockito.when(mockEnvironment.getProperty("MCP_CONSUMER_ENABLED")).thenReturn("true");
-    Mockito.when(
-            mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
+    Mockito.when(mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled"))
         .thenReturn("false");
 
     // Execute
@@ -178,8 +170,7 @@ public class MetadataChangeProposalProcessorConditionsTest {
     // Setup
     Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn("false");
     Mockito.when(mockEnvironment.getProperty("MCP_CONSUMER_ENABLED")).thenReturn("false");
-    Mockito.when(
-            mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
+    Mockito.when(mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled"))
         .thenReturn("true");
 
     // Execute
@@ -191,22 +182,6 @@ public class MetadataChangeProposalProcessorConditionsTest {
   }
 
   @Test
-  public void testBatchCondition_DefaultBatchValueIsFalse() {
-    // Setup - not setting the batch property explicitly should use default "false"
-    Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn("true");
-    Mockito.when(mockEnvironment.getProperty("MCP_CONSUMER_ENABLED")).thenReturn(null);
-    Mockito.when(
-            mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
-        .thenReturn("false");
-
-    // Execute
-    boolean result = batchCondition.matches(mockContext, mockMetadata);
-
-    // Verify
-    Assert.assertFalse(result, "Batch condition should not match with default batch value (false)");
-  }
-
-  @Test
   public void testBothConditionsAreMutuallyExclusive() {
     // These tests verify that in any given environment configuration,
     // only one (or neither) of the conditions can match, but never both
@@ -214,8 +189,7 @@ public class MetadataChangeProposalProcessorConditionsTest {
     // Test case 1: MCE enabled, batch disabled
     Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn("true");
     Mockito.when(mockEnvironment.getProperty("MCP_CONSUMER_ENABLED")).thenReturn(null);
-    Mockito.when(
-            mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
+    Mockito.when(mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled"))
         .thenReturn("false");
 
     boolean regularMatches = regularCondition.matches(mockContext, mockMetadata);
@@ -226,8 +200,7 @@ public class MetadataChangeProposalProcessorConditionsTest {
     Assert.assertNotEquals(regularMatches, batchMatches, "Conditions should be mutually exclusive");
 
     // Test case 2: MCE enabled, batch enabled
-    Mockito.when(
-            mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
+    Mockito.when(mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled"))
         .thenReturn("true");
 
     regularMatches = regularCondition.matches(mockContext, mockMetadata);

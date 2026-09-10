@@ -1,12 +1,12 @@
 package com.linkedin.metadata.models.registry;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.test.TestEntityProfile;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Map;
@@ -26,7 +26,7 @@ public class ConfigEntityRegistrySearchIndexGroupTest {
   }
 
   @Test
-  public void testEntityRegistryWithSearchGroups() throws IOException {
+  public void testFixtureEntitiesHaveUnsetSearchGroup() throws IOException {
     ConfigEntityRegistry configEntityRegistry =
         new ConfigEntityRegistry(
             ConfigEntityRegistrySearchIndexGroupTest.class
@@ -36,44 +36,57 @@ public class ConfigEntityRegistrySearchIndexGroupTest {
     Map<String, EntitySpec> entitySpecs = configEntityRegistry.getEntitySpecs();
     assertEquals(entitySpecs.size(), 8);
 
-    // Test search group entities
-    EntitySpec datasetSpec = configEntityRegistry.getEntitySpec("dataset");
-    assertEquals(datasetSpec.getName(), "dataset");
-    assertEquals(datasetSpec.getSearchGroup(), "primary");
+    for (EntitySpec spec : entitySpecs.values()) {
+      assertEquals(spec.getSearchGroup(), null, spec.getName());
+    }
 
-    EntitySpec chartSpec = configEntityRegistry.getEntitySpec("chart");
-    assertEquals(chartSpec.getName(), "chart");
-    assertEquals(chartSpec.getSearchGroup(), "primary");
-
-    // Test timeseries group entities
-    EntitySpec dataProcessInstanceSpec = configEntityRegistry.getEntitySpec("dataProcessInstance");
-    assertEquals(dataProcessInstanceSpec.getName(), "dataProcessInstance");
-    assertEquals(dataProcessInstanceSpec.getSearchGroup(), "timeseries");
-
-    EntitySpec dataHubExecutionRequestSpec =
-        configEntityRegistry.getEntitySpec("dataHubExecutionRequest");
-    assertEquals(dataHubExecutionRequestSpec.getName(), "dataHubExecutionRequest");
-    assertEquals(dataHubExecutionRequestSpec.getSearchGroup(), "timeseries");
-
-    // Test query group entity
-    EntitySpec querySpec = configEntityRegistry.getEntitySpec("query");
-    assertEquals(querySpec.getName(), "query");
-    assertEquals(querySpec.getSearchGroup(), "query");
-
-    // Test schemaField group entity
-    EntitySpec schemaFieldSpec = configEntityRegistry.getEntitySpec("schemaField");
-    assertEquals(schemaFieldSpec.getName(), "schemaField");
-    assertEquals(schemaFieldSpec.getSearchGroup(), "schemaField");
-
-    // Test default group entity
-    EntitySpec dataHubPolicySpec = configEntityRegistry.getEntitySpec("dataHubPolicy");
-    assertEquals(dataHubPolicySpec.getName(), "dataHubPolicy");
-    assertEquals(dataHubPolicySpec.getSearchGroup(), "default");
-
-    // Test entity without searchGroup (should default to "default")
     EntitySpec testEntitySpec = configEntityRegistry.getEntitySpec("testEntity");
-    assertEquals(testEntitySpec.getName(), "testEntity");
-    assertEquals(testEntitySpec.getSearchGroup(), EntityAnnotation.DEFAULT_SEARCH_GROUP);
+    assertTrue(testEntitySpec.isViewUnrestricted());
+    assertFalse(configEntityRegistry.getEntitySpec("dataset").isViewUnrestricted());
+  }
+
+  @Test
+  public void testYamlSearchGroupIsParsedWhenPresent() {
+    String yaml =
+        """
+        id: grouped-registry
+        entities:
+          - name: dataset
+            keyAspect: datasetKey
+            searchGroup: primary
+            aspects: []
+          - name: dataProcessInstance
+            keyAspect: dataProcessInstanceKey
+            searchGroup: timeseries
+            aspects: []
+          - name: query
+            keyAspect: queryKey
+            searchGroup: query
+            aspects: []
+          - name: schemaField
+            keyAspect: schemaFieldKey
+            searchGroup: schemaField
+            aspects: []
+          - name: dataHubPolicy
+            keyAspect: dataHubPolicyKey
+            searchGroup: default
+            aspects: []
+          - name: testEntity
+            keyAspect: testEntityKey
+            aspects: []
+        """;
+    ConfigEntityRegistry registry =
+        new ConfigEntityRegistry(new java.io.ByteArrayInputStream(yaml.getBytes()));
+
+    assertEquals(registry.getEntitySpec("dataset").getSearchGroup(), "primary");
+    assertEquals(registry.getEntitySpec("dataProcessInstance").getSearchGroup(), "timeseries");
+    assertEquals(registry.getEntitySpec("query").getSearchGroup(), "query");
+    assertEquals(registry.getEntitySpec("schemaField").getSearchGroup(), "schemaField");
+    assertEquals(registry.getEntitySpec("dataHubPolicy").getSearchGroup(), "default");
+    assertEquals(registry.getEntitySpec("testEntity").getSearchGroup(), null);
+
+    assertEquals(registry.getEntitySpecsBySearchGroup("primary").size(), 1);
+    assertEquals(registry.getSearchGroups().size(), 5);
   }
 
   @Test
@@ -156,42 +169,9 @@ public class ConfigEntityRegistrySearchIndexGroupTest {
                 .getClassLoader()
                 .getResourceAsStream("test-search-index-group-entity-registry.yml"));
 
-    // Test primary group
-    Map<String, EntitySpec> primaryGroup =
-        configEntityRegistry.getEntitySpecsBySearchGroup("primary");
-    assertEquals(primaryGroup.size(), 2);
-    assertTrue(primaryGroup.containsKey("dataset"));
-    assertTrue(primaryGroup.containsKey("chart"));
-
-    // Test timeseries group
-    Map<String, EntitySpec> timeseriesGroup =
-        configEntityRegistry.getEntitySpecsBySearchGroup("timeseries");
-    assertEquals(timeseriesGroup.size(), 2);
-    assertTrue(timeseriesGroup.containsKey("dataprocessinstance"));
-    assertTrue(timeseriesGroup.containsKey("datahubexecutionrequest"));
-
-    // Test query group
-    Map<String, EntitySpec> queryGroup = configEntityRegistry.getEntitySpecsBySearchGroup("query");
-    assertEquals(queryGroup.size(), 1);
-    assertTrue(queryGroup.containsKey("query"));
-
-    // Test schemaField group
-    Map<String, EntitySpec> schemaFieldGroup =
-        configEntityRegistry.getEntitySpecsBySearchGroup("schemaField");
-    assertEquals(schemaFieldGroup.size(), 1);
-    assertTrue(schemaFieldGroup.containsKey("schemafield"));
-
-    // Test default group
-    Map<String, EntitySpec> defaultGroup =
-        configEntityRegistry.getEntitySpecsBySearchGroup("default");
-    assertEquals(defaultGroup.size(), 2);
-    assertTrue(defaultGroup.containsKey("datahubpolicy"));
-    assertTrue(defaultGroup.containsKey("testentity"));
-
-    // Test non-existent group
-    Map<String, EntitySpec> nonExistentGroup =
-        configEntityRegistry.getEntitySpecsBySearchGroup("nonExistent");
-    assertEquals(nonExistentGroup.size(), 0);
+    assertEquals(configEntityRegistry.getEntitySpecsBySearchGroup("primary").size(), 0);
+    assertEquals(configEntityRegistry.getEntitySpecsBySearchGroup("default").size(), 0);
+    assertEquals(configEntityRegistry.getEntitySpecsBySearchGroup("nonExistent").size(), 0);
   }
 
   @Test
@@ -202,12 +182,6 @@ public class ConfigEntityRegistrySearchIndexGroupTest {
                 .getClassLoader()
                 .getResourceAsStream("test-search-index-group-entity-registry.yml"));
 
-    var searchGroups = configEntityRegistry.getSearchGroups();
-    assertEquals(searchGroups.size(), 5);
-    assertTrue(searchGroups.contains("primary"));
-    assertTrue(searchGroups.contains("timeseries"));
-    assertTrue(searchGroups.contains("query"));
-    assertTrue(searchGroups.contains("schemaField"));
-    assertTrue(searchGroups.contains("default"));
+    assertTrue(configEntityRegistry.getSearchGroups().isEmpty());
   }
 }

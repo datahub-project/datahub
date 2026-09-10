@@ -9,6 +9,7 @@ import static org.testng.Assert.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateDocumentInput;
 import com.linkedin.datahub.graphql.generated.DocumentContentInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
@@ -16,6 +17,8 @@ import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.SearchIndexMode;
+import com.linkedin.metadata.service.ServiceAuthorizationException;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
@@ -61,7 +64,9 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // showInGlobalContext
-            any(Urn.class))) // actor
+            any(), // owners
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC))) // actor
         .thenReturn(TEST_DOCUMENT_URN);
 
     resolver = new CreateDocumentResolver(mockService, mockEntityService);
@@ -97,15 +102,12 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // showInGlobalContext
-            any(Urn.class)); // actor URN
+            any(), // owners
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC)); // actor URN
 
-    // Verify ownership was set (default to creator)
-    verify(mockService, times(1))
-        .setDocumentOwnership(
-            any(OperationContext.class),
-            eq(TEST_DOCUMENT_URN),
-            any(), // owners list
-            any(Urn.class)); // actor URN
+    verify(mockService, never())
+        .setDocumentOwnership(any(), any(), any(), any(), any(SearchIndexMode.class));
   }
 
   @Test
@@ -130,7 +132,9 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // showInGlobalContext
-            any()); // actor
+            any(), // owners
+            any(),
+            any(SearchIndexMode.class)); // actor
   }
 
   @Test
@@ -160,7 +164,9 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // showInGlobalContext
-            any()); // actor
+            any(), // owners
+            any(),
+            eq(SearchIndexMode.SYNC)); // actor
   }
 
   @Test
@@ -201,13 +207,25 @@ public class CreateDocumentResolverTest {
 
     assertEquals(result, TEST_DOCUMENT_URN.toString());
 
-    // Verify ownership was set with the custom owners
+    // Verify custom owners are part of the create operation
     verify(mockService, times(1))
-        .setDocumentOwnership(
+        .createDocument(
             any(OperationContext.class),
-            eq(TEST_DOCUMENT_URN),
-            any(), // owners list (should contain 2 owners)
-            any(Urn.class));
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            argThat(owners -> owners != null && owners.size() == 2),
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
+    verify(mockService, never())
+        .setDocumentOwnership(any(), any(), any(), any(), any(SearchIndexMode.class));
   }
 
   @Test
@@ -229,9 +247,40 @@ public class CreateDocumentResolverTest {
             any(), // related assets
             any(), // related documents
             any(), // showInGlobalContext
-            any())) // actor
+            any(), // owners
+            any(),
+            eq(SearchIndexMode.SYNC))) // actor
         .thenThrow(new RuntimeException("Service error"));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testCreateDocumentServiceAuthorizationFailureIsPreserved() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    when(mockContext.getActorUrn()).thenReturn(TEST_USER_URN.toString());
+    when(mockService.createDocument(
+            any(OperationContext.class),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            eq(SearchIndexMode.SYNC)))
+        .thenThrow(new ServiceAuthorizationException("denied"));
+
+    CompletionException exception =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    assertTrue(exception.getCause() instanceof AuthorizationException);
   }
 }

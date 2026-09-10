@@ -1,0 +1,11 @@
+{
+    "accessManagement.accessAlreadyGranted": "Tilgang allerede innvilget",
+    "accessManagement.accessGrantedTooltip": "Du har allerede tilgang til denne rollen",
+    "accessManagement.columnAccess": "Tilgang",
+    "accessManagement.columnAccessType": "Tilgangstype",
+    "accessManagement.columnRoleName": "Rollenavn",
+    "accessManagement.granted": "Innvilget",
+    "accessManagement.request": "Be om",
+    "accessManagement.requestAccess": "Be om tilgang",
+    "accessManagement.tableAriaLabel": "Tabell for tilgangsstyring av roller"
+}

@@ -1,0 +1,28 @@
+# Vendored verbatim (below this header) from the Open Data Contract Standard
+# repository, tag v3.1.0: docs/examples/roles/service-and-operational-roles.odcs.yaml
+# https://github.com/bitol-io/open-data-contract-standard (Apache-2.0; see /NOTICE)
+version: 1.0.0
+kind: DataContract
+id: 53581432-6c55-4ba2-a65f-72344a91553a
+status: active
+name: my_table
+dataProduct: my_quantum
+schema: []
+apiVersion: v3.0.2
+roles:
+  - role: microstrategy_user_opr
+    access: read
+    firstLevelApprovers: Reporting Manager
+    secondLevelApprovers: 'mandolorian'
+  - role: bq_queryman_user_opr
+    access: read
+    firstLevelApprovers: Reporting Manager
+    secondLevelApprovers: na
+  - role: risk_data_access_opr
+    access: read
+    firstLevelApprovers: Reporting Manager
+    secondLevelApprovers: 'dathvador'
+  - role: bq_unica_user_opr
+    access: write
+    firstLevelApprovers: Reporting Manager
+    secondLevelApprovers: 'mickey'

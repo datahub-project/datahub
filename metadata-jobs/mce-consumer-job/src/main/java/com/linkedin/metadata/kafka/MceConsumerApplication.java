@@ -26,6 +26,7 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.gms.factory.common",
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.entity",
+      "com.linkedin.gms.factory.buffer",
       "com.linkedin.gms.factory.entityregistry",
       "com.linkedin.gms.factory.entityclient",
       "com.linkedin.gms.factory.event",
@@ -44,7 +45,8 @@ import org.springframework.context.annotation.PropertySource;
       "io.datahubproject.metadata.jobs.common.health.pgqueue",
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.plugins",
-      "com.linkedin.gms.factory.system_telemetry"
+      "com.linkedin.gms.factory.system_telemetry",
+      "com.linkedin.gms.factory.usage.mce"
     },
     excludeFilters = {
       @ComponentScan.Filter(

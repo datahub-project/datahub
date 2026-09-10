@@ -131,6 +131,9 @@ public class EventSchemaDataTest {
     try {
       // This should not throw any exceptions because all ordinals should be mapped
       for (SchemaIdOrdinal ordinal : SchemaIdOrdinal.values()) {
+        if (ordinal.isReserved()) {
+          continue;
+        }
         org.apache.avro.Schema schema = EventSchemaConstants.SCHEMA_ID_TO_SCHEMA_MAP.get(ordinal);
         assertNotNull(schema, "Schema mapping should exist for ordinal: " + ordinal);
       }

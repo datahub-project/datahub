@@ -34,5 +34,12 @@
             "@src/*": ["./src/*"]
         }
     },
-    "include": ["src", "src/conf/theme/styled-components.d.ts", "vite.config.ts", ".eslintrc.js", "functions"]
+    "include": [
+        "src",
+        "src/conf/theme/styled-components.d.ts",
+        "vite.config.ts",
+        ".eslintrc.js",
+        "functions",
+        "eslint-rules"
+    ]
 }

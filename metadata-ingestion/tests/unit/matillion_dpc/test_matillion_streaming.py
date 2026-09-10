@@ -14,7 +14,6 @@ from datahub.ingestion.source.matillion_dpc.matillion_container import (
 from datahub.ingestion.source.matillion_dpc.matillion_streaming import (
     MatillionStreamingHandler,
 )
-from datahub.ingestion.source.matillion_dpc.matillion_utils import MatillionUrnBuilder
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionProject,
     MatillionStreamingPipeline,
@@ -40,27 +39,20 @@ def report() -> MatillionSourceReport:
 
 
 @pytest.fixture
-def urn_builder(config: MatillionSourceConfig) -> MatillionUrnBuilder:
-    return MatillionUrnBuilder(config)
-
-
-@pytest.fixture
 def container_handler(
     config: MatillionSourceConfig,
     report: MatillionSourceReport,
-    urn_builder: MatillionUrnBuilder,
 ) -> MatillionContainerHandler:
-    return MatillionContainerHandler(config, report, urn_builder)
+    return MatillionContainerHandler(config, report)
 
 
 @pytest.fixture
 def streaming_handler(
     config: MatillionSourceConfig,
     report: MatillionSourceReport,
-    urn_builder: MatillionUrnBuilder,
     container_handler: MatillionContainerHandler,
 ) -> MatillionStreamingHandler:
-    return MatillionStreamingHandler(config, report, urn_builder, container_handler)
+    return MatillionStreamingHandler(config, report, container_handler)
 
 
 @pytest.fixture
@@ -149,15 +141,12 @@ def test_emit_streaming_pipeline(
 def test_emit_streaming_pipeline_without_containers(
     config: MatillionSourceConfig,
     report: MatillionSourceReport,
-    urn_builder: MatillionUrnBuilder,
     container_handler: MatillionContainerHandler,
     project: MatillionProject,
 ) -> None:
     config.extract_projects_to_containers = False
 
-    streaming_handler = MatillionStreamingHandler(
-        config, report, urn_builder, container_handler
-    )
+    streaming_handler = MatillionStreamingHandler(config, report, container_handler)
 
     streaming_pipeline = MatillionStreamingPipeline(
         id="sp-123",

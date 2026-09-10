@@ -2,9 +2,11 @@ package com.datahub.authorization.fieldresolverprovider;
 
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -25,8 +27,20 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.graph.cache.EntityGraphBinding;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
+import com.linkedin.metadata.graph.cache.GraphReadResult;
+import com.linkedin.metadata.graph.cache.GraphSnapshotSource;
+import com.linkedin.metadata.graph.cache.KnownEntityGraph;
+import com.linkedin.metadata.graph.cache.ReadMode;
+import com.linkedin.metadata.graph.cache.TraversalDirection;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.*;
@@ -51,7 +65,6 @@ public class GlossaryFieldResolverProviderTest
 
   private static final Urn TERM_A_URN = UrnUtils.getUrn("urn:li:glossaryTerm:termA");
   private static final Urn TERM_B_URN = UrnUtils.getUrn("urn:li:glossaryTerm:termB");
-  private static final Urn TERM_C_URN = UrnUtils.getUrn("urn:li:glossaryTerm:termC");
 
   private static final Urn DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
@@ -62,7 +75,7 @@ public class GlossaryFieldResolverProviderTest
   @BeforeMethod
   public void setup() {
     mockEntityClient = mock(SystemEntityClient.class);
-    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    opContext = operationContextWithGlossaryParents(Map.of(), Map.of());
   }
 
   @Override
@@ -70,15 +83,9 @@ public class GlossaryFieldResolverProviderTest
     return new GlossaryFieldResolverProvider(mock(SystemEntityClient.class));
   }
 
-  // ===== Tests for Glossary Term Entities =====
-
   @Test
   public void testGlossaryTermWithParentNodes()
-      throws ExecutionException,
-          InterruptedException,
-          RemoteInvocationException,
-          URISyntaxException {
-    // Setup: termA -> childNode -> parentNode
+      throws ExecutionException, InterruptedException, URISyntaxException {
     setupTermWithNodeHierarchy();
 
     final GlossaryFieldResolverProvider provider =
@@ -97,20 +104,10 @@ public class GlossaryFieldResolverProviderTest
 
   @Test
   public void testGlossaryTermWithNoParentNode()
-      throws ExecutionException,
-          InterruptedException,
-          RemoteInvocationException,
-          URISyntaxException {
-    // Setup: termA with no parent node (root-level term)
-    final Map<Urn, EntityResponse> termResponse = new HashMap<>();
-    termResponse.put(TERM_A_URN, createGlossaryTermInfoResponse(TERM_A_URN, null));
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(GLOSSARY_TERM_ENTITY_NAME),
-            eq(Set.of(TERM_A_URN)),
-            eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME))))
-        .thenReturn(termResponse);
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Map<Urn, Urn> parentByTerm = new HashMap<>();
+    parentByTerm.put(TERM_A_URN, null);
+    opContext = operationContextWithGlossaryParents(parentByTerm, Map.of());
 
     final GlossaryFieldResolverProvider provider =
         new GlossaryFieldResolverProvider(mockEntityClient);
@@ -126,11 +123,7 @@ public class GlossaryFieldResolverProviderTest
 
   @Test
   public void testGlossaryTermWithDeepHierarchy()
-      throws ExecutionException,
-          InterruptedException,
-          RemoteInvocationException,
-          URISyntaxException {
-    // Setup: termA -> grandchildNode -> childNode -> parentNode
+      throws ExecutionException, InterruptedException, URISyntaxException {
     setupTermWithDeepNodeHierarchy();
 
     final GlossaryFieldResolverProvider provider =
@@ -148,15 +141,9 @@ public class GlossaryFieldResolverProviderTest
     assertTrue(values.contains(PARENT_NODE_URN.toString()));
   }
 
-  // ===== Tests for Glossary Node Entities =====
-
   @Test
   public void testGlossaryNodeWithParentNodes()
-      throws ExecutionException,
-          InterruptedException,
-          RemoteInvocationException,
-          URISyntaxException {
-    // Setup: grandchildNode -> childNode -> parentNode
+      throws ExecutionException, InterruptedException, URISyntaxException {
     setupNodeHierarchy();
 
     final GlossaryFieldResolverProvider provider =
@@ -176,21 +163,10 @@ public class GlossaryFieldResolverProviderTest
 
   @Test
   public void testGlossaryNodeWithNoParent()
-      throws ExecutionException,
-          InterruptedException,
-          RemoteInvocationException,
-          URISyntaxException {
-    // Setup: parentNode with no parent (root-level node)
-    final Map<Urn, EntityResponse> nodeResponse = new HashMap<>();
-    nodeResponse.put(
-        PARENT_NODE_URN, createGlossaryNodeInfoResponse(PARENT_NODE_URN, null /* no parent */));
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(GLOSSARY_NODE_ENTITY_NAME),
-            eq(Set.of(PARENT_NODE_URN)),
-            eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
-        .thenReturn(nodeResponse);
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Map<Urn, Urn> parentByNode = new HashMap<>();
+    parentByNode.put(PARENT_NODE_URN, null);
+    opContext = operationContextWithGlossaryParents(Map.of(), parentByNode);
 
     final GlossaryFieldResolverProvider provider =
         new GlossaryFieldResolverProvider(mockEntityClient);
@@ -207,33 +183,11 @@ public class GlossaryFieldResolverProviderTest
 
   @Test
   public void testGlossaryNodeHierarchyWithCyclePrevention()
-      throws ExecutionException,
-          InterruptedException,
-          RemoteInvocationException,
-          URISyntaxException {
-    // Setup: Test that we don't infinitely loop if there's a cycle
-    // childNode -> parentNode -> childNode (cycle)
-    final Map<Urn, EntityResponse> childResponse = new HashMap<>();
-    childResponse.put(
-        CHILD_NODE_URN, createGlossaryNodeInfoResponse(CHILD_NODE_URN, PARENT_NODE_URN));
-
-    final Map<Urn, EntityResponse> parentResponse = new HashMap<>();
-    parentResponse.put(
-        PARENT_NODE_URN, createGlossaryNodeInfoResponse(PARENT_NODE_URN, CHILD_NODE_URN));
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(GLOSSARY_NODE_ENTITY_NAME),
-            eq(Set.of(CHILD_NODE_URN)),
-            eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
-        .thenReturn(childResponse);
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(GLOSSARY_NODE_ENTITY_NAME),
-            eq(Set.of(PARENT_NODE_URN)),
-            eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
-        .thenReturn(parentResponse);
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Map<Urn, Urn> parentByNode = new HashMap<>();
+    parentByNode.put(CHILD_NODE_URN, PARENT_NODE_URN);
+    parentByNode.put(PARENT_NODE_URN, CHILD_NODE_URN);
+    opContext = operationContextWithGlossaryParents(Map.of(), parentByNode);
 
     final GlossaryFieldResolverProvider provider =
         new GlossaryFieldResolverProvider(mockEntityClient);
@@ -250,7 +204,42 @@ public class GlossaryFieldResolverProviderTest
     assertTrue(values.contains(PARENT_NODE_URN.toString()));
   }
 
-  // ===== Tests for Non-Glossary Entities (Datasets, etc.) =====
+  @Test
+  public void testGlossaryTermUsesEntityGraphCacheWhenExpandSucceeds()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder().graphId("glossary").source(GraphSnapshotSource.GRAPH).build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.GLOSSARY))
+        .thenReturn(Optional.of(binding));
+    when(entityGraphCache.expand(
+            eq("glossary"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(TraversalDirection.FORWARD),
+            eq(Set.of(TERM_A_URN.toString())),
+            anyInt(),
+            eq(EntityGraphCache.USE_DEFINITION_MAX_DEPTH),
+            eq(ReadMode.CACHED)))
+        .thenReturn(
+            GraphReadResult.fromVertices(
+                Set.of(
+                    TERM_A_URN.toString(), CHILD_NODE_URN.toString(), PARENT_NODE_URN.toString())));
+
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    opContext =
+        operationContextWithGlossaryParents(Map.of(), Map.of(), entityGraphCache, aspectRetriever);
+
+    final GlossaryFieldResolverProvider provider =
+        new GlossaryFieldResolverProvider(mockEntityClient);
+    final EntitySpec entitySpec = new EntitySpec(GLOSSARY_TERM_ENTITY_NAME, TERM_A_URN.toString());
+
+    final FieldResolver resolver = provider.getFieldResolver(opContext, entitySpec);
+    final FieldResolver.FieldValue result = resolver.getFieldValuesFuture().get();
+
+    Set<String> values = result.getValues();
+    assertEquals(values.size(), 3);
+    verify(aspectRetriever, never()).getLatestAspectObjects(any(), any(), any());
+  }
 
   @Test
   public void testDatasetWithGlossaryTerms()
@@ -258,7 +247,6 @@ public class GlossaryFieldResolverProviderTest
           InterruptedException,
           RemoteInvocationException,
           URISyntaxException {
-    // Setup: dataset with termA (termA -> childNode -> parentNode)
     setupDatasetWithGlossaryTerms();
 
     final GlossaryFieldResolverProvider provider =
@@ -281,7 +269,6 @@ public class GlossaryFieldResolverProviderTest
           InterruptedException,
           RemoteInvocationException,
           URISyntaxException {
-    // Setup: dataset with termA and termB, both under different node hierarchies
     setupDatasetWithMultipleGlossaryTerms();
 
     final GlossaryFieldResolverProvider provider =
@@ -292,7 +279,6 @@ public class GlossaryFieldResolverProviderTest
     final FieldResolver.FieldValue result = resolver.getFieldValuesFuture().get();
 
     final Set<String> values = result.getValues();
-    // termA + childNode + parentNode + termB + grandchildNode = 5
     assertEquals(values.size(), 5, "Should resolve all applied terms + their parent nodes");
     assertTrue(values.contains(TERM_A_URN.toString()));
     assertTrue(values.contains(TERM_B_URN.toString()));
@@ -307,7 +293,6 @@ public class GlossaryFieldResolverProviderTest
           InterruptedException,
           RemoteInvocationException,
           URISyntaxException {
-    // Setup: dataset with no glossary terms
     when(mockEntityClient.getV2(
             any(OperationContext.class),
             eq(DATASET_ENTITY_NAME),
@@ -332,18 +317,13 @@ public class GlossaryFieldResolverProviderTest
           InterruptedException,
           RemoteInvocationException,
           URISyntaxException {
-    // Setup: dataset with termA that has no parent node (root-level term)
     final EntityResponse datasetResponse = new EntityResponse();
     datasetResponse.setUrn(DATASET_URN);
     datasetResponse.setEntityName(DATASET_ENTITY_NAME);
 
     final GlossaryTerms glossaryTerms = new GlossaryTerms();
     final GlossaryTermAssociation association = new GlossaryTermAssociation();
-    try {
-      association.setUrn(GlossaryTermUrn.createFromUrn(TERM_A_URN));
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to create GlossaryTermUrn", e);
-    }
+    association.setUrn(GlossaryTermUrn.createFromUrn(TERM_A_URN));
     glossaryTerms.setTerms(
         new GlossaryTermAssociationArray(Collections.singletonList(association)));
 
@@ -362,16 +342,9 @@ public class GlossaryFieldResolverProviderTest
             eq(Collections.singleton(GLOSSARY_TERMS_ASPECT_NAME))))
         .thenReturn(datasetResponse);
 
-    // termA has no parent node
-    final Map<Urn, EntityResponse> termResponse = new HashMap<>();
-    termResponse.put(TERM_A_URN, createGlossaryTermInfoResponse(TERM_A_URN, null));
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(GLOSSARY_TERM_ENTITY_NAME),
-            eq(Set.of(TERM_A_URN)),
-            eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME))))
-        .thenReturn(termResponse);
+    Map<Urn, Urn> parentByTerm = new HashMap<>();
+    parentByTerm.put(TERM_A_URN, null);
+    opContext = operationContextWithGlossaryParents(parentByTerm, Map.of());
 
     final GlossaryFieldResolverProvider provider =
         new GlossaryFieldResolverProvider(mockEntityClient);
@@ -385,109 +358,98 @@ public class GlossaryFieldResolverProviderTest
     assertTrue(values.contains(TERM_A_URN.toString()));
   }
 
-  // ===== Helper Methods =====
-
-  private void setupTermWithNodeHierarchy() throws RemoteInvocationException, URISyntaxException {
-    // termA -> childNode -> parentNode
-    final Map<Urn, EntityResponse> termResponse = new HashMap<>();
-    termResponse.put(TERM_A_URN, createGlossaryTermInfoResponse(TERM_A_URN, CHILD_NODE_URN));
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(GLOSSARY_TERM_ENTITY_NAME),
-            eq(Set.of(TERM_A_URN)),
-            eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME))))
-        .thenReturn(termResponse);
-
-    // Mock node hierarchy: childNode -> parentNode -> null
-    final Map<Urn, EntityResponse> childNodeResponse = new HashMap<>();
-    childNodeResponse.put(
-        CHILD_NODE_URN, createGlossaryNodeInfoResponse(CHILD_NODE_URN, PARENT_NODE_URN));
-
-    final Map<Urn, EntityResponse> parentNodeResponse = new HashMap<>();
-    parentNodeResponse.put(PARENT_NODE_URN, createGlossaryNodeInfoResponse(PARENT_NODE_URN, null));
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(GLOSSARY_NODE_ENTITY_NAME),
-            eq(Set.of(CHILD_NODE_URN)),
-            eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
-        .thenReturn(childNodeResponse);
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(GLOSSARY_NODE_ENTITY_NAME),
-            eq(Set.of(PARENT_NODE_URN)),
-            eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
-        .thenReturn(parentNodeResponse);
+  private OperationContext operationContextWithGlossaryParents(
+      Map<Urn, Urn> parentByTerm, Map<Urn, Urn> parentByNode) {
+    return operationContextWithGlossaryParents(
+        parentByTerm, parentByNode, EntityGraphCache.NO_OP, mock(AspectRetriever.class));
   }
 
-  private void setupTermWithDeepNodeHierarchy()
-      throws RemoteInvocationException, URISyntaxException {
-    // termA -> grandchildNode -> childNode -> parentNode
-    final Map<Urn, EntityResponse> termResponse = new HashMap<>();
-    termResponse.put(TERM_A_URN, createGlossaryTermInfoResponse(TERM_A_URN, GRANDCHILD_NODE_URN));
+  private OperationContext operationContextWithGlossaryParents(
+      Map<Urn, Urn> parentByTerm,
+      Map<Urn, Urn> parentByNode,
+      EntityGraphCache entityGraphCache,
+      AspectRetriever aspectRetriever) {
+    when(aspectRetriever.getLatestAspectObjects(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Set<Urn> urns = invocation.getArgument(1);
+              @SuppressWarnings("unchecked")
+              Set<String> aspectNames = invocation.getArgument(2);
+              Map<Urn, Map<String, Aspect>> result = new HashMap<>();
+              for (Urn urn : urns) {
+                if (aspectNames.contains(GLOSSARY_TERM_INFO_ASPECT_NAME)
+                    && parentByTerm.containsKey(urn)) {
+                  GlossaryTermInfo termInfo = new GlossaryTermInfo();
+                  Urn parent = parentByTerm.get(urn);
+                  if (parent != null) {
+                    termInfo.setParentNode(GlossaryNodeUrn.createFromUrn(parent));
+                  }
+                  result.put(
+                      urn, Map.of(GLOSSARY_TERM_INFO_ASPECT_NAME, new Aspect(termInfo.data())));
+                }
+                if (aspectNames.contains(GLOSSARY_NODE_INFO_ASPECT_NAME)
+                    && parentByNode.containsKey(urn)) {
+                  GlossaryNodeInfo nodeInfo = new GlossaryNodeInfo();
+                  Urn parent = parentByNode.get(urn);
+                  if (parent != null) {
+                    nodeInfo.setParentNode(GlossaryNodeUrn.createFromUrn(parent));
+                  }
+                  result.put(
+                      urn, Map.of(GLOSSARY_NODE_INFO_ASPECT_NAME, new Aspect(nodeInfo.data())));
+                }
+              }
+              return result;
+            });
 
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(GLOSSARY_TERM_ENTITY_NAME),
-            eq(Set.of(TERM_A_URN)),
-            eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME))))
-        .thenReturn(termResponse);
-
-    // Setup 3-level node hierarchy: grandchild -> child -> parent
-    setupNodeHierarchy();
+    OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
+    RetrieverContext retrieverContext =
+        RetrieverContext.builder()
+            .graphRetriever(GraphRetriever.EMPTY)
+            .searchRetriever(SearchRetriever.EMPTY)
+            .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+            .aspectRetriever(aspectRetriever)
+            .entityGraphCache(entityGraphCache)
+            .build();
+    return base.toBuilder()
+        .retrieverContext(retrieverContext)
+        .build(base.getSessionAuthentication(), false);
   }
 
-  private void setupNodeHierarchy() throws RemoteInvocationException, URISyntaxException {
-    // Mock 3-level hierarchy: grandchildNode -> childNode -> parentNode -> null
-    final Map<Urn, EntityResponse> grandchildNodeResponse = new HashMap<>();
-    grandchildNodeResponse.put(
-        GRANDCHILD_NODE_URN, createGlossaryNodeInfoResponse(GRANDCHILD_NODE_URN, CHILD_NODE_URN));
+  private void setupTermWithNodeHierarchy() {
+    Map<Urn, Urn> parentByTerm = Map.of(TERM_A_URN, CHILD_NODE_URN);
+    Map<Urn, Urn> parentByNode = new HashMap<>();
+    parentByNode.put(CHILD_NODE_URN, PARENT_NODE_URN);
+    parentByNode.put(PARENT_NODE_URN, null);
+    opContext = operationContextWithGlossaryParents(parentByTerm, parentByNode);
+  }
 
-    final Map<Urn, EntityResponse> childNodeResponse = new HashMap<>();
-    childNodeResponse.put(
-        CHILD_NODE_URN, createGlossaryNodeInfoResponse(CHILD_NODE_URN, PARENT_NODE_URN));
+  private void setupTermWithDeepNodeHierarchy() {
+    Map<Urn, Urn> parentByTerm = Map.of(TERM_A_URN, GRANDCHILD_NODE_URN);
+    Map<Urn, Urn> parentByNode = new HashMap<>();
+    parentByNode.put(GRANDCHILD_NODE_URN, CHILD_NODE_URN);
+    parentByNode.put(CHILD_NODE_URN, PARENT_NODE_URN);
+    parentByNode.put(PARENT_NODE_URN, null);
+    opContext = operationContextWithGlossaryParents(parentByTerm, parentByNode);
+  }
 
-    final Map<Urn, EntityResponse> parentNodeResponse = new HashMap<>();
-    parentNodeResponse.put(PARENT_NODE_URN, createGlossaryNodeInfoResponse(PARENT_NODE_URN, null));
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(GLOSSARY_NODE_ENTITY_NAME),
-            eq(Set.of(GRANDCHILD_NODE_URN)),
-            eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
-        .thenReturn(grandchildNodeResponse);
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(GLOSSARY_NODE_ENTITY_NAME),
-            eq(Set.of(CHILD_NODE_URN)),
-            eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
-        .thenReturn(childNodeResponse);
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(GLOSSARY_NODE_ENTITY_NAME),
-            eq(Set.of(PARENT_NODE_URN)),
-            eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
-        .thenReturn(parentNodeResponse);
+  private void setupNodeHierarchy() {
+    Map<Urn, Urn> parentByNode = new HashMap<>();
+    parentByNode.put(GRANDCHILD_NODE_URN, CHILD_NODE_URN);
+    parentByNode.put(CHILD_NODE_URN, PARENT_NODE_URN);
+    parentByNode.put(PARENT_NODE_URN, null);
+    opContext = operationContextWithGlossaryParents(Map.of(), parentByNode);
   }
 
   private void setupDatasetWithGlossaryTerms()
       throws RemoteInvocationException, URISyntaxException {
-    // Dataset has termA
     final EntityResponse datasetResponse = new EntityResponse();
     datasetResponse.setUrn(DATASET_URN);
     datasetResponse.setEntityName(DATASET_ENTITY_NAME);
 
     final GlossaryTerms glossaryTerms = new GlossaryTerms();
     final GlossaryTermAssociation association = new GlossaryTermAssociation();
-    try {
-      association.setUrn(GlossaryTermUrn.createFromUrn(TERM_A_URN));
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to create GlossaryTermUrn", e);
-    }
+    association.setUrn(GlossaryTermUrn.createFromUrn(TERM_A_URN));
     glossaryTerms.setTerms(
         new GlossaryTermAssociationArray(Collections.singletonList(association)));
 
@@ -506,13 +468,11 @@ public class GlossaryFieldResolverProviderTest
             eq(Collections.singleton(GLOSSARY_TERMS_ASPECT_NAME))))
         .thenReturn(datasetResponse);
 
-    // termA -> childNode -> parentNode
     setupTermWithNodeHierarchy();
   }
 
   private void setupDatasetWithMultipleGlossaryTerms()
       throws RemoteInvocationException, URISyntaxException {
-    // Dataset has termA and termB
     final EntityResponse datasetResponse = new EntityResponse();
     datasetResponse.setUrn(DATASET_URN);
     datasetResponse.setEntityName(DATASET_ENTITY_NAME);
@@ -520,12 +480,8 @@ public class GlossaryFieldResolverProviderTest
     final GlossaryTerms glossaryTerms = new GlossaryTerms();
     final GlossaryTermAssociation assocA = new GlossaryTermAssociation();
     final GlossaryTermAssociation assocB = new GlossaryTermAssociation();
-    try {
-      assocA.setUrn(GlossaryTermUrn.createFromUrn(TERM_A_URN));
-      assocB.setUrn(GlossaryTermUrn.createFromUrn(TERM_B_URN));
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to create GlossaryTermUrn", e);
-    }
+    assocA.setUrn(GlossaryTermUrn.createFromUrn(TERM_A_URN));
+    assocB.setUrn(GlossaryTermUrn.createFromUrn(TERM_B_URN));
     glossaryTerms.setTerms(new GlossaryTermAssociationArray(Arrays.asList(assocA, assocB)));
 
     final EnvelopedAspect glossaryTermsAspect = new EnvelopedAspect();
@@ -543,113 +499,13 @@ public class GlossaryFieldResolverProviderTest
             eq(Collections.singleton(GLOSSARY_TERMS_ASPECT_NAME))))
         .thenReturn(datasetResponse);
 
-    // termA -> childNode, termB -> grandchildNode (no parent for variety)
-    final Map<Urn, EntityResponse> termResponses = new HashMap<>();
-    termResponses.put(TERM_A_URN, createGlossaryTermInfoResponse(TERM_A_URN, CHILD_NODE_URN));
-    termResponses.put(TERM_B_URN, createGlossaryTermInfoResponse(TERM_B_URN, GRANDCHILD_NODE_URN));
-
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(GLOSSARY_TERM_ENTITY_NAME),
-            anySet(),
-            eq(Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME))))
-        .thenAnswer(
-            invocation -> {
-              @SuppressWarnings("unchecked")
-              final Set<Urn> urns = invocation.getArgument(2);
-              final Map<Urn, EntityResponse> responses = new HashMap<>();
-              for (Urn urn : urns) {
-                if (urn.equals(TERM_A_URN)) {
-                  responses.put(
-                      TERM_A_URN, createGlossaryTermInfoResponse(TERM_A_URN, CHILD_NODE_URN));
-                } else if (urn.equals(TERM_B_URN)) {
-                  responses.put(
-                      TERM_B_URN, createGlossaryTermInfoResponse(TERM_B_URN, GRANDCHILD_NODE_URN));
-                }
-              }
-              return responses;
-            });
-
-    // Node hierarchy: childNode -> parentNode, grandchildNode -> null
-    when(mockEntityClient.batchGetV2(
-            any(OperationContext.class),
-            eq(GLOSSARY_NODE_ENTITY_NAME),
-            anySet(),
-            eq(Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME))))
-        .thenAnswer(
-            invocation -> {
-              @SuppressWarnings("unchecked")
-              final Set<Urn> urns = invocation.getArgument(2);
-              final Map<Urn, EntityResponse> responses = new HashMap<>();
-              for (Urn urn : urns) {
-                if (urn.equals(CHILD_NODE_URN)) {
-                  responses.put(
-                      CHILD_NODE_URN,
-                      createGlossaryNodeInfoResponse(CHILD_NODE_URN, PARENT_NODE_URN));
-                } else if (urn.equals(PARENT_NODE_URN)) {
-                  responses.put(
-                      PARENT_NODE_URN, createGlossaryNodeInfoResponse(PARENT_NODE_URN, null));
-                } else if (urn.equals(GRANDCHILD_NODE_URN)) {
-                  responses.put(
-                      GRANDCHILD_NODE_URN,
-                      createGlossaryNodeInfoResponse(GRANDCHILD_NODE_URN, null));
-                }
-              }
-              return responses;
-            });
-  }
-
-  private EntityResponse createGlossaryTermInfoResponse(
-      final Urn termUrn, final Urn parentNodeUrn) {
-    final EntityResponse response = new EntityResponse();
-    response.setUrn(termUrn);
-    response.setEntityName(GLOSSARY_TERM_ENTITY_NAME);
-
-    final GlossaryTermInfo termInfo = new GlossaryTermInfo();
-    termInfo.setName(termUrn.getId());
-    if (parentNodeUrn != null) {
-      try {
-        termInfo.setParentNode(GlossaryNodeUrn.createFromUrn(parentNodeUrn));
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to create GlossaryNodeUrn from " + parentNodeUrn, e);
-      }
-    }
-
-    final EnvelopedAspect termInfoAspect = new EnvelopedAspect();
-    termInfoAspect.setName(GLOSSARY_TERM_INFO_ASPECT_NAME);
-    termInfoAspect.setValue(new Aspect(termInfo.data()));
-
-    response.setAspects(
-        new EnvelopedAspectMap(
-            Collections.singletonMap(GLOSSARY_TERM_INFO_ASPECT_NAME, termInfoAspect)));
-
-    return response;
-  }
-
-  private EntityResponse createGlossaryNodeInfoResponse(
-      final Urn nodeUrn, final Urn parentNodeUrn) {
-    final EntityResponse response = new EntityResponse();
-    response.setUrn(nodeUrn);
-    response.setEntityName(GLOSSARY_NODE_ENTITY_NAME);
-
-    final GlossaryNodeInfo nodeInfo = new GlossaryNodeInfo();
-    nodeInfo.setName(nodeUrn.getId());
-    if (parentNodeUrn != null) {
-      try {
-        nodeInfo.setParentNode(GlossaryNodeUrn.createFromUrn(parentNodeUrn));
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to create GlossaryNodeUrn from " + parentNodeUrn, e);
-      }
-    }
-
-    final EnvelopedAspect nodeInfoAspect = new EnvelopedAspect();
-    nodeInfoAspect.setName(GLOSSARY_NODE_INFO_ASPECT_NAME);
-    nodeInfoAspect.setValue(new Aspect(nodeInfo.data()));
-
-    response.setAspects(
-        new EnvelopedAspectMap(
-            Collections.singletonMap(GLOSSARY_NODE_INFO_ASPECT_NAME, nodeInfoAspect)));
-
-    return response;
+    Map<Urn, Urn> parentByTerm = new HashMap<>();
+    parentByTerm.put(TERM_A_URN, CHILD_NODE_URN);
+    parentByTerm.put(TERM_B_URN, GRANDCHILD_NODE_URN);
+    Map<Urn, Urn> parentByNode = new HashMap<>();
+    parentByNode.put(CHILD_NODE_URN, PARENT_NODE_URN);
+    parentByNode.put(PARENT_NODE_URN, null);
+    parentByNode.put(GRANDCHILD_NODE_URN, null);
+    opContext = operationContextWithGlossaryParents(parentByTerm, parentByNode);
   }
 }

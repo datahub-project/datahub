@@ -57,4 +57,19 @@ public class TemplateUtilTest {
 
     Assert.assertFalse(result.get("tags").has("urn:li:tag:foo"));
   }
+
+  @Test
+  public void testObjectMapperAllowsPropertyNamesBeyondDefaultNameLimit() throws Exception {
+    // Deeply-nested dbt struct field paths (column-level lineage) become JSON property names in
+    // upstreamLineage patches that exceed Jackson's default maxNameLength (50000).
+    // Template.applyPatch round-trips the patched JSON through TemplateUtil.OBJECT_MAPPER.readTree,
+    // which previously failed with "StreamConstraintsException: Name length (N) exceeds the maximum
+    // allowed (50000)". The mapper must now accept names beyond that default.
+    String longName = "f".repeat(60000);
+    String json = "{\"" + longName + "\":\"v\"}";
+
+    JsonNode node = TemplateUtil.OBJECT_MAPPER.readTree(json);
+
+    Assert.assertTrue(node.has(longName), "Property name beyond the default limit must parse");
+  }
 }

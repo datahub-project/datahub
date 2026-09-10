@@ -11,6 +11,8 @@ import { DEFAULT_FILTER_FIELDS } from '@app/searchV2/filters/field/fields';
 import { FieldType, FilterField, FilterPredicate } from '@app/searchV2/filters/types';
 import ValueMenu from '@app/searchV2/filters/value/ValueMenu';
 import { getDefaultFieldOperatorType } from '@app/searchV2/filters/value/utils';
+import { PARENT_DOCUMENT_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const StyledPlusOutlined = styled(PlusOutlined)`
@@ -74,20 +76,23 @@ interface Props {
 export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAddFilter, includeCount }: Props) {
     const { t } = useTranslation('search');
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
 
-    const items = fields.map((field) => {
-        return {
-            key: field.field,
-            label: (
-                <FilterPopover
-                    field={field}
-                    onAddFilter={onAddFilter}
-                    setDropdownOpen={setDropdownOpen}
-                    includeCount={includeCount}
-                />
-            ),
-        };
-    });
+    const items = fields
+        .filter((field) => field.field !== PARENT_DOCUMENT_FILTER_NAME || isContextDocumentsEnabled)
+        .map((field) => {
+            return {
+                key: field.field,
+                label: (
+                    <FilterPopover
+                        field={field}
+                        onAddFilter={onAddFilter}
+                        setDropdownOpen={setDropdownOpen}
+                        includeCount={includeCount}
+                    />
+                ),
+            };
+        });
 
     return (
         <Dropdown

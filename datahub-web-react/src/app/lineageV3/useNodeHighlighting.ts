@@ -1,27 +1,37 @@
-import { useContext, useMemo } from 'react';
-import { Node, useReactFlow } from 'reactflow';
+import { useMemo } from 'react';
 
-import { LineageNode, LineageNodesContext, NodeContext, createEdgeId } from '@app/lineageV3/common';
+import { NodeContext, createEdgeId } from '@app/lineageV3/common';
 
 import { LineageDirection } from '@types';
 
-export default function useNodeHighlighting(hoveredNode: string | null): {
+/**
+ * Computes the nodes and edges to highlight when hovering a node: everything reachable from the
+ * hovered entity, in each direction.
+ * @param hoveredNode The hovered entity's urn.
+ * @param adjacencyList Adjacency list of the computed graph: only shown nodes, with edges
+ *        connected through toggle-hidden nodes.
+ */
+export default function useNodeHighlighting(
+    hoveredNode: string | null,
+    adjacencyList: NodeContext['adjacencyList'],
+): {
     highlightedNodes: Set<string>;
     highlightedEdges: Set<string>;
 } {
-    const { adjacencyList } = useContext(LineageNodesContext);
-    const { getNode } = useReactFlow<LineageNode>();
-    const { highlightedNodes, highlightedEdges } = useMemo(() => {
-        const node = hoveredNode ? getNode(hoveredNode) : null;
-        return computeHighlights(node, adjacencyList);
-    }, [hoveredNode, adjacencyList, getNode]);
+    const { highlightedNodes, highlightedEdges } = useMemo(
+        // Note: hover state stores the entity urn, which for data product members differs from
+        // their node id. Traversal is at the entity level, so start from the urn directly;
+        // member edges still highlight, matching on their entity-level `originalId`.
+        () => computeHighlights(hoveredNode, adjacencyList),
+        [hoveredNode, adjacencyList],
+    );
 
     return { highlightedNodes, highlightedEdges };
 }
 
 /** Compute highlighted nodes and table->table edges. */
-function computeHighlights(
-    node: Node<LineageNode> | undefined | null,
+export function computeHighlights(
+    hoveredUrn: string | null,
     adjacencyList: NodeContext['adjacencyList'],
 ): {
     highlightedNodes: Set<string>;
@@ -29,12 +39,12 @@ function computeHighlights(
 } {
     const highlightedNodes = new Set<string>();
     const highlightedEdges = new Set<string>();
-    if (!node) {
+    if (!hoveredUrn) {
         return { highlightedNodes, highlightedEdges };
     }
     Object.entries(adjacencyList).forEach(([direction, neighborMap]) => {
         const seen = new Set<string>();
-        const toVisit = [node.id];
+        const toVisit = [hoveredUrn];
         while (toVisit.length) {
             const urn = toVisit.pop();
             if (urn === undefined) {

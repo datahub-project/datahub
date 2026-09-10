@@ -159,7 +159,9 @@ def _extract_answer_chart_type(answer_tml: Dict[str, Any]) -> Optional[str]:
 _TS_TO_DATAHUB_PLATFORM: Dict[str, str] = {
     "DATABRICKS": "databricks",
     "SNOWFLAKE": "snowflake",
-    "BIGQUERY": "bigquery",
+    "BIGQUERY": "bigquery",  # keep for backwards compatibility
+    "GOOGLE_BIGQUERY": "bigquery",  # used in connections
+    "GCP_BIGQUERY": "bigquery",  # used in tables
     "REDSHIFT": "redshift",
     "SYNAPSE": "mssql",  # Synapse uses MSSQL URN conventions.
     "ORACLE": "oracle",
@@ -175,26 +177,148 @@ _TS_TO_DATAHUB_PLATFORM: Dict[str, str] = {
 }
 
 
+# TS prefixes a LogicalTable's ``dataSourceTypeEnum`` with the connection
+# category (``RDBMS_`` / ``NOSQL_`` / ``FILE_``) — e.g. ``RDBMS_SNOWFLAKE`` —
+# whereas ConnectionResponse reports the bare name (``SNOWFLAKE``). Note this
+# is orthogonal to vendor aliasing (``GCP_BIGQUERY`` on tables vs
+# ``GOOGLE_BIGQUERY`` on connections), which is handled by the map above.
+_TS_TABLE_TYPE_PREFIXES = ("RDBMS_", "NOSQL_", "FILE_")
+
+
+def normalize_ts_table_type(data_source_type: Optional[str]) -> str:
+    """Uppercase a table's ``data_source_type`` and strip the TS category
+    prefix so it resolves against ``_TS_TO_DATAHUB_PLATFORM`` (keyed by bare
+    warehouse names). Returns ``""`` when ``data_source_type`` is None/empty."""
+    ts_type = (data_source_type or "").upper()
+    for prefix in _TS_TABLE_TYPE_PREFIXES:
+        if ts_type.startswith(prefix):
+            return ts_type[len(prefix) :]
+    return ts_type
+
+
 # Each platform has its own canonical dataset-key shape; this table is
 # the single source of truth so adding a platform requires editing one
 # spot. Schema-less platforms (MySQL, Teradata, Athena) collapse the
 # schema component when absent.
+#
+# ``oracle``/``hana`` are 2-part (``schema.table``), not 3-part: Oracle's
+# ``add_database_name_to_urn`` defaults to False (oracle.py) and HANA's
+# source has no ``get_identifier`` override, so it falls back to
+# ``sql_common.py``'s default ``schema.table`` — a 3-part key here would
+# never match either platform's own emitted URN.
+#
+# Known limitation: Oracle's ``add_database_name_to_urn`` is operator-
+# configurable. If a tenant's Oracle source was run with that flag set to
+# True, it emits ``database.schema.table`` and the 2-part key below won't
+# match. There's no way to detect that from ThoughtSpot's own API data;
+# this connector assumes Oracle's default (False / 2-part). HANA has no
+# equivalent config, so its 2-part shape always applies.
 _KEY_BUILDERS: Dict[str, Callable[[Optional[str], Optional[str], str], str]] = {
     "databricks": lambda db, sch, tbl: ".".join(p for p in (db, sch, tbl) if p),
     "snowflake": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
     "bigquery": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
     "redshift": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
     "mssql": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
-    "oracle": lambda db, sch, tbl: f"{db}.{sch}.{tbl}" if sch else f"{db}.{tbl}",
+    "oracle": lambda db, sch, tbl: f"{sch}.{tbl}" if sch else tbl,
     "postgres": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
     "mysql": lambda db, sch, tbl: f"{db}.{tbl}",
     "teradata": lambda db, sch, tbl: f"{db}.{tbl}",
     "presto": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
     "trino": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
     "athena": lambda db, sch, tbl: f"{db}.{tbl}",
-    "hana": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
+    "hana": lambda db, sch, tbl: f"{sch}.{tbl}" if sch else tbl,
     "denodo": lambda db, sch, tbl: f"{db}.{sch}.{tbl}",
 }
+
+# Internal invariant: every platform this connector can resolve to must
+# have a key builder, or that platform's lineage silently drops with zero
+# signal (see ``_resolve_external_upstream``'s ``builder is None`` guard).
+# Fail fast at import time instead of relying on the runtime guard alone.
+_missing_builders = set(_TS_TO_DATAHUB_PLATFORM.values()) - set(_KEY_BUILDERS)
+assert not _missing_builders, (
+    f"platforms mapped without a key builder: {sorted(_missing_builders)}"
+)
+
+
+# Per-platform default casing applied to database/schema/table components
+# before ``_KEY_BUILDERS`` joins them, so the resulting URN matches what
+# that platform's own DataHub source actually emits by default. Verified
+# per-platform (not borrowed from the unrelated SQL-parsing
+# ``PLATFORMS_WITH_CASE_SENSITIVE_TABLES`` heuristic):
+#
+# * ``snowflake``: ``SnowflakeIdentifierConfig.convert_urns_to_lowercase``
+#   defaults True — Snowflake stores unquoted identifiers uppercase, so
+#   its own source lowercases them for the URN.
+# * ``oracle``/``hana``: both ride a SQLAlchemy dialect whose
+#   ``normalize_name`` lowercases only all-uppercase identifiers
+#   (``oracle.py``'s ``normalize_db_name`` replicates the same rule;
+#   ``sqlalchemy-hana``'s dialect does it natively) — mixed-case names
+#   pass through untouched, so this is conditional, not a blanket lower.
+# * Every other platform's own DataHub source does no case
+#   transformation at all (it emits the database's native case
+#   verbatim), so the identity default is correct for them.
+#
+def _identity(name: str) -> str:
+    return name
+
+
+def _lower_if_upper(name: str) -> str:
+    return name.lower() if name.isupper() else name
+
+
+# Platforms not listed here fall back to ``_identity``.
+_CASE_NORMALIZERS: Dict[str, Callable[[str], str]] = {
+    "snowflake": str.lower,
+    "oracle": _lower_if_upper,
+    "hana": _lower_if_upper,
+}
+
+
+def select_case_normalizer(
+    platform: str, convert_urns_to_lowercase: Optional[bool]
+) -> Callable[[str], str]:
+    """Pick the casing function to apply to a database/schema/table
+    component before ``_KEY_BUILDERS`` joins it into a key.
+
+    ``convert_urns_to_lowercase=None`` uses the verified per-platform
+    default in ``_CASE_NORMALIZERS`` (identity if unlisted); an explicit
+    True/False always overrides it (e.g. a connection-level TS config
+    override for a tenant whose target source's own casing config
+    differs from that platform's default).
+    """
+    if convert_urns_to_lowercase is None:
+        return _CASE_NORMALIZERS.get(platform, _identity)
+    return str.lower if convert_urns_to_lowercase else _identity
+
+
+def _corrupts_on_missing_schema(
+    builder: Callable[[Optional[str], Optional[str], str], str],
+) -> bool:
+    """Probe a ``_KEY_BUILDERS`` entry with a sentinel ``schema=None`` to
+    see whether it joins schema unconditionally (``f"{db}.{sch}.{tbl}"``)
+    — that's the shape that would silently embed the literal string
+    ``"None"`` into a URN when the real schema is missing. Builders that
+    ignore schema entirely (mysql/teradata/athena) or that already fall
+    back gracefully when it's absent (oracle/hana's ``if sch else tbl``,
+    databricks' ``if p`` filter) return a result with no ``"None"`` in it."""
+    return "None" in builder("db", None, "tbl")
+
+
+# Derived, not hand-maintained: computed once at import time directly from
+# ``_KEY_BUILDERS`` so it can't drift out of sync if a builder's shape
+# changes later.
+_SCHEMA_REQUIRED_PLATFORMS = frozenset(
+    platform
+    for platform, builder in _KEY_BUILDERS.items()
+    if _corrupts_on_missing_schema(builder)
+)
+
+
+def platform_requires_schema(platform: str) -> bool:
+    """Whether ``platform``'s ``_KEY_BUILDERS`` entry needs a non-empty
+    schema component to avoid emitting a corrupt (``"None"``-containing)
+    URN."""
+    return platform in _SCHEMA_REQUIRED_PLATFORMS
 
 
 class _TMLYamlLoader(yaml.SafeLoader):
@@ -780,6 +904,33 @@ class ThoughtSpotClient:
                     ids.append(tid)
         return ids
 
+    def _coerce_metadata_detail(
+        self,
+        raw_detail: Any,
+        *,
+        obj_id: Optional[str],
+        obj_name: Optional[str],
+    ) -> Dict[str, Any]:
+        """Coerce a raw ``metadata_detail`` value into a dict.
+
+        TS occasionally returns a string error message (e.g. 'Error fetching
+        details for ...') instead of the detail object. Surface it in the
+        report and fall back to ``{}`` so the object still ingests (without
+        columns/lineage) rather than crashing the run.
+        """
+        if isinstance(raw_detail, str):
+            self.report.warning(
+                title="Metadata Detail Unavailable",
+                message=(
+                    "ThoughtSpot returned an error instead of object details; "
+                    "the object is ingested without columns/lineage. Check "
+                    "ThoughtSpot-side permissions or object health."
+                ),
+                context=f"id={obj_id}, name={obj_name}, detail={raw_detail}",
+            )
+            return {}
+        return raw_detail or {}
+
     @staticmethod
     def _parse_columns_from_metadata_detail(
         detail: Dict[str, Any],
@@ -927,7 +1078,12 @@ class ThoughtSpotClient:
                             flattened["stats"] = item["stats"]
 
                         if include_details:
-                            detail = item.get("metadata_detail") or {}
+                            header = item.get("metadata_header") or {}
+                            detail = self._coerce_metadata_detail(
+                                item.get("metadata_detail"),
+                                obj_id=item.get("metadata_id") or header.get("id"),
+                                obj_name=header.get("name"),
+                            )
                             if object_type == "LOGICAL_TABLE":
                                 flattened["columns"] = (
                                     self._parse_columns_from_metadata_detail(detail)
@@ -1099,9 +1255,11 @@ class ThoughtSpotClient:
                     continue
 
                 header = item.get("metadata_header") or {}
-                detail = item.get("metadata_detail") or {}
                 obj_id = item.get("metadata_id") or header.get("id")
                 obj_name = header.get("name", "")
+                detail = self._coerce_metadata_detail(
+                    item.get("metadata_detail"), obj_id=obj_id, obj_name=obj_name
+                )
 
                 columns: List[Dict[str, str]] = []
                 for col in detail.get("columns") or []:

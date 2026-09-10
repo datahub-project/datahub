@@ -100,22 +100,24 @@ filtered to `*.pdl`. Files that exist on only one side (added or deleted) are st
 
 ### Step 3 — Classify each changed file
 
-For every changed file the classifier compares base vs. head content and emits findings against **five breaking-change criteria** plus **two `schemaVersion` anomalies**:
+For every changed file the classifier compares base vs. head content and emits findings against **six breaking-change criteria** plus **two `schemaVersion` anomalies**:
 
-| #   | Criterion                                                                 | Bucket   |
-| --- | ------------------------------------------------------------------------- | -------- |
-| 1   | Removed fields                                                            | breaking |
-| 2   | Renamed record without `@renamedFrom` annotation                          | breaking |
-| 3   | `optional → required` flip                                                | breaking |
-| 4   | Enum value removal                                                        | breaking |
-| 5   | Field type change                                                         | breaking |
-|     | Added required field                                                      | breaking |
-|     | **Structural change without `schemaVersion` bump**                        | breaking |
-|     | Added optional field                                                      | additive |
-|     | Added enum value                                                          | additive |
-|     | `required → optional` flip                                                | noisy    |
-|     | Renamed record **with** `@renamedFrom` annotation                         | noisy    |
-|     | **`schemaVersion` bump without structural change** (the PR #9579 pattern) | noisy    |
+| #   | Criterion                                                                                                                                                                                                                                                 | Bucket   | Bump required? |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | -------------- |
+| 1   | Removed fields                                                                                                                                                                                                                                            | breaking | yes            |
+| 2   | Renamed record without `@renamedFrom` annotation                                                                                                                                                                                                          | breaking | yes            |
+| 3   | `optional → required` flip                                                                                                                                                                                                                                | breaking | yes            |
+| 4   | Enum value removal                                                                                                                                                                                                                                        | breaking | yes            |
+| 5   | Field type change                                                                                                                                                                                                                                         | breaking | yes            |
+| 6   | Changed/added/removed `@Searchable`, `@Relationship`, `@SearchableRef`, `@TimeseriesField`, or `@TimeseriesFieldCollection` on an existing field (reindex-relevant — see [bump_schema_versions.md](bump_schema_versions.md#reindex-relevant-annotations)) | breaking | yes            |
+|     | Added required field                                                                                                                                                                                                                                      | breaking | yes            |
+|     | **Breaking change without `schemaVersion` bump**                                                                                                                                                                                                          | breaking | (flag)         |
+|     | Added optional field                                                                                                                                                                                                                                      | additive | **no**         |
+|     | Added enum value                                                                                                                                                                                                                                          | additive | **no**         |
+|     | `required → optional` flip                                                                                                                                                                                                                                | noisy    | yes            |
+|     | Renamed record **with** `@renamedFrom` annotation                                                                                                                                                                                                         | noisy    | yes            |
+|     | **`schemaVersion` bump without bump-required change** (e.g. CorpUserInfo #18278)                                                                                                                                                                          | noisy    | — (spurious)   |
+|     | Changed a **non-whitelisted** field annotation (e.g. `@deprecated`, `@compliance`, `@UrnValidation`)                                                                                                                                                      | _(none)_ | no             |
 
 ### Step 4 — Walk the dependency graph (transitive impact)
 
@@ -129,12 +131,14 @@ Aspects that were both directly edited AND reached by the BFS get their `bump_st
 
 Each aspect ends with one of four bump statuses:
 
-| Status          | Trigger                                                                                  |
-| --------------- | ---------------------------------------------------------------------------------------- |
-| `bump_done`     | `head schemaVersion > base AND a real change exists` (direct or transitive). Legitimate. |
-| `bump_needed`   | change exists but version NOT bumped — silent migration hazard.                          |
-| `bump_spurious` | version bumped with NO schema change at all (auto-bumper side-effect).                   |
-| `not_sure`      | version regressed (head < base) — manual review.                                         |
+| Status          | Trigger                                                                                               |
+| --------------- | ----------------------------------------------------------------------------------------------------- |
+| `bump_done`     | `head schemaVersion > base AND a bump-required (breaking) change exists` (direct or transitive).      |
+| `bump_needed`   | breaking change exists but version NOT bumped — silent migration hazard.                              |
+| `bump_spurious` | version bumped with NO bump-required change (auto-bumper side-effect; additive-only bumps land here). |
+| `not_sure`      | version regressed (head < base) — manual review.                                                      |
+
+Additive-only changes (new optional fields, new enum values) do **not** require a bump — previously-serialized aspects remain valid. Bumping for them is classified `bump_spurious` (see CorpUserInfo / #18278). This matches [`bump_schema_versions.py`](bump_schema_versions.md)'s backward-compatible skip.
 
 `schemaVersion` defaults to 1 when absent, matching [`bump_schema_versions.md`](bump_schema_versions.md) semantics.
 
@@ -314,9 +318,11 @@ Without reclassification, both #9534 and #9579 would be `bump_spurious`. With it
 
 ### Effect on the file's cumulative bucket
 
-The reclassified slice verdicts feed the per-PR aggregator that drives each file's bucket in the cumulative report. The aggregator honors catch-up reconciliation: a `bump_needed` slice whose PR appears in any later slice's `catch_up_for_prs` is no longer treated as an unpaid debt and does not push the file into `bump_needed`. Priority order (highest wins): `bump_spurious > bump_needed > bump_done > bump_not_needed`.
+The reclassified slice verdicts feed the per-PR aggregator that drives each file's bucket in the cumulative report. The aggregator honors catch-up reconciliation: a `bump_needed` slice whose PR appears in any later slice's `catch_up_for_prs` is no longer treated as an unpaid debt and does not push the file into `bump_needed`. Priority order (highest wins): `bump_needed > bump_spurious > bump_done > bump_not_needed`.
 
-**Per-PR truth drives the bucket** — when an unreconciled spurious slice exists in the window, the file lands in `bump_spurious` even if cumulative-diff math would call the window `bump_done`. Reviewers see the per-PR breakdown table for the file to identify which specific PR was at fault.
+**An unreconciled `bump_needed` outranks `bump_spurious`.** A needed bump is a release-blocking, silent-migration hazard; a spurious bump is only informational. Because catch-up reconciliation flows oldest→newest, a slice that is _still_ `bump_spurious` after reclassification paid no debt — it cannot have covered a later change (a bump only pays for changes that preceded it). So when a file has both an unreconciled needed slice and a spurious slice, the file lands in `bump_needed` (the safe failure mode); the spurious slice is still listed in the per-PR breakdown for the reviewer. This prevents a false negative where a **duplicated release bump** landing inside the window masks a later real change — e.g. the v1.1.0 catch-up bump shipped as separate commits on both the cloud branch (#9687) and acryl-main (#9684), so the acryl-main copy falls inside a `v1.1.2-cloud..acryl-main` window as a spurious slice and would otherwise have hidden a later transitive `bump_needed` on the same aspect (`MonitorSuiteInfo` via `EntityChangeType`; `AssertionRunEvent`'s added `executedQuery` field).
+
+**Per-PR truth drives the bucket** — when an unreconciled spurious slice exists in the window (and no unreconciled needed slice outranks it), the file lands in `bump_spurious` even if cumulative-diff math would call the window `bump_done`. Reviewers see the per-PR breakdown table for the file to identify which specific PR was at fault.
 
 For `Status.pdl`:
 

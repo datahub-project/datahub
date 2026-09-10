@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.search;
 
 import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVENTION_BEAN;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.linkedin.gms.factory.common.GitVersionFactory;
@@ -67,11 +68,21 @@ public class ElasticSearchIndexBuilderFactory {
   protected Map<String, Map<String, String>> getIndexSettingsOverrides(
       @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention) {
 
+    // Bootstrap-time Spring wiring — no per-request OperationContext is obtainable here.
     return Stream.concat(
             parseIndexSettingsMap(indexSettingOverrides).entrySet().stream()
-                .map(e -> Map.entry(indexConvention.getIndexName(e.getKey()), e.getValue())),
+                .map(
+                    e ->
+                        Map.entry(
+                            indexConvention.getIndexName(OperationFingerprint.EMPTY, e.getKey()),
+                            e.getValue())),
             parseIndexSettingsMap(entityIndexSettingOverrides).entrySet().stream()
-                .map(e -> Map.entry(indexConvention.getEntityIndexName(e.getKey()), e.getValue())))
+                .map(
+                    e ->
+                        Map.entry(
+                            indexConvention.getEntityIndexName(
+                                OperationFingerprint.EMPTY, e.getKey()),
+                            e.getValue())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 

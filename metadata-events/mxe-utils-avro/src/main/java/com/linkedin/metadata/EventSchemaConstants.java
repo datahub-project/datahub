@@ -140,6 +140,9 @@ public final class EventSchemaConstants {
     Set<SchemaIdOrdinal> missingOrdinals = new HashSet<>();
 
     for (SchemaIdOrdinal ordinal : SchemaIdOrdinal.values()) {
+      if (ordinal.isReserved()) {
+        continue;
+      }
       if (!map.containsKey(ordinal)) {
         missingOrdinals.add(ordinal);
       }

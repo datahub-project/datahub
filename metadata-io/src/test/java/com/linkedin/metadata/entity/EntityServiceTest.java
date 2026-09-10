@@ -66,6 +66,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -1957,7 +1958,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 new Retention().setVersion(new VersionBasedRetention().setMaxVersions(1))));
     _retentionService.deleteRetention(opContext, "corpuser", "status");
     // Invoke batch apply
-    _retentionService.batchApplyRetention(null, null);
+    _retentionService.batchApplyRetention(opContext, null, null);
     assertEquals(
         _entityServiceImpl
             .listLatestAspects(opContext, entityUrn.getEntityType(), aspectName, 0, 10)
@@ -2354,6 +2355,46 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     _entityServiceImpl.ingestProposal(opContext, gmce, TEST_AUDIT_STAMP, false);
 
     verify(_mockUpdateIndicesService, never()).handleChangeEvent(any(), any());
+  }
+
+  @Test
+  public void testPreprocessEventInvalidatesEntityGraphCacheOnUiSource() {
+    EntityGraphCache mockEntityGraphCache = mock(EntityGraphCache.class);
+    OperationContext testOpContext = mock(OperationContext.class);
+    when(testOpContext.getEntityGraphCache()).thenReturn(mockEntityGraphCache);
+
+    Urn entityUrn = UrnUtils.getUrn("urn:li:domain:test");
+    MetadataChangeLog mcl = new MetadataChangeLog();
+    mcl.setEntityUrn(entityUrn);
+    mcl.setEntityType("domain");
+    mcl.setAspectName("domainProperties");
+    mcl.setChangeType(ChangeType.UPSERT);
+    SystemMetadata systemMetadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, UI_SOURCE);
+    systemMetadata.setProperties(properties);
+    mcl.setSystemMetadata(systemMetadata);
+
+    assertTrue(_entityServiceImpl.preprocessEvent(testOpContext, mcl));
+    verify(_mockUpdateIndicesService).handleChangeEvent(eq(testOpContext), eq(mcl));
+    verify(mockEntityGraphCache).invalidateOnSyncBatch(any());
+  }
+
+  @Test
+  public void testPreprocessEventSkipsEntityGraphCacheWithoutUiOrSyncHeader() {
+    EntityGraphCache mockEntityGraphCache = mock(EntityGraphCache.class);
+    OperationContext testOpContext = mock(OperationContext.class);
+    when(testOpContext.getEntityGraphCache()).thenReturn(mockEntityGraphCache);
+
+    Urn entityUrn = UrnUtils.getUrn("urn:li:domain:test");
+    MetadataChangeLog mcl = new MetadataChangeLog();
+    mcl.setEntityUrn(entityUrn);
+    mcl.setEntityType("domain");
+    mcl.setAspectName("domainProperties");
+
+    assertFalse(_entityServiceImpl.preprocessEvent(testOpContext, mcl));
+    verify(_mockUpdateIndicesService, never()).handleChangeEvent(any(), any());
+    verify(mockEntityGraphCache, never()).invalidateOnSyncBatch(any());
   }
 
   @Test

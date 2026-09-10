@@ -65,7 +65,7 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
         if (useOpenSearch) {
           setupOpenSearchUsageEvents(indexPrefix, numShards, numReplicas, context.opContext());
         } else {
-          setupElasticsearchUsageEvents(indexPrefix, numShards, numReplicas);
+          setupElasticsearchUsageEvents(context.opContext(), indexPrefix, numShards, numReplicas);
         }
 
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
@@ -76,21 +76,28 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
     };
   }
 
-  private void setupElasticsearchUsageEvents(String prefix, int numShards, int numReplicas)
+  private void setupElasticsearchUsageEvents(
+      OperationContext operationContext, String prefix, int numShards, int numReplicas)
       throws Exception {
     String prefixedPolicy = prefix + "datahub_usage_event_policy";
     String prefixedTemplate = prefix + "datahub_usage_event_index_template";
     String prefixedDataStream = prefix + "datahub_usage_event";
 
     // Create ILM policy
-    UsageEventIndexUtils.createIlmPolicy(esComponents, prefixedPolicy);
+    UsageEventIndexUtils.createIlmPolicy(operationContext, esComponents, prefixedPolicy);
 
     // Create index template
     UsageEventIndexUtils.createIndexTemplate(
-        esComponents, prefixedTemplate, prefixedPolicy, numShards, numReplicas, prefix);
+        operationContext,
+        esComponents,
+        prefixedTemplate,
+        prefixedPolicy,
+        numShards,
+        numReplicas,
+        prefix);
 
     // Create data stream
-    UsageEventIndexUtils.createDataStream(esComponents, prefixedDataStream);
+    UsageEventIndexUtils.createDataStream(operationContext, esComponents, prefixedDataStream);
   }
 
   private void setupOpenSearchUsageEvents(
@@ -114,12 +121,12 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
       // endpoint)
       log.info("Creating index template: {}", prefixedTemplate);
       UsageEventIndexUtils.createOpenSearchIndexTemplate(
-          esComponents, prefixedTemplate, numShards, numReplicas, prefix);
+          operationContext, esComponents, prefixedTemplate, numShards, numReplicas, prefix);
 
       // Create initial numbered index (both AWS and self-hosted OpenSearch use the same approach)
       log.info("Creating initial index: {} with alias: {}", prefixedIndex, prefixedAlias);
       UsageEventIndexUtils.createOpenSearchUsageEventIndex(
-          esComponents, prefixedIndex, prefixedAlias);
+          operationContext, esComponents, prefixedIndex, prefixedAlias);
     } else {
       log.warn(
           "ISM policy creation failed or is not supported. Skipping template and index creation to avoid configuration issues.");

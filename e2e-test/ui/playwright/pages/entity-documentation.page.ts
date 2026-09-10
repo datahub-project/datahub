@@ -8,6 +8,7 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
+import { DELAYS, TIMEOUTS } from '../utils/constants';
 
 export class EntityDocumentationPage extends BasePage {
   readonly editDocumentationButton: Locator;
@@ -22,7 +23,7 @@ export class EntityDocumentationPage extends BasePage {
   readonly proseMirrorEditor: Locator;
   // Schema field description drawer
   readonly editFieldDescriptionButton: Locator;
-  // '[data-testid="description-editor"] .ProseMirror' — modal editor inside UpdateDescriptionModal
+  // Remirror textbox inside UpdateDescriptionModal (`data-testid="description-editor"`)
   readonly fieldDescriptionEditor: Locator;
   readonly fieldDescriptionUpdateButton: Locator;
   // Link form
@@ -43,8 +44,7 @@ export class EntityDocumentationPage extends BasePage {
     // eslint-disable-next-line playwright/no-raw-locators -- Remirror/ProseMirror CSS class + contenteditable attribute; no semantic equivalent
     this.proseMirrorEditor = page.locator('.remirror-editor.ProseMirror[contenteditable="true"]');
     this.editFieldDescriptionButton = page.getByTestId('edit-field-description');
-    // eslint-disable-next-line playwright/no-raw-locators -- ProseMirror CSS class inside testid container; no data-testid on the editor element
-    this.fieldDescriptionEditor = page.getByTestId('description-editor').locator('.ProseMirror');
+    this.fieldDescriptionEditor = page.getByTestId('description-editor').getByRole('textbox');
     this.fieldDescriptionUpdateButton = page.getByTestId('description-modal-update-button');
     this.showInPreviewCheckbox = page.getByTestId('show-in-asset-preview-checkbox');
     this.linkFormSubmitButton = page.getByTestId('link-form-modal-submit-button');
@@ -80,9 +80,11 @@ export class EntityDocumentationPage extends BasePage {
     // but the element may have zero height until the flex layout resolves.
     await this.proseMirrorEditor.click({ force: true });
     await this.page.keyboard.press('ControlOrMeta+a');
-    await this.page.keyboard.type(text);
+    await this.proseMirrorEditor.pressSequentially(text, { delay: DELAYS.SEQUENTIAL });
+    // Wait for button to be enabled after change detection (same pattern as editFieldDescription)
+    await expect(this.saveDescriptionButton).toBeEnabled({ timeout: TIMEOUTS.EXTRA_LONG });
     await this.saveDescriptionButton.click();
-    await expect(this.page.getByText('Description Updated')).toBeVisible({ timeout: 15000 });
+    await this.toast.expectVisible('Description Updated', { timeout: 15000 });
   }
 
   async clearDocumentation(): Promise<void> {
@@ -94,7 +96,7 @@ export class EntityDocumentationPage extends BasePage {
     await this.page.keyboard.press('ControlOrMeta+a');
     await this.page.keyboard.press('Delete');
     await this.saveDescriptionButton.click();
-    await expect(this.page.getByText('Description Updated')).toBeVisible({ timeout: 15000 });
+    await this.toast.expectVisible('Description Updated', { timeout: 15000 });
   }
 
   // ── Field documentation (v1 schema tab) ─────────────────────────────────
@@ -112,49 +114,75 @@ export class EntityDocumentationPage extends BasePage {
   async editFieldDescription(fieldName: string, description: string): Promise<void> {
     // eslint-disable-next-line playwright/no-raw-locators -- React-generated CSS id (#column-{name}); no data-testid on schema rows
     const row = this.page.locator(`#column-${fieldName}`);
+    const maxAttempts = 2;
 
-    // SchemaTable toggles the drawer open/closed on row click. If the drawer is
-    // already open for this field, clicking the row again would CLOSE it. To guard
-    // against this, click the row only if the edit button is not already visible.
-    const isDrawerOpen = await this.editFieldDescriptionButton.isVisible();
-    if (!isDrawerOpen) {
-      await row.click();
-      // If the row click toggled the drawer closed (i.e. it was open for a different
-      // field or the toggle fired an extra time), click once more to reopen it.
-      const becameVisible = await this.editFieldDescriptionButton
-        .waitFor({ state: 'visible', timeout: 2000 })
-        .then(() => true)
-        .catch(() => false);
-      if (!becameVisible) {
-        await row.click();
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        if (this.page.isClosed()) {
+          throw new Error('Page was closed before editing field description');
+        }
+
+        // SchemaTable toggles the drawer open/closed on row click. Click only when the
+        // edit affordance is not already visible, and recover from a toggle miss.
+        const isDrawerOpen = await this.editFieldDescriptionButton.isVisible().catch(() => false);
+        if (!isDrawerOpen) {
+          await row.click();
+          const becameVisible = await this.editFieldDescriptionButton
+            .waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT })
+            .then(() => true)
+            .catch(() => false);
+          if (!becameVisible) {
+            await row.click();
+          }
+        }
+
+        await this.editFieldDescriptionButton.waitFor({ state: 'visible', timeout: TIMEOUTS.EXTRA_LONG });
+        await this.editFieldDescriptionButton.click();
+
+        await expect(this.page.getByText('Update description')).toBeVisible({
+          timeout: TIMEOUTS.EXTRA_LONG,
+        });
+
+        // Editor may have zero height on first paint — attach + force-click to focus.
+        await this.fieldDescriptionEditor.waitFor({ state: 'attached', timeout: TIMEOUTS.EXTRA_LONG });
+        await this.fieldDescriptionEditor.click({ force: true });
+        await this.page.keyboard.press('ControlOrMeta+a');
+        await this.page.keyboard.press('Delete');
+        await this.fieldDescriptionEditor.pressSequentially(description, { delay: DELAYS.SEQUENTIAL });
+
+        // Publish is disabled until Remirror onChange reports a value different from the
+        // original description. Waiting for enabled avoids a 60s actionability timeout.
+        await expect(this.fieldDescriptionUpdateButton).toBeEnabled({
+          timeout: TIMEOUTS.EXTRA_LONG,
+        });
+
+        if (this.page.isClosed()) {
+          throw new Error('Page was closed before clicking the description update button');
+        }
+
+        await this.fieldDescriptionUpdateButton.click();
+        await this.toast.expectVisible('Updated!', { timeout: TIMEOUTS.EXTRA_LONG });
+        return;
+      } catch (err) {
+        if (attempt === maxAttempts || this.page.isClosed()) {
+          throw err;
+        }
+        // Dismiss a stuck modal before retrying the drawer → edit flow.
+        await this.page.keyboard.press('Escape').catch(() => undefined);
+        // eslint-disable-next-line playwright/no-wait-for-timeout
+        await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS * attempt);
       }
     }
-
-    // The edit button is inside the Schema Field Drawer — wait for it to be visible
-    // before clicking to avoid race conditions when the drawer is still animating open.
-    await this.editFieldDescriptionButton.waitFor({ state: 'visible', timeout: 15000 });
-    await this.editFieldDescriptionButton.click();
-    // The UpdateDescriptionModal title appears after the button click.
-    // Use an explicit timeout since the modal may take a moment to mount.
-    await expect(this.page.getByText('Update description')).toBeVisible({ timeout: 15000 });
-    // Wait for the editor to be in the DOM — it may have zero height initially so use
-    // 'attached' rather than 'visible', and force-click to focus even if not laid out yet.
-    await this.fieldDescriptionEditor.waitFor({ state: 'attached', timeout: 15000 });
-    await this.fieldDescriptionEditor.click({ force: true });
-    await this.page.keyboard.press('ControlOrMeta+a');
-    await this.page.keyboard.press('Delete');
-    await this.page.waitForTimeout(500);
-    await this.page.keyboard.type(description);
-    await this.fieldDescriptionUpdateButton.click();
-    await expect(this.page.getByText('Updated!')).toBeVisible({ timeout: 15000 });
   }
 
   // ── Link management ──────────────────────────────────────────────────────
 
   async openAddLinkForm(): Promise<void> {
     await this.addRelatedButton.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(500);
     await this.page.getByText('Add link').click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(500);
   }
 
@@ -179,7 +207,12 @@ export class EntityDocumentationPage extends BasePage {
     await this.openAddLinkForm();
     await this.fillLinkForm(url, label, showInPreview);
     await this.submitLinkForm();
-    await expect(this.page.getByText('Link Added')).toBeVisible({ timeout: 15000 });
+    // Confirm success by the link surfacing in the Resources list. We deliberately do
+    // NOT assert the "Link Added" toast: toasts stack and linger (~3s), so when several
+    // links are added in quick succession getByText('Link Added') resolves to multiple
+    // nodes and fails Playwright strict mode.
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    await expect(this.relatedList.locator(`a[href="${url}"]`)).toBeVisible({ timeout: 15000 });
   }
 
   async updateLink(
@@ -189,27 +222,32 @@ export class EntityDocumentationPage extends BasePage {
     newLabel: string,
     showInPreview: boolean,
   ): Promise<void> {
-    await this.relatedList
-      .getByRole('listitem')
-      // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
-      .filter({ has: this.page.locator(`a[href='${currentUrl}']`) })
-      .filter({ hasText: currentLabel })
-      .getByTestId('edit-link-button')
-      .click();
+    // Links render as ResourceLinkPill: the edit/remove affordances are buttons rendered
+    // INSIDE the pill's <a href> (via the alchemy Pill rightIcons), so scope the edit
+    // button under the anchor for this link.
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    const pill = this.relatedList.locator(`a[href="${currentUrl}"]`).filter({ hasText: currentLabel });
+    await pill.getByTestId('edit-link-button').click();
     await this.fillLinkForm(newUrl, newLabel, showInPreview);
     await this.submitLinkForm();
-    await expect(this.page.getByText('Link Updated')).toBeVisible({ timeout: 15000 });
+    // Confirm via the updated link surfacing in the list rather than the stacking toast.
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    await expect(this.relatedList.locator(`a[href="${newUrl}"]`)).toBeVisible({ timeout: 15000 });
   }
 
   async removeLinkByUrl(url: string): Promise<void> {
-    await this.relatedList
-      .getByRole('listitem')
-      // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
-      .filter({ has: this.page.locator(`a[href="${url}"]`) })
-      .getByTestId('remove-link-button')
-      .click();
-    await expect(this.page.getByText('Link Removed')).toBeVisible({ timeout: 15000 });
-    await expect(this.page.getByText('Link Removed')).not.toBeVisible({ timeout: 15000 });
+    // Links render as ResourceLinkPill: the edit/remove affordances are buttons rendered
+    // INSIDE the pill's <a href> (via the alchemy Pill rightIcons), so scope the remove
+    // button under the anchor for this link.
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    const pill = this.relatedList.locator(`a[href="${url}"]`);
+    await pill.getByTestId('remove-link-button').click();
+    // Confirm removal by the link disappearing from the list. We deliberately do NOT
+    // assert the "Link Removed" toast: toasts stack and linger, so removing several links
+    // in quick succession makes getByText('Link Removed') match multiple nodes (strict-
+    // mode failure on both the visible and not-visible assertions).
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute selector; no semantic Playwright API for href filtering
+    await expect(this.relatedList.locator(`a[href="${url}"]`)).toHaveCount(0, { timeout: 15000 });
   }
 
   // ── Link verification helpers ────────────────────────────────────────────

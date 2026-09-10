@@ -131,7 +131,7 @@ def main():
         print("✅ EXPECTED: Logical dataset with governance succeeded")
         test3_passed = True
     except Exception as e:
-        print(f"⚠️  UNEXPECTED: Logical dataset with governance failed")
+        print("⚠️  UNEXPECTED: Logical dataset with governance failed")
         print(f"   Error: {e}")
     
     # Summary

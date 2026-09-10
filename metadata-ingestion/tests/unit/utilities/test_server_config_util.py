@@ -69,6 +69,7 @@ def test_server_type(sample_config):
         ("v1.0.0.1rc3", (1, 0, 0, 1)),
         (None, (0, 0, 0, 0)),  # No version
         ("", (0, 0, 0, 0)),  # Empty version
+        ("null", (0, 0, 0, 0)),  # Placeholder from misconfigured git.properties
     ],
 )
 def test_parse_version(sample_config, version_str, expected):
@@ -294,6 +295,32 @@ def test_supports_feature_required_versions(sample_config):
 
         # Verify core requirements were used (1, 0, 1, 0)
         mock_version_check.assert_called_with(1, 0, 1, 0)
+
+
+def test_supports_feature_semantic_model_entities_versions(sample_config):
+    """SEMANTIC_MODEL_ENTITIES gates cloud on 2.1.0; core has no requirement so
+    it is unsupported (recipe-driven for OSS)."""
+    with patch.object(
+        RestServiceConfig, "is_version_at_least", return_value=True
+    ) as mock_version_check:
+        cloud_config = sample_config.copy()
+        if "datahub" not in cloud_config:
+            cloud_config["datahub"] = {}
+        cloud_config["datahub"]["serverEnv"] = "cloud"
+        config = RestServiceConfig(raw_config=cloud_config)
+        assert config.supports_feature(ServiceFeature.SEMANTIC_MODEL_ENTITIES) is True
+        mock_version_check.assert_called_with(2, 1, 0, 0)
+
+        mock_version_check.reset_mock()
+
+        core_config = sample_config.copy()
+        if "datahub" not in core_config:
+            core_config["datahub"] = {}
+        core_config["datahub"]["serverEnv"] = "core"
+        config = RestServiceConfig(raw_config=core_config)
+        # No "core" requirement -> unsupported, and no version check is made.
+        assert config.supports_feature(ServiceFeature.SEMANTIC_MODEL_ENTITIES) is False
+        mock_version_check.assert_not_called()
 
 
 def test_datahub_cloud_feature(sample_config):

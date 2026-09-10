@@ -18,6 +18,7 @@ import { DomainEntity } from '@app/entityV2/domain/DomainEntity';
 import GlossaryNodeEntity from '@app/entityV2/glossaryNode/GlossaryNodeEntity';
 import { GlossaryTermEntity } from '@app/entityV2/glossaryTerm/GlossaryTermEntity';
 import { GroupEntity } from '@app/entityV2/group/Group';
+import { MetricEntity } from '@app/entityV2/metric/MetricEntity';
 import { MLFeatureEntity } from '@app/entityV2/mlFeature/MLFeatureEntity';
 import { MLFeatureTableEntity } from '@app/entityV2/mlFeatureTable/MLFeatureTableEntity';
 import { MLModelEntity } from '@app/entityV2/mlModel/MLModelEntity';
@@ -25,6 +26,7 @@ import { MLModelGroupEntity } from '@app/entityV2/mlModelGroup/MLModelGroupEntit
 import { MLPrimaryKeyEntity } from '@app/entityV2/mlPrimaryKey/MLPrimaryKeyEntity';
 import { QueryEntity } from '@app/entityV2/query/QueryEntity';
 import { SchemaFieldEntity } from '@app/entityV2/schemaField/SchemaFieldEntity';
+import { SemanticModelEntity } from '@app/entityV2/semanticModel/SemanticModelEntity';
 import { StructuredPropertyEntity } from '@app/entityV2/structuredProperty/StructuredPropertyEntity';
 import { TagEntity } from '@app/entityV2/tag/Tag';
 import { UserEntity } from '@app/entityV2/user/User';
@@ -60,5 +62,7 @@ export default function buildEntityRegistryV2() {
     registry.register(new DataProcessInstanceEntity());
     registry.register(new BusinessAttributeEntity());
     registry.register(new ApplicationEntity());
+    registry.register(new MetricEntity());
+    registry.register(new SemanticModelEntity());
     return registry;
 }

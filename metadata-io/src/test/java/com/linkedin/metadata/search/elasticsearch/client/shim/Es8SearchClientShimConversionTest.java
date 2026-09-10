@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim;
 
 import static org.mockito.ArgumentCaptor.forClass;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -195,7 +196,8 @@ public class Es8SearchClientShimConversionTest {
     invokeAddToProcessor(mockProcessor, indexRequest);
 
     var captor = forClass(BulkOperation.class);
-    verify(mockProcessor).add(captor.capture());
+    // Context is the DocWriteRequest so failed items can be requeued.
+    verify(mockProcessor).add(captor.capture(), eq(indexRequest));
     BulkOperation operation = captor.getValue();
     assertNotNull(operation, "BulkOperation should be captured");
     assertTrue(
@@ -214,7 +216,8 @@ public class Es8SearchClientShimConversionTest {
     invokeAddToProcessor(mockProcessor, indexRequest);
 
     var captor = forClass(BulkOperation.class);
-    verify(mockProcessor).add(captor.capture());
+    // Context is the DocWriteRequest so failed items can be requeued.
+    verify(mockProcessor).add(captor.capture(), eq(indexRequest));
     BulkOperation operation = captor.getValue();
     assertNotNull(operation, "BulkOperation should be captured");
     assertTrue(
@@ -415,6 +418,37 @@ public class Es8SearchClientShimConversionTest {
     assertFalse(serialized.contains("\"to\""));
     assertTrue(serialized.contains("\"gte\":100"));
     assertTrue(serialized.contains("\"lt\":200"));
+  }
+
+  /**
+   * GraphQL DateRange bounds are strings. If they are passed through RangeQueryBuilder unchanged,
+   * ES8 conversion keeps quoted millis, which date-mapped {@code timestamp} fields reject.
+   * Analytics must emit numeric longs instead of relying on the shim.
+   */
+  @Test
+  public void testConvertAggregationsDoesNotCoerceQuotedEpochMillisToNumbers() throws Exception {
+    SearchSourceBuilder source = new SearchSourceBuilder();
+    source.aggregation(
+        AggregationBuilders.filter(
+            "filtered",
+            QueryBuilders.boolQuery()
+                .must(QueryBuilders.rangeQuery("timestamp").gte("100").lt("200"))));
+
+    Method convertAggregationsMethod =
+        Es8SearchClientShim.class.getDeclaredMethod(
+            "convertAggregations", AggregatorFactories.Builder.class);
+    convertAggregationsMethod.setAccessible(true);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Aggregation> aggregations =
+        (Map<String, Aggregation>) convertAggregationsMethod.invoke(shim, source.aggregations());
+
+    ObjectMapper objectMapper = new ObjectMapper();
+    String serialized =
+        JsonpUtils.toJsonString(aggregations.get("filtered"), new JacksonJsonpMapper(objectMapper));
+    assertTrue(serialized.contains("\"gte\":\"100\""));
+    assertTrue(serialized.contains("\"lt\":\"200\""));
+    assertFalse(serialized.contains("\"gte\":100"));
   }
 
   /** Helper method to invoke the private convertQuery method via reflection. */

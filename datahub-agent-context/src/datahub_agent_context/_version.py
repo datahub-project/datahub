@@ -14,3 +14,9 @@
 
 __package_name__ = "datahub-agent-context"
 __version__ = "0.1.0.dev0"
+# Stable acryl-datahub release this package is built and tested against. The CLI
+# version is borrowed from the server version and does not follow semantic
+# versioning, so we pin a known-good stable release rather than self-pinning to
+# this package's own (server-derived) version. Bump explicitly when newer CLI
+# functionality is required.
+__acryl_datahub_pin__ = "1.6.0.6"

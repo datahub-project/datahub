@@ -1,7 +1,7 @@
 import json
 import logging
 import sys
-from typing import Any, Dict, List, Literal, Optional, Set, cast
+from typing import Any, Dict, List, Literal, MutableMapping, Optional, Set, cast
 
 import requests
 
@@ -33,6 +33,10 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
     RegularAPIResolver,
+)
+from datahub.utilities.file_backed_collections import (
+    ConnectionWrapper,
+    FileBackedDict,
 )
 
 # Logger instance
@@ -91,7 +95,23 @@ class PowerBiAPI:
         # We need to store the dataset ID (which is a UUID) mapped to its dataset instance.
         # This mapping will allow us to retrieve the appropriate dataset for
         # reports and tiles across different workspaces.
-        self.dataset_registry: Dict[str, PowerBIDataset] = {}
+        #
+        # It spans every scanned workspace, so on large tenants it can hold tens
+        # of thousands of datasets. It is file-backed so the bulk spills to disk
+        # rather than staying resident, which previously caused OOMs.
+        #
+        # Snapshot semantics: unlike the old plain dict, a lookup that misses the
+        # cache returns a freshly-unpickled copy, not the same instance stored in
+        # workspace.datasets. Entries are read-only snapshots for cross-workspace
+        # lineage; mutating a returned dataset would not write through.
+        self._file_backed_conn = ConnectionWrapper()
+        self.dataset_registry: MutableMapping[str, PowerBIDataset] = FileBackedDict(
+            shared_connection=self._file_backed_conn,
+            tablename="dataset_registry",
+        )
+
+    def close(self) -> None:
+        self._file_backed_conn.close()
 
     def log_http_error(self, message: str) -> Any:
         logger.warning(message)
@@ -487,8 +507,10 @@ class PowerBiAPI:
 
         # Scan is complete lets take the result
         scan_result = self.__admin_api_resolver.get_scan_result(scan_id=scan_id)
-        pretty_json: str = json.dumps(scan_result, indent=1)
-        logger.debug(f"scan result = {pretty_json}")
+        # Guard the dump: json.dumps on a large scan result builds a huge string
+        # (hundreds of MB) that is pure waste when debug logging is off.
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("scan result = %s", json.dumps(scan_result, indent=1))
 
         return scan_result
 

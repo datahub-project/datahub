@@ -8,6 +8,7 @@ source:
     parse_sql_for_lineage: true
     include_streaming_pipelines: false
     extract_projects_to_containers: true
+    include_external_urls: true
     namespace_to_platform_instance:
       postgresql://prod-postgres-db.us-east-1.rds.amazonaws.com:5432:
         platform_instance: postgres_prod

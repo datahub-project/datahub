@@ -459,7 +459,7 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Table"
+                "Metric View"
             ]
         }
     },

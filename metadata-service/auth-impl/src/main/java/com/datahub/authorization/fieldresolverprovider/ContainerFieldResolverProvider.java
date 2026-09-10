@@ -10,10 +10,14 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.container.Container;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.graph.cache.client.BoundHierarchyAccess;
+import com.linkedin.metadata.graph.cache.client.HierarchyBindings;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.*;
+import java.util.Collections;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,7 +29,7 @@ public class ContainerFieldResolverProvider implements EntityFieldResolverProvid
   private final SystemEntityClient _entityClient;
 
   @Override
-  public List<EntityFieldType> getFieldTypes() {
+  public java.util.List<EntityFieldType> getFieldTypes() {
     return Collections.singletonList(EntityFieldType.CONTAINER);
   }
 
@@ -39,42 +43,60 @@ public class ContainerFieldResolverProvider implements EntityFieldResolverProvid
   private FieldResolver.FieldValue getContainers(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
 
-    Set<Urn> containerUrns = new HashSet<>();
-
     try {
       if (entitySpec.getEntity().isEmpty()) {
         return FieldResolver.emptyFieldValue();
       }
 
-      Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
+      final Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
+      final Set<Urn> containerUrns;
 
-      // In the case that the entity is a container, include that as well
-      if (entityUrn.getEntityType().equals(CONTAINER_ENTITY_NAME)) {
-        containerUrns.add(entityUrn);
-      }
-
-      while (true) {
-        EntityResponse response =
-            _entityClient.getV2(
+      if (CONTAINER_ENTITY_NAME.equals(entityUrn.getEntityType())) {
+        containerUrns =
+            BoundHierarchyAccess.expandAncestors(
                 opContext,
-                entityUrn.getEntityType(),
-                entityUrn,
-                Collections.singleton(CONTAINER_ASPECT_NAME));
-        if (response == null || !response.getAspects().containsKey(CONTAINER_ASPECT_NAME)) {
-          break;
+                HierarchyBindings.containerSpec(opContext),
+                Collections.singleton(entityUrn));
+      } else {
+        Urn directParent = readDirectContainerParent(opContext, entityUrn);
+        if (directParent == null) {
+          return FieldResolver.emptyFieldValue();
         }
-        entityUrn =
-            new Container(response.getAspects().get(CONTAINER_ASPECT_NAME).getValue().data())
-                .getContainer();
-        containerUrns.add(entityUrn);
+        containerUrns =
+            BoundHierarchyAccess.expandAncestors(
+                opContext,
+                HierarchyBindings.containerSpec(opContext),
+                Collections.singleton(directParent));
       }
+
+      return FieldResolver.FieldValue.builder()
+          .values(containerUrns.stream().map(Object::toString).collect(Collectors.toSet()))
+          .build();
     } catch (Exception e) {
       log.error("Error while retrieving container aspect for entitySpec {}", entitySpec, e);
       return FieldResolver.emptyFieldValue();
     }
+  }
 
-    return FieldResolver.FieldValue.builder()
-        .values(containerUrns.stream().map(Object::toString).collect(Collectors.toSet()))
-        .build();
+  @Nullable
+  private Urn readDirectContainerParent(
+      @Nonnull OperationContext opContext, @Nonnull Urn entityUrn) {
+    try {
+      EntityResponse response =
+          _entityClient.getV2(
+              opContext,
+              entityUrn.getEntityType(),
+              entityUrn,
+              Collections.singleton(CONTAINER_ASPECT_NAME));
+      if (response == null || !response.getAspects().containsKey(CONTAINER_ASPECT_NAME)) {
+        return null;
+      }
+      Container container =
+          new Container(response.getAspects().get(CONTAINER_ASPECT_NAME).getValue().data());
+      return container.hasContainer() ? container.getContainer() : null;
+    } catch (Exception e) {
+      log.error("Error while retrieving container aspect for entity {}", entityUrn, e);
+      return null;
+    }
   }
 }

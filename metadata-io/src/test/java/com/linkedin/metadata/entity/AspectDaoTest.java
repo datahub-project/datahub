@@ -496,9 +496,11 @@ public class AspectDaoTest {
     }
 
     @Override
-    public PartitionedStream<EbeanAspectV2> streamAspectBatches(
-        OperationContext opContext, RestoreIndicesArgs args) {
-      return null;
+    public <R> R streamAspectBatches(
+        OperationContext opContext,
+        RestoreIndicesArgs args,
+        Function<PartitionedStream<EbeanAspectV2>, R> consumer) {
+      throw new UnsupportedOperationException("TestAspectDao does not support streaming");
     }
 
     @Override

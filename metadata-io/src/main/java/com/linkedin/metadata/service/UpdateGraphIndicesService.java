@@ -132,7 +132,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     }
 
     if (removed != null) {
-      graphService.setEdgeStatus(item.getUrn(), removed, EdgeUrnType.values());
+      graphService.setEdgeStatus(opContext, item.getUrn(), removed, EdgeUrnType.values());
     }
   }
 
@@ -237,7 +237,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
                 new Filter().setOr(new ConjunctiveCriterionArray()),
                 RelationshipDirection.OUTGOING));
       }
-      edgesToAdd.forEach(graphService::addEdge);
+      edgesToAdd.forEach(edge -> graphService.addEdge(opContext, edge));
     }
   }
 
@@ -270,7 +270,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     // Remove any old edges that no longer exist first
     if (!subtractiveDifference.isEmpty()) {
       log.debug("Removing edges: {}", subtractiveDifference);
-      subtractiveDifference.forEach(graphService::removeEdge);
+      subtractiveDifference.forEach(edge -> graphService.removeEdge(opContext, edge));
       opContext
           .getMetricUtils()
           .ifPresent(
@@ -284,7 +284,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     // Then add new edges
     if (!additiveDifference.isEmpty()) {
       log.debug("Adding edges: {}", additiveDifference);
-      additiveDifference.forEach(graphService::addEdge);
+      additiveDifference.forEach(edge -> graphService.addEdge(opContext, edge));
       opContext
           .getMetricUtils()
           .ifPresent(
@@ -296,7 +296,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     // Then update existing edges
     if (!mergedEdges.isEmpty()) {
       log.debug("Updating edges: {}", mergedEdges);
-      mergedEdges.forEach(graphService::upsertEdge);
+      mergedEdges.forEach(edge -> graphService.upsertEdge(opContext, edge));
       opContext
           .getMetricUtils()
           .ifPresent(

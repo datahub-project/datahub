@@ -61,6 +61,7 @@ export class BaseSettingsPage extends BasePage {
       await searchInput.clear();
       await searchInput.fill(value);
       // Wait for filter results to appear
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await this.page.waitForTimeout(ANIMATION_TIMEOUT);
     }
 
@@ -82,15 +83,10 @@ export class BaseSettingsPage extends BasePage {
     }
   }
 
-  async waitForToast(text: string): Promise<void> {
-    const toastMessage = this.page.getByText(text);
-    await expect(toastMessage).toBeVisible();
-    await expect(toastMessage).toBeHidden();
-  }
-
   async logout(): Promise<void> {
     if ((await this.modalDialog.count()) > 0) {
       await this.page.keyboard.press('Escape');
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await this.page.waitForTimeout(ANIMATION_TIMEOUT);
     }
     await this.navSignOut.click();

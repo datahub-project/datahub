@@ -16,7 +16,7 @@ import com.linkedin.dataproduct.DataProductKey;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
@@ -25,7 +25,10 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -43,10 +46,11 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class DataProductService {
-  private final EntityClient _entityClient;
+  private final SystemEntityClient _entityClient;
   private final GraphClient _graphClient;
 
-  public DataProductService(@Nonnull EntityClient entityClient, @Nonnull GraphClient graphClient) {
+  public DataProductService(
+      @Nonnull SystemEntityClient entityClient, @Nonnull GraphClient graphClient) {
     _entityClient = entityClient;
     _graphClient = graphClient;
   }
@@ -66,6 +70,26 @@ public class DataProductService {
       @Nullable String id,
       @Nullable String name,
       @Nullable String description) {
+    return createDataProduct(opContext, id, name, description, null);
+  }
+
+  /**
+   * Creates a new Data Product with an optional parent.
+   *
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
+   *
+   * @param name optional name of the DataProduct
+   * @param description optional description of the DataProduct
+   * @param parentDataProduct optional parent Data Product URN
+   * @return the urn of the newly created DataProduct
+   */
+  public Urn createDataProduct(
+      @Nonnull OperationContext opContext,
+      @Nullable String id,
+      @Nullable String name,
+      @Nullable String description,
+      @Nullable Urn parentDataProduct) {
 
     // 1. Generate a unique id for the new DataProduct.
     final DataProductKey key = new DataProductKey();
@@ -87,6 +111,7 @@ public class DataProductService {
     final DataProductProperties properties = new DataProductProperties();
     properties.setName(name, SetMode.IGNORE_NULL);
     properties.setDescription(description, SetMode.IGNORE_NULL);
+    properties.setParentDataProduct(parentDataProduct, SetMode.IGNORE_NULL);
 
     // 3. Write the new dataProduct to GMS, return the new URN.
     try {
@@ -119,6 +144,23 @@ public class DataProductService {
       @Nonnull Urn urn,
       @Nullable String name,
       @Nullable String description) {
+    return updateDataProduct(opContext, urn, name, description, null);
+  }
+
+  /**
+   * Updates an existing DataProduct. If a provided field is null, the previous value will be kept.
+   * When {@code parentDataProduct} is non-null it is written; clearing the parent is done via
+   * {@code moveDataProduct}.
+   *
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation.
+   */
+  public Urn updateDataProduct(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nullable String name,
+      @Nullable String description,
+      @Nullable Urn parentDataProduct) {
     Objects.requireNonNull(urn, "urn must not be null");
     Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
 
@@ -137,6 +179,9 @@ public class DataProductService {
     }
     if (description != null) {
       properties.setDescription(description);
+    }
+    if (parentDataProduct != null) {
+      properties.setParentDataProduct(parentDataProduct);
     }
 
     // 3. Write changes to GMS
@@ -189,17 +234,19 @@ public class DataProductService {
     Objects.requireNonNull(dataProductUrn, "dataProductUrn must not be null");
     Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
     try {
-      final EntityResponse response =
-          _entityClient.getV2(
+      // Bypass entity client cache: setDomain may have cached a negative domains entry before
+      // ingest, and authorization reads must see the latest aspect (see SettingsService pattern).
+      final Map<Urn, EntityResponse> batchResponse =
+          _entityClient.batchGetV2NoCache(
               opContext,
               Constants.DATA_PRODUCT_ENTITY_NAME,
-              dataProductUrn,
+              ImmutableSet.of(dataProductUrn),
               ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME));
+      final EntityResponse response = batchResponse.get(dataProductUrn);
       if (response != null && response.getAspects().containsKey(Constants.DOMAINS_ASPECT_NAME)) {
         return new Domains(
             response.getAspects().get(Constants.DOMAINS_ASPECT_NAME).getValue().data());
       }
-      // No aspect found
       return null;
     } catch (Exception e) {
       throw new RuntimeException(
@@ -540,6 +587,19 @@ public class DataProductService {
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to determine if entity with urn %s exists", entityUrn), e);
+    }
+  }
+
+  public Set<Urn> filterExistingUrns(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> entityUrns) {
+    if (entityUrns.isEmpty()) {
+      return Collections.emptySet();
+    }
+    try {
+      return _entityClient.filterExistingUrns(opContext, entityUrns);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to determine which entities exist among %s", entityUrns), e);
     }
   }
 }

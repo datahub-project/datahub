@@ -1,0 +1,111 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,playwright_stats_test,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "Playwright Stats Test Dataset",
+              "description": "Test dataset for stats tab v2 tests with schema and field-level statistics",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "playwright_stats_test",
+              "platform": "urn:li:dataPlatform:postgres",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                  "rawSchema": "{}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "user_id",
+                  "nullable": false,
+                  "description": "Unique user identifier",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                  },
+                  "nativeDataType": "integer",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "user_name",
+                  "nullable": true,
+                  "description": "User's full name",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(255)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "email",
+                  "nullable": true,
+                  "description": "User's email address",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(255)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "created_at",
+                  "nullable": false,
+                  "description": "Timestamp when record was created",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                  },
+                  "nativeDataType": "timestamp",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "updated_at",
+                  "nullable": true,
+                  "description": "Timestamp when record was last updated",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.DateType": {}
+                    }
+                  },
+                  "nativeDataType": "timestamp",
+                  "recursive": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+]

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.event;
 
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import javax.annotation.Nonnull;
@@ -17,7 +18,11 @@ public final class NoOpUsageEventPublisher implements UsageEventPublisher {
 
   @Nonnull
   @Override
-  public Future<?> publish(@Nonnull String topic, @Nullable String key, @Nonnull String payload) {
+  public Future<?> publish(
+      @Nonnull OperationContext opContext,
+      @Nonnull String topic,
+      @Nullable String key,
+      @Nonnull String payload) {
     log.debug("NoOpUsageEventPublisher: skip publish topic={}", topic);
     return CompletableFuture.completedFuture(null);
   }

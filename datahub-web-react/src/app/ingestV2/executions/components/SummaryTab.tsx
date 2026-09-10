@@ -1,5 +1,4 @@
 import { DownloadOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -72,7 +71,9 @@ export const SummaryTab = ({
     const structuredReport = result && getStructuredReport(result);
     const resultSummaryText =
         (status && status !== EXECUTION_REQUEST_STATUS_SUCCESS && (
-            <Typography.Text type="secondary">{getExecutionRequestSummaryText(status)}</Typography.Text>
+            <Text type="span" color="textSecondary">
+                {getExecutionRequestSummaryText(status)}
+            </Text>
         )) ||
         undefined;
     const recipeJson = data?.executionRequest?.input?.arguments?.find((arg) => arg.key === 'recipe')?.value;

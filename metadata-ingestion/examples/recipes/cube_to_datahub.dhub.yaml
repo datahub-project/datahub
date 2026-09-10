@@ -1,0 +1,35 @@
+# see https://docs.datahub.com/docs/generated/ingestion/sources/cube for complete documentation
+source:
+  type: "cube"
+  config:
+    # Base URL of the Cube REST API, including the base path.
+    api_url: "https://your-tenant.cubecloud.dev/cubejs-api"
+    # Cube Core: a JWT signed with CUBEJS_API_SECRET.
+    # Cube Cloud: a Metadata API token (or omit and use cloud_api_key below).
+    api_token: "${CUBE_API_TOKEN}"
+
+    # "CORE" for self-hosted Cube Core, "CLOUD" for Cube Cloud.
+    deployment_type: "CLOUD"
+
+    # Cube Cloud only: minting a metadata-scoped token via the Control Plane API
+    # unlocks warehouse/column-level lineage plus reports and workbooks.
+    cloud_api_key: "${CUBE_CLOUD_API_KEY}"
+    deployment_id: "<deployment-id>"
+    environment_id: "<environment-id>"
+
+    # The warehouse Cube reads from, used to build lineage to upstream tables.
+    warehouse_platform: "postgres"
+    warehouse_database: "analytics"
+
+    parse_sql_for_lineage: true
+    include_column_lineage: true
+
+    stateful_ingestion:
+      enabled: true
+
+# see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+    token: token_value # optional

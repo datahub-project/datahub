@@ -8,5 +8,6 @@ source:
     env: "PROD"
     include_streaming_pipelines: true
     extract_projects_to_containers: true
+    include_external_urls: true
     stateful_ingestion:
       enabled: false

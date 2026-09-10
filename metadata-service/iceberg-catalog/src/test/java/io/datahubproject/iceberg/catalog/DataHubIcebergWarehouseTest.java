@@ -94,8 +94,8 @@ public class DataHubIcebergWarehouseTest {
         .thenReturn(warehouseAspect);
     when(warehouseAspect.data()).thenReturn(icebergWarehouse.data());
 
-    when(secretService.decrypt(eq(clientId))).thenReturn("decrypted-" + clientId);
-    when(secretService.decrypt(eq(clientSecret))).thenReturn("decrypted-" + clientSecret);
+    when(secretService.decrypt(any(), eq(clientId))).thenReturn("decrypted-" + clientId);
+    when(secretService.decrypt(any(), eq(clientSecret))).thenReturn("decrypted-" + clientSecret);
 
     DataHubSecretValue clientIdValue = new DataHubSecretValue();
     clientIdValue.setValue(clientId);

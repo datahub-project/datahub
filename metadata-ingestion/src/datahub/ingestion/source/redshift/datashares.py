@@ -232,13 +232,13 @@ class RedshiftDatasharesHelper:
                 if len(parsed) > 1:
                     self.report.warning(
                         title="Multiple matching outbound datashare PlatformResources",
-                        message=(
-                            f"Found {len(parsed)} matching resources; picked "
+                        message="Found multiple matching resources; picked best by recency. Clean up duplicates.",
+                        context=(
+                            f"{share.get_description()}: "
+                            f"count={len(parsed)}, "
                             f"ingested_at={best.ingested_at!r}, "
-                            f"platform_instance={best.platform_instance!r}. "
-                            f"Clean up duplicates."
+                            f"platform_instance={best.platform_instance!r}"
                         ),
-                        context=share.get_description(),
                     )
 
                 return best

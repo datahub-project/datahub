@@ -1,0 +1,42 @@
+namespace com.linkedin.domain
+
+import com.linkedin.common.MetadataAttribution
+import com.linkedin.common.Urn
+
+/**
+ * Properties of an applied domain association.
+ */
+record DomainAssociation {
+  /**
+   * Urn of the associated domain. Corresponds to an entry in the parallel domains array.
+   */
+  domain: Urn
+
+  /**
+   * Additional context about the association
+   */
+  context: optional string
+
+  /**
+   * Information about who, why, and how this domain was applied.
+   * sourceDetail may carry flags such as 'propagated'='true' when set via glossary tree propagation.
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "domainAttributionDates",
+      "fieldType": "DATETIME",
+      "queryByDefault": false
+    },
+    "/actor": {
+      "fieldName": "domainAttributionActors",
+      "fieldType": "URN",
+      "queryByDefault": false
+    },
+    "/source": {
+      "fieldName": "domainAttributionSources",
+      "fieldType": "URN",
+      "queryByDefault": false
+    }
+  }
+  attribution: optional MetadataAttribution
+}

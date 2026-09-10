@@ -42,8 +42,8 @@ public class UpsertConnectionResolverTest {
   public void setUp() {
     connectionService = Mockito.mock(ConnectionService.class);
     secretService = Mockito.mock(SecretService.class);
-    Mockito.when(secretService.encrypt("{}")).thenReturn("encrypted");
-    Mockito.when(secretService.decrypt("encrypted")).thenReturn("{}");
+    Mockito.when(secretService.encrypt(Mockito.any(), Mockito.eq("{}"))).thenReturn("encrypted");
+    Mockito.when(secretService.decrypt(Mockito.any(), Mockito.eq("encrypted"))).thenReturn("{}");
     resolver = new UpsertConnectionResolver(connectionService, secretService);
   }
 

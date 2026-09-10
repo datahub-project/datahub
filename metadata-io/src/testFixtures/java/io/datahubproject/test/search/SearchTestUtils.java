@@ -9,9 +9,7 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
-import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
-import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.SystemMetadataServiceConfig;
@@ -23,6 +21,7 @@ import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.EntityTypeListConfig;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.ImpactConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
@@ -198,9 +197,11 @@ public class SearchTestUtils {
   static {
     SEARCHABLE_ENTITIES =
         Stream.concat(
-                SearchUtils.SEARCHABLE_ENTITY_TYPES.stream(),
-                SearchUtils.AUTO_COMPLETE_ENTITY_TYPES.stream())
-            .map(EntityTypeMapper::getName)
+                EntityTypeListConfig.parseCsv(EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES)
+                    .stream(),
+                EntityTypeListConfig.parseCsv(
+                    EntityTypeListConfig.DEFAULT_AUTOCOMPLETE_ENTITY_TYPES)
+                    .stream())
             .distinct()
             .collect(Collectors.toList());
   }
@@ -381,9 +382,7 @@ public class SearchTestUtils {
             .withLineageFlags(flags -> flags),
         root,
         LineageDirection.DOWNSTREAM,
-        SearchUtils.SEARCHABLE_ENTITY_TYPES.stream()
-            .map(EntityTypeMapper::getName)
-            .collect(Collectors.toList()),
+        EntityTypeListConfig.parseCsv(EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES),
         "*",
         hops,
         ResolverUtils.buildFilter(filters, List.of()),

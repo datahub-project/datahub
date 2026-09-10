@@ -7,6 +7,7 @@ import DomainProperty from '@app/entityV2/summary/properties/property/properties
 import LastIngestedProperty from '@app/entityV2/summary/properties/property/properties/LastIngestedProperty';
 import LastUpdatedProperty from '@app/entityV2/summary/properties/property/properties/LastUpdatedProperty';
 import OwnersProperty from '@app/entityV2/summary/properties/property/properties/OwnersProperty';
+import SemanticModelProperty from '@app/entityV2/summary/properties/property/properties/SemanticModelProperty';
 import TagsProperty from '@app/entityV2/summary/properties/property/properties/TagsProperty';
 import TermsProperty from '@app/entityV2/summary/properties/property/properties/TermsProperty';
 import StructuredPropertyProperty from '@app/entityV2/summary/properties/property/properties/structuredProperty/StructuredPropertyProperty';
@@ -38,6 +39,8 @@ export default function PropertyRenderer(props: PropertyComponentProps) {
                 return DocumentStatusProperty;
             case SummaryElementType.DocumentType:
                 return DocumentTypeProperty;
+            case SummaryElementType.SemanticModel:
+                return SemanticModelProperty;
             default:
                 return () => null;
         }

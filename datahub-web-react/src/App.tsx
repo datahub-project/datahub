@@ -17,10 +17,13 @@ import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
 import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
 import { ErrorCodes } from '@app/shared/constants';
+import { loadIsDarkMode } from '@app/theme/useIsDarkMode';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
+import { buildGraphqlHttpUri } from '@src/graphqlHttpUri';
+import { otelOperationLink } from '@src/otelApollo';
 import possibleTypesResult from '@src/possibleTypes.generated';
 import { getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@utils/runtimeBasePath';
 
@@ -28,7 +31,7 @@ import { getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@util
     Construct Apollo Client
 */
 const httpLink = createHttpLink({
-    uri: resolveRuntimePath(`/api/v2/graphql`),
+    uri: ({ operationName }) => buildGraphqlHttpUri(operationName),
 });
 
 const errorLink = onError((error) => {
@@ -67,11 +70,14 @@ const injectVariablesLink = new ApolloLink((operation, forward) => {
 
 const client = new ApolloClient({
     connectToDevTools: true,
-    link: ApolloLink.from([injectVariablesLink, errorLink, httpLink]),
+    link: ApolloLink.from([otelOperationLink, injectVariablesLink, errorLink, httpLink]),
     cache: new InMemoryCache({
         typePolicies: {
             Query: {
                 fields: {
+                    latestProductUpdate: {
+                        keyArgs: ['locale'],
+                    },
                     dataset: {
                         merge: (oldObj, newObj) => {
                             return { ...oldObj, ...newObj };
@@ -83,6 +89,10 @@ const client = new ApolloClient({
                         },
                     },
                 },
+            },
+            // ProductUpdate.id is a release version, not a unique cache identity across locales.
+            ProductUpdate: {
+                keyFields: false,
             },
         },
         // need to define possibleTypes to allow us to use Apollo cache with union types
@@ -100,9 +110,11 @@ const client = new ApolloClient({
 });
 
 export const InnerApp: React.VFC = () => {
+    const isDarkMode = loadIsDarkMode();
+
     return (
         <HelmetProvider>
-            <CustomThemeProvider>
+            <CustomThemeProvider isDarkMode={isDarkMode} injectGlobalStyles>
                 <GlobalStyles />
                 <ToastRenderer />
                 <FilesUploadingDownloadingLatencyTracker />

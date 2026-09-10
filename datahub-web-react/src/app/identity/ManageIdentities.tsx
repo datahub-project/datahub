@@ -1,3 +1,4 @@
+import { Text } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -105,7 +106,7 @@ export const ManageIdentities = ({ version }: Props) => {
         <PageContainer>
             <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
                 <PageTitle level={3}>{t('pageTitle')}</PageTitle>
-                <Typography.Paragraph type="secondary">{t('pageSubTitle')}</Typography.Paragraph>
+                <Text color="textSecondary">{t('pageSubTitle')}</Text>
             </PageHeaderContainer>
             <Content>
                 <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />

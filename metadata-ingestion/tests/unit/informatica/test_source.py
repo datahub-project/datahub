@@ -27,7 +27,9 @@ from datahub.ingestion.source.informatica.source import (
     InformaticaSource,
     OrchestrateState,
 )
-from datahub.ingestion.source.state import stale_entity_removal_handler
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
 from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DataJobInputOutputClass,
@@ -45,7 +47,7 @@ def _make_source(**config_overrides: Any) -> InformaticaSource:
     }
     defaults.update(config_overrides)
     config = InformaticaSourceConfig.model_validate(defaults)
-    ctx = PipelineContext(run_id="informatica-test")
+    ctx = PipelineContext(run_id="informatica-test", pipeline_name="informatica-test")
     return InformaticaSource(config, ctx)
 
 
@@ -1122,6 +1124,8 @@ class TestFilteringAndErrorHandling:
         # 5 mapping ids + batch_size=2 → 3 export submissions with the
         # expected slices [ids[0:2], ids[2:4], ids[4:5]]. Ensures the
         # batching math doesn't drop or duplicate a mapping at the edge.
+        # Batches submit concurrently via a ThreadPoolExecutor, so compare
+        # order-independently — the contract is the set of slices, not order.
         source = _make_source(export_batch_size=2)
         source._connections_by_id["c"] = IdmcConnection(id="c", name="n", conn_type="")
         source._connections_by_fed_id["fed"] = IdmcConnection(
@@ -1147,7 +1151,7 @@ class TestFilteringAndErrorHandling:
         ):
             list(source._extract_lineage())
 
-        assert submitted_batches == [
+        assert sorted(submitted_batches) == [
             ["guid-0", "guid-1"],
             ["guid-2", "guid-3"],
             ["guid-4"],
@@ -1185,7 +1189,10 @@ class TestFilteringAndErrorHandling:
         ):
             list(source._extract_lineage())
 
-        assert submitted == [["guid-a"], ["guid-b"], ["guid-c"]]
+        # Submission order is non-deterministic — batches run concurrently
+        # in a ThreadPoolExecutor (max_concurrent_export_jobs defaults to 4).
+        # The contract is "all batches submitted + failure recorded", not order.
+        assert sorted(submitted) == [["guid-a"], ["guid-b"], ["guid-c"]]
         assert len(source.report.export_jobs_failed) == 1
         assert "guid-b" not in str(source.report.export_jobs_failed[0])
         # ``batch@N`` identifies which mapping_id slice failed.
@@ -1470,24 +1477,28 @@ class TestTaskflowStepEmission:
 
 class TestSourceLifecycle:
     def test_stale_entity_removal_handler_registered(self):
-        # Stateful ingestion hinges on StaleEntityRemovalHandler being in the
-        # workunit processor chain. Verify the returned workunit_processor is
-        # actually registered — a refactor that calls ``create`` but drops the
-        # result would silently leave deleted IDMC entities live in DataHub.
-        sentinel = object()
-        fake_handler = MagicMock()
-        fake_handler.workunit_processor = sentinel
-
-        source = _make_source()
-        with patch.object(
-            stale_entity_removal_handler.StaleEntityRemovalHandler,
-            "create",
-            return_value=fake_handler,
-        ) as create_mock:
-            processors = source.get_workunit_processors()
-        create_mock.assert_called_once()
-        assert sentinel in processors, (
-            "StaleEntityRemovalHandler.workunit_processor must be in the "
+        # Stateful ingestion hinges on AutoStaleEntityRemovalProcessor being in the
+        # workunit processor chain when remove_stale_metadata is enabled.
+        config = InformaticaSourceConfig.model_validate(
+            {
+                "username": "svc",
+                "password": "pw",
+                "login_url": "https://dm-us.informaticacloud.com",
+                "stateful_ingestion": {"enabled": True, "remove_stale_metadata": True},
+            }
+        )
+        ctx = PipelineContext(
+            run_id="informatica-test", pipeline_name="informatica-test"
+        )
+        ctx.graph = MagicMock()
+        source = InformaticaSource(config, ctx)
+        processors = source.get_workunit_processors()
+        assert any(
+            isinstance(getattr(p, "__self__", None), AutoStaleEntityRemovalProcessor)
+            for p in processors
+            if p
+        ), (
+            "AutoStaleEntityRemovalProcessor must be in the "
             "processor chain returned by get_workunit_processors()"
         )
 
@@ -1510,8 +1521,10 @@ class TestSourceLifecycle:
         assert len(source.report.warnings) == 1
         w = source.report.warnings[0]
         assert w.title == "Taskflow step DAG missing for some Taskflows"
-        assert "Asset - export" in "".join(w.message or [])
-        assert "1/3" in "".join(w.message or [])
+        assert "Asset - export" in w.message
+        context_str = " ".join(w.context or [])
+        assert "taskflows_with_steps=1" in context_str
+        assert "taskflows_scanned=3" in context_str
 
     def test_summarize_taskflow_steps_silent_on_full_coverage(self):
         source = _make_source()

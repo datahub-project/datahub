@@ -14,6 +14,10 @@ Structured properties have values that are typed and support constraints.
 
 Learn more about structured properties in the [Structured Properties Feature Guide](../../../docs/features/feature-guides/properties/overview.md).
 
+:::note Value size limit
+String-backed structured property values (`string`, `rich_text`, `date`, and `urn` types) are indexed as Elasticsearch / OpenSearch keywords. Each value may be at most **32,766 UTF-8 bytes** by default (configurable via `STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH` / `structuredProperties.keywordMaxLength`). Writes that exceed this Lucene keyword term limit are rejected by `StructuredPropertiesValidator`. Prefer shorter values for searchable properties; store large free-form content as entity documentation instead. Number values are not subject to this limit. See the [feature guide limitations](../../../docs/features/feature-guides/properties/overview.md#value-size-for-text-and-rich-text-properties).
+:::
+
 ### Goal Of This Guide
 
 This guide will show you how to execute the following actions with structured properties.
@@ -136,7 +140,11 @@ mutation createStructuredProperty {
 
 </TabItem>
 
-<TabItem value="OpenAPI v2" label="OpenAPI v2">
+<TabItem value="OpenAPI v2" label="OpenAPI v2 (deprecated)">
+
+:::caution Deprecated
+Prefer [OpenAPI v3](/docs/api/openapi/openapi-usage-guide.md) (`/openapi/v3/entity`). OpenAPI v2 entity APIs remain available but are deprecated.
+:::
 
 ```shell
 curl -X 'POST' -v \
@@ -568,7 +576,11 @@ Example Response:
 
 </TabItem>
 
-<TabItem value="OpenAPI v2" label="OpenAPI v2">
+<TabItem value="OpenAPI v2" label="OpenAPI v2 (deprecated)">
+
+:::caution Deprecated
+Prefer [OpenAPI v3](/docs/api/openapi/openapi-usage-guide.md) (`/openapi/v3/entity`). OpenAPI v2 entity APIs remain available but are deprecated.
+:::
 
 Example Request:
 
@@ -730,7 +742,11 @@ If successful, you should see `Update succeeded for urn:li:dataset:...`
 
 </TabItem>
 
-<TabItem value="OpenAPI v2" label="OpenAPI v2">
+<TabItem value="OpenAPI v2" label="OpenAPI v2 (deprecated)">
+
+:::caution Deprecated
+Prefer [OpenAPI v3](/docs/api/openapi/openapi-usage-guide.md) (`/openapi/v3/entity`). OpenAPI v2 entity APIs remain available but are deprecated.
+:::
 
 Following command will set structured properties `retentionTime` as `60.0` to a dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`.
 Please note that the structured property and the dataset must exist before executing this command. (You can create sample datasets using the `datahub docker ingest-sample-data`)
@@ -900,7 +916,11 @@ For this example, we'll extend create a second structured property and apply bot
 After this your system should include both `io.acryl.privacy.retentionTime` and `io.acryl.privacy.retentionTime02`.
 
 <Tabs>
-<TabItem value="OpenAPI v2" label="OpenAPI v2">
+<TabItem value="OpenAPI v2" label="OpenAPI v2 (deprecated)">
+
+:::caution Deprecated
+Prefer [OpenAPI v3](/docs/api/openapi/openapi-usage-guide.md) (`/openapi/v3/entity`). OpenAPI v2 entity APIs remain available but are deprecated.
+:::
 
 Let's start by creating the second structured property.
 
@@ -1097,7 +1117,11 @@ The expected state of our test dataset include 2 structured properties.
 We'd like to remove the first one (`io.acryl.privacy.retentionTime`) and preserve the second property. (`io.acryl.privacy.retentionTime02`).
 
 <Tabs>
-<TabItem value="OpenAPI v2" label="OpenAPI v2">
+<TabItem value="OpenAPI v2" label="OpenAPI v2 (deprecated)">
+
+:::caution Deprecated
+Prefer [OpenAPI v3](/docs/api/openapi/openapi-usage-guide.md) (`/openapi/v3/entity`). OpenAPI v2 entity APIs remain available but are deprecated.
+:::
 
 ```shell
 curl -X 'PATCH' -v \
@@ -1237,7 +1261,11 @@ mutation updateStructuredProperty {
 ```
 
 </TabItem>
-<TabItem value="OpenAPI v2" label="OpenAPI v2">
+<TabItem value="OpenAPI v2" label="OpenAPI v2 (deprecated)">
+
+:::caution Deprecated
+Prefer [OpenAPI v3](/docs/api/openapi/openapi-usage-guide.md) (`/openapi/v3/entity`). OpenAPI v2 entity APIs remain available but are deprecated.
+:::
 
 ```shell
 curl -X 'PATCH' -v \
@@ -1400,11 +1428,20 @@ The hard delete is NOT reversible.
 
 Structured Property Hard Delete Effects:
 
+- Hard delete requires the property to be soft deleted first (`status.removed=true`); hard deleting an active property is rejected. Ingestion rollback and internal system operations are exempt.
 - Structured Property entity is removed
 - GMS emits a companion `propertyDefinition` DELETE metadata change log before the entity is removed, so assignment cleanup (`PropertyDefinitionDeleteSideEffect`) can scroll entities and issue PATCH REMOVE operations on their `structuredProperties` aspects
 - Structured Property values are removed from other entities asynchronously via those PATCH operations
 - Rollback is not possible
 - Elasticsearch index mappings will continue to contain references to the hard deleted property until reindex
+
+:::
+
+:::caution Cannot recreate the same name until mappings are cleaned up
+
+Because those index mappings remain after hard delete (see [Index Mappings Cleanup](#index-mappings-cleanup)), creating a structured property with the **same** `qualifiedName` — or another name that normalizes to the same search field (`.` → `_`) — is rejected until the orphaned mapping is removed.
+
+That is intentional. Hard delete is a full purge of the property (definition and values). Reusing the search field while leftover mapping or indexed state may still exist would pollute that purge. Prefer **soft delete** if you may need the property again; otherwise use a different `qualifiedName`, or finish assignment cleanup and run Index Mappings Cleanup before recreating the same name.
 
 :::
 
@@ -1446,7 +1483,11 @@ datahub delete --urn {urn}
 ```
 
 </TabItem>
-<TabItem value="OpenAPI v2" label="OpenAPI v2 (Soft Delete)">
+<TabItem value="OpenAPI v2" label="OpenAPI v2 (Soft Delete, deprecated)">
+
+:::caution Deprecated
+Prefer OpenAPI v3 soft-delete examples below (`/openapi/v3/entity`). OpenAPI v2 entity APIs remain available but are deprecated.
+:::
 
 The following command will soft delete the test property by writing to the status aspect.
 
@@ -1536,12 +1577,18 @@ Example Response:
 
 ### Hard Delete
 
+Hard delete is a two-step operation: the property must be soft deleted first. Hard deleting an
+active property is rejected with an error explaining the consequence (the qualified name stays
+reserved in the entity index mappings until reindex).
+
 <Tabs>
 <TabItem value="CLI" label="CLI (Hard Delete)">
 
-The following command will hard delete the test property.
+The following commands will hard delete the test property: soft delete it first to confirm, then
+hard delete.
 
 ```commandline
+datahub delete --urn {urn} --soft
 datahub delete --urn {urn} --hard
 ```
 
@@ -1549,9 +1596,15 @@ datahub delete --urn {urn} --hard
 
 <TabItem value="OpenAPI v3" label="OpenAPI v3 (Hard Delete)">
 
-The following command will hard delete the test property.
+The following commands will hard delete the test property. First soft delete it by setting the
+`status` aspect's `removed` flag, then issue the delete.
 
 ```shell
+curl -v -X 'POST' \
+  'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/status?createIfNotExists=false' \
+  -H 'Content-Type: application/json' \
+  -d '{"value": {"removed": true}}'
+
 curl -v -X 'DELETE' \
   'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime'
 ```
@@ -1570,6 +1623,9 @@ Example Response:
 < Server: Jetty(11.0.19)
 ```
 
+Attempting the `DELETE` on an active (not soft deleted) property returns `400 Bad Request` with a
+message directing you to soft delete first.
+
 </TabItem>
 
 </Tabs>
@@ -1579,6 +1635,9 @@ Example Response:
 After the asynchronous delete of all Structured Property values have been processed, triggered by the above
 hard delete, it is possible to remove the remaining index mappings. Note that if even 1 Structured Property value remains
 the mapping will not be removed for a given entity index.
+
+Until this cleanup runs, you also cannot recreate a property that would reuse the deleted property's search field
+(same `qualifiedName`, or a name that only differs by `.` vs `_`). See the caution under [Hard Delete](#delete-structured-properties).
 
 Run the DataHub system-update job (automatically run with every helm upgrade or install and quickstart) with
 the following environment variables enabled.

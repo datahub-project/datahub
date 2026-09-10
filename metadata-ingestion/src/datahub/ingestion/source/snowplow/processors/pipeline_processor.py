@@ -317,10 +317,12 @@ class PipelineProcessor(EntityProcessor):
                 logger.debug("No destinations found via destinations API")
 
             except Exception as e:
-                self.report.report_warning(
-                    "warehouse_destination",
-                    f"Failed to get warehouse destination from destinations API: {e}. "
+                self.report.warning(
+                    message="Failed to get warehouse destination from destinations API. "
                     "Enrichment-to-warehouse lineage will be unavailable.",
+                    context="warehouse_destination",
+                    exc=e,
+                    log=False,
                 )
                 logger.warning(
                     f"Failed to get warehouse destination from destinations API: {e}",
@@ -485,8 +487,11 @@ class PipelineProcessor(EntityProcessor):
             "enrichmentId": enrichment.id,
             "filename": enrichment.filename,
             "enabled": str(enrichment.enabled),
-            "lastUpdate": enrichment.last_update,
         }
+        # The pipelines/v1 enrichments endpoint does not return a last-update
+        # timestamp, so only emit it when the value is known.
+        if enrichment.last_update:
+            custom_properties["lastUpdate"] = enrichment.last_update
 
         if self.state.physical_pipeline:
             custom_properties["pipelineId"] = self.state.physical_pipeline.id

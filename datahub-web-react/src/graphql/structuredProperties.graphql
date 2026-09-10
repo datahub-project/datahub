@@ -17,6 +17,14 @@ query getStructuredProperty($urn: String!) {
                         type
                     }
                 }
+                allowedPlatforms {
+                    urn
+                    type
+                    properties {
+                        displayName
+                        logoUrl
+                    }
+                }
                 valueType {
                     urn
                     type
@@ -72,6 +80,14 @@ query searchStructuredProperties($query: String!, $start: Int!, $count: Int!) {
                             type
                             info {
                                 type
+                            }
+                        }
+                        allowedPlatforms {
+                            urn
+                            type
+                            properties {
+                                displayName
+                                logoUrl
                             }
                         }
                         valueType {

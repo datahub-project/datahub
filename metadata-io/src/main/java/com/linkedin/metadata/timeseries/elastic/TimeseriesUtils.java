@@ -68,25 +68,32 @@ public class TimeseriesUtils {
   public static ArrayList<Criterion> createCommonFilterCriteria(
       @Nonnull String resource, @Nullable Long startTime, @Nullable Long endTime) {
     ArrayList<Criterion> criteria = new ArrayList<>();
-    Criterion hasUrnCriterion = buildCriterion("urn", Condition.EQUAL, resource);
+    criteria.add(buildCriterion("urn", Condition.EQUAL, resource));
+    criteria.addAll(createTimeRangeCriteria(startTime, endTime));
+    return criteria;
+  }
 
-    criteria.add(hasUrnCriterion);
+  /**
+   * The {@code @timestamp} range criteria shared by all usage/operations timeseries queries,
+   * WITHOUT the per-URN {@code urn EQUAL} criterion. Batched aggregation callers use this so {@code
+   * batchGetAggregatedStats} can supply the URN set itself (as an outer terms bucket).
+   */
+  @Nonnull
+  public static ArrayList<Criterion> createTimeRangeCriteria(
+      @Nullable Long startTime, @Nullable Long endTime) {
+    ArrayList<Criterion> criteria = new ArrayList<>();
     if (startTime != null) {
-      Criterion startTimeCriterion =
+      criteria.add(
           buildCriterion(
               Constants.ES_FIELD_TIMESTAMP,
               Condition.GREATER_THAN_OR_EQUAL_TO,
-              startTime.toString());
-
-      criteria.add(startTimeCriterion);
+              startTime.toString()));
     }
     if (endTime != null) {
-      Criterion endTimeCriterion =
+      criteria.add(
           buildCriterion(
-              Constants.ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, endTime.toString());
-      criteria.add(endTimeCriterion);
+              Constants.ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, endTime.toString()));
     }
-
     return criteria;
   }
 }

@@ -1,0 +1,39 @@
+{
+  "status": "success",
+  "statusCode": 200,
+  "data": {
+    "attributes": [
+      {
+        "attributeType": "IDSoR Attribute",
+        "attributeName": "customer_email",
+        "displayName": "Customer Email",
+        "friendlyName": {"friendlyName": "Email", "glossaryId": "bt_email"}
+      },
+      {
+        "attributeType": "IDSoR Attribute",
+        "attributeName": "email",
+        "displayName": "Email",
+        "friendlyName": {"friendlyName": "Email", "glossaryId": "bt_email"}
+      },
+      {
+        "attributeType": "IDSoR Attribute",
+        "attributeName": "full_name",
+        "displayName": "Full Name",
+        "friendlyName": {"friendlyName": "Full Name", "glossaryId": null}
+      },
+      {
+        "attributeType": "IDSoR Attribute",
+        "attributeName": "first_name",
+        "displayName": "First Name",
+        "friendlyName": {"friendlyName": "First Name", "glossaryId": null}
+      },
+      {
+        "attributeType": "Classification",
+        "attributeName": "classifier.US Full Name",
+        "displayName": "US Full Name",
+        "friendlyName": {"friendlyName": "classifier.US Full Name", "glossaryId": null}
+      }
+    ]
+  },
+  "message": ""
+}

@@ -107,6 +107,11 @@ public class AspectSpec {
     return _aspectAnnotation.getSchemaVersion();
   }
 
+  @Nonnull
+  public AspectAnnotation getAspectAnnotation() {
+    return _aspectAnnotation;
+  }
+
   public Map<String, SearchableFieldSpec> getSearchableFieldSpecMap() {
     return _searchableFieldSpecs;
   }

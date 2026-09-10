@@ -118,29 +118,34 @@ const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     }
 
     return (
-        <Container>
-            <LeftSection>
-                <SearchHeader weight="bold">{t('assetCollection.searchAndSelectHeader')}</SearchHeader>
-                <SearchBar value={searchQuery} onChange={handleSearchChange} />
-                <AssetFilters
-                    searchQuery={searchQuery}
-                    appliedFilters={appliedFilters}
-                    updateFieldFilters={updateFieldFilters}
-                />
-                <ResultsContainer>
-                    <ScrollableResultsContainer data-testid="select-assets-search-results">
-                        {content}
-                    </ScrollableResultsContainer>
-                </ResultsContainer>
-            </LeftSection>
-            <VerticalDivider type="vertical" />
-            <RightSection>
-                <SelectedAssetsSection
-                    selectedAssetUrns={selectedAssetUrns}
-                    setSelectedAssetUrns={setSelectedAssetUrns}
-                />
-            </RightSection>
-        </Container>
+        <>
+            <Container>
+                <LeftSection>
+                    <SearchHeader weight="bold">{t('assetCollection.searchAndSelectHeader')}</SearchHeader>
+                    <SearchBar value={searchQuery} onChange={handleSearchChange} />
+                    <AssetFilters
+                        searchQuery={searchQuery}
+                        appliedFilters={appliedFilters}
+                        updateFieldFilters={updateFieldFilters}
+                    />
+                    <ResultsContainer>
+                        <ScrollableResultsContainer data-testid="select-assets-search-results">
+                            {content}
+                        </ScrollableResultsContainer>
+                    </ResultsContainer>
+                </LeftSection>
+                <VerticalDivider type="vertical" />
+                <RightSection>
+                    <SelectedAssetsSection
+                        selectedAssetUrns={selectedAssetUrns}
+                        setSelectedAssetUrns={setSelectedAssetUrns}
+                    />
+                </RightSection>
+            </Container>
+            <Text size="sm" color="gray" data-testid="manual-view-all-hint">
+                {t('assetCollection.viewAllManualHint')}
+            </Text>
+        </>
     );
 };
 

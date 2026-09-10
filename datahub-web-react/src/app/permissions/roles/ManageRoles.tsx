@@ -14,12 +14,14 @@ import { clearUserListCache } from '@app/identity/user/cacheUtils';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '@app/onboarding/config/RolesOnboardingConfig';
 import RoleDetailsModal from '@app/permissions/roles/RoleDetailsModal';
+import { getRolePolicies, getRoleUsers } from '@app/permissions/roles/roles.utils';
+import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useBatchAssignRoleMutation } from '@graphql/mutations.generated';
 import { useListRolesQuery } from '@graphql/role.generated';
-import { CorpUser, DataHubPolicy, DataHubRole, EntityType } from '@types';
+import { DataHubRole, EntityType } from '@types';
 
 const TableScrollContainer = styled.div`
     flex: 1;
@@ -276,9 +278,9 @@ export const ManageRoles = () => {
         type: role?.type,
         description: role?.description,
         name: role?.name,
-        users: role?.users?.relationships?.map((relationship) => relationship.entity as CorpUser),
+        users: getRoleUsers(role),
         totalUsers: role?.users?.total || 0,
-        policies: role?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy),
+        policies: getRolePolicies(role),
     }));
 
     return (
@@ -289,9 +291,18 @@ export const ManageRoles = () => {
                 placeholder={t('searchRolesPlaceholder')}
                 value={query || ''}
                 onChange={(value) => {
+                    // SearchBar's debounce also fires once on mount with an empty value.
+                    // Normalizing '' to undefined makes that a no-op against the initial state
+                    // instead of a redundant `query: ""` network fetch, and lets clearing the box
+                    // fall back to the cached first page.
+                    const nextQuery = value || undefined;
+                    if (nextQuery === query) {
+                        return;
+                    }
                     setPage(1);
-                    setQuery(value);
+                    setQuery(nextQuery);
                 }}
+                debounceDelay={DEBOUNCE_SEARCH_MS}
                 width="300px"
                 allowClear
             />

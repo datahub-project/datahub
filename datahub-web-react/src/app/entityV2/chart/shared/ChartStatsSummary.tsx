@@ -1,9 +1,11 @@
-import { ClockCircleOutlined, EyeOutlined, QuestionCircleOutlined, TeamOutlined } from '@ant-design/icons';
-import { Popover, Tooltip } from '@components';
-import { Typography } from 'antd';
+import { Icon, Popover, Text, Tooltip } from '@components';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import ExpandingStat from '@app/entityV2/dataset/shared/ExpandingStat';
 import { StatsSummary } from '@app/entityV2/shared/components/styled/StatsSummary';
@@ -14,11 +16,6 @@ import { countFormatter, needsFormatting } from '@utils/formatter';
 
 const StatText = styled.span`
     color: ${(props) => props.theme.colors.textSecondary};
-`;
-
-const HelpIcon = styled(QuestionCircleOutlined)`
-    color: ${(props) => props.theme.colors.textTertiary};
-    padding-left: 4px;
 `;
 
 type Props = {
@@ -43,7 +40,6 @@ export const ChartStatsSummary = ({
     createdMs,
 }: Props) => {
     const { t } = useTranslation('entity.types');
-    const theme = useTheme();
     // acryl-main only.
     const effectiveViewCount = (!!viewCountLast30Days && viewCountLast30Days) || viewCount;
 
@@ -72,7 +68,7 @@ export const ChartStatsSummary = ({
             undefined,
         (!!effectiveViewCount && (
             <StatText>
-                <EyeOutlined style={{ marginRight: 8, color: theme.colors.textTertiary }} />
+                <Icon icon={Eye} color="textTertiary" style={{ marginRight: 8 }} />
                 {viewCountLast30Days
                     ? t('shared.viewsLast30DaysCount', {
                           count: effectiveViewCount,
@@ -95,20 +91,20 @@ export const ChartStatsSummary = ({
             undefined,
         (!!uniqueUserCountLast30Days && (
             <StatText>
-                <TeamOutlined style={{ marginRight: 8, color: theme.colors.textTertiary }} />
+                <Icon icon={UsersThree} color="textTertiary" style={{ marginRight: 8 }} />
                 {t('shared.usersCount', {
                     count: uniqueUserCountLast30Days,
                     formattedCount: formatNumber(uniqueUserCountLast30Days),
                 })}
                 {!!uniqueUserPercentileLast30Days && (
-                    <Typography.Text type="secondary">
+                    <Text type="span" color="textSecondary">
                         <PercentileLabel
                             percentile={uniqueUserPercentileLast30Days}
                             description={t('shared.morePopularUsersPercentile', {
                                 percentile: uniqueUserPercentileLast30Days,
                             })}
                         />
-                    </Typography.Text>
+                    </Text>
                 )}
             </StatText>
         )) ||
@@ -123,14 +119,14 @@ export const ChartStatsSummary = ({
                         <div>
                             {t('shared.changedOnDate', { date: toLocalDateTimeString(lastUpdatedMs) })}{' '}
                             <Tooltip title={t('chart.lastChangedTooltip')}>
-                                <HelpIcon />
+                                <Icon icon={Question} color="textTertiary" style={{ paddingLeft: 4 }} />
                             </Tooltip>
                         </div>
                     </>
                 }
             >
                 <StatText>
-                    <ClockCircleOutlined style={{ marginRight: 8, color: theme.colors.textTertiary }} />
+                    <Icon icon={Clock} color="textTertiary" style={{ marginRight: 8 }} />
                     {t('shared.changedRelativeTime', { time: toRelativeTimeString(lastUpdatedMs) })}
                 </StatText>
             </Popover>

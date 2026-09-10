@@ -324,6 +324,43 @@ def test_fields_ignores_nested_record_fields():
     assert "b" not in fs  # b belongs to Inner, not Outer
 
 
+def test_fields_captures_whitelisted_annotation():
+    src = (
+        "record Foo {\n"
+        '  @Searchable = { "fieldType": "KEYWORD" }\n'
+        "  name: optional string\n"
+        "}"
+    )
+    fs = rac.fields(src)
+    assert fs["name"]["annotations"] == {"Searchable": '{ "fieldType": "KEYWORD" }'}
+
+
+def test_fields_captures_multiline_annotation_value():
+    # The naive per-line regex this delegates away from cannot strip a
+    # multi-line annotation value; the shared bsv parser handles it correctly.
+    src = (
+        "record Foo {\n"
+        "  @Searchable = {\n"
+        '    "fieldType": "KEYWORD"\n'
+        "  }\n"
+        "  name: optional string\n"
+        "}"
+    )
+    fs = rac.fields(src)
+    assert fs["name"]["annotations"] == {"Searchable": '{ "fieldType": "KEYWORD" }'}
+
+
+def test_fields_ignores_non_whitelisted_annotation():
+    src = (
+        "record Foo {\n"
+        '  @deprecated = "use bar instead"\n'
+        "  name: optional string\n"
+        "}"
+    )
+    fs = rac.fields(src)
+    assert fs["name"]["annotations"] == {}
+
+
 def test_enums_returns_symbols_per_enum():
     es = rac.enums(ENUM_PDL)
     assert es == {"FabricType": ["PROD", "CORP", "DEV"]}
@@ -339,8 +376,10 @@ def test_enums_returns_empty_when_no_enum_present():
 
 
 def test_analyze_pure_addition_is_additive_only(monkeypatch):
+    # Additive optional field with no version bump — stays additive-only and
+    # does not require a schemaVersion bump (CorpUserInfo / #18278 pattern).
     old = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string }'
-    new = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 2}\nrecord A { x: string\n y: optional string }'
+    new = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string\n y: optional string }'
 
     monkeypatch.setattr(rac, "file_at", lambda ref, p: old if ref == "BASE" else new)
     monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "abc1234 add y")
@@ -349,6 +388,25 @@ def test_analyze_pure_addition_is_additive_only(monkeypatch):
     assert f.is_aspect
     assert any("added optional field: y" in line for line in f.additive)
     assert f.breaking == []
+    assert f.has_structural is False
+    assert f.bump_status == rac.BUMP_NOT_NEEDED
+
+
+def test_analyze_optional_add_with_bump_is_spurious(monkeypatch):
+    # Bumping for an additive-only change is the CorpUserInfo anti-pattern.
+    old = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string }'
+    new = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 2}\nrecord A { x: string\n y: optional string }'
+
+    monkeypatch.setattr(rac, "file_at", lambda ref, p: old if ref == "BASE" else new)
+    monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
+
+    f = rac.analyze_file("path.pdl", "BASE", "HEAD")
+    assert any("added optional field: y" in line for line in f.additive)
+    assert f.has_structural is False
+    assert f.bump_status == rac.BUMP_SPURIOUS
+    assert any(
+        "bumped with NO structural change" in line for line in f.noisy
+    )
 
 
 def test_analyze_removed_field_is_breaking(monkeypatch):
@@ -396,6 +454,49 @@ def test_analyze_type_change_is_breaking(monkeypatch):
 
     f = rac.analyze_file("path.pdl", "BASE", "HEAD")
     assert any("type change on x: string→int" in line for line in f.breaking)
+
+
+def test_analyze_searchable_annotation_change_is_breaking(monkeypatch):
+    # @Searchable drives ES index mapping — changing it on an existing field
+    # requires a reindex, so it must be bump-worthy even with no type/optional
+    # change and no schemaVersion bump (silent migration/reindex hazard).
+    old = (
+        'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\n'
+        'record A { @Searchable = { "fieldType": "KEYWORD" } x: string }'
+    )
+    new = (
+        'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\n'
+        'record A { @Searchable = { "fieldType": "TEXT" } x: string }'
+    )
+
+    monkeypatch.setattr(rac, "file_at", lambda ref, p: old if ref == "BASE" else new)
+    monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
+
+    f = rac.analyze_file("path.pdl", "BASE", "HEAD")
+    assert any("annotation change on x" in line for line in f.breaking)
+    assert f.has_structural is True
+    assert f.bump_status == rac.BUMP_NEEDED
+
+
+def test_analyze_non_whitelisted_annotation_change_is_ignored(monkeypatch):
+    # @deprecated is not reindex-relevant, so a value-only change on it must
+    # not be reported as a schema change at all.
+    old = (
+        'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\n'
+        'record A { @deprecated = "old reason" x: string }'
+    )
+    new = (
+        'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\n'
+        'record A { @deprecated = "new reason" x: string }'
+    )
+
+    monkeypatch.setattr(rac, "file_at", lambda ref, p: old if ref == "BASE" else new)
+    monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
+
+    f = rac.analyze_file("path.pdl", "BASE", "HEAD")
+    assert f.breaking == []
+    assert f.has_structural is False
+    assert f.bump_status == rac.BUMP_NOT_NEEDED
 
 
 def test_analyze_enum_removal_is_breaking(monkeypatch):
@@ -629,7 +730,12 @@ def test_upstream_attribution_dedupes_prs_across_sources(monkeypatch):
 
 
 def test_aggregate_per_pr_verdict_priority_order():
-    """Highest-priority verdict wins: spurious > needed > done > bump_not_needed."""
+    """Highest-priority verdict wins: needed > spurious > done > bump_not_needed.
+
+    An *unreconciled* bump_needed outranks bump_spurious: a needed bump is a
+    release-blocking, silent-migration hazard, while a spurious bump is merely
+    informational. A coexisting spurious slice must never mask the blocker.
+    """
     assert (
             rac._aggregate_per_pr_verdict(
                 [
@@ -638,7 +744,7 @@ def test_aggregate_per_pr_verdict_priority_order():
                     {"bump_status": rac.BUMP_NEEDED},
                 ]
             )
-            == rac.BUMP_SPURIOUS
+            == rac.BUMP_NEEDED
     )
     assert (
             rac._aggregate_per_pr_verdict(
@@ -712,6 +818,54 @@ def test_aggregator_returns_needed_when_some_needed_slices_unreconciled():
         },
         {"pr": "C", "bump_status": rac.BUMP_NEEDED},  # not in catch_up_for_prs
     ]
+    assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_NEEDED
+
+
+def test_aggregator_unreconciled_needed_outranks_earlier_spurious_bump():
+    """Regression (MonitorSuiteInfo): an EARLIER spurious bump must not mask a
+    LATER, genuinely-unreconciled bump_needed.
+
+    Real case behind this test: a v1.1.0 release catch-up bump (no schema
+    change in its own commit) landed as a duplicate commit inside the report
+    window — because the same bump shipped on both the cloud release branch
+    (#9687) and acryl-main (#9684) — so it surfaces as a BUMP_SPURIOUS slice.
+    A *later* PR (#9814) then made a real transitive change (the
+    EntityChangeType enum grew) with no accompanying bump → BUMP_NEEDED.
+
+    A bump can only pay debt for changes that preceded it (catch-up flows
+    oldest→newest), so the earlier spurious bump cannot pre-pay #9814's change.
+    The file therefore genuinely needs a bump and must land in bump_needed, not
+    bump_spurious.
+    """
+    entries = [
+        {"pr": "9684", "date": "2026-05-19", "bump_status": rac.BUMP_SPURIOUS},
+        {"pr": "9814", "date": "2026-05-26", "bump_status": rac.BUMP_NEEDED},
+    ]
+    # Run the real reconciliation pipeline: catch-up must NOT reconcile the
+    # later needed against the earlier spurious bump.
+    rac._apply_catchup_reclassification(entries)
+    assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_NEEDED
+
+
+def test_aggregator_direct_change_needed_not_masked_by_earlier_spurious_bump():
+    """Regression (AssertionRunEvent): a later DIRECT schema change shipped
+    without a bump must not be hidden by an earlier spurious bump.
+
+    Real slices behind this test: an earlier spurious schemaVersion bump
+    (#9658, 4→5, no change in that commit) precedes PR #9696, which ADDED an
+    optional field (`executedQuery`) to the aspect without bumping. The added
+    field is a genuine, unreconciled bump_needed and must surface — a bump only
+    pays debt for changes that preceded it, so the earlier spurious bump cannot
+    cover #9696's later change. This is the higher-stakes variant of the masking
+    bug: a direct, unbumped field addition is exactly the silent-migration
+    hazard the report exists to flag.
+    """
+    entries = [
+        {"pr": None, "date": "2026-05-21", "bump_status": rac.BUMP_NEEDED},  # transitive via BoundsValueSpace
+        {"pr": "9658", "date": "2026-05-21", "bump_status": rac.BUMP_SPURIOUS},  # 4→5, no change in slice
+        {"pr": "9696", "date": "2026-05-28", "bump_status": rac.BUMP_NEEDED},  # added executedQuery, no bump
+    ]
+    rac._apply_catchup_reclassification(entries)
     assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_NEEDED
 
 
@@ -1037,8 +1191,9 @@ def test_render_summary_counts_are_correct():
 
 
 def test_bump_status_bump_done_when_version_increases(monkeypatch):
-    old = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string }'
-    new = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 2}\nrecord A { x: string\n y: optional string }'
+    # bump_done requires a bump-required (breaking) change, not additive-only.
+    old = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string\n y: string }'
+    new = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 2}\nrecord A { x: string }'
     monkeypatch.setattr(rac, "file_at", lambda ref, p: old if ref == "BASE" else new)
     monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
     f = rac.analyze_file("path.pdl", "BASE", "HEAD")
@@ -1052,6 +1207,16 @@ def test_bump_status_bump_needed_when_structural_change_without_bump(monkeypatch
     monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
     f = rac.analyze_file("path.pdl", "BASE", "HEAD")
     assert f.bump_status == rac.BUMP_NEEDED
+
+
+def test_bump_status_not_needed_for_optional_add_without_bump(monkeypatch):
+    old = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string }'
+    new = 'namespace x\n@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string\n y: optional string }'
+    monkeypatch.setattr(rac, "file_at", lambda ref, p: old if ref == "BASE" else new)
+    monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
+    f = rac.analyze_file("path.pdl", "BASE", "HEAD")
+    assert f.bump_status == rac.BUMP_NOT_NEEDED
+    assert f.has_structural is False
 
 
 def test_bump_status_na_when_no_change_and_no_bump(monkeypatch):
@@ -1202,7 +1367,9 @@ def test_main_routes_two_hop_transitive_aspect_to_transitive_section(
     aspect_old = '@Aspect = {"name": "a"}\nrecord AspectA { x: Intermediate }'
     aspect_new = '@Aspect = {"name": "a", "schemaVersion": 2}\nrecord AspectA { x: Intermediate }'
     nested_old = "record Changed { y: string }"
-    nested_new = "record Changed { y: string\n z: optional string }"
+    # A genuinely breaking change (added REQUIRED field) so it seeds the BFS —
+    # an additive optional add would be dropped as backward-compatible.
+    nested_new = "record Changed { y: string\n z: string }"
 
     def fake_changed(base, head):
         return [aspect_path, changed_nested_path]
@@ -1247,6 +1414,231 @@ def test_main_routes_two_hop_transitive_aspect_to_transitive_section(
     assert "1 bump_done" in text
     # The misleading noisy entry was stripped (verifiable by absence)
     assert "bumped with NO structural change" not in text
+
+
+# ---------------------------------------------------------------------------
+# Transitive BFS seed filtering — must match bump_schema_versions semantics:
+# a non-aspect edit seeds the transitive bump BFS iff it is NEITHER comment-only
+# (comments/whitespace stripped via bsv.normalize_pdl_for_compare) NOR
+# backward-compatible (added optional fields / enum symbols / new type defs /
+# default-only edits, dropped via bsv.is_backward_compatible_change semantics).
+# Created and deleted files, includes changes, type changes, required-ness
+# flips, and reindex-relevant annotation edits all count as bump-worthy.
+# ---------------------------------------------------------------------------
+
+
+def _seed_window(monkeypatch, changed, contents, reached):
+    """Drive _classify_window with mocked git/file plumbing.
+
+    changed:   list of changed paths (changed_pdls return)
+    contents:  {path: (base_text, head_text)} — "" means absent at that ref
+    reached:   {source_path: {aspect_path, ...}} for the transitive BFS spy
+    Returns (findings_by_basename, captured_seed_sources).
+    """
+    captured: dict[str, list[str]] = {}
+
+    def fake_file_at(ref, path):
+        pair = contents.get(path)
+        if pair is None:
+            return None
+        return pair[0] if ref == "BASE" else pair[1]
+
+    def spy_per_source(sources):
+        captured["sources"] = list(sources)
+        return {s: set(reached.get(s, set())) for s in sources if s in reached}
+
+    monkeypatch.setattr(rac, "changed_pdls", lambda base, head: list(changed))
+    monkeypatch.setattr(rac, "file_at", fake_file_at)
+    monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "")
+    monkeypatch.setattr(rac, "pr_numbers_for_file", lambda *a: [])
+    monkeypatch.setattr(rac, "last_author_for_file", lambda *a: None)
+    monkeypatch.setattr(rac, "latest_commit_date_for_file", lambda *a: None)
+    monkeypatch.setattr(rac, "find_transitive_aspects_per_source", spy_per_source)
+    monkeypatch.setattr(
+        rac, "upstream_attribution_for_transitive", lambda sources, head, base: ([], None, None)
+    )
+    findings = rac._classify_window("BASE", "HEAD")
+    import os
+    return {os.path.basename(f.path): f for f in findings}, captured.get("sources", [])
+
+
+_D = "metadata-models/src/main/pegasus/com/linkedin/x"
+
+
+def test_comment_only_nonaspect_does_not_seed_transitive_bump(monkeypatch):
+    """A comment/doc-only edit to a non-aspect record must NOT seed the BFS,
+    while a real structural change to a sibling still does.
+
+    Matches bump_schema_versions.is_comment_only_change: the canonical form
+    (comments stripped, whitespace collapsed) is unchanged, so the edit is
+    dropped from the seed and the aspect that references it is not flagged.
+    """
+    comment = f"{_D}/CommentOnly.pdl"
+    real = f"{_D}/RealChange.pdl"
+    aspect_c = f"{_D}/AspectViaComment.pdl"
+    aspect_r = f"{_D}/AspectViaReal.pdl"
+    by, sources = _seed_window(
+        monkeypatch,
+        changed=[comment, real],
+        contents={
+            comment: (
+                "record CommentOnly {\n  x: string\n}",
+                "record CommentOnly {\n  /** new doc */\n  x: string\n}",
+            ),
+            real: (
+                "record RealChange {\n  y: string\n}",
+                "record RealChange {\n  y: int\n}",
+            ),
+            aspect_c: ('@Aspect = {"name": "c", "schemaVersion": 3}\nrecord A { a: string }',) * 2,
+            aspect_r: ('@Aspect = {"name": "r", "schemaVersion": 3}\nrecord B { b: string }',) * 2,
+        },
+        reached={comment: {aspect_c}, real: {aspect_r}},
+    )
+    # Comment-only excluded from the seed; structural sibling kept.
+    assert sources == [real]
+    assert "AspectViaComment.pdl" not in by
+    assert by["AspectViaReal.pdl"].bump_status == rac.BUMP_NEEDED
+
+
+def test_additive_enum_add_on_nonaspect_does_not_seed_transitive_bump(monkeypatch):
+    """Regression: an ADDITIVE-only change to a non-aspect (a new enum symbol)
+    must NOT cascade a breaking bump into aspects that reference it — matching
+    bump_schema_versions.is_backward_compatible_change, which drops additive
+    optional-field / enum-symbol changes before the transitive BFS.
+
+    Mirrors the DataHubPageModuleType (added OUTPUT_PORTS) →
+    DataHubPageModuleProperties (schemaVersion 3→4) case: the bumper leaves the
+    properties aspect out of `to_bump`, so the report must classify it
+    bump_spurious (bumped with no structural change), not bump_done.
+    """
+    enum = f"{_D}/ModuleType.pdl"
+    aspect = f"{_D}/ModuleProperties.pdl"
+    by, sources = _seed_window(
+        monkeypatch,
+        changed=[enum, aspect],
+        contents={
+            enum: (
+                "enum ModuleType {\n  LINK\n  RICH_TEXT\n}",
+                "enum ModuleType {\n  LINK\n  RICH_TEXT\n  OUTPUT_PORTS\n}",
+            ),
+            aspect: (
+                '@Aspect = {"name": "moduleProperties", "schemaVersion": 3}\n'
+                "record ModuleProperties {\n  t: ModuleType\n}",
+                '@Aspect = {"name": "moduleProperties", "schemaVersion": 4}\n'
+                "record ModuleProperties {\n  t: ModuleType\n}",
+            ),
+        },
+        reached={enum: {aspect}},
+    )
+    # Additive enum-add is backward-compatible → dropped from the seed → no
+    # cascade, so the aspect is judged only on its own (structure-free) diff.
+    assert sources == []
+    assert by["ModuleProperties.pdl"].bump_status == rac.BUMP_SPURIOUS
+
+
+def test_additive_optional_field_on_nonaspect_does_not_seed_transitive_bump(monkeypatch):
+    """Companion to the enum case: adding an OPTIONAL field to a non-aspect record
+    is backward-compatible, so it must not cascade a bump downstream either.
+
+    A genuinely breaking sibling (added REQUIRED field) is kept, proving the
+    filter drops only additive edits, not every change."""
+    additive = f"{_D}/AdditiveField.pdl"
+    breaking = f"{_D}/BreakingField.pdl"
+    aspect_a = f"{_D}/AspectViaAdditive.pdl"
+    aspect_b = f"{_D}/AspectViaBreaking.pdl"
+    by, sources = _seed_window(
+        monkeypatch,
+        changed=[additive, breaking],
+        contents={
+            additive: (
+                "record AdditiveField {\n  y: string\n}",
+                "record AdditiveField {\n  y: string\n  z: optional string\n}",
+            ),
+            breaking: (
+                "record BreakingField {\n  y: string\n}",
+                "record BreakingField {\n  y: string\n  z: string\n}",
+            ),
+            aspect_a: ('@Aspect = {"name": "a", "schemaVersion": 3}\nrecord A { a: string }',) * 2,
+            aspect_b: ('@Aspect = {"name": "b", "schemaVersion": 3}\nrecord B { b: string }',) * 2,
+        },
+        reached={additive: {aspect_a}, breaking: {aspect_b}},
+    )
+    # Only the breaking sibling seeds the BFS.
+    assert sources == [breaking]
+    assert "AspectViaAdditive.pdl" not in by
+    assert by["AspectViaBreaking.pdl"].bump_status == rac.BUMP_NEEDED
+
+
+def test_default_only_change_on_nonaspect_does_not_seed_transitive_bump(monkeypatch):
+    """A field default-value change is backward-compatible per the bumper —
+    bsv.is_backward_compatible_change strips defaults before comparing, so
+    default-only edits are dropped and never cascade. The report must agree.
+
+    (The change is NOT comment-only — normalize_pdl_for_compare keeps the
+    default text — so only the backward-compatible filter drops it.)
+    """
+    default = f"{_D}/DefaultChange.pdl"
+    aspect = f"{_D}/AspectViaDefault.pdl"
+    by, sources = _seed_window(
+        monkeypatch,
+        changed=[default],
+        contents={
+            default: (
+                'record DefaultChange {\n  mode: string = "ENABLED"\n}',
+                'record DefaultChange {\n  mode: string = "DISABLED"\n}',
+            ),
+            aspect: ('@Aspect = {"name": "d", "schemaVersion": 5}\nrecord D { d: string }',) * 2,
+        },
+        reached={default: {aspect}},
+    )
+    assert sources == []
+    assert "AspectViaDefault.pdl" not in by
+
+
+def test_includes_change_on_nonaspect_seeds_transitive_bump(monkeypatch):
+    """Parity guard with the bumper: an `includes` change is bump-worthy per
+    bsv._defs_backward_compatible even though analyze_file does not model
+    includes as structural (has_structural stays False). It must still seed the
+    BFS — the case the abandoned has_structural-based filter got wrong.
+    """
+    inc = f"{_D}/IncludesChange.pdl"
+    aspect = f"{_D}/AspectViaIncludes.pdl"
+    by, sources = _seed_window(
+        monkeypatch,
+        changed=[inc],
+        contents={
+            inc: (
+                "record IncludesChange includes Base { x: string }",
+                "record IncludesChange includes Base, Extra { x: string }",
+            ),
+            aspect: ('@Aspect = {"name": "i", "schemaVersion": 5}\nrecord I { i: string }',) * 2,
+        },
+        reached={inc: {aspect}},
+    )
+    # analyze_file doesn't detect includes, so has_structural is False — but the
+    # bumper treats includes changes as breaking, so the report must still seed.
+    assert by["IncludesChange.pdl"].has_structural is False
+    assert sources == [inc]
+    assert by["AspectViaIncludes.pdl"].bump_status == rac.BUMP_NEEDED
+
+
+def test_deleted_nonaspect_seeds_transitive_bump(monkeypatch):
+    """A deleted non-aspect record is a real change (one ref empty), so it is
+    NOT comment-only and still seeds the BFS — consistent with the bumper, which
+    never silently drops removed files."""
+    deleted = f"{_D}/Deleted.pdl"
+    aspect = f"{_D}/AspectViaDeleted.pdl"
+    by, sources = _seed_window(
+        monkeypatch,
+        changed=[deleted],
+        contents={
+            deleted: ("record Deleted {\n  z: string\n}", ""),  # gone at head
+            aspect: ('@Aspect = {"name": "dl", "schemaVersion": 4}\nrecord E { e: string }',) * 2,
+        },
+        reached={deleted: {aspect}},
+    )
+    assert sources == [deleted]
+    assert by["AspectViaDeleted.pdl"].bump_status == rac.BUMP_NEEDED
 
 
 def test_pr_numbers_for_file_returns_all_prs_in_window(monkeypatch):
@@ -1476,6 +1868,45 @@ def test_catchup_sorts_by_date_not_input_order():
     assert statuses["9192"] == rac.BUMP_NEEDED
     assert statuses["9534"] == rac.BUMP_DONE
     assert statuses["9579"] == rac.BUMP_SPURIOUS
+
+
+def test_catchup_reconciles_no_pr_debt_by_sha():
+    """Regression (AssertionRunEvent): a real change committed with NO PR still
+    incurs schemaVersion debt, and a later cumulative catch-up bump must pay it
+    down. Reconciliation keyed on PR number alone dropped the no-PR debt, so the
+    file leaked a false bump_needed even though its version was genuinely bumped.
+
+    Slices mirror AssertionRunEvent: a no-PR transitive change, then a bump in
+    the same window. The bump must be recognized as a catch-up for the no-PR
+    change (keyed by sha), and the file aggregate must be bump_done, not
+    bump_needed.
+    """
+    entries = [
+        # no-PR transitive change, no bump → unbumped debt
+        {"sha": "aaaa111", "pr": None, "date": "2026-05-21", "bump_status": rac.BUMP_NEEDED},
+        # later bump with no change of its own → catch-up for the no-PR debt
+        {"sha": "bbbb222", "pr": "9658", "date": "2026-05-21", "bump_status": rac.BUMP_SPURIOUS},
+    ]
+    rac._apply_catchup_reclassification(entries)
+    by_sha = {e["sha"]: e for e in entries}
+
+    # The bump is reclassified as a catch-up that paid the no-PR debt (by sha).
+    assert by_sha["bbbb222"]["bump_status"] == rac.BUMP_DONE
+    assert "aaaa111" in (by_sha["bbbb222"].get("catch_up_shas") or [])
+
+    # The file aggregate is bump_done — the no-PR debt is reconciled, not leaked
+    # as a false bump_needed.
+    assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_DONE
+
+
+def test_aggregator_unreconciled_no_pr_needed_still_surfaces():
+    """Guard the other direction: a no-PR bump_needed that is NOT paid by any
+    later bump must still surface as bump_needed (we didn't just silence no-PR
+    debt)."""
+    entries = [
+        {"sha": "cccc333", "pr": None, "date": "2026-05-21", "bump_status": rac.BUMP_NEEDED},
+    ]
+    assert rac._aggregate_per_pr_verdict(entries) == rac.BUMP_NEEDED
 
 
 def test_describe_per_pr_slice_renders_catchup_annotation():
@@ -1821,7 +2252,9 @@ def test_main_reclassifies_aspect_bump_as_done_when_transitively_affected(
     aspect_old = '@Aspect = {"name": "a", "schemaVersion": 1}\nrecord AspectA includes Nested { }'
     aspect_new = '@Aspect = {"name": "a", "schemaVersion": 2}\nrecord AspectA includes Nested { }'
     nested_old = "record Nested { x: string }"
-    nested_new = "record Nested { x: string\n y: optional string }"
+    # A genuinely breaking change (added REQUIRED field) so it seeds the BFS —
+    # an additive optional add would be dropped as backward-compatible.
+    nested_new = "record Nested { x: string\n y: string }"
 
     def fake_changed(base, head):
         return [aspect_path, nested_path]

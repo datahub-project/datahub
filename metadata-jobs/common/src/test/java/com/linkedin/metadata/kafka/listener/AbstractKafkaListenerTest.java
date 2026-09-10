@@ -6,6 +6,7 @@ import static org.testng.Assert.*;
 
 import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
+import com.linkedin.metadata.kafka.context.inbound.DefaultInboundBatchAffinityResolver;
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -87,7 +88,8 @@ public class AbstractKafkaListenerTest {
         List.of(hook1, hook2),
         false,
         Collections.emptyMap(),
-        mock(InboundContextResolver.class));
+        mock(InboundContextResolver.class),
+        new DefaultInboundBatchAffinityResolver());
   }
 
   @AfterMethod
@@ -192,7 +194,8 @@ public class AbstractKafkaListenerTest {
         List.of(hook1, hook2),
         false,
         Collections.emptyMap(),
-        pgQueueResolver);
+        pgQueueResolver,
+        new DefaultInboundBatchAffinityResolver());
 
     listener.nextEvent = new TestEvent("evt-pg");
 
@@ -254,7 +257,8 @@ public class AbstractKafkaListenerTest {
         List.of(hook1, hook2),
         false,
         Collections.emptyMap(),
-        passThrough);
+        passThrough,
+        new DefaultInboundBatchAffinityResolver());
 
     listener.nextEvent = new TestEvent("evt-kafka-direct");
 

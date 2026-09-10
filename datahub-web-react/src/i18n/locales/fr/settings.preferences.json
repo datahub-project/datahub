@@ -1,0 +1,10 @@
+{
+    "appearance.subTitle": "Gérez vos paramètres d'apparence.",
+    "appearance.title": "Apparence",
+    "language.description": "Choisissez votre langue d'affichage préférée",
+    "language.title": "Langue de l'interface utilisateur",
+    "noSettings": "Aucun paramètre d'apparence trouvé.",
+    "showApplications.description": "Les applications sont un autre moyen d'organiser vos données, semblable aux domaines. Elles sont masquées par défaut.",
+    "showApplications.successMessage": "Paramètre mis à jour!",
+    "showApplications.title": "Afficher les applications"
+}

@@ -8,9 +8,11 @@ import com.linkedin.metadata.config.PlatformAnalyticsConfiguration;
 import com.linkedin.metadata.config.UsageExportConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
-import com.linkedin.metadata.event.UsageEventPublisher;
+import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.metadata.context.kafka.SpanProducerRecordResolver;
+import io.datahubproject.metadata.context.telemetry.EnrichingSpanProcessor;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
@@ -60,7 +62,9 @@ public class OpenTelemetryBaseFactoryTest {
 
   @Mock private ConfigurationProvider mockConfigurationProvider;
 
-  @Mock private UsageEventPublisher mockPublisher;
+  @Mock private GenericProducer<String> mockPublisher;
+  @Mock private SpanProducerRecordResolver mockSpanProducerRecordResolver;
+  @Mock private EnrichingSpanProcessor mockEnrichingSpanProcessor;
 
   @Mock private PlatformAnalyticsConfiguration mockPlatformAnalytics;
 
@@ -74,7 +78,7 @@ public class OpenTelemetryBaseFactoryTest {
   private AutoCloseable mocks;
 
   // Test implementation of the abstract class
-  private static class TestOpenTelemetryFactory extends OpenTelemetryBaseFactory {
+  private class TestOpenTelemetryFactory extends OpenTelemetryBaseFactory {
     private final String applicationComponent;
 
     public TestOpenTelemetryFactory(String applicationComponent) {
@@ -90,8 +94,13 @@ public class OpenTelemetryBaseFactoryTest {
     public SystemTelemetryContext testTraceContext(
         MetricUtils metricUtils,
         ConfigurationProvider configurationProvider,
-        UsageEventPublisher usageEventPublisher) {
-      return traceContext(metricUtils, configurationProvider, usageEventPublisher);
+        GenericProducer<String> usageEventPublisher) {
+      return traceContext(
+          metricUtils,
+          configurationProvider,
+          usageEventPublisher,
+          mockSpanProducerRecordResolver,
+          mockEnrichingSpanProcessor);
     }
   }
 
@@ -184,7 +193,10 @@ public class OpenTelemetryBaseFactoryTest {
     // Use reflection to test private method
     Method getUsageSpanExporterMethod =
         OpenTelemetryBaseFactory.class.getDeclaredMethod(
-            "getUsageSpanExporter", ConfigurationProvider.class, UsageEventPublisher.class);
+            "getUsageSpanExporter",
+            ConfigurationProvider.class,
+            GenericProducer.class,
+            SpanProducerRecordResolver.class);
     getUsageSpanExporterMethod.setAccessible(true);
 
     // Test with all conditions met
@@ -193,7 +205,8 @@ public class OpenTelemetryBaseFactoryTest {
 
     SpanProcessor result =
         (SpanProcessor)
-            getUsageSpanExporterMethod.invoke(factory, mockConfigurationProvider, mockPublisher);
+            getUsageSpanExporterMethod.invoke(
+                factory, mockConfigurationProvider, mockPublisher, mockSpanProducerRecordResolver);
 
     assertNotNull(result);
     assertTrue(result instanceof BatchSpanProcessor);
@@ -354,14 +367,15 @@ public class OpenTelemetryBaseFactoryTest {
     // Test the OpenTelemetry configuration
     Method openTelemetryMethod =
         OpenTelemetryBaseFactory.class.getDeclaredMethod(
-            "openTelemetry", MetricUtils.class, SpanProcessor.class);
+            "openTelemetry", MetricUtils.class, SpanProcessor.class, EnrichingSpanProcessor.class);
     openTelemetryMethod.setAccessible(true);
 
     SpanProcessor mockSpanProcessor = mock(SpanProcessor.class);
 
     io.opentelemetry.api.OpenTelemetry result =
         (io.opentelemetry.api.OpenTelemetry)
-            openTelemetryMethod.invoke(factory, mockMetricUtils, mockSpanProcessor);
+            openTelemetryMethod.invoke(
+                factory, mockMetricUtils, mockSpanProcessor, mockEnrichingSpanProcessor);
 
     assertNotNull(result);
   }

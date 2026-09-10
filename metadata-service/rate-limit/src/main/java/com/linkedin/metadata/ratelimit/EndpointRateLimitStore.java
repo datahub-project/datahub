@@ -13,6 +13,7 @@ import io.github.bucket4j.grid.hazelcast.Bucket4jHazelcast;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -20,8 +21,27 @@ import org.springframework.util.StringUtils;
 
 @Slf4j
 final class EndpointRateLimitStore {
+  private static final String ACTOR_KEY_INFIX = ":actor:";
+
+  /**
+   * Shared map for fleet-wide (cross-tenant) buckets — the same name for every tenant, so the
+   * {@code global} scope is one counter across the whole fleet. Tenant-scoped buckets live in the
+   * tenant map ({@link #distributedProxyManager}, named per-tenant via {@code hazelcastMapName}).
+   */
+  private static final String GLOBAL_MAP_NAME =
+      RateLimitProperties.Endpoint.GLOBAL_HAZELCAST_MAP_NAME;
+
   private final Map<String, RegisteredEndpointBucket> buckets = new HashMap<>();
   private final ProxyManager<String> distributedProxyManager;
+  private final ProxyManager<String> globalProxyManager;
+
+  /**
+   * Caches one immutable {@link BucketConfiguration} per distinct limits value so the scoped hot
+   * path doesn't rebuild Bandwidth/config objects on every request. Keyed by the limits POJO (value
+   * equality via Lombok {@code @Data}); config is loaded once and not mutated at runtime.
+   */
+  private final Map<RateLimitProperties.BucketLimits, BucketConfiguration> scopedConfigCache =
+      new ConcurrentHashMap<>();
 
   EndpointRateLimitStore(
       @Nullable RateLimitProperties.Endpoint endpointConfig,
@@ -29,7 +49,12 @@ final class EndpointRateLimitStore {
     String mapName = resolveMapName(endpointConfig);
     IMap<String, byte[]> map = hazelcastInstance.getMap(mapName);
     this.distributedProxyManager = Bucket4jHazelcast.entryProcessorBasedBuilder(map).build();
-    log.info("Endpoint rate limits use distributed Hazelcast map {}", mapName);
+    IMap<String, byte[]> globalMap = hazelcastInstance.getMap(GLOBAL_MAP_NAME);
+    this.globalProxyManager = Bucket4jHazelcast.entryProcessorBasedBuilder(globalMap).build();
+    log.info(
+        "Endpoint rate limits use tenant map {} and shared global map {}",
+        mapName,
+        GLOBAL_MAP_NAME);
   }
 
   void registerEndpointRule(@Nonnull RateLimitProperties.Rule rule) {
@@ -47,7 +72,7 @@ final class EndpointRateLimitStore {
     BucketConfiguration configuration =
         bucketConfiguration(capacity, refillTokens, refillPeriodSeconds);
     Bucket bucket = distributedProxyManager.builder().build(rule.getId(), () -> configuration);
-    buckets.put(rule.getId(), new RegisteredEndpointBucket(bucket, capacity));
+    buckets.put(rule.getId(), new RegisteredEndpointBucket(bucket, capacity, configuration));
     log.info(
         "Registered endpoint rate limit rule {} (cluster-wide capacity={})",
         rule.getId(),
@@ -63,9 +88,72 @@ final class EndpointRateLimitStore {
     return bucket.getBucket().tryConsumeAndReturnRemaining(1);
   }
 
+  @Nullable
+  ConsumptionProbe tryConsumeForActor(@Nonnull String ruleId, @Nonnull String actorUrn) {
+    RegisteredEndpointBucket registered = buckets.get(ruleId);
+    if (registered == null) {
+      return null;
+    }
+    BucketConfiguration config = registered.getConfiguration();
+    Bucket bucket =
+        distributedProxyManager.builder().build(ruleId + ACTOR_KEY_INFIX + actorUrn, () -> config);
+    return bucket.tryConsumeAndReturnRemaining(1);
+  }
+
+  /**
+   * Consumes {@code tokens} from the scoped bucket identified by {@code key}, creating it lazily
+   * with the given limits. {@code globalMap=true} routes to the shared cross-tenant map (the {@code
+   * global} scope); otherwise the per-tenant map. Returns the probe (never null — the bucket is
+   * always materialized).
+   */
+  @Nonnull
+  ConsumptionProbe tryConsumeScoped(
+      @Nonnull String key,
+      @Nonnull RateLimitProperties.BucketLimits limits,
+      long tokens,
+      boolean globalMap) {
+    return scopedBucket(key, limits, globalMap).tryConsumeAndReturnRemaining(Math.max(1, tokens));
+  }
+
+  /**
+   * Refunds {@code tokens} to the scoped bucket {@code key} (Bucket4j caps the add at capacity).
+   * Used to roll back an already-consumed bucket when a later stage of the chain denies the
+   * request, so a rejected request doesn't permanently burn upstream tenant/actor tokens.
+   */
+  void refundScoped(
+      @Nonnull String key,
+      @Nonnull RateLimitProperties.BucketLimits limits,
+      long tokens,
+      boolean globalMap) {
+    scopedBucket(key, limits, globalMap).addTokens(Math.max(1, tokens));
+  }
+
+  @Nonnull
+  private Bucket scopedBucket(
+      @Nonnull String key, @Nonnull RateLimitProperties.BucketLimits limits, boolean globalMap) {
+    ProxyManager<String> proxyManager = globalMap ? globalProxyManager : distributedProxyManager;
+    BucketConfiguration configuration =
+        scopedConfigCache.computeIfAbsent(
+            limits,
+            l ->
+                bucketConfiguration(
+                    l.getCapacity(), l.getRefillTokens(), l.getRefillPeriodSeconds()));
+    return proxyManager.builder().build(key, () -> configuration);
+  }
+
   double remaining(@Nonnull String ruleId) {
     RegisteredEndpointBucket bucket = buckets.get(ruleId);
     return bucket == null ? -1 : bucket.getBucket().getAvailableTokens();
+  }
+
+  /**
+   * Read-only available tokens for a fixed-key scoped bucket (global/class), for status reporting.
+   * Like any distributed-bucket read this materializes the bucket at full capacity if it does not
+   * exist yet, so only call it for bounded, fixed keys — never the unbounded per-actor keys.
+   */
+  double scopedRemaining(
+      @Nonnull String key, @Nonnull RateLimitProperties.BucketLimits limits, boolean globalMap) {
+    return scopedBucket(key, limits, globalMap).getAvailableTokens();
   }
 
   int capacity(@Nonnull String ruleId) {
@@ -101,10 +189,13 @@ final class EndpointRateLimitStore {
   private static final class RegisteredEndpointBucket {
     private final Bucket bucket;
     private final int configuredCapacity;
+    private final BucketConfiguration configuration;
 
-    private RegisteredEndpointBucket(Bucket bucket, int configuredCapacity) {
+    private RegisteredEndpointBucket(
+        Bucket bucket, int configuredCapacity, BucketConfiguration configuration) {
       this.bucket = bucket;
       this.configuredCapacity = configuredCapacity;
+      this.configuration = configuration;
     }
 
     private Bucket getBucket() {
@@ -113,6 +204,10 @@ final class EndpointRateLimitStore {
 
     private int getConfiguredCapacity() {
       return configuredCapacity;
+    }
+
+    private BucketConfiguration getConfiguration() {
+      return configuration;
     }
   }
 }

@@ -10,13 +10,12 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.glossary.GlossaryNodeInfo;
-import com.linkedin.glossary.GlossaryTermInfo;
+import com.linkedin.metadata.graph.cache.client.BoundHierarchyAccess;
+import com.linkedin.metadata.graph.cache.client.HierarchyBindings;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -47,157 +46,32 @@ public class GlossaryFieldResolverProvider implements EntityFieldResolverProvide
     return FieldResolver.getResolverFromFunction(entitySpec, spec -> getGlossary(opContext, spec));
   }
 
-  /**
-   * Given a set of glossary term URNs, recursively resolve all parent nodes. Returns the terms plus
-   * all their ancestor nodes.
-   */
-  private Set<Urn> resolveTermsWithParentNodes(
-      @Nonnull OperationContext opContext, @Nonnull Set<Urn> termUrns) {
-
-    final long startTime = System.nanoTime();
-    Set<Urn> result = new HashSet<>(termUrns);
-
-    try {
-      // Batch fetch all term entities at once
-      final long batchFetchStart = System.nanoTime();
-      Map<Urn, EntityResponse> termResponses =
-          _entityClient.batchGetV2(
-              opContext,
-              GLOSSARY_TERM_ENTITY_NAME,
-              termUrns,
-              Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME));
-      final long batchFetchDurationMs = (System.nanoTime() - batchFetchStart) / 1_000_000;
-      log.debug("Batch fetched {} glossary terms in {}ms", termUrns.size(), batchFetchDurationMs);
-
-      // Extract all parent node URNs
-      Set<Urn> parentNodeUrns = new HashSet<>();
-      termResponses.forEach(
-          (termUrn, response) -> {
-            if (response.getAspects().containsKey(GLOSSARY_TERM_INFO_ASPECT_NAME)) {
-              GlossaryTermInfo termInfo =
-                  new GlossaryTermInfo(
-                      response.getAspects().get(GLOSSARY_TERM_INFO_ASPECT_NAME).getValue().data());
-              if (termInfo.hasParentNode()) {
-                parentNodeUrns.add(termInfo.getParentNode());
-              }
-            }
-          });
-
-      // Recursively resolve all parent nodes
-      if (!parentNodeUrns.isEmpty()) {
-        result.addAll(resolveNodesWithParentNodes(opContext, parentNodeUrns));
-      }
-
-      final long totalDurationNanos = System.nanoTime() - startTime;
-      final long totalDurationMs = totalDurationNanos / 1_000_000;
-      log.debug(
-          "resolveTermsWithParentNodes: {} input terms -> {} total entities ({}ms)",
-          termUrns.size(),
-          result.size(),
-          totalDurationMs);
-
-      // Record metrics
-      opContext
-          .getMetricUtils()
-          .ifPresent(
-              metricUtils -> {
-                metricUtils.recordTimer(
-                    "glossary.policy.resolve_terms.duration", totalDurationNanos);
-                metricUtils.recordDistribution(
-                    "glossary.policy.term_expansion_ratio",
-                    result.size() / Math.max(1, termUrns.size()));
-              });
-
-    } catch (Exception e) {
-      log.error("Error resolving terms with parent nodes for {} terms", termUrns.size(), e);
+  @Nonnull
+  private Set<Urn> expandGlossaryAncestors(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> roots) {
+    if (roots.isEmpty()) {
+      return Collections.emptySet();
     }
-
-    return result;
-  }
-
-  /**
-   * Given a set of glossary node URNs, recursively resolve all parent nodes. Returns the nodes plus
-   * all their ancestors.
-   *
-   * <p>This mirrors DomainFieldResolverProvider.resolveDomainsWithParents()
-   */
-  private Set<Urn> resolveNodesWithParentNodes(
-      @Nonnull OperationContext opContext, @Nonnull Set<Urn> nodeUrns) {
-
     final long startTime = System.nanoTime();
-    int levelsTraversed = 0;
-    Set<Urn> allNodes = new HashSet<>(nodeUrns);
-    Set<Urn> currentLevel = new HashSet<>(nodeUrns);
-
-    // Walk up the hierarchy level by level
-    while (!currentLevel.isEmpty()) {
-      levelsTraversed++;
-      try {
-        // Batch fetch all nodes at this level
-        final long batchFetchStart = System.nanoTime();
-        Map<Urn, EntityResponse> nodeResponses =
-            _entityClient.batchGetV2(
-                opContext,
-                GLOSSARY_NODE_ENTITY_NAME,
-                currentLevel,
-                Collections.singleton(GLOSSARY_NODE_INFO_ASPECT_NAME));
-        final long batchFetchDurationMs = (System.nanoTime() - batchFetchStart) / 1_000_000;
-        log.debug(
-            "Batch fetched {} glossary nodes at level {} in {}ms",
-            currentLevel.size(),
-            levelsTraversed,
-            batchFetchDurationMs);
-
-        Set<Urn> nextLevel = new HashSet<>();
-        nodeResponses.forEach(
-            (nodeUrn, response) -> {
-              if (response.getAspects().containsKey(GLOSSARY_NODE_INFO_ASPECT_NAME)) {
-                GlossaryNodeInfo nodeInfo =
-                    new GlossaryNodeInfo(
-                        response
-                            .getAspects()
-                            .get(GLOSSARY_NODE_INFO_ASPECT_NAME)
-                            .getValue()
-                            .data());
-                if (nodeInfo.hasParentNode()) {
-                  Urn parentNode = nodeInfo.getParentNode();
-                  if (!allNodes.contains(parentNode)) {
-                    nextLevel.add(parentNode);
-                  }
-                }
-              }
-            });
-
-        allNodes.addAll(nextLevel);
-        currentLevel = nextLevel;
-
-      } catch (Exception e) {
-        log.error("Error resolving node hierarchy for {} nodes", currentLevel.size(), e);
-        break;
-      }
-    }
-
-    final long totalDurationNanos = System.nanoTime() - startTime;
-    final long totalDurationMs = totalDurationNanos / 1_000_000;
-    final int finalLevelsTraversed = levelsTraversed;
+    Set<Urn> expanded =
+        BoundHierarchyAccess.expandAncestors(
+            opContext, HierarchyBindings.glossarySpec(opContext), roots);
+    final long durationNanos = System.nanoTime() - startTime;
     log.debug(
-        "resolveNodesWithParentNodes: {} input nodes -> {} total nodes ({} levels, {}ms)",
-        nodeUrns.size(),
-        allNodes.size(),
-        finalLevelsTraversed,
-        totalDurationMs);
-
-    // Record metrics
+        "expandGlossaryAncestors: {} input roots -> {} total entities ({}ms)",
+        roots.size(),
+        expanded.size(),
+        durationNanos / 1_000_000);
     opContext
         .getMetricUtils()
         .ifPresent(
             metricUtils -> {
-              metricUtils.recordTimer("glossary.policy.resolve_nodes.duration", totalDurationNanos);
+              metricUtils.recordTimer("glossary.policy.resolve_terms.duration", durationNanos);
               metricUtils.recordDistribution(
-                  "glossary.policy.node_hierarchy_depth", finalLevelsTraversed);
+                  "glossary.policy.term_expansion_ratio",
+                  expanded.size() / Math.max(1, roots.size()));
             });
-
-    return allNodes;
+    return expanded;
   }
 
   private FieldResolver.FieldValue getGlossary(
@@ -216,25 +90,13 @@ public class GlossaryFieldResolverProvider implements EntityFieldResolverProvide
       // Case 1: Entity is a glossary term
       if (GLOSSARY_TERM_ENTITY_NAME.equals(entityType)) {
         Set<Urn> termsWithParents =
-            resolveTermsWithParentNodes(opContext, Collections.singleton(entityUrn));
-        final long durationNanos = System.nanoTime() - startTime;
-        final long durationMs = durationNanos / 1_000_000;
+            expandGlossaryAncestors(opContext, Collections.singleton(entityUrn));
+        recordFieldResolutionMetrics(opContext, startTime);
         log.debug(
             "Glossary field resolution for glossaryTerm {} -> {} entities ({}ms)",
             entityUrn,
             termsWithParents.size(),
-            durationMs);
-
-        // Record metrics
-        opContext
-            .getMetricUtils()
-            .ifPresent(
-                metricUtils -> {
-                  metricUtils.recordTimer(
-                      "glossary.policy.field_resolution.duration", durationNanos);
-                  metricUtils.incrementMicrometer("glossary.policy.field_checks", 1);
-                });
-
+            (System.nanoTime() - startTime) / 1_000_000);
         return FieldResolver.FieldValue.builder()
             .values(termsWithParents.stream().map(Object::toString).collect(Collectors.toSet()))
             .build();
@@ -243,25 +105,13 @@ public class GlossaryFieldResolverProvider implements EntityFieldResolverProvide
       // Case 2: Entity is a glossary node
       if (GLOSSARY_NODE_ENTITY_NAME.equals(entityType)) {
         Set<Urn> nodesWithParents =
-            resolveNodesWithParentNodes(opContext, Collections.singleton(entityUrn));
-        final long durationNanos = System.nanoTime() - startTime;
-        final long durationMs = durationNanos / 1_000_000;
+            expandGlossaryAncestors(opContext, Collections.singleton(entityUrn));
+        recordFieldResolutionMetrics(opContext, startTime);
         log.debug(
             "Glossary field resolution for glossaryNode {} -> {} entities ({}ms)",
             entityUrn,
             nodesWithParents.size(),
-            durationMs);
-
-        // Record metrics
-        opContext
-            .getMetricUtils()
-            .ifPresent(
-                metricUtils -> {
-                  metricUtils.recordTimer(
-                      "glossary.policy.field_resolution.duration", durationNanos);
-                  metricUtils.incrementMicrometer("glossary.policy.field_checks", 1);
-                });
-
+            (System.nanoTime() - startTime) / 1_000_000);
         return FieldResolver.FieldValue.builder()
             .values(nodesWithParents.stream().map(Object::toString).collect(Collectors.toSet()))
             .build();
@@ -276,34 +126,22 @@ public class GlossaryFieldResolverProvider implements EntityFieldResolverProvide
         return FieldResolver.emptyFieldValue();
       }
 
-      // Get all applied terms
       Set<Urn> appliedTerms =
           new GlossaryTerms(response.getAspects().get(GLOSSARY_TERMS_ASPECT_NAME).getValue().data())
               .getTerms().stream()
                   .map(association -> association.getUrn())
                   .collect(Collectors.toSet());
 
-      // Resolve all terms with their parent nodes
-      Set<Urn> allGlossaryEntities = resolveTermsWithParentNodes(opContext, appliedTerms);
+      Set<Urn> allGlossaryEntities = expandGlossaryAncestors(opContext, appliedTerms);
 
-      final long durationNanos = System.nanoTime() - startTime;
-      final long durationMs = durationNanos / 1_000_000;
+      recordFieldResolutionMetrics(opContext, startTime);
       log.debug(
           "Glossary field resolution for {} {} with {} applied terms -> {} entities ({}ms)",
           entityType,
           entityUrn,
           appliedTerms.size(),
           allGlossaryEntities.size(),
-          durationMs);
-
-      // Record metrics
-      opContext
-          .getMetricUtils()
-          .ifPresent(
-              metricUtils -> {
-                metricUtils.recordTimer("glossary.policy.field_resolution.duration", durationNanos);
-                metricUtils.incrementMicrometer("glossary.policy.field_checks", 1);
-              });
+          (System.nanoTime() - startTime) / 1_000_000);
 
       return FieldResolver.FieldValue.builder()
           .values(allGlossaryEntities.stream().map(Object::toString).collect(Collectors.toSet()))
@@ -319,5 +157,17 @@ public class GlossaryFieldResolverProvider implements EntityFieldResolverProvide
           e);
       return FieldResolver.emptyFieldValue();
     }
+  }
+
+  private static void recordFieldResolutionMetrics(
+      @Nonnull OperationContext opContext, long startTimeNanos) {
+    final long durationNanos = System.nanoTime() - startTimeNanos;
+    opContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils -> {
+              metricUtils.recordTimer("glossary.policy.field_resolution.duration", durationNanos);
+              metricUtils.incrementMicrometer("glossary.policy.field_checks", 1);
+            });
   }
 }

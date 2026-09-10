@@ -66,7 +66,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     CreatePitResponse mockCreatePitResponse = mock(CreatePitResponse.class);
     when(mockCreatePitResponse.getId()).thenReturn("test-pit-id");
     try {
-      when(mockClient.createPit(any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
+      when(mockClient.createPit(
+              any(OperationContext.class), any(CreatePitRequest.class), eq(RequestOptions.DEFAULT)))
           .thenReturn(mockCreatePitResponse);
     } catch (IOException e) {
       // This should not happen in tests
@@ -74,7 +75,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
 
     DeletePitResponse mockDeletePitResponse = mock(DeletePitResponse.class);
     try {
-      when(mockClient.deletePit(any(DeletePitRequest.class), eq(RequestOptions.DEFAULT)))
+      when(mockClient.deletePit(
+              any(OperationContext.class), any(DeletePitRequest.class), eq(RequestOptions.DEFAULT)))
           .thenReturn(mockDeletePitResponse);
     } catch (IOException e) {
       // This should not happen in tests
@@ -141,7 +143,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     SearchResponse emptyResponse = createMockSearchResponse(emptyHits, 0);
 
     // Configure client to return empty response
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(emptyResponse);
 
     // Configure LineageRegistry mock
@@ -199,7 +202,9 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     // Use doAnswer to provide more control over mocking
     doAnswer(
             invocation -> {
-              SearchRequest request = invocation.getArgument(0);
+              SearchRequest request =
+                  invocation.getArgument(
+                      1); // PR6: arg 0 is now OperationContext after shim widening
               SearchSourceBuilder sourceBuilder = request.source();
 
               // First call returns hits with invalid via entity
@@ -210,7 +215,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
               return createMockSearchResponse(emptyHits, 0);
             })
         .when(mockClient)
-        .search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
     // Configure LineageRegistry mock
     Map<String, Set<LineageRegistry.EdgeInfo>> edgeMap = new HashMap<>();
@@ -242,7 +247,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
         "urn:li:dataset:test-dataset-2");
 
     // Verify that search was called twice (for pagination)
-    verify(mockClient, times(1)).search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+    verify(mockClient, times(1))
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
   }
 
   @Test
@@ -277,7 +283,9 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     // Use doAnswer to provide more control over mocking
     doAnswer(
             invocation -> {
-              SearchRequest request = invocation.getArgument(0);
+              SearchRequest request =
+                  invocation.getArgument(
+                      1); // PR6: arg 0 is now OperationContext after shim widening
               SearchSourceBuilder sourceBuilder = request.source();
 
               // First call returns hits with minimal metadata
@@ -289,7 +297,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
               return createMockSearchResponse(emptyHits, 0);
             })
         .when(mockClient)
-        .search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
     // Configure LineageRegistry mock
     Map<String, Set<LineageRegistry.EdgeInfo>> edgeMap = new HashMap<>();
@@ -315,7 +323,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             1);
 
     // Verify search was called
-    verify(mockClient, atLeast(1)).search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+    verify(mockClient, atLeast(1))
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
     // Verify that the relationship can be processed even with minimal metadata
     Assert.assertEquals(result.getLineageRelationships().size(), 1);
@@ -367,10 +376,13 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     // Simplified mocking with explicit control
     AtomicInteger searchCallCount = new AtomicInteger(0);
 
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             invocation -> {
-              SearchRequest request = invocation.getArgument(0);
+              SearchRequest request =
+                  invocation.getArgument(
+                      1); // PR6: arg 0 is now OperationContext after shim widening
               SearchSourceBuilder sourceBuilder = request.source();
               int callCount = searchCallCount.incrementAndGet();
 
@@ -404,7 +416,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
         graphQueryDAO.getLineage(customContext, sourceUrn, lineageGraphFilters, 0, 100, 2);
 
     // Verify search was called multiple times
-    verify(mockClient, atLeast(2)).search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+    verify(mockClient, atLeast(2))
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
     // Verify relationships from first two hops
     Assert.assertTrue(
@@ -471,7 +484,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     SearchResponse emptyResponse = createMockSearchResponse(emptyHits, GLOBAL_RESULT_LIMIT + 2);
 
     // Configure client to return our mock responses in sequence for pagination
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(firstPageResponse)
         .thenReturn(secondPageResponse)
         .thenReturn(emptyResponse);
@@ -493,7 +507,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
 
     // Verify search was called multiple times (pagination working)
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
-    verify(mockClient, atLeast(2)).search(requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    verify(mockClient, atLeast(2))
+        .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
 
     // Capture all search requests to verify pagination
     List<SearchRequest> requests = requestCaptor.getAllValues();
@@ -574,7 +589,9 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             new Answer<SearchResponse>() {
               @Override
               public SearchResponse answer(InvocationOnMock invocation) throws Throwable {
-                SearchRequest request = invocation.getArgument(0);
+                SearchRequest request =
+                    invocation.getArgument(
+                        1); // PR6: arg 0 is now OperationContext after shim widening
                 SearchSourceBuilder source = request.source();
 
                 // Check if this is a request with search_after
@@ -588,7 +605,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
               }
             })
         .when(mockClient)
-        .search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
     // Configure LineageRegistry mock
     Map<String, Set<LineageRegistry.EdgeInfo>> edgeMap = new HashMap<>();
@@ -665,7 +682,9 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             new Answer<SearchResponse>() {
               @Override
               public SearchResponse answer(InvocationOnMock invocation) throws Throwable {
-                SearchRequest request = invocation.getArgument(0);
+                SearchRequest request =
+                    invocation.getArgument(
+                        1); // PR6: arg 0 is now OperationContext after shim widening
                 SearchSourceBuilder source = request.source();
 
                 // Check if this is a request with search_after
@@ -679,7 +698,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
               }
             })
         .when(mockClient)
-        .search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
     // Call the public method directly with exploreMultiplePaths = false
     LineageResponse resultWithSinglePath =
@@ -734,7 +753,9 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             new Answer<SearchResponse>() {
               @Override
               public SearchResponse answer(InvocationOnMock invocation) throws Throwable {
-                SearchRequest request = invocation.getArgument(0);
+                SearchRequest request =
+                    invocation.getArgument(
+                        1); // PR6: arg 0 is now OperationContext after shim widening
                 SearchSourceBuilder source = request.source();
 
                 // Check if this is a request with search_after
@@ -748,7 +769,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
               }
             })
         .when(mockClient)
-        .search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
     // Configure LineageRegistry mock
     Map<String, Set<LineageRegistry.EdgeInfo>> edgeMap = new HashMap<>();
@@ -806,7 +827,9 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             new Answer<SearchResponse>() {
               @Override
               public SearchResponse answer(InvocationOnMock invocation) throws Throwable {
-                SearchRequest request = invocation.getArgument(0);
+                SearchRequest request =
+                    invocation.getArgument(
+                        1); // PR6: arg 0 is now OperationContext after shim widening
                 SearchSourceBuilder source = request.source();
 
                 // Check if this is a request with search_after
@@ -820,7 +843,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
               }
             })
         .when(mockClient)
-        .search(any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+        .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
 
     // Create LineageGraphFilters with mock edge info
     LineageGraphFilters lineageGraphFilters =
@@ -1106,7 +1129,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     // Create empty hits to simulate no relationships found
     SearchHit[] emptyHits = new SearchHit[0];
 
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(invocation -> createMockSearchResponse(emptyHits, 0));
 
     LineageGraphFilters lineageGraphFilters =
@@ -1170,7 +1194,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     SearchHit[] emptyHits = new SearchHit[0];
 
     AtomicInteger searchCallCount = new AtomicInteger(0);
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenAnswer(
             invocation -> {
               int callCount = searchCallCount.incrementAndGet();
