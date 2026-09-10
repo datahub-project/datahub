@@ -12,7 +12,7 @@ _METADATA_INGESTION = Path(__file__).parent.parent.parent
 
 
 def test_datahub_version():
-    # Checks that the installed distribution metadata is present and resolvable.
+    # version() raises if the distribution isn't installed; guards a broken/partial install.
     assert importlib.metadata.version(datahub_version.__package_name__)
 
 
@@ -41,7 +41,7 @@ def test_setuptools_not_capped_below_83():
         assert spec.contains("83.0.0"), f"'{req}' does not allow setuptools 83"
         # Every sub-83 version must be rejected, spanning the range so relaxed
         # floors are all caught: setuptools>82 (allows 82.5), !=82.* (allows
-        # 81.x), >=78.1.1, etc. — not just ==82.0.0.
+        # 81.x), >=78.1.1, etc., not just ==82.0.0.
         for below in ("0.0.1", "78.1.1", "81.0.0", "82.0.0", "82.5.0", "82.99.0"):
             assert not spec.contains(below), (
                 f"[tool.uv] setuptools constraint '{req}' allows sub-83 {below}"

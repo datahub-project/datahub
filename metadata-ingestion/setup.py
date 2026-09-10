@@ -407,7 +407,7 @@ s3_base = {
 threading_timeout_common = {
     # Bounds M-Query parse time. stopit imports pkg_resources at import time;
     # setuptools>=82 removed pkg_resources, so we install a shim
-    # (utilities/pkg_resources_shim) before importing stopit — no setuptools pin needed.
+    # (utilities/pkg_resources_shim) before importing stopit; no setuptools pin needed.
     "stopit==1.1.2",
 }
 

@@ -238,8 +238,9 @@ task testPerformance(type: Exec, dependsOn: [installDev, ':metadata-models:gener
   outputs.dir("test-results")
   def cvg_arg = get_coverage_args("quick")
   commandLine 'bash', '-c',
-    venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} tests/performance -m 'perf' --junit-xml=test-results/junit.performance.xml"
+    venv_activate_command + resolve_wall_clock +
+    "${pytest_default_env} " + '$WALL ' +
+    "pytest ${cvg_arg} tests/performance -m 'perf' --junit-xml=test-results/junit.performance.xml"
 }
 
 task installDocs(type: Exec, dependsOn: [install]) {
@@ -296,7 +297,7 @@ integrationBatchIds.each { batchId ->
         commandLine 'bash', '-c',
             venv_activate_command + resolve_wall_clock +
             "${pytest_default_env} " + '$WALL ' +
-            "pytest ${cvgArg} -m '${markerName}' ${pytest_timeout_args} --junit-xml=${junitXml}"
+            "pytest ${cvgArg} -m '${markerName}' --junit-xml=${junitXml}"
     }
 }
 
