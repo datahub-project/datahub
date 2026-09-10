@@ -82,7 +82,12 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     const ownershipTypes =
         ownershipData?.listOwnershipTypes?.ownershipTypes?.filter((type) => type.urn !== 'urn:li:ownershipType:none') ||
         [];
-    const ownershipTypesMap = Object.fromEntries(ownershipTypes.map((type) => [type.urn, type.info?.name]));
+    // Covers stored types missing from the filtered list, which would otherwise show an urn.
+    const ownershipTypesMap = Object.fromEntries(
+        [...(ownershipData?.listOwnershipTypes?.ownershipTypes || []), ...(actors.resolvedOwnershipTypes || [])].map(
+            (type) => [type.urn, type.info?.name],
+        ),
+    );
     // Toggle the "Owners" switch
     const onToggleAppliesToOwners = () => {
         const newValue = !actors.resourceOwners;
@@ -161,6 +166,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 allUsers: false,
             });
         } else {
+            // resolvedUsers drives the rendered pills, so it must be filtered too.
             setActors({
                 ...actors,
                 users: actors.users?.filter((u) => u !== user),
@@ -210,10 +216,11 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 allGroups: false,
             });
         } else {
-            const newGroupActors = actors.groups?.filter((g) => g !== group);
+            // resolvedGroups drives the rendered pills, so it must be filtered too.
             setActors({
                 ...actors,
-                groups: newGroupActors,
+                groups: actors.groups?.filter((g) => g !== group),
+                resolvedGroups: actors.resolvedGroups?.filter((g) => g.urn !== group),
             });
         }
     };
@@ -314,7 +321,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     const showAppliesToOwners = policyType === PolicyType.Metadata;
 
     // Select dropdown values.
-    const usersSelectUrns = actors.allUsers ? ['All'] : actors.resolvedUsers?.map((u) => u.urn) || [];
+    const usersSelectUrns = actors.allUsers ? ['All'] : actors.users || [];
     const groupsSelectUrns = actors.allGroups ? ['All'] : actors.groups || [];
     const ownershipTypesSelectValue = actors.resourceOwnersTypes || [];
     const usersSelectValues = actors.resolvedUsers?.filter((u) => usersSelectUrns.includes(u.urn)) || [];

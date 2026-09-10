@@ -1,6 +1,6 @@
 import { Icon, Text } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
 import { SimpleSelect } from '@src/alchemy-components';
@@ -51,10 +51,20 @@ export default function OwnershipTypesSelect({
     onPreventMouseDown,
     placeholder,
 }: OwnershipTypesSelectProps) {
-    const options = ownershipTypes.map((type) => ({
-        value: type.urn,
-        label: type?.info?.name || type.urn,
-    }));
+    const options = useMemo(() => {
+        const typeOptions = ownershipTypes.map((type) => ({
+            value: type.urn,
+            label: type?.info?.name || type.urn,
+        }));
+
+        // A stored type missing from the current list would otherwise render no pill.
+        const optionValues = new Set(typeOptions.map((option) => option.value));
+        const orphanedOptions = ownershipTypesSelectValue
+            .filter((urn) => !optionValues.has(urn))
+            .map((urn) => ({ value: urn, label: ownershipTypesMap[urn] || urn }));
+
+        return [...typeOptions, ...orphanedOptions];
+    }, [ownershipTypes, ownershipTypesSelectValue, ownershipTypesMap]);
 
     const renderOption = useCallback(
         (option: SelectOption) => <Text size="sm">{ownershipTypesMap[option.value.toString()] || option.label}</Text>,

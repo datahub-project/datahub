@@ -7,6 +7,7 @@ import { EntitySearchSelect } from '@app/entityV2/shared/EntitySearchSelect/Enti
 import ConditionSelectDropdown from '@app/permissions/policy/ConditionSelectDropdown';
 import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
+import { toStartsWithValues } from '@app/permissions/policy/policyUtils';
 
 import { EntityType, PolicyMatchCondition, ResourceFilter } from '@types';
 
@@ -71,7 +72,7 @@ export default function ContainersSelect({
                     <StyledInput
                         placeholder={t('privilegeForm.containerPrefixPlaceholder')}
                         value={startsWithValue}
-                        onChange={(e) => onContainersChange([e.target.value])}
+                        onChange={(e) => onContainersChange(toStartsWithValues(e.target.value))}
                     />
                 ) : (
                     <EntitySearchSelect

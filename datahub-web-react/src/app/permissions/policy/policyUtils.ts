@@ -144,6 +144,9 @@ export const getFieldValuesOfTags = (filter: Maybe<PolicyMatchFilter> | undefine
     return filter?.criteria?.find((criterion) => criterion.field === resourceFieldType)?.values || [];
 };
 
+/** A cleared input must yield [] — setFieldValues only drops a criterion when the list is empty. */
+export const toStartsWithValues = (value: string): string[] => (value ? [value] : []);
+
 export const setFieldValues = (
     filter: PolicyMatchFilter,
     resourceFieldType: string,

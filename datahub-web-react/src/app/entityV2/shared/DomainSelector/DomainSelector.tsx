@@ -7,6 +7,7 @@ import { InfiniteScrollNestedSelect } from '@app/entityV2/shared/DomainSelector/
 import useInfiniteScrollDomains, {
     getDomainSelectorScrollInput,
 } from '@app/entityV2/shared/DomainSelector/useInfiniteScrollDomains';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import {
     buildEntityCache,
     entitiesToNestedSelectOptions,
@@ -24,6 +25,15 @@ import {
 } from '@src/graphql/search.generated';
 import { Entity, EntityType } from '@src/types.generated';
 
+// Add icons to options so selected values render with domain icon via NestedSelect default rendering
+function withDomainIcons(options: NestedSelectOption[]): NestedSelectOption[] {
+    return options.map((option) =>
+        option.entity && isDomain(option.entity)
+            ? { ...option, icon: <DomainColoredIcon domain={option.entity} size={14} fontSize={8} /> }
+            : option,
+    );
+}
+
 type DomainSelectorProps = {
     selectedDomains: string[];
     onDomainsChange: (domainUrns: string[]) => void;
@@ -32,6 +42,7 @@ type DomainSelectorProps = {
     isMultiSelect?: boolean;
     selectChildrenWithParent?: boolean;
     isRequired?: boolean;
+    renderCustomSelectedValue?: (option: NestedSelectOption) => React.ReactNode;
 };
 
 /**
@@ -53,6 +64,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     isMultiSelect = false,
     selectChildrenWithParent = true,
     isRequired = false,
+    renderCustomSelectedValue,
 }) => {
     const { t } = useTranslation('entity.shared.selectors');
     const resolvedPlaceholder =
@@ -96,7 +108,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     // Convert selected domain URNs to NestedSelectOption format using utility
     // Use useMemo to prevent unnecessary recalculations and ensure NestedSelect properly syncs
     const initialOptions = useMemo(() => {
-        return entitiesToNestedSelectOptions(selectedDomains, entityCache, entityRegistry);
+        return withDomainIcons(entitiesToNestedSelectOptions(selectedDomains, entityCache, entityRegistry));
     }, [selectedDomains, entityCache, entityRegistry]);
 
     const [childOptions, setChildOptions] = useState<NestedSelectOption[]>([]);
@@ -217,21 +229,13 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     }
 
     // Merge options to ensure selected domains remain visible
-    const baseOptions = [...options, ...childOptions].sort((a, b) => a.label.localeCompare(b.label));
-    const searchOptions = [...autoCompleteOptions].sort((a, b) => a.label.localeCompare(b.label));
+    const baseOptions = withDomainIcons([...options, ...childOptions].sort((a, b) => a.label.localeCompare(b.label)));
+    const searchOptions = withDomainIcons([...autoCompleteOptions].sort((a, b) => a.label.localeCompare(b.label)));
 
     const defaultOptions = mergeSelectedNestedOptions(baseOptions, initialOptions);
     const searchOptionsWithSelected = mergeSelectedNestedOptions(searchOptions, initialOptions);
 
     const renderDomainOptionText = useCallback((option: NestedSelectOption) => {
-        if (!isDomain(option.entity)) {
-            return option.label;
-        }
-
-        return <DomainLink domain={option.entity} readOnly enableTooltip={false} iconSize={20} iconFontSize={12} />;
-    }, []);
-
-    const renderDomainSelectedValue = useCallback((option: NestedSelectOption) => {
         if (!isDomain(option.entity)) {
             return option.label;
         }
@@ -262,8 +266,8 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
             shouldAlwaysSyncParentValues
             hideParentCheckbox={false}
             renderCustomOptionText={renderDomainOptionText}
-            renderCustomSelectedValue={renderDomainSelectedValue}
-            selectLabelProps={{ variant: 'custom' }}
+            renderCustomSelectedValue={renderCustomSelectedValue}
+            selectLabelProps={renderCustomSelectedValue ? { variant: 'custom' } : undefined}
             showClear
         />
     );

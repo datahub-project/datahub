@@ -29,14 +29,21 @@ export default function ConditionSelectDropdown({
 }: ConditionSelectDropdownProps) {
     const { t } = useTranslation('settings.permissions');
 
+    // Privileges derive from the selected types, so a prefix leaves none selectable.
+    const supportsStartsWith = fieldType !== FIELD_TYPES.RESOURCE_TYPE || condition === PolicyMatchCondition.StartsWith;
+
+    const options = [
+        { value: PolicyMatchCondition.Equals, label: t('policyForm.condition.equals') },
+        { value: PolicyMatchCondition.NotEquals, label: t('policyForm.condition.notEquals') },
+        ...(supportsStartsWith
+            ? [{ value: PolicyMatchCondition.StartsWith, label: t('policyForm.condition.startsWith') }]
+            : []),
+    ];
+
     return (
         <StyledSimpleSelect
             dataTestId={`condition-${fieldType}`}
-            options={[
-                { value: PolicyMatchCondition.Equals, label: t('policyForm.condition.equals') },
-                { value: PolicyMatchCondition.NotEquals, label: t('policyForm.condition.notEquals') },
-                { value: PolicyMatchCondition.StartsWith, label: t('policyForm.condition.startsWith') },
-            ]}
+            options={options}
             values={[condition]}
             onUpdate={(values) => {
                 const newCondition = values[0] as PolicyMatchCondition;

@@ -1,12 +1,17 @@
 import { Input, Text } from '@components';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import ConditionSelectDropdown from '@app/permissions/policy/ConditionSelectDropdown';
 import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
-import { createCriterionValueWithEntity, getFieldValues, setFieldValues } from '@app/permissions/policy/policyUtils';
+import {
+    createCriterionValueWithEntity,
+    getFieldValues,
+    setFieldValues,
+    toStartsWithValues,
+} from '@app/permissions/policy/policyUtils';
 import GlossarySelect from '@app/sharedV2/glossary/GlossarySelect';
 
 import { PolicyMatchCondition, PolicyMatchCriterionValue, ResourceFilter } from '@types';
@@ -43,16 +48,29 @@ type Props = {
 export default function GlossarySelector({ resources, setResources, glossaryCondition, setGlossaryCondition }: Props) {
     const { t } = useTranslation('settings.permissions');
 
-    const glossaryEntities = getFieldValues(resources.filter, FIELD_TYPES.GLOSSARY) || [];
+    const glossaryEntities = useMemo(
+        () => getFieldValues(resources.filter, FIELD_TYPES.GLOSSARY) || [],
+        [resources.filter],
+    );
     const glossarySelectValue = glossaryEntities.map((criterionValue) => criterionValue.value);
+
+    // Seeds the cache so existing terms render real names instead of urn fallbacks.
+    const glossaryDefaultValues = useMemo(
+        () => glossaryEntities.map((criterionValue) => ({ urn: criterionValue.value, entity: criterionValue.entity })),
+        [glossaryEntities],
+    );
 
     const handleGlossaryUpdate = (urns: string[]) => {
         const filter = resources.filter || {
             criteria: [],
         };
 
+        // Keep hydrated entities; rebuilding with null would drop resolved names on the first edit.
         const updatedGlossaryEntities: PolicyMatchCriterionValue[] = urns.map((urn) =>
-            createCriterionValueWithEntity(urn, null),
+            createCriterionValueWithEntity(
+                urn,
+                glossaryEntities.find((criterionValue) => criterionValue.value === urn)?.entity ?? null,
+            ),
         );
 
         const updatedFilter = setFieldValues(filter, FIELD_TYPES.GLOSSARY, updatedGlossaryEntities, glossaryCondition);
@@ -95,11 +113,12 @@ export default function GlossarySelector({ resources, setResources, glossaryCond
                         <StyledInput
                             placeholder={t('privilegeForm.glossaryPrefixPlaceholder')}
                             value={startsWithValue}
-                            onChange={(e) => handleGlossaryUpdate([e.target.value])}
+                            onChange={(e) => handleGlossaryUpdate(toStartsWithValues(e.target.value))}
                         />
                     ) : (
                         <GlossarySelect
                             selectedUrns={glossarySelectValue}
+                            defaultValues={glossaryDefaultValues}
                             onUpdate={handleGlossaryUpdate}
                             placeholder={t('glossarySelectorPlaceholder')}
                             width="full"

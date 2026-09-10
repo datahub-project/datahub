@@ -215,8 +215,16 @@ export default function PolicyPrivilegeForm({
     );
     const privilegeOptions = policyType === PolicyType.Platform ? platformPrivileges : resourcePrivilegesForType;
 
-    // Always display all selected privileges as individual items
-    const privilegesSelectValue = useMemo(() => privileges, [privileges]);
+    // Labels resolved from every known privilege, since privilegeOptions only covers the currently selected resource types.
+    const selectedPrivilegeOptions = useMemo(() => {
+        const displayNameByType = new Map(
+            [...platformPrivileges, ...resourcePrivileges.flatMap((resource) => resource.privileges)].map((priv) => [
+                priv.type,
+                priv.displayName,
+            ]),
+        );
+        return privileges.map((type) => ({ value: type, label: displayNameByType.get(type) || type }));
+    }, [privileges, platformPrivileges, resourcePrivileges]);
 
     // When a privilege is selected, add its type to the privileges list
     const onSelectPrivilege = (privilege: string) => {
@@ -431,7 +439,7 @@ export default function PolicyPrivilegeForm({
                     {t('privilegeForm.privilegesDescription')}
                 </DescriptionParagraph>
                 <PrivilegesSelect
-                    privilegesSelectValue={privilegesSelectValue}
+                    selectedPrivilegeOptions={selectedPrivilegeOptions}
                     privilegeOptions={privilegeOptions}
                     onSelectPrivilege={onSelectPrivilege}
                     onDeselectPrivilege={onDeselectPrivilege}

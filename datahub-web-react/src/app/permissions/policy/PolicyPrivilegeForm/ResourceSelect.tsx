@@ -7,7 +7,7 @@ import { EntitySearchSelect } from '@app/entityV2/shared/EntitySearchSelect/Enti
 import ConditionSelectDropdown from '@app/permissions/policy/ConditionSelectDropdown';
 import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
-import { mapResourceTypeToEntityType } from '@app/permissions/policy/policyUtils';
+import { mapResourceTypeToEntityType, toStartsWithValues } from '@app/permissions/policy/policyUtils';
 
 import { EntityType, PolicyMatchCondition, ResourceFilter } from '@types';
 
@@ -87,7 +87,7 @@ export default function ResourceSelect({
                     <StyledInput
                         placeholder={t('privilegeForm.resourcePrefixPlaceholder')}
                         value={startswithValue}
-                        onChange={(e) => onResourcesChange([e.target.value])}
+                        onChange={(e) => onResourcesChange(toStartsWithValues(e.target.value))}
                     />
                 ) : (
                     <EntitySearchSelect

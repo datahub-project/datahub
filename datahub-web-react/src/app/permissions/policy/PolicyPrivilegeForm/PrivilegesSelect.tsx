@@ -1,11 +1,15 @@
 import { SimpleSelect } from '@components';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
+type PrivilegeOption = { value: string; label: string };
+
 type Props = {
-    privilegesSelectValue: string[];
+    /** Options for the currently selected resource types. */
     privilegeOptions: any[];
+    /** The selected privileges, already resolved to labels. */
+    selectedPrivilegeOptions: PrivilegeOption[];
     onSelectPrivilege: (privilege: string) => void;
     onDeselectPrivilege: (privilege: string) => void;
 };
@@ -18,12 +22,17 @@ const SelectContainer = styled.div`
 `;
 
 export default function PrivilegesSelect({
-    privilegesSelectValue,
     privilegeOptions,
+    selectedPrivilegeOptions,
     onSelectPrivilege,
     onDeselectPrivilege,
 }: Props) {
     const { t } = useTranslation('settings.permissions');
+
+    const privilegesSelectValue = useMemo(
+        () => selectedPrivilegeOptions.map((option) => option.value),
+        [selectedPrivilegeOptions],
+    );
 
     const handleUpdate = useCallback(
         (next: string[]) => {
@@ -89,6 +98,26 @@ export default function PrivilegesSelect({
         [privilegesSelectValue, onSelectPrivilege, onDeselectPrivilege, privilegeOptions.length],
     );
 
+    const options = useMemo(() => {
+        const privilegeItems = privilegeOptions.map((priv, index) => ({
+            value: priv.type,
+            label: priv.displayName,
+            key: `${priv.type}-${index}`,
+        }));
+
+        // A privilege dropped from the options when types changed is still saved, so keep a pill.
+        const optionValues = new Set(privilegeItems.map((item) => item.value));
+        const orphanedItems = selectedPrivilegeOptions
+            .filter((option) => option.value !== ALL_PRIVILEGES_VALUE && !optionValues.has(option.value))
+            .map((option) => ({ ...option, key: option.value }));
+
+        return [
+            { value: ALL_PRIVILEGES_VALUE, label: t('privilegeForm.allPrivileges'), key: 'all-privileges' },
+            ...privilegeItems,
+            ...orphanedItems,
+        ];
+    }, [privilegeOptions, selectedPrivilegeOptions, t]);
+
     return (
         <SelectContainer>
             <SimpleSelect
@@ -99,18 +128,7 @@ export default function PrivilegesSelect({
                 values={privilegesSelectValue}
                 onUpdate={handleUpdate}
                 sortSelectedFirst={false}
-                options={[
-                    {
-                        value: ALL_PRIVILEGES_VALUE,
-                        label: t('privilegeForm.allPrivileges'),
-                        key: 'all-privileges',
-                    },
-                    ...privilegeOptions.map((priv, index) => ({
-                        value: priv.type,
-                        label: priv.displayName,
-                        key: `${priv.type}-${index}`,
-                    })),
-                ]}
+                options={options}
             />
         </SelectContainer>
     );

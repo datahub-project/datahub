@@ -1,4 +1,5 @@
-import { Text } from '@components';
+import { Icon, Text } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -20,6 +21,14 @@ const StyledTag = styled.span`
 const ActorWrapper = styled.div`
     margin-top: 2px;
     margin-right: 2px;
+`;
+
+const CloseIcon = styled(Icon)`
+    cursor: pointer;
+
+    &:hover {
+        color: ${(props) => props.theme.colors.iconHover};
+    }
 `;
 
 export interface Props {
@@ -62,18 +71,19 @@ export default function GroupsSelect({
                 result,
             })) || []),
         ];
-        // Selected groups must always exist in the option list — the select only renders
-        // chips for values with a matching option, so an existing policy's groups would
-        // otherwise be invisible (and unremovable) when absent from current search results.
+        // Values without an option render no pill, so every selected urn needs one.
         const optionUrns = new Set(searchOptions.map((option) => option.value));
-        const selectedOnlyOptions =
-            groupsSelectValues
-                ?.filter((group) => groupsSelectUrns.includes(group.urn) && !optionUrns.has(group.urn))
-                .map((group) => ({
-                    value: group.urn,
-                    label: group.properties?.displayName || group.name || group.urn,
+        const resolvedByUrn = new Map((groupsSelectValues || []).map((group) => [group.urn, group]));
+        const selectedOnlyOptions = groupsSelectUrns
+            .filter((urn) => !optionUrns.has(urn))
+            .map((urn) => {
+                const group = resolvedByUrn.get(urn);
+                return {
+                    value: urn,
+                    label: group?.properties?.displayName || group?.name || urn,
                     selectedGroup: group,
-                })) || [];
+                };
+            });
         return [...searchOptions, ...selectedOnlyOptions];
     }, [groupSearchResults, groupsSelectValues, groupsSelectUrns, t]);
 
@@ -124,6 +134,15 @@ export default function GroupsSelect({
             }
 
             const selectedItem: CorpGroup | undefined = groupsSelectValues?.find((g) => g?.urn === option.value);
+            // ActorPill renders nothing without an actor, so an unresolved urn needs its own pill.
+            if (!selectedItem) {
+                return (
+                    <StyledTag key={option.value} onMouseDown={onPreventMouseDown}>
+                        <Text size="sm">{option.label}</Text>
+                        <CloseIcon icon={X} size="sm" onClick={() => onDeselectGroupActor(option.value)} />
+                    </StyledTag>
+                );
+            }
             return (
                 <ActorWrapper key={option.value} onMouseDown={onPreventMouseDown}>
                     <ActorPill

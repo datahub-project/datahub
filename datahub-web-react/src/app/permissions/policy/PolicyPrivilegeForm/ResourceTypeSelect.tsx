@@ -6,6 +6,7 @@ import styled from 'styled-components/macro';
 import ConditionSelectDropdown from '@app/permissions/policy/ConditionSelectDropdown';
 import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
+import { toStartsWithValues } from '@app/permissions/policy/policyUtils';
 
 import { PolicyMatchCondition, ResourceFilter } from '@types';
 
@@ -70,7 +71,7 @@ export default function ResourceTypeSelect({
                     <StyledInput
                         placeholder={t('privilegeForm.resourceTypePatternPlaceholder')}
                         value={startsWithValue}
-                        onChange={(e) => onResourceTypesChange([e.target.value])}
+                        onChange={(e) => onResourceTypesChange(toStartsWithValues(e.target.value))}
                     />
                 ) : (
                     <SimpleSelect

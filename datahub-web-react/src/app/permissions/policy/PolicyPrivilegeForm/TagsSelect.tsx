@@ -8,6 +8,7 @@ import { SelectOption } from '@components/components/Select/types';
 import ConditionSelectDropdown from '@app/permissions/policy/ConditionSelectDropdown';
 import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
+import { toStartsWithValues } from '@app/permissions/policy/policyUtils';
 import TagPill from '@app/sharedV2/tags/TagPill';
 import TagSelect from '@app/sharedV2/tags/TagSelect';
 
@@ -81,7 +82,7 @@ export default function TagsSelect({
                     <StyledInput
                         placeholder={t('privilegeForm.tagPrefixPlaceholder')}
                         value={startsWithValue}
-                        onChange={(e) => onTagsChange([e.target.value])}
+                        onChange={(e) => onTagsChange(toStartsWithValues(e.target.value))}
                     />
                 ) : (
                     <TagSelect

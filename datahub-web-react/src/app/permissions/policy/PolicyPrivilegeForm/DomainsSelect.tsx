@@ -7,6 +7,7 @@ import DomainSelector from '@app/entityV2/shared/DomainSelector/DomainSelector';
 import ConditionSelectDropdown from '@app/permissions/policy/ConditionSelectDropdown';
 import { useClearOnConditionChange } from '@app/permissions/policy/PolicyPrivilegeForm/useClearOnConditionChange';
 import { FIELD_TYPES } from '@app/permissions/policy/constants';
+import { toStartsWithValues } from '@app/permissions/policy/policyUtils';
 
 import { PolicyMatchCondition, ResourceFilter } from '@types';
 
@@ -63,7 +64,7 @@ export default function DomainsSelect({
                     <StyledInput
                         placeholder={t('privilegeForm.domainPrefixPlaceholder')}
                         value={startsWithValue}
-                        onChange={(e) => onDomainsChange([e.target.value])}
+                        onChange={(e) => onDomainsChange(toStartsWithValues(e.target.value))}
                     />
                 ) : (
                     <DomainSelector

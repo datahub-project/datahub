@@ -1,4 +1,5 @@
-import { Text } from '@components';
+import { Icon, Text } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -20,6 +21,14 @@ const StyledTag = styled.span`
 const ActorWrapper = styled.div`
     margin-top: 2px;
     margin-right: 2px;
+`;
+
+const CloseIcon = styled(Icon)`
+    cursor: pointer;
+
+    &:hover {
+        color: ${(props) => props.theme.colors.iconHover};
+    }
 `;
 
 export interface Props {
@@ -62,18 +71,19 @@ export default function UsersSelect({
                 result,
             })) || []),
         ];
-        // Selected users must always exist in the option list — the select only renders
-        // chips for values with a matching option, so an existing policy's users would
-        // otherwise be invisible (and unremovable) when absent from current search results.
+        // Values without an option render no pill, so every selected urn needs one.
         const optionUrns = new Set(searchOptions.map((option) => option.value));
-        const selectedOnlyOptions =
-            usersSelectValues
-                ?.filter((user) => usersSelectUrns.includes(user.urn) && !optionUrns.has(user.urn))
-                .map((user) => ({
-                    value: user.urn,
-                    label: user.properties?.displayName || user.username || user.urn,
+        const resolvedByUrn = new Map((usersSelectValues || []).map((user) => [user.urn, user]));
+        const selectedOnlyOptions = usersSelectUrns
+            .filter((urn) => !optionUrns.has(urn))
+            .map((urn) => {
+                const user = resolvedByUrn.get(urn);
+                return {
+                    value: urn,
+                    label: user?.properties?.displayName || user?.username || urn,
                     selectedUser: user,
-                })) || [];
+                };
+            });
         return [...searchOptions, ...selectedOnlyOptions];
     }, [userSearchResults, usersSelectValues, usersSelectUrns, t]);
 
@@ -124,6 +134,15 @@ export default function UsersSelect({
             }
 
             const selectedItem: CorpUser | undefined = usersSelectValues?.find((u) => u?.urn === option.value);
+            // ActorPill renders nothing without an actor, so an unresolved urn needs its own pill.
+            if (!selectedItem) {
+                return (
+                    <StyledTag key={option.value} onMouseDown={onPreventMouseDown}>
+                        <Text size="sm">{option.label}</Text>
+                        <CloseIcon icon={X} size="sm" onClick={() => onDeselectUserActor(option.value)} />
+                    </StyledTag>
+                );
+            }
             return (
                 <ActorWrapper key={option.value} onMouseDown={onPreventMouseDown}>
                     <ActorPill

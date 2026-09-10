@@ -13,12 +13,13 @@ import {
     getFieldValues,
     mapResourceTypeToDisplayName,
 } from '@app/permissions/policy/policyUtils';
+import { CompactEntityNameComponent } from '@app/recommendations/renderer/component/CompactEntityNameComponent';
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useGetIngestionSourceNamesLazyQuery } from '@graphql/ingestion.generated';
-import { EntityType, Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
+import { Entity, EntityType, Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -143,11 +144,18 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
         }
     };
 
-    const renderValueDisplay = (label: string, condition: PolicyMatchCondition) => {
-        const isStartsWith = condition === PolicyMatchCondition.StartsWith;
-        const displayLabel = isStartsWith ? `${label}` : label;
+    const renderValueDisplay = (label: string, condition: PolicyMatchCondition, entity?: Maybe<Entity>) => {
+        if (condition === PolicyMatchCondition.StartsWith) {
+            return <Text size="md">{label}</Text>;
+        }
 
-        return isStartsWith ? <Text size="md">{displayLabel}</Text> : <Pill label={displayLabel} size="md" />;
+        // Unregistered types (e.g. ingestion sources) get a plain pill.
+        if (!entity || !entityRegistry.hasEntity(entity.type)) {
+            return <Pill label={label} size="md" />;
+        }
+
+        // Registered entities use CompactEntityNameComponent for link + tooltip.
+        return <CompactEntityNameComponent entity={entity} />;
     };
 
     const renderFieldWithCondition = (fieldLabel: string, condition: PolicyMatchCondition) => {
@@ -217,10 +225,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                         ) || '',
                                         resourceTypeCondition,
                                     ),
-                                )) || (
-                                // eslint-disable-next-line react/no-array-index-key
-                                <Pill label={t('details.tagAll')} size="md" />
-                            )}
+                                )) || <Pill label={t('details.tagAll')} size="md" />}
                         </div>
                         <div>
                             {renderFieldWithCondition(t('details.assetsLabel'), resourceFilterCondition)}
@@ -232,6 +237,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                             ingestionSourceNames.get(value.value) ||
                                             value.value,
                                         resourceFilterCondition,
+                                        value.entity,
                                     ),
                                 )) || <Pill label={t('details.tagAll')} size="md" />}
                         </div>
@@ -256,7 +262,11 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                             <ThinDivider />
                             {(domains?.length &&
                                 domains.map((value) =>
-                                    renderValueDisplay(getDisplayName(value.entity) || value.value, domainCondition),
+                                    renderValueDisplay(
+                                        getDisplayName(value.entity) || value.value,
+                                        domainCondition,
+                                        value.entity,
+                                    ),
                                 )) || <Pill label={t('details.tagAll')} size="md" />}
                         </div>
                         <div>
@@ -264,7 +274,11 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                             <ThinDivider />
                             {(containers?.length &&
                                 containers.map((value) =>
-                                    renderValueDisplay(getDisplayName(value.entity) || value.value, containerCondition),
+                                    renderValueDisplay(
+                                        getDisplayName(value.entity) || value.value,
+                                        containerCondition,
+                                        value.entity,
+                                    ),
                                 )) || <Pill label={t('details.tagAll')} size="md" />}
                         </div>
                         <div>
@@ -272,7 +286,11 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                             <ThinDivider />
                             {(tags?.length &&
                                 tags.map((value) =>
-                                    renderValueDisplay(getDisplayName(value.entity) || value.value, tagCondition),
+                                    renderValueDisplay(
+                                        getDisplayName(value.entity) || value.value,
+                                        tagCondition,
+                                        value.entity,
+                                    ),
                                 )) || <Pill label={t('details.tagAll')} size="md" />}
                         </div>
                         {isGlossaryBasedPoliciesEnabled && (
@@ -284,6 +302,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                         renderValueDisplay(
                                             getDisplayName(value.entity) || value.value,
                                             glossaryCondition,
+                                            value.entity,
                                         ),
                                     )) || <Pill label={t('details.tagAll')} size="md" />}
                             </div>

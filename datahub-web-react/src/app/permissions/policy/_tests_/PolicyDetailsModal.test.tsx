@@ -14,10 +14,16 @@ vi.mock('@app/useEntityRegistry', () => ({
     useEntityRegistry: () => ({
         getEntityUrl: vi.fn().mockReturnValue('/test'),
         getDisplayName: vi.fn().mockReturnValue('Test Entity'),
+        hasEntity: vi.fn().mockReturnValue(true),
+        getGenericEntityProperties: vi.fn().mockReturnValue(null),
+        getIcon: vi.fn().mockReturnValue(null),
     }),
     useEntityRegistryV2: () => ({
         getEntityUrl: vi.fn().mockReturnValue('/test'),
         getDisplayName: vi.fn().mockReturnValue('Test Entity'),
+        hasEntity: vi.fn().mockReturnValue(true),
+        getGenericEntityProperties: vi.fn().mockReturnValue(null),
+        getIcon: vi.fn().mockReturnValue(null),
     }),
 }));
 
@@ -46,6 +52,11 @@ vi.mock('@app/useAppConfig', () => ({
 // Mock AvatarsGroup component to avoid rendering issues
 vi.mock('@app/permissions/AvatarsGroup', () => ({
     default: () => <div data-testid="avatars-group">Avatar Group Mock</div>,
+}));
+
+// Mock CompactEntityNameComponent to avoid complex dependency chain
+vi.mock('@app/recommendations/renderer/component/CompactEntityNameComponent', () => ({
+    CompactEntityNameComponent: ({ entity }: any) => <a href="/test">{entity?.urn || 'Entity'}</a>,
 }));
 
 // Default mock policy
@@ -188,6 +199,25 @@ describe('PolicyDetailsModal', () => {
 
         // Check that "Containers" section is rendered
         expect(screen.getByText('Containers')).toBeInTheDocument();
+    });
+
+    it('links resolved values through to their entity page', () => {
+        render(
+            <MockedProvider mocks={[]} addTypename={false}>
+                <ThemeProvider theme={themeV2}>
+                    <BrowserRouter>
+                        <PolicyDetailsModal
+                            policy={mockPolicyWithContainers}
+                            open
+                            onClose={() => {}}
+                            privileges={[{ type: 'view', name: 'View' }]}
+                        />
+                    </BrowserRouter>
+                </ThemeProvider>
+            </MockedProvider>,
+        );
+
+        expect(screen.getAllByRole('link').some((link) => link.getAttribute('href') === '/test')).toBe(true);
     });
 
     it('renders ownership types correctly', () => {
