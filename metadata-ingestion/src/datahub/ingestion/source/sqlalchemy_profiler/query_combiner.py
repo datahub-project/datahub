@@ -627,16 +627,12 @@ class SQLAlchemyQueryCombiner:
 
     @staticmethod
     def _flatten_signature(fut: "_QueryFuture") -> Tuple[Tuple[Any, ...], Any, bool]:
-        # FROM objects plus the connection, by identity (not id(), which is
-        # only unique among live objects). Two same-named tables must not
-        # merge, or the flat SELECT becomes `FROM t, t`. The connection is in
-        # the key because the group runs on members[0].conn.
-        #
-        # Distinct-heavy queries are keyed apart because they end up in
-        # separate statements anyway. Grouping them together would hide that
-        # from the singleton demotion, which would then let a lone cheap
-        # aggregate and a lone COUNT(DISTINCT) become two flat statements
-        # saving nothing, where the CTE path needs one.
+        # FROM objects and the connection, by identity (not id(), which is only
+        # unique among live objects): two same-named tables must not merge, or
+        # the flat SELECT becomes `FROM t, t`, and the group runs on
+        # members[0].conn. Distinct-heavy queries are keyed apart because they
+        # end up in separate statements anyway, and hiding that from the
+        # singleton demotion costs a round trip.
         return (
             tuple(fut.query.get_final_froms()),
             fut.conn,
