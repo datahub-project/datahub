@@ -12,11 +12,13 @@ import SelectActionButtons from '@components/components/Select/private/SelectAct
 import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
 import { SelectOption, SelectSizeOptions } from '@components/components/Select/types';
 
+import { extractTypeFromUrn } from '@app/entity/shared/utils';
 import { EntitySearchDropdown } from '@app/entityV2/shared/EntitySearchSelect/EntitySearchDropdown';
 import { getUserFilters } from '@app/shared/userSearchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetEntitiesLazyQuery } from '@graphql/entity.generated';
+import { useGetIngestionSourceNamesLazyQuery } from '@graphql/ingestion.generated';
 import { Entity, EntityType } from '@types';
 
 interface EntitySearchSelectProps {
@@ -82,11 +84,37 @@ export const EntitySearchSelect: React.FC<EntitySearchSelectProps> = ({
      * Bootstrap by resolving all URNs that are not in the cache yet.
      */
     const [getEntities, { data: resolvedEntitiesData }] = useGetEntitiesLazyQuery();
+
+    // Ingestion sources aren't in the entity registry and can't be resolved through the generic
+    // entities() query — they get their own name lookup, mirroring the pre-refactor policy form.
+    const ingestionSourceUrns = useMemo(
+        () => selectedUrns.filter((urn) => extractTypeFromUrn(urn) === EntityType.IngestionSource),
+        [selectedUrns],
+    );
+    const standardUrns = useMemo(
+        () => selectedUrns.filter((urn) => extractTypeFromUrn(urn) !== EntityType.IngestionSource),
+        [selectedUrns],
+    );
+
+    const [getIngestionSourceNames, { data: sourceNamesData }] = useGetIngestionSourceNamesLazyQuery();
+
+    const ingestionSourceNames = useMemo(() => {
+        const sources = sourceNamesData?.listIngestionSources?.ingestionSources || [];
+        return new Map(sources.map((source): [string, string] => [source.urn, source.name ?? source.urn]));
+    }, [sourceNamesData]);
+
     useEffect(() => {
-        if (isResolutionRequired(selectedUrns, entityCache)) {
-            getEntities({ variables: { urns: selectedUrns } });
+        if (isResolutionRequired(standardUrns, entityCache)) {
+            getEntities({ variables: { urns: standardUrns } });
         }
-    }, [selectedUrns, entityCache, getEntities]);
+    }, [standardUrns, entityCache, getEntities]);
+
+    useEffect(() => {
+        const unresolved = ingestionSourceUrns.filter((urn) => !entityCache.has(urn) && !ingestionSourceNames.has(urn));
+        if (unresolved.length > 0) {
+            getIngestionSourceNames({ variables: { urns: ingestionSourceUrns } });
+        }
+    }, [ingestionSourceUrns, entityCache, ingestionSourceNames, getIngestionSourceNames]);
 
     /**
      * Build cache from resolved entities
@@ -138,12 +166,23 @@ export const EntitySearchSelect: React.FC<EntitySearchSelectProps> = ({
     const selectedOptions: SelectOption[] = useMemo(() => {
         return selectedUrns.map((urn) => {
             const entity = entityCache.get(urn);
+
+            // Ingestion sources: the registry has no entry for them, so getDisplayName
+            // would return an empty label. Use the cached pseudo-entity's name (set by the
+            // dropdown on selection) or the dedicated name lookup instead.
+            if (extractTypeFromUrn(urn) === EntityType.IngestionSource) {
+                // The dropdown caches ingestion sources as pseudo-entities carrying a `name`,
+                // which the Entity union itself doesn't declare.
+                const cachedName = (entity as { name?: string } | undefined)?.name;
+                return { label: cachedName || ingestionSourceNames.get(urn) || urn, value: urn };
+            }
+
             return {
                 label: entity ? entityRegistry.getDisplayName(entity.type, entity) : urn,
                 value: urn,
             };
         });
-    }, [selectedUrns, entityCache, entityRegistry]);
+    }, [selectedUrns, entityCache, entityRegistry, ingestionSourceNames]);
 
     const selectBase = (
         <SelectBase

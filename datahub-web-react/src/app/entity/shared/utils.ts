@@ -189,6 +189,8 @@ function formatEntityType(type: string): string {
             return EntityType.StructuredProperty;
         case 'assertion': // Constants.ASSERTION_ENTITY_NAME
             return EntityType.Assertion;
+        case 'datahubingestionsource': // Constants.INGESTION_SOURCE_ENTITY_NAME
+            return EntityType.IngestionSource;
 
         default:
             return '';
