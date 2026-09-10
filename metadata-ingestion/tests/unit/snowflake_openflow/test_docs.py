@@ -14,7 +14,10 @@ from datahub.ingestion.source.snowflake.snowflake_openflow_config import (
 # The docs directory is keyed on the PLATFORM id ("openflow"), while the file
 # prefixes are the plugin/recipe type ("snowflake-openflow"). docgen matches
 # docs/sources/<platform>/<plugin>_pre.md.
-DOC_DIR = pathlib.Path("docs/sources/openflow")
+# Anchored to this file, not the CWD: run from the repo root rather than from
+# metadata-ingestion, the relative form resolves to nothing and every test
+# here fails with FileNotFoundError instead of checking the docs.
+DOC_DIR = pathlib.Path(__file__).resolve().parents[3] / "docs/sources/openflow"
 PRE = DOC_DIR / "snowflake-openflow_pre.md"
 POST = DOC_DIR / "snowflake-openflow_post.md"
 README = DOC_DIR / "README.md"

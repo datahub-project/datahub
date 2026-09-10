@@ -1215,10 +1215,12 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             return cached
         fqn = connector.fqn
         if fqn is None:
-            # Only SHOW carries DATABASE_NAME / SCHEMA_NAME, so a connector
-            # known solely from the history view cannot be addressed by
-            # DESCRIBE. Counted rather than warned: for a dropped connector
-            # this is the expected steady state, not a fault.
+            # Both surfaces carry DATABASE_NAME and SCHEMA_NAME -- measured;
+            # an earlier version of this comment claimed only SHOW did -- so a
+            # connector reaches here only when neither supplied them, which in
+            # practice means a row too sparse to address. Counted rather than
+            # warned: for a dropped connector this is the expected steady
+            # state, not a fault.
             self.report.num_connectors_without_fqn += 1
             return None
         try:
@@ -1380,7 +1382,14 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             )
             return []
         if not lineage.source_tables:
-            if lineage.table_pattern:
+            if lineage.unparseable_tables:
+                # The configuration DID name tables; they just carried no schema
+                # qualifier, which is already counted and warned above. Falling
+                # through to the branch below would tell the operator the
+                # connector "listed neither table names nor a table pattern",
+                # which is false and sends them looking at the wrong property.
+                pass
+            elif lineage.table_pattern:
                 # A pattern explains the emptiness: the tables are chosen at
                 # run time and the configuration cannot enumerate them. Counted
                 # silently -- this is the documented steady state, not a fault.

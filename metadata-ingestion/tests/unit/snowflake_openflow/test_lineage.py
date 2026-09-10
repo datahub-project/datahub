@@ -1267,3 +1267,17 @@ def test_a_trailing_separator_in_the_table_list_is_not_an_unparseable_table() ->
 
     assert tables == [("public", "a"), ("public", "b")]
     assert unparseable == []
+
+
+def test_table_names_that_fail_to_parse_are_not_reported_as_absent() -> None:
+    # Two different faults with two different remedies. Names present but
+    # unqualified is a schema-qualifier problem, already counted and warned as
+    # "Unparseable source table name". Telling the operator the connector
+    # "listed neither table names nor a table pattern" on top of that is false
+    # and points at the wrong property.
+    lineage = parse_connector_config(
+        _cdc_config("jdbc:postgresql://h/db", "nodots, alsonodots")
+    )
+
+    assert lineage.source_tables == []
+    assert lineage.unparseable_tables == ["nodots", "alsonodots"]
