@@ -49,7 +49,7 @@ is advisory and will not block merge. Do not require
 `rerun_failed_product_update_cta`.
 
 After the URL returns 2xx, re-run that one job (or wait up to 15 minutes for the
-scheduled retry). Do not rerun the full CI suite.
+scheduled retry in `product-update CTA rerun`). Do not rerun the full CI suite.
 
 ### PR Title Format
 
