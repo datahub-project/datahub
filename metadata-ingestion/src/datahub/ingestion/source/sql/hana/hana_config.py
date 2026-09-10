@@ -1,6 +1,9 @@
+from typing import Annotated
+
 from pydantic import Field, PositiveInt, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, Filters, HiddenFromDocs
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.hana.constants import DEFAULT_DENY_SCHEMAS
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
@@ -19,7 +22,14 @@ class HanaConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
             "`options.connect_args` if the driver does not enable it."
         ),
     )
-    schema_pattern: AllowDenyPattern = Field(
+    # Annotated, not a bare redeclaration: pydantic v2 replaces the annotation
+    # wholesale, so restating an inherited field silently drops the Filters(...)
+    # the parent attached. Nothing failed when it did -- the `<kind>_pattern`
+    # name convention covered for it -- which is how BigQuery came to resolve
+    # to a deprecated alias and report wrong verdicts.
+    schema_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(
         default=AllowDenyPattern(deny=DEFAULT_DENY_SCHEMAS),
         description="Regex patterns for schemas to filter in ingestion. SAP-managed `_SYS_*` schemas (except `_SYS_BIC`) are denied by default.",
     )

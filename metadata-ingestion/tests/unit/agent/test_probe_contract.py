@@ -449,40 +449,32 @@ def test_describe_and_probe_filter_agree_about_every_field():
     assert checked > 20, f"only {checked} fields reached"
 
 
-def test_which_connectors_still_lean_on_the_name_convention():
-    """Tracks the gap the annotation was meant to close, so it cannot widen unseen.
+def test_no_connector_leans_on_the_name_convention():
+    """Every kind an agent can ask about resolves through an explicit
+    Filters(...), not through the `<kind>_pattern` name guess.
 
-    `Filters(...)` looks like the mechanism; for these fields the `<kind>_pattern`
-    name convention is the mechanism. Every entry is a config that redeclares an
-    inherited annotated field -- pydantic v2 replaces the annotation wholesale,
-    so restating the field drops it silently.
+    The guess is still there as a net, because a connector this test cannot see
+    is better served by a correct guess than by silence -- resolving to nothing
+    makes `probe filter` report every object included, which is a confidently
+    wrong answer rather than a missing one. But nothing may *depend* on it: it
+    is not a documented contract, and it silently covered for six connectors
+    that had dropped their inherited annotation by redeclaring the field, which
+    pydantic v2 replaces wholesale.
 
-    This is a ratchet, not an approval: a new connector may not join the list
-    without someone editing it, and the list should shrink. It is deliberately
-    not a requirement that the list be empty, because emptying it means editing
-    a dozen connectors and that is its own change.
+    BigQuery is why this is a hard assertion rather than a list. Its guess
+    resolved to `schema_pattern`, a hidden deprecated alias that is allow-all
+    unless set, so `probe filter --kind Schema` reported every dataset included
+    while ingestion filtered on `dataset_pattern` and dropped them.
     """
     from datahub.ingestion.agent.introspect import (
         _declared_filter_kind,
         _filter_kinds_by_field,
     )
 
-    known = {
-        # bigquery was here until dataset_pattern gained its Filters(...)
-        # annotation. Its entry was not a harmless naming gap: the convention
-        # resolved Schema to the deprecated schema_pattern alias, which is
-        # allow-all unless set, so every dataset read as included while
-        # ingestion filtered on dataset_pattern. The list shrinking is the
-        # point of the ratchet.
-        "cockroachdb": ["schema_pattern"],
-        "druid": ["schema_pattern"],
-        "hana": ["schema_pattern"],
-        "starrocks": ["schema_pattern"],
-        "unity-catalog": ["schema_pattern", "table_pattern"],
-    }
-
-    actual = {}
+    leaning = {}
+    checked = 0
     for source_type, config_cls in _probe_capable_configs():
+        checked += 1
         explicit = {
             name
             for name, info in config_cls.model_fields.items()
@@ -492,12 +484,13 @@ def test_which_connectors_still_lean_on_the_name_convention():
             set(_filter_kinds_by_field(source_type, config_cls)) - explicit
         )
         if by_convention:
-            actual[source_type] = by_convention
+            leaning[source_type] = by_convention
 
-    assert actual == known, (
-        "the set of fields resolved by name convention changed.\n"
-        f"  now:      {actual}\n"
-        f"  expected: {known}\n"
-        "If you added one, annotate the field with Filters(...) instead. If you "
-        "removed one, delete it from `known` here."
+    assert leaning == {}, (
+        "these fields resolve only by the name convention:\n"
+        f"  {leaning}\n"
+        "Annotate each with Filters(...). Check first that it is the field "
+        "ingestion actually filters on -- BigQuery's guess found a deprecated "
+        "alias, and annotating that would have made the wrong field permanent."
     )
+    assert checked > 20, f"only {checked} probe-capable configs reached"
