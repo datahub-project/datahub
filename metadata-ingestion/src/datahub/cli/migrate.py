@@ -1471,6 +1471,31 @@ def dbt_semantic_models(
     urns_to_process = sources.urns
     subtype_skipped = sources.subtype_skipped
 
+    # Both dbt sides are datasets carrying env, so a PROD source written into a
+    # DEV destination is detectable here -- which is not true of the Snowflake
+    # command, whose semanticModel side has no env to compare.
+    env_mismatched = [
+        (urn, reason)
+        for urn, reason in (
+            (urn, dbt_migration.env_mismatches(urn, env)) for urn in urns_to_process
+        )
+        if reason is not None
+    ]
+    if env_mismatched:
+        click.secho(
+            f"{len(env_mismatched)} source urn(s) are in a different env than "
+            f"--env {env}:",
+            fg="yellow",
+            err=True,
+        )
+        for urn, reason in env_mismatched[:10]:
+            click.secho(f"  {urn}: {reason}", fg="yellow", err=True)
+        if not force:
+            raise click.ClickException(
+                "Refusing to migrate across envs. Pass --env matching the "
+                "sources, or --force to proceed deliberately."
+            )
+
     mapping = dbt_migration.build_mapping(
         graph,
         migration_direction,

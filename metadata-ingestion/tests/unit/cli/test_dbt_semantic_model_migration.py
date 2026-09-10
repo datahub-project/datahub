@@ -13,6 +13,7 @@ from datahub.cli.dbt_semantic_model_migration import (
     DbtSemanticModelIdentity,
     build_mapping,
     discover_legacy_dataset_urns,
+    env_mismatches,
     filter_by_expected_subtype,
     gen_semantic_model_dataset_urn,
     migrate_one_dataset,
@@ -718,3 +719,129 @@ def test_migration_destination_urn_matches_what_ingest_emits() -> None:
     assert parse_semantic_model_dataset_identity(
         migration_urn, None
     ) == DbtSemanticModelIdentity("orders")
+
+
+class TestColumnDescriptions:
+    def test_human_authored_column_description_is_carried(self):
+        """editableDatasetProperties is copied; the column analogue must be too."""
+        graph = _graph(
+            {
+                _LEGACY: {
+                    "ownership": OwnershipClass(owners=[]),
+                    "editableSchemaMetadata": EditableSchemaMetadataClass(
+                        editableSchemaFieldInfo=[
+                            EditableSchemaFieldInfoClass(
+                                fieldPath="customer_email",
+                                description="hand-written column note",
+                                globalTags=GlobalTagsClass(
+                                    tags=[TagAssociationClass(tag=make_tag_urn("pii"))]
+                                ),
+                            )
+                        ]
+                    ),
+                }
+            }
+        )
+
+        result = migrate_one_dataset(graph, _LEGACY, _NEW, False, False, False)
+
+        merged = next(
+            a
+            for a in _emitted(graph)[_NEW]
+            if isinstance(a, EditableSchemaMetadataClass)
+        )
+        info = merged.editableSchemaFieldInfo[0]
+        assert info.description == "hand-written column note"
+        assert any("description:customer_email" in m for m in result.fields_migrated)
+
+    def test_ingested_column_description_is_not_promoted_to_the_editable_layer(self):
+        """A schemaMetadata description would shadow the destination's own ingest."""
+        graph = _graph(
+            {
+                _LEGACY: {
+                    "ownership": OwnershipClass(owners=[]),
+                    "schemaMetadata": SchemaMetadataClass(
+                        schemaName="x",
+                        platform="urn:li:dataPlatform:dbt",
+                        version=0,
+                        hash="",
+                        platformSchema=None,  # type: ignore[arg-type]
+                        fields=[
+                            _schema_field(
+                                "customer_id",
+                                description="ingested, regenerated every run",
+                                globalTags=GlobalTagsClass(
+                                    tags=[TagAssociationClass(tag=make_tag_urn("pii"))]
+                                ),
+                            )
+                        ],
+                    ),
+                }
+            }
+        )
+
+        migrate_one_dataset(graph, _LEGACY, _NEW, False, False, False)
+
+        merged = next(
+            a
+            for a in _emitted(graph)[_NEW]
+            if isinstance(a, EditableSchemaMetadataClass)
+        )
+        info = merged.editableSchemaFieldInfo[0]
+        # The tag is carried; the ingested description deliberately is not.
+        assert info.globalTags is not None
+        assert info.description is None
+
+    def test_destination_description_survives_when_the_source_has_none(self):
+        graph = _graph(
+            {
+                _LEGACY: {
+                    "ownership": OwnershipClass(owners=[]),
+                    "editableSchemaMetadata": EditableSchemaMetadataClass(
+                        editableSchemaFieldInfo=[
+                            EditableSchemaFieldInfoClass(
+                                fieldPath="customer_email",
+                                globalTags=GlobalTagsClass(
+                                    tags=[TagAssociationClass(tag=make_tag_urn("pii"))]
+                                ),
+                            )
+                        ]
+                    ),
+                },
+                _NEW: {
+                    "editableSchemaMetadata": EditableSchemaMetadataClass(
+                        editableSchemaFieldInfo=[
+                            EditableSchemaFieldInfoClass(
+                                fieldPath="customer_email",
+                                description="authored on the destination",
+                            )
+                        ]
+                    )
+                },
+            }
+        )
+
+        migrate_one_dataset(graph, _LEGACY, _NEW, False, False, False)
+
+        merged = next(
+            a
+            for a in _emitted(graph)[_NEW]
+            if isinstance(a, EditableSchemaMetadataClass)
+        )
+        assert (
+            merged.editableSchemaFieldInfo[0].description
+            == "authored on the destination"
+        )
+
+
+class TestEnvMismatch:
+    def test_matching_env_is_silent(self):
+        assert env_mismatches(_LEGACY, "PROD") is None
+
+    def test_mismatched_env_is_reported(self):
+        reason = env_mismatches(_LEGACY, "DEV")
+        assert reason is not None
+        assert "source env PROD does not match --env DEV" in reason
+
+    def test_an_unparseable_urn_is_left_to_the_mapping_step(self):
+        assert env_mismatches("not-a-urn", "PROD") is None

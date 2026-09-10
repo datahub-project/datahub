@@ -9,6 +9,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dbt.dbt_common import (
     DBT_PLATFORM,
     METRIC_TYPE_RATIO,
+    METRIC_TYPE_SIMPLE,
     DBTCommonConfig,
     DBTMetric,
     DBTNode,
@@ -23,6 +24,7 @@ from datahub.metadata.schema_classes import (
     DialectClass,
     ERModelRelationshipCardinalityClass,
     SemanticFieldTypeClass,
+    SubTypesClass,
 )
 from datahub.metadata.urns import MetricUrn, SemanticModelUrn
 from datahub.sdk.dataset import UpstreamLineageInputType
@@ -71,6 +73,17 @@ _TARGET_PLATFORM_TO_DIALECT: Dict[str, str] = {
     "databricks": DialectClass.DATABRICKS,
     "spark": DialectClass.DATABRICKS,
 }
+
+
+def _metric_subtype(metric_type: str) -> str:
+    """Title-case dbt's metric type for display, e.g. "cumulative" -> Cumulative.
+
+    dbt documents the set as conversion, cumulative, derived, ratio and simple;
+    an unrecognized value is passed through title-cased rather than dropped, so
+    a future dbt type still classifies something.
+    """
+    return metric_type.replace("_", " ").title()
+
 
 _SEMANTIC_MODEL_DEPENDS_ON_PREFIX = "semantic_model."
 _METRIC_DEPENDS_ON_PREFIX = "metric."
@@ -774,6 +787,9 @@ class DbtSemanticModelMapper:
             description=measure.description or None,
             expression=expression,
             upstream_datasets=[dataset_urn],
+            extra_aspects=[
+                SubTypesClass(typeNames=[_metric_subtype(METRIC_TYPE_SIMPLE)])
+            ],
         )
 
     def _metric_from_definition(
@@ -819,6 +835,9 @@ class DbtSemanticModelMapper:
             upstream_datasets=upstreams,
             derived_from=resolved.metric_urns,
             tags=[make_tag_urn(tag) for tag in metric_definition.tags] or None,
+            extra_aspects=[
+                SubTypesClass(typeNames=[_metric_subtype(metric_definition.type)])
+            ],
         )
 
     def _metric_definition_expression(
@@ -840,8 +859,15 @@ class DbtSemanticModelMapper:
     def _unfiltered_metric_expression(
         self, metric_definition: DBTMetric, index: _MeasureIndex
     ) -> Optional[str]:
-        if metric_definition.expr and metric_definition.expr.strip():
-            return metric_definition.expr
+        expr = (metric_definition.expr or "").strip()
+        # dbt materializes a `create_metric: true` measure into `metrics` itself
+        # and sets type_params.expr to the bare measure name. Honouring that
+        # verbatim would publish an identifier where a computation belongs and
+        # lose the aggregation, so fall through to the aggregation form. An
+        # author who writes `expr: revenue` over measure `revenue` means the
+        # same thing, so preferring the aggregation is right either way.
+        if expr and not self._expr_is_bare_measure_name(metric_definition, expr):
+            return expr
         if (
             metric_definition.type == METRIC_TYPE_RATIO
             and len(metric_definition.input_metrics) == 2
@@ -855,6 +881,12 @@ class DbtSemanticModelMapper:
                 metric_definition.measures[0].name.casefold()
             )
         return None
+
+    @staticmethod
+    def _expr_is_bare_measure_name(metric_definition: DBTMetric, expr: str) -> bool:
+        return len(metric_definition.measures) == 1 and (
+            expr.casefold() == metric_definition.measures[0].name.casefold()
+        )
 
     def _resolve_metric_inputs(
         self,

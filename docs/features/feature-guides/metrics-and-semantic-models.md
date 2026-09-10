@@ -140,6 +140,10 @@ source:
 
 Unlike Snowflake, this flag is a plain boolean and defaults to `false`. There is no auto-detect: dbt has emitted semantic models as datasets for several releases, so auto-enabling would silently re-mint those URNs on upgrade. On DataHub Cloud, setting `true` against a server that is too old — or that has the Metrics feature switched off — falls back to the dataset behavior and reports why; on OSS there is no such check.
 
+Each metric carries its dbt `type` as a subtype — `Simple`, `Ratio`, `Cumulative`, `Derived` or `Conversion` — so the kinds can be told apart in search and filters. `window` and `grain_to_date` are not carried, since `MetricInfo` has no field for them.
+
+Each metric carries its dbt `type` as a subtype — `Simple`, `Ratio`, `Cumulative`, `Derived` or `Conversion` — so the kinds can be told apart in search and filters. `window` and `grain_to_date` are not carried, since `MetricInfo` has no field for them.
+
 One dbt Semantic Model is emitted per dbt **project**, and each entry in the project's `semantic_models:` block becomes a **Dataset** with subtype `Semantic Model Dataset` inside it. So searching for a dbt semantic model named `orders` finds a Dataset named `<project>.semantic_layer.orders`; the Semantic Model itself is the project. See [Semantic Models and Metrics](../../generated/ingestion/sources/dbt.md#semantic-models-and-metrics) for the full mapping and the migration path from the legacy dataset shape.
 
 ### From the DataHub Python SDK

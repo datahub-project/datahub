@@ -119,6 +119,13 @@ class FieldGovernance:
     is_metric: bool
     global_tags: Optional[GlobalTagsClass] = None
     glossary_terms: Optional[GlossaryTermsClass] = None
+    # Taken from editableSchemaMetadata only, never from schemaMetadata. A
+    # schemaMetadata description is ingestion-authored, and copying it into the
+    # destination's *editable* layer would pin a stale value that then
+    # overrides whatever the destination's own ingest produces. An editable
+    # description is human-authored, so it is the analogue of
+    # editableDatasetProperties.description, which this migration does copy.
+    editable_description: Optional[str] = None
 
 
 def collect_governance_aspects(
@@ -213,12 +220,18 @@ def merge_field_governance(
     tags: Optional[GlobalTagsClass],
     terms: Optional[GlossaryTermsClass],
     synthetic_tag_urns: AbstractSet[str],
+    editable_description: Optional[str] = None,
 ) -> None:
     customer_tags = strip_synthetic_subtype_tags(tags, synthetic_tag_urns)
     # Always record METRIC classification even when the only tags were synthetic
     # subtype tags (stripped above) so a later editableSchemaMetadata merge can
     # still fan out onto the metric URN.
-    if customer_tags is None and terms is None and not is_metric:
+    if (
+        customer_tags is None
+        and terms is None
+        and editable_description is None
+        and not is_metric
+    ):
         return
     existing = by_column.get(column_name)
     if existing is None:
@@ -227,9 +240,12 @@ def merge_field_governance(
             is_metric=is_metric,
             global_tags=customer_tags,
             glossary_terms=terms,
+            editable_description=editable_description,
         )
         return
     existing.is_metric = existing.is_metric or is_metric
+    if editable_description is not None:
+        existing.editable_description = editable_description
     if customer_tags is not None:
         existing.global_tags = union_global_tags(existing.global_tags, customer_tags)
     if terms is not None:
@@ -241,7 +257,11 @@ def field_governance_for_emit(
 ) -> List[FieldGovernance]:
     """Drop metric-classification-only rows that have nothing to copy."""
     return [
-        f for f in fields if f.global_tags is not None or f.glossary_terms is not None
+        f
+        for f in fields
+        if f.global_tags is not None
+        or f.glossary_terms is not None
+        or f.editable_description is not None
     ]
 
 
@@ -297,6 +317,7 @@ def collect_dataset_field_governance(
                 tags=field_info.globalTags,
                 terms=field_info.glossaryTerms,
                 synthetic_tag_urns=synthetic_tag_urns,
+                editable_description=field_info.description,
             )
 
     return field_governance_for_emit(list(by_column.values()))
@@ -476,9 +497,10 @@ def merge_field_governance_into_editable_schema(
         prior = by_path.get(field_path)
         prior_tags = prior.globalTags if prior is not None else None
         prior_terms = prior.glossaryTerms if prior is not None else None
+        prior_description = prior.description if prior is not None else None
         by_path[field_path] = EditableSchemaFieldInfoClass(
             fieldPath=field_path,
-            description=prior.description if prior is not None else None,
+            description=field_gov.editable_description or prior_description,
             globalTags=union_global_tags(prior_tags, field_gov.global_tags),
             glossaryTerms=union_glossary_terms(prior_terms, field_gov.glossary_terms),
         )
@@ -486,6 +508,8 @@ def merge_field_governance_into_editable_schema(
             migrated.append(f"globalTags:{field_gov.column_name}->{dataset_urn}")
         if field_gov.glossary_terms is not None:
             migrated.append(f"glossaryTerms:{field_gov.column_name}->{dataset_urn}")
+        if field_gov.editable_description is not None:
+            migrated.append(f"description:{field_gov.column_name}->{dataset_urn}")
 
     emit_aspect(
         graph,

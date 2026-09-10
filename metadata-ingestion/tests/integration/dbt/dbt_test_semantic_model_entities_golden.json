@@ -7254,6 +7254,24 @@
     "entityType": "metric",
     "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,sample_dbt,average_payment)",
     "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Ratio"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,sample_dbt,average_payment)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
@@ -7340,6 +7358,24 @@
     "aspect": {
         "json": {
             "datasetUpstreams": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,sample_dbt,discounted_payments)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Derived"
+            ]
         }
     },
     "systemMetadata": {
@@ -7447,6 +7483,24 @@
     "entityType": "metric",
     "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,sample_dbt,payment_amount)",
     "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Simple"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,sample_dbt,payment_amount)",
+    "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
@@ -7529,6 +7583,24 @@
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,sample_dbt.semantic_layer.payments,PROD)"
                 }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,sample_dbt,payment_count)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Simple"
             ]
         }
     },

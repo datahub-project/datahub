@@ -126,6 +126,26 @@ def parse_semantic_model_dataset_identity(
     return DbtSemanticModelIdentity(name=parts[-1])
 
 
+def env_mismatches(dataset_urn: str, env: str) -> Optional[str]:
+    """Report a source whose env differs from the destination env.
+
+    Only dbt can make this check: its two sides are both datasets, and
+    DatasetKey carries `origin` (the env). Snowflake's forward destination is a
+    semanticModel, whose key is (platform, path, id) with no env at all, so
+    there is nothing to compare on either of its directions.
+    """
+    try:
+        source_env = str(DatasetUrn.from_string(dataset_urn).env)
+    except Exception:
+        return None
+    if source_env == env:
+        return None
+    return (
+        f"source env {source_env} does not match --env {env}; governance would "
+        f"be written into the {env} destination"
+    )
+
+
 def gen_semantic_model_dataset_urn(
     identity: DbtSemanticModelIdentity,
     project_name: str,

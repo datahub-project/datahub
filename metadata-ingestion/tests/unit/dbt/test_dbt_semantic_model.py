@@ -232,9 +232,11 @@ def test_one_semantic_model_per_project_and_one_dataset_per_semantic_model():
         aspect.semanticModel == next(iter(model_urns)) for _, aspect in properties
     )
 
+    # Metrics carry a subtype too now, so scope this to the datasets.
     assert all(
         DatasetSubTypes.SEMANTIC_MODEL_DATASET in aspect.typeNames
-        for _, aspect in _aspects(workunits, SubTypesClass)
+        for urn, aspect in _aspects(workunits, SubTypesClass)
+        if urn.startswith("urn:li:dataset:")
     )
     assert _one(workunits, SemanticModelInfoClass).name == _PROJECT
     assert mapper.report.num_semantic_model_entities_emitted == 1
@@ -1312,3 +1314,111 @@ def test_upstream_platform_follows_the_dbt_node_not_the_semantic_model():
     assert lineage["customers"] == [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,db.sc.dim_customers,PROD)"
     ]
+
+
+def test_metric_type_is_emitted_as_a_subtype():
+    """Without this a cumulative metric is indistinguishable from a simple one.
+
+    Both emit the same aggregation expression, since MetricInfo has no field
+    for the type. subTypes needs no model change and is how DataHub classifies
+    kinds of entity elsewhere.
+    """
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.orders_total": {
+                    "name": "orders_total",
+                    "label": "Orders",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {"measure": "order_count"},
+                },
+                "metric.jaffle_shop.orders_last_7_days": {
+                    "name": "orders_last_7_days",
+                    "label": "Orders, 7d",
+                    "description": "",
+                    "type": "cumulative",
+                    "type_params": {
+                        "measure": "order_count",
+                        "window": {"count": 7, "granularity": "day"},
+                    },
+                },
+            }
+        ),
+    )
+
+    subtypes = {
+        urn.rsplit(",", 1)[1].rstrip(")"): aspect.typeNames
+        for urn, aspect in _aspects(workunits, SubTypesClass)
+        if urn.startswith("urn:li:metric:")
+    }
+    assert subtypes["orders_total"] == ["Simple"]
+    assert subtypes["orders_last_7_days"] == ["Cumulative"]
+    # The measure-derived metric is a plain aggregation by construction.
+    assert subtypes["order_total"] == ["Simple"]
+
+
+def test_create_metric_expr_of_the_bare_measure_name_is_not_published_verbatim():
+    """dbt sets type_params.expr to the measure name when it materializes one.
+
+    Publishing that verbatim gives an identifier where a computation belongs
+    and silently loses the aggregation.
+    """
+    node = _sm_node(
+        "order_item",
+        {
+            "entities": [{"name": "order_item_id", "type": "primary"}],
+            "measures": [{"name": "average_revenue", "agg": "average"}],
+        },
+    )
+    workunits = _emit(
+        _mapper(),
+        [node],
+        _metrics(
+            {
+                "metric.jaffle_shop.average_revenue": {
+                    "name": "average_revenue",
+                    "label": "Average Revenue",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {
+                        "expr": "average_revenue",
+                        "measure": {"name": "average_revenue"},
+                    },
+                }
+            }
+        ),
+    )
+
+    info = _aspects(workunits, MetricInfoClass)[0][1]
+    assert (
+        _expression_of(info.expression).expression
+        == "average(order_item.average_revenue)"
+    )
+
+
+def test_a_genuine_author_expression_still_wins():
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.discounted": {
+                    "name": "discounted",
+                    "label": "Discounted",
+                    "description": "",
+                    "type": "simple",
+                    "type_params": {
+                        "expr": "order_total * 0.9",
+                        "measure": {"name": "order_total"},
+                    },
+                }
+            }
+        ),
+    )
+
+    metrics = dict(_aspects(workunits, MetricInfoClass))
+    urn = "urn:li:metric:(urn:li:dataPlatform:dbt,jaffle_shop,discounted)"
+    assert _expression_of(metrics[urn].expression).expression == "order_total * 0.9"
