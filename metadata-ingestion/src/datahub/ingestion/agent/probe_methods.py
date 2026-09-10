@@ -354,7 +354,26 @@ def list_probe_methods(source_type: str) -> List[ProbeMethodSpec]:
     return [spec for _, spec in _iter_specs(provider_cls)] if provider_cls else []
 
 
+class _BareFlag:
+    """A `--flag` given with no value. Only the spec knows if that is legal.
+
+    The CLI parser cannot type-check: it sees tokens, not the declared
+    parameter. Emitting this instead of guessing "true" lets _coerce refuse a
+    valueless string parameter with exit 2 rather than passing a plausible-
+    looking name down to the driver.
+    """
+
+
+BARE_FLAG = _BareFlag()
+
+
 def _coerce(param: ProbeParam, value: object) -> object:
+    if value is BARE_FLAG:
+        if param.type != "bool":
+            raise ValueError(
+                f"'--{param.name}' expects a {param.type} value but was given none"
+            )
+        return True
     if param.type == "int":
         # Agent kwargs may arrive as native int/float/bool or a numeric string
         # (CLI flags); bool is an int subclass so it is covered here too. Assert
@@ -365,7 +384,20 @@ def _coerce(param: ProbeParam, value: object) -> object:
         )
         return int(value)
     if param.type == "bool":
-        return str(value).lower() in ("1", "true", "yes", "on")
+        # Both directions named, and anything else refused. Reading an
+        # unrecognised value as False silently narrowed the answer -- `--flag
+        # ture` returned a smaller listing and called it the result -- while
+        # the int branch above surfaces bad input as exit 2. The asymmetry was
+        # not deliberate.
+        text = str(value).lower()
+        if text in ("1", "true", "yes", "on"):
+            return True
+        if text in ("0", "false", "no", "off"):
+            return False
+        raise ValueError(
+            f"parameter '{param.name}' expects a boolean "
+            f"(true/false, yes/no, on/off, 1/0); got {value!r}"
+        )
     return str(value)
 
 

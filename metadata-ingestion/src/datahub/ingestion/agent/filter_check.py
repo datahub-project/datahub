@@ -134,21 +134,26 @@ def _match_target(config: Any, kind: str, ctx: ClassifyContext) -> str:
 def _override_needs_parent(config: Any, kind: str) -> bool:
     """Whether this source would qualify a container name if it knew the parent.
 
-    Asked by calling the override with no parent: a connector that can answer
-    regardless (Redshift, from its single configured database) returns a match,
-    and one that cannot (BigQuery, with several projects named) returns None.
-    That is the same question the caller needs answered, so it is asked rather
-    than inferred from config shape.
+    Asked outright. The first version inferred it by calling the verdict hook
+    with a fake schema name and reading a None answer as "needs a parent" --
+    but None also means "no override applies", which is Redshift's answer
+    whenever match_fully_qualified_names is off, its default. Every default
+    Redshift `probe filter --kind Schema` then warned that the source matches
+    on a qualified name and the caller should pass --parent, when the bare-name
+    verdict was already the one ingestion makes.
+
+    A warning that fires when nothing is wrong is worse than none: it is the
+    one on the screen when a real one appears.
     """
     if kind not in (DatasetContainerSubTypes.SCHEMA, DatasetContainerSubTypes.DATABASE):
         return False
-    override = getattr(config, "probe_schema_verdict_override", None)
-    if not callable(override):
+    asks = getattr(config, "probe_schema_needs_parent", None)
+    if not callable(asks):
         return False
     try:
-        return override(schema="__probe_capability_check__", parent_path=()) is None
+        return bool(asks())
     except Exception:
-        # A connector that cannot answer the question is not one to warn about.
+        # A source that cannot answer this is not one to warn about.
         return False
 
 

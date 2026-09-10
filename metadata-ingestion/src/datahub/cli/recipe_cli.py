@@ -12,7 +12,11 @@ from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
-from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
+from datahub.ingestion.agent.probe_methods import (
+    BARE_FLAG,
+    list_probe_methods,
+    run_probe_method,
+)
 from datahub.ingestion.agent.recipe import scaffold, validate_recipe
 from datahub.ingestion.agent.redact import (
     _SENSITIVE_KEY_HINTS,
@@ -385,11 +389,11 @@ def probe_group() -> None:
     """Live source probes (need a resolved secret)."""
 
 
-def _parse_extra_params(tokens: Tuple[str, ...]) -> Dict[str, str]:
+def _parse_extra_params(tokens: Tuple[str, ...]) -> Dict[str, object]:
     # Hand-rolled rather than a second click.Command: tokens here are dynamic,
     # connector-specific probe-method parameters (e.g. --schema/--table) that
     # aren't known until list_probe_methods() resolves the source type.
-    out: Dict[str, str] = {}
+    out: Dict[str, object] = {}
     toks = list(tokens)
     i = 0
     while i < len(toks):
@@ -405,7 +409,14 @@ def _parse_extra_params(tokens: Tuple[str, ...]) -> Dict[str, str]:
             out[key.replace("-", "_")] = toks[i + 1]
             i += 2
         else:
-            out[key.replace("-", "_")] = "true"  # bare flag => boolean true
+            # A sentinel, not "true": the parser does not know the parameter's
+            # declared type, and `--schema --table orders` would otherwise pass
+            # schema="true" to a str parameter. That reaches the driver as a
+            # real schema name -- `SHOW CREATE TABLE \`true\`.\`orders\`` on
+            # MySQL, and on dialects whose listing filters by name rather than
+            # erroring, an empty result at exit 0 indistinguishable from an
+            # empty schema. _coerce holds the spec and can refuse it properly.
+            out[key.replace("-", "_")] = BARE_FLAG
             i += 1
     return out
 

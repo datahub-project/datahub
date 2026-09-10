@@ -1,15 +1,18 @@
 import json
 import pathlib
 
+import pytest
 from click.testing import CliRunner
 
 import datahub.cli.recipe_cli as rc
 from datahub.cli.recipe_cli import recipe
 from datahub.ingestion.agent.filter_check import FilterCheckResult, FilterVerdict
 from datahub.ingestion.agent.probe_methods import (
+    BARE_FLAG,
     ProbeMethodResult,
     ProbeMethodSpec,
     ProbeParam,
+    _coerce,
 )
 from datahub.ingestion.agent.redact import collect_nested_secret_values
 from datahub.ingestion.agent.verdicts import ProbeSoftError
@@ -27,7 +30,34 @@ def test_parse_extra_params():
         "table": "orders",
     }
     assert rc._parse_extra_params(("--limit=10",)) == {"limit": "10"}
-    assert rc._parse_extra_params(("--verbose",)) == {"verbose": "true"}
+    # A bare flag is a sentinel, not the string "true": the parser does not
+    # know the parameter's declared type, and guessing sent `--schema --table x`
+    # to the driver as schema="true". _coerce holds the spec and decides.
+    assert rc._parse_extra_params(("--verbose",)) == {"verbose": BARE_FLAG}
+
+
+def test_a_bare_flag_is_refused_for_a_non_boolean_parameter():
+    """`probe run columns --schema --table orders` used to parse as
+    schema="true" and reach the driver as a real name -- on MySQL as
+    SHOW CREATE TABLE `true`.`orders`, and on a dialect whose listing filters
+    by name rather than erroring, as an empty result at exit 0."""
+    with pytest.raises(ValueError, match="expects a str value but was given none"):
+        _coerce(ProbeParam(name="schema", type="str", required=True), BARE_FLAG)
+
+
+def test_a_bare_flag_is_still_true_for_a_boolean_parameter():
+    param = ProbeParam(name="verbose", type="bool", required=False)
+    assert _coerce(param, BARE_FLAG) is True
+
+
+def test_an_unrecognised_boolean_value_is_refused_rather_than_read_as_false():
+    """`--flag ture` returned a narrower listing and called it the answer,
+    while the int branch beside it surfaced bad input as exit 2."""
+    param = ProbeParam(name="include_system", type="bool", required=False)
+    assert _coerce(param, "no") is False
+    assert _coerce(param, "on") is True
+    with pytest.raises(ValueError, match="expects a boolean"):
+        _coerce(param, "ture")
 
 
 def test_probe_run(monkeypatch, tmp_path):

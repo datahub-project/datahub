@@ -284,6 +284,16 @@ class BigQueryFilterConfig(SQLFilterConfig):
         default=AllowDenyPattern.allow_all(),
     )
 
+    def probe_schema_needs_parent(self) -> bool:
+        """True when a verdict needs to know which project the caller means.
+
+        dataset_pattern is matched against "project.dataset" once
+        match_fully_qualified_names is on, so a recipe naming several projects
+        cannot be answered from the config alone. One project is unambiguous,
+        and with the flag off the bare dataset name is what ingestion matches.
+        """
+        return self.match_fully_qualified_names and len(self.project_ids) != 1
+
     def probe_schema_verdict_override(
         self, schema: str, parent_path: Sequence[str] = ()
     ) -> Optional[SchemaMatch]:

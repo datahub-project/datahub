@@ -1,5 +1,7 @@
 from typing import Dict, List
 
+import pytest
+
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.verdicts import UNFILTERED, pattern_verdict
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -342,3 +344,39 @@ def test_redshift_ignores_the_parent_and_uses_its_own_database():
     )
     assert match is not None
     assert match.target == "prod.analytics"
+
+
+@pytest.mark.parametrize("source_type", ["postgres", "mysql", "mssql"])
+def test_schema_verdicts_work_on_a_source_that_inherits_the_base_hook(source_type):
+    """The two connectors overriding probe_schema_verdict_override were the only
+    ones any Schema-kind test touched, so widening the hook's signature broke
+    every source that inherits the base and nothing noticed.
+
+    It surfaced as exit 2 -- TypeError is in recipe_cli._USER_ERRORS -- telling
+    the caller their input was wrong about a framework bug, which is the exact
+    misdirection the exit-code contract exists to prevent.
+    """
+    configs: Dict[str, Dict[str, object]] = {
+        "postgres": {
+            "host_port": "h:5432",
+            "username": "u",
+            "password": "p",
+            "database": "d",
+        },
+        "mysql": {"host_port": "h:3306", "username": "u", "password": "p"},
+        "mssql": {"host_port": "h:1433", "username": "u", "password": "p"},
+    }
+    result = check_filters(
+        source_type=source_type,
+        config_dict=configs[source_type],
+        kind="Schema",
+        parent_path=[],
+        names=["public", "information_schema"],
+        try_allow=[],
+        try_deny=[],
+    ).to_dict()
+    assert result["pattern_field"] == "schema_pattern"
+    assert result["filtering"] == "by_pattern"
+    results = result["results"]
+    assert isinstance(results, list)
+    assert [v["name"] for v in results] == ["public", "information_schema"]

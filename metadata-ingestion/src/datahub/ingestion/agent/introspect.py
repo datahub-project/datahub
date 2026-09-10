@@ -156,9 +156,12 @@ def declared_unfiltered_kinds(config: Any) -> Set[str]:
 def pattern_field_for_config(config: Any, kind: ProbeNodeKind) -> Optional[str]:
     """Find the *live config object's* AllowDenyPattern field that filters `kind`.
 
-    A declared hint (Filters(kind) on a field's Annotated metadata) wins over
-    both the instance check below and _pattern_field_for_config_class's
-    convention, since it is exact by construction. Failing that, checks the
+    Precedence, highest first: a kind the source declares unfiltered resolves
+    to UNFILTERED before anything is looked up -- saying "nothing filters this
+    level" is a statement, not a guess, and there is nothing to find. Then a
+    declared hint (Filters(kind) on a field's Annotated metadata), which wins
+    over both the instance check below and _pattern_field_for_config_class's
+    convention because it is exact by construction. Failing that, checks the
     instance's own attributes first — what pattern_verdict() actually reads via
     getattr(config, pattern_field) — before falling back to
     _pattern_field_for_config_class's class-level introspection (which also

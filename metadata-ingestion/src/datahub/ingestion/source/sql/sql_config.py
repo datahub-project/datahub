@@ -1,6 +1,6 @@
 import logging
 from abc import abstractmethod
-from typing import Any, Callable, Dict, FrozenSet, Optional
+from typing import Any, Callable, Dict, FrozenSet, Optional, Sequence
 
 import pydantic
 from pydantic import Field, model_validator
@@ -189,7 +189,9 @@ class SQLCommonConfig(
         """
         return None
 
-    def probe_schema_verdict_override(self, schema: str) -> Optional["SchemaMatch"]:
+    def probe_schema_verdict_override(
+        self, schema: str, parent_path: Sequence[str] = ()
+    ) -> Optional["SchemaMatch"]:
         """Override point for a connector whose schema-level container
         classification isn't just "does schema_pattern allow the bare
         `schema` name" -- e.g. Redshift's match_fully_qualified_names flag
@@ -226,11 +228,21 @@ class SQLCommonConfig(
         Name relations rather than whole schemas for a vendor catalog: see
         CatalogScope's docstring for why that is not merely stylistic.
 
-        Overridden here by a provider that sets `catalog_scope` on itself --
-        Snowflake and BigQuery do, because SnowflakeSummaryConfig is not a
-        SQLCommonConfig and could not carry this method. Declaring it in both
-        places means this one is dead; a contract test refuses that rather than
-        leaving it to be discovered.
+        Overridden by a provider that sets `catalog_scope` on itself, which is
+        what a bespoke per-connector provider does: Snowflake and BigQuery each
+        build their own client rather than going through the shared
+        SqlAlchemyMetadataProbe, so there is no generic adapter that needs to
+        read the value back off a config. The shared adapter serves ~15
+        dialects and therefore must, which is why the method exists here at all.
+
+        For Snowflake there is a second reason: SnowflakeSummaryConfig is not a
+        SQLCommonConfig, so it could not carry this method even if it wanted to.
+        That does not apply to BigQuery -- BigQueryV2Config is a SQLCommonConfig
+        -- and an earlier version of this comment wrongly gave it as the reason
+        for both.
+
+        Declaring it in both places means this one is dead; a contract test
+        refuses that rather than leaving it to be discovered.
         """
         return CatalogScope()
 

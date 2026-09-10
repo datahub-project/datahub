@@ -108,6 +108,20 @@ def test_the_scan_actually_reached_providers():
         f"expected probe support on {missing} but the scan did not reach it; "
         f"unloadable sources: {unloadable}"
     )
+    # `unloadable` was computed and only ever interpolated into the message
+    # above, so the scan could lose most of its providers with every guard
+    # still green. probe_provider_class imports the provider module lazily, so
+    # a provider whose import breaks leaves the *config* loadable -- the
+    # `checked > 20` guards elsewhere keep passing while the tripwire below
+    # inspects a fraction of the specs it claims to.
+    assert unloadable == [], (
+        f"{len(unloadable)} providers could not be loaded, so the gate scan "
+        f"silently skipped them: {unloadable}"
+    )
+    assert len(scanned) >= 25, (
+        f"only {len(scanned)} providers scanned; the tripwire is inspecting "
+        "fewer sources than it should"
+    )
 
 
 def test_every_advertised_provider_satisfies_the_provider_protocol():
@@ -201,6 +215,7 @@ _CONFIG_HOOKS = frozenset(
         "probe_schema_verdict_override",
         "probe_prepare_engine",
         "probe_unfiltered_kinds",
+        "probe_schema_needs_parent",
     }
 )
 
@@ -561,4 +576,58 @@ def test_no_config_declares_a_catalog_scope_its_provider_overrides():
     assert checked >= 2, (
         f"only {checked} providers declare catalog_scope; expected at least the "
         "Snowflake and BigQuery ones, so this test is not scanning nothing"
+    )
+
+
+def test_every_config_hook_matches_the_signature_the_framework_calls():
+    """Hooks are resolved by getattr, so mypy cannot see a signature drift.
+
+    That is not hypothetical: widening probe_schema_verdict_override with a
+    parent_path kwarg updated two implementations and left SQLCommonConfig's
+    base behind, breaking `probe filter --kind Schema` on every other SQL
+    source. The name-only check above passed throughout, because the name was
+    never the problem.
+    """
+    import inspect
+
+    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+
+    # Keyword arguments the framework passes, per hook. A hook must accept
+    # every one of these -- by name, since every call site uses keywords.
+    required_kwargs = {
+        "probe_schema_verdict_override": {"schema", "parent_path"},
+    }
+
+    problems = []
+    checked = 0
+    for hook, kwargs in required_kwargs.items():
+        implementers = [SQLCommonConfig]
+        for source_type in sorted(source_registry.mapping):
+            try:
+                config_cls = config_class_for(source_type)
+            except Exception:
+                continue
+            # Walk the MRO: BigQuery defines this on BigQueryFilterConfig, not
+            # on the class the registry returns, so a __dict__ check misses it.
+            for klass in config_cls.__mro__:
+                if hook in klass.__dict__ and klass not in implementers:
+                    implementers.append(klass)
+
+        for cls in implementers:
+            fn = getattr(cls, hook, None)
+            if fn is None:
+                continue
+            checked += 1
+            accepted = set(inspect.signature(fn).parameters) - {"self", "cls"}
+            missing = kwargs - accepted
+            if missing:
+                problems.append(
+                    f"{cls.__name__}.{hook} does not accept {sorted(missing)}; "
+                    f"the framework calls it with {sorted(kwargs)}"
+                )
+
+    assert not problems, "\n  ".join(problems)
+    assert checked >= 3, (
+        f"only {checked} implementations checked; expected the base plus the "
+        "Redshift and BigQuery overrides"
     )

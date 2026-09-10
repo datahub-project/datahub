@@ -32,8 +32,12 @@ class FieldSpec:
     # config declares one via Filters(...). None means either "not a pattern" or
     # "a pattern that does not gate a level" -- profile_pattern and
     # user_email_pattern are real filters but not levels, and a caller walking a
-    # source needs to tell those apart. Never guessed from the field name: a
-    # wrong answer here would send a caller to edit the wrong line.
+    # Resolved through the explicit Filters(...) annotation where there is one,
+    # and otherwise through the `<kind>_pattern` name convention -- but only for
+    # kinds the source actually declares, so `procedure_pattern` is never
+    # reported as a level. An earlier version of this comment said the field was
+    # never guessed from the name; that stopped being true when describe was
+    # made to resolve the way `probe filter` does.
     filters: Optional[str] = None
 
     def to_dict(self) -> Dict[str, object]:
