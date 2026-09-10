@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
+import useDebouncedCallback from '@app/shared/hooks/useDebouncedCallback';
 import { useGetRecommendations } from '@app/shared/recommendation';
 
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
@@ -53,15 +54,21 @@ export function useEntityPickerState({
     const [autoComplete, { data: searchData, loading: searchLoading }] = useGetAutoCompleteResultsLazyQuery();
     const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([entityType]);
 
+    // Only the network call is debounced — searchText updates synchronously since it
+    // drives which entity list (search vs recommendations) is shown while typing.
+    const debouncedAutoComplete = useDebouncedCallback((query: string) => {
+        autoComplete({ variables: { input: { type: entityType, query, limit } } });
+    });
+
     const handleSearch = useCallback(
         (text: string) => {
             const trimmed = text.trim();
             setSearchText(trimmed);
             if (trimmed.length > 0) {
-                autoComplete({ variables: { input: { type: entityType, query: trimmed, limit } } });
+                debouncedAutoComplete(trimmed);
             }
         },
-        [autoComplete, entityType, limit],
+        [debouncedAutoComplete],
     );
 
     const searchEntities = useMemo<Entity[]>(

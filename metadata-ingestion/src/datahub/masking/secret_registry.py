@@ -1,8 +1,15 @@
 import os
+import re
 import threading
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from datahub.masking.constants import REDACTED_PREFIX
+from datahub.masking.constants import (
+    CAPACITY_EXCEEDED_MESSAGE,
+    CIRCUIT_OPEN_MESSAGE,
+    REDACTED_PREFIX,
+    REDACTED_SUFFIX,
+    SENTINEL_MESSAGES,
+)
 from datahub.masking.logging_utils import get_masking_safe_logger
 
 logger = get_masking_safe_logger(__name__)
@@ -99,6 +106,14 @@ def _evict_renderings(
     return removed
 
 
+def _compiles(pattern_str: str) -> bool:
+    try:
+        re.compile(pattern_str)
+        return True
+    except Exception:
+        return False
+
+
 class SecretRegistry:
     """Thread-safe store of secret values to mask.
 
@@ -119,6 +134,10 @@ class SecretRegistry:
         self._name_history: Dict[str, List[str]] = {}
         self._version = 0
         self._capacity_exceeded = False
+        self._compile_failed = False
+        self._pattern: Optional[re.Pattern] = None
+        self._pattern_replacements: Dict[str, str] = {}
+        self._pattern_version = -1
         self._registry_lock = threading.RLock()
 
     @classmethod
@@ -229,6 +248,103 @@ class SecretRegistry:
     def is_capacity_exceeded(self) -> bool:
         return self._capacity_exceeded
 
+    def suppression_message(self) -> Optional[str]:
+        """Non-None when masking must fail closed: the fixed message that
+        replaces all output."""
+        if self._capacity_exceeded:
+            return CAPACITY_EXCEEDED_MESSAGE
+        if self._compile_failed:
+            return CIRCUIT_OPEN_MESSAGE
+        return None
+
+    def get_pattern_and_replacements(
+        self,
+    ) -> Tuple[Optional[re.Pattern], Dict[str, str]]:
+        """Compiled masking pattern and rendering-to-name map, rebuilt when
+        the registry has changed since the last build. (None, {}) when the
+        registry is empty or the pattern is uncompilable."""
+        with self._registry_lock:
+            if self._pattern_version != self._version:
+                self._rebuild_pattern()
+            return self._pattern, self._pattern_replacements
+
+    def _rebuild_pattern(self) -> None:
+        self._pattern_version = self._version
+        self._pattern = None
+        self._pattern_replacements = {}
+        if not self._secrets or self._compile_failed:
+            return
+
+        sorted_secrets = sorted(
+            self._secrets.items(), key=lambda x: len(x[0]), reverse=True
+        )
+
+        # CRITICAL: re.escape() ensures secrets with regex metacharacters
+        # (e.g., ".*", "a+b", "test|prod") are matched literally, not as regex.
+        # The marker alternative comes first so that already-masked spans are
+        # consumed whole and never re-matched - this is what makes masking
+        # idempotent even when a secret value collides with marker text. Only
+        # markers bearing a name the filters could have produced are consumed;
+        # a wildcard would let marker-shaped delimiters arriving in untrusted
+        # text smuggle a secret through unmasked.
+        names = sorted(
+            {name for _, name in sorted_secrets} | {"UNKNOWN"},
+            key=len,
+            reverse=True,
+        )
+        marker_regex = (
+            re.escape(REDACTED_PREFIX)
+            + "(?:"
+            + "|".join(re.escape(name) for name in names)
+            + ")"
+            + re.escape(REDACTED_SUFFIX)
+        )
+        escaped_values = [re.escape(value) for value, _ in sorted_secrets]
+        pattern_str = "|".join(
+            [
+                marker_regex,
+                *(re.escape(message) for message in SENTINEL_MESSAGES),
+                *escaped_values,
+            ]
+        )
+
+        try:
+            self._pattern = re.compile(pattern_str)
+        except Exception as e:
+            self._declare_compile_failed(type(e).__name__, sorted_secrets)
+            return
+
+        self._pattern_replacements = dict(sorted_secrets)
+        if len(sorted_secrets) >= 100:
+            logger.warning(
+                f"Large number of secrets registered ({len(sorted_secrets)}). "
+                f"This may impact masking performance."
+            )
+        logger.debug(
+            f"Rebuilt masking pattern with {len(sorted_secrets)} secrets "
+            f"(version {self._version})"
+        )
+
+    def _declare_compile_failed(
+        self, exception_type: str, sorted_secrets: List[Tuple[str, str]]
+    ) -> None:
+        self._compile_failed = True
+        offending = sorted(
+            {name for value, name in sorted_secrets if not _compiles(re.escape(value))}
+        )
+        if offending:
+            detail = f"offending secret(s): {', '.join(offending)}"
+        else:
+            total_length = sum(len(value) for value, _ in sorted_secrets)
+            detail = (
+                f"no single secret at fault; combined pattern too large "
+                f"({len(sorted_secrets)} renderings, {total_length} characters)"
+            )
+        logger.error(
+            f"Masking pattern failed to compile ({exception_type}); {detail}. "
+            f"All output will be suppressed; restart the process to recover."
+        )
+
     def get_all_secrets(self) -> Dict[str, str]:
         with self._registry_lock:
             return self._secrets.copy()
@@ -249,7 +365,11 @@ class SecretRegistry:
             self._secrets = {}
             self._name_history = {}
             self._capacity_exceeded = False
+            self._compile_failed = False
             self._version += 1
+            self._pattern = None
+            self._pattern_replacements = {}
+            self._pattern_version = self._version
             logger.debug("Cleared all secrets from registry")
 
     def has_secret(self, variable_name: str) -> bool:

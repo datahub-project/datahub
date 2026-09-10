@@ -987,8 +987,6 @@ public class UpdateIndicesHookTest {
               mockEntitySearchService,
               searchDocumentTransformer,
               mockTimeseriesAspectService,
-              "MD5",
-              v2Enabled, // v2Enabled parameter
               null);
       strategies.add(v3Strategy);
     }

@@ -49,6 +49,7 @@ interface OptionProps<OptionType extends NestedSelectOption> {
     hideParentCheckbox?: boolean;
     isParentOptionLabelExpanded?: boolean;
     implicitlySelectChildren: boolean;
+    selectChildrenWithParent: boolean;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
 }
 
@@ -67,6 +68,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
     hideParentCheckbox,
     isParentOptionLabelExpanded,
     implicitlySelectChildren,
+    selectChildrenWithParent,
     renderCustomOptionText,
 }: OptionProps<OptionType>) => {
     const [loadingParentUrns, setLoadingParentUrns] = useState<string[]>([]);
@@ -87,6 +89,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
             selectableChildren,
             areParentsSelectable,
             implicitlySelectChildren,
+            selectChildrenWithParent,
             isMultiSelect: !!isMultiSelect,
             addOptions,
             removeOptions,
@@ -116,7 +119,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             setLoadingParentUrns((previousIds) => [...previousIds, option.value]);
                             loadData?.(option);
                         }
-                        if (option.isParent) {
+                        if (option.isParent && !areParentsSelectable) {
                             setIsOpen(!isOpen);
                         } else {
                             selectOption();
@@ -164,7 +167,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             {!option.isParent && <>{option.label}</>}
                         </>
                     )}
-                    {!(hideParentCheckbox && option.isParent) && (
+                    {isMultiSelect && !(hideParentCheckbox && option.isParent) && (
                         <CheckboxWrapper>
                             <Checkbox
                                 isChecked={isImplicitlySelected || isSelected}
@@ -204,6 +207,7 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             areParentsSelectable={areParentsSelectable}
                             setSelectedOptions={setSelectedOptions}
                             implicitlySelectChildren={implicitlySelectChildren}
+                            selectChildrenWithParent={selectChildrenWithParent}
                             renderCustomOptionText={renderCustomOptionText}
                         />
                     ))}

@@ -11,6 +11,9 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
 from datahub.ingestion.source.notion.notion_report import NotionSourceReport
 from datahub.ingestion.source.notion.notion_source import NotionSource
+from datahub.ingestion.source.unstructured.chunking_source import (
+    SkipMarkerReadError,
+)
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
@@ -1075,3 +1078,66 @@ def test_icon_dispatcher_unknown_types_preserves_known_types():
     emoji_result = Icon.from_dict({"type": "emoji", "emoji": "📝"})
     assert isinstance(emoji_result, EmojiIcon)
     assert emoji_result.emoji == "📝"
+
+
+def _document_entity_test_setup(notion_source, side_effect):
+    """Wire a mocked document builder + chunking source whose inline processing raises
+    side_effect, with the stateful gate enabled so _update_document_state WOULD be
+    reached on the swallow-and-continue path (without this, assert_not_called on it is
+    vacuous)."""
+    data = {
+        "elements": [{"type": "NarrativeText", "text": "hello", "metadata": {}}],
+        "metadata": {
+            "data_source": {"record_locator": {"page_id": "p1"}},
+            "filetype": "notion",
+        },
+    }
+    doc = MagicMock()
+    doc.urn = "urn:li:document:p1"
+    doc.as_workunits.return_value = []
+    notion_source.document_builder = MagicMock()
+    notion_source.document_builder.build_document_entity.return_value = doc
+    notion_source.document_builder.content_mapper.extract_text_content.return_value = (
+        "hello"
+    )
+    notion_source.chunking_source = MagicMock()
+    notion_source.chunking_source.process_elements_inline.side_effect = side_effect
+    notion_source.chunking_source.report.num_documents_limit_reached = False
+    notion_source.config.stateful_ingestion = MagicMock(enabled=True)
+    return data
+
+
+def test_skip_marker_read_error_leaves_document_retryable(notion_source):
+    """A SkipMarkerReadError from the chunking sub-source must not record document
+    state (or count the document processed): state would permanently drop the skip
+    marker; returning early leaves the document retryable next run."""
+    data = _document_entity_test_setup(
+        notion_source, SkipMarkerReadError("read failed")
+    )
+
+    with patch.object(notion_source, "_update_document_state") as update_state:
+        list(notion_source._create_document_entity(data))
+
+    # Discriminates the dedicated SkipMarkerReadError handler: if it were removed,
+    # the generic RuntimeError handler swallows the error and execution falls
+    # through to report accounting and the (enabled) state update.
+    update_state.assert_not_called()
+    assert notion_source.report.num_files_processed == 0
+
+
+def test_embedding_failure_leaves_document_retryable(notion_source):
+    """An inline embedding failure (provider error or zero-vector response surfaces as a
+    RuntimeError) must not record document state or count the page as processed: no
+    semanticContent was written, and checkpointing would permanently skip the unchanged
+    page instead of retrying it."""
+    data = _document_entity_test_setup(
+        notion_source, RuntimeError("provider returned no vectors")
+    )
+
+    with patch.object(notion_source, "_update_document_state") as update_state:
+        list(notion_source._create_document_entity(data))
+
+    # The non-limit RuntimeError handler must return: without the return, execution falls
+    # through to report accounting and the (enabled) state update, checkpointing the page.
+    update_state.assert_not_called()
+    assert notion_source.report.num_files_processed == 0
