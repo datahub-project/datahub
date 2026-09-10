@@ -100,6 +100,16 @@ def single_row_query(query: _StatementT) -> _StatementT:
     )
 
 
+class FlatResultMappingError(AssertionError):
+    """The flat statement's columns did not line up with the queued futures.
+
+    Raised rather than asserted because these checks guard result mapping, and
+    `python -O` strips asserts -- which would mark misaligned values as done.
+    Subclasses AssertionError so existing handlers treat it as they did the
+    asserts: the group handler catches it and re-routes through the CTE path.
+    """
+
+
 class MisTaggedQueryError(AssertionError):
     """A query was tagged single-row but the SQL says otherwise.
 
@@ -754,9 +764,11 @@ class SQLAlchemyQueryCombiner:
             # Names from subquery().columns, which anon-labels duplicates;
             # emission still from get_query_columns, so order is unchanged.
             name_cols = fut.query.subquery().columns
-            assert len(emit_cols) == len(name_cols), (
-                "emit/name column count mismatch; this group re-routes to the CTE path"
-            )
+            if len(emit_cols) != len(name_cols):
+                raise FlatResultMappingError(
+                    "emit/name column count mismatch; this group re-routes to "
+                    "the CTE path"
+                )
             names: List[str] = []
             for col in emit_cols:
                 uid = self._generate_sql_safe_identifier()
@@ -787,7 +799,10 @@ class SQLAlchemyQueryCombiner:
         )
 
         results = sa_res.fetchall()
-        assert len(results) == 1
+        if len(results) != 1:
+            raise FlatResultMappingError(
+                f"flat query returned {len(results)} rows, expected exactly 1"
+            )
         row = results[0]
 
         index = 0
@@ -798,10 +813,13 @@ class SQLAlchemyQueryCombiner:
                 index += 1
             fut.res = _ResultProxyFake([_RowProxyFake(data)])
 
-        # Verify that we consumed all the columns before marking futures
-        # done — a failing assert would otherwise leave wrong-but-done
-        # futures that the `if not fut.done` re-route filter then skips.
-        assert index == len(row)
+        # Check before marking done: a wrong-but-done future is skipped by the
+        # recovery paths' `if not fut.done` filters, so it would keep the wrong
+        # value rather than being re-run.
+        if index != len(row):
+            raise FlatResultMappingError(
+                f"consumed {index} of {len(row)} columns; results would be misaligned"
+            )
         for fut, _ in plan:
             fut.done = True
 
