@@ -49,7 +49,9 @@ test.describe('column search and pagination within a lineage node', () => {
   });
 
   test('pages through the columns ten at a time', async () => {
-    expect(await lineagePage.getShownColumnNames(WIDE_URN)).toEqual(PAGE_1_COLUMNS);
+    await expect
+      .poll(() => lineagePage.getShownColumnNames(WIDE_URN), { timeout: TIMEOUTS.MEDIUM })
+      .toEqual(PAGE_1_COLUMNS);
     // 25 columns over 10 per page: three page buttons
     // eslint-disable-next-line playwright/no-raw-locators -- antd pagination items have no test id of their own
     await expect(lineagePage.getColumnPagination(WIDE_URN).locator('li.ant-pagination-item')).toHaveCount(3);
