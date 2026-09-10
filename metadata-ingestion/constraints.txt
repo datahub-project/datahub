@@ -294,6 +294,7 @@ databricks-sql-connector==2.9.6
     # via acryl-datahub
 dataclasses-json==0.6.7
     # via
+    #   pycarlo
     #   unstructured
     #   unstructured-ingest
 dataflows-tabulator==1.54.3
@@ -405,7 +406,7 @@ geomet==1.1.0
     # via cassandra-driver
 gitdb==4.0.12
     # via gitpython
-gitpython==3.1.46
+gitpython==3.1.62
     # via
     #   acryl-datahub
     #   dlt
@@ -417,6 +418,7 @@ google-api-core==2.25.2
     #   google-cloud-aiplatform
     #   google-cloud-appengine-logging
     #   google-cloud-bigquery
+    #   google-cloud-bigquery-analyticshub
     #   google-cloud-core
     #   google-cloud-datacatalog
     #   google-cloud-datacatalog-lineage
@@ -434,6 +436,7 @@ google-auth==2.49.0
     #   google-cloud-aiplatform
     #   google-cloud-appengine-logging
     #   google-cloud-bigquery
+    #   google-cloud-bigquery-analyticshub
     #   google-cloud-core
     #   google-cloud-datacatalog
     #   google-cloud-datacatalog-lineage
@@ -455,6 +458,8 @@ google-cloud-bigquery==3.40.1
     #   acryl-datahub
     #   google-cloud-aiplatform
     #   sqlalchemy-bigquery
+google-cloud-bigquery-analyticshub==0.9.0
+    # via acryl-datahub
 google-cloud-core==2.5.0
     # via
     #   google-cloud-bigquery
@@ -495,7 +500,9 @@ googleapis-common-protos==1.73.0
     #   grpc-google-iam-v1
     #   grpcio-status
 graphql-core==3.2.8
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   sgqlc
 greenlet==3.3.2
     # via
     #   acryl-datahub
@@ -503,6 +510,7 @@ greenlet==3.3.2
     #   sqlalchemy
 grpc-google-iam-v1==0.14.3
     # via
+    #   google-cloud-bigquery-analyticshub
     #   google-cloud-datacatalog
     #   google-cloud-dataplex
     #   google-cloud-logging
@@ -513,6 +521,7 @@ grpcio==1.78.0
     #   acryl-datahub
     #   google-api-core
     #   google-cloud-appengine-logging
+    #   google-cloud-bigquery-analyticshub
     #   google-cloud-datacatalog
     #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex
@@ -926,6 +935,7 @@ proto-plus==1.27.1
     #   google-api-core
     #   google-cloud-aiplatform
     #   google-cloud-appengine-logging
+    #   google-cloud-bigquery-analyticshub
     #   google-cloud-datacatalog
     #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex
@@ -941,6 +951,7 @@ protobuf==5.29.6
     #   google-cloud-aiplatform
     #   google-cloud-appengine-logging
     #   google-cloud-audit-log
+    #   google-cloud-bigquery-analyticshub
     #   google-cloud-datacatalog
     #   google-cloud-datacatalog-lineage
     #   google-cloud-dataplex
@@ -988,6 +999,8 @@ pyasn1-modules==0.4.2
     #   google-auth
     #   python-ldap
 pyathena==2.25.2
+    # via acryl-datahub
+pycarlo==0.15.291
     # via acryl-datahub
 pycparser==3.0 ; implementation_name != 'PyPy'
     # via cffi
@@ -1087,6 +1100,8 @@ pytest-rerunfailures==16.1
     # via acryl-datahub
 pytest-timeout==2.4.0
     # via acryl-datahub
+python-box==7.4.1
+    # via pycarlo
 python-dateutil==2.9.0.post0
     # via
     #   acryl-datahub
@@ -1206,6 +1221,7 @@ requests==2.32.5
     #   moto
     #   msal
     #   opensearch-py
+    #   pycarlo
     #   pydruid
     #   pyiceberg
     #   redash-toolbelt
@@ -1251,6 +1267,7 @@ responses==0.26.0
     # via
     #   acryl-datahub
     #   moto
+    #   pycarlo
 rfc3986==2.0.0
     # via
     #   tableschema
@@ -1295,6 +1312,8 @@ setuptools==81.0.0
     #   dlt
     #   grpcio-tools
     #   redshift-connector
+sgqlc==16.5
+    # via pycarlo
 shellingham==1.5.4
     # via typer
 simple-salesforce==1.12.9
