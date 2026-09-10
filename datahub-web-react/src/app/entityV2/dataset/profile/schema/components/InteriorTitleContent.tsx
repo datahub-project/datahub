@@ -119,12 +119,9 @@ export const InteriorTitleContent = ({
                     {record.isPartitioningKey && <PartitioningKeyLabel />}
                     {record.nullable && <NullableLabel />}
                     {/* {record.nullable && <NullableLabel />} */}
-                    {getFieldForeignKeyConstraints(schemaMetadata, fieldPath).map((constraint) => (
-                        <ClickableForeignKeyLabel
-                            key={constraint.name}
-                            onClick={() => setExpandedDrawerFieldPath?.(fieldPath)}
-                        />
-                    ))}
+                    {getFieldForeignKeyConstraints(schemaMetadata, fieldPath).length > 0 && (
+                        <ClickableForeignKeyLabel onClick={() => setExpandedDrawerFieldPath?.(fieldPath)} />
+                    )}
                 </>
             )}
         </FieldTitleWrapper>

@@ -2,16 +2,13 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-const ForeignKeyPillButton = styled.button`
-    background-color: ${(props) => props.theme.colors.bg};
-    border: 1px solid ${(props) => props.theme.colors.borderSuccess};
-    border-radius: 10px;
-    color: ${(props) => props.theme.colors.textSuccess};
+import { ForeignKeyPill } from '@app/entityV2/shared/tabs/Dataset/Schema/components/ConstraintLabels';
+
+// The label shares its appearance with the other constraint labels and only adds what a button needs,
+// so a change to the shared pill keeps the two in step.
+const ForeignKeyPillButton = styled(ForeignKeyPill)`
     cursor: pointer;
-    font-size: 12px;
-    font-weight: 400;
     line-height: inherit;
-    padding: 0 8px;
 `;
 
 interface Props {
@@ -23,6 +20,7 @@ export default function ClickableForeignKeyLabel({ onClick }: Props) {
 
     return (
         <ForeignKeyPillButton
+            as="button"
             type="button"
             onClick={(event) => {
                 event.stopPropagation();
