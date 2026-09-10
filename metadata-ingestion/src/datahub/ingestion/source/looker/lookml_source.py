@@ -1,3 +1,4 @@
+import ipaddress
 import logging
 import pathlib
 import tempfile
@@ -5,6 +6,7 @@ from collections import OrderedDict, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from urllib.parse import urlparse
 
 import lkml
 import lkml.simple
@@ -262,6 +264,132 @@ class LookerManifest:
     remote_dependencies: List[LookerRemoteDependency]
 
 
+# git:// is omitted: it is unauthenticated and not a typical Looker remote_dependency URL.
+_ALLOWED_GIT_SCHEMES = frozenset({"https", "ssh"})
+_BLOCKED_GIT_HOSTNAMES = frozenset(
+    {
+        "localhost",
+        "localhost.localdomain",
+        "127.0.0.1",
+        "0.0.0.0",
+        "::1",
+        "metadata.google.internal",
+        "metadata.goog",
+    }
+)
+
+
+@dataclass(frozen=True)
+class RemoteDependencyUrlCheck:
+    allowed: bool
+    reason: Optional[str] = None
+    hostname: Optional[str] = None
+
+
+def _hostname_from_git_url(url: str) -> Optional[str]:
+    """Extract the hostname from an HTTPS, SSH, or scp-style Git URL."""
+    stripped = url.strip()
+    if not stripped:
+        return None
+
+    if "://" not in stripped:
+        # scp-style: git@github.com:org/repo.git
+        if stripped.startswith("git@") and ":" in stripped:
+            return stripped[len("git@") :].split(":", 1)[0].lower() or None
+        at_index = stripped.find("@")
+        colon_index = stripped.find(":")
+        if at_index != -1 and colon_index > at_index:
+            return stripped[at_index + 1 : colon_index].lower() or None
+        return None
+
+    parsed = urlparse(stripped)
+    if parsed.hostname:
+        return parsed.hostname.lower()
+    return None
+
+
+def _is_blocked_git_host(hostname: str) -> bool:
+    if hostname in _BLOCKED_GIT_HOSTNAMES:
+        return True
+    try:
+        ip = ipaddress.ip_address(hostname)
+    except ValueError:
+        return False
+    return bool(
+        ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast
+    )
+
+
+def _host_matches_allowed_domain(hostname: str, allowed_domain: str) -> bool:
+    domain = allowed_domain.strip().lower().lstrip(".")
+    if not domain:
+        return False
+    return hostname == domain or hostname.endswith(f".{domain}")
+
+
+def check_remote_dependency_url(
+    url: str,
+    allowed_domains: Optional[List[str]] = None,
+) -> RemoteDependencyUrlCheck:
+    """Validate a manifest.lkml remote_dependency URL before git clone.
+
+    Always rejects non-git schemes, missing hosts, and loopback / link-local /
+    cloud-metadata hosts. When ``allowed_domains`` is set (including an empty
+    list), the hostname must match one of those domains or their subdomains.
+    """
+    stripped = url.strip()
+    if not stripped:
+        return RemoteDependencyUrlCheck(
+            allowed=False, reason="remote_dependency URL is empty"
+        )
+
+    if "://" in stripped:
+        scheme = urlparse(stripped).scheme.lower()
+        if scheme not in _ALLOWED_GIT_SCHEMES:
+            return RemoteDependencyUrlCheck(
+                allowed=False,
+                reason=(
+                    f"scheme '{scheme}' is not allowed; "
+                    "use https:// or an SSH Git URL (git@host:path or ssh://)"
+                ),
+            )
+    elif not (stripped.startswith("git@") or ("@" in stripped and ":" in stripped)):
+        return RemoteDependencyUrlCheck(
+            allowed=False,
+            reason=(
+                "URL must be https://, ssh://, or an SCP-style Git URL such as "
+                "git@host:org/repo.git"
+            ),
+        )
+
+    hostname = _hostname_from_git_url(stripped)
+    if not hostname:
+        return RemoteDependencyUrlCheck(
+            allowed=False, reason="could not parse a hostname from the Git URL"
+        )
+
+    if _is_blocked_git_host(hostname):
+        return RemoteDependencyUrlCheck(
+            allowed=False,
+            reason=f"hostname '{hostname}' is not allowed (loopback, link-local, or metadata)",
+            hostname=hostname,
+        )
+
+    if allowed_domains is not None:
+        if not any(
+            _host_matches_allowed_domain(hostname, domain) for domain in allowed_domains
+        ):
+            return RemoteDependencyUrlCheck(
+                allowed=False,
+                reason=(
+                    f"hostname '{hostname}' is not in allowed_remote_dependency_domains"
+                ),
+                hostname=hostname,
+            )
+
+    return RemoteDependencyUrlCheck(allowed=True, hostname=hostname)
+
+
 @platform_name("Looker")
 @config_class(LookMLSourceConfig)
 @support_status(SupportStatus.GA)
@@ -508,11 +636,14 @@ class LookMLSource(StatefulIngestionSourceBase):
             project_name=manifest_dict.get("project_name"),
             constants=manifest_dict.get("constants", []),
             local_dependencies=[
-                x["project"] for x in manifest_dict.get("local_dependencys", [])
+                x["project"]
+                for x in manifest_dict.get("local_dependencies", [])
+                if x.get("project")
             ],
             remote_dependencies=[
                 LookerRemoteDependency(name=x["name"], url=x["url"], ref=x.get("ref"))
-                for x in manifest_dict.get("remote_dependencys", [])
+                for x in manifest_dict.get("remote_dependencies", [])
+                if x.get("name") and x.get("url")
             ],
         )
         return manifest
@@ -637,6 +768,24 @@ class LookMLSource(StatefulIngestionSourceBase):
             if remote_project.name in self.base_projects_folder:
                 # In case a remote_dependency is specified in the project_dependencies config,
                 # we don't need to clone it again.
+                continue
+
+            url_check = check_remote_dependency_url(
+                url=remote_project.url,
+                allowed_domains=self.source_config.allowed_remote_dependency_domains,
+            )
+            if not url_check.allowed:
+                self.reporter.warning(
+                    title="Skipped remote LookML dependency",
+                    message=(
+                        "Did not clone a remote_dependency from manifest.lkml because "
+                        "its URL is not allowed."
+                    ),
+                    context=(
+                        f"project={remote_project.name}, url={remote_project.url}, "
+                        f"reason={url_check.reason}"
+                    ),
+                )
                 continue
 
             p_cloner = GitClone(f"{tmp_dir}/_remote_/{remote_project.name}")

@@ -2,7 +2,7 @@ import logging
 from copy import deepcopy
 from dataclasses import dataclass, field as dataclass_field
 from datetime import timedelta
-from typing import Annotated, Any, Dict, Literal, Optional, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 import pydantic
 from pydantic import field_validator, model_validator
@@ -121,6 +121,21 @@ class LookMLSourceConfig(
         "have a corresponding entry here. "
         "If a deploy key is not provided, the ingestion system will use the same deploy key as the main project. "
         "When providing a local directory path (string), the directory must exist at config validation time.",
+    )
+    allowed_remote_dependency_domains: Optional[List[str]] = Field(
+        None,
+        description=(
+            "Hostnames permitted for `remote_dependency` URLs in `manifest.lkml` "
+            "(for example `github.com` or `gitlab.example.com`). Subdomains of a listed "
+            "host are also allowed. When this field is set, including to an empty list, "
+            "any `remote_dependency` whose host is not on the list is skipped and a "
+            "warning is reported — it is not cloned. "
+            "`manifest.lkml` lives in the LookML repo, so committers can change these URLs; "
+            "this field is the operator-controlled allowlist. "
+            "When unset, HTTPS and SSH Git URLs are still accepted, but loopback, "
+            "link-local, and cloud-metadata hosts are always rejected, as are schemes "
+            "other than `https` and SSH."
+        ),
     )
     connection_to_platform_map: Optional[Dict[str, LookerConnectionDefinition]] = Field(
         None,

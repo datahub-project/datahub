@@ -277,6 +277,17 @@ def test_project_dependencies_mixed_local_path_and_git_info(
     )
 
 
+def test_allowed_remote_dependency_domains_optional(
+    minimal_lookml_config: dict,
+) -> None:
+    config = LookMLSourceConfig.model_validate(minimal_lookml_config)
+    assert config.allowed_remote_dependency_domains is None
+
+    minimal_lookml_config["allowed_remote_dependency_domains"] = ["github.com"]
+    config = LookMLSourceConfig.model_validate(minimal_lookml_config)
+    assert config.allowed_remote_dependency_domains == ["github.com"]
+
+
 # ---- LookMLSource.get_workunits_internal: git clone failure ----
 
 
