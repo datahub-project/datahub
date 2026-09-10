@@ -39,7 +39,6 @@ from tests.entity_graph_cache.helpers import (
     move_domain,
     prometheus_counter_total,
     prometheus_isolated,
-    query_container_child_urns,
     query_corpuser_group_relationships,
     query_parent_container_urns_on_container,
     query_parent_domain_urns,
@@ -48,6 +47,7 @@ from tests.entity_graph_cache.helpers import (
     remove_users_from_native_group,
     unique_id,
     update_parent_node,
+    wait_for_container_child,
     wait_for_corp_group_incoming_members,
     wait_for_hierarchy_writes,
     wait_for_session_group_membership_labels,
@@ -477,8 +477,7 @@ def test_container_relationships_direct_children(auth_session, graph_client):
 
         wait_for_hierarchy_writes()
 
-        child_urns = query_container_child_urns(auth_session, grandparent_urn)
-        assert parent_urn in child_urns
+        child_urns = wait_for_container_child(auth_session, grandparent_urn, parent_urn)
         assert child_urn not in child_urns
     finally:
         cleanup_containers(graph_client, created)
