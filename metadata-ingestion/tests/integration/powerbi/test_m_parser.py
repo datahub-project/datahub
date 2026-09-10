@@ -1488,6 +1488,63 @@ def test_bigquery_external_query_tsql_preamble_recovered_after_cleanup():
 
 
 @pytest.mark.integration
+def test_bigquery_external_query_set_assignment_preamble_yields_no_bogus_upstream():
+    # An assignment-style `SET @x = 1` preamble (no statement separator before the SELECT)
+    # collapses the whole batch into a single opaque sqlglot Command: parse_failed stays
+    # False, and the EXTERNAL_QUERY is never surfaced to find_all, so it is never rewritten
+    # to the inert placeholder. remove_tsql_control_statements only strips `SET <opt> ON|OFF`,
+    # not assignments, so the cleanup retry cannot recover it either.
+    #
+    # The invariant this pins: the un-rewritten federation must NOT reach the native parser
+    # as a usable table. It doesn't — the Command fails the native parse, so no upstream (and
+    # in particular no bogus BigQuery billing-project table) is emitted and no federation
+    # connection is reported as resolved. Lineage degrades to empty rather than to a wrong
+    # edge. Guards against a future extraction/rewrite refactor turning this into the bogus
+    # upstream a reviewer feared.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "SET @x = 1#(lf)select account_name from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    lineage: List[Lineage] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    # No upstream is emitted for the unparseable Command — and crucially none of the
+    # emitted upstreams (if the list is non-empty) is a spurious federation/billing-project
+    # table.
+    upstreams = [up for entry in lineage for up in entry.upstreams]
+    assert upstreams == []
+    # The federation was never resolved to a connection, so nothing should be counted.
+    assert reporter.m_query_external_query_connections_resolved == 0
+
+
+@pytest.mark.integration
 def test_bigquery_external_query_raw_string_args_resolve():
     # BigQuery raw-string literals (r'...') for the EXTERNAL_QUERY connection and inner
     # SQL parse as exp.RawString, not exp.Literal. Extraction must still treat them as
