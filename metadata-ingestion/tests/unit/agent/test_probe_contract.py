@@ -637,3 +637,101 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
         f"only {checked} implementations checked; expected the base plus the "
         "Redshift and BigQuery overrides"
     )
+
+
+# --- which sources the framework qualifies, pinned for all of them ---------
+#
+# This exists because a regression got through that a test already covered.
+# The Redshift Table-level assertion in test_shared_identifier_functions
+# would have failed; it was not run. And the connector the change was FOR --
+# Hana -- had no Table-level test at all, nor did the other 24: the only
+# arity coverage was the four warehouses, so 25 sources could be wrong
+# without a single assertion noticing.
+#
+# Pinned as an exhaustive map rather than a rule, deliberately. A rule is
+# what keeps being wrong here -- "is there a FooSource in this file",
+# "which provider does it reuse" -- and each time the rule looked right in
+# isolation. A list fails loudly when a new connector registers, which is
+# the moment somebody should think about it.
+
+_QUALIFIES = {
+    # Not SQLAlchemy-backed: no get_identifier to ask, so the framework
+    # builds container.schema.entity itself.
+    "snowflake",
+    "bigquery",
+    # SQLAlchemy provider, but their Source is not a SQLAlchemySource. They
+    # say so with Qualifier on the field naming their container.
+    "redshift",
+}
+
+
+def _sql_source_types():
+    from datahub.ingestion.source.source_registry import source_registry
+    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+
+    found = {}
+    for source_type in sorted(source_registry.mapping):
+        try:
+            source_cls = source_registry.get(source_type)
+            get_cc = getattr(source_cls, "get_config_class", None)
+            if get_cc is None:
+                continue
+            config_cls = get_cc()
+            if not (
+                isinstance(config_cls, type) and issubclass(config_cls, SQLCommonConfig)
+            ):
+                continue
+            found[source_type] = config_cls
+        except Exception:
+            continue
+    return found
+
+
+def test_every_sql_source_agrees_about_its_own_identifier_arity():
+    """The probe must build the same number of parts the connector matches on.
+
+    Two ways to get this wrong, and this branch has shipped both:
+
+      too many   Hana was treated as fully qualified because HanaSource
+                 lives in hana/hana.py and its config in hana_config.py, so
+                 a filename match missed it. The probe told the caller to
+                 pass a database and then judged MYDB.MYSCHEMA.T1 -- three
+                 parts HanaSource never builds -- with no warning.
+
+      too few    Reading the declared provider instead fixed Hana and broke
+                 Redshift, whose Source is not a SQLAlchemySource but whose
+                 provider is SqlAlchemyMetadataProbe. Verdicts went from
+                 prod.public.orders to public.orders, i.e. inverted.
+    """
+    from datahub.ingestion.source.sql.sql_probe import _matches_a_qualified_name
+
+    found = _sql_source_types()
+    assert len(found) > 20, f"only {len(found)} SQL sources discovered; the scan broke"
+
+    wrong = {}
+    for source_type, config_cls in found.items():
+        got = _matches_a_qualified_name(config_cls.model_construct())
+        expected = source_type in _QUALIFIES
+        if got != expected:
+            wrong[source_type] = (got, expected)
+
+    assert not wrong, (
+        "these sources disagree with the recorded arity. If a new connector "
+        "registered, decide which side it is on and add it to _QUALIFIES (or "
+        "not); if an existing one moved, something changed the signal:\n  "
+        + "\n  ".join(f"{k}: got {v[0]}, recorded {v[1]}" for k, v in wrong.items())
+    )
+
+
+def test_unity_catalog_is_qualified_by_its_own_override_not_the_framework():
+    """Unity is deliberately absent from _QUALIFIES. It declares
+    probe_filter_target, which returns None when no single catalog is pinned
+    -- a degrade the framework cannot express -- so it never reaches the
+    generic branch and does not need the flag."""
+    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+    from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+
+    assert (
+        UnityCatalogSourceConfig.probe_filter_target
+        is not SQLCommonConfig.probe_filter_target
+    )

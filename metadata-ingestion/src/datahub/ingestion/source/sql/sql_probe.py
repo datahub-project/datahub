@@ -346,17 +346,61 @@ def _source_class_for(config: object) -> Type[SQLAlchemySource]:
     return SQLAlchemySource
 
 
-def _has_own_source_class(config: object) -> bool:
-    """Whether _source_class_for found a real Source, or fell back.
+def _matches_a_qualified_name(config: object) -> bool:
+    """Whether this connector's ingestion matches `container.schema.entity`.
 
-    The fallback resolves SQLAlchemySource, whose get_identifier returns
-    `schema.entity` -- correct for a source that really is SQLAlchemy-backed
-    and wrong for one that merely reuses this probe (Snowflake, BigQuery,
-    Redshift, Unity all match a three-part name). Knowing which happened is
-    what lets _identifier_target qualify the name itself instead of every
-    such connector declaring the same formula.
+    Declared, not inferred. Two ways to say it, and both are things the
+    connector already says for other reasons:
+
+      it brings its own probe provider -- Snowflake and BigQuery are not
+      SQLAlchemy-backed at all, so there is no get_identifier to ask
+
+      it marks a field with Qualifier -- Redshift's `database`, BigQuery's
+      `project_ids`; a connector that names the container it qualifies with
+      is telling you it qualifies
+
+    Everything else goes through the shim, where SQLAlchemySource's own
+    get_identifier (or a connector's override of it) is the authority.
+
+    This replaced `_source_class_for(config) is not SQLAlchemySource`, which
+    asked whether a class named FooSource sits in the same file as FooConfig
+    -- a filename convention that already existed to pick which
+    get_identifier to call, and was wrong for arity twice over:
+
+      hana   HanaSource is in hana/hana.py, its config in
+             hana/hana_config.py. The match failed, Hana was treated as
+             fully qualified, and the probe told the caller to pass a
+             database. Doing so produced MYDB.MYSCHEMA.T1 -- three parts
+             HanaSource, which does not override get_identifier, never
+             builds -- with no warning. A wrong answer reached by following
+             the tool's own advice.
+
+      redshift  The opposite. RedshiftSource is not in redshift/config.py
+             either, so the match ALSO failed -- and there the failure gave
+             the right answer, because Redshift genuinely is three-part.
+             Reading the provider instead fixed Hana and broke Redshift,
+             which is what a sweep of all 29 SQL sources caught: the
+             provider says SqlAlchemyMetadataProbe for both.
+
+    Neither question -- what file is the class in, which provider does it
+    reuse -- is the arity question. This one is.
     """
-    return _source_class_for(config) is not SQLAlchemySource
+    getter = getattr(type(config), "probe_provider_class", None)
+    if callable(getter):
+        # lazy: keeps sqlalchemy off the config import path
+        from datahub.ingestion.source.sql.sqlalchemy_probe import (
+            SqlAlchemyMetadataProbe,
+        )
+
+        try:
+            if getter() is not SqlAlchemyMetadataProbe:
+                return True
+        except Exception:
+            pass
+    # lazy: agent.introspect is only needed once a probe runs
+    from datahub.ingestion.agent.introspect import declares_qualifier
+
+    return declares_qualifier(config)
 
 
 def _shim_inspector(
@@ -443,7 +487,7 @@ def _identifier_target(ctx: ClassifyContext) -> str:
         getattr(type(ctx.config), "probe_filter_target", None)
         is not SQLCommonConfig.probe_filter_target
     )
-    if not declared_own and not _has_own_source_class(ctx.config):
+    if not declared_own and _matches_a_qualified_name(ctx.config):
         # No Source to ask, so the shim below would answer `schema.entity`
         # -- which drops the top level for every non-SQLAlchemy SQL source.
         # All four match `container.schema.entity`, so the framework builds

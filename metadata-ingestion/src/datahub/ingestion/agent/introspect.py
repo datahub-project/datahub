@@ -236,6 +236,23 @@ def _is_hidden_field(config_cls: type, name: str) -> bool:
     return any(isinstance(m, SkipJsonSchema) for m in fields[name].metadata)
 
 
+def declares_qualifier(config: Any) -> bool:
+    """Whether any field carries Qualifier, whatever its current value.
+
+    Distinct from declared_qualifier(), which answers "what is the container"
+    and returns None both when no field is marked and when a marked field is
+    empty -- BigQuery naming two projects, say. The distinction matters
+    because the first is a statement about the CONNECTOR (it qualifies) and
+    the second about this RECIPE (it did not say which).
+    """
+    fields = getattr(type(config), "model_fields", None)
+    if not fields:
+        return False
+    return any(
+        any(isinstance(m, Qualifier) for m in info.metadata) for info in fields.values()
+    )
+
+
 def declared_qualifier(config: Any) -> Tuple[Optional[str], bool]:
     """The container a Qualifier-marked field names, and whether it wins.
 
