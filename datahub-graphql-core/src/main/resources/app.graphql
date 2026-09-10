@@ -31,8 +31,14 @@ extend type Query {
   """
   Fetch the latest product update information from configured JSON source.
   Returns null if the JSON source is unavailable or feature is disabled.
+
+  Optional locale (e.g. "ja", "pt-BR") selects translated copy from the JSON
+  i18n map. Missing translations fall back to the default English fields.
   """
-  latestProductUpdate(refreshCache: Boolean = false): ProductUpdate
+  latestProductUpdate(
+    refreshCache: Boolean = false
+    locale: String
+  ): ProductUpdate
 }
 
 extend type Mutation {
@@ -1057,7 +1063,13 @@ type ProductUpdate {
   id: String!
 
   """
-  Title of the update notification
+  Release month in YYYY-MM format, used to generate a localized default title when title is empty
+  """
+  releaseMonth: String
+
+  """
+  Optional title override for the update notification.
+  Empty when the UI should generate its localized monthly title.
   """
   title: String!
 
@@ -1104,13 +1116,13 @@ type ProductUpdate {
 
   """
   Call-to-action button text (deprecated, use primaryCtaText instead)
-  Kept for backward compatibility
+  Kept for backward compatibility. Empty when the UI should generate localized copy.
   """
   ctaText: String!
 
   """
   Call-to-action link URL, with telemetry client ID appended (deprecated, use primaryCtaLink instead)
-  Kept for backward compatibility
+  Kept for backward compatibility. Empty when the UI should generate the release URL from the update id.
   """
   ctaLink: String!
 

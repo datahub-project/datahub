@@ -253,6 +253,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param document the document to update / insert
    * @param docId the ID of the document
    */
+  @Override
   public void upsertDocumentBySearchGroup(
       @Nonnull OperationContext opContext,
       @Nonnull String searchGroup,
@@ -273,6 +274,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param searchGroup the search group name
    * @param docId the ID of the document to delete
    */
+  @Override
   public void deleteDocumentBySearchGroup(
       @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {
     log.debug(
