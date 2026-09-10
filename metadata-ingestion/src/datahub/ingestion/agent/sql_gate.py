@@ -128,6 +128,21 @@ _STATEMENT_KEYWORDS: Dict[type, str] = {
             ("Create", "CREATE"),
             ("Alter", "ALTER"),
             ("Merge", "MERGE"),
+            # `SELECT ... INTO tbl` creates a table on MSSQL and Postgres,
+            # and sqlglot models it as an `into` arg on the Select rather
+            # than as Create or Insert -- so the walk below saw no write
+            # node at all. It was refused only when the target happened to
+            # be unqualified; `SELECT * INTO information_schema.evil FROM
+            # information_schema.tables` named a target inside the permitted
+            # schema and passed. Caught by accident is not caught.
+            ("Into", "SELECT ... INTO"),
+            # `FOR UPDATE` / `FOR SHARE`. Not a write, but not a read
+            # either: it declares write intent and takes row locks that
+            # persist to end of transaction, so a probe could block a
+            # production writer on a catalog view. sqlglot models it as a
+            # `locks` arg on the Select, so like Into it is invisible to a
+            # statement-type check.
+            ("Lock", "row-locking SELECT"),
         )
     )
     if node is not None

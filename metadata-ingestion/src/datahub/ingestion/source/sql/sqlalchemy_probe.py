@@ -5,7 +5,10 @@ from sqlalchemy.engine import Engine
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.sql_passthrough import CatalogRows, SqlCatalogPassthrough
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
 # SQLAlchemy and sqlglot disagree on a handful of dialect names. An unmapped
@@ -42,6 +45,11 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     # one, and this class serves both -- so the kind comes from the recipe's config,
     # primed in for_config and read back by run_probe_method.
     kind_overrides: Dict[str, str] = {}
+
+    # The single container this recipe reads, when it names one -- primed in
+    # for_config, since only the config knows. None on a three-tier source,
+    # and on a two-tier one that enumerates every database.
+    pinned_container: Optional[str] = None
 
     @classmethod
     def for_config(cls, config: SQLCommonConfig) -> "SqlAlchemyMetadataProbe":
@@ -83,6 +91,13 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         # per dialect.
         probe.catalog_scope = config.probe_catalog_scope()
         probe.kind_overrides = {"containers": str(config.probe_container_kind())}
+        # Two-tier only: on a three-tier source `database` names the database
+        # the connection opens on, not a filter over the schemas `containers`
+        # returns, so narrowing to it there would hide every other schema in
+        # the very database being probed.
+        if str(config.probe_container_kind()) == str(DatasetContainerSubTypes.DATABASE):
+            pinned = getattr(config, "database", None)
+            probe.pinned_container = str(pinned) if pinned else None
         return probe
 
     def __exit__(self, *exc: object) -> None:
@@ -116,8 +131,19 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         like MySQL; the reported `kind` says which, because the pattern that filters
         them differs. Includes ones the recipe's pattern would exclude, so
         `probe filter` can explain them, and comes from the connector's own Inspector
-        rather than a catalog query, so it is the list ingestion itself enumerates."""
-        return self._insp.get_schema_names()[:limit]
+        rather than a catalog query, so it is the list ingestion itself enumerates.
+
+        A two-tier recipe naming a single `database` gets that one back rather
+        than every database on the server: ingestion connects to the one the
+        recipe names, so listing the rest reports containers it will never
+        read. The name is checked against the server's own listing rather than
+        echoed back, so a typo still shows as absent instead of being
+        confirmed."""
+        names = self._insp.get_schema_names()
+        pinned = self.pinned_container
+        if pinned is not None:
+            names = [n for n in names if n == pinned]
+        return names[:limit]
 
     @probe_method(
         kind=DatasetSubTypes.TABLE, row_limit_param="limit", parent_params=("schema",)

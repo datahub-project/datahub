@@ -48,6 +48,21 @@ logger = logging.getLogger(__name__)
 # say "read this view but not that column", but redact.mask_identity_columns can,
 # and does -- every row leaving sql_result has it replaced with the redaction
 # marker. The relation is admitted for its shape; the identity in it is withheld.
+# `views` is admitted with its VIEW_DEFINITION column, and a reviewer was right
+# to ask: that is the stored CREATE VIEW SQL, and a view body can embed
+# literals (`... WHERE country = 'DE'`). Admitted anyway, and the reason is
+# not that the risk is small -- it is that refusing it would make the probe
+# unable to see something ingestion PUBLISHES. snowflake_schema_gen reads
+# view_definition, emits it as ViewProperties.viewLogic, and goes out of its
+# way to fetch secure view definitions too (fetch_secure_view_definition). A
+# probe whose contract is "answer the way ingestion will" cannot withhold what
+# ingestion is about to write into the catalog.
+#
+# The line this branch draws is between DDL and DATA. A view body is how the
+# object is defined -- shape, and the thing lineage is derived from.
+# query_history's QUERY_TEXT is what somebody ran, with their WHERE values in
+# it, and stays out. That distinction is why VIEW_DEFINITION is in and
+# QUERY_TEXT is not, rather than both being "SQL text".
 # Catalog-qualified on purpose. ACCOUNT_USAGE is a schema inside the SNOWFLAKE
 # database, but nothing stops a user creating their own database with a schema of
 # that name -- and a two-part entry would match the last two path segments of

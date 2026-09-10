@@ -32,9 +32,15 @@ class _SqlAlchemyUrlConfig(Protocol):
 # unbounded query -- so a dialect earns a row here only once its knob is known to
 # be both server-side and safe to pass. Everything absent declares no ceiling
 # rather than pretending to one.
+# The connect_arg libpq packs every `-c setting` into. Named because
+# engine_options has to append to it rather than assign, and a bare "options"
+# there reads like any other key.
+_LIBPQ_OPTIONS = "options"
+
+
 def _postgres_timeout(seconds: int) -> Dict[str, Any]:
     # libpq passes -c settings straight through to the backend.
-    return {"options": f"-c statement_timeout={seconds * 1000}"}
+    return {_LIBPQ_OPTIONS: f"-c statement_timeout={seconds * 1000}"}
 
 
 _TIMEOUT_CONNECT_ARGS: Dict[str, Any] = {
@@ -287,7 +293,17 @@ def engine_options(
     # control.
     for key, value in _attribution_connect_args(str(url)).items():
         connect_args.setdefault(key, value)
-    connect_args.update(_timeout_connect_args(str(url), budget.timeout_seconds))
+    for key, value in _timeout_connect_args(str(url), budget.timeout_seconds).items():
+        if key == _LIBPQ_OPTIONS and connect_args.get(key):
+            # Appended, not replaced. libpq packs every `-c setting` into one
+            # string, so assigning ours threw away whatever the recipe put
+            # there -- a `-c search_path=reporting,public` vanished, and the
+            # probe then connected with different session settings than
+            # ingestion. That is the same divergence the get_options()/options
+            # fix was about, one layer down.
+            connect_args[key] = f"{connect_args[key]} {value}"
+        else:
+            connect_args[key] = value
     if connect_args != unchanged:
         options["connect_args"] = connect_args
     return options
