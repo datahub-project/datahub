@@ -8,7 +8,8 @@ export const PanelContainer = styled.div`
     margin-bottom: 16px;
 `;
 
-export const PanelHeader = styled.button`
+// Without an explicit type, toggling the panel submits any enclosing form.
+export const PanelHeader = styled.button.attrs({ type: 'button' as const })`
     width: 100%;
     display: flex;
     align-items: center;

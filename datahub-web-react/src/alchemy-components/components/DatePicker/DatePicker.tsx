@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
+import { buildDateTimeFormat } from '@components/components/DatePicker/DatePicker.utils';
 import { DatePickerGlobalStyles } from '@components/components/DatePicker/DatePickerGlobalStyles';
 import { DatePickerWrapper, Label, StyledAntdDatePicker } from '@components/components/DatePicker/components';
 import { DatePickerVariant } from '@components/components/DatePicker/constants';
@@ -29,8 +30,8 @@ export function DatePicker({
     const presetProps = useVariantProps(variant);
     const { inputRender, ...datePickerProps } = presetProps;
 
-    // When showTime is enabled, automatically use a time-inclusive format if not explicitly provided
-    const finalFormat = format || (showTime ? 'YYYY-MM-DD HH:mm:ss' : undefined);
+    // showTime extends the format in play rather than replacing it.
+    const resolvedFormat = showTime ? buildDateTimeFormat(format ?? datePickerProps.format) : format;
 
     const onChangeRef = useRef(onChange);
     onChangeRef.current = onChange;
@@ -60,7 +61,7 @@ export function DatePicker({
                 {label && <Label aria-label={label}>{label}</Label>}
                 <StyledAntdDatePicker
                     {...datePickerProps}
-                    {...(finalFormat ? { format: finalFormat } : {})}
+                    {...(resolvedFormat ? { format: resolvedFormat } : {})}
                     value={value}
                     inputRender={wrappedInputRender && ((props) => wrappedInputRender?.(props))}
                     onChange={(newValue) => setInternalValue(newValue)}
