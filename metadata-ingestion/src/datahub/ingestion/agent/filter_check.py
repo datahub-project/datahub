@@ -6,6 +6,7 @@ from datahub.ingestion.agent.introspect import pattern_field_for_config
 from datahub.ingestion.agent.verdicts import (
     UNFILTERED,
     ClassifyContext,
+    SchemaMatch,
     Verdict,
 )
 from datahub.ingestion.source.common.subtypes import (
@@ -234,16 +235,18 @@ def _structural_verdict(
     }:
         return Verdict(False, "default_schema")
 
-    override = getattr(config, "probe_schema_verdict_override", None)
-    # The container is passed because the qualified form needs one and only the
-    # caller knows which was asked about. Redshift reads its single configured
-    # database and ignores this; BigQuery cannot, because a recipe may name
-    # several projects and the pattern is matched against "project.dataset".
-    match = (
-        override(schema=name, parent_path=tuple(parent_path))
-        if callable(override)
-        else None
-    )
+    match = _qualified_schema_match(config, name, pattern_field, parent_path)
+    if match is None:
+        # A connector whose qualified matching is not the shared
+        # match_fully_qualified_names convention can still declare its own.
+        # None does today; the hook stays because the convention is a
+        # convention, not a guarantee.
+        override = getattr(config, "probe_schema_verdict_override", None)
+        match = (
+            override(schema=name, parent_path=tuple(parent_path))
+            if callable(override)
+            else None
+        )
     if match is not None:
         # The override did the matching itself, so it is the only thing that knows
         # which string decided -- carry it out rather than reporting the bare name.
@@ -253,6 +256,67 @@ def _structural_verdict(
             matched_target=match.target,
         )
     return None
+
+
+def _qualified_container(config: Any, parent_path: Sequence[str]) -> Optional[str]:
+    """The container a qualified schema name is built from.
+
+    The caller's wins: a recipe may span several databases or projects, and
+    only the caller knows which one it is asking about. Falling back to a
+    single configured container keeps `probe filter` answerable without a
+    --parent for the common single-database recipe -- and a connector that
+    implies none (Snowflake selects databases by pattern) gets None, which
+    leaves the bare-name verdict plus a warning rather than a guess.
+    """
+    resolver = getattr(config, "probe_qualifying_container", None)
+    if callable(resolver):
+        container = resolver(parent_path=tuple(parent_path))
+        return str(container) if container else None
+    # A config outside the SQL family (or a test double) declares none; the
+    # caller's parent is the only thing left, and no parent means no answer.
+    return parent_path[-1] if parent_path else None
+
+
+def _qualified_schema_match(
+    config: Any,
+    name: str,
+    pattern_field: Optional[str],
+    parent_path: Sequence[str],
+) -> Optional[SchemaMatch]:
+    """The verdict for a source that matches schemas on `container.schema`.
+
+    Snowflake, BigQuery and Redshift each declared this as their own
+    probe_schema_verdict_override -- 108 lines of three near-identical
+    implementations, one of which (Snowflake's) was simply missing for a
+    while and gave inverted verdicts nobody noticed.
+
+    Nothing in it was per-connector. `match_fully_qualified_names` is an
+    existing *ingestion* field on all three, so the override was restating
+    something the config already said; `pattern_field` is resolved above and
+    already knows dataset_pattern from schema_pattern; and is_schema_allowed
+    is the shared predicate all three were calling anyway. The one genuine
+    difference -- which container to assume when the caller names none -- is
+    now a one-line probe_default_container, and Snowflake needs none at all.
+    """
+    if pattern_field is None:
+        return None
+    if not getattr(config, "match_fully_qualified_names", False):
+        # The bare name is what ingestion matches, so the generic classifier
+        # above is already right.
+        return None
+    container = _qualified_container(config, parent_path)
+    if container is None:
+        return None
+    pattern = getattr(config, pattern_field, None)
+    if not isinstance(pattern, AllowDenyPattern):
+        return None
+    # lazy: pattern_utils is cheap, but this keeps the import next to its one use
+    from datahub.configuration.pattern_utils import is_schema_allowed
+
+    return SchemaMatch(
+        included=is_schema_allowed(pattern, name, container, True),
+        target=f"{container}.{name}",
+    )
 
 
 def _canonical_kind(source_type: str, config: Any, kind: str) -> str:

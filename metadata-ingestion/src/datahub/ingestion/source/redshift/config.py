@@ -8,7 +8,6 @@ from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
-from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -16,7 +15,6 @@ from datahub.ingestion.agent.sql_gate import (
     INFORMATION_SCHEMA,
     CatalogScope,
 )
-from datahub.ingestion.agent.verdicts import SchemaMatch
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -277,6 +275,15 @@ class RedshiftConfig(
 
         return frozenset(REDSHIFT_DEFAULT_SCHEMAS)
 
+    def probe_qualifying_container(
+        self, parent_path: Sequence[str] = ()
+    ) -> Optional[str]:
+        """A Redshift recipe connects to exactly one database, so `database`
+        is the only qualifier ingestion ever uses -- parent_path is accepted
+        and ignored on purpose, since honouring a different one would answer
+        about a database this recipe does not read."""
+        return self.database
+
     def probe_filter_target(
         self,
         schema: str,
@@ -284,45 +291,12 @@ class RedshiftConfig(
         warn: Callable[[str], None],
         database: Optional[str] = None,
     ) -> Optional[str]:
-        # sql_probe.py's generic get_identifier shim (see sql_probe._identifier_target)
-        # only reaches connectors whose real Source extends SQLAlchemySource.
-        # RedshiftSource doesn't, so without this override the shim would fall
-        # back to the bare "schema.entity" it uses for any other non-SQLAlchemy
-        # SQL source -- missing the leading `database` segment that
-        # redshift.py's table_pattern/view_pattern checks actually use (see
-        # dataset_name above). `database` is a single required field here
-        # (default "dev"), so -- unlike Unity Catalog's `catalogs` list --
-        # this always has an unambiguous answer; `warn` is unused because
-        # this override never degrades. `database` is accepted and ignored
-        # for the same reason parent_path is in probe_schema_verdict_override
-        # below: a Redshift recipe connects to one database, so self.database
-        # is the only qualifier ingestion ever uses.
-        return dataset_name(self.database, schema, entity)
+        """`database.schema.table`, via the builder redshift.py also uses.
 
-    def probe_schema_verdict_override(
-        self, schema: str, parent_path: Sequence[str] = ()
-    ) -> Optional[SchemaMatch]:
-        # parent_path is accepted and ignored: a Redshift recipe connects to one
-        # database, so self.database is the only qualifier ingestion ever uses.
-        # Honouring a different parent here would answer about a database this
-        # recipe does not read.
-        # Same gap one level up: sql_probe.py's generic Schema-level
-        # classifier matches schema_pattern against the bare schema name,
-        # but redshift.py's own is_schema_allowed(...) calls (see e.g.
-        # cache_tables_and_views) match "database.schema" instead once
-        # match_fully_qualified_names is on. Reuses the shared predicate
-        # rather than re-deriving its branching here -- the same one
-        # bigquery_probe.py's _classify_dataset calls.
-        if not self.match_fully_qualified_names:
-            return None
-        # Reports "database.schema" as the target because that is the string
-        # is_schema_allowed matched; the bare name would contradict the verdict.
-        return SchemaMatch(
-            included=is_schema_allowed(
-                self.schema_pattern, schema, self.database, True
-            ),
-            target=f"{self.database}.{schema}",
-        )
+        `database` is ignored for the reason probe_qualifying_container
+        ignores parent_path: this recipe reads exactly one.
+        """
+        return dataset_name(self.database, schema, entity)
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> "RedshiftConfig":

@@ -216,6 +216,7 @@ _CONFIG_HOOKS = frozenset(
         "probe_prepare_engine",
         "probe_unfiltered_kinds",
         "probe_schema_needs_parent",
+        "probe_qualifying_container",
     }
 )
 
@@ -596,6 +597,11 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
     # every one of these -- by name, since every call site uses keywords.
     required_kwargs = {
         "probe_schema_verdict_override": {"schema", "parent_path"},
+        # Added when the three near-identical schema overrides collapsed into
+        # filter_check._qualified_schema_match: this is the one fact that
+        # stayed per-connector, so it is the one whose signature can now
+        # break every SQL source at once.
+        "probe_qualifying_container": {"parent_path"},
     }
 
     problems = []

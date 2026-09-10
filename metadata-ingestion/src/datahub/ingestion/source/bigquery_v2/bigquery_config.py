@@ -30,7 +30,6 @@ from datahub.configuration.common import (
     HiddenFromDocs,
 )
 from datahub.configuration.env_vars import get_bigquery_schema_parallelism
-from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -41,7 +40,6 @@ from datahub.configuration.time_window_config import (
     BucketDuration,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.ingestion.agent.verdicts import SchemaMatch
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
@@ -50,7 +48,11 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
 )
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
+from datahub.ingestion.source.sql.sql_config import (
+    _NO_PARENT_WARNING,
+    SQLCommonConfig,
+    SQLFilterConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -294,15 +296,17 @@ class BigQueryFilterConfig(SQLFilterConfig):
         default=AllowDenyPattern.allow_all(),
     )
 
-    def probe_schema_needs_parent(self) -> bool:
-        """True when a verdict needs to know which project the caller means.
-
-        dataset_pattern is matched against "project.dataset" once
-        match_fully_qualified_names is on, so a recipe naming several projects
-        cannot be answered from the config alone. One project is unambiguous,
-        and with the flag off the bare dataset name is what ingestion matches.
-        """
-        return self.match_fully_qualified_names and len(self.project_ids) != 1
+    def probe_qualifying_container(
+        self, parent_path: Sequence[str] = ()
+    ) -> Optional[str]:
+        """The caller's project wins -- a recipe may name several. Falling
+        back to the configured one when it pins exactly one keeps
+        `probe filter` answerable without a --parent for the common
+        single-project recipe; with several and no parent, say nothing
+        rather than guess."""
+        if parent_path:
+            return parent_path[-1]
+        return self.project_ids[0] if len(self.project_ids) == 1 else None
 
     def probe_filter_target(
         self,
@@ -311,56 +315,11 @@ class BigQueryFilterConfig(SQLFilterConfig):
         warn: Callable[[str], None],
         database: Optional[str] = None,
     ) -> Optional[str]:
-        """The string BigQuery matches table_pattern against:
-        `project.dataset.table` (BigQueryTableIdentifier.raw_table_name).
-
-        Same gap as SnowflakeFilterConfig's override -- BigQueryV2Source does
-        not extend SQLAlchemySource either, so the generic shim fell back to
-        `dataset.table` and dropped the project. The project comes from the
-        caller because a recipe may name several.
-        """
+        """`project.dataset.table` -- BigQueryTableIdentifier.raw_table_name."""
         if not database:
-            warn(
-                "no parent project given, so these BigQuery tables were "
-                "judged on 'dataset.table'; ingestion matches "
-                "'project.dataset.table', so pass the containing project to "
-                "get the verdict it actually makes"
-            )
+            warn(_NO_PARENT_WARNING.format(level="project"))
             return None
         return f"{database}.{schema}.{entity}"
-
-    def probe_schema_verdict_override(
-        self, schema: str, parent_path: Sequence[str] = ()
-    ) -> Optional[SchemaMatch]:
-        # bigquery_schema_gen filters datasets with is_schema_allowed over
-        # "project.dataset" whenever match_fully_qualified_names is on, which is
-        # the default. filter_check's generic Schema classifier matches the bare
-        # dataset name, so without this the verdict is judged against a string
-        # ingestion never sees -- and since dataset_pattern is rewritten to
-        # `^.*\.name$` by the validator above, every dataset reads as excluded.
-        #
-        # Mirrors RedshiftConfig.probe_schema_verdict_override and calls the same
-        # shared predicate, so the two cannot drift from each other or from
-        # ingestion.
-        if not self.match_fully_qualified_names:
-            return None
-        # The caller's project wins, because a recipe may name several and only
-        # the caller knows which one it is asking about. Falling back to the
-        # configured project when there is exactly one keeps `probe filter`
-        # answerable without a --parent for the common single-project recipe.
-        # With several projects and no parent, say nothing rather than guess:
-        # that leaves the bare-name verdict and the "pass the containing
-        # schema" warning, which is weaker but not wrong.
-        if parent_path:
-            project_id = parent_path[-1]
-        elif len(self.project_ids) == 1:
-            project_id = self.project_ids[0]
-        else:
-            return None
-        return SchemaMatch(
-            included=is_schema_allowed(self.dataset_pattern, schema, project_id, True),
-            target=f"{project_id}.{schema}",
-        )
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> Any:

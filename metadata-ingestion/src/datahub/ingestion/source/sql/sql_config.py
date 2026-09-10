@@ -71,6 +71,16 @@ class SQLFilterConfig(ConfigModel):
         return values
 
 
+# Said by every probe_filter_target override whose connector qualifies on a
+# container the caller did not name. One string, because three near-identical
+# ones is how they drift.
+_NO_PARENT_WARNING = (
+    "no parent {level} given, so these were judged on 'schema.table'; "
+    "ingestion matches the fully qualified name, so pass the containing "
+    "{level} to get the verdict it actually makes"
+)
+
+
 class SQLCommonConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
@@ -168,6 +178,30 @@ class SQLCommonConfig(
         from datahub.ingestion.source.sql.sql_probe import _identifier_target
 
         return _identifier_target(ctx)
+
+    def probe_qualifying_container(
+        self, parent_path: Sequence[str] = ()
+    ) -> Optional[str]:
+        """Which container a qualified schema name is built from.
+
+        The one genuinely per-connector fact behind qualified matching (see
+        filter_check._qualified_schema_match), and it is not simply "a
+        default" -- connectors disagree about who wins:
+
+        - The caller, by default and here. A recipe spanning many databases
+          or projects can only be asked about one at a time, and only the
+          caller knows which. With no parent there is nothing to fall back
+          on, so the verdict stays on the bare name and says so.
+        - The config, on Redshift, which connects to exactly one database:
+          honouring a different parent would answer about a database the
+          recipe does not read.
+        - The caller, then the config, on BigQuery, whose recipe may pin one
+          project or several.
+
+        Snowflake inherits this unchanged: it selects databases by pattern,
+        so it pins nothing to fall back to.
+        """
+        return parent_path[-1] if parent_path else None
 
     def probe_filter_target(
         self,

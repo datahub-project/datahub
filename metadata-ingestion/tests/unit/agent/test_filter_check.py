@@ -309,13 +309,40 @@ def test_a_single_project_recipe_still_needs_no_parent():
 
 
 def test_an_override_that_cannot_answer_says_so():
-    """Several projects and no parent: the bare-name verdict stands, and every
-    name reads as excluded. That is defensible only if the caller is told why --
-    silence here is a confidently wrong answer, which is the failure this
-    command exists to prevent."""
-    payload = _bq([])
-    assert all(not v["included"] for v in payload["results"])
-    assert any("qualified name" in w for w in payload["warnings"]), payload["warnings"]
+    """BigQuery pinning several projects has no single answer to give without
+    a parent, so it declines rather than guessing -- leaving the bare-name
+    verdict and the "pass the containing schema" warning, which is weaker
+    than an answer but not a wrong one.
+
+    Drives check_filters rather than the removed per-connector override, for
+    the reason given on the Redshift test above.
+    """
+    result = check_filters(
+        source_type="bigquery",
+        config_dict={
+            "project_ids": ["p1", "p2"],
+            "dataset_pattern": {"allow": [r"^p1\.ds1$"]},
+        },
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=[],
+        names=["ds1"],
+    )
+    # Bare name, because nothing could qualify it.
+    assert result.results[0].target == "ds1"
+
+    # And with the caller naming one, the qualified verdict comes back.
+    answered = check_filters(
+        source_type="bigquery",
+        config_dict={
+            "project_ids": ["p1", "p2"],
+            "dataset_pattern": {"allow": [r"^p1\.ds1$"]},
+        },
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=["p1"],
+        names=["ds1"],
+    )
+    assert answered.results[0].target == "p1.ds1"
+    assert answered.results[0].included is True
 
 
 def test_the_warning_is_absent_when_the_override_could_answer():
@@ -327,26 +354,31 @@ def test_the_warning_is_absent_when_the_override_could_answer():
 
 
 def test_redshift_ignores_the_parent_and_uses_its_own_database():
-    """A Redshift recipe connects to one database, so self.database is the only
+    """A Redshift recipe connects to one database, so `database` is the only
     qualifier ingestion ever uses. Honouring a different parent would answer
-    about a database this recipe does not read."""
-    from datahub.ingestion.source.redshift.config import RedshiftConfig
+    about a database this recipe does not read.
 
-    config = RedshiftConfig.model_validate(
-        {
+    This used to call RedshiftConfig.probe_schema_verdict_override directly.
+    That override is gone -- the convention it implemented now lives in
+    filter_check._qualified_schema_match -- but the behaviour it protected is
+    per-connector and survives, so the test drives the whole path instead.
+    """
+    result = check_filters(
+        source_type="redshift",
+        config_dict={
             "host_port": "redshift.example:5439",
             "database": "prod",
             "username": "u",
             "password": "p",
             "match_fully_qualified_names": True,
-            "schema_pattern": {"allow": ["^prod\\.analytics$"]},
-        }
+            "schema_pattern": {"allow": [r"^prod\.analytics$"]},
+        },
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=["some_other_db"],
+        names=["analytics"],
     )
-    match = config.probe_schema_verdict_override(
-        schema="analytics", parent_path=("some_other_db",)
-    )
-    assert match is not None
-    assert match.target == "prod.analytics"
+    assert result.results[0].target == "prod.analytics"
+    assert result.results[0].included is True
 
 
 @pytest.mark.parametrize("source_type", ["postgres", "mssql"])

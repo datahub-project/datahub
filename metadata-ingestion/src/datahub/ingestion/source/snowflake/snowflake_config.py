@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
-from typing import Callable, Dict, List, Optional, Sequence, Set
+from typing import Callable, Dict, List, Optional, Set
 
 import pydantic
 from pydantic import Field, ValidationInfo, field_validator, model_validator
@@ -16,7 +16,7 @@ from datahub.configuration.common import (
     Filters,
     HiddenFromDocs,
 )
-from datahub.configuration.pattern_utils import UUID_REGEX, is_schema_allowed
+from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -26,7 +26,6 @@ from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import StructuredPropertyWriteMode
-from datahub.ingestion.agent.verdicts import SchemaMatch
 from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
 )
@@ -38,7 +37,11 @@ from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
+from datahub.ingestion.source.sql.sql_config import (
+    _NO_PARENT_WARNING,
+    SQLCommonConfig,
+    SQLFilterConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -310,89 +313,17 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         warn: Callable[[str], None],
         database: Optional[str] = None,
     ) -> Optional[str]:
-        """The string SnowflakeFilter matches table_pattern/view_pattern
-        against: `database.schema.table`.
-
-        Without this the probe fell through to sql_probe's generic shim,
-        which resolves no Source class for Snowflake (SnowflakeV2Source does
-        not extend SQLAlchemySource) and so landed on SQLAlchemySource's own
-        `schema.entity`. A recipe with table_pattern allow
-        ['^DB\\.PUBLIC\\.ORDERS$'] then had
-        `probe filter --kind Table --parent DB --parent PUBLIC --name ORDERS`
-        report it EXCLUDED with target 'PUBLIC.ORDERS' and no warning --
-        while ingestion matches 'DB.PUBLIC.ORDERS' and includes it. An
-        inverted verdict from the command whose only job is verdicts.
-
-        The database comes from the caller rather than from config: one
-        Snowflake recipe spans many databases, so unlike Redshift there is no
-        single answer to read off self. With no parent database this degrades
-        to the shim's partial answer and says so, rather than inventing one.
-
-        _combine_identifier_parts is reused rather than reimplemented, for
-        the reason the shim calls get_identifier rather than rebuilding it:
-        the probe must not hold its own idea of what an identifier is.
-        """
+        """`database.schema.table`, via the connector's own builder."""
         if not database:
-            warn(
-                "no parent database given, so these Snowflake tables were "
-                "judged on 'schema.table'; ingestion matches "
-                "'database.schema.table', so pass the containing database to "
-                "get the verdict it actually makes"
-            )
+            warn(_NO_PARENT_WARNING.format(level="database"))
             return None
-        # lazy: snowflake_utils pulls in the connector's own dependency chain,
-        # which a probe against another source should not pay for.
+        # lazy: snowflake_utils pulls the connector's own dependency chain in.
         from datahub.ingestion.source.snowflake.snowflake_utils import (
             _combine_identifier_parts,
         )
 
         return _combine_identifier_parts(
             db_name=database, schema_name=schema, table_name=entity
-        )
-
-    def probe_schema_needs_parent(self) -> bool:
-        """True when a Schema verdict needs to know which database is meant.
-
-        schema_pattern is matched against "database.schema" once
-        match_fully_qualified_names is on, and unlike Redshift (one
-        `database`) or BigQuery (often one project) there is nothing on this
-        config to fall back to -- Snowflake selects databases by pattern, so
-        only the caller knows which one it is asking about.
-        """
-        return self.match_fully_qualified_names
-
-    def probe_schema_verdict_override(
-        self, schema: str, parent_path: Sequence[str] = ()
-    ) -> Optional[SchemaMatch]:
-        """The verdict SnowflakeFilter makes when the recipe asks for
-        qualified matching.
-
-        This class declared match_fully_qualified_names and no override, so
-        the generic Schema classifier judged the bare name against a pattern
-        ingestion matches as "database.schema": a recipe with schema_pattern
-        allow ['^MYDB\\.PUBLIC$'] had every schema read as excluded, target
-        'PUBLIC', with nothing marking the answer as degraded -- while
-        is_schema_allowed(pattern, 'PUBLIC', 'MYDB', True) includes it.
-
-        Mirrors RedshiftConfig's and BigQueryV2Config's overrides and calls
-        the same shared predicate, so the three cannot drift from each other
-        or from ingestion.
-        """
-        if not self.match_fully_qualified_names:
-            # The bare name is exactly what ingestion matches here, so the
-            # generic classifier is already right and an override would only
-            # be a second implementation of it.
-            return None
-        if not parent_path:
-            # Nothing on the config to fall back to. Saying nothing leaves
-            # the bare-name verdict plus the "pass the containing database"
-            # warning probe_schema_needs_parent above turns on -- weaker
-            # than an answer, but not a wrong one.
-            return None
-        database = parent_path[-1]
-        return SchemaMatch(
-            included=is_schema_allowed(self.schema_pattern, schema, database, True),
-            target=f"{database}.{schema}",
         )
 
 
