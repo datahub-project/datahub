@@ -549,6 +549,19 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # exists in a loaded Data Model, or a slice of each -- and those are
     # different decisions about whether to build a resolver on this endpoint.
     chart_ref_schema_resolvable_by_reason: Dict[str, int] = field(default_factory=dict)
+    # EVERY outcome by original cause, keyed "<outcome>::<reason>", not just the
+    # resolvable one. If /schema covers less than hoped, the useful question
+    # immediately becomes what it holds for those columns INSTEAD, and
+    # "cross_sheet: small" cannot answer that. Reading both off the same run is
+    # the difference between one run and three.
+    chart_ref_schema_outcomes_by_reason: Dict[str, int] = field(default_factory=dict)
+    # The nameRef paths /schema does hold for columns it CANNOT resolve. The
+    # shape is the evidence: a path of unexpected length or head means this
+    # reader is wrong, no paths at all means the endpoint genuinely has nothing
+    # for that column, and the two call for opposite responses.
+    chart_ref_schema_unresolvable_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
     # Splits unknown_source_but_name_exists_in_a_data_model_this_workbook_loads
     # by whether a same-named element actually OWNS the referenced column:
     # exactly one owner means the ref is real and the candidate list was too

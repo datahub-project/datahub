@@ -7631,6 +7631,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             formula = column_formula.get(item.column_id)
             if formula is None:
                 self.reporter.chart_ref_schema_column_absent += 1
+                self._record_schema_outcome(item, "column_absent", formula=None)
                 continue
             refs = self._schema_name_refs(formula)
             cross_sheet = [
@@ -7645,28 +7646,63 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ]
             if cross_sheet:
                 self.reporter.chart_ref_schema_cross_sheet_resolvable += 1
-                # Bucket by the cause the column was already filed under, so
-                # the measurement says WHICH gap this endpoint would close.
-                # A single total cannot: it would be consistent with closing
-                # the 6,679 or the 1,065 or a slice of each, and those are
-                # different decisions about whether to build the resolver.
-                for reason in item.reasons or {"none_recorded"}:
-                    self.reporter.chart_ref_schema_resolvable_by_reason[reason] = (
-                        self.reporter.chart_ref_schema_resolvable_by_reason.get(
-                            reason, 0
-                        )
-                        + 1
-                    )
-                self.reporter.chart_ref_schema_samples.append(
-                    f"{item.element_id}.{item.column}: columnId={item.column_id} "
-                    f"reasons={sorted(item.reasons)} -> sheet/column {cross_sheet}"
+                self._record_schema_outcome(
+                    item, "cross_sheet", formula=formula, detail=str(cross_sheet)
                 )
             elif warehouse:
                 self.reporter.chart_ref_schema_warehouse_resolvable += 1
+                self._record_schema_outcome(item, "warehouse", formula=formula)
             elif refs:
                 self.reporter.chart_ref_schema_sibling_only += 1
+                self._record_schema_outcome(item, "sibling_only", formula=formula)
             else:
                 self.reporter.chart_ref_schema_no_refs += 1
+                self._record_schema_outcome(item, "no_refs", formula=formula)
+
+    def _record_schema_outcome(
+        self,
+        item: "_UnresolvedChartColumn",
+        outcome: str,
+        *,
+        formula: Any,
+        detail: str = "",
+    ) -> None:
+        """File one /schema outcome under (outcome, original cause), with evidence.
+
+        Every outcome is bucketed and sampled, not just the successful one.
+        Sampling only the successes would answer "how many would this fix" and
+        nothing else -- and the likely result is that it fixes less than hoped,
+        at which point the useful question becomes what /schema actually holds
+        for those columns instead. Without the failing shapes on hand that costs
+        another full run to answer.
+        """
+        for reason in item.reasons or {"none_recorded"}:
+            key = f"{outcome}::{reason}"
+            self.reporter.chart_ref_schema_outcomes_by_reason[key] = (
+                self.reporter.chart_ref_schema_outcomes_by_reason.get(key, 0) + 1
+            )
+        if outcome == "cross_sheet":
+            self.reporter.chart_ref_schema_resolvable_by_reason.update(
+                {
+                    reason: self.reporter.chart_ref_schema_resolvable_by_reason.get(
+                        reason, 0
+                    )
+                    + 1
+                    for reason in item.reasons or {"none_recorded"}
+                }
+            )
+            self.reporter.chart_ref_schema_samples.append(
+                f"{item.element_id}.{item.column}: columnId={item.column_id} "
+                f"reasons={sorted(item.reasons)} -> {detail}"
+            )
+            return
+        # The paths, not the whole tree: a formula can be large and the shape is
+        # what says why this column is not resolvable from /schema.
+        paths = self._schema_name_refs(formula) if formula is not None else []
+        self.reporter.chart_ref_schema_unresolvable_samples.append(
+            f"{outcome} {item.element_id}.{item.column}: columnId={item.column_id} "
+            f"reasons={sorted(item.reasons)} nameRef_paths={paths[:6]}"
+        )
 
     def _check_chart_column_accounting(self) -> None:
         """Reconcile the chart-column counters against each other, in-run.

@@ -6,7 +6,7 @@ Cases cover probe-derived chart formulas and resolver behavior.
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -22,7 +22,10 @@ from datahub.ingestion.source.sigma.formula_parser import (
     BracketRef,
     extract_bracket_refs,
 )
-from datahub.ingestion.source.sigma.sigma import SigmaSource
+from datahub.ingestion.source.sigma.sigma import (
+    SigmaSource,
+    _UnresolvedChartColumn,
+)
 from datahub.metadata.schema_classes import InputFieldsClass
 
 # ---------------------------------------------------------------------------
@@ -960,6 +963,106 @@ class TestNameInLoadedDataModelOutcomes:
         finally:
             logging.disable(logging.NOTSET)
         assert src.reporter.chart_ref_name_in_loaded_dm_outcomes == {"unique_owner": 1}
+
+
+class TestSchemaMeasurementRecordsFailures:
+    """Every /schema outcome is bucketed and sampled, not just the useful one.
+
+    Sampling only the successes answers "how many would this fix" and nothing
+    else. The likely result is that it fixes less than hoped, and the next
+    question is then what /schema holds for those columns instead -- which
+    without the failing shapes costs another full run to answer.
+    """
+
+    def _measure(self, formula: Any, *, reason: str = "some_reason") -> SigmaSource:
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src.sigma_api = MagicMock()
+        src.sigma_api.get_workbook_schema.return_value = {
+            "sheets": {"sheet1": {"columns": {"col1": {"formula": formula}}}}
+        }
+        workbook = _make_workbook_with_elements([[_make_element("e1", "El")]])
+        src._measure_schema_resolvable_refs(
+            workbook,
+            [
+                _UnresolvedChartColumn(
+                    element_id="e1",
+                    column="Col",
+                    column_id="col1",
+                    reasons=frozenset({reason}),
+                )
+            ],
+        )
+        return src
+
+    def test_a_sibling_only_column_is_sampled_with_its_paths(self) -> None:
+        src = self._measure({"type": "nameRef", "path": ["someOtherColumn"]})
+
+        assert src.reporter.chart_ref_schema_sibling_only == 1
+        assert src.reporter.chart_ref_schema_outcomes_by_reason == {
+            "sibling_only::some_reason": 1
+        }
+        (sample,) = list(src.reporter.chart_ref_schema_unresolvable_samples)
+        assert "someOtherColumn" in sample
+        assert "some_reason" in sample
+
+    def test_a_column_absent_from_schema_is_sampled_too(self) -> None:
+        """The two endpoints disagreeing about the workbook is a finding."""
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src.sigma_api = MagicMock()
+        src.sigma_api.get_workbook_schema.return_value = {"sheets": {}}
+        workbook = _make_workbook_with_elements([[_make_element("e1", "El")]])
+        src._measure_schema_resolvable_refs(
+            workbook,
+            [
+                _UnresolvedChartColumn(
+                    element_id="e1",
+                    column="Col",
+                    column_id="missing",
+                    reasons=frozenset({"some_reason"}),
+                )
+            ],
+        )
+
+        assert src.reporter.chart_ref_schema_column_absent == 1
+        assert src.reporter.chart_ref_schema_outcomes_by_reason == {
+            "column_absent::some_reason": 1
+        }
+        assert len(list(src.reporter.chart_ref_schema_unresolvable_samples)) == 1
+
+    def test_a_resolvable_column_is_not_in_the_failure_samples(self) -> None:
+        src = self._measure(
+            {"type": "nameRef", "path": ["sheet1", "col1"]},
+            reason="element_named_but_not_a_lineage_upstream",
+        )
+
+        assert src.reporter.chart_ref_schema_cross_sheet_resolvable == 1
+        assert src.reporter.chart_ref_schema_resolvable_by_reason == {
+            "element_named_but_not_a_lineage_upstream": 1
+        }
+        assert list(src.reporter.chart_ref_schema_unresolvable_samples) == []
+        # Present in the by-outcome map too, so one map covers every column.
+        assert src.reporter.chart_ref_schema_outcomes_by_reason == {
+            "cross_sheet::element_named_but_not_a_lineage_upstream": 1
+        }
+
+    def test_refs_nested_under_an_operator_are_still_found(self) -> None:
+        """Sigma nests refs under binOp/callOp/path, so the tree must be walked.
+
+        Reading only the top level would report no_refs for every computed
+        column and understate the endpoint.
+        """
+        src = self._measure(
+            {
+                "type": "binOp",
+                "op": "*",
+                "x": {"type": "nameRef", "path": ["sheet1", "col1"]},
+                "y": {"type": "const", "val": 2},
+            }
+        )
+
+        assert src.reporter.chart_ref_schema_cross_sheet_resolvable == 1
 
 
 class TestChartColumnAccountingCheck:
