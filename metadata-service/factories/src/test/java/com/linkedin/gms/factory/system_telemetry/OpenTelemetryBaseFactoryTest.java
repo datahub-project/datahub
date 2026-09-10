@@ -13,7 +13,10 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.context.kafka.SpanProducerRecordResolver;
 import io.datahubproject.metadata.context.telemetry.EnrichingSpanProcessor;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.sdk.trace.ReadableSpan;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import java.lang.reflect.Field;
@@ -444,5 +447,42 @@ public class OpenTelemetryBaseFactoryTest {
 
     assertNotNull(context);
     // Should use MetricSpanExporter when OTEL_METRICS_EXPORTER is not set
+  }
+
+  @Test
+  public void testResourceAttributesPreserved() {
+    String propKey = "otel.resource.attributes";
+    String original = System.getProperty(propKey);
+
+    try {
+      System.setProperty(propKey, "k8s.namespace.name=test-tenant,service.namespace=datahub");
+
+      TestOpenTelemetryFactory f = new TestOpenTelemetryFactory("datahub-mae-consumer");
+      SystemTelemetryContext ctx =
+          f.testTraceContext(mockMetricUtils, mockConfigurationProvider, mockPublisher);
+
+      Span span = ctx.getTracer().spanBuilder("test").startSpan();
+      try {
+        assertTrue(span instanceof ReadableSpan, "Span should be a ReadableSpan from the SDK");
+        ReadableSpan readable = (ReadableSpan) span;
+        var resource = readable.toSpanData().getResource();
+
+        assertEquals(
+            resource.getAttribute(AttributeKey.stringKey("service.name")),
+            "datahub-mae-consumer");
+        assertEquals(
+            resource.getAttribute(AttributeKey.stringKey("k8s.namespace.name")), "test-tenant");
+        assertEquals(
+            resource.getAttribute(AttributeKey.stringKey("service.namespace")), "datahub");
+      } finally {
+        span.end();
+      }
+    } finally {
+      if (original != null) {
+        System.setProperty(propKey, original);
+      } else {
+        System.clearProperty(propKey);
+      }
+    }
   }
 }
