@@ -7,6 +7,7 @@ from datahub.ingestion.source.snowflake.snowflake_openflow import (
     ConnectorTableLineage,
     build_connector_flow,
     build_connector_table_job,
+    encoded_urn_len,
     urn_fits,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_models import (
@@ -171,3 +172,42 @@ def test_a_short_table_name_stays_readable() -> None:
     flow = build_connector_flow(connector, platform_instance=None, env="PROD")
     job = build_connector_table_job(connector, flow, pair)
     assert str(job.urn).endswith("rt/conn/public.t)")
+
+
+@pytest.mark.parametrize(
+    "char",
+    ["c", "\u6570", "\U0001f600", "a b", "n%m", "x~y"],
+    ids=["ascii", "cjk", "emoji", "space", "percent", "tilde"],
+)
+def test_no_identifier_length_produces_an_urn_gms_would_reject(char: str) -> None:
+    # Swept rather than sampled, because every previous attempt at this guard
+    # passed its own chosen example and failed elsewhere: a 200-char budget that
+    # emitted 258, then an encoded-byte check whose 80-CHARACTER shortening blew
+    # up on CJK, then a digest floor that could not help the DataJob because its
+    # urn nests the whole DataFlow urn -- a 467-byte flow admitted no job at all.
+    #
+    # "~" is in the alphabet deliberately: Python's quote_plus passes it through
+    # while java.net.URLEncoder writes %7E, so measuring with quote_plus
+    # under-counted exactly the character the shortener used to insert.
+    pair = ConnectorTableLineage(
+        source_schema="public",
+        source_table="t",
+        outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)",
+    )
+
+    for length in (1, 50, 120, 200, 209, 230, 255):
+        connector = OpenflowConnector(name=char * length, runtime_name=char * length)
+        flow = build_connector_flow(connector, platform_instance=None, env="PROD")
+        job = build_connector_table_job(connector, flow, pair)
+
+        assert encoded_urn_len(flow.urn) <= 512, (char, length, "flow")
+        assert encoded_urn_len(job.urn) <= 512, (char, length, "job")
+
+
+def test_the_length_measured_is_the_one_gms_measures() -> None:
+    # Pins the encoder itself against java.net.URLEncoder's rules, since the
+    # sweep above is only as good as what it measures with.
+    assert encoded_urn_len("a~b") == 5  # quote_plus says 3
+    assert encoded_urn_len("a*b") == 3  # quote_plus says 5
+    assert encoded_urn_len("a b") == 3  # space is "+", one byte
+    assert encoded_urn_len("\u6570") == 9  # one CJK char, three utf-8 bytes

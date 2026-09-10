@@ -6,7 +6,6 @@ import json
 import logging
 import pathlib
 import tempfile
-import urllib.parse
 from functools import cached_property
 from typing import (
     Any,
@@ -168,6 +167,14 @@ _MAX_RUNTIMES_FOR_URL_LOOKUP = 500
 # GMS rejects an aspect whose URL-encoded urn exceeds this; see
 # metadata-utils UrnValidationUtil.URN_NUM_BYTES_LIMIT.
 _MAX_URN_BYTES = 512
+# A DataJob urn nests its DataFlow urn whole, so the flow must leave room for a
+# job to exist at all: "urn:li:dataJob:(" + <flow urn> + "," + <job id> + ")".
+# Encoded, the wrapper is 24 + 3 + 3 bytes and the smallest job id the ladder
+# can produce is a 16-character digest, so 48 bytes of headroom. Without this a
+# flow could sit at 509 bytes -- legal on its own -- and no job under it could
+# ever fit, which is precisely what the previous revision shipped.
+_NESTED_JOB_HEADROOM = 48
+_FLOW_URN_BUDGET = _MAX_URN_BYTES - _NESTED_JOB_HEADROOM
 # How much of the readable name a shortened id may keep, tried longest-first.
 # The 0 is the floor and is load-bearing: it means the digest alone, which is
 # ASCII and therefore fits whatever the identifier's encoding cost.
@@ -635,6 +642,7 @@ def build_connector_flow(
             connector, name, platform_instance, env, parent_container, external_url
         ),
         connector.key,
+        _FLOW_URN_BUDGET,
     )
 
 
@@ -664,7 +672,25 @@ def _flow_with_name(
     )
 
 
-def urn_fits(urn: object) -> bool:
+# java.net.URLEncoder leaves only these unencoded; everything else becomes %XX
+# per UTF-8 byte, and a space becomes "+". Python's quote_plus does NOT agree:
+# it passes "~" through where Java writes %7E, and encodes "*" where Java does
+# not. The "~" direction is the dangerous one -- it UNDER-measures, so a urn
+# could pass this check and still be rejected by GMS.
+_JAVA_URLENCODER_SAFE = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-*_"
+)
+
+
+def encoded_urn_len(urn: object) -> int:
+    """The length GMS measures: java.net.URLEncoder.encode(urn).length()."""
+    return sum(
+        1 if char in _JAVA_URLENCODER_SAFE or char == " " else 3 * len(char.encode())
+        for char in str(urn)
+    )
+
+
+def urn_fits(urn: object, budget: int = _MAX_URN_BYTES) -> bool:
     """Whether GMS will accept this URN's length.
 
     The limit is on the URL-ENCODED urn, not on any component of it -- see
@@ -675,13 +701,15 @@ def urn_fits(urn: object) -> bool:
     once inside the flow urn it nests under). GMS rejects the aspect and the
     table's lineage is lost. Bound the thing the server actually measures.
     """
-    return len(urllib.parse.quote_plus(str(urn))) <= _MAX_URN_BYTES
+    return encoded_urn_len(urn) <= budget
 
 
 EntityT = TypeVar("EntityT", DataFlow, DataJob)
 
 
-def _fitted(build: Callable[[str], EntityT], readable: str) -> EntityT:
+def _fitted(
+    build: Callable[[str], EntityT], readable: str, budget: int = _MAX_URN_BYTES
+) -> EntityT:
     """The entity built from `readable`, shortened until its urn fits.
 
     Shortening by CHARACTERS is not enough, which is the trap this replaces: the
@@ -696,12 +724,14 @@ def _fitted(build: Callable[[str], EntityT], readable: str) -> EntityT:
     would name a different entity on every run.
     """
     entity = build(readable)
-    if urn_fits(entity.urn):
+    if urn_fits(entity.urn, budget):
         return entity
     digest = hashlib.md5(readable.encode("utf-8")).hexdigest()[:16]
     for prefix in _SHORTENED_PREFIXES:
-        entity = build(f"{readable[:prefix]}~{digest}" if prefix else digest)
-        if urn_fits(entity.urn):
+        # "-" rather than "~": both encoders leave it alone, so the separator
+        # cannot be the thing that makes the measurement disagree with GMS.
+        entity = build(f"{readable[:prefix]}-{digest}" if prefix else digest)
+        if urn_fits(entity.urn, budget):
             return entity
     return entity
 

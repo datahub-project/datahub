@@ -70,6 +70,16 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:openflow",
+        "name": "snowflake-openflow",
+        "displayName": "Snowflake Openflow",
+        "description": "Import Openflow deployments, runtimes and connectors from Snowflake, with table-level lineage from each connector's configuration.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/openflow/",
+        "recipe": "source:\n    type: snowflake-openflow\n    config:\n        connection:\n            account_id: null\n            authentication_type: KEY_PAIR_AUTHENTICATOR\n            username: null\n            private_key: null\n            role: null\n            warehouse: null\n        # Environment for Openflow's own entities.\n        env: PROD\n        # Must match the warehouse recipe, or lineage points at\n        # Snowflake datasets that do not exist.\n        snowflake_env: PROD\n        include_table_lineage: true\n        stateful_ingestion:\n            enabled: true\n",
+        "category": "Data Warehouse",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:databricks",
         "name": "databricks",
         "displayName": "Databricks",

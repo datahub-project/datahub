@@ -79,6 +79,12 @@ class SnowflakeOpenflowQuery:
         # metadata role should not need. GET downloads the file whole with no
         # such assumption.
         #
-        # The URI is used verbatim as reported by the connector row. Substituting
-        # a guessed version segment fails with errno 99112.
-        return f"GET '{version_location_uri}{filename}' 'file://{local_dir}'"
+        # The URI is used as reported by the connector row -- substituting a
+        # guessed version segment fails with errno 99112 -- but not verbatim:
+        # it lands inside a single-quoted SQL literal, so an embedded quote
+        # would close the literal early. A stage URI is built from Snowflake
+        # identifiers, and a quoted identifier may contain one. describe_connector
+        # above already doubles quotes for the same reason; this did not, which
+        # made the two neighbours disagree about whether the input was trusted.
+        uri = version_location_uri.replace(chr(39), chr(39) * 2)
+        return f"GET '{uri}{filename}' 'file://{local_dir}'"

@@ -76,3 +76,17 @@ def test_describe_connector_escapes_the_string_literal():
     assert query == (
         'DESCRIBE OPENFLOW CONNECTOR IDENTIFIER(\'"db"."s"."o\'\'brien"\')'
     )
+
+
+def test_a_quote_in_the_stage_uri_cannot_close_the_sql_literal():
+    # The URI is built from Snowflake identifiers and a quoted identifier may
+    # contain a single quote, which would otherwise terminate the literal early
+    # and leave the remainder of the URI as SQL. describe_connector already
+    # doubles quotes; this is the same rule applied to its neighbour.
+    query = SnowflakeOpenflowQuery.get_stage_file_to_local(
+        '@db.schema."odd\'name"/versions/1/', "config.json", "/tmp/x"
+    )
+
+    assert "''" in query
+    assert query.count("'") % 2 == 0
+    assert query.startswith("GET '@db.schema.\"odd''name\"/versions/1/config.json'")
