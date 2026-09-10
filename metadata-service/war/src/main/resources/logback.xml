@@ -3,7 +3,7 @@
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%date{ISO8601} [%thread] %-5level %logger{36}:%L - %msg%n</pattern>
+            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
@@ -132,7 +132,7 @@
                         <pattern>service=datahub-gms,pod=${HOSTNAME:-unknown},level=%level</pattern>
                     </label>
                     <message>
-                        <pattern>%date{ISO8601} [%thread] %-5level %logger{36}:%L - %msg%n</pattern>
+                        <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
                     </message>
                 </format>
                 <batchMaxItems>1000</batchMaxItems>
