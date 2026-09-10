@@ -394,7 +394,9 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     # bare SimpleNamespace carrying only the few attributes their test needs.
     probe_filter_target = getattr(ctx.config, "probe_filter_target", None)
     override = (
-        probe_filter_target(schema=schema, entity=ctx.name, warn=ctx.warn)
+        probe_filter_target(
+            schema=schema, entity=ctx.name, warn=ctx.warn, database=database
+        )
         if callable(probe_filter_target)
         else None
     )

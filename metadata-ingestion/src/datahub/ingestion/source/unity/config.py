@@ -635,7 +635,11 @@ class UnityCatalogSourceConfig(
         return self.is_sqlalchemy_profiling()
 
     def probe_filter_target(
-        self, schema: str, entity: str, warn: Callable[[str], None]
+        self,
+        schema: str,
+        entity: str,
+        warn: Callable[[str], None],
+        database: Optional[str] = None,
     ) -> Optional[str]:
         """sql_probe.py's generic get_identifier shim has no get_identifier to
         call for Unity Catalog: UnityCatalogSource doesn't extend

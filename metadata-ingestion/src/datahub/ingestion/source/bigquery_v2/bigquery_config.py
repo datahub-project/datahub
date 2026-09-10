@@ -2,7 +2,17 @@ import logging
 import re
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import (
+    Annotated,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 from pydantic import (
     Field,
@@ -293,6 +303,31 @@ class BigQueryFilterConfig(SQLFilterConfig):
         and with the flag off the bare dataset name is what ingestion matches.
         """
         return self.match_fully_qualified_names and len(self.project_ids) != 1
+
+    def probe_filter_target(
+        self,
+        schema: str,
+        entity: str,
+        warn: Callable[[str], None],
+        database: Optional[str] = None,
+    ) -> Optional[str]:
+        """The string BigQuery matches table_pattern against:
+        `project.dataset.table` (BigQueryTableIdentifier.raw_table_name).
+
+        Same gap as SnowflakeFilterConfig's override -- BigQueryV2Source does
+        not extend SQLAlchemySource either, so the generic shim fell back to
+        `dataset.table` and dropped the project. The project comes from the
+        caller because a recipe may name several.
+        """
+        if not database:
+            warn(
+                "no parent project given, so these BigQuery tables were "
+                "judged on 'dataset.table'; ingestion matches "
+                "'project.dataset.table', so pass the containing project to "
+                "get the verdict it actually makes"
+            )
+            return None
+        return f"{database}.{schema}.{entity}"
 
     def probe_schema_verdict_override(
         self, schema: str, parent_path: Sequence[str] = ()

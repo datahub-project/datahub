@@ -170,7 +170,11 @@ class SQLCommonConfig(
         return _identifier_target(ctx)
 
     def probe_filter_target(
-        self, schema: str, entity: str, warn: Callable[[str], None]
+        self,
+        schema: str,
+        entity: str,
+        warn: Callable[[str], None],
+        database: Optional[str] = None,
     ) -> Optional[str]:
         """Override point for a connector whose real Source doesn't extend
         SQLAlchemySource, so sql_probe.py's generic get_identifier shim (see
@@ -178,7 +182,15 @@ class SQLCommonConfig(
         Return the exact string ingestion filters table_pattern/view_pattern
         against, or None (the default) to let that shim keep resolving it.
         Checked before the shim on every SQL Table-level node; see
-        RedshiftConfig and UnityCatalogSourceConfig for the two overrides.
+        RedshiftConfig, UnityCatalogSourceConfig, SnowflakeV2Config and
+        BigQueryV2Config for the overrides.
+
+        `database` is the container above the schema when the caller supplied
+        one -- parent_path[0] on a source whose hierarchy has a level above
+        the schema. Redshift and Unity Catalog take theirs from config
+        instead and ignore this; Snowflake and BigQuery cannot, because one
+        recipe spans several databases/projects and only the caller knows
+        which one the node came from.
 
         `warn` reports a degrade -- an override that cannot return its exact
         ingestion identifier and is falling back to something less precise

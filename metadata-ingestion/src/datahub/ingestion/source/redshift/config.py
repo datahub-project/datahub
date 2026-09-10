@@ -278,7 +278,11 @@ class RedshiftConfig(
         return frozenset(REDSHIFT_DEFAULT_SCHEMAS)
 
     def probe_filter_target(
-        self, schema: str, entity: str, warn: Callable[[str], None]
+        self,
+        schema: str,
+        entity: str,
+        warn: Callable[[str], None],
+        database: Optional[str] = None,
     ) -> Optional[str]:
         # sql_probe.py's generic get_identifier shim (see sql_probe._identifier_target)
         # only reaches connectors whose real Source extends SQLAlchemySource.
@@ -289,7 +293,10 @@ class RedshiftConfig(
         # dataset_name above). `database` is a single required field here
         # (default "dev"), so -- unlike Unity Catalog's `catalogs` list --
         # this always has an unambiguous answer; `warn` is unused because
-        # this override never degrades.
+        # this override never degrades. `database` is accepted and ignored
+        # for the same reason parent_path is in probe_schema_verdict_override
+        # below: a Redshift recipe connects to one database, so self.database
+        # is the only qualifier ingestion ever uses.
         return dataset_name(self.database, schema, entity)
 
     def probe_schema_verdict_override(

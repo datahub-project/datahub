@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
-from typing import Dict, List, Optional, Set
+from typing import Callable, Dict, List, Optional, Set
 
 import pydantic
 from pydantic import Field, ValidationInfo, field_validator, model_validator
@@ -301,6 +301,53 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             schema_pattern.deny.append(r".*INFORMATION_SCHEMA$")
 
         return self
+
+    def probe_filter_target(
+        self,
+        schema: str,
+        entity: str,
+        warn: Callable[[str], None],
+        database: Optional[str] = None,
+    ) -> Optional[str]:
+        """The string SnowflakeFilter matches table_pattern/view_pattern
+        against: `database.schema.table`.
+
+        Without this the probe fell through to sql_probe's generic shim,
+        which resolves no Source class for Snowflake (SnowflakeV2Source does
+        not extend SQLAlchemySource) and so landed on SQLAlchemySource's own
+        `schema.entity`. A recipe with table_pattern allow
+        ['^DB\\.PUBLIC\\.ORDERS$'] then had
+        `probe filter --kind Table --parent DB --parent PUBLIC --name ORDERS`
+        report it EXCLUDED with target 'PUBLIC.ORDERS' and no warning --
+        while ingestion matches 'DB.PUBLIC.ORDERS' and includes it. An
+        inverted verdict from the command whose only job is verdicts.
+
+        The database comes from the caller rather than from config: one
+        Snowflake recipe spans many databases, so unlike Redshift there is no
+        single answer to read off self. With no parent database this degrades
+        to the shim's partial answer and says so, rather than inventing one.
+
+        _combine_identifier_parts is reused rather than reimplemented, for
+        the reason the shim calls get_identifier rather than rebuilding it:
+        the probe must not hold its own idea of what an identifier is.
+        """
+        if not database:
+            warn(
+                "no parent database given, so these Snowflake tables were "
+                "judged on 'schema.table'; ingestion matches "
+                "'database.schema.table', so pass the containing database to "
+                "get the verdict it actually makes"
+            )
+            return None
+        # lazy: snowflake_utils pulls in the connector's own dependency chain,
+        # which a probe against another source should not pay for.
+        from datahub.ingestion.source.snowflake.snowflake_utils import (
+            _combine_identifier_parts,
+        )
+
+        return _combine_identifier_parts(
+            db_name=database, schema_name=schema, table_name=entity
+        )
 
 
 class SnowflakeIdentifierConfig(

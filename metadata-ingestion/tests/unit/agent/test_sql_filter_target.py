@@ -1,12 +1,14 @@
 from types import SimpleNamespace
 from typing import Any, Callable, List, cast
 
+import pytest
 from sqlalchemy.engine.reflection import Inspector
 
 import datahub.ingestion.source.sql.sql_probe as sql_probe_module
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.sql.druid import DruidConfig
 from datahub.ingestion.source.sql.mysql import MySQLConfig
@@ -436,3 +438,75 @@ def test_redshift_schema_verdict_unchanged_when_flag_is_off():
     verdict = _schema_verdict({**_REDSHIFT, "schema_pattern": {"deny": [r"^public$"]}})
     assert verdict.included is False
     assert verdict.excluded_by == "schema_pattern"
+
+
+# --- the warehouses match on three parts, and the probe now does too -------
+#
+# Neither SnowflakeV2Source nor BigQueryV2Source extends SQLAlchemySource, so
+# sql_probe's shim resolved no Source class for them and fell back to
+# SQLAlchemySource.get_identifier -- `schema.entity`, dropping the database
+# or project. Ingestion matches three parts
+# (snowflake_utils._cleanup_qualified_name,
+# BigQueryTableIdentifier.raw_table_name), so every Table verdict on those
+# two could be inverted, with no warning.
+
+
+def test_snowflake_tables_are_judged_on_the_qualified_name_ingestion_uses():
+    result = check_filters(
+        source_type="snowflake",
+        config_dict={
+            "account_id": "a",
+            "username": "u",
+            "password": "p",
+            "warehouse": "w",
+            "table_pattern": {"allow": [r"^DB\.PUBLIC\.ORDERS$"]},
+        },
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["DB", "PUBLIC"],
+        names=["ORDERS"],
+    )
+    assert result.results[0].target == "DB.PUBLIC.ORDERS"
+    assert result.results[0].included is True
+
+
+def test_bigquery_tables_are_judged_on_the_qualified_name_ingestion_uses():
+    result = check_filters(
+        source_type="bigquery",
+        config_dict={
+            "project_ids": ["p1"],
+            "table_pattern": {"allow": [r"^p1\.ds1\.t1$"]},
+        },
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["p1", "ds1"],
+        names=["t1"],
+    )
+    assert result.results[0].target == "p1.ds1.t1"
+    assert result.results[0].included is True
+
+
+@pytest.mark.parametrize(
+    "source_type,config_dict,word",
+    [
+        (
+            "snowflake",
+            {"account_id": "a", "username": "u", "password": "p", "warehouse": "w"},
+            "database",
+        ),
+        ("bigquery", {"project_ids": ["p1"]}, "project"),
+    ],
+)
+def test_a_missing_parent_degrades_loudly_rather_than_inventing_one(
+    source_type, config_dict, word
+):
+    """One recipe spans several databases/projects, so unlike Redshift there
+    is nothing on the config to fall back to. Guessing would give a verdict
+    about an object in a different database; the partial answer plus a
+    warning is the honest one."""
+    result = check_filters(
+        source_type=source_type,
+        config_dict=config_dict,
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["ds1"],
+        names=["t1"],
+    )
+    assert any(word in w for w in result.warnings), result.warnings
