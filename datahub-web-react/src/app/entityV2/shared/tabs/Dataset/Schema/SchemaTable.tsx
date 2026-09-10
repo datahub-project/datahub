@@ -227,7 +227,13 @@ export default function SchemaTable({
     const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata);
     const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
     const businessAttributeRenderer = useBusinessAttributeRenderer(filterText, false);
-    const schemaTitleRenderer = useSchemaTitleRenderer(entityUrn, schemaMetadata, filterText);
+    const schemaTitleRenderer = useSchemaTitleRenderer(
+        entityUrn,
+        schemaMetadata,
+        filterText,
+        false,
+        setExpandedDrawerFieldPath,
+    );
     const schemaTypeRenderer = useSchemaTypeRenderer();
     const businessAttributesFlag = useBusinessAttributesFlag();
 
@@ -580,6 +586,7 @@ export default function SchemaTable({
             {!!schemaFields && (
                 <SchemaFieldDrawer
                     schemaFields={schemaFields}
+                    schemaMetadata={schemaMetadata}
                     expandedDrawerFieldPath={schemaFieldDrawerFieldPath}
                     editableSchemaMetadata={editableSchemaMetadata}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
