@@ -4,9 +4,15 @@ from typing import AbstractSet, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
-from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+from datahub.ingestion.source.snowflake.constants import (
+    SnowflakeObjectDomain,
+    SnowflakeShowKind,
+)
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
+)
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
 )
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
@@ -555,27 +561,63 @@ class SnowflakeQuery:
         """
 
     @staticmethod
-    def show_views_for_database(
+    def show_objects_for_database(
+        kind: SnowflakeShowKind,
         db_name: str,
         limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
-        view_pagination_marker: Optional[str] = None,
     ) -> str:
-        # While there is an information_schema.views view, that only shows the view definition if the role
-        # is an owner of the view. That doesn't work for us.
-        # https://community.snowflake.com/s/article/Is-it-possible-to-see-the-view-definition-in-information-schema-views-from-a-non-owner-role
+        """A single database-wide SHOW. Deliberately NOT paginated.
 
-        # SHOW VIEWS can return a maximum of 10000 rows.
-        # https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
+        The output is "ordered lexicographically by database, schema, and name", but the
+        `LIMIT ... FROM '<name>'` cursor matches on the object *name* alone - so the cursor
+        key is not the sort key and the result cannot be continued. Measured against a live
+        account, paging it fails in one of two ways depending on the page's last row:
+          - a real object name: the cursor acts as a global `name > marker` filter, so every
+            object in a LATER schema whose name sorts below the marker is silently dropped,
+            while earlier schemas' higher-sorting objects are returned again;
+          - an INFORMATION_SCHEMA view name: the cursor is ignored outright and the next
+            page comes back identical, so the loop never terminates.
+
+        When this page comes back full the caller must page per schema instead - see
+        show_objects_for_schema. Other sites refer here rather than restating this.
+
+        SHOW returns at most 10000 rows:
+        https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
+        """
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
+        database = SnowflakeIdentifierBuilder.get_quoted_identifier_for_database(
+            db_name
+        )
+        return f"""SHOW {kind} IN DATABASE {database} LIMIT {limit};"""
+
+    @staticmethod
+    def show_objects_for_schema(
+        kind: SnowflakeShowKind,
+        db_name: str,
+        schema_name: str,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
+        marker: Optional[str] = None,
+    ) -> str:
+        """One schema's SHOW, optionally continuing after `marker`.
+
+        Scoped to a single schema the output is ordered by name alone, which is exactly what
+        the `FROM '<name>'` cursor matches on, so the cursor key IS the whole sort key and
+        paging is exact - unlike show_objects_for_database.
+        """
         assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
 
-        # To work around this, we paginate through the results using the FROM clause.
+        # A quoted Snowflake identifier may contain a quote or a backslash, and the marker
+        # is embedded in a string literal - escape it or the next page is malformed SQL.
         from_clause = (
-            f"""FROM '{view_pagination_marker}'""" if view_pagination_marker else ""
+            f"""FROM '{_escape_sql_string_literal(marker)}'""" if marker else ""
         )
-        return f"""\
-SHOW VIEWS IN DATABASE "{db_name}"
-LIMIT {limit} {from_clause};
-"""
+        # The identifiers need escaping for the same reason, by the other rule: inside a
+        # double-quoted identifier a literal quote is doubled, so a schema named a"b
+        # closes the identifier early without this.
+        schema = SnowflakeIdentifierBuilder.get_quoted_identifier_for_schema(
+            db_name, schema_name
+        )
+        return f"""SHOW {kind} IN SCHEMA {schema} LIMIT {limit} {from_clause};"""
 
     @staticmethod
     def get_views_for_database(db_name: str, view_filter: str = "") -> str:
@@ -1527,45 +1569,21 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         return """SELECT name as "NAME", email as "EMAIL" FROM SNOWFLAKE.ACCOUNT_USAGE.USERS"""
 
     @staticmethod
-    def streams_for_database(
-        db_name: str,
-        limit: int = SHOW_STREAM_MAX_PAGE_SIZE,
-        stream_pagination_marker: Optional[str] = None,
-    ) -> str:
-        # SHOW STREAMS can return a maximum of 10000 rows.
-        # https://docs.snowflake.com/en/sql-reference/sql/show-streams#usage-notes
-        assert limit <= SHOW_STREAM_MAX_PAGE_SIZE
-
-        # To work around this, we paginate through the results using the FROM clause.
-        from_clause = (
-            f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
-        )
-        return f"""SHOW STREAMS IN DATABASE "{db_name}" LIMIT {limit} {from_clause};"""
-
-    @staticmethod
-    def show_dynamic_tables_for_database(
-        db_name: str,
-        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
-        dynamic_table_pagination_marker: Optional[str] = None,
-    ) -> str:
-        """Get dynamic table definitions using SHOW DYNAMIC TABLES."""
-        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
-
-        from_clause = (
-            f"""FROM '{dynamic_table_pagination_marker}'"""
-            if dynamic_table_pagination_marker
-            else ""
-        )
-        return f"""\
-    SHOW DYNAMIC TABLES IN DATABASE "{db_name}"
-    LIMIT {limit} {from_clause};
-    """
-
-    @staticmethod
     def get_dynamic_table_graph_history(db_name: str) -> str:
         """Get dynamic table dependency information from information schema."""
+        # This function is ACCOUNT-scoped, not database-scoped: invoked from one database's
+        # INFORMATION_SCHEMA it returns rows for every database in the account. Measured on a
+        # live account - 12 rows spanning three other databases and none from the one it was
+        # invoked from. So filter on database_name, and select it so callers can key each row
+        # by its own database rather than the one they asked about; a same-named schema.table
+        # elsewhere would otherwise supply this database's lineage.
+        #
+        # valid_to IS NULL keeps the current version of each entry, since the function
+        # reports history and superseded rows would otherwise compete for the same key.
         return f"""
             SELECT
+                database_name,
+                schema_name,
                 name,
                 inputs,
                 target_lag_type,
@@ -1573,6 +1591,8 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 scheduling_state,
                 alter_trigger
             FROM TABLE("{db_name}".INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
+            WHERE valid_to IS NULL
+              AND database_name = '{_escape_sql_string_literal(db_name)}'
             ORDER BY name
         """
 

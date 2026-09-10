@@ -21,9 +21,11 @@ public class EbeanOptimisticLockingPostgresIT extends EbeanOptimisticLockingDial
   @BeforeClass
   public void init() {
     postgres = PostgresTestUtils.startPostgres();
+    PostgresTestUtils.IntegrationNamespace ns =
+        PostgresTestUtils.newIntegrationNamespace("ebean_ol_it");
     database =
         PostgresTestUtils.createEbeanPrimaryDatabase(
-            postgres, PostgresTestUtils.uniqueServerName("ebean_ol_postgres_it"));
+            postgres, PostgresTestUtils.uniqueServerName("ebean_ol_postgres_it"), ns);
   }
 
   @AfterClass(alwaysRun = true)

@@ -9,10 +9,13 @@ from tests.utilities.concurrent_test_runner import (
     run_concurrent_tests,
     run_concurrent_tests_with_args,
 )
+from tests.utilities.domains import Domain
 from tests.utilities.metadata_operations import get_search_results
 from tests.utils import get_gms_url
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 BASE_URL_V3 = f"{get_gms_url()}/openapi/v3"
 
@@ -21,6 +24,7 @@ default_headers = {
 }
 
 
+@pytest.mark.p0
 @pytest.mark.read_only
 def test_search_works(auth_session):
     """Test that GraphQL entity queries work for all entity types."""

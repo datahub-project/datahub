@@ -27,6 +27,7 @@ import io.ebean.Database;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -117,7 +118,7 @@ public class LoadIndicesStepTest {
     aspectV2.setAspect(aspect);
     aspectV2.setVersion(version);
     aspectV2.setMetadata("{}"); // Required field
-    aspectV2.setCreatedOn(Timestamp.from(createdTime));
+    aspectV2.setCreatedOn(Timestamp.from(createdTime.truncatedTo(ChronoUnit.MILLIS)));
     aspectV2.setCreatedBy(createdBy);
     database.save(aspectV2);
   }
@@ -130,7 +131,7 @@ public class LoadIndicesStepTest {
     aspectV2.setVersion(version);
     // Provide valid container aspect JSON data
     aspectV2.setMetadata("{\"container\":{\"urn\":\"" + urn + "\"}}");
-    aspectV2.setCreatedOn(Timestamp.from(createdTime));
+    aspectV2.setCreatedOn(Timestamp.from(createdTime.truncatedTo(ChronoUnit.MILLIS)));
     aspectV2.setCreatedBy(createdBy);
     database.save(aspectV2);
   }
@@ -531,7 +532,7 @@ public class LoadIndicesStepTest {
     assertTrue(result.aspectNames == null || result.aspectNames.isEmpty());
     assertTrue(result.urnLike == null);
     assertEquals(result.gePitEpochMs, Long.valueOf(0L));
-    assertTrue(result.lePitEpochMs > 0); // Should be current time
+    assertEquals(result.lePitEpochMs, Long.valueOf(0L));
     assertEquals(result.limit, 1000);
     assertFalse(result.urnBasedPagination);
     assertTrue(result.lastUrn == null || result.lastUrn.isEmpty());

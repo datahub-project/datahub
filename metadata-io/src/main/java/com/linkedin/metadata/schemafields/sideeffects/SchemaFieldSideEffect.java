@@ -79,15 +79,15 @@ public class SchemaFieldSideEffect extends MCPSideEffect {
    * When true, mirror dataset {@code domains} onto each schemaField (upsert + cascade delete).
    *
    * <p>Turning this off stops further live mirroring. Re-run {@code
-   * GenerateSchemaFieldsFromSchemaMetadata} after the flag change (fingerprint updates
-   * automatically) to delete leftover field aspects.
+   * GenerateSchemaFieldsFromSchemaMetadata} after enabling to backfill; disabling does not delete
+   * leftover field aspects.
    */
   private boolean domainEnabled;
 
   /**
    * When true, mirror dataset {@code ownership} onto each schemaField (upsert + cascade delete).
    *
-   * <p>Same disable/cleanup behavior as {@link #domainEnabled}.
+   * <p>Same enable/disable behavior as {@link #domainEnabled}.
    */
   private boolean ownershipEnabled;
 

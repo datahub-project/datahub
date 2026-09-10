@@ -9,7 +9,6 @@ entities:
     viewUnrestricted: true
     category: core
     keyAspect: roleKey
-    searchGroup: primary
     aspects:
       - roleProperties
       - actors
@@ -17,15 +16,17 @@ entities:
     doc: Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.
     category: core
     keyAspect: datasetKey
-    searchGroup: primary
     aspects:
       - viewProperties
       - semanticModelProperties
       - subTypes
       - datasetProfile
       - datasetUsageStatistics
+      - usageFeatures
+      - storageFeatures
       - operation
       - domains
+      - dataProducts
       - applications
       - schemaMetadata
       - status
@@ -66,11 +67,11 @@ entities:
       - dataHubPolicyInfo
   - name: dataJob
     keyAspect: dataJobKey
-    searchGroup: primary
     aspects:
       - datahubIngestionRunSummary
       - datahubIngestionCheckpoint
       - domains
+      - dataProducts
       - applications
       - deprecation
       - versionInfo
@@ -96,9 +97,9 @@ entities:
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
-    searchGroup: primary
     aspects:
       - domains
+      - dataProducts
       - applications
       - deprecation
       - versionInfo
@@ -130,7 +131,6 @@ entities:
   - name: dataProcessInstance
     doc: DataProcessInstance represents an instance of a datajob/jobflow run
     keyAspect: dataProcessInstanceKey
-    searchGroup: timeseries
     aspects:
       - dataProcessInstanceInput
       - dataProcessInstanceOutput
@@ -146,7 +146,6 @@ entities:
   - name: chart
     category: core
     keyAspect: chartKey
-    searchGroup: primary
     aspects:
       - chartInfo
       - editableChartProperties
@@ -156,6 +155,7 @@ entities:
       - embed
       - browsePaths
       - domains
+      - dataProducts
       - applications
       - container
       - deprecation
@@ -174,9 +174,9 @@ entities:
       - documentation
   - name: dashboard
     keyAspect: dashboardKey
-    searchGroup: primary
     aspects:
       - domains
+      - dataProducts
       - applications
       - container
       - deprecation
@@ -203,7 +203,6 @@ entities:
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
-    searchGroup: primary
     aspects:
       - notebookInfo
       - notebookContent
@@ -215,6 +214,7 @@ entities:
       - browsePaths
       - institutionalMemory
       - domains
+      - dataProducts
       - applications
       - subTypes
       - dataPlatformInstance
@@ -225,7 +225,6 @@ entities:
     viewUnrestricted: true
     doc: CorpUser represents an identity of a person (or an account) in the enterprise.
     keyAspect: corpUserKey
-    searchGroup: primary
     aspects:
       - corpUserInfo
       - corpUserEditableInfo
@@ -247,7 +246,6 @@ entities:
     viewUnrestricted: true
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
-    searchGroup: primary
     aspects:
       - corpGroupInfo
       - corpGroupEditableInfo
@@ -264,7 +262,6 @@ entities:
     doc: A data domain within an organization.
     category: core
     keyAspect: domainKey
-    searchGroup: primary
     aspects:
       - domainProperties
       - institutionalMemory
@@ -276,11 +273,9 @@ entities:
       - displayProperties
       - assetSettings
   - name: container
-    viewUnrestricted: true
     doc: A container of related data assets.
     category: core
     keyAspect: containerKey
-    searchGroup: primary
     aspects:
       - containerProperties
       - editableContainerProperties
@@ -295,6 +290,7 @@ entities:
       - browsePaths # unclear if this will be used
       - status
       - domains
+      - dataProducts
       - applications
       - browsePathsV2
       - structuredProperties
@@ -305,7 +301,6 @@ entities:
   - name: tag
     category: core
     keyAspect: tagKey
-    searchGroup: primary
     aspects:
       - tagProperties
       - ownership
@@ -315,7 +310,6 @@ entities:
   - name: glossaryTerm
     category: core
     keyAspect: glossaryTermKey
-    searchGroup: primary
     aspects:
       - glossaryTermInfo
       - glossaryRelatedTerms
@@ -337,7 +331,6 @@ entities:
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
-    searchGroup: primary
     aspects:
       - glossaryNodeInfo
       - institutionalMemory
@@ -350,6 +343,7 @@ entities:
       - displayProperties
       - assetSettings
       - domains
+      - applications
       - globalTags
   - name: document
     category: core
@@ -360,6 +354,7 @@ entities:
       - status
       - ownership
       - domains
+      - dataProducts
       - structuredProperties
       - subTypes
       - dataPlatformInstance
@@ -385,7 +380,6 @@ entities:
   - name: dataHubExecutionRequest
     category: internal
     keyAspect: dataHubExecutionRequestKey
-    searchGroup: timeseries
     aspects:
       - dataHubExecutionRequestInput
       - dataHubExecutionRequestSignal
@@ -425,11 +419,11 @@ entities:
   - name: mlModel
     category: core
     keyAspect: mlModelKey
-    searchGroup: primary
     aspects:
       - glossaryTerms
       - editableMlModelProperties
       - domains
+      - dataProducts
       - applications
       - ownership
       - mlModelProperties
@@ -453,6 +447,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - versionProperties
       - subTypes
       - container
@@ -460,11 +455,11 @@ entities:
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
-    searchGroup: primary
     aspects:
       - glossaryTerms
       - editableMlModelGroupProperties
       - domains
+      - dataProducts
       - applications
       - mlModelGroupProperties
       - ownership
@@ -496,11 +491,11 @@ entities:
   - name: mlFeatureTable
     category: core
     keyAspect: mlFeatureTableKey
-    searchGroup: primary
     aspects:
       - glossaryTerms
       - editableMlFeatureTableProperties
       - domains
+      - dataProducts
       - applications
       - mlFeatureTableProperties
       - ownership
@@ -514,16 +509,17 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - subTypes
       - documentation
   - name: mlFeature
     category: core
     keyAspect: mlFeatureKey
-    searchGroup: primary
     aspects:
       - glossaryTerms
       - editableMlFeatureProperties
       - domains
+      - dataProducts
       - applications
       - mlFeatureProperties
       - ownership
@@ -537,16 +533,17 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
       - subTypes
       - documentation
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
-    searchGroup: primary
     aspects:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
+      - dataProducts
       - applications
       - mlPrimaryKeyProperties
       - ownership
@@ -591,7 +588,6 @@ entities:
   - name: schemaField
     category: core
     keyAspect: schemaFieldKey
-    searchGroup: schemaField
     aspects:
       - schemafieldInfo
       - structuredProperties
@@ -601,6 +597,7 @@ entities:
       - schemaFieldAliases
       - documentation
       - testResults
+      - incidentsSummary
       - deprecation
       - subTypes
       - logicalParent
@@ -635,7 +632,6 @@ entities:
     viewUnrestricted: true
     category: core
     keyAspect: dataHubRoleKey
-    searchGroup: primary
     aspects:
       - dataHubRoleInfo
   - name: post
@@ -670,7 +666,6 @@ entities:
   - name: query
     category: core
     keyAspect: queryKey
-    searchGroup: query
     aspects:
       - queryProperties
       - querySubjects
@@ -681,7 +676,6 @@ entities:
   - name: dataProduct
     category: core
     keyAspect: dataProductKey
-    searchGroup: primary
     aspects:
       - ownership
       - glossaryTerms
@@ -700,7 +694,6 @@ entities:
   - name: application
     category: core
     keyAspect: applicationKey
-    searchGroup: primary
     aspects:
       - applicationProperties
       - applicationLineage
@@ -717,7 +710,6 @@ entities:
   - name: semanticModel
     category: core
     keyAspect: semanticModelKey
-    searchGroup: primary
     aspects:
       - semanticModelInfo
       - upstreamLineage
@@ -738,7 +730,6 @@ entities:
   - name: metric
     category: core
     keyAspect: metricKey
-    searchGroup: primary
     aspects:
       - metricInfo
       - metricRelationships
@@ -776,7 +767,6 @@ entities:
   - name: businessAttribute
     category: core
     keyAspect: businessAttributeKey
-    searchGroup: primary
     aspects:
       - businessAttributeInfo
       - status
@@ -785,7 +775,6 @@ entities:
   - name: dataContract
     category: core
     keyAspect: dataContractKey
-    searchGroup: primary
     aspects:
       - dataContractProperties
       - dataContractStatus
@@ -884,7 +873,6 @@ entities:
     doc: A Service represents an external service that can be integrated with DataHub, such as an MCP server.
     category: core
     keyAspect: serviceKey
-    searchGroup: primary
     aspects:
       - serviceProperties
       - mcpServerProperties
@@ -900,7 +888,6 @@ entities:
     doc: An AI agent with custom instructions, tools, and scoping. Supports native (DataHub-managed), system (bootstrapped), and external (cataloged) agents.
     category: core
     keyAspect: aiAgentKey
-    searchGroup: primary
     aspects:
       - aiAgentInfo
       - aiAgentDependencies
@@ -921,7 +908,6 @@ entities:
     doc: A named callable with a typed input and output schema (an MCP tool, REST endpoint, gRPC method, GraphQL operation, function, etc.). Cataloged as a first-class entity for discovery and caller-to-API dependency tracking (services that compose APIs, agents that invoke them).
     category: core
     keyAspect: apiKey
-    searchGroup: primary
     aspects:
       - apiProperties
       - apiSignature
@@ -941,7 +927,6 @@ entities:
     doc: A source-code repository (GitHub, GitLab, internal SCM, etc.). The genesis node of the software-to-data lifecycle (repo -> service -> api -> app -> dataset); produces the services, APIs, and apps cataloged elsewhere. Not tabular (no columns/queries/stats).
     category: core
     keyAspect: repositoryKey
-    searchGroup: primary
     aspects:
       - repositoryProperties
       - repositorySource
@@ -961,7 +946,6 @@ entities:
     doc: A high-level, reusable capability bundle (prompts + tools + domain expertise) that agents adopt. Defined in git and cataloged in DataHub.
     category: core
     keyAspect: agentSkillKey
-    searchGroup: primary
     aspects:
       - agentSkillInfo
       - dataPlatformInstance

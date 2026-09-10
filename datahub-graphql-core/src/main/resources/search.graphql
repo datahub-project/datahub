@@ -29,6 +29,13 @@ extend type Query {
   ): ScrollAcrossLineageResults
 
   """
+  How many entities a graph query on a node reaches, without returning any of them
+  """
+  searchAcrossLineageCounts(
+    input: SearchAcrossLineageCountsInput!
+  ): SearchAcrossLineageCounts
+
+  """
   Autocomplete a search query against a specific DataHub Entity Type
   """
   autoComplete(input: AutoCompleteInput!): AutoCompleteResults
@@ -191,6 +198,17 @@ input SearchFlags {
   Determines whether to filter out any non-latest entity version if entity is part of a Version Set, default true
   """
   filterNonLatestVersions: Boolean
+
+  """
+  Minimum relevance score (inclusive) for the semantic (kNN) search path. Hits scoring below this
+  floor are dropped, letting an agent abstain instead of returning weak matches. Currently honored
+  only by the semantic search path.
+
+  The value is compared against the engine's raw kNN relevance score (cosine-derived), which is not
+  a normalized 0..1 value; its scale depends on the embedding model and search engine, so a suitable
+  floor must be calibrated per deployment rather than assumed.
+  """
+  minScore: Float
 }
 
 """
@@ -216,6 +234,95 @@ input LineageFlags {
   a large amount of additional hops to occur and should be used with caution.
   """
   ignoreAsHops: [EntityTypeToPlatforms!]
+}
+
+"""
+Input for counting what a graph query on a node reaches. Deliberately narrow: it carries only what
+is needed to count, so there is no paging, sorting, or free-text query to configure.
+"""
+input SearchAcrossLineageCountsInput {
+  """
+  Urn of the source node
+  """
+  urn: String!
+
+  """
+  The direction of the relationship, either incoming or outgoing from the source entity
+  """
+  direction: LineageDirection!
+
+  """
+  Entity types to count. If not provided, all entities are counted.
+  """
+  types: [EntityType!]
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
+
+  """
+  Flags controlling the lineage query
+  """
+  lineageFlags: LineageFlags
+
+  """
+  Whether to count all unmaterialized entities, not just the ones the entity index can return.
+  Lineage graphs point at these constantly -- fine-grained lineage writes graph edges without
+  materializing the schema fields it connects -- so counting them means reading the count off the
+  graph instead of the index.
+
+  validateSchemaFields narrows this: an unmaterialized schema field is counted only while its
+  parent dataset's schemaMetadata still declares it.
+  """
+  includeGhostEntities: Boolean
+
+  """
+  Whether to count soft deleted entities. Ignored when includeGhostEntities is set, which counts
+  off the graph and so never consults the soft-delete state held in the entity index.
+  """
+  includeSoftDeleted: Boolean
+
+  """
+  Whether to check that schema fields counted off the graph still exist, by reading the
+  schemaMetadata of the datasets holding them. The graph keeps its edges long after a column is
+  removed or its dataset deleted, so without this those columns are still counted.
+
+  Defaults to AUTO, which checks whenever doing so is cheap.
+  """
+  validateSchemaFields: SchemaFieldValidationMode = AUTO
+}
+
+"""
+Whether to check that schema fields read off the lineage graph still exist
+"""
+enum SchemaFieldValidationMode {
+  """
+  Do not check. Counts may include columns their parent no longer declares.
+  """
+  NONE
+
+  """
+  Check when it is cheap to, which is nearly always: the read is batched per parent dataset and
+  columns share parents heavily, so counting very many columns is usually few reads. Skipped when a
+  walk fans out over more parent datasets than are worth fetching.
+  """
+  AUTO
+
+  """
+  Check however many parent datasets it takes.
+  """
+  ALWAYS
+}
+
+"""
+How many entities a graph query on a node reaches
+"""
+type SearchAcrossLineageCounts {
+  """
+  The number of entities reached
+  """
+  total: Int!
 }
 
 input EntityTypeToPlatforms {

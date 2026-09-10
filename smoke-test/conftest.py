@@ -5,7 +5,7 @@ import logging
 import os
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import pytest
 import requests
@@ -18,6 +18,12 @@ from datahub.ingestion.graph.client import (
 )
 from tests.test_result_msg import send_message
 from tests.utilities import env_vars
+from tests.utilities.domains import (
+    ALL_DOMAINS,
+    domains_of,
+    is_selected,
+    parse_requested_domains,
+)
 from tests.utils import (
     TestSessionWrapper,
     assert_admin_corpuser_info_preserved,
@@ -48,7 +54,7 @@ def build_auth_session():
         Frontend URL is not required; GraphQL routes through the GMS directly.
 
     Login-based (default for local dev):
-        Set ADMIN_USERNAME / ADMIN_PASSWORD (or CYPRESS_ADMIN_* equivalents).
+        Set ADMIN_USERNAME / ADMIN_PASSWORD.
     """
     prebuilt_token = os.environ.get("DATAHUB_GMS_TOKEN")
     if prebuilt_token:
@@ -57,6 +63,11 @@ def build_auth_session():
 
     wait_for_healthcheck_util(requests)
     auth_session = TestSessionWrapper(get_frontend_session())
+    # Lag polls always use DATAHUB_GMS_TOKEN (VIEW_SYSTEM_STATUS or
+    # MANAGE_SYSTEM_OPERATIONS). Publish the bootstrap admin PAT here, before
+    # any wait_for_writes_to_sync() call. Restricted-user TestSessionWrappers
+    # must not overwrite this.
+    os.environ["DATAHUB_GMS_TOKEN"] = auth_session.gms_token()
     wait_for_admin_corpuser_system_bootstrap(auth_session)
     return auth_session
 
@@ -196,6 +207,82 @@ def _ingest_cleanup_unique_dataset_impl(
     yield dataset_urn
     logger.info(f"removing {test_name} test data")
     delete_urns_from_file(graph_client, unique_file)
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--domain",
+        action="append",
+        default=[],
+        metavar="DOMAIN",
+        help=(
+            "Only run tests owned by this product domain. Repeatable, e.g. "
+            "--domain catalog --domain ingestion. Valid values: "
+            f"{', '.join(sorted(ALL_DOMAINS))}."
+        ),
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    # Validate here rather than during collection: a bad value raised from
+    # pytest_collection_modifyitems surfaces as an INTERNALERROR instead of a
+    # readable usage error.
+    try:
+        parse_requested_domains(config.getoption("--domain"))
+    except ValueError as exc:
+        raise pytest.UsageError(str(exc)) from exc
+
+
+# Test modules this PR touches, from CI. Read once: the environment is fixed for
+# the life of the process.
+_CHANGED_TESTS: List[str] = env_vars.get_smoke_changed_tests()
+_CHANGED_MATCHED: Set[str] = set()
+
+
+def pytest_itemcollected(item: Item) -> None:
+    """Mark tests from modules this PR touches as p0.
+
+    Runs per item during collection, before any ``pytest_collection_modifyitems``
+    hook, so pytest's own ``-m`` deselection then keeps them. This is the
+    marker-injection pattern from pytest's docs, and it is what lets a PR's own
+    new or edited tests run under ``-m p0`` without a second selection mechanism.
+
+    ``_CHANGED_TESTS`` holds repo-relative paths while ``item.fspath`` is
+    absolute, so match by suffix -- the same approach the FILTERED_TESTS retry
+    path uses.
+    """
+    if not _CHANGED_TESTS:
+        return
+    module_path = str(item.fspath)
+    for path in _CHANGED_TESTS:
+        if module_path.endswith(path):
+            _CHANGED_MATCHED.add(path)
+            item.add_marker(pytest.mark.p0)
+            break
+
+
+def _apply_domain_filter(config: pytest.Config, items: List[Item]) -> None:
+    """Deselect tests outside the domains requested with --domain."""
+    requested = parse_requested_domains(config.getoption("--domain"))
+    if not requested:
+        return
+
+    selected: List[Item] = []
+    deselected: List[Item] = []
+    for item in items:
+        declared = domains_of(item.get_closest_marker("domain"))
+        target = selected if is_selected(declared, requested) else deselected
+        target.append(item)
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+    logger.info(
+        "--domain %s: selected %s of %s test(s)",
+        ",".join(sorted(requested)),
+        len(selected),
+        len(items),
+    )
+    items[:] = selected
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -378,11 +465,26 @@ def _apply_smoke_policy_phase_filter(items: List[Item]) -> None:
     logger.warning("Unknown SMOKE_POLICY_PHASE=%r; running all collected tests", phase)
 
 
+@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(
     session: pytest.Session, config: pytest.Config, items: List[Item]
 ) -> None:
-    if env_vars.get_test_strategy() == "cypress":
-        return  # We launch cypress via pytests, but needs a different batching mechanism at cypress level.
+    # Runs before every early return below, and before the weight-based batching,
+    # so batches are packed from the selected tests only.
+    if _CHANGED_TESTS:
+        unmatched = [p for p in _CHANGED_TESTS if p not in _CHANGED_MATCHED]
+        if unmatched:
+            # Deleted test files land here harmlessly, but so would a change in
+            # the path format CI emits -- which would silently stop a PR's own
+            # tests being marked p0, the exact failure this injection prevents.
+            logger.warning(
+                "SMOKE_CHANGED_TESTS: %s of %s path(s) matched no collected module: %s",
+                len(unmatched),
+                len(_CHANGED_TESTS),
+                ", ".join(sorted(unmatched)[:5]),
+            )
+
+    _apply_domain_filter(config, items)
 
     # Check if FILTERED_TESTS is set (for retry logic)
     filtered_tests_file = env_vars.get_filtered_tests_file()

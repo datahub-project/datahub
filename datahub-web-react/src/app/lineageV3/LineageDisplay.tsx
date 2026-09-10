@@ -9,7 +9,7 @@ import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
 import LineageSidebar from '@app/lineageV3/LineageSidebar';
 import LineageVisualization from '@app/lineageV3/LineageVisualization';
 import { ColumnRef, LineageDisplayContext, LineageNodesContext, setDefault } from '@app/lineageV3/common';
-import useBulkDataProductMemberships from '@app/lineageV3/queries/useBulkDataProductMemberships';
+import useBulkBoundingBoxMemberships from '@app/lineageV3/queries/useBulkBoundingBoxMemberships';
 import useBulkEntityLineage from '@app/lineageV3/queries/useBulkEntityLineage';
 import useColumnHighlighting from '@app/lineageV3/useColumnHighlighting';
 import { getNodePriority } from '@app/lineageV3/useComputeGraph/NodeBuilder';
@@ -65,10 +65,10 @@ export default function LineageDisplay({
         return map;
     }, [flowNodes]);
     const refetchUrn = useBulkEntityLineage(shownUrns);
-    useBulkDataProductMemberships();
+    useBulkBoundingBoxMemberships();
 
     const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode, displayedAdjacencyList);
-    const { cllHighlightedNodes, highlightedColumns } = useColumnHighlighting(
+    const { cllHighlightedNodes, highlightedColumns, shownRelatedColumns } = useColumnHighlighting(
         selectedColumn,
         hoveredColumn,
         fineGrainedLineage.indirect,
@@ -141,6 +141,7 @@ export default function LineageDisplay({
                 highlightedNodes,
                 cllHighlightedNodes,
                 highlightedColumns,
+                shownRelatedColumns,
                 highlightedEdges,
                 fineGrainedLineage: fineGrainedLineage.indirect,
                 fineGrainedOperations: fineGrainedLineage.fineGrainedOperations,

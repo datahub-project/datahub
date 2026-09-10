@@ -86,13 +86,20 @@ public class DataProductMembershipAuthorizationValidator
         extractProposedProductDomainsAspects(batchItems);
     List<AspectValidationException> failures = new ArrayList<>();
 
+    Set<Urn> productsNeedingDomains = new HashSet<>(changedAssetsByProduct.keySet());
+    productsNeedingDomains.addAll(nameChangeProducts);
+    Map<Urn, Map<String, Aspect>> persistedProductDomainsAspects =
+        productsNeedingDomains.isEmpty()
+            ? Map.of()
+            : aspectRetriever.getLatestAspectObjects(
+                operationContext, productsNeedingDomains, Set.of(DOMAINS_ASPECT_NAME));
+
     if (!membershipChanges.isEmpty()) {
       Set<Urn> unauthorizedMembership =
           EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
-              operationContext,
               session,
-              aspectRetriever,
               changedAssetsByProduct,
+              persistedProductDomainsAspects,
               proposedProductDomainsAspects);
 
       for (BatchItem item : membershipChanges) {
@@ -109,10 +116,9 @@ public class DataProductMembershipAuthorizationValidator
     if (!nameChangeProducts.isEmpty()) {
       Set<Urn> unauthorizedRenames =
           EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
-              operationContext,
               session,
-              aspectRetriever,
               nameChangeProducts,
+              persistedProductDomainsAspects,
               proposedProductDomainsAspects);
 
       for (BatchItem item : items) {

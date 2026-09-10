@@ -3,7 +3,6 @@ package com.linkedin.metadata.models;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
-import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import java.util.Arrays;
 import java.util.Collections;
 import org.testng.annotations.Test;
@@ -24,24 +23,6 @@ public class EntitySpecBuilderSearchIndexGroupTest {
     assertEquals(entitySpec.getName(), "testEntity");
     assertEquals(entitySpec.getKeyAspectName(), "testKey");
     assertEquals(entitySpec.getSearchGroup(), "primary");
-  }
-
-  @Test
-  public void testBuildConfigEntitySpecWithDefaultSearchIndexGroup() {
-    EntitySpecBuilder builder = new EntitySpecBuilder();
-    AspectSpec mockAspectSpec = createMockAspectSpec("testAspect");
-
-    EntitySpec entitySpec =
-        builder.buildConfigEntitySpec(
-            "testEntity",
-            "testKey",
-            Arrays.asList(mockAspectSpec),
-            EntityAnnotation.DEFAULT_SEARCH_GROUP);
-
-    assertNotNull(entitySpec);
-    assertEquals(entitySpec.getName(), "testEntity");
-    assertEquals(entitySpec.getKeyAspectName(), "testKey");
-    assertEquals(entitySpec.getSearchGroup(), EntityAnnotation.DEFAULT_SEARCH_GROUP);
   }
 
   @Test

@@ -45,6 +45,7 @@ import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
@@ -78,6 +79,8 @@ public class DataHubAuthorizerTest {
 
   private static final Urn USER_WITH_ADMIN_ROLE =
       UrnUtils.getUrn("urn:li:corpuser:user-with-admin");
+  // A user with no configured policies, exercising only the default self policies.
+  private static final Urn SELF_USER = UrnUtils.getUrn("urn:li:corpuser:selfUser");
   private static final Urn USER_WITH_DOMAIN_ACCESS =
       UrnUtils.getUrn("urn:li:corpuser:domainAccessUser");
   private static final Urn USER_WITH_CONTAINER_ACCESS =
@@ -100,7 +103,11 @@ public class DataHubAuthorizerTest {
   public void setupTest() throws Exception {
     _entityClient = mock(SystemEntityClient.class);
     _groupService =
-        new GroupService(_entityClient, mock(EntityService.class), mock(GraphClient.class));
+        new GroupService(
+            _entityClient,
+            mock(EntityService.class),
+            mock(GraphClient.class),
+            mock(GraphService.class));
 
     // Init mocks.
     final Urn activePolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:0");
@@ -609,6 +616,43 @@ public class DataHubAuthorizerTest {
             Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
+  }
+
+  @Test
+  public void testDefaultSelfPolicyAllowsReadOnSelf() throws Exception {
+
+    // No configured policy grants these; they come from the "View Self" default policy.
+    for (String privilege : ImmutableList.of("VIEW_ENTITY_PAGE", "GET_ENTITY_PRIVILEGE")) {
+      AuthorizationRequest request =
+          new AuthorizationRequest(
+              SELF_USER.toString(),
+              privilege,
+              Optional.of(selfEntitySpec()),
+              Collections.emptyList());
+
+      assertEquals(
+          _dataHubAuthorizer.authorize(request).getType(),
+          AuthorizationResult.Type.ALLOW,
+          String.format("Expected the View Self default policy to grant %s on self", privilege));
+    }
+  }
+
+  @Test
+  public void testDefaultSelfPolicyDeniesWriteOnSelf() throws Exception {
+
+    for (String privilege : ImmutableList.of("EDIT_ENTITY", "DELETE_ENTITY")) {
+      AuthorizationRequest request =
+          new AuthorizationRequest(
+              SELF_USER.toString(),
+              privilege,
+              Optional.of(selfEntitySpec()),
+              Collections.emptyList());
+
+      assertEquals(
+          _dataHubAuthorizer.authorize(request).getType(),
+          AuthorizationResult.Type.DENY,
+          String.format("Expected no default policy to grant %s on self", privilege));
+    }
   }
 
   @Test
@@ -1552,6 +1596,10 @@ public class DataHubAuthorizerTest {
         .aspectRetriever(aspectRetriever)
         .entityGraphCache(EntityGraphCache.NO_OP)
         .build();
+  }
+
+  private EntitySpec selfEntitySpec() {
+    return new EntitySpec(CORP_USER_ENTITY_NAME, SELF_USER.toString());
   }
 
   private AuthorizerContext createAuthorizerContext(

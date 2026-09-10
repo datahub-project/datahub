@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.search;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.common.ElasticsearchSSLContextFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.MaeConsumerConfiguration;
@@ -12,6 +13,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClie
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +22,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 /**
  * Spring factory for creating SearchClientShim instances based on DataHub configuration. This
@@ -27,7 +30,7 @@ import org.springframework.context.annotation.Import;
  */
 @Slf4j
 @Configuration
-@Import({ElasticsearchSSLContextFactory.class})
+@Import({ElasticsearchSSLContextFactory.class, AwsClientFactory.class})
 public class SearchClientShimFactory {
 
   // New shim-specific configuration properties
@@ -42,6 +45,10 @@ public class SearchClientShimFactory {
   @Autowired
   @Qualifier("elasticSearchSSLContext")
   private SSLContext elasticSearchSSLContext;
+
+  @Autowired(required = false)
+  @Qualifier("defaultAwsCredentialsProvider")
+  private AwsCredentialsProvider defaultAwsCredentialsProvider;
 
   /**
    * Create the SearchClientShim bean. This can be configured to either: (1) auto-detect the search
@@ -113,6 +120,8 @@ public class SearchClientShimFactory {
       int connectionRequestTimeoutMs)
       throws IOException {
 
+    assertIamAuthHasSharedCredentials(esConfig, defaultAwsCredentialsProvider);
+
     // Build the shim configuration from DataHub configuration
     ShimConfigurationBuilder configBuilder =
         new ShimConfigurationBuilder()
@@ -123,6 +132,7 @@ public class SearchClientShimFactory {
             .withSSLContext(elasticSearchSSLContext)
             .withPathPrefix(esConfig.getPathPrefix())
             .withAwsIamAuth(esConfig.isOpensearchUseAwsIamAuth(), esConfig.getRegion())
+            .withAwsCredentialsProvider(defaultAwsCredentialsProvider)
             .withThreadCount(esConfig.getThreadCount())
             .withConnectionRequestTimeout(connectionRequestTimeoutMs)
             .withSocketTimeout(socketTimeoutMs);
@@ -157,6 +167,21 @@ public class SearchClientShimFactory {
     assertCompatModeNotSemanticEnabled(shim, semanticEnabled);
 
     return shim;
+  }
+
+  /**
+   * OpenSearch IAM signing must use the process-wide {@code defaultAwsCredentialsProvider}. A null
+   * provider would either fail later in the shim or (worse) let a client fall through to a new IRSA
+   * default chain.
+   */
+  static void assertIamAuthHasSharedCredentials(
+      @Nonnull ElasticSearchConfiguration esConfig,
+      @Nullable AwsCredentialsProvider defaultAwsCredentialsProvider) {
+    if (esConfig.isOpensearchUseAwsIamAuth() && defaultAwsCredentialsProvider == null) {
+      throw new IllegalStateException(
+          "Shared DefaultCredentialsProvider is required when elasticsearch.iam /"
+              + " opensearchUseAwsIamAuth is enabled");
+    }
   }
 
   /**

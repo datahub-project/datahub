@@ -1,8 +1,9 @@
-# Optional rate-limit override (Tier 2) — intentionally empty.
+# Default GMS rate-limit policy (Tier 2). Intentionally empty.
 #
-# Defaults live in application.yaml. This is the fallback target when RATE_LIMITS_CONFIG_FILE is
-# unset (contributes nothing). Point RATE_LIMITS_CONFIG_FILE at a mounted file to override keys;
-# scalars/map entries overlay per key, rule lists are index-bound (bundled lists are empty). Example:
+# Spring-bound toggles live in application.yaml (Tier 1). This file is loaded when
+# RATE_LIMITS_CONFIG_FILE is unset. Setting that env var replaces this document entirely
+# (the two files are not merged). RATE_LIMITS_CONFIG_JSON then overlays the chosen file.
+# Accepts datahub.gms.rateLimits, a rateLimits: wrapper, or a bare fragment. Example:
 #
 #   datahub:
 #     gms:

@@ -440,7 +440,7 @@ public class ESAggregatedStatsDAO {
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getTimeseriesAspectIndexName(entityName, aspectName);
+            .getTimeseriesAspectIndexName(opContext, entityName, aspectName);
     searchRequest.indices(indexName);
 
     log.debug("Search request is: " + searchRequest);
@@ -721,7 +721,7 @@ public class ESAggregatedStatsDAO {
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getTimeseriesAspectIndexName(entityName, aspectName));
+            .getTimeseriesAspectIndexName(opContext, entityName, aspectName));
 
     log.debug("Batch aggregated stats search request: {}", searchRequest);
 

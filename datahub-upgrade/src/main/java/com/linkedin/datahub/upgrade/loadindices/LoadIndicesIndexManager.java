@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +37,10 @@ public class LoadIndicesIndexManager {
   /** -- GETTER -- Returns true if index settings are currently optimized for bulk operations. */
   @Getter private boolean settingsOptimized = false;
 
-  private boolean indicesDiscovered = false;
+  // Resolved index prefix the current managedIndexConfigs were discovered for. Keyed by the prefix
+  // (the actual routing value) rather than the search-context id, so an operation resolving a
+  // different prefix re-discovers instead of reusing a prior operation's indices.
+  private String discoveredForPrefix = null;
 
   public LoadIndicesIndexManager(
       SearchClientShim<?> searchClient,
@@ -64,7 +68,7 @@ public class LoadIndicesIndexManager {
     List<ReindexConfig> configs = new ArrayList<>();
 
     // Get entity indices using IndexConvention patterns
-    List<String> entityPatterns = indexConvention.getAllEntityIndicesPatterns();
+    List<String> entityPatterns = indexConvention.getAllEntityIndicesPatterns(opContext);
     log.debug("Querying entity indices with patterns: {}", entityPatterns);
 
     for (String entityPattern : entityPatterns) {
@@ -88,7 +92,8 @@ public class LoadIndicesIndexManager {
     }
 
     // Get graph service index
-    String graphIndexName = indexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME);
+    String graphIndexName =
+        indexConvention.getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME);
     log.debug("Querying graph service index: {}", graphIndexName);
     GetIndexRequest graphRequest = new GetIndexRequest(graphIndexName);
     try {
@@ -116,7 +121,7 @@ public class LoadIndicesIndexManager {
 
     // Get system metadata index
     String systemMetadataIndexName =
-        indexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME);
+        indexConvention.getIndexName(opContext, ElasticSearchSystemMetadataService.INDEX_NAME);
     log.debug("Querying system metadata index: {}", systemMetadataIndexName);
     GetIndexRequest systemMetadataRequest = new GetIndexRequest(systemMetadataIndexName);
     try {
@@ -156,11 +161,14 @@ public class LoadIndicesIndexManager {
       return;
     }
 
-    // Discover indices lazily on first use (after BuildIndicesStep has run)
-    if (!indicesDiscovered) {
+    // Discover indices lazily on first use (after BuildIndicesStep has run), re-discovering when
+    // the
+    // resolved index prefix changes so a prior operation's discovery is never reused for another.
+    final String currentPrefix = indexConvention.getPrefix(opContext).orElse("");
+    if (!Objects.equals(currentPrefix, discoveredForPrefix)) {
       log.info("Discovering DataHub indices for settings optimization...");
       this.managedIndexConfigs = discoverDataHubIndexConfigs(opContext);
-      this.indicesDiscovered = true;
+      this.discoveredForPrefix = currentPrefix;
     }
 
     log.info("Optimizing settings for bulk operations on {} indices", managedIndexConfigs.size());

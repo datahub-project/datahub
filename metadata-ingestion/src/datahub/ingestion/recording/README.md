@@ -329,7 +329,14 @@ Recordings can be large for high-volume sources:
 
 ### 6. Secret Handling
 
-Secrets are redacted in the stored recipe using `__REPLAY_DUMMY__` markers. During replay:
+Secrets are redacted in the stored recipe using `__REPLAY_DUMMY__` markers. Recorded HTTP traffic is also scrubbed before it is written to the cassette:
+
+- Auth headers (`Authorization`, `Cookie`, `Set-Cookie`, etc.) are stripped or replaced
+- Secret-bearing query parameters and JSON/form body fields (e.g. `client_secret` in OAuth token exchanges, `access_token` in token responses) are replaced with `__REPLAY_DUMMY__`
+
+Scrubbing is pattern-based on key/parameter names. Secrets sent under unrecognized names or inside binary payloads may still be captured, so treat recording archives as sensitive artifacts regardless.
+
+During replay:
 
 - Pydantic validation receives valid dummy values
 - Actual API/DB calls use recorded responses (no real auth needed)

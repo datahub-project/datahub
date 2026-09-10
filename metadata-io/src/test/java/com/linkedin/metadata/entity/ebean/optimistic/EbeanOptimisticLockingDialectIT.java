@@ -10,6 +10,9 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+import com.hazelcast.config.Config;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
@@ -23,6 +26,8 @@ import com.linkedin.metadata.entity.OptimisticLockConflictException;
 import com.linkedin.metadata.entity.TransactionResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanSystemAspect;
+import com.linkedin.metadata.entity.lock.EntityWriteLock;
+import com.linkedin.metadata.entity.lock.HazelcastEntityWriteLock;
 import com.linkedin.metadata.entity.storage.PrimaryStorageResolver;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
@@ -36,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -276,6 +282,106 @@ abstract class EbeanOptimisticLockingDialectIT {
     EntityAspect after = dao.getAspect(opContext, urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION);
     assertEquals(
         SystemMetadataUtils.parseSystemMetadata(after.getSystemMetadata()).getVersion(), "3");
+  }
+
+  /**
+   * The write gate's payoff: with the Hazelcast per-URN gate, N concurrent writers on the SAME urn
+   * serialize — each reads the fresh committed version under the lock, so its CAS succeeds first
+   * try. Contrast {@link #concurrentWritersConvergeWithVersionBump} (ungated), which forces a CAS
+   * conflict. Here: zero conflicts, no lost writes, final version = seed(1) + one bump per writer.
+   */
+  @Test
+  public void writeGateSerializesConcurrentWritersWithoutCasThrash() throws Exception {
+    EbeanAspectDao dao = newOptimisticDao();
+    String urn = "urn:li:corpuser:olGate_" + expectedDialect().name().toLowerCase();
+
+    SystemMetadata seed = new SystemMetadata();
+    seed.setVersion("1");
+    dao.insertAspect(
+        opContext,
+        null,
+        statusAspect(urn, new Status().setRemoved(false), seed),
+        ASPECT_LATEST_VERSION);
+
+    final int writers = 8;
+    final HazelcastInstance hz = isolatedHazelcast();
+    final EntityWriteLock gate = new HazelcastEntityWriteLock(hz, "it-entity-write-gate", 30, 300);
+
+    final AtomicInteger successes = new AtomicInteger();
+    final AtomicInteger conflicts = new AtomicInteger();
+    final AtomicReference<Throwable> firstError = new AtomicReference<>();
+    final CountDownLatch done = new CountDownLatch(writers);
+    final ExecutorService pool = Executors.newFixedThreadPool(writers);
+    try {
+      for (int i = 0; i < writers; i++) {
+        final boolean removed = (i % 2 == 0);
+        pool.submit(
+            () -> {
+              // Gate acquired BEFORE the transaction (as EntityServiceImpl does), so writers queue
+              // and
+              // each reads a fresh committed version -> its CAS never conflicts.
+              try (EntityWriteLock.LockHandle handle = gate.acquire(opContext, List.of(urn))) {
+                dao.runInTransactionWithRetryUnlocked(
+                    opContext,
+                    (txContext) -> {
+                      SystemAspect latest =
+                          dao.getLatestAspects(
+                                  opContext, Map.of(urn, Set.of(STATUS_ASPECT_NAME)), false)
+                              .get(urn)
+                              .get(STATUS_ASPECT_NAME);
+                      String expected =
+                          latest.getDatabaseAspect().get().getSystemMetadata().getVersion();
+                      SystemMetadata next = new SystemMetadata();
+                      next.setVersion(String.valueOf(Long.parseLong(expected) + 1));
+                      ConditionalSaveResult r =
+                          dao.saveLatestAspectConditional(
+                              opContext,
+                              txContext,
+                              latest,
+                              statusAspect(urn, new Status().setRemoved(removed), next),
+                              1);
+                      if (r.getOutcome() == ConditionalWriteOutcome.CONFLICT) {
+                        conflicts.incrementAndGet();
+                        throw new OptimisticLockConflictException("conflict");
+                      }
+                      successes.incrementAndGet();
+                      return TransactionResult.commit("");
+                    },
+                    mock(AspectsBatch.class),
+                    10);
+              } catch (Throwable t) {
+                firstError.compareAndSet(null, t);
+              } finally {
+                done.countDown();
+              }
+            });
+      }
+      assertTrue(done.await(120, TimeUnit.SECONDS), "gated writers timed out");
+    } finally {
+      pool.shutdownNow();
+      hz.shutdown();
+    }
+
+    assertNull(firstError.get(), "unexpected failure: " + firstError.get());
+    assertEquals(successes.get(), writers, "every gated writer must apply exactly once (no loss)");
+    assertEquals(
+        conflicts.get(),
+        0,
+        "gate serializes writers so CAS never conflicts (no thundering-herd thrash)");
+    EntityAspect after = dao.getAspect(opContext, urn, STATUS_ASPECT_NAME, ASPECT_LATEST_VERSION);
+    assertEquals(
+        SystemMetadataUtils.parseSystemMetadata(after.getSystemMetadata()).getVersion(),
+        String.valueOf(writers + 1),
+        "final version = seed(1) + one bump per writer");
+  }
+
+  private static HazelcastInstance isolatedHazelcast() {
+    Config config = new Config();
+    config.setInstanceName("ol-it-hz-" + UUID.randomUUID());
+    config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
+    config.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled(false);
+    config.getNetworkConfig().getJoin().getAutoDetectionConfig().setEnabled(false);
+    return Hazelcast.newHazelcastInstance(config);
   }
 
   @Test

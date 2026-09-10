@@ -39,7 +39,6 @@ from tests.entity_graph_cache.helpers import (
     move_domain,
     prometheus_counter_total,
     prometheus_isolated,
-    query_container_child_urns,
     query_corpuser_group_relationships,
     query_parent_container_urns_on_container,
     query_parent_domain_urns,
@@ -48,17 +47,22 @@ from tests.entity_graph_cache.helpers import (
     remove_users_from_native_group,
     unique_id,
     update_parent_node,
+    wait_for_container_child,
     wait_for_corp_group_incoming_members,
     wait_for_hierarchy_writes,
     wait_for_session_group_membership_labels,
 )
+from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 METRIC_SEARCH_SCROLL = "entity.graph.build.search_scroll"
 METRIC_GRAPH_SCROLL = "entity.graph.build.graph_scroll"
 
 
+@pytest.mark.p0
 def test_domain_parent_domains_hierarchy(auth_session, graph_client):
     run_id = unique_id("egc-domain")
     grandparent_id = f"egc-grand-{run_id}"
@@ -136,6 +140,7 @@ def test_domain_sync_move_reflects_in_parent_domains(auth_session, graph_client)
         cleanup_domains(auth_session, created)
 
 
+@pytest.mark.p0
 def test_glossary_parent_nodes_hierarchy(auth_session, graph_client):
     run_id = unique_id("egc-glossary")
     root_id = f"egc-gnode-root-{run_id}"
@@ -400,6 +405,7 @@ def test_glossary_cache_metrics_when_isolated(auth_session, graph_client):
         cleanup_glossary_entities(graph_client, created)
 
 
+@pytest.mark.p0
 def test_container_parent_containers_hierarchy(auth_session, graph_client):
     run_id = unique_id("egc-container")
     grandparent_id = f"egc-c-grand-{run_id}"
@@ -439,6 +445,7 @@ def test_container_parent_containers_hierarchy(auth_session, graph_client):
         cleanup_containers(graph_client, created)
 
 
+@pytest.mark.p0
 def test_container_relationships_direct_children(auth_session, graph_client):
     run_id = unique_id("egc-container-rel")
     grandparent_id = f"egc-cr-grand-{run_id}"
@@ -470,8 +477,7 @@ def test_container_relationships_direct_children(auth_session, graph_client):
 
         wait_for_hierarchy_writes()
 
-        child_urns = query_container_child_urns(auth_session, grandparent_urn)
-        assert parent_urn in child_urns
+        child_urns = wait_for_container_child(auth_session, grandparent_urn, parent_urn)
         assert child_urn not in child_urns
     finally:
         cleanup_containers(graph_client, created)

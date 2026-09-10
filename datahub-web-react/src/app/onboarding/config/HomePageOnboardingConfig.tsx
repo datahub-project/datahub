@@ -4,7 +4,7 @@ import React from 'react';
 import { Trans } from 'react-i18next';
 import styled from 'styled-components';
 
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { OnboardingStep } from '@app/onboarding/types';
 
 import dataHubFlowDiagram from '@images/datahub-flow-diagram-light.png';
 

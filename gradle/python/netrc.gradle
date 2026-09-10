@@ -26,7 +26,7 @@ ext.validateDatahubNetrc = { String path ->
 
   def script = "${rootProject.projectDir}/docker/snippets/uv/validate_netrc.py"
   def stderr = new ByteArrayOutputStream()
-  def result = project.exec {
+  def result = execOps.exec {
     commandLine 'python3', script, '--quiet', absolutePath
     errorOutput = stderr
     ignoreExitValue = true

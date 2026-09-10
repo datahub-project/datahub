@@ -1,9 +1,14 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from google.api_core.client_info import ClientInfo
 from google.auth.credentials import Credentials
 from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
+
+if TYPE_CHECKING:
+    # Only installed with the `bigquery` extra. This module is also imported by
+    # bigquery-slim, bigquery-queries and fivetran, so it must not be imported eagerly.
+    from google.cloud.bigquery_analyticshub_v1 import AnalyticsHubServiceClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from google.oauth2 import service_account
 from pydantic import Field, PrivateAttr, model_validator
@@ -150,6 +155,12 @@ class BigQueryConnectionConfig(GCPWIFConfig):
 
     def get_policy_tag_manager_client(self) -> datacatalog_v1.PolicyTagManagerClient:
         return datacatalog_v1.PolicyTagManagerClient(credentials=self._credentials)
+
+    def get_sharing_client(self) -> "AnalyticsHubServiceClient":
+        # Local import for the reason given at the TYPE_CHECKING block above.
+        from google.cloud.bigquery_analyticshub_v1 import AnalyticsHubServiceClient
+
+        return AnalyticsHubServiceClient(credentials=self._credentials)
 
     def make_gcp_logging_client(
         self, project_id: Optional[str] = None

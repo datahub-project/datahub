@@ -19,7 +19,7 @@
     "groups.createModal.name.label": "Név",
     "groups.createModal.name.placeholder": "A csoport neve",
     "groups.createModal.name.validationError.empty": "Adjon meg egy csoportnevet.",
-    "groups.createModal.name.validationError.tooLong": "A név legfeljebb 50 karakter lehet.",
+    "groups.createModal.name.validationError.tooLong": "A név legfeljebb 250 karakter lehet.",
     "groups.createModal.title": "Új csoport létrehozása",
     "groups.createOwnerError": "Nem sikerült automatikusan hozzáadni Önt a csoport tulajdonosaként. Kérjük, adja hozzá magát tulajdonosként manuálisan.",
     "groups.createSuccess": "Csoport létrehozva!",

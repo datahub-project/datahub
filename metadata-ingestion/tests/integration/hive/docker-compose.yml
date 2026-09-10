@@ -22,7 +22,10 @@ services:
     environment:
       SERVICE_PRECONDITION: "namenode:50070"
     ports:
-      - "50075:50075"
+      # Ephemeral: nothing on the host connects to this port -- SERVICE_PRECONDITION
+      # strings resolve "datanode:50075" over the compose network, unaffected by
+      # whatever host port Docker maps it to.
+      - "50075"
   hive-server:
     image: bde2020/hive:2.3.2-postgresql-metastore
     container_name: "testhiveserver2"
@@ -32,7 +35,10 @@ services:
       HIVE_CORE_CONF_javax_jdo_option_ConnectionURL: "jdbc:postgresql://hive-metastore/metastore"
       SERVICE_PRECONDITION: "hive-metastore:9083"
     ports:
-      - "10000:10000"
+      # Ephemeral: the test process connects to HiveServer2 from the host via
+      # localhost, so a leaked container from a prior run can't hold onto a
+      # fixed port that a fresh run needs to bind.
+      - "10000"
     volumes:
       - ./hive_setup.sql:/hive_setup.sql
   hive-metastore:
@@ -43,7 +49,9 @@ services:
     environment:
       SERVICE_PRECONDITION: "namenode:50070 datanode:50075 hive-metastore-postgresql:5432"
     ports:
-      - "9083:9083"
+      # Ephemeral: only hive-server reaches this, over the compose network via
+      # SERVICE_PRECONDITION "hive-metastore:9083", unaffected by the host mapping.
+      - "9083"
   hive-metastore-postgresql:
     image: bde2020/hive-metastore-postgresql:2.3.0
 #  presto-coordinator:

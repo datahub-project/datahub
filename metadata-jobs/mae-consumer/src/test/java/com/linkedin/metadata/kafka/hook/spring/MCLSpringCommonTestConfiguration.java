@@ -59,7 +59,7 @@ public class MCLSpringCommonTestConfiguration {
   @Bean
   @Primary
   public EntityRegistry entityRegistry() {
-    return TestOperationContexts.defaultEntityRegistry();
+    return TestOperationContexts.constructNewEntityRegistry();
   }
 
   @Bean

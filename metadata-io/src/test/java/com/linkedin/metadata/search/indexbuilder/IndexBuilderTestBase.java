@@ -28,6 +28,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataMappingsBuilder;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -79,7 +80,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   protected static final String TEST_INDEX_NAME =
       "estest_datasetindex_v2"; // Use v2 as default for backward compatibility
   protected static final String TEST_V2_INDEX_NAME = TEST_INDEX_NAME;
-  protected static final String TEST_V3_INDEX_NAME = "estest_primaryindex_v3";
+  protected static final String TEST_V3_INDEX_NAME = "estest_datasetindex_v3";
   private ElasticSearchConfiguration testDefaultConfig;
   private ESIndexBuilder testDefaultBuilder;
   private ESIndexBuilder testReplicasBuilder;
@@ -141,10 +142,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     // Setup real IndexConvention for both v2 and v3
     indexConvention =
         new IndexConventionImpl(
-            IndexConventionImpl.IndexConventionConfig.builder()
-                .prefix("estest")
-                .hashIdAlgo("MD5")
-                .build(),
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new ConfiguredIndexPrefixResolver("estest"),
             V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION);
 
     // Create operation context with our index convention
@@ -918,10 +917,10 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Verify IndexConvention correctly identifies v2 index
     assertTrue(
-        indexConvention.isV2EntityIndex(TEST_V2_INDEX_NAME),
+        indexConvention.isV2EntityIndex(opContext, TEST_V2_INDEX_NAME),
         "IndexConvention should identify dataset v2 index as v2");
     assertFalse(
-        indexConvention.isV3EntityIndex(TEST_V2_INDEX_NAME),
+        indexConvention.isV3EntityIndex(opContext, TEST_V2_INDEX_NAME),
         "IndexConvention should not identify dataset v2 index as v3");
   }
 
@@ -1058,10 +1057,10 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Verify IndexConvention correctly identifies v3 index
     assertTrue(
-        indexConvention.isV3EntityIndex(TEST_V3_INDEX_NAME),
+        indexConvention.isV3EntityIndex(opContext, TEST_V3_INDEX_NAME),
         "IndexConvention should identify dataset v3 index as v3");
     assertFalse(
-        indexConvention.isV2EntityIndex(TEST_V3_INDEX_NAME),
+        indexConvention.isV2EntityIndex(opContext, TEST_V3_INDEX_NAME),
         "IndexConvention should not identify dataset v3 index as v2");
   }
 
@@ -1143,16 +1142,16 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Verify IndexConvention correctly identifies both indices
     assertTrue(
-        indexConvention.isV2EntityIndex(TEST_V2_INDEX_NAME),
+        indexConvention.isV2EntityIndex(opContext, TEST_V2_INDEX_NAME),
         "IndexConvention should identify v2 index as v2");
     assertTrue(
-        indexConvention.isV3EntityIndex(TEST_V3_INDEX_NAME),
+        indexConvention.isV3EntityIndex(opContext, TEST_V3_INDEX_NAME),
         "IndexConvention should identify v3 index as v3");
     assertFalse(
-        indexConvention.isV3EntityIndex(TEST_V2_INDEX_NAME),
+        indexConvention.isV3EntityIndex(opContext, TEST_V2_INDEX_NAME),
         "IndexConvention should not identify v2 index as v3");
     assertFalse(
-        indexConvention.isV2EntityIndex(TEST_V3_INDEX_NAME),
+        indexConvention.isV2EntityIndex(opContext, TEST_V3_INDEX_NAME),
         "IndexConvention should not identify v3 index as v2");
   }
 

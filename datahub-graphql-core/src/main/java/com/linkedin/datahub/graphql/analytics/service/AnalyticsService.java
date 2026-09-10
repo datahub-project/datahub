@@ -13,19 +13,32 @@ import com.linkedin.datahub.graphql.generated.NamedLine;
 import com.linkedin.datahub.graphql.generated.NumericDataPoint;
 import com.linkedin.datahub.graphql.generated.Row;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
@@ -56,6 +69,8 @@ public class AnalyticsService {
 
   private final SearchClientShim<?> _elasticClient;
   private final IndexConvention _indexConvention;
+  private final EntityRegistry _entityRegistry;
+  @Nullable private final EntityIndexConfiguration entityIndexConfiguration;
 
   private static final String FILTERED = "filtered";
   private static final String DATE_HISTOGRAM = "date_histogram";
@@ -68,23 +83,39 @@ public class AnalyticsService {
   private static final String INDEX_FIELD = "_index";
   private static final String REMOVED = "removed";
   private static final String TRUE = "true";
+  private static final Duration BOOLEAN_FIELD_CACHE_TTL = Duration.ofMinutes(5);
+
   public static final String NA = "N/A";
 
   public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
 
   @Nonnull
-  public String getEntityIndexName(EntityType entityType) {
-    return _indexConvention.getEntityIndexName(EntityTypeMapper.getName(entityType));
+  public String getEntityIndexName(@Nonnull OperationContext opContext, EntityType entityType) {
+    return EntitySearchIndexResolver.indexName(
+        opContext, EntityTypeMapper.getName(entityType), entityIndexConfiguration);
   }
 
   @Nonnull
-  public String getAllEntityIndexName() {
-    return _indexConvention.getEntityIndexName("*");
+  public String getAllEntityIndexName(@Nonnull OperationContext opContext) {
+    return EntitySearchIndexResolver.allEntityIndexPattern(opContext, entityIndexConfiguration);
+  }
+
+  /**
+   * Drops query entities from cross-entity analytics. V2 matches the query index glob; V3 filters
+   * {@code _entityType} so a shared search-group index still excludes query documents.
+   */
+  @Nonnull
+  public Map<String, List<String>> queryEntityMustNotFilters() {
+    if (EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration)) {
+      return ImmutableMap.of(
+          SearchUtil.INDEX_VIRTUAL_FIELD, ImmutableList.of(Constants.QUERY_ENTITY_NAME));
+    }
+    return ImmutableMap.of(INDEX_FIELD, ImmutableList.of("*queryindex_v2*"));
   }
 
   @Nonnull
-  public String getUsageIndexName() {
-    return _indexConvention.getIndexName(DATAHUB_USAGE_EVENT_INDEX);
+  public String getUsageIndexName(@Nonnull OperationContext opContext) {
+    return _indexConvention.getIndexName(opContext, DATAHUB_USAGE_EVENT_INDEX);
   }
 
   public List<NamedLine> getTimeseriesChart(
@@ -201,6 +232,13 @@ public class AnalyticsService {
     if (!(dimensions.size() == 1 || dimensions.size() == 2)) {
       throw new IllegalArgumentException("Dimensions must have 1 or 2 specified: " + dimensions);
     }
+    if (isUnimplementedV3EntityKeywordAggregation(indexName, dimensions)) {
+      log.error(
+          "Entity-index analytics aggregations on V2 keyword subfields {} are not implemented when Search V3 keyword reads are enabled (index {}). Returning empty results.",
+          dimensions,
+          indexName);
+      return ImmutableList.of();
+    }
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
 
     TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(dimensions.get(0));
@@ -253,6 +291,24 @@ public class AnalyticsService {
       log.error(String.format("Caught exception while getting bar chart: %s", e.getMessage()));
       return ImmutableList.of();
     }
+  }
+
+  /**
+   * Landscape charts still aggregate on V2 {@code .keyword} URN subfields ({@code
+   * platform.keyword}, {@code domains.keyword}, …). V3 maps those as keyword parents without that
+   * subfield, so the query is not implemented for V3 entity indices.
+   */
+  private boolean isUnimplementedV3EntityKeywordAggregation(
+      String indexName, List<String> dimensions) {
+    if (!EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration)) {
+      return false;
+    }
+    boolean usesKeywordSubfield =
+        dimensions.stream().anyMatch(field -> field.endsWith(SearchUtil.KEYWORD_SUFFIX));
+    if (!usesKeywordSubfield) {
+      return false;
+    }
+    return indexName.endsWith("index_v3") && indexName.length() > "index_v3".length();
   }
 
   private List<BarSegment> extractBarSegmentsFromAggregations(
@@ -413,8 +469,9 @@ public class AnalyticsService {
    * type, in a single query across all of their indices. Soft-deleted entities are excluded.
    *
    * <p>Buckets are keyed by our own entity-type names rather than derived from a terms aggregation
-   * on {@code _index}, because entity indices are aliases over timestamp-suffixed backing indices
-   * and the index-name-to-entity-name round trip is lossy.
+   * on {@code _index}, because V2 entity indices are aliases over timestamp-suffixed backing
+   * indices and the index-name-to-entity-name round trip is lossy. V3 documents are scoped by
+   * {@code _entityType} so types that share a search-group index still get separate counts.
    */
   @WithSpan
   public Map<EntityType, EntityStats> getEntityStats(
@@ -431,7 +488,8 @@ public class AnalyticsService {
     }
 
     Filter aggregationResult =
-        executeAndExtract(opContext, buildEntityStatsRequest(distinctTypes, facetFields));
+        executeAndExtract(
+            opContext, buildEntityStatsRequest(opContext, distinctTypes, facetFields));
 
     Map<EntityType, EntityStats> results = new LinkedHashMap<>();
     for (EntityType entityType : distinctTypes) {
@@ -442,18 +500,25 @@ public class AnalyticsService {
   }
 
   @VisibleForTesting
-  SearchRequest buildEntityStatsRequest(List<EntityType> entityTypes, List<String> facetFields) {
+  SearchRequest buildEntityStatsRequest(
+      @Nonnull OperationContext opContext, List<EntityType> entityTypes, List<String> facetFields) {
+    // Resolve each entity's dynamic index name once, so the request's target indices and (on V2)
+    // the _index term filters are built from the same resolution.
+    final Map<EntityType, String> indexByType = new LinkedHashMap<>();
+    for (EntityType entityType : entityTypes) {
+      indexByType.computeIfAbsent(entityType, type -> getEntityIndexName(opContext, type));
+    }
+    boolean readV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
     KeyedFilter[] entityFilters =
         entityTypes.stream()
             .map(
                 entityType ->
                     new KeyedFilter(
-                        entityType.name(),
-                        QueryBuilders.termQuery(INDEX_FIELD, getEntityIndexName(entityType))))
+                        entityType.name(), entityStatsScopeQuery(entityType, indexByType, readV3)))
             .toArray(KeyedFilter[]::new);
     KeyedFilter[] facetFilters =
         facetFields.stream()
-            .map(field -> new KeyedFilter(field, QueryBuilders.termsQuery(field, TRUE)))
+            .map(field -> new KeyedFilter(field, termsQuery(field, List.of(TRUE))))
             .toArray(KeyedFilter[]::new);
 
     AggregationBuilder byEntityAgg = AggregationBuilders.filters(BY_ENTITY, entityFilters);
@@ -464,7 +529,7 @@ public class AnalyticsService {
     AggregationBuilder filteredAgg = nonRemovedFilteredAggregation();
     filteredAgg.subAggregation(byEntityAgg);
 
-    String[] indices = entityTypes.stream().map(this::getEntityIndexName).toArray(String[]::new);
+    String[] indices = entityTypes.stream().map(indexByType::get).distinct().toArray(String[]::new);
     SearchRequest searchRequest = constructSearchRequest(indices, filteredAgg);
     // A single absent index must not fail the whole batch. Previously a missing index threw out of
     // the per-type query, propagated uncaught, and left the resolver's catch-all to blank the
@@ -472,6 +537,15 @@ public class AnalyticsService {
     // yields its keyed bucket with a zero doc count, so this does not mask a malformed response.
     searchRequest.indicesOptions(IndicesOptions.lenientExpandOpen());
     return searchRequest;
+  }
+
+  private QueryBuilder entityStatsScopeQuery(
+      EntityType entityType, Map<EntityType, String> indexByType, boolean readV3) {
+    if (readV3) {
+      return QueryBuilders.termQuery(
+          SearchUtil.INDEX_VIRTUAL_FIELD, EntityTypeMapper.getName(entityType));
+    }
+    return QueryBuilders.termQuery(INDEX_FIELD, indexByType.get(entityType));
   }
 
   /**
@@ -540,22 +614,20 @@ public class AnalyticsService {
       // extract results, validated against document model as well
       return searchResponse.getAggregations().<Filter>get(FILTERED);
     } catch (Exception e) {
-      log.error(String.format("Search query failed: %s", e.getMessage()));
+      log.error("Search query failed", e);
       throw new RuntimeException("Search query failed:", e);
     }
   }
 
-  // Make dateRangeField as customizable
-  private AggregationBuilder getFilteredAggregation(
+  AggregationBuilder getFilteredAggregation(
       Map<String, List<String>> mustFilters,
       Map<String, List<String>> mustNotFilters,
       Optional<DateRange> dateRange,
       String dateRangeField) {
     BoolQueryBuilder filteredQuery = QueryBuilders.boolQuery();
     filteredQuery.filter(getDefaultFilters());
-    mustFilters.forEach((key, values) -> filteredQuery.must(QueryBuilders.termsQuery(key, values)));
-    mustNotFilters.forEach(
-        (key, values) -> filteredQuery.mustNot(QueryBuilders.termsQuery(key, values)));
+    mustFilters.forEach((key, values) -> filteredQuery.must(termsQuery(key, values)));
+    mustNotFilters.forEach((key, values) -> filteredQuery.mustNot(termsQuery(key, values)));
     dateRange.ifPresent(range -> filteredQuery.must(dateRangeQuery(range, dateRangeField)));
     return AggregationBuilders.filter(FILTERED, filteredQuery);
   }
@@ -564,28 +636,115 @@ public class AnalyticsService {
       Map<String, List<String>> mustFilters,
       Map<String, List<String>> mustNotFilters,
       Optional<DateRange> dateRange) {
-    // Use timestamp as dateRangeField
     return getFilteredAggregation(mustFilters, mustNotFilters, dateRange, "timestamp");
   }
 
-  private QueryBuilder getDefaultFilters() {
+  QueryBuilder getDefaultFilters() {
     return QueryBuilders.boolQuery()
         .mustNot(
             QueryBuilders.termQuery(
-                DataHubUsageEventConstants.USAGE_SOURCE,
+                DataHubUsageEventConstants.USAGE_SOURCE + ".keyword",
                 DataHubUsageEventConstants.BACKEND_SOURCE));
   }
 
-  private QueryBuilder dateRangeQuery(DateRange dateRange) {
-    // Use timestamp as dateRangeField
+  QueryBuilder dateRangeQuery(DateRange dateRange) {
     return dateRangeQuery(dateRange, "timestamp");
   }
 
-  // Make dateRangeField as customizable
-  private QueryBuilder dateRangeQuery(DateRange dateRange, String dateRangeField) {
+  QueryBuilder dateRangeQuery(DateRange dateRange, String dateRangeField) {
     return QueryBuilders.rangeQuery(dateRangeField)
-        .gte(dateRange.getStart())
-        .lt(dateRange.getEnd());
+        .gte(parseEpochMillis(dateRange.getStart(), dateRangeField, "start"))
+        .lt(parseEpochMillis(dateRange.getEnd(), dateRangeField, "end"));
+  }
+
+  QueryBuilder termsQuery(String field, List<String> values) {
+    return QueryBuilders.termsQuery(field, coerceTermValues(field, values));
+  }
+
+  Object[] coerceTermValues(String field, List<String> values) {
+    if (values == null || values.isEmpty()) {
+      return new Object[0];
+    }
+    if (isBooleanSearchField(field)) {
+      return values.stream().map(AnalyticsService::parseBooleanTerm).toArray();
+    }
+    return values.toArray(new String[0]);
+  }
+
+  /**
+   * Plugin patches mutate the live {@link EntityRegistry} in place. Readers keep an immutable field
+   * set and replace the whole snapshot after a TTL so the hot path never iterates the registry map.
+   */
+  private record BooleanFieldSnapshot(Instant expiresAt, Set<String> fields) {
+    boolean isFresh(Instant now) {
+      return now.isBefore(expiresAt);
+    }
+  }
+
+  private final Clock clock = Clock.systemUTC();
+  private volatile BooleanFieldSnapshot booleanFieldSnapshot;
+
+  private boolean isBooleanSearchField(String field) {
+    return booleanSearchFields().contains(field.split("\\.")[0]);
+  }
+
+  private Set<String> booleanSearchFields() {
+    Instant now = clock.instant();
+    BooleanFieldSnapshot snapshot = booleanFieldSnapshot;
+    if (snapshot != null && snapshot.isFresh(now)) {
+      return snapshot.fields();
+    }
+    synchronized (this) {
+      now = clock.instant();
+      snapshot = booleanFieldSnapshot;
+      if (snapshot != null && snapshot.isFresh(now)) {
+        return snapshot.fields();
+      }
+      Set<String> frozen = collectBooleanSearchFields();
+      booleanFieldSnapshot = new BooleanFieldSnapshot(now.plus(BOOLEAN_FIELD_CACHE_TTL), frozen);
+      return frozen;
+    }
+  }
+
+  private Set<String> collectBooleanSearchFields() {
+    Set<String> fields = new HashSet<>();
+    for (EntitySpec entitySpec : _entityRegistry.getEntitySpecs().values()) {
+      for (Map.Entry<String, Set<SearchableAnnotation.FieldType>> entry :
+          entitySpec.getSearchableFieldTypes().entrySet()) {
+        if (entry.getValue().contains(SearchableAnnotation.FieldType.BOOLEAN)) {
+          fields.add(entry.getKey());
+        }
+      }
+    }
+    return Set.copyOf(fields);
+  }
+
+  @VisibleForTesting
+  void expireBooleanFieldCache() {
+    booleanFieldSnapshot = null;
+  }
+
+  private static boolean parseBooleanTerm(String value) {
+    if ("true".equalsIgnoreCase(value)) {
+      return true;
+    }
+    if ("false".equalsIgnoreCase(value)) {
+      return false;
+    }
+    throw new IllegalArgumentException(
+        String.format("Boolean term field expected true/false, got: %s", value));
+  }
+
+  private static long parseEpochMillis(String value, String dateRangeField, String bound) {
+    try {
+      return Long.parseLong(value);
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Analytics DateRange %s for field %s must be epoch millis, got: %s",
+              bound, dateRangeField, value),
+          e);
+    }
   }
 
   private AggregationBuilder getUniqueQuery(String uniqueOn) {

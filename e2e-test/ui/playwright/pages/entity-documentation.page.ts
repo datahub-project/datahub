@@ -80,7 +80,9 @@ export class EntityDocumentationPage extends BasePage {
     // but the element may have zero height until the flex layout resolves.
     await this.proseMirrorEditor.click({ force: true });
     await this.page.keyboard.press('ControlOrMeta+a');
-    await this.page.keyboard.type(text);
+    await this.proseMirrorEditor.pressSequentially(text, { delay: DELAYS.SEQUENTIAL });
+    // Wait for button to be enabled after change detection (same pattern as editFieldDescription)
+    await expect(this.saveDescriptionButton).toBeEnabled({ timeout: TIMEOUTS.EXTRA_LONG });
     await this.saveDescriptionButton.click();
     await this.toast.expectVisible('Description Updated', { timeout: 15000 });
   }
@@ -146,7 +148,7 @@ export class EntityDocumentationPage extends BasePage {
         await this.fieldDescriptionEditor.click({ force: true });
         await this.page.keyboard.press('ControlOrMeta+a');
         await this.page.keyboard.press('Delete');
-        await this.page.keyboard.type(description, { delay: DELAYS.TYPING });
+        await this.fieldDescriptionEditor.pressSequentially(description, { delay: DELAYS.SEQUENTIAL });
 
         // Publish is disabled until Remirror onChange reports a value different from the
         // original description. Waiting for enabled avoids a 60s actionability timeout.

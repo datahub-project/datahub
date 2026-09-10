@@ -166,7 +166,15 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       Map<String, Object> embeddingsProps = (Map<String, Object>) embeddingsField.get("properties");
       Map<String, Object> modelEntry = (Map<String, Object>) embeddingsProps.get(modelKey);
 
-      modelProperties.put(modelKey, modelEntry);
+      // Add the embed-time source-text digest (staleness provenance) with an explicit keyword
+      // mapping so exact-match queries do not depend on dynamic mapping.
+      Map<String, Object> modelEntryProps =
+          new HashMap<>((Map<String, Object>) modelEntry.get("properties"));
+      modelEntryProps.put("sourceTextSha256", ImmutableMap.of("type", "keyword"));
+      Map<String, Object> augmentedModelEntry = new HashMap<>(modelEntry);
+      augmentedModelEntry.put("properties", modelEntryProps);
+
+      modelProperties.put(modelKey, augmentedModelEntry);
     }
 
     return ImmutableMap.of("properties", modelProperties);
@@ -179,14 +187,15 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
    * @param baseIndexMappings Base V2 index mappings to transform
    * @return Semantic search index mappings with embeddings field added
    */
-  private Collection<IndexMapping> addSemanticMappings(Collection<IndexMapping> baseIndexMappings) {
+  private Collection<IndexMapping> addSemanticMappings(
+      @Nonnull OperationContext opContext, Collection<IndexMapping> baseIndexMappings) {
     Set<String> enabledEntities = semanticConfig.getEnabledEntities();
     Map<String, Object> embeddingFieldConfig = buildEmbeddingFieldConfig();
     ArrayList<IndexMapping> semanticIndexMappings = new ArrayList<>();
 
     for (IndexMapping baseIndexMapping : baseIndexMappings) {
       String indexName = baseIndexMapping.getIndexName();
-      String entityName = indexConvention.getEntityName(indexName).orElse(null);
+      String entityName = indexConvention.getEntityName(opContext, indexName).orElse(null);
 
       // Only create semantic search index for enabled entities
       if (!enabledEntities.contains(entityName)) {
@@ -209,6 +218,12 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       ImmutableMap.Builder<String, Object> newPropertiesMap = new ImmutableMap.Builder<>();
       newPropertiesMap.putAll(basePropertiesMap);
       newPropertiesMap.put("embeddings", embeddingFieldConfig);
+      // Staleness/skip provenance fields written by UpdateIndicesV2Strategy (resolvedTextSha256)
+      // and the semanticContent projection (skipReason/skippedAt) -- mapped explicitly so
+      // exact-match and exists queries do not depend on dynamic mapping.
+      newPropertiesMap.put("resolvedTextSha256", ImmutableMap.of("type", "keyword"));
+      newPropertiesMap.put("skipReason", ImmutableMap.of("type", "keyword"));
+      newPropertiesMap.put("skippedAt", ImmutableMap.of("type", "date"));
 
       // Construct new top-level map with new properties map
       ImmutableMap.Builder<String, Object> newMappings = new ImmutableMap.Builder<>();
@@ -218,7 +233,7 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       // Construct new IndexMapping object for semantic search
       Map<String, Object> finalMappings = newMappings.buildKeepingLast();
 
-      String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+      String semanticIndexName = indexConvention.getEntityIndexNameSemantic(opContext, entityName);
       IndexMapping semanticIndexMapping =
           IndexMapping.builder().indexName(semanticIndexName).mappings(finalMappings).build();
 
@@ -239,7 +254,7 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       @Nonnull Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
     Collection<IndexMapping> baseIndexMappings =
         v2MappingsBuilder.getIndexMappings(opContext, structuredProperties);
-    return addSemanticMappings(baseIndexMappings);
+    return addSemanticMappings(opContext, baseIndexMappings);
   }
 
   @Override
@@ -249,7 +264,7 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       @Nonnull StructuredPropertyDefinition property) {
     Collection<IndexMapping> baseIndexMappings =
         v2MappingsBuilder.getIndexMappingsWithNewStructuredProperty(opContext, urn, property);
-    return addSemanticMappings(baseIndexMappings);
+    return addSemanticMappings(opContext, baseIndexMappings);
   }
 
   @Override

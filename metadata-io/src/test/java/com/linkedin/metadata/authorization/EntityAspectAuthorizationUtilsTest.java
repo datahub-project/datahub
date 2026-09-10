@@ -885,4 +885,94 @@ public class EntityAspectAuthorizationUtilsTest {
 
     Assert.assertEquals(viewable, Set.of(QUERY_URN));
   }
+
+  @Test
+  public void testFilterUnauthorizedToManageDataProductMembership_dedupsAssetAuthAcrossProducts() {
+    Urn otherProduct = UrnUtils.getUrn("urn:li:dataProduct:other-auth-test");
+    Urn sharedAsset = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,shared,PROD)");
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession),
+                    any(DisjunctivePrivilegeGroup.class),
+                    eq(new EntitySpec("dataset", sharedAsset.toString()))))
+        .thenReturn(true);
+
+    Set<Urn> unauthorized =
+        EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
+            mockAuthSession,
+            Map.of(
+                DATA_PRODUCT_URN, Set.of(sharedAsset),
+                otherProduct, Set.of(sharedAsset)),
+            Map.of(),
+            Map.of());
+
+    Assert.assertTrue(unauthorized.isEmpty());
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAuthorized(
+                eq(mockAuthSession),
+                any(DisjunctivePrivilegeGroup.class),
+                eq(new EntitySpec("dataset", sharedAsset.toString()))),
+        times(1));
+  }
+
+  @Test
+  public void testFilterUnauthorizedToManageDataProductMembership_productSideSkipsAssetAuth() {
+    Domains productDomains = new Domains();
+    productDomains.setDomains(new UrnArray(DOMAIN_A));
+    Aspect persistedDomains = new Aspect(productDomains.data());
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession),
+                    any(DisjunctivePrivilegeGroup.class),
+                    eq(new EntitySpec("domain", DOMAIN_A.toString()))))
+        .thenReturn(true);
+
+    Set<Urn> unauthorized =
+        EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
+            mockAuthSession,
+            Map.of(DATA_PRODUCT_URN, Set.of(ASSET_URN)),
+            Map.of(DATA_PRODUCT_URN, Map.of(DOMAINS_ASPECT_NAME, persistedDomains)),
+            Map.of());
+
+    Assert.assertTrue(unauthorized.isEmpty());
+    authUtilMockedStatic.verify(
+        () ->
+            AuthUtil.isAuthorized(
+                eq(mockAuthSession),
+                any(DisjunctivePrivilegeGroup.class),
+                eq(new EntitySpec("dataset", ASSET_URN.toString()))),
+        times(0));
+  }
+
+  @Test
+  public void testFilterUnauthorizedToRenameDataProduct_usesPreloadedPersistedDomains() {
+    Domains productDomains = new Domains();
+    productDomains.setDomains(new UrnArray(DOMAIN_A));
+    Aspect persistedDomains = new Aspect(productDomains.data());
+
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession),
+                    any(DisjunctivePrivilegeGroup.class),
+                    eq(new EntitySpec("domain", DOMAIN_A.toString()))))
+        .thenReturn(true);
+
+    Set<Urn> unauthorized =
+        EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+            mockAuthSession,
+            Set.of(DATA_PRODUCT_URN),
+            Map.of(DATA_PRODUCT_URN, Map.of(DOMAINS_ASPECT_NAME, persistedDomains)),
+            Map.of());
+
+    Assert.assertTrue(unauthorized.isEmpty());
+  }
 }

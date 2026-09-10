@@ -86,7 +86,7 @@ def main() -> int:
         collected_at=collected_at.isoformat(),
         repository=args.repo,
         workflow=WorkflowMetrics.from_api(
-            run_data, int(args.run_id), args.attempt, rerun_type
+            run_data, int(args.run_id), args.attempt, rerun_type, args.repo
         ),
         jobs=[JobMetrics.from_api(j) for j in attempt_jobs],
     )

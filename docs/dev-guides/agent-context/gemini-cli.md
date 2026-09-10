@@ -35,7 +35,7 @@ Or add it directly to your `settings.json` (`~/.gemini/settings.json` for user-l
 }
 ```
 
-## Self-Hosted DataHub
+## DataHub Core
 
 Install [`uv`](https://github.com/astral-sh/uv) (`curl -LsSf https://astral.sh/uv/install.sh | sh`), then:
 

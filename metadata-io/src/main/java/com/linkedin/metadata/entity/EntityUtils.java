@@ -48,6 +48,18 @@ public class EntityUtils {
 
   private EntityUtils() {}
 
+  /**
+   * Whether a side-effect DELETE of {@code aspectName} for {@code urn} should use hardDelete.
+   *
+   * <p>Key-aspect DELETE must hard-delete ({@code deleteUrn}). Soft-delete only sets {@code
+   * status.removed} and leaves the key; a later status DELETE in the same cascade can remove that
+   * flag and leave the entity looking active. Non-key aspect deletes stay soft.
+   */
+  public static boolean shouldHardDeleteAspect(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String aspectName) {
+    return aspectName.equals(opContext.getKeyAspectName(urn));
+  }
+
   @Nullable
   public static Urn getUrnFromString(String urnStr) {
     try {

@@ -24,8 +24,9 @@ from packaging.version import Version
 SCRIPT_DIR = Path(__file__).parent
 METADATA_INGESTION_DIR = SCRIPT_DIR.parent
 
-# Extras that create circular dependencies with uv lock
-CIRCULAR_EXTRAS = {"airflow", "great-expectations"}
+# Extras that create circular dependencies with uv lock, or whose dependency
+# pins cannot coexist with the rest of the lock (sqlmesh/sqlglot).
+CIRCULAR_EXTRAS = {"airflow", "great-expectations", "sqlmesh"}
 
 
 def load_setup_py_variables() -> Dict:
@@ -274,9 +275,16 @@ def generate_pyproject_toml() -> str:
     output_lines.append("")
 
     # Plugin extras — each plugin's deps are fully inlined (no self-references)
-    output_lines.append("# airflow and great-expectations excluded (circular deps).")
     output_lines.append(
-        "# Install acryl-datahub-airflow-plugin / acryl-datahub-gx-plugin directly."
+        "# airflow, great-expectations, and sqlmesh are excluded from these "
+        "pyproject extras (circular deps or irreconcilable pins)."
+    )
+    output_lines.append(
+        "# For airflow / great-expectations install acryl-datahub-airflow-plugin "
+        "/ acryl-datahub-gx-plugin directly. sqlmesh has no pyproject extra "
+        "because it pins sqlglot below acryl-datahub[all]; install it explicitly "
+        "alongside acryl-datahub, e.g. `pip install acryl-datahub sqlmesh`, and "
+        "let pip resolve a compatible sqlglot."
     )
     output_lines.append("")
 
