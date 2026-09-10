@@ -68,18 +68,22 @@ public final class SemanticDocumentProvenance {
       } else {
         override = fetchSemanticTextOverride(opContext, urn);
       }
+      // Treat a blank value as missing for both the override and the body, matching the
+      // embedding pipeline's resolver. Otherwise this stamp disagrees with the pipeline: it
+      // would hash whitespace where the pipeline resolves "" and skips the document.
       final String resolved;
-      if (override != null && !override.isEmpty()) {
+      if (!isBlank(override)) {
         resolved = override;
-      } else if (hasRootBody) {
-        String body = textValue(document.get(BODY_TEXT_FIELD));
-        resolved = body != null ? body : "";
-      } else if (hasNestedBody) {
-        String body = nestedDocumentBodyValue(document);
-        resolved = body != null ? body : "";
       } else {
-        String body = fetchDocumentBodyText(opContext, urn);
-        resolved = body != null ? body : "";
+        final String body;
+        if (hasRootBody) {
+          body = textValue(document.get(BODY_TEXT_FIELD));
+        } else if (hasNestedBody) {
+          body = nestedDocumentBodyValue(document);
+        } else {
+          body = fetchDocumentBodyText(opContext, urn);
+        }
+        resolved = isBlank(body) ? "" : body;
       }
       document.put(SemanticEmbeddingMappings.RESOLVED_TEXT_SHA256_FIELD, sha256Hex(resolved));
     } catch (Exception e) {
@@ -92,6 +96,26 @@ public final class SemanticDocumentProvenance {
           SemanticEmbeddingMappings.RESOLVED_TEXT_SHA256_FIELD,
           JsonNodeFactory.instance.nullNode());
     }
+  }
+
+  /**
+   * Whether the value has no content, using the same definition as the embedding pipeline's
+   * resolver.
+   *
+   * <p>{@code String.isBlank()} alone is not enough: it goes through {@code
+   * Character.isWhitespace}, which does not count the non-breaking spaces, while Python's {@code
+   * str.strip()} does. Coverage compares this stamp against a hash the pipeline computed, so both
+   * sides have to call the same values blank. {@code isSpaceChar} covers the non-breaking spaces
+   * and NEXT LINE covers the one remaining character {@code str.strip()} removes.
+   */
+  private static final int NEXT_LINE = 0x85;
+
+  private static boolean isBlank(@Nullable final String value) {
+    return value == null
+        || value
+            .codePoints()
+            .allMatch(
+                cp -> Character.isWhitespace(cp) || Character.isSpaceChar(cp) || cp == NEXT_LINE);
   }
 
   @Nullable
