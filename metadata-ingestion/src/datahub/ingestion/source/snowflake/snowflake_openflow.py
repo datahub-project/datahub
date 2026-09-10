@@ -147,24 +147,17 @@ SCHEMA_STRATEGY_SOURCE_SCHEMA = "SOURCE_SCHEMA"
 # include_connector_external_url explicitly overrides it at any size.
 # Snowflake caps SHOW output at this many rows and does not flag the truncation.
 _SHOW_ROW_CAP = 10_000
-# A history view is read in full, however many pages that takes -- correctness
-# does not depend on this number. It exists because the other two O(N) surfaces
-# here (the SHOW row cap and the per-runtime DESCRIBE threshold) escalate to a
-# warning when they grow and this one did not.
+# A history view is read in full however many pages that takes, so correctness
+# does not depend on this number; it only decides when the operator is told the
+# read was unusually large, as the two sibling O(N) surfaces here already are.
 #
-# Measured, on all three views: one row per object, updated in place. Each of
-# the three carried exactly one row for one object whose LAST_ALTERED_ON already
-# differed from its CREATED_ON -- an alteration is the case that would have
-# appended a second row had the grain been event-style. So the row count tracks
-# objects that have EVER existed (a deleted one keeps its row, with DELETED_ON
-# set), not lifecycle events.
-#
-# That fixes the threshold. At event grain a busy account could plausibly reach
-# tens of thousands of rows; at object grain it cannot, so a 50-page bar
-# (50,000 objects) could never fire and would have been protection in
-# appearance only. Five pages is ~5,000 objects ever created against a large
-# account's ~500 connectors and ~50 runtimes -- an order of magnitude of
-# headroom, and still far below the point where the read is merely slow.
+# Sized from the measured row grain: incarnation-style, one row per object
+# updated in place, so the row count tracks objects ever created rather than
+# lifecycle events -- see probes/2026-09-03-openflow-sql-surface.md Round 16.
+# That rules out the tens of thousands an event grain could reach, and with it
+# the previous 50-page bar, which could never have fired. Measured on the one
+# object each view held, so treat ~5,000 as headroom over a large account's
+# ~500 connectors, not as a proven ceiling.
 _HISTORY_PAGES_BEFORE_WARNING = 5
 _MAX_RUNTIMES_FOR_URL_LOOKUP = 500
 

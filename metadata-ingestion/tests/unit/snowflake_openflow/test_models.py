@@ -313,9 +313,11 @@ def test_view_only_key_reports_the_newest_lifecycle_row():
     # would silently never fire. Preferring open existed to protect live objects,
     # which the SHOW-authority rule above already does.
     #
-    # Newest-wins is correct under BOTH readings of the view grain, which matters
-    # because the grain is unverified here: incarnation-style, a re-created object
-    # carries the later timestamp; event-style, the delete event does.
+    # Newest-wins is correct under BOTH readings of the view grain. The grain has
+    # since been measured as incarnation-style (probes Round 16), but on one
+    # object per view, so this pins the rule that holds either way:
+    # incarnation-style, a re-created object carries the later timestamp;
+    # event-style, the delete event does.
     open_older = OpenflowConnector.from_row(
         {
             "CONNECTOR_ID": 2,
@@ -370,8 +372,10 @@ def test_view_only_recreation_is_reported_live():
 
 
 def test_mixed_lifecycle_keys_are_counted():
-    # The whole resolver rests on an unverified premise: whether these views hold
-    # one row per object life or one row per state change. This counter is the
+    # The resolver is written to hold whichever way these views are grained --
+    # one row per object life, or one row per state change. Measured as the
+    # former (probes Round 16) on a single object per view, so the counter stays
+    # as the thing that would surface a contradiction. This counter is the
     # direction-neutral signal for it -- zero while the assumption holds, non-zero
     # the moment a key owns both an open and a closed row, which is the only
     # condition under which the grain question changes any answer. An operator can

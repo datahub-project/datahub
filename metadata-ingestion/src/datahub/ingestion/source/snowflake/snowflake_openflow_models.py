@@ -294,9 +294,11 @@ RowModel = TypeVar("RowModel", OpenflowDeployment, OpenflowRuntime, OpenflowConn
 def _resolve_per_key(rows: List[RowModel]) -> Tuple[List[RowModel], int]:
     # Newest CREATED_ON wins; on a tie, CLOSED beats OPEN.
     #
-    # This rule is deliberately correct under BOTH readings of these views, because
-    # which one applies is unverified (the account available here holds one row per
-    # view, so churn cannot be observed):
+    # This rule is deliberately correct under BOTH readings of these views. The
+    # grain has since been measured as incarnation-style -- one row per object,
+    # updated in place; see probes/2026-09-03-openflow-sql-surface.md Round 16 --
+    # but on one object per view, so the dual-safe rule is kept rather than
+    # narrowed to the reading that measurement favours:
     #   incarnation-style (one row per object life) - two incarnations of a key have
     #     different CREATED_ON, so newest-wins picks the current one and the tie-break
     #     never fires.
@@ -326,8 +328,9 @@ def _resolve_per_key(rows: List[RowModel]) -> Tuple[List[RowModel], int]:
         if (row.deleted_on is None) != (current.deleted_on is None):
             # Direction-neutral signal, returned to the caller for the report.
             # Non-zero the instant a key owns BOTH an open and a closed lifecycle
-            # row, which is the only condition under which the unverified view-grain
-            # question can change the answer. Zero on an incarnation-style view with
+            # row, which is the only condition under which the view-grain question
+            # could change the answer -- so a non-zero count is also the signal
+            # that would contradict the measured incarnation grain. Zero on an incarnation-style view with
             # no drop-and-recreate; the moment it is not zero, the assumption this
             # resolver rests on is worth re-checking against a real account.
             #
