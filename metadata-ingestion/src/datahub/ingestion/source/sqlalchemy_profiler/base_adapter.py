@@ -29,13 +29,27 @@ DEFAULT_QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
 class ProfilingConnection:
     """Connection facade that makes every statement declare its row shape.
 
-    Deliberately does not expose .execute(). SQLAlchemyQueryCombiner batches
-    statements by cross-joining them as CTEs, which is only valid for statements
-    returning exactly one row, and a wrong answer degrades a whole batch to
-    serial execution. Forcing the choice through three named methods means the
-    declaration cannot be forgotten -- mypy rejects a bare .execute() call.
+    Deliberately does not expose .execute(), so the declaration cannot be
+    forgotten -- a bare .execute() call is a mypy error. Pick the rung that
+    describes your query; each is strictly weaker than the one above.
 
-    See SINGLE_ROW_EXECUTION_OPTION in query_combiner.py for what qualifies.
+    | method                | for                              | batched | flattened |
+    |-----------------------|----------------------------------|---------|-----------|
+    | execute_aggregate     | one aggregate over a whole table | yes     | yes       |
+    | execute_single_row    | a query you built, one row       | yes     | no        |
+    | execute_rows          | zero, one or many rows           | no      | no        |
+
+    Batching wraps each statement in a CTE and cross-joins them, which needs
+    exactly one row per statement but preserves every clause. Flattening merges
+    aggregates over the same table into one SELECT, which saves a table scan
+    but keeps only the select list and the FROM -- so any clause you added
+    would be silently dropped, and only execute_aggregate, which builds the
+    statement itself, can promise there is none.
+
+    When in doubt, go down a rung: the cost is a lost optimisation, not a
+    wrong number. get_row_count is the example worth studying -- it uses
+    execute_aggregate normally and execute_single_row when a sample clause has
+    to survive.
     """
 
     def __init__(self, conn: Connection) -> None:
