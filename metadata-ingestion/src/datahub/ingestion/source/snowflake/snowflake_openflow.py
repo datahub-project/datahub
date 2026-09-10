@@ -149,12 +149,23 @@ SCHEMA_STRATEGY_SOURCE_SCHEMA = "SOURCE_SCHEMA"
 _SHOW_ROW_CAP = 10_000
 # A history view is read in full, however many pages that takes -- correctness
 # does not depend on this number. It exists because the other two O(N) surfaces
-# in this source (the SHOW row cap and the per-runtime DESCRIBE threshold) both
-# escalate to a warning when they get large and this one did not, so a view that
-# turned out to be event-style rather than incarnation-style -- a row per status,
-# version and config change -- would just get quietly slower. Whether these views
-# are event-style is not something the docs settle, so the operator gets told.
-_HISTORY_PAGES_BEFORE_WARNING = 50
+# here (the SHOW row cap and the per-runtime DESCRIBE threshold) escalate to a
+# warning when they grow and this one did not.
+#
+# Measured, on all three views: one row per object, updated in place. Each of
+# the three carried exactly one row for one object whose LAST_ALTERED_ON already
+# differed from its CREATED_ON -- an alteration is the case that would have
+# appended a second row had the grain been event-style. So the row count tracks
+# objects that have EVER existed (a deleted one keeps its row, with DELETED_ON
+# set), not lifecycle events.
+#
+# That fixes the threshold. At event grain a busy account could plausibly reach
+# tens of thousands of rows; at object grain it cannot, so a 50-page bar
+# (50,000 objects) could never fire and would have been protection in
+# appearance only. Five pages is ~5,000 objects ever created against a large
+# account's ~500 connectors and ~50 runtimes -- an order of magnitude of
+# headroom, and still far below the point where the read is merely slow.
+_HISTORY_PAGES_BEFORE_WARNING = 5
 _MAX_RUNTIMES_FOR_URL_LOOKUP = 500
 
 # Beyond this the readable per-table job id is replaced by a content hash, so
