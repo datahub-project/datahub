@@ -1,8 +1,10 @@
 import itertools
+import logging
 from typing import Any
 
 from datahub.ingestion.agent.sql_gate import INFORMATION_SCHEMA, CatalogScope
 from datahub.ingestion.agent.sql_passthrough import (
+    PROBE_QUERY_LABEL,
     CatalogRows,
     SqlCatalogPassthrough,
     rows_from_mappings,
@@ -10,6 +12,8 @@ from datahub.ingestion.agent.sql_passthrough import (
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
+
+logger = logging.getLogger(__name__)
 
 # ACCOUNT_USAGE views a probe may read, named individually. Drawn from what the
 # Snowflake connector itself reads, so a probe can reproduce ingestion -- minus the
@@ -39,10 +43,11 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 # live fixtures, one `SELECT 1 ... LIMIT 1` here is the only difference between
 # them, so this is the read that answers "will lineage actually work".
 #
-# The trade is USER_NAME, which is identity and so sits against the `users`
-# exclusion above. Admitted anyway: an access record that names a user is not a
-# directory of them, and the scope model is relation-level, so "count rows but do
-# not read USER_NAME" cannot be expressed.
+# USER_NAME is identity, and so sits against the `users` exclusion above. It is
+# not the trade it first looks like: the scope model is relation-level and cannot
+# say "read this view but not that column", but redact.mask_identity_columns can,
+# and does -- every row leaving sql_result has it replaced with the redaction
+# marker. The relation is admitted for its shape; the identity in it is withheld.
 # Catalog-qualified on purpose. ACCOUNT_USAGE is a schema inside the SNOWFLAKE
 # database, but nothing stops a user creating their own database with a schema of
 # that name -- and a two-part entry would match the last two path segments of
@@ -91,7 +96,21 @@ class SnowflakeMetadataProbe(SqlCatalogPassthrough):
     def for_config(cls, config: SnowflakeConnectionConfig) -> "SnowflakeMetadataProbe":
         """Reuse the connector's own connection builder, so a probe query
         authenticates and retries exactly as ingestion does."""
-        return cls(config.get_connection())
+        connection = config.get_connection()
+        # QUERY_TAG rides the session rather than each statement, so it also
+        # covers the ALTER SESSION below and anything a later getter adds. The
+        # session is the probe's own -- config.get_connection() opens a new one
+        # per probe -- so nothing ingestion runs is relabelled.
+        #
+        # Best-effort, unlike the statement ceiling in execute_catalog_query,
+        # which is left to fail loudly. A label is not a safety control, and
+        # refusing to probe an account because its query log would have been
+        # slightly harder to read is the wrong trade.
+        try:
+            connection.query(f"ALTER SESSION SET QUERY_TAG = '{PROBE_QUERY_LABEL}'")
+        except Exception as exc:
+            logger.debug("could not tag the probe session: %s", exc)
+        return cls(connection)
 
     def __exit__(self, *exc: object) -> None:
         self._connection.close()

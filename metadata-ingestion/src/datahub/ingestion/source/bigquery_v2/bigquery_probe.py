@@ -3,6 +3,7 @@ from typing import Any
 
 from datahub.ingestion.agent.sql_gate import INFORMATION_SCHEMA, CatalogScope
 from datahub.ingestion.agent.sql_passthrough import (
+    PROBE_QUERY_LABEL,
     CatalogRows,
     QueryBudget,
     SqlCatalogPassthrough,
@@ -86,6 +87,13 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
         job_config = QueryJobConfig(
             maximum_bytes_billed=self.query_budget.max_bytes_billed,
             use_query_cache=True,
+            # Labels are the strongest attribution of the three dialects that
+            # offer any: they reach INFORMATION_SCHEMA.JOBS and the billing
+            # export, so probe cost is separable from ingestion cost rather
+            # than merely tellable apart in a log. BigQuery rejects a label
+            # outside [a-z0-9_-], which is why PROBE_QUERY_LABEL is spelled
+            # the way it is.
+            labels={"application": PROBE_QUERY_LABEL},
         )
         # max_results caps what BigQuery pages back, so a broad catalog query does
         # not stream an entire result set to be thrown away. It does NOT cap the

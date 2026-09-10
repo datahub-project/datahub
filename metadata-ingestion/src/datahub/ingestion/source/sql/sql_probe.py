@@ -3,7 +3,7 @@ import sys
 from types import SimpleNamespace
 from typing import Any, Callable, Dict, Optional, Protocol, Type, cast
 
-from datahub.ingestion.agent.sql_passthrough import QueryBudget
+from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL, QueryBudget
 from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 
@@ -143,6 +143,37 @@ def _install_mysql_statement_timeout(engine: Any, seconds: int) -> None:
     event.listen(engine, "connect", _set_timeout)
 
 
+# The connect_arg each dialect family names its client with, so probe traffic is
+# tellable apart from ingestion's in the server's own logs. Value is the kwarg
+# name; the label itself is the same everywhere.
+#
+# Deliberately disjoint from _TIMEOUT_CONNECT_ARGS above: nothing here may share
+# a key with what that table emits, or one would silently overwrite the other in
+# engine_options. Postgres is the one at risk -- its ceiling rides on the libpq
+# `options` string -- so attribution uses the driver's own application_name
+# parameter rather than a second `-c` setting inside that same string.
+#
+# Where a dialect offers nothing, it gets nothing. An unlabelled connection is
+# honest; a label the server discards is not.
+_ATTRIBUTION_CONNECT_ARGS: Dict[str, str] = {
+    # pg_stat_activity.application_name, and %a in log_line_prefix.
+    "postgresql": "application_name",
+    "postgres": "application_name",
+    "cockroachdb": "application_name",
+    # Redshift takes the same parameter but surfaces it elsewhere: it forked
+    # from Postgres 8.0, whose pg_stat_activity has no application_name column
+    # yet. The session has it (current_setting), and STL_CONNECTION_LOG records
+    # it per connection for anyone holding that grant.
+    "redshift": "application_name",
+    # MySQL has no application_name. PyMySQL sends program_name as a connection
+    # attribute instead, which surfaces in
+    # performance_schema.session_connect_attrs -- weaker, since it names the
+    # session rather than each statement, but it is what this family offers.
+    "mysql": "program_name",
+    "mariadb": "program_name",
+}
+
+
 def _scheme_of(url: str) -> str:
     return url.split("://", 1)[0].split("+", 1)[0].lower()
 
@@ -164,6 +195,11 @@ def _timeout_connect_args(url: str, seconds: Optional[int]) -> Dict[str, Any]:
         return {}
     builder = _TIMEOUT_CONNECT_ARGS.get(_scheme_of(url))
     return builder(seconds) if builder else {}
+
+
+def _attribution_connect_args(url: str) -> Dict[str, Any]:
+    kwarg = _ATTRIBUTION_CONNECT_ARGS.get(_scheme_of(url))
+    return {kwarg: PROBE_QUERY_LABEL} if kwarg else {}
 
 
 def applies_statement_timeout(url: str, seconds: Optional[int]) -> bool:
@@ -242,10 +278,17 @@ def engine_options(
     # so merge into a copy rather than replacing the dict it handed us.
     url_getter = getattr(config, "get_sql_alchemy_url", None)
     url = url_getter() if callable(url_getter) else ""
-    timeout_args = _timeout_connect_args(str(url), budget.timeout_seconds)
-    if timeout_args:
-        connect_args = dict(options.get("connect_args") or {})
-        connect_args.update(timeout_args)
+    connect_args = dict(options.get("connect_args") or {})
+    unchanged = dict(connect_args)
+    # The two merge differently, on purpose. A label defers to whatever the
+    # recipe already set -- it is the user's connection to name, and a recipe
+    # that names it has said what it wants called. The ceiling does not defer:
+    # a safety control a recipe can switch off by naming the same key is not a
+    # control.
+    for key, value in _attribution_connect_args(str(url)).items():
+        connect_args.setdefault(key, value)
+    connect_args.update(_timeout_connect_args(str(url), budget.timeout_seconds))
+    if connect_args != unchanged:
         options["connect_args"] = connect_args
     return options
 

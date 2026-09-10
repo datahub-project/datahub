@@ -10,6 +10,24 @@ from datahub.ingestion.agent.sql_gate import CatalogScope
 # and loses the seven typed getters.
 _JSON_SAFE_TYPES = (str, int, float, bool)
 
+# What a probe calls itself to the server it is querying.
+#
+# A probe runs with ingestion's own credentials, over ingestion's own client, so
+# in the source system's logs its queries are indistinguishable from a scheduled
+# run -- and an agent exploring a source can issue a lot of them. Someone reading
+# a slow-query log or a bill needs to be able to tell "an agent was looking around"
+# from "ingestion is misbehaving", and only the client can supply that.
+#
+# The charset is not cosmetic: BigQuery rejects a label value outside
+# [a-z0-9_-] (63 max), which is the tightest of the three rules this string has
+# to satisfy. It is also what makes the string safe to interpolate into
+# Snowflake's ALTER SESSION, where no bind parameter is available. Both
+# properties are asserted in tests/unit/agent/test_query_attribution.py -- widen
+# the charset and Snowflake gains an injection point in the same edit that
+# breaks BigQuery.
+PROBE_QUERY_LABEL = "datahub_recipe_probe"
+
+
 _SelfT = TypeVar("_SelfT", bound="SqlCatalogPassthrough")
 
 
