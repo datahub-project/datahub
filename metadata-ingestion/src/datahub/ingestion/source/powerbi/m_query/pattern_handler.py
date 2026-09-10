@@ -519,7 +519,9 @@ class AbstractLineage(ABC):
             query, _BIGQUERY_PLATFORM_NAME
         )
 
-        if extraction.parse_failed:
+        if extraction.parse_failed or not (
+            extraction.references or extraction.unresolvable
+        ):
             # A cleanup-recoverable T-SQL preamble (USE/GO/SET/DROP ahead of the SELECT)
             # fails the raw parse and would otherwise discard the whole table's lineage,
             # native tables included. remove_drop_statement strips those statements, so

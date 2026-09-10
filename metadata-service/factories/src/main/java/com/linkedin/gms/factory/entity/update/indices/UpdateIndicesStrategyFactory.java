@@ -3,11 +3,14 @@ package com.linkedin.gms.factory.entity.update.indices;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
+import com.linkedin.gms.factory.search.EntityDocumentIdHasherFactory;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
@@ -15,8 +18,11 @@ import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
 import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -25,7 +31,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 @Configuration
-@Import(ElasticSearchServiceFactory.class)
+@Import({ElasticSearchServiceFactory.class, EntityDocumentIdHasherFactory.class})
 @Slf4j
 public class UpdateIndicesStrategyFactory {
 
@@ -106,7 +112,8 @@ public class UpdateIndicesStrategyFactory {
       SearchDocumentTransformer searchDocumentTransformer,
       TimeseriesAspectService timeseriesAspectService,
       TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
-      @Value("${elasticsearch.idHashAlgo}") String idHashAlgo,
+      EntityDocumentIdHasher entityDocumentIdHasher,
+      @Autowired(required = false) @Nullable List<V3SearchDocumentContributor> documentContributors,
       @Value("${elasticsearch.entityIndex.v3.cleanup:false}") boolean v3Cleanup,
       @Value("${elasticsearch.entityIndex.v2.enabled:true}") boolean v2Enabled) {
 
@@ -119,8 +126,9 @@ public class UpdateIndicesStrategyFactory {
         elasticSearchService,
         searchDocumentTransformer,
         timeseriesAspectService,
-        idHashAlgo,
-        v2Enabled,
-        timeseriesWriteThrottleCache);
+        timeseriesWriteThrottleCache,
+        entityDocumentIdHasher,
+        documentContributors == null ? List.of() : documentContributors,
+        v2Enabled);
   }
 }
