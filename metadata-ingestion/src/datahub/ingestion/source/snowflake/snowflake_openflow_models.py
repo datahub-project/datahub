@@ -41,6 +41,17 @@ COL_DISPLAY_NAME = "DISPLAY_NAME"
 COL_CONNECTOR_URL = "CONNECTOR_URL"
 
 
+def _escape_key_part(value: str) -> str:
+    """One component of a composite key, with the separator made unambiguous.
+
+    "%" is escaped first, or the escape introduced for "/" would itself be
+    ambiguous with a literal "%2F" in the identifier. Names containing neither
+    character -- which is all ordinary ones -- pass through unchanged, so no
+    URN churn for the common case.
+    """
+    return value.replace("%", "%25").replace("/", "%2F")
+
+
 def get_col(row: Dict[str, Any], *names: str) -> Optional[Any]:
     # SHOW returns lowercase keys, the ACCOUNT_USAGE views uppercase, and the
     # views are still evolving, so read case-insensitively by name and tolerate
@@ -252,10 +263,15 @@ class OpenflowConnector:
 
     @property
     def key(self) -> str:
-        # "/" is not among the URN reserved characters (see
-        # datahub.utilities.urn_encoder.RESERVED_CHARS), so it needs no
-        # escaping when this key ends up inside a DataFlow URN component.
-        return f"{self.runtime_name}/{self.name}"
+        # Two separate questions, and an earlier version of this comment only
+        # answered the first. "/" is not among the URN reserved characters (see
+        # datahub.utilities.urn_encoder.RESERVED_CHARS), so it needs no escaping
+        # to sit inside a DataFlow URN component -- but the join must also be
+        # INJECTIVE, and a Snowflake quoted identifier may itself contain "/".
+        # Unescaped, runtime "a" + connector "b/c" and runtime "a/b" +
+        # connector "c" both render "a/b/c", so two unrelated connectors
+        # collapse into one DataFlow and one set of lineage.
+        return f"{_escape_key_part(self.runtime_name)}/{_escape_key_part(self.name)}"
 
     @property
     def location(self) -> Optional[Tuple[str, str, str]]:

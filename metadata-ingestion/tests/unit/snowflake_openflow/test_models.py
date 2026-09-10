@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 import pytest
 
@@ -712,3 +712,32 @@ def test_a_blank_first_spelling_falls_through_to_the_next() -> None:
 
     assert parsed is not None
     assert parsed.name == "the_real_name"
+
+
+@pytest.mark.parametrize(
+    ("left", "right"),
+    [
+        pytest.param(("a", "b/c"), ("a/b", "c"), id="separator in either half"),
+        pytest.param(("a", "b%2Fc"), ("a", "b/c"), id="literal escape vs real slash"),
+    ],
+)
+def test_two_connectors_cannot_share_a_key(
+    left: Tuple[str, str], right: Tuple[str, str]
+) -> None:
+    # The composite key is the DataFlow's identity. A Snowflake quoted
+    # identifier may contain "/", so an unescaped join let runtime "a" +
+    # connector "b/c" and runtime "a/b" + connector "c" both render "a/b/c" --
+    # two unrelated connectors collapsing into one DataFlow, taking each
+    # other's lineage with them. Nothing downstream errors on this; the URN is
+    # well-formed, it just names the wrong thing.
+    a = OpenflowConnector(runtime_name=left[0], name=left[1])
+    b = OpenflowConnector(runtime_name=right[0], name=right[1])
+
+    assert a.key != b.key
+
+
+def test_an_ordinary_name_is_not_escaped() -> None:
+    # The escaping must not churn URNs for names that contain neither character.
+    assert OpenflowConnector(runtime_name="MyRuntime", name="pg_cdc").key == (
+        "MyRuntime/pg_cdc"
+    )

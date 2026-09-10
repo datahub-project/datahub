@@ -1031,7 +1031,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
     def _query_rows(self, query: str) -> List[Dict[str, Any]]:
         return [dict(row) for row in self.connection.query(query)]
 
-    def _warn_if_show_truncated(
+    def _fail_if_show_truncated(
         self, rows: List[Dict[str, Any]], object_type: str
     ) -> None:
         # SHOW returns at most _SHOW_ROW_CAP rows and says nothing when it
@@ -1048,13 +1048,24 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         # cannot invent one.
         if len(rows) == _SHOW_ROW_CAP:
             self.report.num_show_results_at_row_cap += 1
-            self.report.warning(
-                title="Inventory may be truncated",
+            # failure, not warning, and the distinction is the whole point. This
+            # is the one case where the source KNOWS its inventory is short, and
+            # with stateful ingestion a short inventory is a deletion order:
+            # every object past the cap is absent from this run's checkpoint and
+            # gets soft-deleted. StaleEntityRemovalHandler skips soft-deletion
+            # when the source has reported a failure -- see
+            # stale_entity_removal_handler.py, "If the source already had a
+            # failure, skip soft-deletion" -- so reporting one here is what
+            # actually prevents the deletion, rather than merely narrating it.
+            self.report.failure(
+                title="Inventory is truncated",
                 message=(
                     f"SHOW returned exactly {_SHOW_ROW_CAP} rows, which is the "
-                    "row cap, so there may be more objects than were read. Any "
-                    "object past the cap is absent from this run and, with "
-                    "stateful ingestion enabled, is treated as deleted."
+                    "row cap, so there are almost certainly more objects than "
+                    "were read. This is reported as a failure so that stale-"
+                    "entity removal is skipped: otherwise every object past the "
+                    "cap would be soft-deleted on the strength of an inventory "
+                    "this source already knows is incomplete."
                 ),
                 context=object_type,
             )
@@ -1639,7 +1650,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         models share no base class, only the shape used here.
         """
         show_rows = self._query_rows_with_retry(show_query)
-        self._warn_if_show_truncated(show_rows, object_type)
+        self._fail_if_show_truncated(show_rows, object_type)
         show = self._parse_rows(model, show_rows, object_type, "SHOW")
         history = self._parse_rows(
             model,

@@ -1017,7 +1017,11 @@ def test_an_inventory_at_the_row_cap_is_reported_as_possibly_truncated(
     source._fetch_runtimes()
 
     assert source.report.num_show_results_at_row_cap == 1
-    assert "Inventory may be truncated" in _warning_titles(source.report)
+    # A FAILURE, not a warning: the framework skips stale-entity removal when
+    # the source has failed, and that is what stops everything past the cap
+    # being soft-deleted on a knowingly short inventory.
+    assert "Inventory is truncated" in [e.title for e in source.report.failures]
+    assert "Inventory is truncated" not in _warning_titles(source.report)
 
 
 def test_an_inventory_below_the_row_cap_is_not_flagged(
@@ -1037,7 +1041,7 @@ def test_an_inventory_below_the_row_cap_is_not_flagged(
     source._fetch_runtimes()
 
     assert source.report.num_show_results_at_row_cap == 0
-    assert "Inventory may be truncated" not in _warning_titles(source.report)
+    assert "Inventory is truncated" not in [e.title for e in source.report.failures]
 
 
 def test_the_inclusive_cursor_overlap_row_does_not_duplicate_an_object() -> None:

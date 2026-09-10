@@ -49,7 +49,7 @@ class SnowflakeOpenflowReport(StaleEntityRemovalSourceReport):
     # stateful ingestion that reads as a deletion.
     num_rows_missing_identity: int = 0
     # SHOW calls that came back at exactly the row cap, so the inventory they
-    # produced may be short. See _warn_if_show_truncated.
+    # produced may be short. See _fail_if_show_truncated.
     num_show_results_at_row_cap: int = 0
     # Distinct CREATED_ON renderings that were present but unparseable. Non-zero
     # means ordering is degraded, and unordered rows resolve as deleted.
