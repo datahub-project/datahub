@@ -74,7 +74,23 @@ source:
 
 Only single-aggregate-over-a-whole-table queries are flattened. Anything the profiler builds itself — a filtered count, a sampled row count, a median fallback — falls back to the CTE path, correct but not collapsed. `COUNT(DISTINCT)` columns are capped per statement, because each one builds a distinct-value tree in server memory; the gain is therefore largest for cheap aggregates and smaller for unique counts.
 
-The ingestion report exposes `scans_avoided` alongside `combined_queries_issued`. Flattening trades round trips for scans, so `combined_queries_issued` can rise while scans fall — read them together rather than treating a rise as a regression.
+`max_distinct_per_statement` (default 5) caps how many `COUNT(DISTINCT)` columns share one statement. The default is a starting point rather than a measured optimum.
+
+#### Reading the report
+
+Flattening trades round trips for scans, so `combined_queries_issued` can rise while scans fall — read it together with `scans_avoided` rather than treating the rise as a regression.
+
+| counter                       | meaning                                                                                            |
+| ----------------------------- | -------------------------------------------------------------------------------------------------- |
+| `scans_avoided`               | table scans saved; the success signal, counted only after a flat statement's results are extracted |
+| `flat_queries_issued`         | flat statements attempted, counted before execution                                                |
+| `flatten_rejected`            | queries the profiler built itself (filtered, sampled, or multi-row) so they were never eligible    |
+| `flatten_singletons`          | queries alone in their table group, sent to the CTE path because flattening one saves nothing      |
+| `flat_group_failures`         | flat statements that failed and fell back                                                          |
+| `flat_group_cte_recoveries`   | of those, how many the CTE path recovered in one round trip                                        |
+| `flat_group_serial_fallbacks` | of those, how many ended up one query per round trip                                               |
+
+If `scans_avoided` is low, those last four say why. High `flatten_singletons` means the workload has little to merge; a non-zero `flat_group_serial_fallbacks` means flattening is costing round trips rather than saving scans, and the flag is better off.
 
 ### Sampling
 

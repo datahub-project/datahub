@@ -10,7 +10,6 @@ from pydantic.fields import Field
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
-    HiddenFromDocs,
     SupportedSources,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
@@ -201,13 +200,17 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="*Experimental.* Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Requires `query_combiner_enabled`; has no effect on its own. Off by default. COUNT(DISTINCT) columns are capped per statement to bound server memory.",
     )
 
-    # Hidden: cap on COUNT(DISTINCT) columns per flat statement, exposed so
-    # it can be measured without a release. Duplicated from
-    # DEFAULT_MAX_DISTINCT_PER_STATEMENT rather than imported, because kafka /
-    # cassandra / excel configs import this module without sqlalchemy.
-    max_distinct_per_statement: HiddenFromDocs[pydantic.PositiveInt] = Field(
+    # Duplicated from DEFAULT_MAX_DISTINCT_PER_STATEMENT rather than imported,
+    # because kafka / cassandra / excel configs import this module without
+    # sqlalchemy. A drift test keeps the two in lockstep.
+    max_distinct_per_statement: pydantic.PositiveInt = Field(
         default=5,
-        description="",
+        description="*Experimental, only used when `query_combiner_flatten_enabled` is on.* "
+        "Maximum COUNT(DISTINCT) columns allowed in one flattened statement. Each one "
+        "builds a distinct-value tree in server memory, so merging too many trades a "
+        "scan problem for a memory problem. The default is a starting point, not a "
+        "measured optimum — raise it if your server has headroom and unique counts "
+        "dominate profiling time, lower it if profiling causes memory pressure.",
     )
 
     # Hidden option - used for debugging purposes.
