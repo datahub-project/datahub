@@ -347,8 +347,8 @@ This section covers how to design access policies when **view-based access contr
 
 When VBAC is enabled (`VIEW_AUTHORIZATION_ENABLED` on OSS, or Cloud Search Access Controls), entity types are
 **restricted by default**. Types marked `viewUnrestricted: true` in `entity-registry.yml`, plus optional
-`VIEW_UNRESTRICTED_ENTITY_TYPES` / `_DEFAULT` / `_ADD` / `_REMOVE` overlays (see
-[Environment Variables](../deploy/environment-vars.md)), bypass view checks. Stock `_DEFAULT` does **not** include
+`VIEW_UNRESTRICTED_ENTITY_TYPES` / `_ADD` / `_REMOVE` overlays (see
+[Environment Variables](../deploy/environment-vars.md)), bypass view checks. Stock `VIEW_UNRESTRICTED_ENTITY_TYPES` does **not** include
 `document`, `schemaField`, or `container` — those types are under view policy by default (`container` is no longer
 `viewUnrestricted` in the registry). For `schemaField`, **View Entity Page** inherits from the parent dataset
 encoded in the schemaField URN (then a direct column grant). GraphQL container loads use field-strip redaction.

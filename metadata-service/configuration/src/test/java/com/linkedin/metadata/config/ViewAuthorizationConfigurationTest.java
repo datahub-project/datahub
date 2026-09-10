@@ -13,31 +13,30 @@ public class ViewAuthorizationConfigurationTest {
 
   @Test
   public void testDocumentIsNotUnrestrictedByDefault() throws Exception {
-    assertNotInStockAdd("document");
+    assertNotInStockValue("document");
   }
 
   @Test
   public void testSchemaFieldIsNotUnrestrictedByDefault() throws Exception {
-    assertNotInStockAdd("schemaField");
+    assertNotInStockValue("schemaField");
   }
 
   @Test
   public void testContainerIsNotUnrestrictedByDefault() throws Exception {
-    assertNotInStockAdd("container");
+    assertNotInStockValue("container");
   }
 
-  private static void assertNotInStockAdd(String entityType) throws Exception {
+  private static void assertNotInStockValue(String entityType) throws Exception {
     StandardEnvironment environment = new StandardEnvironment();
     new YamlPropertySourceLoader()
         .load("application", new ClassPathResource("application.yaml"))
         .forEach(environment.getPropertySources()::addLast);
 
-    String defaultValue =
+    String stockValue =
         environment.resolvePlaceholders(
-            environment.getRequiredProperty(
-                "authorization.view.unrestrictedEntityTypes.defaultValue"));
+            environment.getRequiredProperty("authorization.view.unrestrictedEntityTypes.value"));
     assertFalse(
-        Arrays.stream(defaultValue.split(","))
+        Arrays.stream(stockValue.split(","))
             .map(String::trim)
             .anyMatch(entityType::equalsIgnoreCase),
         entityType + " must not be in the stock unrestricted defaults");

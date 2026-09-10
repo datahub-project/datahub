@@ -100,9 +100,8 @@ Requirements:
 - **(View authorization)** `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD` and
   `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE` now mutate the complete effective default list instead of
   replacing it. Operators can add or remove one entity type without restating every default
-  unrestricted type. `VIEW_UNRESTRICTED_ENTITY_TYPES_DEFAULT` overrides the application-default CSV
-  (not the registry baseline). A non-empty `VIEW_UNRESTRICTED_ENTITY_TYPES` remains a full
-  replacement.
+  unrestricted type. Stock application defaults live on `VIEW_UNRESTRICTED_ENTITY_TYPES` (merged
+  with the registry baseline). An explicitly empty value keeps only the registry baseline.
 
 - **(GMS / AWS clients)** Shared object-storage `S3Client` and `StsClient` no longer fall through to the AWS SDK default credential chain when only a region is set. That path allocated a new IRSA `StsAssumeRoleWithWebIdentityCredentialsProvider` per builder. Clients are created from the shared `DefaultCredentialsProvider` bean, LocalStack dummy credentials (`AWS_ENDPOINT_URL`), or skipped. Iceberg catalog FileIO uses warehouse-vended static keys only. **Action:** none if GMS already has a shared AWS credentials bean or LocalStack; object storage / STS stay unavailable until credentials are explicit.
 
@@ -479,7 +478,7 @@ Requirements:
 - `ENTITY_WRITE_LOCK_ACQUIRE_TIMEOUT_SECONDS` (default `10`) — Bounds the write-lock acquire wait before proceeding lockless (CAS still guards).
 - `ENTITY_WRITE_LOCK_LEASE_SECONDS` (default `300`) — Maximum gate hold: auto-releases a write lock after this long so a dead/hung holder can't wedge a URN. It also fires for a _healthy_ holder whose gated write runs longer than the lease — after which the gate no longer serializes that URN (CAS still guards). Set it above your longest expected gated write.
 
-- `VIEW_UNRESTRICTED_ENTITY_TYPES` / `_DEFAULT` / `_ADD` / `_REMOVE` — Replaces `VIEW_RESTRICTED_ENTITY_TYPES`. Overlays on the `entity-registry.yml` `viewUnrestricted` baseline when `VIEW_AUTHORIZATION_ENABLED=true` (shared GMS config for Cloud Search Access Controls and OSS entity-page VBAC). Query-time search filtering remains DataHub Cloud–only. See Breaking Changes above and [Environment Variables](../deploy/environment-vars.md).
+- `VIEW_UNRESTRICTED_ENTITY_TYPES` / `_ADD` / `_REMOVE` — Replaces `VIEW_RESTRICTED_ENTITY_TYPES`. Overlays on the `entity-registry.yml` `viewUnrestricted` baseline when `VIEW_AUTHORIZATION_ENABLED=true` (shared GMS config for Cloud Search Access Controls and OSS entity-page VBAC). Query-time search filtering remains DataHub Cloud–only. See Breaking Changes above and [Environment Variables](../deploy/environment-vars.md).
 
 - `SEARCH_DEFAULT_ENTITY_TYPES` / `SEARCH_AUTOCOMPLETE_ENTITY_TYPES` / `SEARCH_BROWSE_ENTITY_TYPES` / `SEARCH_PRIORITIZED_*_ENTITY_TYPES` (each with optional `_ADD` / `_REMOVE`) — Configure GraphQL default entity-type lists when callers omit `types`. Unset keeps `application.yaml` defaults. An explicitly empty value searches no entity types. See [Environment Variables](../deploy/environment-vars.md).
 

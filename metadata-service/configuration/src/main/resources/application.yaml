@@ -106,12 +106,12 @@ authorization:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
       peerGroupEnabled: ${VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
     # Entity types that bypass view authorization when enabled. All other types are restricted by
-    # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`) plus
-    # `defaultValue`. Empty `value` keeps that effective default; a non-empty `value` replaces it.
-    # Operator `add` / `remove` always mutate the selected baseline.
-    # `defaultValue` holds application defaults not already flagged in the registry (OSS entity
-    # names only; Cloud-only types are omitted and would be soft-dropped here anyway). Override
-    # with VIEW_UNRESTRICTED_ENTITY_TYPES_DEFAULT (replaces this CSV, not the registry baseline).
+    # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`) plus `value`.
+    # Operator `add` / `remove` always mutate that list.
+    # Stock `value` is the previous unrestricted CSV minus types already flagged in the registry
+    # (OSS entity names only; Cloud-only types are omitted and would be soft-dropped here anyway).
+    # Override with VIEW_UNRESTRICTED_ENTITY_TYPES (replaces this CSV, not the registry baseline).
+    # An explicitly empty VIEW_UNRESTRICTED_ENTITY_TYPES keeps only the registry baseline.
     # Document, schemaField, and container are intentionally absent from the effective defaults:
     # they are view-restricted when view authorization is on (container is no longer
     # viewUnrestricted in the registry). Unrestricted overlays only bypass view gates and do not
@@ -125,8 +125,7 @@ authorization:
     #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, post
     #   settings / internal: globalSettings, dataHubRetention, dataHubOpenAPISchema, telemetry, dataHubUpgrade, dataHubStepState
     unrestrictedEntityTypes:
-      defaultValue: ${VIEW_UNRESTRICTED_ENTITY_TYPES_DEFAULT:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
-      value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:}
+      value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
       add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:}
       remove: ${VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE:}
 

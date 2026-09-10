@@ -25,11 +25,12 @@ import lombok.extern.slf4j.Slf4j;
  * result (production defaults come from {@code application.yaml}).
  *
  * <p>For view-unrestricted types, the effective default is entity specs with {@code
- * viewUnrestricted: true} plus the application {@code defaultValue}. A non-empty config {@code
- * value} replaces that default; {@code add} / {@code remove} always mutate the selected baseline.
+ * viewUnrestricted: true} plus the application {@code value} overlay. {@code add} / {@code remove}
+ * always mutate that list.
  *
- * <p>Order from baseline/{@code value} then {@code add} is preserved; duplicates are dropped
- * case-insensitively (first occurrence wins). Unknown registry names are soft-dropped with a warn.
+ * <p>Order from registry baseline, then {@code value}, then {@code add} is preserved; duplicates
+ * are dropped case-insensitively (first occurrence wins). Unknown registry names are soft-dropped
+ * with a warn.
  *
  * <p>An empty resolved search list means <em>search no entity types</em> at the GraphQL layer — it
  * must not be treated as "search all".
@@ -55,15 +56,10 @@ public final class EntityTypeUtils {
   public static Set<String> resolve(
       @Nullable ViewUnrestrictedEntityTypes config, @Nullable EntityRegistry entityRegistry) {
     final List<String> registryBaseline = viewUnrestrictedFromRegistry(entityRegistry);
-    final List<String> defaultValue =
-        config == null ? Collections.emptyList() : config.parsedDefaultValue();
     final List<String> value = config == null ? Collections.emptyList() : config.parsedValue();
     final List<String> add = config == null ? Collections.emptyList() : config.parsedAdd();
     final List<String> remove = config == null ? Collections.emptyList() : config.parsedRemove();
-    final List<String> baseline =
-        value.isEmpty()
-            ? mergeOrdered(registryBaseline, defaultValue, Collections.emptyList())
-            : value;
+    final List<String> baseline = mergeOrdered(registryBaseline, value, Collections.emptyList());
 
     if (baseline.isEmpty() && add.isEmpty() && remove.isEmpty()) {
       return Set.of();

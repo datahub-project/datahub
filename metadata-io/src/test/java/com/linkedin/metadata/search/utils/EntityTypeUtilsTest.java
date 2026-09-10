@@ -181,7 +181,7 @@ public class EntityTypeUtilsTest {
 
     ViewUnrestrictedEntityTypes config =
         ViewUnrestrictedEntityTypes.builder()
-            .defaultValue("dataHubPolicy")
+            .value("dataHubPolicy")
             .add("dataHubPolicy,application,DATAHUBPOLICY")
             .build();
     Assert.assertEquals(
@@ -190,7 +190,7 @@ public class EntityTypeUtilsTest {
   }
 
   @Test
-  public void testViewUnrestrictedValueReplacesRegistryBaseline() {
+  public void testViewUnrestrictedValueMergesWithRegistryBaseline() {
     EntityRegistry registry = Mockito.mock(EntityRegistry.class);
     EntitySpec userSpec = viewUnrestrictedSpec("corpuser");
     EntitySpec groupSpec = namedSpec("corpGroup");
@@ -199,18 +199,15 @@ public class EntityTypeUtilsTest {
         .thenReturn(Map.of("corpuser", userSpec, "corpgroup", groupSpec));
 
     ViewUnrestrictedEntityTypes config =
-        ViewUnrestrictedEntityTypes.builder()
-            .defaultValue("dataHubPolicy")
-            .value("corpGroup")
-            .build();
-    Assert.assertEquals(EntityTypeUtils.resolve(config, registry), Set.of("corpGroup"));
+        ViewUnrestrictedEntityTypes.builder().value("corpGroup").build();
+    Assert.assertEquals(EntityTypeUtils.resolve(config, registry), Set.of("corpuser", "corpGroup"));
   }
 
   @Test
   public void testViewUnrestrictedRemoveMutatesEffectiveDefaultsAndIgnoresAbsentTypes() {
     ViewUnrestrictedEntityTypes config =
         ViewUnrestrictedEntityTypes.builder()
-            .defaultValue("corpuser,corpGroup,container,actionRequest")
+            .value("corpuser,corpGroup,container,actionRequest")
             .remove("container,actionRequest,notPresent")
             .build();
     Assert.assertEquals(EntityTypeUtils.resolve(config, null), Set.of("corpuser", "corpgroup"));

@@ -19,9 +19,9 @@ import lombok.experimental.Accessors;
  *
  * <p>When {@code authorization.view.enabled} is true, every entity type is subject to view checks
  * unless it is marked {@code viewUnrestricted: true} in the entity registry or appears in the
- * effective overlay list. Each list is a comma-separated set of registry entity names. Application
- * defaults and operator overlays live in {@code application.yaml}; the lean baseline is owned by
- * {@code entity-registry.yml}.
+ * effective overlay list. Each of {@link #value}, {@link #add}, and {@link #remove} is a
+ * comma-separated list of registry entity names. Production overlays live in {@code
+ * application.yaml}; the lean baseline is owned by {@code entity-registry.yml}.
  */
 @Data
 @AllArgsConstructor
@@ -31,21 +31,17 @@ import lombok.experimental.Accessors;
 public class ViewUnrestrictedEntityTypes {
 
   /**
-   * Additional application defaults appended to the entity-registry baseline. Overridable via
-   * {@code VIEW_UNRESTRICTED_ENTITY_TYPES_DEFAULT}. This is separate from {@link #add} so an
-   * operator-provided {@code VIEW_UNRESTRICTED_ENTITY_TYPES_ADD} mutates, rather than replaces, the
-   * application defaults.
-   */
-  private String defaultValue;
-
-  /**
-   * Optional full list of unrestricted entity types. When non-empty, replaces the entity-registry
-   * baseline and {@link #defaultValue} before {@link #add} / {@link #remove} apply. Empty means use
-   * the effective application defaults.
+   * Application overlay appended to the entity-registry {@code viewUnrestricted} baseline. Stock
+   * YAML supplies the previous unrestricted CSV (minus types already flagged in the registry).
+   * Overridable via {@code VIEW_UNRESTRICTED_ENTITY_TYPES}; an explicitly empty value keeps only
+   * the registry baseline before {@link #add} / {@link #remove}.
    */
   private String value;
 
-  /** Comma-separated registry names to append to the effective list. */
+  /**
+   * Comma-separated registry names to append. Mutates the effective list (registry + {@link
+   * #value}) rather than replacing it.
+   */
   private String add;
 
   /** Comma-separated registry names to remove from the effective list. */
@@ -53,10 +49,7 @@ public class ViewUnrestrictedEntityTypes {
 
   @JsonIgnore
   public boolean isEmpty() {
-    return parseCsv(defaultValue).isEmpty()
-        && parseCsv(value).isEmpty()
-        && parseCsv(add).isEmpty()
-        && parseCsv(remove).isEmpty();
+    return parseCsv(value).isEmpty() && parseCsv(add).isEmpty() && parseCsv(remove).isEmpty();
   }
 
   /**
@@ -78,10 +71,6 @@ public class ViewUnrestrictedEntityTypes {
 
   public List<String> parsedValue() {
     return parseCsv(value);
-  }
-
-  public List<String> parsedDefaultValue() {
-    return parseCsv(defaultValue);
   }
 
   public List<String> parsedAdd() {
