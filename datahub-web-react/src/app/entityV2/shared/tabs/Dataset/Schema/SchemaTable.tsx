@@ -227,13 +227,18 @@ export default function SchemaTable({
     const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata);
     const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
     const businessAttributeRenderer = useBusinessAttributeRenderer(filterText, false);
-    const schemaTitleRenderer = useSchemaTitleRenderer(
-        entityUrn,
-        schemaMetadata,
-        filterText,
-        false,
-        setExpandedDrawerFieldPath,
+    const [shouldScrollToSelectedRow, setShouldScrollToSelectedRow] = useState(true);
+
+    // The foreign key label opens the drawer without going through onRow, so it has to turn off
+    // shouldScrollToSelectedRow itself: scrolling the virtual list on select is only wanted on page load.
+    const openFieldDrawer = useCallback(
+        (fieldPath: string | null) => {
+            setShouldScrollToSelectedRow(false);
+            setExpandedDrawerFieldPath(fieldPath);
+        },
+        [setExpandedDrawerFieldPath],
     );
+    const schemaTitleRenderer = useSchemaTitleRenderer(entityUrn, schemaMetadata, filterText, false, openFieldDrawer);
     const schemaTypeRenderer = useSchemaTypeRenderer();
     const businessAttributesFlag = useBusinessAttributesFlag();
 
@@ -418,8 +423,6 @@ export default function SchemaTable({
         KEYBOARD_CONTROL_DEBOUNCE_MS,
         [expandedDrawerFieldPath, tableRef, filterText, schemaSorter],
     );
-
-    const [shouldScrollToSelectedRow, setShouldScrollToSelectedRow] = useState(true);
 
     // scroll to expanded field on page load
     useEffect(() => {
