@@ -1,3 +1,4 @@
+import pathlib
 from typing import Any, Dict, Iterable, List, Optional
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -222,9 +223,8 @@ def test_an_owning_role_whose_urn_is_too_long_drops_ownership_and_says_so() -> N
     # same reason as a dataset urn: a truncated corpGroup names a different
     # group or none.
     source = _make_source()
-    connector = OpenflowConnector(name="c", runtime_name="rt", owner="数" * 165)
 
-    source._account_for_owner(connector)
+    source._account_for_owner("数" * 165, "rt/c")
 
     assert source.report.num_owners_dropped_urn_too_long == 1
     assert source.report.num_owners_emitted == 0
@@ -236,9 +236,24 @@ def test_an_owning_role_whose_urn_is_too_long_drops_ownership_and_says_so() -> N
 def test_an_ordinary_owning_role_is_counted_not_dropped() -> None:
     source = _make_source()
 
-    source._account_for_owner(
-        OpenflowConnector(name="c", runtime_name="rt", owner="ANALYST")
-    )
+    source._account_for_owner("ANALYST", "rt/c")
 
     assert source.report.num_owners_emitted == 1
     assert source.report.num_owners_dropped_urn_too_long == 0
+
+
+def test_every_ownership_bearing_entity_routes_through_one_accounting_path() -> None:
+    # The counters lied for three of four call sites: deployments, runtimes and
+    # per-table jobs incremented num_owners_emitted on a truthy owner string
+    # without checking the urn actually fit, so a dropped owner was reported as
+    # emitted. Pinned structurally, because the alternative is four
+    # near-identical tests that the next call site would not be added to.
+    source_file = (
+        pathlib.Path(__file__).resolve().parents[3]
+        / "src/datahub/ingestion/source/snowflake/snowflake_openflow.py"
+    ).read_text()
+
+    assert source_file.count("num_owners_emitted += 1") == 1, (
+        "ownership must be counted in exactly one place; a second site is a "
+        "site that can forget to check whether the urn fits"
+    )

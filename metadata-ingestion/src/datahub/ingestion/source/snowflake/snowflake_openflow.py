@@ -1330,18 +1330,23 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 raise RuntimeError("GET reported no error but produced no local file")
             return decode_config_payload(downloaded[0].read_bytes())
 
-    def _account_for_owner(self, connector: OpenflowConnector) -> None:
+    def _account_for_owner(self, owner: Optional[str], context: str) -> None:
         """Count the ownership aspect, or report that it had to be dropped.
 
         Owner.owner is a Urn-typed field, so UrnAnnotationValidator applies the
         512-byte limit to it and an over-long one costs the whole Ownership
         aspect. _owner_group_urn returns None in that case, which silently
-        omits ownership from every entity of this connector -- so the count
-        belongs here, where the connector is known.
+        omits ownership from the entity.
+
+        Every ownership-bearing entity routes through here. The first version
+        guarded only the connector and left deployments, runtimes and per-table
+        jobs counting an emission that had not happened -- the same shape of
+        miss as the urn defects it was written to close, in the very change
+        that named the pattern.
         """
-        if not connector.owner:
+        if not owner:
             return
-        if _owner_group_urn(connector.owner) is None:
+        if _owner_group_urn(owner) is None:
             self.report.num_owners_dropped_urn_too_long += 1
             self.report.warning(
                 title="Ownership dropped: owner urn too long",
@@ -1351,7 +1356,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                     "different group. Ownership is omitted for this "
                     "connector's entities; everything else is unaffected."
                 ),
-                context=connector.key,
+                context=context,
             )
         else:
             self.report.num_owners_emitted += 1
@@ -1888,8 +1893,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 ownership_type=OWNERSHIP_TYPE,
                 extra_properties=self._deployment_properties(deployment),
             )
-            if deployment.owner:
-                self.report.num_owners_emitted += 1
+            self._account_for_owner(deployment.owner, deployment.key)
 
         # Populated as runtime containers are emitted, then read by the connector
         # loop below, so a connector's DataFlow can only ever point at a container
@@ -1963,8 +1967,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 ownership_type=OWNERSHIP_TYPE,
                 extra_properties=self._runtime_properties(runtime),
             )
-            if runtime.owner:
-                self.report.num_owners_emitted += 1
+            self._account_for_owner(runtime.owner, runtime.key)
 
         connectors = self._fetch_connectors()
         self._decide_url_lookup(
@@ -2018,7 +2021,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             if not self._urn_is_emittable(flow.urn, connector.key, "DataFlow"):
                 continue
             yield from flow.as_workunits()
-            self._account_for_owner(connector)
+            self._account_for_owner(connector.owner, connector.key)
             # No connector-level DataJob. The DataFlow above already IS the
             # connector -- identical name, properties, ownership and external
             # link -- so an anchor job duplicated it as a task inside its own
@@ -2041,7 +2044,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                         # Per-table jobs carry the connector's owner too, so
                         # the counter has to see them or it under-reports the
                         # aspects its name promises.
-                        self.report.num_owners_emitted += 1
+                        self._account_for_owner(connector.owner, connector.key)
 
     def _report_connector_without_runtime_parent(
         self, connector: OpenflowConnector
