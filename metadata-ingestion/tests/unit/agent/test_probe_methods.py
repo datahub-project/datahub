@@ -484,3 +484,79 @@ def test_a_plain_parameter_with_a_default_is_still_omittable():
         "needed": True,
         "limit": False,
     }
+
+
+class _UnboundedProvider:
+    """A listing that declares no row_limit_param -- Mode's spaces, Hex's
+    connections and the SQLAlchemy family's columns are all this shape."""
+
+    @classmethod
+    def for_config(cls, config):
+        return cls()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return None
+
+    @probe_method()
+    def everything(self) -> list:
+        "No row limit declared."
+        return [f"n{i}" for i in range(pm.MAX_PROBE_ITEMS + 25)]
+
+
+def test_a_listing_with_no_declared_row_limit_is_still_capped(monkeypatch):
+    """MAX_PROBE_ITEMS calls itself "the most items any probe command may
+    return, whatever the caller asked for", and was wired only to commands
+    declaring row_limit_param. Mode's spaces/reports/datasets/queries, Hex's
+    connections and the SQLAlchemy family's columns/indexes/foreign_keys all
+    returned everything with truncated: false -- and Mode's listings page the
+    whole workspace, so a large one returned every report and called the
+    answer complete.
+    """
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _UnboundedProvider)
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls):
+            return _UnboundedProvider
+
+        @classmethod
+        def model_validate(cls, d):
+            return cls()
+
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _Config)
+
+    result = pm.run_probe_method("x", {}, "everything", {})
+    assert isinstance(result.result, list)
+    assert len(result.result) == pm.MAX_PROBE_ITEMS
+    assert result.truncated is True, "a cut-short listing must say so"
+
+
+def test_a_short_listing_with_no_row_limit_is_not_marked_truncated(monkeypatch):
+    """The control -- a cap that always reports truncated is no better than
+    one that never does."""
+
+    class _Short(_UnboundedProvider):
+        @probe_method()
+        def everything(self) -> list:
+            "Short."
+            return ["a", "b"]
+
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _Short)
+
+    class _Config:
+        @classmethod
+        def probe_provider_class(cls):
+            return _Short
+
+        @classmethod
+        def model_validate(cls, d):
+            return cls()
+
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _Config)
+
+    result = pm.run_probe_method("x", {}, "everything", {})
+    assert result.result == ["a", "b"]
+    assert result.truncated is False

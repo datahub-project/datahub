@@ -3,6 +3,11 @@ from typing import Dict, List, Set
 
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
+from datahub.ingestion.agent.redact import (
+    _SENSITIVE_KEY_HINTS,
+    collect_nested_secret_values,
+)
+from datahub.ingestion.agent.secrets import default_resolvers, resolve_config_collecting
 from datahub.ingestion.source.source_registry import source_registry
 
 _REF = re.compile(r"\$\{[^}]+\}")
@@ -100,9 +105,46 @@ def validate_recipe(recipe: Dict[str, object]) -> Dict[str, object]:
                 f"export {name.upper()}=..."
             )
 
+    # The sweep above sees only top-level fields describe_source classifies as
+    # SECRET, so a secret in a free-form nested dict was reported as a clean
+    # recipe -- kafka's connection.consumer_config['sasl.password'] being the
+    # case that matters, and snowflake's credential.private_key the typed one.
+    # The redactor already knows those are secrets: collect_nested_secret_values
+    # is what masks them on the way out. The one command whose job is to say
+    # "you have a plaintext secret in this file" was the only thing not asking.
+    #
+    # Reported without naming the value or its path: the point is that the file
+    # holds one, and echoing where would put it in the transcript this warning
+    # exists to keep it out of.
+    nested = collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
+    plaintext_nested = sorted(v for v in nested if not _REF.search(v))
+    if plaintext_nested:
+        warnings.append(
+            f"{len(plaintext_nested)} plaintext secret value(s) sit under "
+            f"sensitive-looking keys nested in this config (the same keys the "
+            f"redactor masks on the way out). Replace each with a ${{REF}} "
+            f"placeholder and export it where the probe runs"
+        )
+
+    # Validated against the RESOLVED config, not the raw one. `${VAR}` is a
+    # string wherever it appears, so a recipe using one for an int or bool
+    # field -- `profiling: {enabled: ${PROFILING_ENABLED}}` -- failed
+    # pydantic with "Input should be a valid boolean" and was reported
+    # invalid, while `datahub ingest` ran it happily. This command's own
+    # warning text tells the author to use ${...} references, so it was
+    # advising the thing it then rejected.
+    #
+    # An unresolvable reference is a real error and says so by name, which is
+    # a better answer than a type complaint about the literal "${VAR}".
     try:
-        config_cls.model_validate(config)
-    except (ValueError, TypeError, AssertionError) as exc:
+        resolved = resolve_config_collecting(config, default_resolvers()).config
+    except ValueError as exc:
         errors.append(str(exc))
+        resolved = None
+    if resolved is not None:
+        try:
+            config_cls.model_validate(resolved)
+        except (ValueError, TypeError, AssertionError) as exc:
+            errors.append(str(exc))
 
     return {"valid": not errors, "errors": errors, "warnings": warnings}

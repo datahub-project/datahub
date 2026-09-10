@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
-from typing import Callable, Dict, List, Optional, Set
+from typing import Callable, Dict, List, Optional, Sequence, Set
 
 import pydantic
 from pydantic import Field, ValidationInfo, field_validator, model_validator
@@ -16,7 +16,7 @@ from datahub.configuration.common import (
     Filters,
     HiddenFromDocs,
 )
-from datahub.configuration.pattern_utils import UUID_REGEX
+from datahub.configuration.pattern_utils import UUID_REGEX, is_schema_allowed
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -26,6 +26,7 @@ from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp_builder import StructuredPropertyWriteMode
+from datahub.ingestion.agent.verdicts import SchemaMatch
 from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
 )
@@ -347,6 +348,51 @@ class SnowflakeFilterConfig(SQLFilterConfig):
 
         return _combine_identifier_parts(
             db_name=database, schema_name=schema, table_name=entity
+        )
+
+    def probe_schema_needs_parent(self) -> bool:
+        """True when a Schema verdict needs to know which database is meant.
+
+        schema_pattern is matched against "database.schema" once
+        match_fully_qualified_names is on, and unlike Redshift (one
+        `database`) or BigQuery (often one project) there is nothing on this
+        config to fall back to -- Snowflake selects databases by pattern, so
+        only the caller knows which one it is asking about.
+        """
+        return self.match_fully_qualified_names
+
+    def probe_schema_verdict_override(
+        self, schema: str, parent_path: Sequence[str] = ()
+    ) -> Optional[SchemaMatch]:
+        """The verdict SnowflakeFilter makes when the recipe asks for
+        qualified matching.
+
+        This class declared match_fully_qualified_names and no override, so
+        the generic Schema classifier judged the bare name against a pattern
+        ingestion matches as "database.schema": a recipe with schema_pattern
+        allow ['^MYDB\\.PUBLIC$'] had every schema read as excluded, target
+        'PUBLIC', with nothing marking the answer as degraded -- while
+        is_schema_allowed(pattern, 'PUBLIC', 'MYDB', True) includes it.
+
+        Mirrors RedshiftConfig's and BigQueryV2Config's overrides and calls
+        the same shared predicate, so the three cannot drift from each other
+        or from ingestion.
+        """
+        if not self.match_fully_qualified_names:
+            # The bare name is exactly what ingestion matches here, so the
+            # generic classifier is already right and an override would only
+            # be a second implementation of it.
+            return None
+        if not parent_path:
+            # Nothing on the config to fall back to. Saying nothing leaves
+            # the bare-name verdict plus the "pass the containing database"
+            # warning probe_schema_needs_parent above turns on -- weaker
+            # than an answer, but not a wrong one.
+            return None
+        database = parent_path[-1]
+        return SchemaMatch(
+            included=is_schema_allowed(self.schema_pattern, schema, database, True),
+            target=f"{database}.{schema}",
         )
 
 

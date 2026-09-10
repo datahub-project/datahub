@@ -790,6 +790,26 @@ def run_probe_method(
         if isinstance(result, list) and len(result) > limit:
             result = result[:limit]
             truncated = True
+    elif not spec.shapes_own_result and isinstance(result, list):
+        # A command that declares no row_limit_param still must not flood the
+        # reader, and still must not report a cut-short list as complete.
+        # MAX_PROBE_ITEMS' own docstring calls itself "the most items any
+        # probe command may return, whatever the caller asked for" -- it was
+        # wired only to commands declaring the parameter, so Mode's spaces,
+        # reports, datasets, queries, definitions and data_sources, Hex's
+        # connections, and the SQLAlchemy family's columns/indexes/
+        # foreign_keys all returned everything with truncated: false. Mode's
+        # listings page the entire workspace, so a large one returned every
+        # report and called the answer complete.
+        #
+        # This bounds what reaches the caller, not what the connector
+        # fetched: the paging has already happened by the time the list gets
+        # here. Capping the fetch would need the limit pushed into each
+        # fetcher, which is the row_limit_param those commands do not
+        # declare.
+        if len(result) > MAX_PROBE_ITEMS:
+            result = result[:MAX_PROBE_ITEMS]
+            truncated = True
     return ProbeMethodResult(
         source_type=source_type,
         command=command,

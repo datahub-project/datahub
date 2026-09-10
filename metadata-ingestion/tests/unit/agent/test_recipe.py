@@ -118,3 +118,104 @@ def test_scaffold_still_emits_secrets_and_required_fields():
     assert any(str(v).startswith("${") for v in config.values()), (
         "no secret placeholders emitted"
     )
+
+
+def test_validate_accepts_an_env_ref_in_a_non_string_field(monkeypatch):
+    """`${VAR}` is a string wherever it appears, so validating the RAW recipe
+    failed pydantic with "Input should be a valid boolean" and called a
+    working recipe invalid -- while `datahub ingest` ran it. validate's own
+    warning text tells the author to use ${...} references, so it was
+    advising the thing it then rejected."""
+    from datahub.ingestion.agent.recipe import validate_recipe
+
+    monkeypatch.setenv("PROFILING_ENABLED", "true")
+    result = validate_recipe(
+        {
+            "source": {
+                "type": "mysql",
+                "config": {
+                    "host_port": "h:3306",
+                    "username": "u",
+                    "password": "p",
+                    "profiling": {"enabled": "${PROFILING_ENABLED}"},
+                },
+            }
+        }
+    )
+    assert result["valid"] is True, result["errors"]
+
+
+def test_validate_names_a_reference_it_cannot_resolve(monkeypatch):
+    """Still an error -- a recipe pointing at an unset variable does not work
+    here -- but named, which beats a type complaint about the literal
+    "${VAR}"."""
+    from datahub.ingestion.agent.recipe import validate_recipe
+
+    monkeypatch.delenv("NOPE_UNSET_VAR", raising=False)
+    result = validate_recipe(
+        {
+            "source": {
+                "type": "mysql",
+                "config": {
+                    "host_port": "h:3306",
+                    "username": "u",
+                    "password": "${NOPE_UNSET_VAR}",
+                },
+            }
+        }
+    )
+    assert result["valid"] is False
+    errors = result["errors"]
+    assert isinstance(errors, list)
+    assert any("NOPE_UNSET_VAR" in e for e in errors), errors
+
+
+def test_validate_sees_a_plaintext_secret_nested_in_a_free_form_dict():
+    """The top-level sweep reads only fields describe_source classifies as
+    SECRET, so kafka's connection.consumer_config['sasl.password'] came back
+    as a clean recipe. The redactor already treats it as a secret -- the one
+    command whose job is to say so was the only thing not asking."""
+    from datahub.ingestion.agent.recipe import validate_recipe
+
+    result = validate_recipe(
+        {
+            "source": {
+                "type": "kafka",
+                "config": {
+                    "connection": {
+                        "bootstrap": "localhost:9092",
+                        "consumer_config": {"sasl.password": "hunter2-plaintext"},
+                    }
+                },
+            }
+        }
+    )
+    found = result["warnings"]
+    assert isinstance(found, list)
+    assert any("plaintext secret" in w for w in found), found
+    # And the value itself never appears -- this warning exists to keep it out
+    # of the transcript.
+    assert not any("hunter2-plaintext" in w for w in found)
+
+
+def test_a_referenced_nested_secret_is_not_warned_about():
+    """The control: a ${REF} is the thing the warning asks for, so warning
+    about it would train the reader to ignore the warning."""
+    from datahub.ingestion.agent.recipe import validate_recipe
+
+    result = validate_recipe(
+        {
+            "source": {
+                "type": "kafka",
+                "config": {
+                    "connection": {
+                        "bootstrap": "localhost:9092",
+                        "consumer_config": {"sasl.password": "${KAFKA_PASSWORD}"},
+                    }
+                },
+            }
+        }
+    )
+    found = result["warnings"]
+    assert isinstance(found, list)
+    assert not any("plaintext secret" in w for w in found)
