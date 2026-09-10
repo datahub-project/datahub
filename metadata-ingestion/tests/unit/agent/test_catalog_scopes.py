@@ -38,6 +38,16 @@ PERMITTED: List[Tuple[str, str, str]] = [
     ("mysql", "mysql", "SELECT table_name FROM information_schema.tables"),
     ("snowflake", "snowflake", "SELECT table_name FROM information_schema.tables"),
     ("snowflake", "snowflake", "SELECT * FROM snowflake.account_usage.tables"),
+    # Emptiness here is how an agent tells Standard edition from Enterprise:
+    # the view is never populated on Standard, so lineage and usage come back
+    # silently empty while every privilege is present. Verified against both
+    # live fixtures -- 0 rows on standard, rows on enterprise -- and it is the
+    # only account_usage view that differs between them.
+    (
+        "snowflake",
+        "snowflake",
+        "SELECT 1 FROM snowflake.account_usage.access_history LIMIT 1",
+    ),
     (
         "snowflake",
         "snowflake",
@@ -119,8 +129,13 @@ REFUSED_QUERY_TEXT: List[Tuple[str, str, str]] = [
     (
         "snowflake",
         "snowflake",
-        "SELECT * FROM snowflake.account_usage.access_history",
+        "SELECT query_text FROM snowflake.account_usage.query_history",
     ),
+    # Identity, not schema shape -- matches the pg_user/svv_user_info
+    # withholding on Postgres and Redshift. access_history is admitted beside
+    # it and does carry USER_NAME; the line is an access record that names a
+    # user versus a directory of them.
+    ("snowflake", "snowflake", "SELECT name FROM snowflake.account_usage.users"),
     # Redshift keeps its executed SQL in pg_catalog alongside the svv_* metadata
     # views. The first version of this declaration allowed pg_catalog at schema
     # level *and* listed relations, believing the list was what kept these out --

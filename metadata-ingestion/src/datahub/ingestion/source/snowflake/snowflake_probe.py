@@ -15,14 +15,34 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 # Snowflake connector itself reads, so a probe can reproduce ingestion -- minus the
 # three that carry more than schema shape:
 #
-#   query_history / access_history  the text of user queries, WHERE-clause literals
-#                                   included. This is the hazard the whole rule is
-#                                   about, and both are read by usage and lineage.
+#   query_history                   QUERY_TEXT is the literal SQL a user ran,
+#                                   WHERE-clause values and all, and BIND_VALUES
+#                                   holds the parameters. This is the hazard the
+#                                   whole rule is about.
 #   copy_history                    load errors quote the offending row, so a failed
 #                                   COPY can surface record data in first_error_message.
 #   users                           names and email addresses. Ingestion reads it to
 #                                   map ownership; that is personal data, and a probe
 #                                   result is read into a model's context.
+#
+# access_history IS admitted, and the earlier version of this comment was wrong to
+# exclude it alongside query_history "the text of user queries ... included". It
+# carries no such column. Its fourteen are QUERY_ID, QUERY_START_TIME, USER_NAME
+# and arrays of object and policy *names*; the query text lives in query_history,
+# which QUERY_ID references and which stays out.
+#
+# Admitting it matters because its emptiness is this connector's most common
+# silent failure. On Standard edition the view is never populated, so lineage and
+# usage return nothing while every privilege is present and test_connection
+# reports each capability enabled -- the connector-tests fixture says exactly that
+# in its own docstring and calls the edition undeducible. Measured against both
+# live fixtures, one `SELECT 1 ... LIMIT 1` here is the only difference between
+# them, so this is the read that answers "will lineage actually work".
+#
+# The trade is USER_NAME, which is identity and so sits against the `users`
+# exclusion above. Admitted anyway: an access record that names a user is not a
+# directory of them, and the scope model is relation-level, so "count rows but do
+# not read USER_NAME" cannot be expressed.
 # Catalog-qualified on purpose. ACCOUNT_USAGE is a schema inside the SNOWFLAKE
 # database, but nothing stops a user creating their own database with a schema of
 # that name -- and a two-part entry would match the last two path segments of
@@ -40,6 +60,7 @@ _ACCOUNT_USAGE_RELATIONS = frozenset(
         "referential_constraints",
         "object_dependencies",
         "tag_references",
+        "access_history",
     )
 )
 
