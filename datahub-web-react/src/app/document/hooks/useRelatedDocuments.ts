@@ -1,4 +1,6 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+
+import { RelatedDocumentExpectations, reconcileRelatedDocuments } from '@app/document/hooks/useRelatedDocuments.utils';
 
 import {
     GetRelatedDocumentsQuery,
@@ -49,6 +51,8 @@ function extractRelatedDocuments(entity: GetRelatedDocumentsQuery['entity']): Re
     return null;
 }
 
+const RECONCILE_DELAYS_MS = [400, 800, 1500, 2500, 4000];
+
 export function useRelatedDocuments(entityUrn: string, input?: RelatedDocumentsInput) {
     const { data, loading, error, refetch } = useGetRelatedDocumentsQuery({
         variables: {
@@ -75,15 +79,57 @@ export function useRelatedDocuments(entityUrn: string, input?: RelatedDocumentsI
         return (relatedDocumentsResult?.documents || []) as Document[];
     }, [relatedDocumentsResult]);
 
-    const total = useMemo(() => {
-        return relatedDocumentsResult?.total ?? 0;
-    }, [relatedDocumentsResult]);
+    const reconciliationGeneration = useRef(0);
+    const activeReconciliation = useRef<{
+        controller: AbortController;
+        promise: Promise<boolean>;
+    } | null>(null);
+    useEffect(
+        () => () => {
+            reconciliationGeneration.current += 1;
+            activeReconciliation.current?.controller.abort();
+        },
+        [entityUrn],
+    );
+
+    const reconcile = useCallback(
+        async (expectations: RelatedDocumentExpectations) => {
+            const generation = reconciliationGeneration.current + 1;
+            reconciliationGeneration.current = generation;
+            const previousReconciliation = activeReconciliation.current;
+            previousReconciliation?.controller.abort();
+            await previousReconciliation?.promise.catch(() => false);
+            if (generation !== reconciliationGeneration.current) return false;
+
+            const controller = new AbortController();
+            const promise = reconcileRelatedDocuments({
+                expectations,
+                delaysMs: RECONCILE_DELAYS_MS,
+                signal: controller.signal,
+                fetchDocuments: async () => {
+                    const result = await refetch();
+                    return (extractRelatedDocuments(result?.data?.entity ?? null)?.documents ?? []) as Document[];
+                },
+            });
+            activeReconciliation.current = { controller, promise };
+
+            try {
+                return await promise;
+            } catch {
+                return false;
+            } finally {
+                if (activeReconciliation.current?.controller === controller) {
+                    activeReconciliation.current = null;
+                }
+            }
+        },
+        [refetch],
+    );
 
     return {
         documents,
-        total,
         loading,
         error,
-        refetch,
+        reconcile,
     };
 }

@@ -1,12 +1,9 @@
-import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
-import { useRelatedDocuments } from '@app/document/hooks/useRelatedDocuments';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { DocumentModal } from '@app/entityV2/document/DocumentModal';
@@ -14,16 +11,14 @@ import AddLinkModalUpdated from '@app/entityV2/shared/components/links/AddLinkMo
 import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkModal';
 import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils';
 import { AddContextDocumentPopover } from '@app/entityV2/shared/tabs/Documentation/components/AddContextDocumentPopover';
-import { ResourceDocumentPill } from '@app/entityV2/shared/tabs/Documentation/components/ResourceDocumentPill';
-import { ResourceLinkPill } from '@app/entityV2/shared/tabs/Documentation/components/ResourceLinkPill';
+import RelatedResourcesPreview from '@app/entityV2/shared/tabs/Documentation/components/RelatedResourcesPreview';
 import {
     RelatedItem,
     combineAndSortRelatedItems,
     createRelatedSectionMenuItems,
     hasRelatedContent,
 } from '@app/entityV2/shared/tabs/Documentation/components/relatedSectionUtils';
-import { useRemoveDocumentFromResources } from '@app/entityV2/shared/tabs/Documentation/components/useRemoveDocumentFromResources';
-import { useResourcesCollapseState } from '@app/entityV2/shared/tabs/Documentation/components/useResourcesCollapseState';
+import { useResourcesDocuments } from '@app/entityV2/shared/tabs/Documentation/components/useResourcesDocuments';
 import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
@@ -57,13 +52,6 @@ const HeaderRight = styled.div`
 const SectionTitle = styled(Text)`
     font-weight: 700;
     font-size: 12px;
-`;
-
-const ListContainer = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 8px;
 `;
 
 const EmptyState = styled.div`
@@ -110,42 +98,26 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
     const supportsRelatedDocuments = supportedCapabilities.has(EntityCapabilityType.RELATED_DOCUMENTS);
 
     const {
-        documents,
+        visibleDocuments,
         loading: documentsLoading,
         error: documentsError,
-        refetch: refetchRelatedDocuments,
-    } = useRelatedDocuments(urn || '', {
-        count: 100,
-    });
-
-    const {
         documentUrnToRemove,
-        removedUrns: removedDocumentUrns,
         requestRemove: setDocumentUrnToRemove,
         cancelRemove: cancelRemoveDocument,
         confirmRemove: handleConfirmRemoveDocument,
-    } = useRemoveDocumentFromResources({
+        handleDocumentsChanged,
+        handleDocumentCreated,
+        handleDocumentDeleted: reconcileDocumentDeleted,
+    } = useResourcesDocuments({
         entityUrn: urn,
-        documents,
-        refetch: refetchRelatedDocuments,
-        successMessage: t('links.removeDocumentSuccess'),
-        errorMessage: t('links.removeDocumentError'),
+        removeSuccessMessage: t('links.removeDocumentSuccess'),
+        removeErrorMessage: t('links.removeDocumentError'),
     });
 
-    // Filter out docs the user just removed so the pill disappears immediately and
-    // stays gone while the ES-backed query catches up (see the hook for details).
-    const visibleDocuments = useMemo(
-        () => (removedDocumentUrns.size > 0 ? documents.filter((d) => !removedDocumentUrns.has(d.urn)) : documents),
-        [documents, removedDocumentUrns],
-    );
-
-    // Memoize the delete callback to prevent unnecessary re-renders
     const handleDocumentDeleted = useCallback(() => {
-        // Wait a moment for delete to complete, then refetch related documents
-        setTimeout(() => {
-            refetchRelatedDocuments();
-        }, 2000);
-    }, [refetchRelatedDocuments]);
+        if (!selectedDocumentUrn) return;
+        reconcileDocumentDeleted(selectedDocumentUrn);
+    }, [reconcileDocumentDeleted, selectedDocumentUrn]);
 
     const handleAddLink = useCallback(() => {
         setIsAddLinkModalVisible(true);
@@ -155,18 +127,18 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
         setShowAddContextPopover(true);
     }, []);
 
-    const handleDocumentSelected = useCallback((documentUrn: string) => {
-        setSelectedDocumentUrn(documentUrn);
-        setShowAddContextPopover(false);
-        // Don't refetch here - wait until modal closes to avoid duplicate refetches
-        // that could cause duplicate links to appear
-    }, []);
+    const handleDocumentSelected = useCallback(
+        (documentUrn: string) => {
+            setSelectedDocumentUrn(documentUrn);
+            setShowAddContextPopover(false);
+            handleDocumentCreated(documentUrn);
+        },
+        [handleDocumentCreated],
+    );
 
     const handleDocumentModalClose = useCallback(() => {
         setSelectedDocumentUrn(null);
-        // Refetch related documents after modal closes to show any changes made in the modal
-        refetchRelatedDocuments();
-    }, [refetchRelatedDocuments]);
+    }, []);
 
     // Create menu items with feature flag and permission checks
     const menuItems = useMemo(
@@ -212,16 +184,13 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
         [hasDocuments, visibleDocuments],
     );
 
-    // Combine and sort items by time (links by created time, documents by lastModified time)
+    // Keep the preview order consistent with the full Resources modal.
     const sortedItems = useMemo<RelatedItem[]>(
         () => combineAndSortRelatedItems(links, hasDocuments ? visibleDocuments : null),
         [links, hasDocuments, visibleDocuments],
     );
 
     const itemCount = sortedItems.length;
-    const { isExpanded, toggle } = useResourcesCollapseState(itemCount);
-    const canToggle = itemCount > 0;
-
     // Don't show section if there's no content and entity doesn't support related documents
     if (!hasContent && !documentsLoading && !supportsRelatedDocuments) {
         return null;
@@ -251,11 +220,11 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
                             trigger="click"
                             onOpenChange={(visible) => !visible && setShowAddContextPopover(false)}
                             content={
-                                urn ? (
+                                urn && showAddContextPopover && !documentsLoading ? (
                                     <AddContextDocumentPopover
                                         entityUrn={urn}
                                         onDocumentSelected={handleDocumentSelected}
-                                        onDocumentsLinked={refetchRelatedDocuments}
+                                        onDocumentsChanged={handleDocumentsChanged}
                                         onClose={() => setShowAddContextPopover(false)}
                                         linkedDocumentUrns={linkedDocumentUrns}
                                     />
@@ -284,55 +253,24 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
                             </Menu>
                         </Popover>
                     )}
-                    {canToggle && (
-                        <Tooltip title={isExpanded ? t('links.collapseTooltip') : t('links.expandTooltip')}>
-                            <Button
-                                variant="text"
-                                color="gray"
-                                size="xs"
-                                icon={{ icon: isExpanded ? CaretDown : CaretRight, size: 'lg' }}
-                                style={{ padding: '0 2px' }}
-                                onClick={toggle}
-                                aria-label={isExpanded ? t('links.collapseTooltip') : t('links.expandTooltip')}
-                                aria-expanded={isExpanded}
-                                data-testid="toggle-resources-button"
-                            />
-                        </Tooltip>
-                    )}
                 </HeaderRight>
             </SectionHeader>
 
-            {isExpanded && sortedItems.length > 0 && (
-                <ListContainer>
-                    {sortedItems.map((item) => {
-                        if (item.type === 'link') {
-                            return (
-                                <ResourceLinkPill
-                                    key={`link-${item.data.url}`}
-                                    link={item.data}
-                                    onEdit={(link) => {
-                                        setSelectedLink(link);
-                                        setShowEditLinkModal(true);
-                                    }}
-                                    onDelete={(link) => {
-                                        setSelectedLink(link);
-                                        setShowConfirmDelete(true);
-                                    }}
-                                />
-                            );
-                        }
-                        return (
-                            <ResourceDocumentPill
-                                key={`document-${item.data.urn}`}
-                                document={item.data}
-                                onClick={setSelectedDocumentUrn}
-                                onRemove={setDocumentUrnToRemove}
-                                canRemove={canRemoveDocuments}
-                            />
-                        );
-                    })}
-                </ListContainer>
-            )}
+            <RelatedResourcesPreview
+                items={sortedItems}
+                canRemoveDocuments={canRemoveDocuments}
+                showMoreLabel={(count) => ta('showCountMoreCapitalized', { count })}
+                onDocumentClick={setSelectedDocumentUrn}
+                onDocumentRemove={setDocumentUrnToRemove}
+                onLinkEdit={(link) => {
+                    setSelectedLink(link);
+                    setShowEditLinkModal(true);
+                }}
+                onLinkDelete={(link) => {
+                    setSelectedLink(link);
+                    setShowConfirmDelete(true);
+                }}
+            />
 
             {!hasContent && !documentsLoading && <EmptyState>{t('links.empty')}</EmptyState>}
 
