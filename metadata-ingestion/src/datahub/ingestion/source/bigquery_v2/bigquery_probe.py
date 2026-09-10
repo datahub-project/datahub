@@ -1,5 +1,5 @@
 import itertools
-from typing import Any
+from typing import Any, Dict
 
 from datahub.ingestion.agent.sql_gate import INFORMATION_SCHEMA, CatalogScope
 from datahub.ingestion.agent.sql_passthrough import (
@@ -87,9 +87,19 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
         from google.cloud.bigquery import QueryJobConfig
 
         timeout = self.query_budget.timeout_seconds
-        job_config = QueryJobConfig(
-            maximum_bytes_billed=self.query_budget.max_bytes_billed,
-            use_query_cache=True,
+        # A ceiling is passed only when there IS one. QueryJobConfig stringifies
+        # whatever it is handed, so `maximum_bytes_billed=None` does not mean
+        # "no ceiling": it stores the string 'None', to_api_repr() ships that to
+        # BigQuery quite happily, and the getter then raises
+        #   ValueError: invalid literal for int() with base 10: 'None'
+        # Latent while both ceilings are declared on this class, but
+        # QueryBudget.max_bytes_billed defaults to None, so a subclass or a
+        # future provider that leaves it unset submits that string. Absent is
+        # expressed by omitting the key.
+        ceilings: Dict[str, Any] = {}
+        if self.query_budget.max_bytes_billed is not None:
+            ceilings["maximum_bytes_billed"] = self.query_budget.max_bytes_billed
+        if timeout is not None:
             # Server-side, and this is the whole point of it. The budget
             # already declared timeout_seconds=30, but the only thing applying
             # it was `.result(timeout=...)` below -- which bounds how long the
@@ -99,7 +109,9 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
             # the Redshift ceiling had: the statement was issued, nothing
             # raised, and nothing was bounded. job_timeout_ms is BigQuery's
             # own cancel-the-job knob, so the declared 30s is now true.
-            job_timeout_ms=timeout * 1000 if timeout is not None else None,
+            ceilings["job_timeout_ms"] = timeout * 1000
+        job_config = QueryJobConfig(
+            use_query_cache=True,
             # Labels are the strongest attribution of the three dialects that
             # offer any: they reach INFORMATION_SCHEMA.JOBS and the billing
             # export, so probe cost is separable from ingestion cost rather
@@ -107,6 +119,7 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
             # outside [a-z0-9_-], which is why PROBE_QUERY_LABEL is spelled
             # the way it is.
             labels={"application": PROBE_QUERY_LABEL},
+            **ceilings,
         )
         # max_results caps what BigQuery pages back, so a broad catalog query does
         # not stream an entire result set to be thrown away. It does NOT cap the

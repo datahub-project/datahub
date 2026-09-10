@@ -154,6 +154,49 @@ def test_snowflake_asks_the_server_to_stop_rather_than_stopping_waiting():
     assert issued.index(timeout_statements[0]) < issued.index("SELECT 1")
 
 
+def test_a_ceiling_bigquery_does_not_have_is_omitted_not_passed_as_none():
+    """QueryJobConfig stringifies what it is handed, so None is not "unset".
+
+    `maximum_bytes_billed=None` stores the string 'None'; to_api_repr() then
+    ships it to BigQuery without complaint while the getter raises
+    ValueError: invalid literal for int() with base 10: 'None'. Every other
+    test here uses the declared budget, which sets both ceilings -- so the
+    whole suite passed while the no-ceiling path was broken.
+
+    QueryBudget.max_bytes_billed defaults to None, which is how a subclass
+    reaches this.
+    """
+
+    captured = {}
+
+    class _FakeIterator:
+        schema = []
+
+        def __iter__(self):
+            return iter(())
+
+    class _FakeJob:
+        def result(self, max_results=None, timeout=None, **kwargs):
+            return _FakeIterator()
+
+    class _FakeClient:
+        def query(self, query, job_config=None):
+            captured["job_config"] = job_config
+            return _FakeJob()
+
+    probe = BigQueryMetadataProbe(_FakeClient())
+    probe.query_budget = QueryBudget(timeout_seconds=None, max_bytes_billed=None)
+    probe.execute_catalog_query("SELECT 1", 10)
+
+    job_config = captured["job_config"]
+    # The getters are the assertion: each raises if the string landed there.
+    assert job_config.maximum_bytes_billed is None
+    assert job_config.job_timeout_ms is None
+    # And nothing claiming a ceiling reaches the wire.
+    assert "maximumBytesBilled" not in job_config.to_api_repr().get("query", {})
+    assert "jobTimeoutMs" not in job_config.to_api_repr()
+
+
 def test_the_mysql_family_gets_no_connect_arg_because_mariadb_shares_its_scheme():
     """A connect_arg here would stop MariaDB connecting at all.
 
