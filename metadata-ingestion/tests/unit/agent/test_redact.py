@@ -135,3 +135,26 @@ def test_a_nested_private_key_is_collected():
     assert key in values
     assert "proj" not in values
     assert key not in str(redact(cfg, values))
+
+
+def test_two_keys_that_redact_alike_both_survive():
+    """A dict comprehension kept only the last, so one field vanished from the
+    report with nothing saying it had. Losing a field silently is the failure
+    this interface exists to prevent, and it was happening inside the function
+    whose whole job is care."""
+    from datahub.ingestion.agent.redact import redact
+
+    payload = {"alpha": 1, "bravo": 2}
+    out = redact(payload, {"alpha", "bravo"})
+    assert isinstance(out, dict)
+    assert len(out) == 2, f"a field was dropped: {out}"
+    assert sorted(out.values()) == [1, 2]
+    # Both keys are masked; the second is suffixed so it cannot overwrite.
+    assert set(out) == {"***", "***~2"}
+
+
+def test_ordinary_keys_are_untouched_by_the_collision_handling():
+    from datahub.ingestion.agent.redact import redact
+
+    out = redact({"host": "h", "port": 5432}, {"secret"})
+    assert out == {"host": "h", "port": 5432}

@@ -137,9 +137,16 @@ class SqlCatalogPassthrough:
     # test_no_config_declares_a_catalog_scope_its_provider_overrides refuses it.
     catalog_scope: CatalogScope = CatalogScope()
 
-    # What one query here may spend. Applying it is the provider's job, since the
-    # mechanism is per-driver; declaring it here is what makes a provider that
-    # never thought about it still bounded (see QueryBudget).
+    # What one query here may spend. Applying it is the provider's job, since
+    # the mechanism is per-driver.
+    #
+    # Declaring it here does NOT bound a provider that ignores it -- an earlier
+    # version of this comment said it made such a provider "still bounded",
+    # which is exactly the kind of claim QueryBudget's own docstring warns
+    # about. What the default actually buys is that the ceiling is *stated*:
+    # describe() reports it, so a provider silently applying nothing is
+    # visible to the reader rather than merely absent. Enforcing it would take
+    # a hook every adapter must route through, which this does not have.
     query_budget: QueryBudget = QueryBudget()
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:

@@ -169,6 +169,13 @@ class HexMetadataProbe(RestApiPassthrough):
         if config.status_as_tag and item.status:
             tags.append(item.status.name)
 
+        # No upstream_datasets count here, though HexProject carries the
+        # field. It is populated only by hex.py's lineage pass (:577, :631),
+        # which this probe deliberately does not run -- so reporting
+        # len(item.upstream_datasets) meant reporting 0 for every project,
+        # including projects with lineage. A number that is always zero reads
+        # as an answer, which is worse than not offering it: use `probe sql`
+        # or the lineage the connector emits.
         detail: Dict[str, object] = {
             "name": item.title,
             "description": item.description,
@@ -177,7 +184,6 @@ class HexMetadataProbe(RestApiPassthrough):
             "last_published_at": str(item.last_published_at)
             if item.last_published_at
             else None,
-            "upstream_datasets": len(item.upstream_datasets),
         }
         if config.set_ownership_from_email:
             detail["owners"] = [

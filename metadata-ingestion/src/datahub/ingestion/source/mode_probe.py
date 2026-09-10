@@ -119,26 +119,48 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
 
     @probe_method(kind="Space")
     def spaces(self) -> List[str]:
-        """Every space (Mode's UI calls them Collections) in this workspace,
+        """Spaces (Mode's UI calls them Collections) in this workspace,
         including ones space_pattern would exclude -- a denied space is
-        reported, not hidden, so `probe filter` can explain it."""
-        return self._listing(
+        reported, not hidden, so `probe filter` can explain it.
+
+        Personal spaces are the exception, and the result says so when they
+        are missing: exclude_personal_collections makes Mode filter them
+        server-side (?filter=custom), so they never reach us to be reported as
+        excluded. A short list with no explanation is the failure this
+        interface exists to prevent, so the narrowing is reported as a
+        warning rather than left for the caller to notice."""
+        names = self._listing(
             lambda: [_space_pattern_name(space) for space in _fetch_spaces(self)]
         )
+        if self.config.exclude_personal_collections:
+            narrowed = (
+                "exclude_personal_collections is set, so Mode filtered personal "
+                "spaces out server-side (?filter=custom); they are absent from "
+                "this list rather than reported as excluded, and ingestion will "
+                "not see them either"
+            )
+            if narrowed not in self.warnings:
+                self.warnings.append(narrowed)
+        return names
 
-    @probe_method(kind=BIAssetSubTypes.MODE_REPORT)
+    # parent_params on these three, as the SQL family does for `schema`: the
+    # container travels back in the result, so `probe filter` needs no
+    # --parent restating what the call already said. Mode filters on the bare
+    # name, so this does not change any verdict -- it stops the result
+    # dropping context it was handed.
+    @probe_method(kind=BIAssetSubTypes.MODE_REPORT, parent_params=("space",))
     def reports(self, space: str) -> List[str]:
         """Reports in one space, by space name. Excludes archived reports when
         the recipe sets exclude_archived, matching what ingestion would see."""
         return self._listing(lambda: [_display_name(r) for r in self._reports(space)])
 
-    @probe_method(kind=BIAssetSubTypes.MODE_DATASET)
+    @probe_method(kind=BIAssetSubTypes.MODE_DATASET, parent_params=("space",))
     def datasets(self, space: str) -> List[str]:
         """Datasets in one space, by space name. A Mode dataset is a special
         kind of report, so these come from the space's /datasets endpoint."""
         return self._listing(lambda: [_display_name(d) for d in self._datasets(space)])
 
-    @probe_method(kind=BIAssetSubTypes.MODE_QUERY)
+    @probe_method(kind=BIAssetSubTypes.MODE_QUERY, parent_params=("space", "report"))
     def queries(self, space: str, report: str) -> List[str]:
         """Queries belonging to one report, addressed by space and report name."""
         return self._listing(

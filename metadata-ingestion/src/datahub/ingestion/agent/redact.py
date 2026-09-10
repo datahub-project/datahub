@@ -164,10 +164,26 @@ def redact(payload: object, secret_values: Set[str]) -> object:
                 redacted = redacted.replace(form, _MASK)
         return redacted
     if isinstance(payload, dict):
-        return {
-            redact(k, secret_values): redact(v, secret_values)
-            for k, v in payload.items()
-        }
+        # Built incrementally, not as a comprehension: two distinct keys can
+        # redact to the same string (two secrets, two config keys named after
+        # them), and a comprehension keeps only the last -- silently dropping
+        # a field from the report. Losing a field without saying so is the
+        # failure this whole interface exists to avoid, and it was happening
+        # in the function whose job is to be careful.
+        out: Dict[object, object] = {}
+        for key, value in payload.items():
+            redacted_key = redact(key, secret_values)
+            redacted_value = redact(value, secret_values)
+            if redacted_key in out:
+                # Suffixed rather than merged: the caller cannot tell these
+                # apart anyway (that is the point of redaction), but it must
+                # be able to see that there was more than one.
+                suffix = 2
+                while f"{redacted_key}~{suffix}" in out:
+                    suffix += 1
+                redacted_key = f"{redacted_key}~{suffix}"
+            out[redacted_key] = redacted_value
+        return out
     if isinstance(payload, list):
         return [redact(v, secret_values) for v in payload]
     return payload

@@ -927,12 +927,18 @@ class ModeSource(StatefulIngestionSourceBase):
         )
 
     def fetch_spaces(self) -> List[dict]:
-        """Every space the workspace exposes, unfiltered. Raises on HTTP failure.
+        """Every space this recipe would see. Raises on HTTP failure.
 
-        Shared with the live recipe probe, which needs the unfiltered list so
-        it can report a space denied by space_pattern as an excluded node
-        rather than omitting it, and needs failures raisable so it can tell
-        "no spaces" from "could not list spaces".
+        Not "unfiltered", which this said until a reviewer read the next line:
+        the URL carries ?filter=<space_filter_param()>, which is `custom` when
+        exclude_personal_collections is set, and Mode drops personal spaces
+        server-side. What is unfiltered here is space_pattern -- a denied
+        space still comes back, so the probe can report it as excluded rather
+        than omitting it. exclude_personal_collections is the one narrowing
+        this cannot see past, and mode_probe.spaces says so in its result.
+
+        Failures stay raisable either way, so the probe can tell "no spaces"
+        from "could not list spaces".
         """
         spaces: List[dict] = []
         logger.debug(f"Retrieving spaces for {self.workspace_uri}")

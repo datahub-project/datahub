@@ -320,6 +320,8 @@ class ProbeMethodResult:
 # injected by the @config_class decorator at runtime — mypy can't see it, nor the
 # pydantic model API (model_validate) / probe_provider_class contract on the result.
 def config_class_for(source_type: str) -> Any:
+    # lazy: keeps the configuration module off this module's import path
+    from datahub.configuration.common import ConfigurationError
     from datahub.ingestion.source.source_registry import source_registry
 
     try:
@@ -327,7 +329,17 @@ def config_class_for(source_type: str) -> Any:
         # (plugin failed to load) — neither is in the framework's ValueError/
         # TypeError/AssertionError contract, so normalize to ValueError.
         source_cls = source_registry.get(source_type)
-    except Exception as exc:
+    except (KeyError, ConfigurationError) as exc:
+        # Only these two. KeyError is a name nobody registered and
+        # ConfigurationError a plugin whose extra is not installed -- both are
+        # the caller's to fix, and exit 2 is the honest answer.
+        #
+        # `except Exception` swallowed everything else too, so an
+        # AttributeError or ImportError from inside a plugin's own module came
+        # back as "unknown or unloadable source type" at exit 2. That sends an
+        # agent to rewrite a source type that was correct, and hides a real
+        # defect behind a user-error code. Anything else propagates and
+        # becomes exit 1, which is what EXIT_INTERNAL is for.
         raise ValueError(
             f"unknown or unloadable source type '{source_type}': {exc}"
         ) from exc
@@ -406,12 +418,17 @@ def _coerce(param: ProbeParam, value: object) -> object:
         return True
     if param.type == "int":
         # Agent kwargs may arrive as native int/float/bool or a numeric string
-        # (CLI flags); bool is an int subclass so it is covered here too. Assert
-        # rather than str()-route so `int(5.0)` and `int(True)` don't break.
-        assert isinstance(value, (int, float, str)), (
-            f"parameter '{param.name}' expects an int-coercible value, got "
-            f"{type(value).__name__}"
-        )
+        # (CLI flags); bool is an int subclass so it is covered here too.
+        # Checked rather than str()-routed so `int(5.0)` and `int(True)` don't
+        # break -- and raised, not asserted: `python -O` strips asserts, and
+        # this is a caller-input contract, not an internal invariant. Without
+        # it the value reaches int() and the message degrades to whatever
+        # TypeError says, which names neither the parameter nor the command.
+        if not isinstance(value, (int, float, str)):
+            raise ValueError(
+                f"parameter '{param.name}' expects an int-coercible value, got "
+                f"{type(value).__name__}"
+            )
         return int(value)
     if param.type == "bool":
         # Both directions named, and anything else refused. Reading an

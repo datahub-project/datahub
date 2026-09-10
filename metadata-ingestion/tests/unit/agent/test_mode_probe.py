@@ -597,3 +597,21 @@ def test_every_token_addressed_endpoint_has_a_route_to_its_token(entry, why):
     # other four reachable. Removing one as redundant does not shrink the surface,
     # it strands everything downstream of it.
     assert entry in set(ModeProbeSource.api_allowlist), f"{entry} missing -- {why}"
+
+
+def test_excluding_personal_collections_is_reported_not_just_applied():
+    """Mode filters personal spaces server-side (?filter=custom), so they
+    never reach us to be reported as excluded the way a space_pattern denial
+    is. A quietly shorter list is the one answer this interface must not
+    give, so the narrowing is stated."""
+    probe = _probe(_cfg(exclude_personal_collections=True))
+    probe.spaces()
+    assert any("personal" in w for w in probe.warnings), probe.warnings
+
+
+def test_an_ordinary_recipe_gets_no_such_warning():
+    """The control: a warning that always fires is the one on screen when a
+    real one appears."""
+    probe = _probe(_cfg())
+    probe.spaces()
+    assert not any("personal" in w for w in probe.warnings), probe.warnings
