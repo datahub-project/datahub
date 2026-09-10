@@ -468,7 +468,12 @@ def test_which_connectors_still_lean_on_the_name_convention():
     )
 
     known = {
-        "bigquery": ["schema_pattern"],
+        # bigquery was here until dataset_pattern gained its Filters(...)
+        # annotation. Its entry was not a harmless naming gap: the convention
+        # resolved Schema to the deprecated schema_pattern alias, which is
+        # allow-all unless set, so every dataset read as included while
+        # ingestion filtered on dataset_pattern. The list shrinking is the
+        # point of the ratchet.
         "cockroachdb": ["schema_pattern"],
         "druid": ["schema_pattern"],
         "hana": ["schema_pattern"],

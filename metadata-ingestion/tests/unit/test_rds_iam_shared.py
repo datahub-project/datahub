@@ -154,11 +154,7 @@ def test_postgres_upgrades_a_weaker_sslmode(monkeypatch):
 def test_the_token_manager_is_shared_across_engines(factory, monkeypatch):
     """It caches the current token and its expiry, so one per engine would go
     back to STS on every connect -- and ingestion builds an engine per database."""
-    built: List[Dict[str, Any]] = []
-    monkeypatch.setattr(
-        "datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager",
-        _recording_manager(built),
-    )
+    built = _stub_manager(monkeypatch)
     config = factory(**_IAM)
     first = config.rds_iam_token_manager()
     second = config.rds_iam_token_manager()
@@ -172,11 +168,7 @@ def test_the_token_manager_is_shared_across_engines(factory, monkeypatch):
 def test_an_unparseable_port_falls_back_to_the_dialect_default(
     factory, port, monkeypatch
 ):
-    built: List[Dict[str, Any]] = []
-    monkeypatch.setattr(
-        "datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager",
-        _recording_manager(built),
-    )
+    built = _stub_manager(monkeypatch)
     factory(host_port="db.rds.amazonaws.com:nonsense", **_IAM).rds_iam_token_manager()
     assert built[0]["port"] == port
     assert built[0]["endpoint"] == "db.rds.amazonaws.com"
@@ -263,11 +255,7 @@ def test_a_copy_pointed_at_another_host_does_not_reuse_the_old_token(
     token minted for the original endpoint -- to a different host, with a
     credential scoped to the old one.
     """
-    built: List[Dict[str, Any]] = []
-    monkeypatch.setattr(
-        "datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager",
-        _recording_manager(built),
-    )
+    built = _stub_manager(monkeypatch)
     config = factory(**_IAM)
     config.rds_iam_token_manager()
     assert built[0]["endpoint"] == "db.rds.amazonaws.com"
@@ -290,11 +278,7 @@ def test_an_unchanged_copy_does_not_rebuild_the_manager(factory, monkeypatch):
     the minted token. Neither goes back to the constructor, which is the
     property that matters: no copy of a config re-authenticates against STS.
     """
-    built: List[Dict[str, Any]] = []
-    monkeypatch.setattr(
-        "datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager",
-        _recording_manager(built),
-    )
+    built = _stub_manager(monkeypatch)
     config = factory(**_IAM)
     first = config.rds_iam_token_manager()
 
@@ -318,11 +302,7 @@ def test_the_token_is_signed_for_the_host_the_engine_dials(factory, monkeypatch)
     built from host_port, so a recipe setting both signed a token for one host
     and presented it to another. Pre-existing -- the Source code read host_port
     too -- but a credential aimed at the wrong endpoint."""
-    built: List[Dict[str, Any]] = []
-    monkeypatch.setattr(
-        "datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager",
-        _recording_manager(built),
-    )
+    built = _stub_manager(monkeypatch)
     config = factory(**_IAM)
     scheme = config.scheme
     object.__setattr__(
@@ -339,11 +319,7 @@ def test_the_token_is_signed_for_the_host_the_engine_dials(factory, monkeypatch)
 def test_an_ordinary_recipe_still_signs_for_host_port(factory, monkeypatch):
     """The guard above must not change the common case, where the URL is built
     from host_port anyway."""
-    built: List[Dict[str, Any]] = []
-    monkeypatch.setattr(
-        "datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager",
-        _recording_manager(built),
-    )
+    built = _stub_manager(monkeypatch)
     factory(**_IAM).rds_iam_token_manager()
     assert built[0]["endpoint"] == "db.rds.amazonaws.com"
 
@@ -354,11 +330,7 @@ def test_a_copy_that_switches_aws_config_does_not_reuse_the_credentials(
 ):
     """aws_config decides which credentials sign the token, so it belongs in the
     cache identity alongside endpoint, port and username."""
-    built: List[Dict[str, Any]] = []
-    monkeypatch.setattr(
-        "datahub.ingestion.source.sql.rds_iam.RDSIAMTokenManager",
-        _recording_manager(built),
-    )
+    built = _stub_manager(monkeypatch)
     config = factory(**_IAM)
     config.rds_iam_token_manager()
     assert built[0]["aws_config"].aws_region == "us-west-2"

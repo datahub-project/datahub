@@ -20,6 +20,7 @@ from datahub.configuration.common import (
     HiddenFromDocs,
 )
 from datahub.configuration.env_vars import get_bigquery_schema_parallelism
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -30,6 +31,7 @@ from datahub.configuration.time_window_config import (
     BucketDuration,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.agent.verdicts import SchemaMatch
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
@@ -245,7 +247,16 @@ class BigQueryFilterConfig(SQLFilterConfig):
         description="Regex patterns for project_id to filter in ingestion.",
     )
 
-    dataset_pattern: AllowDenyPattern = Field(
+    # Annotated so the probe resolves Schema to *this* field. Without the hint it
+    # falls back to the `<kind>_pattern` name convention, which finds the
+    # schema_pattern alias below -- and that alias is allow-all unless the recipe
+    # sets it, so `probe filter --kind Schema` reported every dataset included
+    # while ingestion filtered on dataset_pattern and excluded most of them. A
+    # verdict that says "this will be ingested" about something that will not is
+    # the failure the command exists to prevent.
+    dataset_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for dataset to filter in ingestion. Specify regex to only match the schema name. "
         "e.g. to match all tables in schema analytics, use the regex 'analytics'",
@@ -265,9 +276,40 @@ class BigQueryFilterConfig(SQLFilterConfig):
     )
 
     # NOTE: `schema_pattern` is added here only to hide it from docs.
+    # Deliberately not annotated with Filters(...): it is a deprecated alias that
+    # the validator below folds into dataset_pattern, and only when
+    # dataset_pattern is unset. Labelling it would point an agent at a field that
+    # is ignored whenever the canonical one is set.
     schema_pattern: HiddenFromDocs[AllowDenyPattern] = Field(
         default=AllowDenyPattern.allow_all(),
     )
+
+    def probe_schema_verdict_override(self, schema: str) -> Optional[SchemaMatch]:
+        # bigquery_schema_gen filters datasets with is_schema_allowed over
+        # "project.dataset" whenever match_fully_qualified_names is on, which is
+        # the default. filter_check's generic Schema classifier matches the bare
+        # dataset name, so without this the verdict is judged against a string
+        # ingestion never sees -- and since dataset_pattern is rewritten to
+        # `^.*\.name$` by the validator above, every dataset reads as excluded.
+        #
+        # Mirrors RedshiftConfig.probe_schema_verdict_override and calls the same
+        # shared predicate, so the two cannot drift from each other or from
+        # ingestion.
+        if not self.match_fully_qualified_names:
+            return None
+        # The override is not told which project the caller asked about, and the
+        # qualified form needs one. With exactly one configured there is no
+        # ambiguity -- the common case, and Redshift's self.database equivalent.
+        # With several, say nothing rather than guess: falling through leaves the
+        # bare-name verdict and the "pass the containing schema" warning, which
+        # is a weaker answer but not a wrong one.
+        if len(self.project_ids) != 1:
+            return None
+        project_id = self.project_ids[0]
+        return SchemaMatch(
+            included=is_schema_allowed(self.dataset_pattern, schema, project_id, True),
+            target=f"{project_id}.{schema}",
+        )
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> Any:
