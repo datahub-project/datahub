@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import Any, Dict
 
 import pytest
 
@@ -668,3 +669,20 @@ def test_timestamp_shape_masks_digits_so_the_report_names_a_format_not_a_value()
     assert timestamp_shape("  2024-01-01T00:00:00Z  ") == "NNNN-NN-NNTNN:NN:NNZ"
     # Bounded, so a pathological value cannot flood the report.
     assert len(timestamp_shape("9" * 500)) == 40
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        pytest.param({"RUNTIME_NAME": "rt"}, id="no name"),
+        pytest.param({"CONNECTOR_NAME": "c"}, id="no runtime"),
+        pytest.param({}, id="neither"),
+    ],
+)
+def test_a_connector_row_missing_half_its_identity_is_not_usable(
+    row: Dict[str, Any],
+) -> None:
+    # A connector is keyed on the COMPOSITE runtime/name, so a row carrying only
+    # one half cannot be given a degraded key -- it is not a connector. The
+    # caller counts these; see _parse_rows.
+    assert OpenflowConnector.from_row(row) is None

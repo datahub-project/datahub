@@ -13,6 +13,9 @@ from datahub.ingestion.source.snowflake.snowflake_openflow import (
     CONNECTOR_DEFINITION_PLATFORM,
     SCHEMA_STRATEGY_SOURCE_SCHEMA,
     SnowflakeOpenflowSource,
+    _canvas_url,
+    _parse_table_names,
+    _url_shape,
     destination_identifier,
     parse_connector_config,
     property_value,
@@ -1210,3 +1213,57 @@ def test_each_replicated_table_gets_its_own_job() -> None:
         assert pair.inlet is not None
         assert f".{pair.source_table}," in pair.inlet
         assert f".{pair.source_table}," in pair.outlet
+
+
+@pytest.mark.parametrize(
+    ("source_url", "expected"),
+    [
+        pytest.param("jdbc:postgresql://h/db", "jdbc:postgresql://...", id="jdbc"),
+        pytest.param("mysql://user:pw@h/db", "mysql://...", id="credentials in a url"),
+        pytest.param(None, "<absent>", id="absent"),
+        pytest.param("", "<absent>", id="empty"),
+    ],
+)
+def test_url_shape_reduces_a_url_to_its_subprotocol(
+    source_url: Optional[str], expected: str
+) -> None:
+    assert _url_shape(source_url) == expected
+
+
+@pytest.mark.parametrize(
+    "source_url",
+    [
+        pytest.param("user=admin;password=hunter2;host=h", id="property string"),
+        pytest.param("oracle:thin:scott/tiger@//h:1521/db", id="oracle thin"),
+        pytest.param("admin:hunter2@dbhost:5432", id="dsn style"),
+    ],
+)
+def test_url_shape_echoes_nothing_from_a_url_it_cannot_parse(source_url: str) -> None:
+    # This branch handles exactly the input whose layout cannot be reasoned
+    # about, so it must reveal none of it. An earlier revision returned
+    # source_url[:16], which rendered a connection string as
+    # `user=admin;passw...` into a report that is persisted and
+    # operator-visible -- from a function whose docstring promises "never the
+    # whole URL". The fix shipped without a test; this is that test.
+    shape = _url_shape(source_url)
+
+    assert shape == f"<unrecognised, {len(source_url)} chars>"
+    for secret in ("hunter2", "admin", "tiger", "scott"):
+        assert secret not in shape
+
+
+def test_a_connector_url_without_a_host_yields_no_canvas_link() -> None:
+    # DESCRIBE returns CONNECTOR_URL as free text; a value that reaches /nifi/
+    # but parses to no scheme or host cannot be turned into a link, and the
+    # caller counts that rather than emitting a broken externalUrl.
+    assert _canvas_url("/nifi/#/process-groups/abc") is None
+
+
+def test_a_trailing_separator_in_the_table_list_is_not_an_unparseable_table() -> None:
+    # `a.b,` is one table and a stray comma, not one table and one bad entry.
+    # Counting the empty entry would inflate num_lineage_edges_skipped and send
+    # an operator looking for a malformed name that does not exist.
+    tables, unparseable = _parse_table_names("public.a, ,public.b,")
+
+    assert tables == [("public", "a"), ("public", "b")]
+    assert unparseable == []
