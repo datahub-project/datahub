@@ -1157,6 +1157,48 @@ class TestFlattenPath:
         assert combiner.report.flatten_gate_errors == 1
         assert combiner.report.flatten_rejected == 0
 
+    def test_plain_column_keeps_all_its_rows_alongside_aggregates(
+        self, engine, test_table
+    ):
+        # The shape the untagged fallback exists for: flattening it would emit
+        # `SELECT count(*), value FROM t` and return one row, losing the rest.
+        from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+            ProfilingConnection,
+        )
+
+        combiner = _make_combiner(flatten_enabled=True)
+        got: Dict[str, Any] = {}
+        with engine.connect() as raw, combiner.activate() as qc:
+            conn = ProfilingConnection(raw)
+            qc.run(
+                lambda: got.__setitem__(
+                    "count",
+                    conn.execute_aggregate(test_table, sa.func.count()).scalar(),
+                )
+            )
+            qc.run(
+                lambda: got.__setitem__(
+                    "min",
+                    conn.execute_aggregate(
+                        test_table, sa.func.min(test_table.c.value)
+                    ).scalar(),
+                )
+            )
+            qc.run(
+                lambda: got.__setitem__(
+                    "plain",
+                    conn.execute_aggregate(test_table, sa.column("value")).fetchall(),
+                )
+            )
+            qc.flush()
+
+        assert got["count"] == 3
+        assert got["min"] == 10.5
+        assert [r[0] for r in got["plain"]] == [10.5, 20.5, 30.5]
+        # The real aggregates still flattened; only the plain column opted out.
+        assert combiner.report.flat_queries_issued == 1
+        assert combiner.report.query_exceptions == 0
+
     def test_singleton_groups_are_demoted_to_one_cte_combine(self, engine):
         # A window spanning N tables gives one group each. Flattening them
         # would cost N round trips at identical scan count, where the CTE path
