@@ -330,6 +330,19 @@ def _source_class_for(config: object) -> Type[SQLAlchemySource]:
     return SQLAlchemySource
 
 
+def _has_own_source_class(config: object) -> bool:
+    """Whether _source_class_for found a real Source, or fell back.
+
+    The fallback resolves SQLAlchemySource, whose get_identifier returns
+    `schema.entity` -- correct for a source that really is SQLAlchemy-backed
+    and wrong for one that merely reuses this probe (Snowflake, BigQuery,
+    Redshift, Unity all match a three-part name). Knowing which happened is
+    what lets _identifier_target qualify the name itself instead of every
+    such connector declaring the same formula.
+    """
+    return _source_class_for(config) is not SQLAlchemySource
+
+
 def _shim_inspector(
     config: _SqlAlchemyUrlConfig, database: Optional[str] = None
 ) -> SimpleNamespace:
@@ -402,6 +415,34 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     )
     if override is not None:
         return override
+    # Only when the connector declared nothing. Unity Catalog declares an
+    # override that deliberately returns None when it cannot pin one catalog,
+    # with its own warning explaining the degrade -- running the generic path
+    # after it added a second warning saying the same thing.
+    # lazy: this module keeps SQLCommonConfig off its import path (see
+    # _SqlAlchemyUrlConfig) and needs it only for this identity check.
+    from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+
+    declared_own = (
+        getattr(type(ctx.config), "probe_filter_target", None)
+        is not SQLCommonConfig.probe_filter_target
+    )
+    if not declared_own and not _has_own_source_class(ctx.config):
+        # No Source to ask, so the shim below would answer `schema.entity`
+        # -- which drops the top level for every non-SQLAlchemy SQL source.
+        # All four of them match `container.schema.entity`, so the framework
+        # builds it rather than each connector declaring the same f-string.
+        # A connector whose builder does something this cannot (Snowflake's
+        # and Redshift's route through their own, so ingestion and the probe
+        # cannot drift) overrides probe_filter_target and never reaches here.
+        if database:
+            return f"{database}.{schema}.{ctx.name}"
+        ctx.warn(
+            "no parent container given, so these were judged on "
+            "'schema.entity'; this source matches a fully qualified name, so "
+            "pass the containing database/project to get the verdict "
+            "ingestion actually makes"
+        )
     source_cls = _source_class_for(ctx.config)
     shim = source_cls.__new__(source_cls)
     shim.config = ctx.config

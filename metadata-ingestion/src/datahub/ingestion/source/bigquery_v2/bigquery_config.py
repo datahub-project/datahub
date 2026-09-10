@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 from typing import (
     Annotated,
     Any,
-    Callable,
     Dict,
     List,
     Optional,
@@ -49,7 +48,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.sql.sql_config import (
-    _NO_PARENT_WARNING,
     SQLCommonConfig,
     SQLFilterConfig,
 )
@@ -307,19 +305,6 @@ class BigQueryFilterConfig(SQLFilterConfig):
         if parent_path:
             return parent_path[-1]
         return self.project_ids[0] if len(self.project_ids) == 1 else None
-
-    def probe_filter_target(
-        self,
-        schema: str,
-        entity: str,
-        warn: Callable[[str], None],
-        database: Optional[str] = None,
-    ) -> Optional[str]:
-        """`project.dataset.table` -- BigQueryTableIdentifier.raw_table_name."""
-        if not database:
-            warn(_NO_PARENT_WARNING.format(level="project"))
-            return None
-        return f"{database}.{schema}.{entity}"
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> Any:
