@@ -1791,42 +1791,57 @@ public class OpenLineageToDataHub {
   // one.
   private static List<String> v2TypeTokens(OpenLineage.SchemaDatasetFacetFields field) {
     String rawType = field.getType() == null ? "" : field.getType().trim();
-    String base = rawType.toLowerCase(Locale.ROOT);
     boolean hasChildren = field.getFields() != null && !field.getFields().isEmpty();
     List<String> tokens = new ArrayList<>();
-    if (base.startsWith("array") || base.startsWith("list")) {
-      tokens.add("[type=array]");
-      tokens.add("[type=" + parameterizedElementType(rawType, hasChildren, 0) + "]");
-    } else if (base.startsWith("map")) {
-      tokens.add("[type=map]");
-      tokens.add("[type=" + parameterizedElementType(rawType, hasChildren, 1) + "]");
-    } else if (base.startsWith("union") || base.startsWith("uniontype")) {
-      tokens.add("[type=union]");
-    } else if (base.startsWith("struct") || base.startsWith("record") || hasChildren) {
-      tokens.add("[type=struct]");
-    } else {
-      tokens.add("[type=" + canonicalV2TypeToken(rawType) + "]");
-    }
+    appendV2TypeTokens(rawType, hasChildren, tokens);
     return tokens;
   }
 
-  // Element type for a container: "struct" when nested children are present, otherwise the
-  // simple-type name parsed from the angle-bracket parameter at the given index (0 = array element
-  // /
-  // map key, 1 = map value). Falls back to "unknown" when the producer gives no element type.
-  private static String parameterizedElementType(String rawType, boolean hasChildren, int index) {
+  private static void appendV2TypeTokens(String rawType, boolean hasChildren, List<String> tokens) {
+    String canonical = canonicalV2TypeToken(rawType);
+    switch (canonical) {
+      case "array":
+        tokens.add("[type=array]");
+        appendElementTokens(rawType, hasChildren, 0, tokens);
+        break;
+      case "map":
+        tokens.add("[type=map]");
+        appendElementTokens(rawType, hasChildren, 1, tokens);
+        break;
+      case "union":
+        tokens.add("[type=union]");
+        break;
+      case "struct":
+        tokens.add("[type=struct]");
+        break;
+      default:
+        // Children always describe a struct, whatever the producer called the type.
+        tokens.add(hasChildren ? "[type=struct]" : "[type=" + canonical + "]");
+    }
+  }
+
+  // Tokens for a container's element type: "struct" when nested children are present, otherwise
+  // the type parsed from the angle-bracket parameter at the given index (0 = array element / map
+  // key, 1 = map value). Expanded recursively so a nested container keeps its whole chain --
+  // field-path-spec-v2 encodes array<array<long>> as [type=array].[type=array].[type=long], not a
+  // single collapsed element token. Falls back to "unknown" when the producer gives no element
+  // type.
+  private static void appendElementTokens(
+      String rawType, boolean hasChildren, int index, List<String> tokens) {
     if (hasChildren) {
-      return "struct";
+      tokens.add("[type=struct]");
+      return;
     }
     int open = rawType.indexOf('<');
     int close = rawType.lastIndexOf('>');
     if (open >= 0 && close > open) {
       List<String> params = splitTopLevelParams(rawType.substring(open + 1, close));
       if (index < params.size()) {
-        return canonicalV2TypeToken(params.get(index));
+        appendV2TypeTokens(params.get(index), false, tokens);
+        return;
       }
     }
-    return "unknown";
+    tokens.add("[type=unknown]");
   }
 
   // Split a container's angle-bracket payload on its top-level commas only. A naive split(",")

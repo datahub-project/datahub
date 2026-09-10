@@ -234,6 +234,41 @@ public class OpenLineageConverterBugfixTest {
         "map<string,decimal(10,2)> value type should be decimal: " + paths);
   }
 
+  @Test
+  public void v2NestedContainerTypesKeepTheFullTypeChain() {
+    OpenLineage ol = new OpenLineage(PRODUCER);
+    // field-path-spec-v2 encodes a nested container as the full chain of [type=...] tokens
+    // (e.g. array-of-array-of-long -> [type=array].[type=array].[type=long]), so the innermost
+    // element type must survive rather than collapsing to the outer container's token.
+    OpenLineage.SchemaDatasetFacetFields matrix =
+        ol.newSchemaDatasetFacetFieldsBuilder().name("matrix").type("array<array<long>>").build();
+    OpenLineage.SchemaDatasetFacetFields buckets =
+        ol.newSchemaDatasetFacetFieldsBuilder()
+            .name("buckets")
+            .type("map<string,array<long>>")
+            .build();
+    OpenLineage.SchemaDatasetFacet schema =
+        ol.newSchemaDatasetFacetBuilder().fields(java.util.Arrays.asList(matrix, buckets)).build();
+    OpenLineage.InputDataset ds =
+        ol.newInputDatasetBuilder()
+            .namespace("s3://bucket")
+            .name("db.table")
+            .facets(ol.newDatasetFacetsBuilder().schema(schema).build())
+            .build();
+
+    java.util.Set<String> paths =
+        OpenLineageToDataHub.getSchemaMetadata(ds, config()).getFields().stream()
+            .map(f -> f.getFieldPath())
+            .collect(java.util.stream.Collectors.toSet());
+
+    assertTrue(
+        paths.contains("[version=2.0].[type=struct].[type=array].[type=array].[type=long].matrix"),
+        "array<array<long>> should keep the inner element type: " + paths);
+    assertTrue(
+        paths.contains("[version=2.0].[type=struct].[type=map].[type=array].[type=long].buckets"),
+        "map<string,array<long>> should keep the inner element type: " + paths);
+  }
+
   // ---- eventType handling ----
 
   private static OpenLineage.RunEventBuilder baseEvent(OpenLineage ol) {
@@ -290,34 +325,37 @@ public class OpenLineageConverterBugfixTest {
         "missing eventType must not produce a $UNKNOWN aspect");
   }
 
-  @Test
-  public void errorMessageRunFacetSurfacesAsCustomProperties() throws Exception {
-    OpenLineage ol = new OpenLineage(PRODUCER);
+  // A FAIL event whose run carries an ErrorMessageRunFacet with the given stack trace.
+  private static OpenLineage.RunEvent failEventWithStackTrace(OpenLineage ol, String stackTrace) {
     OpenLineage.ErrorMessageRunFacet error =
         ol.newErrorMessageRunFacetBuilder()
             .message("boom")
             .programmingLanguage("scala")
-            .stackTrace("at Foo.bar(Foo.scala:1)")
+            .stackTrace(stackTrace)
             .build();
-    OpenLineage.Run run =
-        ol.newRunBuilder()
-            .runId(UUID.randomUUID())
-            .facets(ol.newRunFacetsBuilder().errorMessage(error).build())
-            .build();
-    OpenLineage.RunEvent event =
-        ol.newRunEventBuilder()
-            .eventTime(ZonedDateTime.now())
-            .eventType(OpenLineage.RunEvent.EventType.FAIL)
-            .run(run)
-            .job(
-                ol.newJobBuilder()
-                    .namespace("ns")
-                    .name("job")
-                    .facets(ol.newJobFacetsBuilder().build())
-                    .build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
-            .build();
+    return ol.newRunEventBuilder()
+        .eventTime(ZonedDateTime.now())
+        .eventType(OpenLineage.RunEvent.EventType.FAIL)
+        .run(
+            ol.newRunBuilder()
+                .runId(UUID.randomUUID())
+                .facets(ol.newRunFacetsBuilder().errorMessage(error).build())
+                .build())
+        .job(
+            ol.newJobBuilder()
+                .namespace("ns")
+                .name("job")
+                .facets(ol.newJobFacetsBuilder().build())
+                .build())
+        .inputs(Collections.emptyList())
+        .outputs(Collections.emptyList())
+        .build();
+  }
+
+  @Test
+  public void errorMessageRunFacetSurfacesAsCustomProperties() throws Exception {
+    OpenLineage ol = new OpenLineage(PRODUCER);
+    OpenLineage.RunEvent event = failEventWithStackTrace(ol, "at Foo.bar(Foo.scala:1)");
 
     DatahubJob job = OpenLineageToDataHub.convertRunEventToJob(event, config());
     java.util.Map<String, String> props =
@@ -337,31 +375,7 @@ public class OpenLineageConverterBugfixTest {
     for (int i = 0; i < 20000; i++) {
       hugeTrace.append("x");
     }
-    OpenLineage.ErrorMessageRunFacet error =
-        ol.newErrorMessageRunFacetBuilder()
-            .message("boom")
-            .programmingLanguage("scala")
-            .stackTrace(hugeTrace.toString())
-            .build();
-    OpenLineage.Run run =
-        ol.newRunBuilder()
-            .runId(UUID.randomUUID())
-            .facets(ol.newRunFacetsBuilder().errorMessage(error).build())
-            .build();
-    OpenLineage.RunEvent event =
-        ol.newRunEventBuilder()
-            .eventTime(ZonedDateTime.now())
-            .eventType(OpenLineage.RunEvent.EventType.FAIL)
-            .run(run)
-            .job(
-                ol.newJobBuilder()
-                    .namespace("ns")
-                    .name("job")
-                    .facets(ol.newJobFacetsBuilder().build())
-                    .build())
-            .inputs(Collections.emptyList())
-            .outputs(Collections.emptyList())
-            .build();
+    OpenLineage.RunEvent event = failEventWithStackTrace(ol, hugeTrace.toString());
 
     java.util.Map<String, String> props =
         OpenLineageToDataHub.convertRunEventToJob(event, config())
