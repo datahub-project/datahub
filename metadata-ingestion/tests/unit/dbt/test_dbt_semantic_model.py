@@ -13,6 +13,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
 from datahub.ingestion.source.dbt.dbt_core import extract_dbt_metrics
 from datahub.ingestion.source.dbt.dbt_semantic_model import DbtSemanticModelMapper
 from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
     DateTypeClass,
     DialectClass,
     DialectExpressionClass,
@@ -1422,3 +1423,32 @@ def test_a_genuine_author_expression_still_wins():
     metrics = dict(_aspects(workunits, MetricInfoClass))
     urn = "urn:li:metric:(urn:li:dataPlatform:dbt,jaffle_shop,discounted)"
     assert _expression_of(metrics[urn].expression).expression == "order_total * 0.9"
+
+
+def test_browse_paths_are_emitted_for_all_three_entity_kinds():
+    """semanticModel and metric have no container aspect, so without this GMS
+    falls back to a literal "Default" folder for them."""
+    workunits = _emit(_mapper(), [_sm_node("orders", _ORDERS)])
+
+    paths = {
+        urn.split(":", 3)[2]: [e.id for e in aspect.path]
+        for urn, aspect in _aspects(workunits, BrowsePathsV2Class)
+    }
+    assert paths["semanticModel"] == [_PROJECT]
+    assert paths["dataset"] == [_PROJECT]
+    assert paths["metric"] == [_PROJECT]
+
+
+def test_browse_path_leads_with_the_platform_instance_when_set():
+    workunits = _emit(
+        _mapper(platform_instance="analytics"), [_sm_node("orders", _ORDERS)]
+    )
+
+    _, aspect = _aspects(workunits, BrowsePathsV2Class)[0]
+    assert [e.id for e in aspect.path] == ["analytics", _PROJECT]
+    # The instance entry links to the platform-instance entity; the project is
+    # a plain label, since dbt has no container to point at.
+    assert aspect.path[0].urn == (
+        "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,analytics)"
+    )
+    assert aspect.path[1].urn is None

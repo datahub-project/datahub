@@ -6441,6 +6441,30 @@
     }
 },
 {
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,semantic_layer)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "dbt-instance-1",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,dbt-instance-1)"
+                },
+                {
+                    "id": "sample_dbt"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt.semantic_layer.customers,PROD)",
     "changeType": "UPSERT",
@@ -6596,6 +6620,30 @@
                     "nativeDataType": "number",
                     "recursive": false,
                     "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt.semantic_layer.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "dbt-instance-1",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,dbt-instance-1)"
+                },
+                {
+                    "id": "sample_dbt"
                 }
             ]
         }
@@ -6878,6 +6926,30 @@
                     "nativeDataType": "number",
                     "recursive": false,
                     "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt.semantic_layer.payments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "dbt-instance-1",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,dbt-instance-1)"
+                },
+                {
+                    "id": "sample_dbt"
                 }
             ]
         }
@@ -7211,6 +7283,30 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt.semantic_layer.regions,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "dbt-instance-1",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,dbt-instance-1)"
+                },
+                {
+                    "id": "sample_dbt"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "schemaField",
     "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt.semantic_layer.regions,PROD),region_id)",
     "changeType": "UPSERT",
@@ -7410,6 +7506,30 @@
 },
 {
     "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,average_payment)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "dbt-instance-1",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,dbt-instance-1)"
+                },
+                {
+                    "id": "sample_dbt"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
     "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,discounted_payments)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -7514,6 +7634,30 @@
     "aspect": {
         "json": {
             "datasetUpstreams": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,discounted_payments)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "dbt-instance-1",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,dbt-instance-1)"
+                },
+                {
+                    "id": "sample_dbt"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -7638,6 +7782,30 @@
 },
 {
     "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,payment_amount)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "dbt-instance-1",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,dbt-instance-1)"
+                },
+                {
+                    "id": "sample_dbt"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
     "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,payment_count)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -7740,6 +7908,30 @@
             "datasetUpstreams": [
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt.semantic_layer.payments,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-semantic-model-entities-platform-instance",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:dbt,dbt-instance-1.sample_dbt,payment_count)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "dbt-instance-1",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dbt,dbt-instance-1)"
+                },
+                {
+                    "id": "sample_dbt"
                 }
             ]
         }

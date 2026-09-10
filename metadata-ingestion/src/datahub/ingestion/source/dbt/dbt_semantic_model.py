@@ -3,7 +3,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
-from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.mce_builder import (
+    make_dataplatform_instance_urn,
+    make_tag_urn,
+)
 from datahub.errors import SdkUsageError
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dbt.dbt_common import (
@@ -21,6 +24,8 @@ from datahub.ingestion.source.dbt.dbt_common import (
     get_upstreams,
 )
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     DialectClass,
     ERModelRelationshipCardinalityClass,
     SemanticFieldTypeClass,
@@ -201,6 +206,7 @@ class DbtSemanticModelMapper:
             name=self.project_name,
             datasets=[prepared.dataset for prepared in models],
             relationships=relationships or None,
+            extra_aspects=self._common_aspects(),
         )
 
         # The SDK validates strictly at as_mcps() time and raises SdkUsageError
@@ -270,6 +276,40 @@ class DbtSemanticModelMapper:
             )
             return None
 
+    def _common_aspects(self) -> List[BrowsePathsV2Class]:
+        """Browse path for the entities this mapper emits.
+
+        Needed because neither `semanticModel` nor `metric` has a `container`
+        aspect in the entity registry -- containers model the *physical*
+        organization of an asset (database, schema), and these are logical. So
+        the usual route, AutoBrowsePathV2Processor deriving a path from the
+        container hierarchy, is closed to them, and without an explicit aspect
+        GMS falls back to BrowsePathV2Utils, which puts anything that is not a
+        dataset/chart/dashboard/dataJob into a literal "Default" folder.
+
+        Flat under the project, unlike Snowflake's db/schema/view nesting: dbt
+        emits exactly one semanticModel per project, so a `<project>/<model>`
+        level would partition identically to `<project>` and only add a step.
+
+        TODO: dbt emits no containers at all, so every dbt entity -- not just
+        these -- relies on the GMS fallback for its browse path (which happens
+        to work for datasets, whose dotted name it can split). Giving the
+        connector a real container hierarchy, or explicit paths throughout, is
+        a broader change than this feature and is deliberately left out of it.
+        """
+        entries: List[BrowsePathEntryClass] = []
+        if self.config.platform_instance:
+            entries.append(
+                BrowsePathEntryClass(
+                    id=self.config.platform_instance,
+                    urn=make_dataplatform_instance_urn(
+                        DBT_PLATFORM, self.config.platform_instance
+                    ),
+                )
+            )
+        entries.append(BrowsePathEntryClass(id=self.project_name))
+        return [BrowsePathsV2Class(path=entries)]
+
     def _prepare(
         self, semantic_model_nodes: List[DBTNode], all_nodes_map: Dict[str, DBTNode]
     ) -> List[_PreparedModel]:
@@ -317,6 +357,7 @@ class DbtSemanticModelMapper:
                         env=self.config.env,
                         description=node.description or None,
                         upstreams=self._upstreams(node, all_nodes_map) or None,
+                        extra_aspects=self._common_aspects(),
                     ),
                 )
             )
@@ -788,7 +829,8 @@ class DbtSemanticModelMapper:
             expression=expression,
             upstream_datasets=[dataset_urn],
             extra_aspects=[
-                SubTypesClass(typeNames=[_metric_subtype(METRIC_TYPE_SIMPLE)])
+                SubTypesClass(typeNames=[_metric_subtype(METRIC_TYPE_SIMPLE)]),
+                *self._common_aspects(),
             ],
         )
 
@@ -836,7 +878,8 @@ class DbtSemanticModelMapper:
             derived_from=resolved.metric_urns,
             tags=[make_tag_urn(tag) for tag in metric_definition.tags] or None,
             extra_aspects=[
-                SubTypesClass(typeNames=[_metric_subtype(metric_definition.type)])
+                SubTypesClass(typeNames=[_metric_subtype(metric_definition.type)]),
+                *self._common_aspects(),
             ],
         )
 

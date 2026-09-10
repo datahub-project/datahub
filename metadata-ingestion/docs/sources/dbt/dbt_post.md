@@ -660,6 +660,11 @@ tags, terms, documentation — is not carried across automatically.
 - **`saved_queries` and `groups`.** Neither is ingested. A dbt saved query is a named
   metric-plus-group-by export definition and a dbt group is an ownership grouping; neither is a
   semantic model or a metric, so both are out of scope for this feature rather than missing from it.
+- **Browse paths** are emitted flat under the project (`<platform_instance>` / `<project>`) for the
+  Semantic Model, its datasets and its metrics. `semanticModel` and `metric` have no `container`
+  aspect — containers model the physical organization of an asset, and these are logical — so the
+  usual container-derived path is unavailable and the connector supplies one directly. dbt emits no
+  containers for any entity, so a full container hierarchy for the dbt source is a separate change.
 - **Column descriptions on the migration path** are carried only where a human authored them
   (`editableSchemaMetadata`). An ingestion-authored column description is deliberately not copied
   into the destination's editable layer, where it would override whatever the destination's own
