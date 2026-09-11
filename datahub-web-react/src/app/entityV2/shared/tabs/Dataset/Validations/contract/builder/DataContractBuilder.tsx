@@ -30,7 +30,7 @@ const BuilderContainer = styled.div`
 `;
 
 const AssertionsSection = styled.div`
-    border: 0.5px solid ${(props) => props.theme.colors.bgHover};
+    border: 0.5px solid ${(props) => props.theme.colors.border};
     flex: 1;
     overflow: auto;
     min-height: 0;
@@ -47,7 +47,7 @@ const ActionContainer = styled.div`
     justify-content: space-between;
     flex-shrink: 0;
     padding: 16px 20px;
-    border-top: 1px solid ${(props) => props.theme.colors.bgHover};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     margin-top: 0;
 `;
 

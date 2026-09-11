@@ -10,12 +10,22 @@ export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
     align-items: center;
     box-shadow: none;
     color: ${(props) => props.theme.colors.text};
+    &&:hover,
+    &&:focus {
+        background-color: ${(props) => props.theme.colors.bgHover};
+    }
     ${(props) =>
         props.$isActive &&
         `
-        background-color: ${props.theme.colors.buttonFillBrand};
-        border: 1px solid ${props.theme.colors.borderBrand};
-        color: ${props.theme.colors.textOnFillBrand};
+        && {
+            background-color: ${props.theme.colors.bgSelectedSubtle};
+            border: 1px solid ${props.theme.colors.borderSelected};
+            color: ${props.theme.colors.textSelected};
+        }
+        &&:hover,
+        &&:focus {
+            background-color: ${props.theme.colors.bgSelected};
+        }
     `}
 `;
 

@@ -61,7 +61,25 @@ public final class EntityAspectAuthorizationUtils {
               new ConjunctivePrivilegeGroup(
                   ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE.getType()))));
 
+  private static final DisjunctivePrivilegeGroup MANAGE_ASSET_SUMMARY_PRIVILEGES =
+      new DisjunctivePrivilegeGroup(
+          ImmutableList.of(
+              ALL_ENTITY_PRIVILEGES,
+              new ConjunctivePrivilegeGroup(
+                  ImmutableList.of(PoliciesConfig.MANAGE_ASSET_SUMMARY_PRIVILEGE.getType()))));
+
   private EntityAspectAuthorizationUtils() {}
+
+  /**
+   * Returns true when the actor may write the {@code assetSettings} aspect of {@code assetUrn}.
+   * Requires {@code EDIT_ENTITY} or {@code MANAGE_ASSET_SUMMARY} on the asset itself.
+   */
+  public static boolean isAuthorizedToEditAssetSettings(
+      @Nonnull AuthorizationSession session, @Nonnull Urn assetUrn) {
+    EntitySpec assetSpec = new EntitySpec(assetUrn.getEntityType(), assetUrn.toString());
+    return com.datahub.authorization.AuthUtil.isAuthorized(
+        session, MANAGE_ASSET_SUMMARY_PRIVILEGES, assetSpec);
+  }
 
   /**
    * Authorization candidates for a {@code logicalParent} write on {@code urn}, ordered for
