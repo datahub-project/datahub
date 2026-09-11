@@ -9,6 +9,7 @@
     "empty.title": "Glosario vacío",
     "list.error": "No se pudo cargar el glosario. Se produjo un error inesperado.",
     "list.loading": "Cargando glosario...",
+    "page.contactAdmin": "Póngase en contacto con su administrador de DataHub para configurar el Glosario.",
     "page.createGlossary": "Crear glosario",
     "page.subtitle": "Clasifique sus activos de datos y columnas mediante diccionarios de datos",
     "page.title": "Glosario de negocio",

@@ -27,7 +27,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.MatchAllQueryBuilder;
-import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.filter.Filter;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
@@ -48,7 +48,7 @@ public class PlatformEntityCountsTest {
     entityRegistry = mock(EntityRegistry.class);
     datasetSpec = mock(EntitySpec.class);
     when(datasetSpec.hasAspect("dataPlatformInstance")).thenReturn(true);
-    when(datasetSpec.getSearchGroup()).thenReturn("primary");
+    when(datasetSpec.getSearchGroup()).thenReturn(null);
     when(entityRegistry.getEntitySpec("dataset")).thenReturn(datasetSpec);
     when(entityRegistry.getEntitySpecs()).thenReturn(Map.of("dataset", datasetSpec));
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
@@ -106,7 +106,7 @@ public class PlatformEntityCountsTest {
   }
 
   @Test
-  public void v3QueriesSearchGroupIndexAndPlatformField() throws Exception {
+  public void v3QueriesEntityNamedIndexWhenSearchGroupUnset() throws Exception {
     SearchResponse response = responseWithSnowflakeBucket(4, 0);
     when(searchClient.search(any(), any(), any())).thenReturn(response);
 
@@ -117,12 +117,12 @@ public class PlatformEntityCountsTest {
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getEntityIndexNameV3(opContext, "primary");
+            .getEntityIndexNameV3(opContext, "dataset");
     assertEquals(request.indices()[0], expectedIndex);
-    assertTrue(request.source().query() instanceof TermQueryBuilder);
-    TermQueryBuilder term = (TermQueryBuilder) request.source().query();
-    assertEquals(term.fieldName(), "_entityType");
-    assertEquals(term.value(), "dataset");
+    assertTrue(request.source().query() instanceof TermsQueryBuilder);
+    TermsQueryBuilder terms = (TermsQueryBuilder) request.source().query();
+    assertEquals(terms.fieldName(), "_entityType");
+    assertTrue(terms.values().contains("dataset"));
     assertEquals(platformAggField(request), "platform");
   }
 

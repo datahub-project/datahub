@@ -176,7 +176,7 @@ export interface UpdatedLineages {
     [urn: string]: UpdatedLineage;
 }
 
-export interface UpdatedLineage {
+interface UpdatedLineage {
     lineageDirection: Direction;
     entitiesToAdd: Entity[];
     urnsToRemove: string[];

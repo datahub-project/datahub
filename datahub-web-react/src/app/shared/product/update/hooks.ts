@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { checkShouldSkipWelcomeModal } from '@app/shared/localStorageUtils';
@@ -26,7 +27,9 @@ export function useIsProductAnnouncementEnabled() {
  * Hook to fetch the latest product announcement data from GraphQL.
  */
 export function useGetLatestProductAnnouncementData() {
+    const { i18n } = useTranslation();
     const { data, loading, error } = useGetLatestProductUpdateQuery({
+        variables: { locale: i18n.language },
         fetchPolicy: 'cache-first',
     });
 

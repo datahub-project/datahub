@@ -153,3 +153,77 @@ class TestUrnSyncEnabledEnvBinding:
         # in place — accidental typos shouldn't silently disable sync mode.
         monkeypatch.setenv("ZDU_URN_SYNC_ENABLED", "yes-please")
         assert ZDUTestConfig.from_env().urn_sync_enabled is True
+
+
+class TestComposeProfileSelectsServiceNames:
+    """ZDU_COMPOSE_PROFILES has to move all four service names with it.
+
+    Every service key in docker/profiles/docker-compose.gms.yml is
+    profile-suffixed, so selecting `debug-consumers` renames GMS and
+    system-update as well as adding the two consumer containers. Setting the
+    profile without the names would leave the framework tailing and recreating
+    `datahub-gms-debug`, a service that profile never brings up — which reports
+    as "no dual-write events" rather than as a wiring failure.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _clear_service_env(self, monkeypatch: pytest.MonkeyPatch):
+        for var in (
+            "ZDU_COMPOSE_PROFILES",
+            "ZDU_GMS_SERVICE",
+            "ZDU_UPGRADE_SERVICE",
+            "ZDU_MAE_SERVICE",
+            "ZDU_MCE_SERVICE",
+        ):
+            monkeypatch.delenv(var, raising=False)
+
+    def test_default_profile_is_embedded_consumers(self) -> None:
+        cfg = ZDUTestConfig.from_env()
+        assert cfg.compose_profiles == ["debug"]
+        assert cfg.gms_service == "datahub-gms-debug"
+        assert cfg.upgrade_service == "system-update-debug"
+
+    def test_consumers_profile_renames_every_service(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ZDU_COMPOSE_PROFILES", "debug-consumers")
+        cfg = ZDUTestConfig.from_env()
+        assert cfg.compose_profiles == ["debug-consumers"]
+        assert cfg.gms_service == "datahub-gms-debug-consumers"
+        assert cfg.upgrade_service == "system-update-debug-consumers"
+        assert cfg.mae_service == "datahub-mae-consumer-debug-consumers"
+        assert cfg.mce_service == "datahub-mce-consumer-debug-consumers"
+
+    def test_explicit_service_override_beats_profile(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("ZDU_COMPOSE_PROFILES", "debug-consumers")
+        monkeypatch.setenv("ZDU_GMS_SERVICE", "my-custom-gms")
+        cfg = ZDUTestConfig.from_env()
+        assert cfg.gms_service == "my-custom-gms"
+        # The names it didn't override still follow the profile.
+        assert cfg.mae_service == "datahub-mae-consumer-debug-consumers"
+
+    def test_unknown_profile_keeps_default_service_names(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Guessing a name from an unrecognised profile would point log tailing
+        # at a container that never exists. Keep the defaults and let the
+        # caller pin names explicitly.
+        monkeypatch.setenv("ZDU_COMPOSE_PROFILES", "debug-cassandra")
+        cfg = ZDUTestConfig.from_env()
+        assert cfg.compose_profiles == ["debug-cassandra"]
+        assert cfg.gms_service == "datahub-gms-debug"
+
+    def test_restart_order_puts_gms_first_and_drops_absent_consumers(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        assert ZDUTestConfig.from_env().services_in_restart_order == (
+            "datahub-gms-debug",
+            "datahub-mae-consumer-debug-consumers",
+            "datahub-mce-consumer-debug-consumers",
+        )
+        monkeypatch.setenv("ZDU_MAE_SERVICE", "")
+        monkeypatch.setenv("ZDU_MCE_SERVICE", "")
+        cfg = ZDUTestConfig(gms_service="g", mae_service="", mce_service="")
+        assert cfg.services_in_restart_order == ("g",)

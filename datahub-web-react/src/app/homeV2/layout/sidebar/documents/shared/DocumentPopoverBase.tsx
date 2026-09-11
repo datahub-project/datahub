@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
+import { shouldShowDocumentSearchResults } from '@app/homeV2/layout/sidebar/documents/shared/DocumentPopoverBase.utils';
 import { Button, Input } from '@src/alchemy-components';
 
 import { Document, DocumentSourceType, DocumentState } from '@types';
@@ -153,6 +155,8 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
+    const { getRootNodes } = useDocumentTree();
+
     // Debounce search query
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -174,6 +178,7 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
     });
 
     const isSearching = debouncedSearchQuery.trim().length > 0;
+    const shouldShowSearchResults = shouldShowDocumentSearchResults(isSearching, getRootNodes().length);
     const filteredSearchResults = useMemo(
         () => (filterSearchResults ? searchResults.filter(filterSearchResults) : searchResults),
         [searchResults, filterSearchResults],
@@ -212,7 +217,7 @@ export const DocumentPopoverBase: React.FC<DocumentPopoverBaseProps> = ({
             </SearchContainer>
             {headerContent && <HeaderContainer>{headerContent}</HeaderContainer>}
             <TreeScrollContainer $maxHeight={maxHeight}>
-                {isSearching ? (
+                {shouldShowSearchResults ? (
                     <>
                         {searchLoading && <EmptyState>{t('documents.searching')}</EmptyState>}
                         {!searchLoading && filteredSearchResults.length === 0 && (

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.settings.asset;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContextWithOperationContext;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
@@ -8,6 +9,7 @@ import static org.testng.Assert.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AssetSettings;
 import com.linkedin.datahub.graphql.generated.UpdateAssetSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateAssetSummaryInput;
@@ -47,6 +49,26 @@ public class UpdateAssetSettingsResolverTest {
   @Test
   public void testConstructorWithNullEntityClient() {
     assertThrows(NullPointerException.class, () -> new UpdateAssetSettingsResolver(null));
+  }
+
+  @Test
+  public void testUpdateAssetSettingsUnauthorized() throws Exception {
+    // Arrange
+    UpdateAssetSettingsInput input = createTestInput();
+    QueryContext denyContext = getMockDenyContextWithOperationContext();
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    when(mockEnv.getContext()).thenReturn(denyContext);
+
+    // Act & Assert
+    CompletableFuture<AssetSettings> result = resolver.get(mockEnv);
+    CompletionException thrown = expectThrows(CompletionException.class, result::join);
+    assertTrue(thrown.getCause() instanceof AuthorizationException);
+
+    // Verify nothing was read or written
+    verify(mockEntityClient, never())
+        .getLatestAspectObject(any(), any(Urn.class), anyString(), anyBoolean());
+    verify(mockEntityClient, never())
+        .ingestProposal(any(), any(MetadataChangeProposal.class), anyBoolean());
   }
 
   @Test

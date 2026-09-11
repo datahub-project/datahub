@@ -196,10 +196,11 @@ mutation updateApplicationsSettings($input: UpdateApplicationsSettingsInput!) {
     updateApplicationsSettings(input: $input)
 }
 
-query getLatestProductUpdate {
-    latestProductUpdate {
+query getLatestProductUpdate($locale: String) {
+    latestProductUpdate(locale: $locale) {
         enabled
         id
+        releaseMonth
         title
         header
         requiredVersion

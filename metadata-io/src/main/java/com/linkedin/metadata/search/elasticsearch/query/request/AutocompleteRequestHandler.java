@@ -170,7 +170,8 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
             opContext,
             entityName != null ? List.of(entityName) : Collections.emptyList(),
             filter,
-            baseQuery);
+            baseQuery,
+            searchConfiguration.getEntityIndex());
 
     // Apply scoring
     FunctionScoreQueryBuilder functionScoreQueryBuilder =
