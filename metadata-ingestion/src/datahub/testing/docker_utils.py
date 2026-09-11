@@ -128,9 +128,12 @@ def _prune_images(image_ids: Set[str]) -> None:
     logger.info(f"Pruning {len(image_ids)} docker image(s) used by this module")
     # `-f` for two reasons: an image carrying several tags is removed rather
     # than merely untagged, and an image a previous module already pruned (the
-    # same base image is shared by several suites) exits 0 rather than failing.
-    # Docker's per-layer "Deleted:" chatter is captured, not logged -- writing
-    # it to the job log would feed the very problem this fixes.
+    # same base image is shared by several suites) is reported as absent rather
+    # than aborting the removal of the others. Whether docker exits nonzero for
+    # a merely-absent id has differed between versions, so the handling below
+    # keys off stderr rather than the exit status. Docker's per-layer "Deleted:"
+    # chatter is captured, not logged -- writing it to the job log would feed
+    # the very problem this fixes.
     try:
         result = subprocess.run(
             ["docker", "image", "rm", "-f", *sorted(image_ids)],
@@ -155,10 +158,10 @@ def _prune_images(image_ids: Set[str]) -> None:
     if result.returncode != 0:
         # Best-effort by design. An image still held by a container outside
         # this project can't be removed, and that must not fail a green module.
-        # Absent images alone exit 0, but a run that genuinely fails for one
-        # image still reports the absent ones on stderr -- drop those so a real
-        # conflict is not buried in benign noise, as the stale-container
-        # removal above does for "No such container".
+        # An id that was merely absent (already pruned by an earlier module) is
+        # benign noise -- drop those lines so a real conflict is not buried in
+        # them, as the stale-container removal above does for "No such
+        # container".
         real_errors = [
             line
             for line in result.stderr.splitlines()
@@ -166,6 +169,14 @@ def _prune_images(image_ids: Set[str]) -> None:
         ]
         if real_errors:
             logger.warning(f"Failed to prune docker image(s): {' '.join(real_errors)}")
+        elif not result.stderr.strip():
+            # Nonzero with nothing to show for it. Suppressing this would make
+            # a wholly failed cleanup indistinguishable from a clean one, so
+            # report the exit status itself.
+            logger.warning(
+                f"docker image rm exited {result.returncode} with no output; "
+                "images may still be on disk"
+            )
 
 
 DOCKER_DEFAULT_UNLIMITED_PARALLELISM = -1

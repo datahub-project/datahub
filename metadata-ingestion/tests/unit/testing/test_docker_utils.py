@@ -161,3 +161,30 @@ def test_prune_images_ignores_benign_missing_image_lines() -> None:
     logged = warn.call_args[0][0]
     assert "conflict" in logged
     assert "No such image" not in logged
+
+
+def _warnings_from_prune(**kwargs: Any) -> List[str]:
+    import logging
+
+    with patch.object(
+        logging.getLogger("datahub.testing.docker_utils"), "warning"
+    ) as warn:
+        _run_prune({"aaa111"}, ci=True, **kwargs)
+    return [call[0][0] for call in warn.call_args_list]
+
+
+def test_prune_images_warns_when_failure_has_no_output() -> None:
+    # A nonzero exit with empty stderr must not be silent: suppressing it would
+    # make a wholly failed cleanup look identical to a clean one.
+    logged = _warnings_from_prune(returncode=1, stderr="   \n")
+    assert len(logged) == 1
+    assert "exited 1" in logged[0]
+
+
+def test_prune_images_silent_when_all_lines_are_benign() -> None:
+    # Every id was already pruned by an earlier module. Nothing went wrong, so
+    # this must stay quiet even if docker chose a nonzero exit status.
+    logged = _warnings_from_prune(
+        returncode=1, stderr="Error response from daemon: No such image: sha256:aaa111"
+    )
+    assert logged == []
