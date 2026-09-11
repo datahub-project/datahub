@@ -212,6 +212,36 @@ public class DatahubEventEmitter extends EventEmitter {
     log.info("Emitting coalesced lineage completed in {} ms", elapsedTime);
   }
 
+  /**
+   * Carries the job-level decoration from one stored event onto the coalesced job. Each facet
+   * appears only on the events that happened to carry it, so the first non-null wins rather than
+   * the last event's value. Without this the coalesced path -- Spark's default -- converts tags,
+   * owners and sourceCodeLocation and then discards them, and the DataJob never receives them.
+   */
+  static void mergeJobDecoration(DatahubJob target, DatahubJob stored) {
+    if (target.getJobOwnership() == null) {
+      target.setJobOwnership(stored.getJobOwnership());
+    }
+    if (target.getJobInstitutionalMemory() == null) {
+      target.setJobInstitutionalMemory(stored.getJobInstitutionalMemory());
+    }
+    if (target.getJobGlobalTags() == null) {
+      target.setJobGlobalTags(stored.getJobGlobalTags());
+    }
+    if (target.getFlowGlobalTags() == null) {
+      target.setFlowGlobalTags(stored.getFlowGlobalTags());
+    }
+    if (target.getJobPlatformInstance() == null) {
+      target.setJobPlatformInstance(stored.getJobPlatformInstance());
+    }
+    if (target.getFlowDomains() == null) {
+      target.setFlowDomains(stored.getFlowDomains());
+    }
+    if (target.getJobDomains() == null) {
+      target.setJobDomains(stored.getJobDomains());
+    }
+  }
+
   public List<MetadataChangeProposal> generateCoalescedMcps() {
     List<MetadataChangeProposal> mcps = new ArrayList<>();
 
@@ -256,6 +286,8 @@ public class DatahubEventEmitter extends EventEmitter {
           if (datahubJob.getDataFlowInfo() == null) {
             datahubJob.setDataFlowInfo(storedDatahubJob.getDataFlowInfo());
           }
+
+          mergeJobDecoration(datahubJob, storedDatahubJob);
 
           if (storedDatahubJob.getStartTime() < minStartTime.get()) {
             minStartTime.set(storedDatahubJob.getStartTime());

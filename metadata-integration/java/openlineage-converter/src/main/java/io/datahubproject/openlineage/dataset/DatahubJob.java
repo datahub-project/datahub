@@ -514,34 +514,32 @@ public class DatahubJob {
         dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getTags(), config, mcps);
     generateOwnershipAspect(
         dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getOwnership(), config, mcps);
-    generateDatasetPropertiesAspect(dataset.getUrn(), dataset.getProperties(), config, mcps);
+    generateDatasetPropertiesAspect(dataset.getUrn(), dataset.getProperties(), mcps);
   }
 
   /**
-   * OpenLineage only ever describes a few of a dataset's properties, so in patch mode the
-   * description and each custom property are set individually rather than replacing the whole
-   * aspect and dropping whatever another source recorded.
+   * OpenLineage only ever describes a few of a dataset's properties, so the description and each
+   * custom property are set individually rather than replacing the whole aspect and dropping
+   * whatever another source recorded.
    */
   private void generateDatasetPropertiesAspect(
-      Urn datasetUrn,
-      DatasetProperties properties,
-      DatahubOpenlineageConfig config,
-      List<MetadataChangeProposal> mcps) {
+      Urn datasetUrn, DatasetProperties properties, List<MetadataChangeProposal> mcps) {
     if (properties == null) {
       return;
     }
-    if (config.isUsePatch()) {
-      DatasetPropertiesPatchBuilder builder = new DatasetPropertiesPatchBuilder().urn(datasetUrn);
-      if (properties.getDescription() != null) {
-        builder.setDescription(properties.getDescription());
-      }
-      if (properties.getCustomProperties() != null) {
-        properties.getCustomProperties().forEach(builder::addCustomProperty);
-      }
-      mcps.add(builder.build());
-    } else {
-      addAspectToMcps(datasetUrn, DATASET_ENTITY_TYPE, properties, mcps);
+    // Unconditionally a patch, unlike the job-level aspects above. usePatch governs whether a
+    // terminal event may replace the lineage an earlier event declared, which is a question about
+    // edges; it has no analogue here. OpenLineage never carries a dataset's full property set, so a
+    // whole-aspect write would clear name, qualifiedName and everything another connector recorded
+    // no matter how the flag is set.
+    DatasetPropertiesPatchBuilder builder = new DatasetPropertiesPatchBuilder().urn(datasetUrn);
+    if (properties.getDescription() != null) {
+      builder.setDescription(properties.getDescription());
     }
+    if (properties.getCustomProperties() != null) {
+      properties.getCustomProperties().forEach(builder::addCustomProperty);
+    }
+    mcps.add(builder.build());
   }
 
   private void addAspectToMcps(
