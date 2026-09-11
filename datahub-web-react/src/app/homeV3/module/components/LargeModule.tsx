@@ -22,7 +22,7 @@ export const ModuleHeader = styled.div`
     gap: 2px;
     border-radius: ${radius.lg} ${radius.lg} 0 0;
     padding: ${spacing.sm} ${spacing.lg} ${spacing.sm} ${spacing.md};
-    border-bottom: ${borders['1px']} ${(props) => props.theme.colors.bg};
+    border-bottom: ${borders['1px']} transparent;
     user-select: none;
 
     /* Optimize for smooth dragging */
