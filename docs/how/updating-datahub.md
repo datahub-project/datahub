@@ -147,6 +147,8 @@ Requirements:
 
 - **(Operations / Elasticsearch ZDU)** Incremental (zero-downtime) reindex Phase 1 now validates the alias swap against the **launch-time source document count**, not a live alias count. Live writes during the copy are expected and are covered by Phase 2 catch-up after the swap. A failed swap marks the index `FAILED` and deletes the next index so the following system-update run reindexes from scratch instead of retrying a doomed swap. Reindex polling also waits for the ES `_reindex` task to finish (when status is available) before treating matching doc counts as complete, so a mid-copy sample cannot falsely finish Phase 1.
 
+- **(Operations / Elasticsearch ZDU)** Stall detection no longer stacks a second `_reindex` into the same destination while the current ES task is still running or its status cannot be read (`ELASTICSEARCH_BUILD_INDICES_WAIT_FOR_UNRESOLVED_REINDEX_TASK`, default `true`). Previously a destination already at 100% looked like "no progress," exhausted `numRetries`, marked the index `FAILED`, and deleted the copy so the next system-update pod recopied from scratch. **Action:** none; set the env var to `false` to restore overlapping stall-retries.
+
 - **(Metadata Model / Data Products)** `dataProductProperties` now includes an optional `parentDataProduct` URN so Data Products can nest in a parent-child taxonomy (mirroring Domains' `parentDomain`). The field is additive; existing Data Products are unchanged (null parent). No migration or reindex is required. Free-text search may match child products on the parent URN string, the same way `parentDomain` already behaves.
 
 - #18987 **(GMS / GraphQL)** GraphQL entity hydration now fetches only the aspects a query's selection set requires (schema-driven aspect mapping), instead of each entity loader's full default aspect set. Reduces primary-store reads on search cards, entity profiles, and browse. **Action:** none; set `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED=false` to revert to legacy full-aspect hydration if a specific query or page regresses.
@@ -154,6 +156,8 @@ Requirements:
 ### Environment Variables
 
 - `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED` (default `true`) — Schema-driven GraphQL aspect fetching. See Other Notable Changes above and [Environment Variables](../deploy/environment-vars.md).
+
+- `ELASTICSEARCH_BUILD_INDICES_WAIT_FOR_UNRESOLVED_REINDEX_TASK` (default `true`) — Skip stacking another `_reindex` while the current ES task is unresolved. See Other Notable Changes above and [Environment Variables](../deploy/environment-vars.md).
 
 ## v1.7.0.1
 

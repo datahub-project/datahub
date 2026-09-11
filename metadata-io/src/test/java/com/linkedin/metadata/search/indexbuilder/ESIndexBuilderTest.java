@@ -27,6 +27,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.version.GitVersion;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.ByteArrayInputStream;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.http.HttpEntity;
 import org.mockito.ArgumentCaptor;
@@ -1957,14 +1959,19 @@ public class ESIndexBuilderTest {
 
   // --- Incremental reindex tests ---
 
-  /** Shared poll-completion fixture: zero-retry builder + fixed dest count for both indices. */
+  /** Shared poll-completion fixture: fixed dest count for both indices. */
   private ESIndexBuilder setupPollReindexBuilder(long destDocCount) throws IOException {
+    return setupPollReindexBuilder(destDocCount, 0);
+  }
+
+  private ESIndexBuilder setupPollReindexBuilder(long destDocCount, int numRetries)
+      throws IOException {
     when(elasticSearchConfiguration.getIndex())
         .thenReturn(
             IndexConfiguration.builder()
                 .numShards(NUM_SHARDS)
                 .numReplicas(NUM_REPLICAS)
-                .numRetries(0)
+                .numRetries(numRetries)
                 .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
                 .maxReindexHours(1)
                 .build());
@@ -2039,6 +2046,73 @@ public class ESIndexBuilderTest {
     assertFalse(
         result.completed(),
         "Matching counts while the reindex task is still running must not complete");
+  }
+
+  /**
+   * Stall detection would otherwise resubmit while the ES task is still running. With
+   * waitForUnresolvedReindexTask enabled, skip that retry (retry budget is still available).
+   */
+  @Test
+  void testPollReindexCompletion_unresolvedTask_skipsRetryWhenFeatureEnabled() throws Throwable {
+    ESIndexBuilder builder = spy(setupPollReindexBuilder(1000L, NUM_RETRIES));
+    when(buildIndicesConfig.isWaitForUnresolvedReindexTask()).thenReturn(true);
+    doReturn(System.currentTimeMillis() + 200L).when(builder).computeTimeoutAt();
+    stubReindexTaskCompleted(false);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertFalse(result.completed());
+    verify(searchClient, never())
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  /**
+   * ZDU catch-up: dest is still short after the ES task COMPLETED, retry budget remains, and
+   * waitForUnresolvedReindexTask is on. COMPLETED is not unresolved, so poll must still resubmit
+   * {@code _reindex} rather than skipping.
+   */
+  @Test
+  void testPollReindexCompletion_completedButShort_retriesWhenFeatureEnabled() throws Throwable {
+    setupPollReindexBuilder(900L, NUM_RETRIES);
+    when(buildIndicesConfig.isWaitForUnresolvedReindexTask()).thenReturn(true);
+    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(false);
+    stubReindexTaskCompleted(true);
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
+        .thenReturn("node1:100");
+
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion) {
+          @Override
+          protected Pair<Long, Long> getDocumentCounts(
+              OperationContext ctx, Callable<Long> expectedCountSupplier, String destinationIndex) {
+            return Pair.of(1000L, 900L);
+          }
+
+          @Override
+          public long computeTimeoutAt() {
+            return System.currentTimeMillis() + 2_000L;
+          }
+        };
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:99");
+
+    assertFalse(
+        result.completed(),
+        "Completed-but-short must not be treated as success even after a catch-up resubmit");
+    verify(searchClient, atLeastOnce())
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
   }
 
   /** Counts match and the ES task reports completed — poll succeeds. */

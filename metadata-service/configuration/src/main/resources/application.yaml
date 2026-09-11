@@ -916,6 +916,7 @@ elasticsearch:
     reindexBatchSize: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE:5000} # documents per scroll batch during reindex
     reindexMaxSlices: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES:256} # max parallel slices (capped from target shard count)
     reindexNoProgressRetryMinutes: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES:5} # minutes without doc-count progress before re-triggering reindex
+    waitForUnresolvedReindexTask: ${ELASTICSEARCH_BUILD_INDICES_WAIT_FOR_UNRESOLVED_REINDEX_TASK:true} # skip stall resubmit while the ES reindex task is still running or status lookup failed
     # Parallel reindexing configuration
     enableParallelReindex: ${ELASTICSEARCH_BUILD_INDICES_ENABLE_PARALLEL_REINDEX:false}
     taskCheckIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_TASK_CHECK_INTERVAL_SECONDS:60}
