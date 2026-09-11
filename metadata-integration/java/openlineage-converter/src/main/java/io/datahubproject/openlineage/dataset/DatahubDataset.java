@@ -8,9 +8,11 @@ import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.schema.SchemaMetadata;
+import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.Singular;
 import lombok.ToString;
 
 @Getter
@@ -21,10 +23,11 @@ public class DatahubDataset {
   DatasetUrn urn;
   SchemaMetadata schemaMetadata;
   UpstreamLineage lineage;
-  // Timeseries aspects: each event appends a point rather than overwriting, so no patch handling
-  // is needed for these two.
-  Operation operation;
-  DatasetProfile profile;
+  // Timeseries aspects, so each point stands on its own and none of them replaces another. They
+  // are held as lists because coalescing merges several events into one job: keeping a single
+  // value would silently discard every point but the last.
+  @Singular List<Operation> operations;
+  @Singular List<DatasetProfile> profiles;
   GlobalTags tags;
   Ownership ownership;
   DatasetProperties properties;

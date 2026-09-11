@@ -3,10 +3,13 @@ package datahub.spark;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import com.linkedin.common.FabricType;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.InstitutionalMemoryMetadataArray;
+import com.linkedin.common.Operation;
+import com.linkedin.common.OperationType;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
@@ -14,10 +17,15 @@ import com.linkedin.common.OwnershipType;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.url.Url;
+import com.linkedin.common.urn.DataPlatformUrn;
+import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
+import io.datahubproject.openlineage.dataset.DatahubDataset;
 import io.datahubproject.openlineage.dataset.DatahubJob;
 import java.net.URISyntaxException;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -78,5 +86,36 @@ class DatahubEventEmitterCoalesceTest {
     assertNotNull(coalesced.getJobInstitutionalMemory());
     assertNotNull(coalesced.getJobGlobalTags());
     assertNotNull(coalesced.getJobOwnership());
+  }
+
+  private static DatahubDataset datasetWithOperationAt(long timestamp) throws URISyntaxException {
+    DatasetUrn urn =
+        new DatasetUrn(new DataPlatformUrn("s3"), "my_db.my_schema.events", FabricType.PROD);
+    Operation operation =
+        new Operation()
+            .setTimestampMillis(timestamp)
+            .setOperationType(OperationType.INSERT)
+            .setLastUpdatedTimestamp(timestamp);
+    return DatahubDataset.builder().urn(urn).operation(operation).build();
+  }
+
+  /**
+   * Operation and DatasetProfile are timeseries aspects, so each execution's point stands on its
+   * own. Overwriting on merge meant a coalesced run that wrote the same dataset several times kept
+   * only the last point and reported a single write.
+   */
+  @Test
+  void testTimeseriesPointsAccumulateAcrossCoalescedEvents() throws URISyntaxException {
+    Set<DatahubDataset> coalesced = new LinkedHashSet<>();
+    coalesced.add(datasetWithOperationAt(1000L));
+
+    DatahubEventEmitter.mergeDatasets(
+        new LinkedHashSet<>(java.util.Collections.singletonList(datasetWithOperationAt(2000L))),
+        coalesced);
+
+    DatahubDataset merged = coalesced.iterator().next();
+    assertEquals(2, merged.getOperations().size(), "the earlier execution's point was dropped");
+    assertEquals(1000L, merged.getOperations().get(0).getTimestampMillis());
+    assertEquals(2000L, merged.getOperations().get(1).getTimestampMillis());
   }
 }

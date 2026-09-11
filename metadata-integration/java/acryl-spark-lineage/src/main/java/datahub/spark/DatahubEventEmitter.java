@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.Operation;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.data.DataMap;
@@ -16,6 +17,7 @@ import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
 import com.linkedin.dataprocess.RunResultType;
+import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.domain.Domains;
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.client.Emitter;
@@ -335,8 +337,7 @@ public class DatahubEventEmitter extends EventEmitter {
     }
   }
 
-  private static void mergeDatasets(
-      Set<DatahubDataset> storedDatahubJob, Set<DatahubDataset> datahubJob) {
+  static void mergeDatasets(Set<DatahubDataset> storedDatahubJob, Set<DatahubDataset> datahubJob) {
     for (DatahubDataset dataset : storedDatahubJob) {
       Optional<DatahubDataset> oldDataset =
           datahubJob.stream().filter(ds -> ds.getUrn().equals(dataset.getUrn())).findFirst();
@@ -350,11 +351,17 @@ public class DatahubEventEmitter extends EventEmitter {
         if (dataset.getLineage() != null) {
           oldDataset.get().setLineage(dataset.getLineage());
         }
-        if (dataset.getOperation() != null) {
-          oldDataset.get().setOperation(dataset.getOperation());
+        // Timeseries aspects: every execution contributes its own point, so these accumulate
+        // rather than replace. Overwriting kept only the last execution of a coalesced run.
+        if (!dataset.getOperations().isEmpty()) {
+          List<Operation> operations = new ArrayList<>(oldDataset.get().getOperations());
+          operations.addAll(dataset.getOperations());
+          oldDataset.get().setOperations(operations);
         }
-        if (dataset.getProfile() != null) {
-          oldDataset.get().setProfile(dataset.getProfile());
+        if (!dataset.getProfiles().isEmpty()) {
+          List<DatasetProfile> profiles = new ArrayList<>(oldDataset.get().getProfiles());
+          profiles.addAll(dataset.getProfiles());
+          oldDataset.get().setProfiles(profiles);
         }
         if (dataset.getTags() != null) {
           oldDataset.get().setTags(dataset.getTags());

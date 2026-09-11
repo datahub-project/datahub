@@ -1508,7 +1508,10 @@ public class OpenLineageToDataHub {
           builder.tags(getDatasetTags(input));
           builder.ownership(getDatasetOwnership(input));
           builder.properties(getDatasetProperties(input));
-          builder.profile(getDatasetProfile(input, event.getEventTime()));
+          DatasetProfile inputProfile = getDatasetProfile(input, event.getEventTime());
+          if (inputProfile != null) {
+            builder.profile(inputProfile);
+          }
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
           UpstreamLineage upstreamLineage =
@@ -1542,9 +1545,15 @@ public class OpenLineageToDataHub {
           builder.tags(getDatasetTags(output));
           builder.ownership(getDatasetOwnership(output));
           builder.properties(getDatasetProperties(output));
-          builder.profile(getDatasetProfile(output, event.getEventTime()));
+          DatasetProfile outputProfile = getDatasetProfile(output, event.getEventTime());
+          if (outputProfile != null) {
+            builder.profile(outputProfile);
+          }
           // Only outputs get an Operation: it records what this run wrote.
-          builder.operation(getOperation(output, event.getEventTime()));
+          Operation operation = getOperation(output, event.getEventTime());
+          if (operation != null) {
+            builder.operation(operation);
+          }
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
           UpstreamLineage upstreamLineage =

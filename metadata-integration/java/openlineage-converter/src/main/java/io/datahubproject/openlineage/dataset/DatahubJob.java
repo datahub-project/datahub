@@ -9,6 +9,7 @@ import com.linkedin.common.Edge;
 import com.linkedin.common.EdgeArray;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.Operation;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
@@ -29,6 +30,7 @@ import com.linkedin.dataprocess.DataProcessInstanceOutput;
 import com.linkedin.dataprocess.DataProcessInstanceProperties;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
 import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
+import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.FineGrainedLineage;
 import com.linkedin.dataset.FineGrainedLineageArray;
@@ -500,11 +502,13 @@ public class DatahubJob {
       DatahubDataset dataset, DatahubOpenlineageConfig config, List<MetadataChangeProposal> mcps) {
     // operation and profile are timeseries aspects: each event appends a point, so a full write
     // is already the correct semantic and there is nothing to clobber.
-    if (dataset.getOperation() != null) {
-      addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getOperation(), mcps);
+    // One MCP per point: these are timeseries aspects, so a coalesced job that saw several
+    // executions of the same dataset emits each of them rather than only the last.
+    for (Operation operation : dataset.getOperations()) {
+      addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, operation, mcps);
     }
-    if (dataset.getProfile() != null) {
-      addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getProfile(), mcps);
+    for (DatasetProfile profile : dataset.getProfiles()) {
+      addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, profile, mcps);
     }
 
     // Tags and ownership are shared with every other source that writes to this dataset, so they
