@@ -1,5 +1,5 @@
 - Start Date: 2026-09-11
-- RFC PR: Pending
+- RFC PR: [#19729](https://github.com/datahub-project/datahub/pull/19729)
 - Discussion Issue: None; this PR starts the design discussion.
 - Implementation PR(s): None; the linked external prototype is prior art, not a DataHub implementation.
 
