@@ -195,8 +195,9 @@ ext.jacksonVersion = '2.21.5'
 // Parquet stack: parquet-jackson shades Jackson under shaded/parquet/.
 // 1.18.0+ bundles jackson-databind 2.22.1 (CVE-2026-54512/54513 and related jackson-databind CVEs
 // fixed in 2.21.4+; https://github.com/apache/parquet-java/pull/3594).
+// 1.18.1 disables file-controlled KMS URLs by default (CVE-2026-73334).
 // App-classpath jackson-databind remains ext.jacksonVersion (2.21.5); that pin does not replace the shade.
-ext.parquetVersion = '1.18.0'
+ext.parquetVersion = '1.18.1'
 // Minor-only annotation line matches jackson-bom (e.g. 2.21 for jackson 2.21.x patch releases).
 ext.jacksonMinorRelease = jacksonVersion.contains('.')
     ? jacksonVersion.substring(0, jacksonVersion.lastIndexOf('.'))
