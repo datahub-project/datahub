@@ -29,6 +29,7 @@ import com.linkedin.dataprocess.DataProcessInstanceOutput;
 import com.linkedin.dataprocess.DataProcessInstanceProperties;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
 import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
+import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.FineGrainedLineage;
 import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.dataset.Upstream;
@@ -36,6 +37,7 @@ import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.domain.Domains;
 import com.linkedin.metadata.aspect.patch.builder.DataJobInputOutputPatchBuilder;
+import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.GlobalTagsPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.OwnershipPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.UpstreamLineagePatchBuilder;
@@ -391,7 +393,7 @@ public class DatahubJob {
                 dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
           }
 
-          addDatasetFacetAspects(dataset, mcps);
+          addDatasetFacetAspects(dataset, config, mcps);
 
           // Remove lineage which was added by older plugin that set lineage on Datasets and not on
           // DataJobs
@@ -431,7 +433,7 @@ public class DatahubJob {
                 dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
           }
 
-          addDatasetFacetAspects(dataset, mcps);
+          addDatasetFacetAspects(dataset, config, mcps);
         });
     return Pair.of(inputUrnArray, inputEdges);
   }
@@ -494,21 +496,51 @@ public class DatahubJob {
    * profile} are timeseries aspects, so repeated events append points rather than overwriting and
    * need no patch handling; the rest are written whole, matching how schema is handled.
    */
-  private void addDatasetFacetAspects(DatahubDataset dataset, List<MetadataChangeProposal> mcps) {
+  private void addDatasetFacetAspects(
+      DatahubDataset dataset, DatahubOpenlineageConfig config, List<MetadataChangeProposal> mcps) {
+    // operation and profile are timeseries aspects: each event appends a point, so a full write
+    // is already the correct semantic and there is nothing to clobber.
     if (dataset.getOperation() != null) {
       addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getOperation(), mcps);
     }
     if (dataset.getProfile() != null) {
       addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getProfile(), mcps);
     }
-    if (dataset.getTags() != null) {
-      addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getTags(), mcps);
+
+    // Tags and ownership are shared with every other source that writes to this dataset, so they
+    // go through the same patch-aware helpers the job-level facets use. A full write here would
+    // erase tags and owners an unrelated connector had set.
+    generateGlobalTagsAspect(
+        dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getTags(), config, mcps);
+    generateOwnershipAspect(
+        dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getOwnership(), config, mcps);
+    generateDatasetPropertiesAspect(dataset.getUrn(), dataset.getProperties(), config, mcps);
+  }
+
+  /**
+   * OpenLineage only ever describes a few of a dataset's properties, so in patch mode the
+   * description and each custom property are set individually rather than replacing the whole
+   * aspect and dropping whatever another source recorded.
+   */
+  private void generateDatasetPropertiesAspect(
+      Urn datasetUrn,
+      DatasetProperties properties,
+      DatahubOpenlineageConfig config,
+      List<MetadataChangeProposal> mcps) {
+    if (properties == null) {
+      return;
     }
-    if (dataset.getOwnership() != null) {
-      addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getOwnership(), mcps);
-    }
-    if (dataset.getProperties() != null) {
-      addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getProperties(), mcps);
+    if (config.isUsePatch()) {
+      DatasetPropertiesPatchBuilder builder = new DatasetPropertiesPatchBuilder().urn(datasetUrn);
+      if (properties.getDescription() != null) {
+        builder.setDescription(properties.getDescription());
+      }
+      if (properties.getCustomProperties() != null) {
+        properties.getCustomProperties().forEach(builder::addCustomProperty);
+      }
+      mcps.add(builder.build());
+    } else {
+      addAspectToMcps(datasetUrn, DATASET_ENTITY_TYPE, properties, mcps);
     }
   }
 

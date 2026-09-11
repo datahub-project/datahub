@@ -140,6 +140,7 @@ public class OpenLineageToDataHub {
   public static final String DATASET_TYPE_KEY = "datasetType";
   public static final String DATASET_SUB_TYPE_KEY = "datasetSubType";
   public static final String DATASET_VERSION_KEY = "datasetVersion";
+  public static final String LIFECYCLE_STATE_CHANGE_KEY = "lifecycleStateChange";
   // Extraction-error messages are producer-supplied and unbounded; cap the joined string so one
   // bad run cannot write a multi-megabyte aspect.
   private static final int EXTRACTION_ERROR_MESSAGE_CAP = 4096;
@@ -1983,18 +1984,26 @@ public class OpenLineageToDataHub {
     operation.setTimestampMillis(timestamp);
     operation.setLastUpdatedTimestamp(timestamp);
     operation.setActor(UrnUtils.getUrn(URN_LI_CORPUSER_DATAHUB));
-    operation.setOperationType(
-        lifecycle == null
-            // Statistics without a lifecycle facet only tell us the run wrote to the dataset.
-            // UPDATE is the least surprising reading of that and still feeds the freshness signal.
-            ? OperationType.UPDATE
-            : mapLifecycleToOperationType(lifecycle.getLifecycleStateChange()));
+    if (lifecycle == null) {
+      // Statistics without a lifecycle facet only tell us the run wrote to the dataset. UPDATE is
+      // the least surprising reading of that and still feeds the freshness signal.
+      operation.setOperationType(OperationType.UPDATE);
+    } else {
+      operation.setOperationType(mapLifecycleToOperationType(lifecycle.getLifecycleStateChange()));
+    }
 
     if (statistics != null && statistics.getRowCount() != null) {
       operation.setNumAffectedRows(statistics.getRowCount());
     }
 
     StringMap operationProperties = new StringMap();
+    if (lifecycle != null && lifecycle.getLifecycleStateChange() != null) {
+      // TRUNCATE and OVERWRITE collapse onto DELETE and UPDATE, so keep the original word.
+      // It goes here rather than in customOperationType, which the model documents as belonging
+      // to operationType CUSTOM and which consumers may therefore ignore for other types.
+      operationProperties.put(
+          LIFECYCLE_STATE_CHANGE_KEY, lifecycle.getLifecycleStateChange().name());
+    }
     if (statistics != null) {
       if (statistics.getSize() != null) {
         operationProperties.put("sizeInBytes", String.valueOf(statistics.getSize()));
@@ -2109,10 +2118,11 @@ public class OpenLineageToDataHub {
         continue;
       }
       // Same key:value convention the job-level TagsJobFacet mapping uses.
-      String name =
-          tag.getValue() == null || tag.getValue().trim().isEmpty()
-              ? tag.getKey()
-              : tag.getKey() + ":" + tag.getValue();
+      // Trim both halves so a producer's stray whitespace cannot publish a different tag here
+      // than the job-level mapper produces for the same key.
+      String key = tag.getKey().trim();
+      String value = tag.getValue() == null ? null : tag.getValue().trim();
+      String name = (value == null || value.isEmpty()) ? key : key + ":" + value;
       try {
         tagAssociations.add(
             new TagAssociation().setTag(TagUrn.createFromString("urn:li:tag:" + name)));
@@ -2141,7 +2151,7 @@ public class OpenLineageToDataHub {
       }
       try {
         Owner owner = new Owner();
-        owner.setOwner(Urn.createFromString(URN_LI_CORPUSER + ownerFacet.getName()));
+        owner.setOwner(Urn.createFromString(URN_LI_CORPUSER + ownerFacet.getName().trim()));
         owner.setType(mapOwnershipType(ownerFacet.getType()));
         OwnershipSource source = new OwnershipSource();
         source.setType(OwnershipSourceType.SERVICE);

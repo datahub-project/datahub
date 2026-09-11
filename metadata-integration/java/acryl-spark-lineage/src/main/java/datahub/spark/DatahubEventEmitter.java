@@ -309,11 +309,29 @@ public class DatahubEventEmitter extends EventEmitter {
       Optional<DatahubDataset> oldDataset =
           datahubJob.stream().filter(ds -> ds.getUrn().equals(dataset.getUrn())).findFirst();
       if (oldDataset.isPresent()) {
+        // Every field a DatahubDataset can carry has to be merged here. A START event may
+        // introduce the dataset and a later event add its facets, so anything missed is silently
+        // dropped from coalesced lineage.
         if (dataset.getSchemaMetadata() != null) {
           oldDataset.get().setSchemaMetadata(dataset.getSchemaMetadata());
         }
         if (dataset.getLineage() != null) {
           oldDataset.get().setLineage(dataset.getLineage());
+        }
+        if (dataset.getOperation() != null) {
+          oldDataset.get().setOperation(dataset.getOperation());
+        }
+        if (dataset.getProfile() != null) {
+          oldDataset.get().setProfile(dataset.getProfile());
+        }
+        if (dataset.getTags() != null) {
+          oldDataset.get().setTags(dataset.getTags());
+        }
+        if (dataset.getOwnership() != null) {
+          oldDataset.get().setOwnership(dataset.getOwnership());
+        }
+        if (dataset.getProperties() != null) {
+          oldDataset.get().setProperties(dataset.getProperties());
         }
       } else {
         datahubJob.add(dataset);

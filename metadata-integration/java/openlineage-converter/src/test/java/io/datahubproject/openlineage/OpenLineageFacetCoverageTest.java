@@ -318,6 +318,93 @@ public class OpenLineageFacetCoverageTest {
     assertNotNull(aspectJson(mcps, "dataJobInfo"));
   }
 
+  @Test
+  public void datasetTagsAndOwnershipUsePatchSoOtherSourcesSurvive() throws Exception {
+    // A full upsert of globalTags/ownership/datasetProperties would erase whatever another
+    // connector had already written to the same dataset. In patch mode these must be patches.
+    OpenLineage ol = new OpenLineage(PRODUCER);
+    OpenLineage.InputDataset input =
+        ol.newInputDatasetBuilder()
+            .namespace("postgres://my-host:5432")
+            .name("my_db.my_schema.events")
+            .facets(
+                ol.newDatasetFacetsBuilder()
+                    .tags(
+                        ol.newTagsDatasetFacetBuilder()
+                            .tags(
+                                Collections.singletonList(
+                                    ol.newTagsDatasetFacetFieldsBuilder()
+                                        .key("tier")
+                                        .value("gold")
+                                        .build()))
+                            .build())
+                    .ownership(
+                        ol.newOwnershipDatasetFacetBuilder()
+                            .owners(
+                                Collections.singletonList(
+                                    ol.newOwnershipDatasetFacetOwnersBuilder()
+                                        .name("data_team")
+                                        .build()))
+                            .build())
+                    .documentation(
+                        ol.newDocumentationDatasetFacetBuilder().description("desc").build())
+                    .build())
+            .build();
+
+    DatahubOpenlineageConfig patching =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .orchestrator("airflow")
+            .materializeDataset(true)
+            .includeSchemaMetadata(true)
+            .usePatch(true)
+            .build();
+    DatahubJob job =
+        OpenLineageToDataHub.convertRunEventToJob(
+            baseEvent(ol).inputs(Collections.singletonList(input)).build(), patching);
+
+    for (String aspect : new String[] {"globalTags", "ownership", "datasetProperties"}) {
+      MetadataChangeProposal mcp =
+          job.toMcps(patching).stream()
+              .filter(m -> aspect.equals(m.getAspectName()) && "dataset".equals(m.getEntityType()))
+              .findFirst()
+              .orElseThrow(() -> new AssertionError("no dataset " + aspect + " emitted"));
+      assertTrue(
+          "PATCH".equals(String.valueOf(mcp.getChangeType())),
+          aspect
+              + " must be patched, not overwritten, when usePatch is on; got "
+              + mcp.getChangeType());
+    }
+  }
+
+  @Test
+  public void lifecycleDetailSurvivesTheOperationTypeCollapse() throws Exception {
+    // TRUNCATE has no DataHub equivalent and maps to DELETE; the original word must not be lost.
+    OpenLineage ol = new OpenLineage(PRODUCER);
+    OpenLineage.OutputDataset output =
+        ol.newOutputDatasetBuilder()
+            .namespace("postgres://my-host:5432")
+            .name("my_db.my_schema.events")
+            .facets(
+                ol.newDatasetFacetsBuilder()
+                    .lifecycleStateChange(
+                        ol.newLifecycleStateChangeDatasetFacetBuilder()
+                            .lifecycleStateChange(
+                                OpenLineage.LifecycleStateChangeDatasetFacet.LifecycleStateChange
+                                    .TRUNCATE)
+                            .build())
+                    .build())
+            .build();
+
+    String operation =
+        aspectJson(
+            mcps(ol, baseEvent(ol).outputs(Collections.singletonList(output)).build()),
+            "operation");
+    assertTrue(operation.contains("DELETE"), operation);
+    assertTrue(
+        operation.contains("TRUNCATE"), "original lifecycle word should survive: " + operation);
+  }
+
   // ---- helpers ----
 
   private static OpenLineage.RunEventBuilder baseEvent(OpenLineage ol) {
