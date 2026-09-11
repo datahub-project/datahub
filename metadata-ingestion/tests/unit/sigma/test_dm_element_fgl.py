@@ -7,12 +7,15 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceConfig,
     SigmaSourceReport,
 )
+from datahub.ingestion.source.sigma.connection_registry import (
+    SigmaConnectionRegistry,
+)
 from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataModel,
     SigmaDataModelColumn,
     SigmaDataModelElement,
 )
-from datahub.ingestion.source.sigma.sigma import SigmaSource
+from datahub.ingestion.source.sigma.sigma import SigmaSource, _WarehouseTableRef
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageClass,
 )
@@ -2255,3 +2258,49 @@ def test_a_ref_naming_a_differently_named_sibling_still_resolves() -> None:
         builder.make_schema_field_urn(up_urn, "x")
     ]
     assert source.reporter.data_model_element_fgl_self_named_siblings_skipped == 0
+
+
+def test_a_ref_naming_a_declared_warehouse_table_beats_a_same_named_sibling() -> None:
+    """The general form of the same-named-sibling fix.
+
+    The first version keyed on the element's OWN name, which missed this: an
+    element called something else entirely, whose ref names a warehouse table
+    it declares, while SIBLINGS carry that table's name. Orphan recovery picked
+    a sibling and fabricated the edge one step further out. Caught by extending
+    the dev fixture with a deliberately NAMED passthrough.
+    """
+    source = _source()
+    # Empty registry: the ref now reaches the warehouse path, which resolves to
+    # nothing without a connection. That is fine for this assertion -- what
+    # matters is that NO sibling edge is emitted.
+    source.connection_registry = SigmaConnectionRegistry(by_id={})
+    named_urn, sib_urn = _urn("named"), _urn("sib")
+    named = _element(
+        "named",
+        # Deliberately NOT the table's name.
+        "NAMED_ELEMENT",
+        [_column("inode-u1/BRAND", "Brand", "[THE_TABLE/Brand]")],
+        source_ids=["inode-u1"],
+    )
+    sibling = _element("sib", "THE_TABLE", [_column("sib-brand", "Brand", None)])
+
+    lineages = source._build_dm_element_fine_grained_lineages(
+        element=named,
+        element_dataset_urn=named_urn,
+        element_name_to_eids={"the_table": ["sib"]},
+        elementId_to_dataset_urn={"named": named_urn, "sib": sib_urn},
+        entity_level_upstream_urns={sib_urn},
+        data_model=_data_model([named, sibling]),
+        warehouse_url_id_map={
+            "u1": _WarehouseTableRef(
+                connection_id="c1", db="DB", schema="SC", table="THE_TABLE"
+            )
+        },
+        discovered_upstreams=set(),
+    )
+
+    assert lineages == [], (
+        "the ref names a warehouse table this element declares, so the table is "
+        f"the referent -- not a sibling that shares its name. got {lineages}"
+    )
+    assert source.reporter.data_model_element_fgl_self_named_siblings_skipped == 1
