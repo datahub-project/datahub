@@ -30,6 +30,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -205,6 +206,41 @@ public class EntityAspectAuthorizationUtilsTest {
     Assert.assertTrue(
         EntityAspectAuthorizationUtils.isAuthorizedToRenameDataProduct(
             mockAuthSession, DATA_PRODUCT_URN, Set.of(DOMAIN_A)));
+  }
+
+  @Test
+  public void testIsAuthorizedToEditAssetSettings_requiresEditEntityOrManageAssetSummary() {
+    // Grant only when the requested group is exactly {EDIT_ENTITY} OR {MANAGE_ASSET_SUMMARY},
+    // so a weakened or widened privilege group fails this test.
+    Set<Set<String>> expectedGroups =
+        Set.of(
+            Set.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()),
+            Set.of(PoliciesConfig.MANAGE_ASSET_SUMMARY_PRIVILEGE.getType()));
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession),
+                    any(DisjunctivePrivilegeGroup.class),
+                    eq(new EntitySpec("dataset", ASSET_URN.toString()))))
+        .thenAnswer(
+            invocation -> {
+              DisjunctivePrivilegeGroup group = invocation.getArgument(1);
+              Set<Set<String>> actualGroups =
+                  group.getAuthorizedPrivilegeGroups().stream()
+                      .map(c -> Set.copyOf(c.getRequiredPrivileges()))
+                      .collect(Collectors.toSet());
+              return expectedGroups.equals(actualGroups);
+            });
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditAssetSettings(mockAuthSession, ASSET_URN));
+  }
+
+  @Test
+  public void testIsAuthorizedToEditAssetSettings_deniesWithoutPrivilege() {
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditAssetSettings(mockAuthSession, ASSET_URN));
   }
 
   @Test
