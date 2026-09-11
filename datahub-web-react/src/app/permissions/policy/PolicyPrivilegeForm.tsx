@@ -10,6 +10,7 @@ import DomainsSelect from '@app/permissions/policy/PolicyPrivilegeForm/DomainsSe
 import PrivilegesSelect from '@app/permissions/policy/PolicyPrivilegeForm/PrivilegesSelect';
 import ResourceSelect from '@app/permissions/policy/PolicyPrivilegeForm/ResourceSelect';
 import ResourceTypeSelect from '@app/permissions/policy/PolicyPrivilegeForm/ResourceTypeSelect';
+import StructuredPropertyResourceSelect from '@app/permissions/policy/PolicyPrivilegeForm/StructuredPropertyResourceSelect';
 import TagsSelect from '@app/permissions/policy/PolicyPrivilegeForm/TagsSelect';
 import { FIELD_TYPES, RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
 import {
@@ -25,6 +26,7 @@ import {
     setFieldValues,
 } from '@app/permissions/policy/policyUtils';
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
+import { useIsStructuredPropertiesInPoliciesEnabled } from '@app/shared/hooks/useIsStructuredPropertiesInPoliciesEnabled';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { PolicyMatchCondition, PolicyType, ResourceFilter } from '@types';
@@ -71,6 +73,7 @@ export default function PolicyPrivilegeForm({
 }: Props) {
     const { t } = useTranslation('settings.permissions');
     const isGlossaryBasedPoliciesEnabled = useIsGlossaryBasedPoliciesEnabled();
+    const isStructuredPropertiesInPoliciesEnabled = useIsStructuredPropertiesInPoliciesEnabled();
     const normalizedRef = useRef(false);
     const [conditions, setConditions] = useState<Record<string, PolicyMatchCondition>>({
         RESOURCE_TYPE: PolicyMatchCondition.Equals,
@@ -79,6 +82,7 @@ export default function PolicyPrivilegeForm({
         DOMAIN: PolicyMatchCondition.Equals,
         CONTAINER: PolicyMatchCondition.Equals,
         GLOSSARY: PolicyMatchCondition.Equals,
+        STRUCTURED_PROPERTY: PolicyMatchCondition.Equals,
     });
 
     const updateCondition = (fieldType: string, condition: PolicyMatchCondition) => {
@@ -157,6 +161,7 @@ export default function PolicyPrivilegeForm({
             ['DOMAIN', FIELD_TYPES.DOMAIN, null],
             ['CONTAINER', FIELD_TYPES.CONTAINER, null],
             ['GLOSSARY', FIELD_TYPES.GLOSSARY, null],
+            [FIELD_TYPES.STRUCTURED_PROPERTY, FIELD_TYPES.STRUCTURED_PROPERTY, null],
         ];
 
         setConditions((prev) => {
@@ -345,6 +350,37 @@ export default function PolicyPrivilegeForm({
             setResources(updatedResources);
         };
 
+    const handleStructuredPropertiesChange = (properties: Array<{ propertyUrn: string; values: string[] }>) => {
+        const filter = resources.filter || {
+            criteria: [],
+        };
+        if (properties.length === 0) {
+            const updatedFilter = {
+                ...filter,
+                criteria: filter.criteria?.filter((c) => c.field !== FIELD_TYPES.STRUCTURED_PROPERTY) || [],
+            };
+            setResources({ ...resources, filter: updatedFilter });
+        } else {
+            const criterion = {
+                field: FIELD_TYPES.STRUCTURED_PROPERTY,
+                values: [],
+                structuredPropertyValues: properties,
+                condition: conditions.STRUCTURED_PROPERTY,
+            };
+            const otherCriteria = filter.criteria?.filter((c) => c.field !== FIELD_TYPES.STRUCTURED_PROPERTY) || [];
+            const updatedFilter = { ...filter, criteria: [...otherCriteria, criterion] };
+            setResources({
+                ...resources,
+                filter: updatedFilter,
+            });
+        }
+    };
+
+    const structuredProperties = useMemo(() => {
+        const criterion = resources.filter?.criteria?.find((c) => c.field === FIELD_TYPES.STRUCTURED_PROPERTY);
+        return criterion?.structuredPropertyValues || [];
+    }, [resources.filter]);
+
     return (
         <PrivilegesForm layout="vertical">
             {showResourceFilterInput && (
@@ -431,6 +467,24 @@ export default function PolicyPrivilegeForm({
                         setResources={setResources}
                         glossaryCondition={conditions.GLOSSARY}
                         setGlossaryCondition={(condition) => updateCondition('GLOSSARY', condition)}
+                    />
+                </Form.Item>
+            )}
+            {showResourceFilterInput && isStructuredPropertiesInPoliciesEnabled && (
+                <Form.Item label={<Text weight="bold">{t('privilegeForm.structuredPropertiesLabel')}</Text>}>
+                    <DescriptionParagraph type="p" color="textSecondary">
+                        <Trans
+                            t={t}
+                            i18nKey="privilegeForm.structuredPropertiesDescription"
+                            components={{ bold: <b /> }}
+                        />
+                    </DescriptionParagraph>
+                    <StructuredPropertyResourceSelect
+                        structuredProperties={structuredProperties}
+                        condition={conditions[FIELD_TYPES.STRUCTURED_PROPERTY]}
+                        onConditionChange={handleConditionChange(FIELD_TYPES.STRUCTURED_PROPERTY)}
+                        onStructuredPropertiesChange={handleStructuredPropertiesChange}
+                        resources={resources}
                     />
                 </Form.Item>
             )}

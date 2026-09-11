@@ -84,6 +84,17 @@ export const NativeInput = styled.input(
         color: ${theme.colors.textDisabled};
         cursor: not-allowed;
     }
+
+    /* Number input styling - keep text left-aligned, spinners on right */
+    &[type="number"] {
+        padding-right: 2px;
+    }
+
+    &[type="number"]::-webkit-outer-spin-button,
+    &[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: innerSpinButton;
+        opacity: 1;
+    }
 `,
 );
 

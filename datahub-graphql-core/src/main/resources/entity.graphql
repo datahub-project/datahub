@@ -10282,6 +10282,21 @@ type ActorFilter {
 }
 
 """
+Structured property criterion value for policy matching
+"""
+type StructuredPropertyCriterionValue {
+  """
+  The URN of the structured property
+  """
+  propertyUrn: String!
+
+  """
+  Values to match for this structured property
+  """
+  values: [String!]!
+}
+
+"""
 Filter object that encodes a complex filter logic with OR + AND
 """
 type PolicyMatchFilter {
@@ -10289,6 +10304,18 @@ type PolicyMatchFilter {
   List of criteria to apply
   """
   criteria: [PolicyMatchCriterion!]
+}
+
+input StructuredPropertyCriterionValueInput {
+  """
+  The URN of the structured property
+  """
+  propertyUrn: String!
+
+  """
+  Values to match for this structured property
+  """
+  values: [String!]!
 }
 
 """
@@ -10303,8 +10330,15 @@ type PolicyMatchCriterion {
 
   """
   Values. Matches criterion if any one of the values matches condition (OR-relationship)
+  Used for traditional fields (type, tag, domain, etc). Use empty array when using structuredPropertyValues
   """
   values: [PolicyMatchCriterionValue!]!
+
+  """
+  Structured property criterion values. Used when field is STRUCTURED_PROPERTY.
+  All properties are combined with AND logic (all must match).
+  """
+  structuredPropertyValues: [StructuredPropertyCriterionValue!]
 
   """
   The name of the field that the criterion refers to
@@ -10416,6 +10450,21 @@ input ActorFilterInput {
 }
 
 """
+Structured property criterion value input for policy matching
+"""
+input StructuredPropertyCriterionValueInput {
+  """
+  The URN of the structured property
+  """
+  propertyUrn: String!
+
+  """
+  Values to match for this structured property
+  """
+  values: [String!]!
+}
+
+"""
 Filter object that encodes a complex filter logic with OR + AND
 """
 input PolicyMatchFilterInput {
@@ -10437,11 +10486,18 @@ input PolicyMatchCriterionInput {
 
   """
   Values. Matches criterion if any one of the values matches condition (OR-relationship)
+  Used for traditional fields (type, tag, domain, etc). Use empty array when using structuredPropertyValues
   """
   values: [String!]!
 
   """
-  The name of the field that the criterion refers to
+  Structured property criterion values. Used when field is STRUCTURED_PROPERTY.
+  All properties are combined with AND logic (all must match).
+  """
+  structuredPropertyValues: [StructuredPropertyCriterionValueInput!]
+
+  """
+  The condition for matching (EQUALS, STARTS_WITH, NOT_EQUALS)
   """
   condition: PolicyMatchCondition!
 }

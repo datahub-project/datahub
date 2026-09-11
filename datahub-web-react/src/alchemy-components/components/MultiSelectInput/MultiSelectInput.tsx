@@ -27,6 +27,7 @@ export const MultiSelectInput = ({
     id,
     className,
     width = 300,
+    inputType = 'text',
 }: MultiSelectInputProps) => {
     const { t } = useTranslation('alchemy');
     const [inputValue, setInputValue] = useState('');
@@ -38,6 +39,7 @@ export const MultiSelectInput = ({
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' || e.key === ',') {
             e.preventDefault();
+            e.stopPropagation();
             const trimmedValue = inputValue.trim();
             if (trimmedValue && !values.includes(trimmedValue)) {
                 onUpdate([...values, trimmedValue]);
@@ -56,6 +58,15 @@ export const MultiSelectInput = ({
     const handleClearAll = () => {
         onUpdate([]);
         setInputValue('');
+    };
+
+    // Commit pending input value when input loses focus
+    const handleBlur = () => {
+        const trimmedValue = inputValue.trim();
+        if (trimmedValue && !values.includes(trimmedValue)) {
+            onUpdate([...values, trimmedValue]);
+            setInputValue('');
+        }
     };
 
     const showError = !!error;
@@ -81,11 +92,12 @@ export const MultiSelectInput = ({
                         />
                     ))}
                     <NativeInput
-                        type="text"
+                        type={inputType}
                         value={inputValue}
                         onChange={(e) => handleInputChange(e.target.value)}
                         placeholder={values.length === 0 ? placeholder : undefined}
                         onKeyDown={handleKeyDown}
+                        onBlur={handleBlur}
                         disabled={disabled}
                         data-testid={inputTestId}
                     />
