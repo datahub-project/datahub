@@ -49,7 +49,7 @@ Requirements:
 
 ### Breaking Changes
 
-- **(Python / Assertion circuit breaker)** A successful assertion no longer allows a dataset through when another returned assertion has an `ERROR`, `INIT`, missing result, or no run history in the selected window. The circuit stays active until every returned assertion has a recent successful result. **Action:** complete or repair the affected checks before resuming a protected pipeline; a separate passing check does not cover an unestablished check.
+- #19728 **(Python / Assertion circuit breaker)** A successful assertion no longer allows a dataset through when another returned assertion has an `ERROR`, `INIT`, missing result, or no run history in the selected window. The circuit stays active until every returned assertion has a recent successful result. **Action:** complete or repair the affected checks before resuming a protected pipeline; a separate passing check does not cover an unestablished check.
 
 - **(GMS / Search V3 document IDs)** Search V3 Elasticsearch/OpenSearch documents now use a SHA-256 hex of the entity URN as `_id` instead of the URL-encoded URN. The full URN remains a document field (`urn`). V2 indices are unchanged. **Action:** none if Search V3 write was never enabled. If an environment already wrote V3 documents under URL-encoded `_id`s, hashed IDs are not an in-place rewrite — run RestoreIndices with `-a clean` (or reindex into a fresh index) so existing V3 docs are rewritten and the old URL-encoded documents are removed. A fill/reindex without clean leaves the previous `_id` in place, so updates create a duplicate. See [Search and Graph Reindexing](./restore-indices.md).
 
