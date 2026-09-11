@@ -48,7 +48,10 @@ describe('Preferences', () => {
 
         // The toggle is deferred a couple of frames so the disabled state can paint
         // before the theme swap blocks the main thread.
-        await waitFor(() => expect(localStorage.getItem('isDarkModeEnabled')).toBe('true'));
+        await waitFor(() => {
+            expect(localStorage.getItem('isDarkModeEnabled')).toBe('true');
+            expect(darkModeToggle).toBeChecked();
+        });
     });
 
     it('disables the toggle while the theme swap is in flight', async () => {

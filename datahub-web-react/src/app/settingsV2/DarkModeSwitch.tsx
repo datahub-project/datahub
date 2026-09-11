@@ -41,7 +41,7 @@ export default function DarkModeSwitch() {
                 overflow: 'hidden',
                 clip: 'rect(0 0 0 0)',
             }}
-            checked={isDarkMode}
+            isChecked={isDarkMode}
             isDisabled={isSwitchingTheme}
             onChange={handleToggleDarkMode}
         />

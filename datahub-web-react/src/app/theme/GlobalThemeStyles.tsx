@@ -866,7 +866,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         border-color: ${(props) => props.theme.colors.borderBrand};
     }
     .ant-radio-inner::after {
-        background-color: ${(props) => props.theme.colors.radioButtonDotFill};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
     .ant-radio-checked::after {
         border-color: ${(props) => props.theme.colors.borderBrand};
@@ -1028,11 +1028,15 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         border-color: ${(props) => props.theme.colors.borderError};
         color: ${(props) => props.theme.colors.textOnFillError};
     }
-    .ant-btn-dangerous:hover,
-    .ant-btn-dangerous:focus,
+    .ant-btn-dangerous:not(.ant-btn-primary):not(.ant-btn-link):not(.ant-btn-text):hover,
+    .ant-btn-dangerous:not(.ant-btn-primary):not(.ant-btn-link):not(.ant-btn-text):focus {
+        background-color: ${(props) => props.theme.colors.bgSurfaceErrorHover};
+        border-color: ${(props) => props.theme.colors.borderError};
+        color: ${(props) => props.theme.colors.textOnSurfaceError};
+    }
     .ant-btn-primary.ant-btn-dangerous:hover,
     .ant-btn-primary.ant-btn-dangerous:focus {
-        background-color: ${(props) => props.theme.colors.bgSurfaceErrorHover};
+        background-color: ${(props) => props.theme.colors.iconError};
         border-color: ${(props) => props.theme.colors.borderError};
         color: ${(props) => props.theme.colors.textOnFillError};
     }
@@ -1087,6 +1091,18 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     }
     .ant-btn-link:active {
         color: ${(props) => props.theme.colors.textActive};
+    }
+    .ant-btn-dangerous.ant-btn-link,
+    .ant-btn-dangerous.ant-btn-link:hover,
+    .ant-btn-dangerous.ant-btn-link:focus,
+    .ant-btn-dangerous.ant-btn-link:active,
+    .ant-btn-dangerous.ant-btn-text,
+    .ant-btn-dangerous.ant-btn-text:hover,
+    .ant-btn-dangerous.ant-btn-text:focus,
+    .ant-btn-dangerous.ant-btn-text:active {
+        background-color: transparent;
+        border-color: transparent;
+        color: ${(props) => props.theme.colors.textError};
     }
     .ant-btn-background-ghost {
         background-color: transparent;

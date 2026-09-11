@@ -68,7 +68,9 @@ const getThemedColor = (
     theme: Theme | undefined,
     colorTokens: Partial<Record<ColorOptions, keyof ColorTheme>>,
 ): string => {
-    if (color && theme?.colors) {
+    // Explicit colorLevel still means a palette shade (gray 300 vs 1700). Only
+    // map to a single semantic token when the caller did not pick a level.
+    if (color && theme?.colors && colorLevel === undefined) {
         const token = colorTokens[color as ColorOptions] ?? (color as keyof ColorTheme);
         const semanticColor = theme.colors[token];
         if (typeof semanticColor === 'string') return semanticColor;
