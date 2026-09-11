@@ -16,9 +16,11 @@ import {
 } from '@components/components/Select/components';
 
 import EntitySearchInputResultV2 from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
+import { getEntityDisplayName as getEntityDisplayNameUtil } from '@app/entityV2/shared/EntitySearchSelect/utils';
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
+import { useListIngestionSourcesQuery } from '@graphql/ingestion.generated';
 import { useGetEntitySearchResultsAutoCompleteFieldsLazyQuery } from '@graphql/search.generated';
 import { AndFilterInput, Entity, EntityType } from '@types';
 
@@ -94,23 +96,57 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
 }) => {
     const { t } = useTranslation('entity.shared.selectors');
     const resolvedPlaceholder = placeholder ?? t('entitySearch.placeholder');
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
     const [searchQuery, setSearchQuery] = useState('');
     const prevOpenRef = useRef<boolean>(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // INGESTION_SOURCE isn't in the search index, so it is fetched separately below.
+    const hasIngestionSource = entityTypes.includes(EntityType.IngestionSource);
+    const typesToSearch = useMemo(
+        () => entityTypes.filter((type) => type !== EntityType.IngestionSource),
+        [entityTypes],
+    );
+    // An empty entityTypes means "search everything". A non-empty list that held only
+    // INGESTION_SOURCE leaves the main search nothing to do.
+    const shouldSearchEntities = entityTypes.length === 0 || typesToSearch.length > 0;
 
     // Search functionality
     const [searchResources, { data: resourcesSearchData, loading: searchLoading }] =
         useGetEntitySearchResultsAutoCompleteFieldsLazyQuery();
 
-    // Issue a default search when dropdown opens
-    useEffect(() => {
-        if (open && !prevOpenRef.current) {
+    // Debounced copy of searchQuery for the ingestion-sources query — it refetches on
+    // every variables change, so feeding it the raw per-keystroke value would fire a
+    // request per character (the main search below already debounces via useDebounce).
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+    useDebounce(() => setDebouncedSearchQuery(searchQuery), DEBOUNCE_SEARCH_MS, [searchQuery]);
+
+    const { data: ingestionSourcesData, loading: ingestionSourcesLoading } = useListIngestionSourcesQuery({
+        variables: {
+            input: {
+                start: 0,
+                count: 10,
+                query: debouncedSearchQuery || undefined,
+                filters: [
+                    {
+                        field: 'sourceType',
+                        values: ['SYSTEM'],
+                        negated: true,
+                    },
+                ],
+            },
+        },
+        skip: !hasIngestionSource,
+    });
+
+    const doSearch = useCallback(
+        (query: string) => {
+            if (!shouldSearchEntities) return;
             searchResources({
                 variables: {
                     input: {
-                        types: entityTypes,
-                        query: '*',
+                        types: typesToSearch,
+                        query,
                         start: 0,
                         count: 10,
                         orFilters: defaultFilters,
@@ -118,44 +154,66 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
                     },
                 },
             });
+        },
+        [searchResources, shouldSearchEntities, typesToSearch, defaultFilters, viewUrn],
+    );
+
+    // Issue a default search when dropdown opens
+    useEffect(() => {
+        if (open && !prevOpenRef.current) {
+            doSearch('*');
             setSearchQuery('');
         }
         prevOpenRef.current = open;
-    }, [open, entityTypes, searchResources, defaultFilters, viewUrn]);
+    }, [open, doSearch]);
 
+    // Debounce the search to avoid too many requests when user types
     useDebounce(
         () => {
             if (open) {
-                searchResources({
-                    variables: {
-                        input: {
-                            types: entityTypes,
-                            query: searchQuery || '*',
-                            start: 0,
-                            count: 10,
-                            orFilters: defaultFilters,
-                            viewUrn: viewUrn || undefined,
-                        },
-                    },
-                });
+                doSearch(searchQuery || '*');
             }
         },
         DEBOUNCE_SEARCH_MS,
-        [searchQuery, entityTypes, defaultFilters, viewUrn, open],
+        [searchQuery, open, doSearch],
     );
 
     const handleSearchChange = useCallback((value: string) => {
         setSearchQuery(value);
     }, []);
 
+    const getEntityDisplayName = useCallback(
+        (entity: Entity) => getEntityDisplayNameUtil(entity, entityRegistry),
+        [entityRegistry],
+    );
+
     const entityOptions = useMemo(() => {
-        const results = resourcesSearchData?.searchAcrossEntities?.searchResults || [];
-        return results.map((result) => ({
-            label: entityRegistry.getDisplayName(result.entity.type, result.entity),
-            value: result.entity.urn,
-            entity: result.entity as Entity,
-        }));
-    }, [resourcesSearchData, entityRegistry]);
+        const entityResults = shouldSearchEntities
+            ? (resourcesSearchData?.searchAcrossEntities?.searchResults || []).map((result) => ({
+                  label: getEntityDisplayName(result.entity as Entity),
+                  value: result.entity.urn,
+                  entity: result.entity as Entity,
+              }))
+            : [];
+
+        const ingestionSourceResults = (ingestionSourcesData?.listIngestionSources?.ingestionSources || []).map(
+            (source) => {
+                const displayName = source.name || source.urn;
+                return {
+                    label: displayName,
+                    value: source.urn,
+                    entity: {
+                        ...source,
+                        urn: source.urn,
+                        type: EntityType.IngestionSource,
+                        name: displayName,
+                    } as Entity,
+                };
+            },
+        );
+
+        return [...entityResults, ...ingestionSourceResults];
+    }, [resourcesSearchData, ingestionSourcesData, getEntityDisplayName, shouldSearchEntities]);
 
     const handleOptionClick = useCallback(
         (option: { value: string; entity: Entity }) => {
@@ -188,15 +246,16 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
                 />
             </SearchInputContainer>
             <OptionList>
-                {searchLoading && (
+                {(searchLoading || ingestionSourcesLoading) && (
                     <LoadingState>
                         <Loader size="sm" />
                     </LoadingState>
                 )}
-                {!searchLoading && entityOptions.length === 0 && (
+                {!searchLoading && !ingestionSourcesLoading && entityOptions.length === 0 && (
                     <EmptyState>{t('entitySearch.noEntitiesFound')}</EmptyState>
                 )}
                 {!searchLoading &&
+                    !ingestionSourcesLoading &&
                     entityOptions.map((option) => (
                         <OptionLabel
                             key={option.value}

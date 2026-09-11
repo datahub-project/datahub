@@ -1,0 +1,31 @@
+name: product-update CTA rerun
+
+# Re-run failed product_update_cta_live jobs after a CTA URL goes live.
+# Kept as a separate workflow so */15 cron completions are not listed in
+# post-workflow-actions.yml (that list is keyed by workflow name, not event).
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  rerun_failed_product_update_cta:
+    name: rerun_failed_product_update_cta
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Re-run failed CTA checks on open PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/rerun_failed_product_update_cta.py

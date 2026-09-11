@@ -41,21 +41,28 @@ When enabled, the feature inspects each source's lineage before it is sent to Da
 casing of **upstream warehouse references** against the casing DataHub already stores:
 
 - If an entity with the **exact** URN already exists, the reference is left unchanged (`EXACT`).
-- Otherwise, if the reference matches an existing entity when casing is normalized, it is rewritten to
-  that entity's stored URN (`NORMALIZED`).
+- Otherwise, if the reference matches an existing entity when casing is ignored, it is rewritten to
+  that entity's stored URN (`NORMALIZED`). Any stored casing is reachable — lowercase, UPPER, Pascal
+  or Mixed — since matching is on the case-insensitive form of the whole URN.
 - If no existing entity matches, the reference is left unchanged and flagged `UNRESOLVED`.
+- If the reference matches **two** existing entities differing only by case, it is resolved to the
+  **lowercase-named** one (`NORMALIZED`) — the common warehouse default, and better than leaving the
+  edge broken. This applies only when the reference matches neither casing exactly; if it matches one
+  casing exactly, that casing wins (`EXACT`). If none of the colliding entities is lowercase-named
+  (and there is no exact match), there is no basis to choose and
+  the reference is left unchanged and flagged `UNRESOLVED`.
+
+Matching is on the whole URN, so `platform_instance` and `env` are part of the comparison: a `DEV`
+reference is never healed to a same-named `PROD` entity.
 
 Only references **to** warehouse assets are modified. The entity the aspect is attached to and its
 downstream fields are never touched — the feature respects the casing the warehouse itself reported.
 Column-level casing is corrected the same way, using the schema DataHub stores for the resolved table
 (so a BI tool reporting `AMOUNT` on a lowercase-stored table is reconciled to the warehouse's `amount`).
 
-> **Current coverage limit.** Reconciliation currently heals a reference when the warehouse stores the
-> entity in its **lowercased** form (the common Snowflake/BigQuery default) — regardless of how the BI
-> tool cased it. A warehouse that keeps a **non-lowercase** identity (UPPER / Pascal / Mixed) is **not
-> yet** reconciled, and ambiguous case-collisions are not detected. Full any-casing resolution and
-> collision-safety are planned as backend infrastructure; once it lands, this feature picks it up
-> automatically with no config change.
+> **Entities without a schema.** A table-level reference is healed even when DataHub holds no
+> `schemaMetadata` for the entity. Column-level casing cannot be corrected in that case — there are no
+> columns to match against — so field paths are left as the source reported them.
 
 ### What gets fixed
 
@@ -67,7 +74,7 @@ Column-level casing is corrected the same way, using the schema DataHub stores f
 | `dataJobInputOutput` **inputs** (dbt / Airflow / Spark) | ✅ table-level **and** column-name casing |
 | `chartInfo` upstream datasets                           | ✅ table-level                            |
 | `dataJobInputOutput` **outputs**                        | ❌ left unchanged (the job's own outputs) |
-| `chartInfo` / `dataJob` column-level field lists        | ❌ not yet covered                        |
+| `dataJobInputOutput` `inputDatasetFields`               | ❌ not yet covered                        |
 | `dataProcessInstance` run lineage                       | ❌ not yet covered                        |
 
 A DataJob's **outputs** are its own declared products, so they are deliberately left untouched — the
@@ -77,7 +84,7 @@ follow-ups; most connectors emit the covered aspects.
 ## Enabling the feature
 
 Add the `auto_resolve_lineage_urns` flag under the pipeline-level `flags` block, and list the upstream
-warehouse platform(s) whose references should be reconciled:
+warehouse platform(s) this source references heavily:
 
 ```yaml
 source:
@@ -95,6 +102,9 @@ flags:
       # add more entries for additional upstream platforms
       # - platform: redshift
       #   env: PROD
+    # also reconcile references to platforms not listed above, asking DataHub about
+    # each one rather than reading its catalog:
+    # resolve_all_platforms: true
 
 sink:
   # ... your sink config ...
@@ -102,13 +112,53 @@ sink:
 
 ### Configuration reference
 
-| Field                                    | Required           | Default | Description                                                                     |
-| ---------------------------------------- | ------------------ | ------- | ------------------------------------------------------------------------------- |
-| `enabled`                                | yes                | `false` | Whether to reconcile upstream lineage URN casing.                               |
-| `upstream_platforms`                     | yes (when enabled) | `[]`    | Upstream warehouse platform(s) to reconcile against. Others are left unchanged. |
-| `upstream_platforms[].platform`          | yes                | —       | The upstream data platform, e.g. `snowflake`.                                   |
-| `upstream_platforms[].platform_instance` | no                 | `null`  | Platform instance of the upstream platform, if any.                             |
-| `upstream_platforms[].env`               | no                 | `PROD`  | Environment (FabricType) of the upstream platform's assets.                     |
+| Field                                    | Required  | Default | Description                                                                   |
+| ---------------------------------------- | --------- | ------- | ----------------------------------------------------------------------------- |
+| `enabled`                                | yes       | `false` | Whether to reconcile upstream lineage URN casing.                             |
+| `upstream_platforms`                     | see below | `[]`    | Upstream warehouse platform(s) whose catalogs to read once, up front.         |
+| `upstream_platforms[].platform`          | yes       | —       | The upstream data platform, e.g. `snowflake`.                                 |
+| `upstream_platforms[].platform_instance` | no        | `null`  | Platform instance of the upstream platform, if any.                           |
+| `upstream_platforms[].env`               | no        | `PROD`  | Environment (FabricType) of the upstream platform's assets.                   |
+| `resolve_all_platforms`                  | no        | `false` | Reconcile references to every platform, not just the listed ones — see below. |
+
+When enabled, you must set `upstream_platforms`, `resolve_all_platforms: true`, or both. Enabling the
+feature with neither is rejected at config parse, since there would be nothing to reconcile.
+
+### What gets reconciled, and how
+
+The two settings answer different questions. `upstream_platforms` is a **preload hint** — the
+warehouses this source names so often that reading their catalogs once beats asking table by table.
+`resolve_all_platforms` is the **scope** — whether references to anything else are reconciled at all.
+
+| `upstream_platforms` | `resolve_all_platforms` | Read at startup | Reconciled                    | How                                                   |
+| -------------------- | ----------------------- | --------------- | ----------------------------- | ----------------------------------------------------- |
+| `[snowflake]`        | `false` (default)       | snowflake       | snowflake only                | from the preloaded catalog; a miss is asked           |
+| `[snowflake]`        | `true`                  | snowflake       | snowflake and everything else | snowflake from its catalog; every other miss is asked |
+| `[]`                 | `true`                  | nothing         | everything                    | one query per distinct table                          |
+| `[]`                 | `false`                 | —               | —                             | rejected at config parse                              |
+
+Reach for `resolve_all_platforms` when a source references several warehouses of which only one is
+hot: preload that one, and let the occasional reference to the others cost a query rather than a
+whole catalog read. With no `upstream_platforms` at all, nothing is read up front and every reference
+is answered individually — right for a source that touches only a handful of warehouse tables, or
+whose warehouse is too large to read.
+
+Preloading and querying divide the work rather than stacking on it. A preloaded catalog is a **cache,
+not an authority**: a reference it holds is answered locally, and a reference it does not hold is asked
+of DataHub. Nothing is ever concluded from a preload's silence, because a preload covers one
+`platform` / `platform_instance` / `env` and a reference may legitimately live outside it — in a
+sibling instance, say. So every `UNRESOLVED` is backed by an actual search, and a preload only ever
+saves a query.
+
+That makes a failed or empty read cost speed rather than correctness. The one exception is a read that
+dies **part way**: its rows are real, but its list of casings for a given name may be incomplete, and
+an incomplete list is a _hit_ that heals a reference to the wrong table. Such a load is therefore
+discarded whole and its references are asked instead.
+
+Column casing works the same way, and is loaded separately: a preloaded catalog answers from its
+schemas, and anything it does not hold — including everything in a slice whose schema read failed —
+has its columns fetched. Such a reference still heals at table level; only its columns cost a round
+trip.
 
 ### Where to enable it
 
@@ -124,8 +174,7 @@ truth for its own casing and identity.
 
 ## Match types
 
-For every upstream reference **on a configured platform**, the feature records a `matchType` on the
-lineage aspect:
+For every upstream reference **in scope**, the feature records a `matchType` on the lineage aspect:
 
 - **`EXACT`** — already matched an existing entity exactly, including casing. Left unchanged.
 - **`NORMALIZED`** — rewritten to heal a casing mismatch against an existing entity.
@@ -133,25 +182,58 @@ lineage aspect:
   collision). Left unchanged, but flagged so potentially **broken lineage** is visible rather than
   indistinguishable from a clean edge.
 
-**No `matchType` means the reference is out of scope** — its platform isn't configured, the feature is
-disabled for that source, or the data predates the feature. Absence is not a verdict. Stamping is
+**No `matchType` means the reference is out of scope** — its platform is neither listed in
+`upstream_platforms` nor covered by `resolve_all_platforms`, the feature is disabled for that source, or
+the data predates the feature. A reference whose lookup **failed** is also left unstamped, and counted
+separately rather than as `UNRESOLVED`. Absence is not a verdict. Stamping is
 ingest-time only: existing metadata is updated only when its source is re-ingested with the feature on.
 
 ## Requirements and limitations
 
 - **Requires a DataHub backend connection.** Resolution looks up existing entities, so it is a no-op for
   offline / file-only ingestion.
+- **Requires the dataset `aliases` backfill to have succeeded.** GMS derives the aspect from the dataset
+  key aspect, written once at creation, so a dataset created before aliases shipped has none until the
+  `BackfillDatasetAliases` system update (default-on, non-blocking) reaches it. Until then most datasets
+  are invisible to the lookup — see the next bullet for what that does to a reference — so the feature
+  stays off, with a warning, until the completion marker on `urn:li:dataHubUpgrade:dataset-aliases-v1`
+  reports `SUCCEEDED`.
+- **Aliases are written asynchronously, so an entity can be briefly invisible to the lookup.** The
+  marker is written when the backfill's scroll is exhausted, and alias writes — the backfill's and every
+  ingestion's alike — land through the MCE consumer. So this window is not a one-off after the backfill:
+  it reopens on every warehouse run that creates datasets, for as long as that run's writes take to
+  drain. An entity whose alias has not landed yet is invisible, and what that costs depends on what
+  _is_ visible: a reference naming it is reported `UNRESOLVED` if nothing else matches, but healed onto
+  a differently-cased sibling whose alias has landed if one exists — a wrong edge rather than a flagged
+  one. Either way the reference is corrected on the source's next run, once the alias is in place.
 - **Resolves only against entities that already exist at ingestion time.** This relies on the warehouse
   being ingested before the BI tool that references it (the normal order for scheduled pipelines). A
   reference whose target doesn't yet exist is left unchanged and self-heals once the warehouse is ingested
   and the BI source re-runs.
 - **Does not retroactively heal existing broken edges.** Re-ingest the affected source after enabling the
   flag to fix them.
-- **Conservative on collisions.** On case-sensitive platforms where two genuinely different tables differ
-  only by case, ambiguous references are left unchanged rather than risk merging distinct entities.
-- **Reconciles against tables that have a schema in DataHub.** A referenced table that exists without a
-  schema (more common on schemaless platforms like Kafka/DynamoDB) is left unchanged and reported
-  `UNRESOLVED`. Broadening this is a tracked follow-up.
+- **Collisions resolve to the lowercase-named entity.** On case-sensitive platforms where two genuinely
+  different tables differ only by case, a reference that matches neither exactly is healed to the
+  lowercase-named one; only a collision with no lowercase-named side is left unchanged. See
+  [Match types](#match-types).
+- **Column casing needs the table's schema.** A referenced table that exists without a `schemaMetadata`
+  aspect is still healed at table level; only its column casing is left as the source reported it.
+- **Scope is by platform.** By default a reference is reconciled only if its platform is named in
+  `upstream_platforms`; a reference to any other platform is never looked up, and is left unchanged and
+  unstamped — no `matchType` verdict, counted under `num_refs_out_of_scope` and never `UNRESOLVED`,
+  since nothing was checked. The `platform_instance` and `env` on an entry say what to _preload_, not
+  what is in scope, so a reference into an instance or env you did not list is still reconciled — by
+  asking — as long as its platform is listed. Set `resolve_all_platforms: true` to reconcile every
+  platform a reference points at.
+- **`platform_instance` narrows the catalog read via DataHub's search, which matches the entity's
+  `dataPlatformInstance` aspect — not the URN.** The instance is part of the dataset URN's name
+  regardless, but that is not what the filter reads, so a connector that emits the URN without the
+  aspect matches nothing and the read returns 0 datasets. That is harmless — the preload simply holds
+  nothing and every reference is asked instead — but it costs a query per reference a working filter
+  would have answered locally. Unity Catalog does not emit the aspect by default
+  (`ingest_data_platform_instance_aspect`), and the instance name must also match the casing that was
+  emitted. If the log shows `Loaded 0 URNs`, drop `platform_instance` and read the whole platform / env
+  instead.
 - **Requires the SQL-parser dependency (`sqlglot`).** Every intended BI/dashboard connector already
   bundles it, so the target use case needs no extra install. If you enable the flag on a source that
   doesn't, the feature reports a clear failure (`install acryl-datahub[sql-parser]`) and emits lineage

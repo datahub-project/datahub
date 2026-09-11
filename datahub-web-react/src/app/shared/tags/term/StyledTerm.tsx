@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import TermContent from '@app/shared/tags/term/TermContent';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, GlossaryTermAssociation } from '@types';
@@ -33,6 +34,7 @@ interface Props {
 export default function StyledTerm(props: Props) {
     const { term, readOnly } = props;
     const entityRegistry = useEntityRegistry();
+    const linkProps = useEmbeddedProfileLinkProps();
 
     if (readOnly) {
         return (
@@ -46,7 +48,11 @@ export default function StyledTerm(props: Props) {
 
     return (
         <HoverEntityTooltip entity={term.term}>
-            <TermLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
+            <TermLink
+                to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
+                key={term.term.urn}
+                {...linkProps}
+            >
                 <TermContent {...props} />
             </TermLink>
         </HoverEntityTooltip>
