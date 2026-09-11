@@ -208,6 +208,27 @@ public class EntityAspectAuthorizationUtilsTest {
   }
 
   @Test
+  public void testIsAuthorizedToEditAssetSettings_allowsWithPrivilegeOnAsset() {
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession),
+                    any(DisjunctivePrivilegeGroup.class),
+                    eq(new EntitySpec("dataset", ASSET_URN.toString()))))
+        .thenReturn(true);
+
+    Assert.assertTrue(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditAssetSettings(mockAuthSession, ASSET_URN));
+  }
+
+  @Test
+  public void testIsAuthorizedToEditAssetSettings_deniesWithoutPrivilege() {
+    Assert.assertFalse(
+        EntityAspectAuthorizationUtils.isAuthorizedToEditAssetSettings(mockAuthSession, ASSET_URN));
+  }
+
+  @Test
   public void testIsAuthorizedToRenameDataProduct_allowsEditOnProduct() {
     authUtilMockedStatic
         .when(
