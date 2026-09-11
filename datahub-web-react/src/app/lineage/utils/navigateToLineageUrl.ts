@@ -12,6 +12,7 @@ export const navigateToLineageUrl = ({
     showColumns,
     startTimeMillis,
     endTimeMillis,
+    showAllTimeLineage,
 }: {
     location: {
         search: string;
@@ -23,6 +24,7 @@ export const navigateToLineageUrl = ({
     showColumns?: boolean;
     startTimeMillis?: number;
     endTimeMillis?: number;
+    showAllTimeLineage?: boolean;
 }) => {
     const parsedSearch = QueryString.parse(location.search, { arrayFormat: 'comma' });
     let newSearch: any = {
@@ -30,6 +32,7 @@ export const navigateToLineageUrl = ({
         is_lineage_mode: isLineageMode,
         start_time_millis: startTimeMillis || null,
         end_time_millis: endTimeMillis || null,
+        show_all_time_lineage: showAllTimeLineage || null,
     };
     if (isHideSiblingMode !== undefined) {
         newSearch = {
