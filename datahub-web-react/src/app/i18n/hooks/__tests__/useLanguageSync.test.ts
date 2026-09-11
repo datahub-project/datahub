@@ -8,7 +8,7 @@ import { useLocaleConfig } from '@app/i18n/hooks/useLocaleConfig';
 import { setDayjsLocale } from '@utils/dayjs';
 
 vi.mock('@app/i18n/hooks/useLocaleConfig');
-vi.mock('i18next', () => ({ default: { changeLanguage: vi.fn() } }));
+vi.mock('i18next', () => ({ default: { language: 'en', changeLanguage: vi.fn() } }));
 vi.mock('@utils/dayjs', () => ({ setDayjsLocale: vi.fn().mockResolvedValue(undefined) }));
 
 const mockUseLocaleConfig = vi.mocked(useLocaleConfig);
@@ -18,12 +18,12 @@ describe('useLanguageSync', () => {
         vi.clearAllMocks();
     });
 
-    it('syncs i18next and dayjs when locale config changes', () => {
+    it('does not change i18next when its language is already current', () => {
         mockUseLocaleConfig.mockReturnValue(LOCALE_MAP.en);
 
         renderHook(() => useLanguageSync());
 
-        expect(i18next.changeLanguage).toHaveBeenCalledWith('en');
+        expect(i18next.changeLanguage).not.toHaveBeenCalled();
         expect(setDayjsLocale).toHaveBeenCalledWith('en');
     });
 
@@ -31,7 +31,7 @@ describe('useLanguageSync', () => {
         mockUseLocaleConfig.mockReturnValue(LOCALE_MAP.en);
 
         const { rerender } = renderHook(() => useLanguageSync());
-        expect(i18next.changeLanguage).toHaveBeenCalledWith('en');
+        expect(i18next.changeLanguage).not.toHaveBeenCalled();
 
         mockUseLocaleConfig.mockReturnValue(LOCALE_MAP.de);
         rerender();
