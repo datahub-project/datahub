@@ -4481,12 +4481,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         named_eids: List[str]
         resolvable_eids: List[str]
 
+    def _declares_warehouse_table_named(
+        self,
+        *,
+        ref_source: str,
+        element: SigmaDataModelElement,
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
+    ) -> bool:
+        """Does this element read a warehouse table of exactly that name?
+
+        If so the ref means that table, and no sibling can be the referent --
+        however many siblings happen to carry the table's name, and whatever
+        this element is called.
+        """
+        wanted = ref_source.strip().lower()
+        for source_id in element.source_ids:
+            if not source_id.startswith("inode-"):
+                continue
+            table = warehouse_url_id_map.get(source_id[len("inode-") :])
+            if table is not None and table.table.strip().lower() == wanted:
+                return True
+        return False
+
     def _sibling_candidates_for_ref(
         self,
         *,
         ref: "BracketRef",
         element: SigmaDataModelElement,
         element_name_to_eids: Dict[str, List[str]],
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
     ) -> "SigmaSource._SiblingCandidates":
         """Which siblings could a ref's source denote?
 
@@ -4507,23 +4530,46 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         that already handles this: cross-DM self-named first, then warehouse.
         """
         named_eids = element_name_to_eids.get(ref.source.lower(), [])
-        self_named = _normalize_element_name(ref.source) == _normalize_element_name(
-            element.name
+        # Two ways a sibling cannot be the referent, and the FIRST is the
+        # general one -- the second is a special case of it that was fixed
+        # first and turned out to be too narrow:
+        #
+        # 1. The ref names a warehouse table THIS element declares. Then it
+        #    means that table, regardless of what this element is called.
+        #    Missing this let an element named "NAMED_ELEMENT" whose ref read
+        #    "[THE_TABLE/Brand]" resolve to a SIBLING that happened to be named
+        #    after the table -- the fabrication again, one step out.
+        # 2. The ref names THIS element's own name.
+        declares_the_table = self._declares_warehouse_table_named(
+            ref_source=ref.source,
+            element=element,
+            warehouse_url_id_map=warehouse_url_id_map,
         )
+        self_named = declares_the_table or _normalize_element_name(
+            ref.source
+        ) == _normalize_element_name(element.name)
         if not self_named:
             return SigmaSource._SiblingCandidates(
                 named_eids=named_eids,
                 resolvable_eids=[eid for eid in named_eids if eid != element.elementId],
             )
-        if len(named_eids) > 1:
+        skipped = [eid for eid in named_eids if eid != element.elementId]
+        if skipped:
+            # Count exactly the fabrications avoided: candidates that were NOT
+            # this element and would otherwise have been chosen. The previous
+            # guard was len(named_eids) > 1, which missed the case of a single
+            # same-named sibling -- still a fabrication, just a quieter one.
             self.reporter.data_model_element_fgl_self_named_siblings_skipped += 1
             logger.debug(
-                "element %s: ref %r names this element's own name, which %d "
-                "elements in this Data Model share; none of them is the "
-                "referent, so resolving to the element's own source instead",
+                "element %s: ref %r denotes this element's own source (%s), so "
+                "the %d same-named sibling(s) %r cannot be the referent",
                 element.elementId,
                 ref.raw,
-                len(named_eids),
+                "a warehouse table it declares"
+                if declares_the_table
+                else "its own name",
+                len(skipped),
+                skipped,
             )
         return SigmaSource._SiblingCandidates(named_eids=named_eids, resolvable_eids=[])
 
@@ -4646,6 +4692,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     ref=ref,
                     element=element,
                     element_name_to_eids=element_name_to_eids,
+                    warehouse_url_id_map=warehouse_url_id_map,
                 )
                 candidate_eids = candidates.named_eids
                 candidate_eids_after_self_strip = candidates.resolvable_eids

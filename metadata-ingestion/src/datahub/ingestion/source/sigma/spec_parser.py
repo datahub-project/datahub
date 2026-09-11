@@ -41,11 +41,13 @@ _JOIN_TYPE = "joinType"
 # left-outer join was therefore scored as an inner one. The unit test asserted
 # ("left", True) and passed, because the fixture had guessed the same value the
 # code did.
-# ``lookup`` is the fifth value, and it belongs here: Sigma documents it as
-# preserving the primary side's row structure while pulling columns from a
-# related table, "similar to a left outer join" -- so the ON equality holds
-# only on matched rows, exactly like the other three. Confirmed accepted by
-# POST /dataModels/spec.
+# ``lookup`` is a fifth value ACCEPTED ON WRITE, but Sigma normalises it to
+# ``left-outer`` on store -- a fixture authored with ``lookup`` reads back as
+# ``left-outer``. So it should never arrive here, and is kept only so a tenant
+# that does store it lands in the right tier rather than being scored as inner.
+# Either way the outcome is correct: lookup preserves the primary side's rows
+# while pulling columns from a related table, so its ON equality holds only on
+# matched rows.
 _OUTER_JOIN_TYPES = frozenset({"left-outer", "right-outer", "full-outer", "lookup"})
 # ``joinType`` is OPTIONAL and defaults to inner (an absent key was accepted on
 # write). Recorded under this name rather than "" so the histogram does not
