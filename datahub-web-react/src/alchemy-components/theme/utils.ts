@@ -1,12 +1,42 @@
 /*
 	Theme Utils that can be used anywhere in the app
 */
+import ColorTheme from '@conf/theme/colorThemes/types';
 import { Theme } from '@conf/theme/types';
 
-import { ColorOptions, DEFAULT_VALUE, FontSizeOptions, MiscColorOptions, RotationOptions } from './config';
+import {
+    ColorOptions,
+    DEFAULT_VALUE,
+    FontColorLevelOptions,
+    FontColorOptions,
+    FontSizeOptions,
+    MiscColorOptions,
+    RotationOptions,
+} from './config';
 import { foundations } from './foundations';
 
 const { colors, typography, transform } = foundations;
+
+const TEXT_COLOR_TOKENS: Partial<Record<ColorOptions, keyof ColorTheme>> = {
+    gray: 'textSecondary',
+    primary: 'textBrand',
+    violet: 'textBrand',
+    red: 'textError',
+    green: 'textSuccess',
+    blue: 'textInformation',
+    yellow: 'textWarning',
+};
+
+const ICON_COLOR_TOKENS: Partial<Record<ColorOptions, keyof ColorTheme>> = {
+    gray: 'icon',
+    primary: 'iconBrand',
+    violet: 'iconBrand',
+    red: 'iconError',
+    green: 'iconSuccess',
+    blue: 'iconInformation',
+    yellow: 'iconWarning',
+};
+
 /*
 	Get the color value for a given color
 	Falls back to `color.black` if the color is not found
@@ -31,6 +61,33 @@ export const getColor = (
     if (!colorValue) return finalColors.black;
     return finalColors[color][value];
 };
+
+const getThemedColor = (
+    color: FontColorOptions | undefined,
+    colorLevel: FontColorLevelOptions | undefined,
+    theme: Theme | undefined,
+    colorTokens: Partial<Record<ColorOptions, keyof ColorTheme>>,
+): string => {
+    if (color && theme?.colors) {
+        const token = colorTokens[color as ColorOptions] ?? (color as keyof ColorTheme);
+        const semanticColor = theme.colors[token];
+        if (typeof semanticColor === 'string') return semanticColor;
+    }
+
+    return getColor(color as MiscColorOptions | ColorOptions, colorLevel, theme);
+};
+
+export const getThemedTextColor = (
+    color?: FontColorOptions,
+    colorLevel?: FontColorLevelOptions,
+    theme?: Theme,
+): string => getThemedColor(color, colorLevel, theme, TEXT_COLOR_TOKENS);
+
+export const getThemedIconColor = (
+    color?: FontColorOptions,
+    colorLevel?: FontColorLevelOptions,
+    theme?: Theme,
+): string => getThemedColor(color, colorLevel, theme, ICON_COLOR_TOKENS);
 
 /*
 	Get the font size value for a given size

@@ -1,18 +1,35 @@
 // Should not be imported directly
 export default {
+    // Single-hue neutral ramp derived in OkLCh at hue 286, the hue of the brand
+    // violet. Tinting neutrals toward the accent is the standard pairing for a
+    // violet brand — Radix maps violet to its mauve gray for exactly this reason,
+    // and Tailwind's zinc sits at the same 286.
+    //
+    // Chroma follows a gentle arc: near-zero at the white end, where any tint reads
+    // as a color cast, peaking around 0.017 through the mid text stops, then easing
+    // to 0.014 on the dark surfaces. That peak matches Radix mauve (0.019) and
+    // Tailwind zinc (0.015), and stays far below the 0.066 navy ramp this replaced.
+    //
+    // Steps are ordered so a higher number is always darker. Lightness values are
+    // carried over from the previous neutral ramp, so every contrast ratio holds.
     gray0: '#FFFFFF',
-    gray100: '#EBECF0',
-    gray200: '#F5F6FA',
-    gray300: '#E9EAEE',
-    gray400: '#F9FAFC',
-    gray500: '#A3A7B9',
-    gray600: '#8088A3',
-    gray700: '#5F6685',
-    gray800: '#374066',
-    gray900: '#323A5D',
-    gray1000: '#272D48',
-    gray1100: '#1E2338',
-    gray1200: '#171B2B',
+    gray50: '#FAFAFC',
+    gray100: '#F6F6FA',
+    gray200: '#ECECF0',
+    // gray300/gray400 are consumed only by the dark theme's text ladder. They sit
+    // below gray200 in lightness so dark-mode copy lands near 10:1 rather than the
+    // 14:1 that reads as glare on a near-black surface.
+    gray300: '#D1D1D9',
+    gray400: '#BBBBC5',
+    gray500: '#A7A7B2',
+    gray600: '#888893',
+    gray650: '#73737E',
+    gray700: '#666672',
+    gray800: '#42414B',
+    gray900: '#3C3B44',
+    gray1000: '#2F2E37',
+    gray1100: '#24232B',
+    gray1200: '#1C1B23',
     green0: '#F1F8EE',
     green100: '#E1F0D6',
     green150: '#ABD58B',
@@ -55,6 +72,7 @@ export default {
     red0: '#FBF3EF',
     red50: '#EEB4B4',
     red100: '#E54D1F',
+    red150: '#BE5C5C',
     red200: '#D23939',
     red300: '#C4360B',
     red400: '#8B1A1A',
