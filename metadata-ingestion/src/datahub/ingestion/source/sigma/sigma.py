@@ -2227,6 +2227,32 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     and fb.schemaField.fieldPath not in covered_paths
                 ):
                     input_fields.append(fb)
+        # This aspect SUPERSEDES the one the element loop emitted, so for a
+        # customSQL chart it -- not the earlier verdict -- is what the user
+        # sees. Classifying only the earlier one left this population
+        # unaccounted, including the case where input_fields is empty: an empty
+        # InputFields aspect renders exactly like total failure.
+        self_ref_prefix = f"urn:li:schemaField:({entity_urn},"
+        resolved = sum(
+            1
+            for f in input_fields
+            if f.schemaFieldUrn and not f.schemaFieldUrn.startswith(self_ref_prefix)
+        )
+        if resolved:
+            self.reporter.customsql_charts_final_with_column_lineage += 1
+        else:
+            self.reporter.customsql_charts_final_no_column_lineage += 1
+            # Uncapped and keyed by the chart URN, so a reported chart is
+            # greppable here exactly as it is on the formula path.
+            logger.debug(
+                "customSQL chart %s final InputFields carry NO upstream: "
+                "fields=%d fgl=%d upstreams=%d has_passthrough_mapping=%s",
+                entity_urn,
+                len(input_fields),
+                len(aspect.fineGrainedLineages or []),
+                len(aspect.upstreams or []),
+                entity_urn in self._customsql_passthrough_mappings,
+            )
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
             aspect=InputFieldsClass(fields=input_fields),
@@ -7170,6 +7196,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self_ref_columns=self_ref_columns,
             causes=causes,
         )
+        if not fields:
+            logger.debug(
+                "chart element %s (%s in workbook %s %r) emitted NO columns at all; "
+                "columns_payload_present=%s element_columns=%d type=%r has_query=%s "
+                "declared_upstreams=%r",
+                element.elementId,
+                chart_urn,
+                workbook.workbookId,
+                workbook.name,
+                element.columns_payload_present,
+                len(element.columns),
+                element.type,
+                element.query is not None,
+                sorted({type(u).__name__ for u in element.upstream_sources.values()}),
+            )
         if fields and self_ref_columns:
             # Deliberately UNCAPPED and emitted for the partial case too. The
             # sample lists above are LossyList (10 elements), so a specific
@@ -8790,5 +8831,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             check["unattributed_columns"] = (
                 r.chart_input_fields_self_ref_unresolved_refs - distinct_reasons
             )
+        # Every chart must land in exactly one chart-level bucket. Checked here
+        # rather than re-derived by hand, because the last two defects on this
+        # path both looked healthy until someone did the arithmetic across a
+        # 100MB log -- and one of them (a dead self-ref predicate) produced a
+        # perfect-looking "19 of 19 charts have column lineage".
+        chart_buckets = (
+            r.charts_with_column_lineage
+            + r.charts_with_partial_column_lineage
+            + r.charts_with_no_column_lineage
+            + r.charts_with_no_columns
+        )
+        if chart_buckets != r.charts_classified_total:
+            check["chart_bucket_residual"] = r.charts_classified_total - chart_buckets
+
         check["reconciles"] = 0 if check else 1
         r.chart_column_accounting_check = check

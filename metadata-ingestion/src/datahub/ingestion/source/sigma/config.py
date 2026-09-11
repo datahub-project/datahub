@@ -556,9 +556,24 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # level only". ``partial`` counts charts where some columns resolved and
     # others did not -- invisible in both the per-column totals and in
     # no_column_lineage.
+    # Independent total for the identity check below: every chart classified
+    # must land in exactly one of the four buckets.
+    charts_classified_total: int = 0
     charts_with_column_lineage: int = 0
     charts_with_partial_column_lineage: int = 0
     charts_with_no_column_lineage: int = 0
+    # Charts Sigma described with no columns at all. Emitted as an empty
+    # InputFields aspect, so indistinguishable in the UI from a chart whose
+    # every column failed -- and previously counted as fully resolved.
+    charts_with_no_columns: int = 0
+    # customSQL charts get a SECOND InputFields aspect at drain time which
+    # supersedes the one the element loop emitted, so the chart-level buckets
+    # above do not describe their final state. These do. Keep them separate
+    # rather than folding them in: the two are measured at different points and
+    # silently merging them would make neither trustworthy.
+    customsql_charts_final_with_column_lineage: int = 0
+    customsql_charts_final_no_column_lineage: int = 0
+    charts_with_no_columns_samples: LossyList[str] = field(default_factory=LossyList)
     # no_column_lineage split by the cause that dominated the chart's columns,
     # using the same vocabulary as the per-column counters (no_formula,
     # formulas_not_fetched, unresolved_refs, parameter, sibling, mixed). A
@@ -1203,6 +1218,20 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
         ``causes`` is the per-column cause tally for THIS chart, as counter
         deltas measured across the element's build.
         """
+        self.charts_classified_total += 1
+        if total_columns == 0:
+            # A chart with no columns emits an EMPTY InputFields aspect, which
+            # renders exactly like a chart whose columns all failed: lineage at
+            # the chart level and nothing below it. It used to satisfy
+            # "self_ref_columns == 0" and be counted as HAVING column lineage,
+            # so the one shape that is indistinguishable from the reported
+            # symptom was the one the report called healthy.
+            self.charts_with_no_columns += 1
+            self.charts_with_no_columns_samples.append(
+                f"element={chart_element_id} workbook={workbook_id} "
+                f"workbook_name={workbook_name!r}"
+            )
+            return
         if self_ref_columns == 0:
             self.charts_with_column_lineage += 1
             return

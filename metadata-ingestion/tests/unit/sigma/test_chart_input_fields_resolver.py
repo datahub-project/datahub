@@ -2808,3 +2808,102 @@ class TestOutcomeIsDecidedOnTheFieldsThatWillBeSTORED:
         assert self.src.reporter.charts_with_no_column_lineage_by_cause == {
             "unresolved_refs": 1
         }
+
+
+class TestEveryWayAChartCanLoseLineageIsVisible:
+    """An audit, not a feature test.
+
+    A chart URN from a ticket must be explicable from the log whatever produced
+    it. Each case here is a distinct route to "chart-level lineage but no column
+    lineage"; the assertion is that none of them is silent or misfiled.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+
+    def _run(
+        self, element: Element, fields: List[InputFieldClass], caplog: Any
+    ) -> List[str]:
+        with caplog.at_level(
+            logging.DEBUG, logger="datahub.ingestion.source.sigma.sigma"
+        ):
+            self.src._note_chart_column_outcome(
+                element=element,
+                workbook=_make_workbook_with_elements([[element]]),
+                chart_urn=builder.make_chart_urn("sigma", element.elementId),
+                fields=fields,
+                causes={},
+                workbook_formulas_incomplete=False,
+            )
+        return [
+            r.getMessage()
+            for r in caplog.records
+            if f"chart element {element.elementId}" in r.getMessage()
+        ]
+
+    def test_zero_columns_is_not_counted_as_healthy(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """An empty InputFields aspect looks exactly like total failure in the
+        UI. Counting it under charts_with_column_lineage made the one shape
+        indistinguishable from the reported symptom read as fine."""
+        element = _make_element("eEmpty", "Chart", [])
+        lines = self._run(element, [], caplog)
+        assert self.src.reporter.charts_with_no_columns == 1
+        assert self.src.reporter.charts_with_column_lineage == 0
+        assert lines and "emitted NO columns at all" in lines[0]
+
+    def test_every_column_self_ref_is_logged(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        element = _make_element("eAll", "Chart", ["c0"])
+        urn = builder.make_chart_urn("sigma", "eAll")
+        lines = self._run(
+            element,
+            [
+                InputFieldClass(
+                    schemaFieldUrn=builder.make_schema_field_urn(urn, "c0"),
+                    schemaField=None,
+                )
+            ],
+            caplog,
+        )
+        assert self.src.reporter.charts_with_no_column_lineage == 1
+        assert lines and "1 of 1 column(s) have NO upstream" in lines[0]
+
+    def test_one_column_self_ref_among_many_is_logged(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        element = _make_element("ePart", "Chart", ["c0", "c1"])
+        urn = builder.make_chart_urn("sigma", "ePart")
+        fields = [
+            InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(urn, "c0"),
+                schemaField=None,
+            ),
+            InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(
+                    "urn:li:dataset:(x,y,PROD)", "c1"
+                ),
+                schemaField=None,
+            ),
+        ]
+        lines = self._run(element, fields, caplog)
+        assert self.src.reporter.charts_with_partial_column_lineage == 1
+        assert lines and "1 of 2 column(s) have NO upstream" in lines[0]
+
+    def test_a_healthy_chart_is_the_only_silent_case(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        element = _make_element("eOk", "Chart", ["c0"])
+        fields = [
+            InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(
+                    "urn:li:dataset:(x,y,PROD)", "c0"
+                ),
+                schemaField=None,
+            )
+        ]
+        assert self._run(element, fields, caplog) == []
+        assert self.src.reporter.charts_with_column_lineage == 1
