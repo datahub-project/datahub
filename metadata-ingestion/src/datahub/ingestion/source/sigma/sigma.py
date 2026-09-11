@@ -478,6 +478,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         super().__init__(config, ctx)
         self.config = config
         self.reporter = SigmaSourceReport()
+        # The workbook whose elements are currently being emitted. Chart
+        # diagnostics need to name it, and a chart URN that cannot be placed in
+        # a workbook from the log is close to un-investigable -- doing it by
+        # hand once required bisecting emission-order dashboard URNs.
+        self._current_workbook: Optional[Workbook] = None
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
         # Sigma Dataset url_id -> dataset URN. Used to resolve DM element
         # ``inode-<urlId>`` upstreams.
@@ -1911,15 +1916,45 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # since either type can appear first in the API response.
         # A single customSQL may be referenced by multiple chart elements.
         element_id_by_customsql_name: Dict[str, List[str]] = {}
+        element_ids_in_graph = {
+            entry.get("elementId", "") for entry in element_entries
+        } - {""}
         for entry in element_entries:
             element_id = entry.get("elementId", "")
             source_ids = entry.get("sourceIds") or []
             if element_id and isinstance(source_ids, list):
                 for source_id in source_ids:
-                    if isinstance(source_id, str) and source_id in custom_sql_by_name:
+                    if not isinstance(source_id, str):
+                        continue
+                    if source_id in custom_sql_by_name:
                         element_id_by_customsql_name.setdefault(source_id, []).append(
                             element_id
                         )
+                        continue
+                    # Everything else is dropped here, and used to be dropped
+                    # silently. Sigma states chart-to-chart dependencies in
+                    # exactly this field, so this is where "lineage between
+                    # charts" would go missing -- and with no counter, the
+                    # report could not distinguish "Sigma said nothing" from
+                    # "we discarded what Sigma said".
+                    kind = (
+                        "another_element_in_this_workbook"
+                        if source_id in element_ids_in_graph
+                        else "unknown_node"
+                    )
+                    self.reporter.workbook_lineage_element_source_ids_dropped += 1
+                    self.reporter.workbook_lineage_dropped_source_id_kinds[kind] = (
+                        self.reporter.workbook_lineage_dropped_source_id_kinds.get(
+                            kind, 0
+                        )
+                        + 1
+                    )
+                    self.reporter.workbook_lineage_dropped_source_id_samples.setdefault(
+                        kind, LossyList()
+                    ).append(
+                        f"workbook={workbook.workbookId} element={element_id} "
+                        f"source_id={source_id}"
+                    )
         return custom_sql_by_name, element_id_by_customsql_name
 
     def _build_workbook_customsql_col_mapping(
@@ -6712,6 +6747,29 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         return result
 
+    def _chart_column_cause_tally(self) -> Dict[str, int]:
+        """Snapshot the per-column fallback counters.
+
+        Differenced across one element's build, this attributes that chart's
+        outcome to a cause. Keys match the per-column counter vocabulary so the
+        chart-level and column-level reports can be read against each other.
+        """
+        r = self.reporter
+        return {
+            "no_formula": r.chart_input_fields_self_ref_no_formula,
+            "formulas_not_fetched": r.chart_input_fields_formulas_not_fetched,
+            "unresolved_refs": r.chart_input_fields_self_ref_unresolved_refs,
+            "parameter": r.chart_input_fields_skipped_parameter,
+            "sibling": r.chart_input_fields_skipped_sibling,
+            "param_and_sibling": r.chart_input_fields_skipped_param_and_sibling,
+        }
+
+    def _current_workbook_id(self) -> str:
+        return self._current_workbook.workbookId if self._current_workbook else "?"
+
+    def _current_workbook_name(self) -> str:
+        return self._current_workbook.name if self._current_workbook else "?"
+
     def _count_unresolved_chart_column(
         self,
         *,
@@ -6771,6 +6829,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.chart_input_fields_formulas_not_fetched += 1
         else:
             self.reporter.chart_input_fields_self_ref_no_formula += 1
+            # This was the last silent bucket on the chart path, and silence
+            # cost a full investigation: three reported chart URNs landed here
+            # and the log could not say so. The element's own formula coverage
+            # goes in the sample because "no formula for THIS column" and "no
+            # formulas for this element at all" are different findings that the
+            # counter alone conflates.
+            self.reporter.chart_no_formula_samples.append(
+                f"element={element.elementId} column={column!r} "
+                f"workbook={self._current_workbook_id()} "
+                f"element_columns_with_formulas="
+                f"{sum(1 for f in element.column_formulas.values() if f)}"
+                f"/{len(element.columns)}"
+            )
 
     def _build_element_input_fields(
         self,
@@ -7186,6 +7257,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             else:
                                 element.column_native_names[display_name] = native
 
+            self._current_workbook = workbook
+            # Counter deltas across this ONE element's build are the only way
+            # to attribute a chart-level outcome to a per-column cause without
+            # rewriting the column loop to return causes it does not currently
+            # track.
+            causes_before = self._chart_column_cause_tally()
+            workbook_formulas_incomplete = (
+                workbook.workbookId
+                in self.sigma_api.column_formulas_incomplete_workbooks
+            )
+            # An element with no formulas inside a workbook whose /columns call
+            # SUCCEEDED is a per-element gap, not the known per-workbook one.
+            # Nothing distinguished the two before, so the larger workbook-level
+            # explanation absorbed both.
+            if not workbook_formulas_incomplete and not any(
+                element.column_formulas.values()
+            ):
+                self.reporter.chart_elements_without_formulas_in_a_fetched_workbook += 1
             element_input_fields = self._build_element_input_fields(
                 element=element,
                 chart_urn=chart_urn,
@@ -7196,11 +7285,46 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 elementId_to_chart_urn=elementId_to_chart_urn,
                 workbook_dm_url_ids=workbook_dm_url_ids,
                 wb_only_warehouse_keys=wb_only_warehouse_keys,
-                formulas_incomplete=(
-                    workbook.workbookId
-                    in self.sigma_api.column_formulas_incomplete_workbooks
-                ),
+                formulas_incomplete=workbook_formulas_incomplete,
             )
+
+            # A self-referential InputField points at the chart itself, which
+            # is exactly what renders as "chart-level lineage only". Counting
+            # them per CHART is what lets a reported URN be answered from the
+            # report instead of by grepping a 100MB log.
+            self_ref_columns = sum(
+                1
+                for f in element_input_fields
+                if f.schemaFieldUrn and f.schemaFieldUrn.startswith(chart_urn)
+            )
+            causes_after = self._chart_column_cause_tally()
+            self.reporter.note_chart_column_lineage_outcome(
+                chart_element_id=element.elementId,
+                workbook_id=workbook.workbookId,
+                workbook_name=workbook.name,
+                total_columns=len(element_input_fields),
+                self_ref_columns=self_ref_columns,
+                causes={
+                    cause: causes_after[cause] - before
+                    for cause, before in causes_before.items()
+                    if causes_after[cause] != before
+                },
+            )
+            if self_ref_columns == len(element_input_fields) and element_input_fields:
+                logger.debug(
+                    "chart element %s (%s in workbook %s %r) emitted %d column(s) "
+                    "with NO upstream at all; causes=%r",
+                    element.elementId,
+                    chart_urn,
+                    workbook.workbookId,
+                    workbook.name,
+                    len(element_input_fields),
+                    {
+                        cause: causes_after[cause] - before
+                        for cause, before in causes_before.items()
+                        if causes_after[cause] != before
+                    },
+                )
 
             # Stash formula-derived fields for customSQL charts so we can merge at
             # drain time, ensuring warehouse-resolved entries supplement rather than
