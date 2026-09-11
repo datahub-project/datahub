@@ -170,7 +170,7 @@
       "params": {
         "aspects": "datasetProperties"
       },
-      "description": "The DatasetEvent produced dataset metadata"
+      "description": "The DatasetEvent produced dataset metadata. The endpoint defaults to usePatch, so DatasetPropertiesTemplate materializes its empty customProperties/tags defaults."
     },
     "response": {
       "status_codes": [
@@ -180,7 +180,9 @@
         "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.smoke_ol_catalogued,PROD)",
         "datasetProperties": {
           "value": {
-            "description": "Catalogued with no run"
+            "description": "Catalogued with no run",
+            "customProperties": {},
+            "tags": []
           }
         }
       }
