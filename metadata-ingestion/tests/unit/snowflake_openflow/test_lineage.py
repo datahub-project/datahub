@@ -1309,7 +1309,11 @@ def test_an_over_long_destination_urn_skips_the_edge_rather_than_emitting_it() -
         source._edge_within_urn_limits(_long_pair("s" * 255, "t" * 255), connector)
         is None
     )
-    assert source.report.num_urns_too_long == 1
+    # Its own counter, not the entity one: that names something this source
+    # could in principle shorten, this names a foreign urn it must reproduce
+    # exactly, so the remedies differ and an operator needs them apart.
+    assert source.report.num_lineage_edges_urn_too_long == 1
+    assert source.report.num_urns_too_long == 0
     assert "Lineage edge skipped: destination urn too long" in [
         e.title for e in source.report.warnings
     ]

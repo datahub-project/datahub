@@ -1,3 +1,4 @@
+import ast
 import pathlib
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -246,14 +247,31 @@ def test_every_ownership_bearing_entity_routes_through_one_accounting_path() -> 
     # The counters lied for three of four call sites: deployments, runtimes and
     # per-table jobs incremented num_owners_emitted on a truthy owner string
     # without checking the urn actually fit, so a dropped owner was reported as
-    # emitted. Pinned structurally, because the alternative is four
-    # near-identical tests that the next call site would not be added to.
+    # emitted. Pinned structurally rather than with four near-identical
+    # behavioural tests, because a fifth call site would not get its own test
+    # but would break a count.
+    #
+    # Via the AST, not a string search: the first version of this asserted the
+    # literal "num_owners_emitted += 1" appeared once, which would have broken
+    # on reformatting and passed on `+=1`. What matters is the number of
+    # augmented assignments to that attribute, which is a property of the
+    # parse tree, not of the spelling.
     source_file = (
         pathlib.Path(__file__).resolve().parents[3]
         / "src/datahub/ingestion/source/snowflake/snowflake_openflow.py"
-    ).read_text()
+    )
+    tree = ast.parse(source_file.read_text())
 
-    assert source_file.count("num_owners_emitted += 1") == 1, (
-        "ownership must be counted in exactly one place; a second site is a "
-        "site that can forget to check whether the urn fits"
+    sites = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.AugAssign)
+        and isinstance(node.target, ast.Attribute)
+        and node.target.attr == "num_owners_emitted"
+    ]
+
+    assert len(sites) == 1, (
+        f"ownership is counted at {len(sites)} sites (lines "
+        f"{[n.lineno for n in sites]}); it must be one, because a second site "
+        "is a site that can forget to check whether the owner urn fits"
     )

@@ -1379,7 +1379,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         degradation the existing inlet-skipped counter already describes.
         """
         if not urn_fits(pair.outlet):
-            self.report.num_urns_too_long += 1
+            self.report.num_lineage_edges_urn_too_long += 1
             self.report.warning(
                 title="Lineage edge skipped: destination urn too long",
                 message=(

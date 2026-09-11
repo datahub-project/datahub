@@ -55,6 +55,12 @@ class SnowflakeOpenflowReport(StaleEntityRemovalSourceReport):
     # short enough for DataHub. Config validation should make this unreachable,
     # so non-zero means an unanticipated cause. See _urn_is_emittable.
     num_urns_too_long: int = 0
+    # Lineage edges skipped because the DESTINATION dataset's urn is too long.
+    # Separate from num_urns_too_long because the causes and the remedies
+    # differ: that one is an entity this source names and could in principle
+    # shorten, this one is a FOREIGN urn it must reproduce exactly, so the only
+    # remedy is shorter Snowflake identifiers. See _edge_within_urn_limits.
+    num_lineage_edges_urn_too_long: int = 0
     # Connectors whose owning role name makes a corpGroup urn too long for
     # DataHub. Ownership is omitted rather than emitted and rejected.
     num_owners_dropped_urn_too_long: int = 0
