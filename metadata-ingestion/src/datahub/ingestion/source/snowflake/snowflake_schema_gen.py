@@ -8,6 +8,8 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Un
 
 import sqlglot
 import sqlglot.expressions
+from sqlglot.errors import TokenError
+from sqlglot.tokens import TokenType
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
@@ -151,67 +153,44 @@ from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecuto
 logger = logging.getLogger(__name__)
 
 # CUSTOM_INCREMENTAL dynamic tables hide their MERGE inside a REFRESH USING (...) clause that
-# sqlglot can't parse within CREATE DYNAMIC TABLE, so the whole statement degrades to a Command.
-_REFRESH_USING_RE = re.compile(r"refresh\s+using\s*\(", re.IGNORECASE)
+# sqlglot's parser can't handle within CREATE DYNAMIC TABLE (it degrades the statement to a Command),
+# but its tokenizer lexes it fine, which is all the extraction below needs.
+_REFRESH_USING_RE = re.compile(r"\brefresh\s+using\s*\(", re.IGNORECASE)
 _MERGE_INTO_RE = re.compile(r"\bmerge\s+into\b", re.IGNORECASE)
-# `self` as a table reference or leading column qualifier, but not a trailing `alias.self` access.
-_SELF_REF_RE = re.compile(r"(?<![\w.])self\b", re.IGNORECASE)
+# Token types whose text is data rather than code (strings and quoted identifiers); their spans get
+# blanked so a stray keyword or paren inside them isn't read as SQL.
+_DATA_TOKENS = {
+    TokenType.STRING,
+    TokenType.RAW_STRING,
+    TokenType.IDENTIFIER,
+    TokenType.HEREDOC_STRING,
+    TokenType.BYTE_STRING,
+    TokenType.HEX_STRING,
+    TokenType.NATIONAL_STRING,
+    TokenType.UNICODE_STRING,
+}
 
 
-def _blank_sql_noise(sql: str) -> str:
-    """Return ``sql`` with string literals, quoted identifiers and ``--`` / ``/* */`` comments
-    overwritten by spaces, preserving length so offsets still map back to the original text. Scanning
-    this copy keeps a stray ``refresh using (``, a ``merge into``, a parenthesis, or the ``self``
-    keyword that lives inside a literal, a quoted identifier or a comment from being mistaken for real
-    SQL. Covers single-quoted ``'..'`` and dollar-quoted ``$$..$$`` strings, double-quoted ``".."``
-    identifiers (each with its doubled-delimiter escape), and both comment forms."""
-    out = list(sql)
-    i, n = 0, len(sql)
-    while i < n:
-        char = sql[i]
-        if (
-            char == "'" or char == '"'
-        ):  # string / quoted identifier; doubled delimiter escapes it
-            delim = char
-            out[i] = " "
-            i += 1
-            while i < n:
-                if sql[i] == delim:
-                    if i + 1 < n and sql[i + 1] == delim:
-                        out[i] = out[i + 1] = " "
-                        i += 2
-                        continue
-                    out[i] = " "
-                    i += 1
-                    break
-                out[i] = " "
-                i += 1
-        elif (
-            char == "$" and i + 1 < n and sql[i + 1] == "$"
-        ):  # dollar-quoted string $$...$$
-            out[i] = out[i + 1] = " "
-            i += 2
-            while i < n and not (sql[i] == "$" and i + 1 < n and sql[i + 1] == "$"):
-                out[i] = " "
-                i += 1
-            if i < n:
-                out[i] = out[i + 1] = " "
-                i += 2
-        elif char == "-" and i + 1 < n and sql[i + 1] == "-":  # line comment to EOL
-            while i < n and sql[i] != "\n":
-                out[i] = " "
-                i += 1
-        elif char == "/" and i + 1 < n and sql[i + 1] == "*":  # block comment
-            out[i] = out[i + 1] = " "
-            i += 2
-            while i < n and not (sql[i] == "*" and i + 1 < n and sql[i + 1] == "/"):
-                out[i] = " "
-                i += 1
-            if i < n:
-                out[i] = out[i + 1] = " "
-                i += 2
-        else:
-            i += 1
+def _blank_sql_noise(sql: str) -> Optional[str]:
+    """Return ``sql`` with string literals and quoted identifiers overwritten by spaces (comments drop
+    out too, since sqlglot attaches them to tokens rather than emitting their own), preserving length
+    so offsets still map back to the original text. This keeps a stray ``refresh using (``, a
+    ``merge into``, or a parenthesis living inside a literal, quoted identifier or comment from being
+    read as code. Returns None on malformed SQL (a ``TokenError``, e.g. an unterminated string); the
+    caller then falls back to the full definition.
+
+    Ceiling: tokenization is whole-document, so a complete MERGE followed by unrelated malformed
+    trailing text yields None where a character scan would still recover it. Rare, since Snowflake
+    validates the DDL before storing DYNAMIC_TABLES.text. TODO: once sqlglot's Snowflake dialect learns
+    the REFRESH USING property, extraction becomes AST navigation and this helper goes away."""
+    try:
+        tokens = sqlglot.tokenize(sql, dialect="snowflake")
+    except TokenError:
+        return None
+    out = [" "] * len(sql)
+    for token in tokens:
+        if token.token_type not in _DATA_TOKENS:
+            out[token.start : token.end + 1] = sql[token.start : token.end + 1]
     return "".join(out)
 
 
@@ -223,6 +202,8 @@ def _extract_custom_incremental_merge(definition: str) -> Optional[str]:
     extraction; the body is then sliced from the original text (offsets align) to keep its literals
     intact for parsing."""
     scan = _blank_sql_noise(definition)
+    if scan is None:
+        return None
     match = _REFRESH_USING_RE.search(scan)
     if not match:
         return None
@@ -243,18 +224,49 @@ def _extract_custom_incremental_merge(definition: str) -> Optional[str]:
 
 def _normalize_self_reference(merge_body: str, dt_identifier: str) -> str:
     """Rewrite Snowflake's ``self`` pseudo-reference (the dynamic table referring to itself) to the
-    table's real qualified name, so the aggregator's self-reference guards -- which compare against
-    the DT's own urn -- recognize and drop it. A ``self`` on the MERGE *source* side otherwise
-    resolves to a phantom ``<db>.<schema>.self`` upstream whenever the schema resolver can't override
-    it (e.g. a lineage-only run with no graph). Runs on the comment/string/identifier-blanked copy so
-    a ``self`` inside a literal or a quoted ``"self"`` identifier is left untouched; only the bare
-    ``self`` keyword (which Snowflake reserves for the DT self-reference) is rewritten."""
-    scan = _blank_sql_noise(merge_body)
-    result = merge_body
-    # Replace right-to-left so each match's offsets stay valid as the length changes.
-    for match in reversed(list(_SELF_REF_RE.finditer(scan))):
-        result = result[: match.start()] + dt_identifier + result[match.end() :]
-    return result
+    table's real qualified name, so the aggregator's self-reference guards -- which compare against the
+    DT's own urn -- recognize and drop it. A ``self`` on the MERGE *source* side otherwise resolves to
+    a phantom ``<db>.<schema>.self`` upstream whenever the schema resolver can't override it (e.g. a
+    lineage-only run with no graph). Done as an AST edit so the name is emitted quoted where Snowflake
+    needs it: a db/schema/table name with a hyphen, space or dot no longer breaks the parse. A quoted
+    ``"self"`` identifier is a distinct token and is left untouched. Returns the body unchanged when it
+    does not parse -- it would then produce no lineage either way."""
+    try:
+        tree = sqlglot.parse_one(merge_body, dialect="snowflake")
+    except Exception:
+        return merge_body
+    dt_table = sqlglot.expressions.to_table(dt_identifier, dialect="snowflake")
+    changed = False
+    for table in tree.find_all(sqlglot.expressions.Table):
+        # `.name` strips quoting, so guard on `.this.quoted`: a double-quoted "self" is a user table,
+        # a distinct identifier, and must be left alone. Only the bare `self` keyword is rewritten.
+        if (
+            table.name.lower() == "self"
+            and not table.this.quoted
+            and not table.db
+            and not table.catalog
+        ):
+            replacement = dt_table.copy()
+            alias = table.args.get("alias")
+            if alias is not None:
+                replacement.set("alias", alias.copy())
+            table.replace(replacement)
+            changed = True
+    # Columns qualified by a bare `self` (rare -- the target is normally aliased), e.g. `self.a`.
+    for column in tree.find_all(sqlglot.expressions.Column):
+        table_id = column.args.get("table")
+        if (
+            table_id is not None
+            and table_id.name.lower() == "self"
+            and not table_id.quoted
+        ):
+            column.set("table", dt_table.this.copy())
+            if dt_table.args.get("db"):
+                column.set("db", dt_table.args["db"].copy())
+            if dt_table.args.get("catalog"):
+                column.set("catalog", dt_table.args["catalog"].copy())
+            changed = True
+    return tree.sql(dialect="snowflake") if changed else merge_body
 
 
 class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):

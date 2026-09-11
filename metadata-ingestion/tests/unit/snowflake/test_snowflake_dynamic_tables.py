@@ -3,11 +3,16 @@ from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
+import sqlglot
 
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import (
     SnowflakeObjectDomain,
     SnowflakeShowKind,
+)
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeIdentifierConfig,
 )
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
@@ -19,6 +24,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
+)
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
 )
 
 
@@ -735,13 +743,14 @@ def test_non_custom_incremental_dynamic_table_definition_unchanged():
     )
 
 
-def test_dynamic_table_definition_with_stray_refresh_using_is_not_rewritten():
-    """A `refresh using (` in a comment or string on an ordinary dynamic table must not replace the
-    real definition; extraction only fires when the extracted body is a MERGE."""
+def test_refresh_using_with_non_merge_body_is_not_rewritten():
+    """Extraction fires only when the REFRESH USING body is a MERGE. A real (non-comment) REFRESH
+    USING whose body is not a MERGE is rejected by the merge-body guard, so the full definition passes
+    through unchanged. (Blanking of a decoy hidden in a comment/string is covered separately.)"""
     gen = _make_gen_with_mocks()
     definition = (
-        "create dynamic table db.schema.dt as select a from db.schema.src_a "
-        "-- refresh using (this is a comment, not a merge)"
+        "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL "
+        "refresh using (select a from db.schema.src_a)"
     )
     gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
 
@@ -853,11 +862,12 @@ def test_dynamic_table_dollar_quoted_decoy_does_not_hijack():
 
 def test_dynamic_table_quoted_self_identifier_not_rewritten():
     """A double-quoted "self" is a user identifier, not the DT keyword, so self-normalization must
-    leave it untouched -- only the bare `self` keyword is rewritten to the DT's qualified name."""
+    leave it untouched as a table reference, a column qualifier, and a column alias, while the bare
+    `self` target keyword is still rewritten to the DT's qualified name."""
     gen = _make_gen_with_mocks()
     definition = (
         "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL warehouse=wh "
-        'refresh using (merge into self as tgt using (select a as "self" from db.schema.src) s '
+        'refresh using (merge into self as tgt using (select "self".a as "self" from "self") s '
         "on tgt.a=s.a when matched then update set tgt.a=s.a)"
     )
     gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
@@ -865,8 +875,13 @@ def test_dynamic_table_quoted_self_identifier_not_rewritten():
     view_definition = gen.aggregator.add_view_definition.call_args.kwargs[
         "view_definition"
     ]
-    assert view_definition.lower().startswith("merge into db.schema.dt")
-    assert '"self"' in view_definition  # the quoted identifier is preserved
+    lowered = view_definition.lower()
+    assert lowered.startswith("merge into db.schema.dt")  # bare `self` target rewritten
+    assert (
+        'from "self"' in lowered
+    )  # quoted table reference preserved (not rewritten to the DT)
+    assert '"self".a' in view_definition  # quoted column qualifier preserved
+    assert 'as "self"' in lowered  # quoted column alias preserved
     assert '"db.schema.dt"' not in view_definition
 
 
@@ -886,7 +901,67 @@ def test_dynamic_table_unbalanced_paren_in_quoted_identifier_not_truncated():
         "view_definition"
     ]
     assert "when not matched" in view_definition.lower()
-    assert 'as "x)"' in view_definition  # the quoted identifier survived intact
+    assert '"x)"' in view_definition  # the quoted identifier survived intact
+
+
+def test_dynamic_table_backslash_escaped_comment_decoy_uses_real_merge():
+    """A backslash-escaped quote inside a COMMENT (ordinary in "it's" / "user's") must not desync the
+    scan; the decoy `refresh using (...)` in the comment is ignored and the real clause is used."""
+    gen = _make_gen_with_mocks()
+    definition = (
+        "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL warehouse=wh "
+        r"comment='it\'s refresh using (merge into phantom using (select 1 a) x on 1=1)' "
+        "refresh using (merge into self as tgt using (select a from db.schema.real_src) s "
+        "on tgt.a=s.a when matched then update set tgt.a=s.a)"
+    )
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    view_definition = gen.aggregator.add_view_definition.call_args.kwargs[
+        "view_definition"
+    ]
+    assert "real_src" in view_definition
+    assert "phantom" not in view_definition
+
+
+def test_dynamic_table_unterminated_string_falls_back_to_full_definition():
+    """Malformed DDL (an unterminated string) makes the tokenizer raise; extraction returns None and
+    the caller falls back to the full definition instead of crashing."""
+    gen = _make_gen_with_mocks()
+    definition = (
+        "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL "
+        "refresh using (merge into self using (select a from db.schema.src where note='oops "
+        "never closes) s on 1=1)"
+    )
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    assert (
+        gen.aggregator.add_view_definition.call_args.kwargs["view_definition"]
+        == definition
+    )
+
+
+def test_dynamic_table_self_reference_with_special_char_name_is_quoted():
+    """A DT whose name needs Snowflake quoting (a hyphen here) must still yield parseable normalized
+    SQL: the AST rewrite emits the name quoted, so column lineage is recovered instead of the parse
+    failing and dropping to the INPUTS fallback (cursor Finding 1)."""
+    gen = _make_gen_with_mocks()
+    definition = (
+        "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL "
+        "refresh using (merge into self as tgt using (select a from db.schema.src_a) as src "
+        "on tgt.a=src.a when matched then update set tgt.a=src.a)"
+    )
+    dt = _dt(definition)
+    dt.name = "weird-table"
+    gen._register_dynamic_table_upstreams(dt, "DB", "SCHEMA")
+
+    view_definition = gen.aggregator.add_view_definition.call_args.kwargs[
+        "view_definition"
+    ]
+    assert '"weird-table"' in view_definition  # emitted quoted
+    assert "into self" not in view_definition.lower()  # self rewritten to the real name
+    sqlglot.parse_one(
+        view_definition, dialect="snowflake"
+    )  # parses (an unquoted hyphen would not)
 
 
 def test_dynamic_table_without_definition_wires_inputs_as_known_lineage():
@@ -985,6 +1060,13 @@ def test_process_tables_one_failing_dynamic_table_does_not_abort_siblings():
         "GOOD_DT",
     ]  # sibling still processed after the first raised
     gen.report.warning.assert_called_once()  # structured_reporter is a property over self.report
+    warn = gen.report.warning.call_args
+    assert (
+        warn.args[1] == "DB.SCHEMA.DT"
+    )  # the failed table is named, not the surviving sibling
+    assert isinstance(
+        warn.kwargs.get("exc"), ValueError
+    )  # the traceback is forwarded, not dropped
 
 
 def test_source_wires_dynamic_table_identifiers_into_queries_extractor():
@@ -1019,8 +1101,14 @@ def test_source_wires_dynamic_table_identifiers_into_queries_extractor():
 
 def test_register_dynamic_table_excludes_self_from_inputs():
     """INPUTS that list the dynamic table itself (e.g. a MERGE INTO SELF definition) must not become a
-    self-loop upstream, the exact edge this path exists to remove."""
+    self-loop upstream. Uses a real SnowflakeIdentifierBuilder so the filter is exercised against the
+    genuine normalization of both forms -- the DT's own name via get_dataset_identifier and the INPUTS
+    name via get_dataset_identifier_from_qualified_name -- rather than two stubs forced to agree."""
     gen = _make_gen_with_mocks()
+    gen.identifiers = SnowflakeIdentifierBuilder(
+        identifier_config=SnowflakeIdentifierConfig(),
+        structured_reporter=SourceReport(),
+    )
     table = SnowflakeDynamicTable(
         name="DT",
         created=None,
@@ -1042,5 +1130,12 @@ def test_register_dynamic_table_excludes_self_from_inputs():
     fallback = gen.aggregator.add_view_definition.call_args.kwargs[
         "table_level_fallback_upstreams"
     ]
-    assert "urn:db.schema.dt" not in fallback
-    assert fallback == ["urn:db.schema.src_a"]
+    ids = gen.identifiers
+    dt_urn = ids.gen_dataset_urn(ids.get_dataset_identifier("DT", "SCHEMA", "DB"))
+    src_urn = ids.gen_dataset_urn(
+        ids.get_dataset_identifier_from_qualified_name("DB.SCHEMA.SRC_A")
+    )
+    assert (
+        dt_urn not in fallback
+    )  # self-loop dropped via real-identifier reconciliation
+    assert fallback == [src_urn]
