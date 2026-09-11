@@ -35,7 +35,7 @@
     "freshness.popoverContent": "{{updateType}} {{lastUpdatedAgo}}",
     "health.assertionsPassing": "Kaikki assertionit läpäisevät",
     "health.noActiveIncidents": "Ei aktiivisia häiriöitä",
-    "health.testsPassing": "Kaikki testit läpäisevät",
+    "health.noFailingGovernanceTests": "Ei epäonnistuneita Governance-testejä",
     "lineage.downstreamCount_one": "{{count}} alavirta",
     "lineage.downstreamCount_other": "{{count}} alavirtaa",
     "lineage.upstreamCount_one": "{{count}} ylävirta",
