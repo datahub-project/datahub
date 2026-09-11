@@ -642,6 +642,14 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     chart_ref_schema_samples_by_outcome: Dict[str, LossyList[str]] = field(
         default_factory=dict
     )
+    # Sheets bucketed by how many elements render them, from
+    # elements[<id>].viz.sheetId. A /schema cross-sheet ref names the sheet, but
+    # an edge must point at a chart, which is emitted per element -- so "2+"
+    # means there is no single correct target and a guess would attach correct
+    # lineage to the wrong chart. "1" means the ref resolves outright. Our dev
+    # tenant is 1:1 across all 19 sheets; this measures whether that holds on a
+    # real tenant before a resolver is built on it.
+    chart_ref_schema_sheet_element_fanout: Dict[str, int] = field(default_factory=dict)
     # Splits unknown_source_but_name_exists_in_a_data_model_this_workbook_loads
     # by whether a same-named element actually OWNS the referenced column:
     # exactly one owner means the ref is real and the candidate list was too

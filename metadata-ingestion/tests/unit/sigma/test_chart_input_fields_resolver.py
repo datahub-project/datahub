@@ -1079,6 +1079,44 @@ class TestSchemaMeasurementRecordsFailures:
         (key,) = list(src.reporter.chart_ref_schema_unknown_head_kinds)
         assert "p1=unknown_column" in key, key
 
+    def test_sheet_element_fanout_is_measured_from_viz_sheet_id(self) -> None:
+        """Whether a sheet maps to one chart or several decides cross_sheet.
+
+        The mapping lives at elements[<id>].viz.sheetId. Reading `sheetId` from
+        the top of the element instead reported 0 sheets and made the
+        ambiguity look unmeasurable.
+        """
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src.sigma_api = MagicMock()
+        src.sigma_api.get_workbook_schema.return_value = {
+            "sheets": {
+                "one": {"columns": {"col1": {"formula": None}}},
+                "many": {"columns": {}},
+            },
+            "elements": {
+                "eA": {"viz": {"sheetId": "one"}},
+                "eB": {"viz": {"sheetId": "many"}},
+                "eC": {"viz": {"sheetId": "many"}},
+            },
+        }
+        workbook = _make_workbook_with_elements([[_make_element("e1", "El")]])
+        # The probe short-circuits with nothing unresolved -- correctly, since
+        # it costs an API call -- so give it one column to work on.
+        src._measure_schema_resolvable_refs(
+            workbook,
+            [
+                _UnresolvedChartColumn(
+                    element_id="e1",
+                    column="Col",
+                    column_id="col1",
+                    reasons=frozenset({"some_reason"}),
+                )
+            ],
+        )
+
+        assert src.reporter.chart_ref_schema_sheet_element_fanout == {"1": 1, "2+": 1}
+
     def test_a_rare_outcome_is_still_sampled_beside_a_flood(self) -> None:
         """The regression this change exists for.
 

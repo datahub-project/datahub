@@ -7721,6 +7721,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     if column_id:
                         wb_column_owner.setdefault(column_id, element.elementId)
 
+        self._measure_sheet_element_fanout(sheets, elements)
+
         for item in unresolved:
             formula = column_formula.get(item.column_id)
             if formula is None:
@@ -7840,6 +7842,41 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.chart_ref_sources_outcomes_by_reason[key] = (
                     self.reporter.chart_ref_sources_outcomes_by_reason.get(key, 0) + 1
                 )
+
+    def _measure_sheet_element_fanout(
+        self, sheets: Dict[str, Any], elements: Dict[str, Any]
+    ) -> None:
+        """How many elements render each sheet? Decides the cross_sheet design.
+
+        A /schema cross-sheet ref names the SHEET, but a lineage edge has to
+        point at a chart, which this connector emits per ELEMENT. If a sheet can
+        be rendered by several elements there is no single correct target and a
+        guess attaches real lineage to the wrong chart; if it is 1:1 the ref
+        resolves outright.
+
+        The mapping is already in the document at ``elements[<id>].viz.sheetId``
+        -- it was missed once by looking for ``sheetId`` at the top of the
+        element instead of under ``viz``, which reported 0 sheets and made the
+        ambiguity look unmeasurable. Measured here on real tenant data rather
+        than assumed: our dev tenant is 1:1 across all 19 sheets, which is too
+        small a sample to design on.
+        """
+        per_sheet: Dict[str, int] = {}
+        for meta in elements.values():
+            if not isinstance(meta, dict):
+                continue
+            viz = meta.get("viz")
+            sheet_id = viz.get("sheetId") if isinstance(viz, dict) else None
+            if sheet_id:
+                per_sheet[str(sheet_id)] = per_sheet.get(str(sheet_id), 0) + 1
+        for sheet_id in sheets:
+            count = per_sheet.get(sheet_id, 0)
+            # Bucketed, not summed: "how many sheets are ambiguous" is the
+            # question, and a mean would hide a small number of bad ones.
+            key = "0" if count == 0 else "1" if count == 1 else "2+"
+            self.reporter.chart_ref_schema_sheet_element_fanout[key] = (
+                self.reporter.chart_ref_schema_sheet_element_fanout.get(key, 0) + 1
+            )
 
     def _describe_unknown_head(
         self,
