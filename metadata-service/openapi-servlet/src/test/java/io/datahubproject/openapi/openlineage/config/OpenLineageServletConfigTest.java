@@ -1,8 +1,10 @@
 package io.datahubproject.openapi.openlineage.config;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.FabricType;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
@@ -355,6 +357,36 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
       assertEquals(
           mappingConfig.getDatahubConfig().getDomains(),
           List.of("urn:li:domain:finance", "urn:li:domain:reporting"));
+    }
+  }
+
+  /**
+   * OpenLineage producers split a run's metadata across START, RUNNING and a terminal event, so the
+   * endpoint has to apply lineage additively or the terminal event overwrites what the earlier ones
+   * declared.
+   */
+  @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigBoundProperties.class})
+  @TestPropertySource(properties = {"datahub.openlineage.env=PROD"})
+  public static class UsePatchDefaultTest extends AbstractTestNGSpringContextTests {
+
+    @Autowired private RunEventMapper.MappingConfig mappingConfig;
+
+    @Test
+    public void testUsePatchDefaultsToTrue() {
+      assertTrue(mappingConfig.getDatahubConfig().isUsePatch());
+    }
+  }
+
+  @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigBoundProperties.class})
+  @TestPropertySource(
+      properties = {"datahub.openlineage.env=PROD", "datahub.openlineage.use-patch=false"})
+  public static class UsePatchOverrideTest extends AbstractTestNGSpringContextTests {
+
+    @Autowired private RunEventMapper.MappingConfig mappingConfig;
+
+    @Test
+    public void testUsePatchCanBeDisabled() {
+      assertFalse(mappingConfig.getDatahubConfig().isUsePatch());
     }
   }
 
