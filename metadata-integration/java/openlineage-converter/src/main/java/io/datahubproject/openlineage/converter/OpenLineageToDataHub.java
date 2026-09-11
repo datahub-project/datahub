@@ -2353,6 +2353,20 @@ public class OpenLineageToDataHub {
   }
 
   /**
+   * A JobEvent has no run, so it cannot carry the {@code processing_engine} run facet the RunEvent
+   * path reads to name the orchestrator. {@code jobType.integration} names the same thing from the
+   * job side -- SPARK, AIRFLOW, DBT -- so it stands in. Without it the orchestrator falls back to
+   * the producer-URI heuristics, and a JobEvent and a RunEvent describing the same job land under
+   * different DataFlow URNs; a producer the heuristics do not recognise is rejected outright.
+   */
+  private static String jobIntegration(OpenLineage.Job job) {
+    if (job == null || job.getFacets() == null || job.getFacets().getJobType() == null) {
+      return null;
+    }
+    return job.getFacets().getJobType().getIntegration();
+  }
+
+  /**
    * Converts an OpenLineage {@code JobEvent} — job metadata and dataset edges with no run attached
    * — into a {@link DatahubJob}. This is the spec's static-lineage path: a producer describing what
    * a job reads and writes without having just executed it. No DataProcessInstance is produced,
@@ -2371,7 +2385,12 @@ public class OpenLineageToDataHub {
     }
 
     DataFlowUrn dataFlowUrn =
-        getFlowUrn(job.getNamespace(), job.getName(), null, event.getProducer(), datahubConf);
+        getFlowUrn(
+            job.getNamespace(),
+            job.getName(),
+            jobIntegration(job),
+            event.getProducer(),
+            datahubConf);
     jobBuilder.flowUrn(dataFlowUrn);
 
     DataFlowInfo dataFlowInfo = new DataFlowInfo();
@@ -2455,7 +2474,10 @@ public class OpenLineageToDataHub {
       builder.tags(getDatasetTags(dataset));
       builder.ownership(getDatasetOwnership(dataset));
       builder.properties(getDatasetProperties(dataset));
-      builder.profile(getDatasetProfile(dataset, event.getEventTime()));
+      DatasetProfile profile = getDatasetProfile(dataset, event.getEventTime());
+      if (profile != null) {
+        builder.profile(profile);
+      }
     }
 
     return DatahubJob.datasetOnlyMcps(builder.build(), datahubConf);

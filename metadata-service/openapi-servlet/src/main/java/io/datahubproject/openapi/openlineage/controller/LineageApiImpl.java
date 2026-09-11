@@ -144,13 +144,16 @@ public class LineageApiImpl implements LineageApi {
         return EventKind.RUN;
       }
     }
-    if (event.has("run")) {
+    // isObject rather than has: a JSON null is still "present", and clients that serialize
+    // optional fields emit "run": null on a JobEvent. Treating that as a RunEvent reproduces
+    // exactly the null-run failure this dispatch exists to prevent.
+    if (event.path("run").isObject()) {
       return EventKind.RUN;
     }
-    if (event.has("dataset")) {
+    if (event.path("dataset").isObject()) {
       return EventKind.DATASET;
     }
-    if (event.has("job")) {
+    if (event.path("job").isObject()) {
       return EventKind.JOB;
     }
     // Unrecognised shape: let the RunEvent path produce the error, as it did before dispatch.
