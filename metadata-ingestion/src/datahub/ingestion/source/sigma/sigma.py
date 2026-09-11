@@ -7104,10 +7104,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         # A self-referential InputField points at the chart itself, which is
         # exactly what renders as "chart-level lineage only".
+        # A schemaField URN WRAPS its parent: "urn:li:schemaField:(<parent>,col)".
+        # The obvious ``startswith(chart_urn)`` is therefore always False, which
+        # made self_ref_columns permanently 0 -- every chart counted as fully
+        # resolved and the no-lineage path could never fire. It read as a clean
+        # "19 of 19 charts have column lineage" on the dev tenant, which is the
+        # failure mode where a counter is right for the wrong reason.
+        self_ref_prefix = f"urn:li:schemaField:({chart_urn},"
         self_ref_columns = sum(
             1
             for f in fields
-            if f.schemaFieldUrn and f.schemaFieldUrn.startswith(chart_urn)
+            if f.schemaFieldUrn and f.schemaFieldUrn.startswith(self_ref_prefix)
         )
         causes_after = self._chart_column_cause_tally()
         causes = {
@@ -7123,18 +7130,33 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self_ref_columns=self_ref_columns,
             causes=causes,
         )
-        if fields and self_ref_columns == len(fields):
+        if fields and self_ref_columns:
+            # Deliberately UNCAPPED and emitted for the partial case too. The
+            # sample lists above are LossyList (10 elements), so a specific
+            # chart named in a ticket has almost no chance of appearing in one
+            # -- on a tenant with ~942 no-formula columns the expected yield for
+            # any given chart rounds to zero. This line is the instrument that
+            # actually answers "why did THIS chart get no column lineage",
+            # because it can be grepped by element id. Restricting it to the
+            # all-missing case would have hidden every partially resolved chart,
+            # which is counted and otherwise invisible.
             logger.debug(
-                "chart element %s (%s in workbook %s %r) emitted %d column(s) with "
-                "NO upstream at all; causes=%r columns_payload_present=%s "
+                "chart element %s (%s in workbook %s %r): %d of %d column(s) have "
+                "NO upstream; causes=%r columns_payload_present=%s "
+                "element_columns_with_formulas=%d/%d type=%r has_query=%s "
                 "declared_upstreams=%r",
                 element.elementId,
                 chart_urn,
                 workbook.workbookId,
                 workbook.name,
+                self_ref_columns,
                 len(fields),
                 causes,
                 element.columns_payload_present,
+                sum(1 for f in element.column_formulas.values() if f),
+                len(element.columns),
+                element.type,
+                element.query is not None,
                 sorted({type(u).__name__ for u in element.upstream_sources.values()}),
             )
 
