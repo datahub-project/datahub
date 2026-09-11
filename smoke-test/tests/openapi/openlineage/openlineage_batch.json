@@ -1,0 +1,304 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v3/entity/datajob/urn%3Ali%3AdataJob%3A%28urn%3Ali%3AdataFlow%3A%28airflow%2Csmoke_ol_batch_run%2Csmoke_ol_batch_ns%29%2Csmoke_ol_batch_run%29",
+      "method": "delete",
+      "description": "Clean slate for the RunEvent DataJob"
+    },
+    "response": {
+      "status_codes": [
+        200,
+        201,
+        202,
+        204,
+        404
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataflow/urn%3Ali%3AdataFlow%3A%28airflow%2Csmoke_ol_batch_run%2Csmoke_ol_batch_ns%29",
+      "method": "delete",
+      "description": "Clean slate for the RunEvent DataFlow"
+    },
+    "response": {
+      "status_codes": [
+        200,
+        201,
+        202,
+        204,
+        404
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/datajob/urn%3Ali%3AdataJob%3A%28urn%3Ali%3AdataFlow%3A%28airflow%2Csmoke_ol_batch_job%2Csmoke_ol_batch_ns%29%2Csmoke_ol_batch_job%29",
+      "method": "delete",
+      "description": "Clean slate for the JobEvent DataJob"
+    },
+    "response": {
+      "status_codes": [
+        200,
+        201,
+        202,
+        204,
+        404
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataflow/urn%3Ali%3AdataFlow%3A%28airflow%2Csmoke_ol_batch_job%2Csmoke_ol_batch_ns%29",
+      "method": "delete",
+      "description": "Clean slate for the JobEvent DataFlow"
+    },
+    "response": {
+      "status_codes": [
+        200,
+        201,
+        202,
+        204,
+        404
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cmy_db.my_schema.smoke_ol_batch_src%2CPROD%29",
+      "method": "delete",
+      "description": "Clean slate for the input dataset"
+    },
+    "response": {
+      "status_codes": [
+        200,
+        201,
+        202,
+        204,
+        404
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cmy_db.my_schema.smoke_ol_batch_dst%2CPROD%29",
+      "method": "delete",
+      "description": "Clean slate for the output dataset"
+    },
+    "response": {
+      "status_codes": [
+        200,
+        201,
+        202,
+        204,
+        404
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/openlineage/api/v1/lineage/batch",
+      "description": "A batch of mixed event types is accepted and reported as one success",
+      "json": [
+        {
+          "eventType": "COMPLETE",
+          "eventTime": "2024-06-01T10:00:00.000Z",
+          "run": {
+            "runId": "b7f1c4e2-5a6d-4f3b-8c9e-1d2a3b4c5d6e"
+          },
+          "job": {
+            "namespace": "smoke_ol_batch_ns",
+            "name": "smoke_ol_batch_run"
+          },
+          "inputs": [
+            {
+              "namespace": "postgres://my-host:5432",
+              "name": "my_db.my_schema.smoke_ol_batch_src"
+            }
+          ],
+          "outputs": [
+            {
+              "namespace": "postgres://my-host:5432",
+              "name": "my_db.my_schema.smoke_ol_batch_dst"
+            }
+          ],
+          "producer": "https://github.com/apache/airflow/tree/1.0.0"
+        },
+        {
+          "eventTime": "2024-06-01T10:00:00.000Z",
+          "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+          "job": {
+            "namespace": "smoke_ol_batch_ns",
+            "name": "smoke_ol_batch_job"
+          },
+          "inputs": [
+            {
+              "namespace": "postgres://my-host:5432",
+              "name": "my_db.my_schema.smoke_ol_batch_src"
+            }
+          ],
+          "producer": "https://github.com/apache/airflow/tree/1.0.0"
+        }
+      ]
+    },
+    "response": {
+      "status_codes": [
+        200
+      ],
+      "json": {
+        "status": "success",
+        "summary": {
+          "received": 2,
+          "successful": 2,
+          "failed": 0,
+          "retriable": 0,
+          "non_retriable": 0
+        },
+        "failed_events": []
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/openlineage/api/v1/lineage/batch",
+      "description": "One unconvertible event is reported by index without rejecting the rest",
+      "json": [
+        {
+          "eventTime": "2024-06-01T10:00:00.000Z",
+          "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent",
+          "job": {
+            "namespace": "smoke_ol_batch_ns",
+            "name": "smoke_ol_batch_job"
+          },
+          "inputs": [
+            {
+              "namespace": "postgres://my-host:5432",
+              "name": "my_db.my_schema.smoke_ol_batch_src"
+            }
+          ],
+          "producer": "https://github.com/apache/airflow/tree/1.0.0"
+        },
+        {
+          "eventType": "COMPLETE",
+          "eventTime": "2024-06-01T10:00:00.000Z",
+          "run": {
+            "runId": "c8e2d5f3-6b7e-4a4c-9d0f-2e3b4c5d6e7f"
+          },
+          "job": {
+            "namespace": "smoke_ol_batch_ns",
+            "name": ""
+          },
+          "producer": "https://github.com/apache/airflow/tree/1.0.0"
+        }
+      ]
+    },
+    "response": {
+      "status_codes": [
+        200
+      ],
+      "exclude_regex_paths": [
+        "root\\['failed_events'\\]\\[\\d+\\]\\['reason'\\]"
+      ],
+      "json": {
+        "status": "partial_success",
+        "summary": {
+          "received": 2,
+          "successful": 1,
+          "failed": 1,
+          "retriable": 0,
+          "non_retriable": 1
+        },
+        "failed_events": [
+          {
+            "index": 1,
+            "reason": "any",
+            "retriable": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/openlineage/api/v1/lineage/batch",
+      "description": "A single event rather than an array is a client error",
+      "json": {
+        "eventType": "COMPLETE",
+        "eventTime": "2024-06-01T10:00:00.000Z",
+        "run": {
+          "runId": "b7f1c4e2-5a6d-4f3b-8c9e-1d2a3b4c5d6e"
+        },
+        "job": {
+          "namespace": "smoke_ol_batch_ns",
+          "name": "smoke_ol_batch_run"
+        },
+        "inputs": [
+          {
+            "namespace": "postgres://my-host:5432",
+            "name": "my_db.my_schema.smoke_ol_batch_src"
+          }
+        ],
+        "outputs": [
+          {
+            "namespace": "postgres://my-host:5432",
+            "name": "my_db.my_schema.smoke_ol_batch_dst"
+          }
+        ],
+        "producer": "https://github.com/apache/airflow/tree/1.0.0"
+      }
+    },
+    "response": {
+      "status_codes": [
+        400
+      ]
+    }
+  },
+  {
+    "request": {
+      "wait": true,
+      "description": "Let the async writes land"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/datajob/urn%3Ali%3AdataJob%3A%28urn%3Ali%3AdataFlow%3A%28airflow%2Csmoke_ol_batch_run%2Csmoke_ol_batch_ns%29%2Csmoke_ol_batch_run%29",
+      "method": "get",
+      "params": {
+        "aspects": "dataJobInputOutput"
+      },
+      "description": "The batched RunEvent really was ingested, not just acknowledged"
+    },
+    "response": {
+      "status_codes": [
+        200
+      ],
+      "exclude_regex_paths": [
+        "root\\['dataJobInputOutput'\\]\\['value'\\]\\['(input|output)DatasetEdges'\\]\\[\\d+\\]\\['(created|lastModified)'\\]"
+      ],
+      "json": {
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,smoke_ol_batch_run,smoke_ol_batch_ns),smoke_ol_batch_run)",
+        "dataJobInputOutput": {
+          "value": {
+            "inputDatajobs": [],
+            "inputDatajobEdges": [],
+            "inputDatasets": [],
+            "inputDatasetFields": [],
+            "outputDatasets": [],
+            "outputDatasetFields": [],
+            "fineGrainedLineages": [],
+            "inputDatasetEdges": [
+              {
+                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.smoke_ol_batch_src,PROD)"
+              }
+            ],
+            "outputDatasetEdges": [
+              {
+                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.smoke_ol_batch_dst,PROD)"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+]

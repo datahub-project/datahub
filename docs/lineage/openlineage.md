@@ -40,6 +40,46 @@ The endpoint responds with:
 | `422`  | The event is well-formed but carries nothing DataHub can store (for example, no job name) |
 | `500`  | A server-side failure                                                                     |
 
+#### Sending a batch
+
+A producer holding several events can send them in one request rather than one at a time:
+
+```
+POST GMS_SERVER_HOST:GMS_PORT/openapi/openlineage/api/v1/lineage/batch
+```
+
+The body is a JSON array of the same three event types. Each event is converted on its own, so one
+unusable event does not reject the rest of the array; the events that did convert are then written
+in a single transaction. The response always has status `200` and reports what happened:
+
+```json
+{
+  "status": "partial_success",
+  "summary": {
+    "received": 3,
+    "successful": 2,
+    "failed": 1,
+    "retriable": 0,
+    "non_retriable": 1
+  },
+  "failed_events": [{ "index": 1, "reason": "...", "retriable": false }]
+}
+```
+
+`index` is the event's position in the array you sent, which is the producer's handle on which
+event to fix. `retriable` is always `false`, because every failure reported here is a conversion
+failure and conversion is deterministic — the same bytes fail the same way. A failure a resend
+could fix is a server fault, and those come back as a `500` for the whole request.
+
+Two things are decided for the batch as a whole rather than per event:
+
+| Concern       | Behaviour                                                                                                               |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Authorization | A batch touching anything the caller may not write is refused whole with `403`, because privileges belong to the actor. |
+| Batch size    | More than `datahub.openlineage.max-batch-size` events (default 1000) is a `400`.                                        |
+
+A body that is not a JSON array is a `400`. An empty array is accepted and writes nothing.
+
 ### Supported event types
 
 The endpoint accepts all three OpenLineage 2.0 event types:
@@ -160,6 +200,7 @@ The DataHub OpenLineage integration can be configured using environment variable
 | `DATAHUB_OPENLINEAGE_USE_PATCH`                        | `datahub.openlineage.use-patch`                        | Boolean | `true`  | Apply lineage additively, so inputs and outputs reported across separate events for one run accumulate            |
 | `DATAHUB_OPENLINEAGE_FILE_PARTITION_REGEXP_PATTERN`    | `datahub.openlineage.file-partition-regexp-pattern`    | String  | `null`  | Regular expression pattern for file partition detection                                                           |
 | `DATAHUB_OPENLINEAGE_DOMAINS`                          | `datahub.openlineage.domains`                          | List    | `empty` | Comma-separated domain URNs (`urn:li:domain:<id>`) attached to the DataFlow and DataJob                           |
+| `DATAHUB_OPENLINEAGE_MAX_BATCH_SIZE`                   | `datahub.openlineage.max-batch-size`                   | Integer | `1000`  | Most events accepted by a single `/lineage/batch` request                                                         |
 
 > **Valid `env` values**: `PROD`, `DEV`, `TEST`, `QA`, `UAT`, `EI`, `PRE`, `STG`, `NON_PROD`, `CORP`, `RVW`, `PRD`, `TST`, `SIT`, `SBX`, `SANDBOX`, `CERT`
 >
