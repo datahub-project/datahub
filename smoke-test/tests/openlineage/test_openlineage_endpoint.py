@@ -99,14 +99,15 @@ def _job_urn(namespace: str, job_name: str) -> str:
 
 @with_test_retry()
 def _runs_total(auth_session, job_urn: str) -> int:
-    data = execute_graphql(
+    response = execute_graphql(
         auth_session,
         """query dataJobRuns($urn: String!) {
              dataJob(urn: $urn) { urn runs(start: 0, count: 10) { total } }
            }""",
         variables={"urn": job_urn},
     )
-    data_job = data["dataJob"]
+    # execute_graphql returns the whole GraphQL envelope, not just its "data" member.
+    data_job = response["data"]["dataJob"]
     assert data_job is not None, f"DataJob {job_urn} was not created"
     return data_job["runs"]["total"]
 
