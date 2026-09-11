@@ -56,7 +56,8 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
       {SearchEngineType.ELASTICSEARCH_7},
       {SearchEngineType.ELASTICSEARCH_8},
       {SearchEngineType.ELASTICSEARCH_9},
-      {SearchEngineType.OPENSEARCH_2}
+      {SearchEngineType.OPENSEARCH_2},
+      {SearchEngineType.OPENSEARCH_3}
     };
   }
 
@@ -137,9 +138,19 @@ public class SearchClientShimIterationTest extends AbstractTestNGSpringContextTe
         assertTrue(isOpenSearch);
         assertTrue(engineType.supportsEs7HighLevelClient());
         assertFalse(engineType.requiresEs8JavaClient());
-        assertFalse(engineType.requiresOpenSearchClient()); // Uses ES 7.x compatible client
+        assertTrue(engineType.requiresOpenSearchClient());
         assertEquals(engineType.getEngine(), "opensearch");
         assertEquals(engineType.getMajorVersion(), "2");
+        break;
+
+      case OPENSEARCH_3:
+        assertFalse(isElasticsearch);
+        assertTrue(isOpenSearch);
+        assertFalse(engineType.supportsEs7HighLevelClient());
+        assertFalse(engineType.requiresEs8JavaClient());
+        assertTrue(engineType.requiresOpenSearchClient());
+        assertEquals(engineType.getEngine(), "opensearch");
+        assertEquals(engineType.getMajorVersion(), "3");
         break;
 
       default:

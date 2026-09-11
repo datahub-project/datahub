@@ -268,6 +268,9 @@ project.ext.externalDependency = [
     'elasticSearchRest': 'org.opensearch.client:opensearch-rest-high-level-client:' + elasticsearchVersion,
     // Multi-client shim dependencies
     'elasticsearch8Client': 'co.elastic.clients:elasticsearch-java:' + elasticsearch8Version,
+    // OpenSearch server DSL (SearchSourceBuilder etc.). Declared directly: the shim interface and
+    // ~100 call sites compile against these types; do not rely on the RHLC jar pulling it in.
+    'opensearchServer': 'org.opensearch:opensearch:' + elasticsearchVersion,
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
     'graphqlJava': 'com.graphql-java:graphql-java:22.3',
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:22.0',
