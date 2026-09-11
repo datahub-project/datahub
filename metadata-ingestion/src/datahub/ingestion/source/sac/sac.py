@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple
 from authlib.integrations.requests_client import OAuth2Session
 from pydantic import Field, SecretStr, field_validator
 from requests.adapters import HTTPAdapter
+from requests.exceptions import RequestException
 from urllib3.util.retry import Retry
 
 from datahub.configuration.common import AllowDenyPattern
@@ -41,11 +42,13 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes, DatasetSubTypes
+from datahub.ingestion.source.sac.data_export_metadata import parse_data_export_metadata
 from datahub.ingestion.source.sac.sac_common import (
     ImportDataModelColumn,
     Resource,
     ResourceModel,
 )
+from datahub.ingestion.source.sap_common.models import EdmxParseResult
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -84,6 +87,12 @@ logger = logging.getLogger(__name__)
 # SAP Analytics Cloud serializes dates in OData verbose-JSON as "/Date(<ms-since-epoch>[±<offset>])/".
 _SAC_JSON_DATE_PATTERN = re.compile(r"^/Date\((?P<ms>-?\d+)(?P<offset>[+-]\d+)?\)/$")
 
+# SAP Datasphere is surfaced to SAC as a live "Data Warehouse Cloud" (DWC) connection.
+# DWC models carry an empty externalId, so their upstream urn is built from the model
+# name plus the per-connection datasphere_space rather than a parsed external id.
+_DWC_SYSTEM_TYPE = "DWC"
+_DATASPHERE_PLATFORM = "sap-datasphere"
+
 
 class ConnectionMappingConfig(EnvConfigMixin):
     platform: Optional[str] = Field(
@@ -98,6 +107,29 @@ class ConnectionMappingConfig(EnvConfigMixin):
     env: str = Field(
         default=DEFAULT_ENV,
         description="The environment that this connection mapping belongs to",
+    )
+
+    datasphere_space: Optional[str] = Field(
+        default=None,
+        description=(
+            "For SAP Datasphere ('DWC') connections only: the Datasphere space id that "
+            "backs this connection (e.g. `bdap_sac`). SAC does not expose the space for "
+            "Datasphere-backed live models, so it must be supplied here to build the "
+            "upstream sap-datasphere dataset urn (`<space>.<model_name>`). Leave unset "
+            "for non-Datasphere connections."
+        ),
+    )
+
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description=(
+            "Whether to lower-case identifiers when constructing the upstream dataset "
+            "urn for this connection. Must match the `convert_urns_to_lowercase` setting "
+            "used by the corresponding upstream connector recipe so the urns stitch. "
+            "Currently applied to SAP Datasphere ('DWC') upstreams only; BW/HANA "
+            "upstreams preserve case as before. Defaults to True (matching the SAP "
+            "Datasphere connector default)."
+        ),
     )
 
 
@@ -133,6 +165,17 @@ class SACSourceConfig(
         description="Controls whether schema metadata of Import Data Models should be ingested (ingesting schema metadata of Import Data Models significantly increases overall ingestion time)",
     )
 
+    ingest_acquired_data_model_schema_metadata: bool = Field(
+        default=False,
+        description=(
+            "Controls whether schema metadata of acquired (non-import) Data Models is ingested "
+            "via the Data Export Service. Live Data Models keep their schema in the source system "
+            "and are skipped. Ingesting this schema adds one metadata request per acquired model. "
+            "Requires the 'Data Export Service' access grant on the SAC OAuth client (see "
+            "Prerequisites)."
+        ),
+    )
+
     resource_id_pattern: AllowDenyPattern = Field(
         AllowDenyPattern.allow_all(),
         description="Patterns for selecting resource ids that are to be included",
@@ -157,6 +200,20 @@ class SACSourceConfig(
         description="Template for generating dataset urns of consumed queries, the placeholder {query} can be used within the template for inserting the name of the query",
     )
 
+    resolve_datasphere_lineage: bool = Field(
+        default=True,
+        description=(
+            "For SAC Live Data Models backed by SAP Datasphere (Data Warehouse Cloud / "
+            "'DWC' connections), emit upstream lineage to the backing SAP Datasphere "
+            "dataset. The Datasphere object's technical name is derived from the SAC "
+            "model name; the Datasphere space is not exposed by SAC and must be supplied "
+            "via `connection_mapping.<connection_id>.datasphere_space`. The upstream urn "
+            "is built deterministically (`<space>.<model_name>`) with no DataHub graph "
+            "lookup. Models on connections without a configured `datasphere_space` are "
+            "skipped with a warning."
+        ),
+    )
+
     @field_validator("tenant_url", "token_url", mode="after")
     @classmethod
     def remove_trailing_slash(cls, v):
@@ -165,7 +222,17 @@ class SACSourceConfig(
 
 @dataclass
 class SACSourceReport(StaleEntityRemovalSourceReport):
-    pass
+    acquired_model_schema_resolved: int = 0
+    # Known live (BW/HANA): skipped without a DES request.
+    acquired_model_schema_skipped_known_live: int = 0
+    # DES answered 412 (the model is live in the source system, so it rejected us).
+    acquired_model_schema_skipped_live_412: int = 0
+    acquired_model_schema_failed: int = 0
+    # SAC Live Data Models backed by SAP Datasphere (DWC connections).
+    dwc_models_scanned: int = 0
+    dwc_lineage_resolved: int = 0
+    dwc_lineage_unresolved: int = 0
+    dwc_lineage_skipped_no_space: int = 0
 
 
 @platform_name("SAP Analytics Cloud", id="sac")
@@ -182,7 +249,8 @@ class SACSourceReport(StaleEntityRemovalSourceReport):
 )
 @capability(
     SourceCapability.SCHEMA_METADATA,
-    "Enabled by default (only for Import Data Models)",
+    "Enabled by default for Import Data Models; acquired Data Models are opt-in via "
+    "ingest_acquired_data_model_schema_metadata",
 )
 class SACSource(StatefulIngestionSourceBase, TestableSource):
     config: SACSourceConfig
@@ -233,9 +301,30 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             response = session.get(url=f"{config.tenant_url}/api/v1/dataimport/models")
             response.raise_for_status()
 
-            session.close()
-
             test_report.basic_connectivity = CapabilityReport(capable=True)
+
+            # DES needs a separate optional OAuth grant; report it as a SCHEMA_METADATA
+            # capability (not basic_connectivity) so a missing grant stays actionable.
+            if config.ingest_acquired_data_model_schema_metadata:
+                des_response = session.get(
+                    url=f"{config.tenant_url}/api/v1/dataexport/administration/Namespaces(NamespaceID='sac')/Providers",
+                    params={"$top": "1"},
+                )
+                test_report.capability_report = {
+                    SourceCapability.SCHEMA_METADATA: CapabilityReport(capable=True)
+                    if des_response.ok
+                    else CapabilityReport(
+                        capable=False,
+                        failure_reason=(
+                            f"Data Export Service returned HTTP {des_response.status_code}. "
+                            "Acquired Data Model schema needs the 'Data Export Service' access "
+                            "grant on the OAuth client; grant it, or set "
+                            "ingest_acquired_data_model_schema_metadata: false."
+                        ),
+                    )
+                }
+
+            session.close()
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=f"{e}"
@@ -426,6 +515,19 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
             yield mcp.as_workunit()
 
+        if (
+            not model.is_import
+            and self.config.ingest_acquired_data_model_schema_metadata
+        ):
+            if model.system_type is None:
+                # system_type is only set for BW/HANA. DWC and undetectable/builtin models
+                # arrive as None and still hit DES (DWC 412s there; acquired models resolve).
+                yield from self._emit_acquired_model_schema(dataset_urn, model)
+            else:
+                # BW/HANA are live: skip the DES request up front. Counted separately from
+                # the 412 rejections so the report can answer "how many did DES reject?".
+                self.report.acquired_model_schema_skipped_known_live += 1
+
         if model.system_type in ("BW", "HANA") and model.external_id is not None:
             upstream_dataset_name: Optional[str] = None
 
@@ -471,15 +573,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     env=env,
                 )
 
-                if upstream_dataset_urn not in self.ingested_upstream_dataset_keys:
-                    mcp = MetadataChangeProposalWrapper(
-                        entityUrn=upstream_dataset_urn,
-                        aspect=dataset_urn_to_key(upstream_dataset_urn),
-                    )
-
-                    yield mcp.as_workunit(is_primary_source=False)
-
-                    self.ingested_upstream_dataset_keys.add(upstream_dataset_urn)
+                yield from self._emit_upstream_dataset_key(upstream_dataset_urn)
 
                 mcp = MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
@@ -500,6 +594,30 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     context=f"{model.namespace}:{model.model_id} (external_id={model.external_id})",
                     log=False,
                 )
+        elif model.system_type == _DWC_SYSTEM_TYPE:
+            # DWC is a known type; when resolution is disabled we skip it quietly rather
+            # than falling through to the "Unknown system type" warning below.
+            if self.config.resolve_datasphere_lineage:
+                self.report.dwc_models_scanned += 1
+                datasphere_upstream_urn = self._resolve_datasphere_upstream(model)
+                if datasphere_upstream_urn is not None:
+                    self.report.dwc_lineage_resolved += 1
+                    # Materialize the upstream key so the Datasphere node exists even when
+                    # that connector hasn't run yet, matching the BW/HANA path above and
+                    # keeping this lineage order-independent.
+                    yield from self._emit_upstream_dataset_key(datasphere_upstream_urn)
+
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn,
+                        aspect=UpstreamLineageClass(
+                            upstreams=[
+                                UpstreamClass(
+                                    dataset=datasphere_upstream_urn,
+                                    type=DatasetLineageTypeClass.COPY,
+                                ),
+                            ],
+                        ),
+                    ).as_workunit()
         elif model.system_type is not None:
             self.report.warning(
                 message="Unknown system type for model",
@@ -516,7 +634,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         yield mcp.as_workunit()
 
-        if model.external_id and model.connection_id and model.system_type:
+        if (
+            model.connection_id
+            and model.system_type
+            and (model.external_id or model.system_type == _DWC_SYSTEM_TYPE)
+        ):
             type_name = DatasetSubTypes.SAC_LIVE_DATA_MODEL
         elif model.is_import:
             type_name = DatasetSubTypes.SAC_IMPORT_DATA_MODEL
@@ -768,6 +890,91 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         return columns
 
+    def _emit_acquired_model_schema(
+        self, dataset_urn: str, model: ResourceModel
+    ) -> Iterable[MetadataWorkUnit]:
+        parse_result = self._get_data_export_schema(model)
+        if parse_result is None:
+            return
+
+        self.report.acquired_model_schema_resolved += 1
+        primary_fields = [f.fieldPath for f in parse_result.fields if f.isPartOfKey]
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SchemaMetadataClass(
+                schemaName=model.model_id,
+                platform=make_data_platform_urn(self.platform),
+                version=0,
+                hash="",
+                platformSchema=SchemalessClass(),
+                fields=parse_result.fields,
+                primaryKeys=primary_fields,
+            ),
+        ).as_workunit()
+
+    def _get_data_export_schema(
+        self, model: ResourceModel
+    ) -> Optional[EdmxParseResult]:
+        # The Data Export Service returns EDMX for acquired models but 412
+        # ("Requested ProviderID is not supported") for Live Data Models, whose
+        # schema lives in the source system. Treat 412 as an expected skip.
+        try:
+            response = self.session.get(
+                url=f"{self.config.tenant_url}/api/v1/dataexport/providers/sac/{model.model_id}/$metadata",
+                headers={"Accept": "application/xml"},
+            )
+        except RequestException as e:
+            # A per-model transport failure (e.g. the retry adapter exhausting on
+            # repeated 5xx) must not abort the whole run: the model is still emitted,
+            # just without a DES-derived schema.
+            self.report.acquired_model_schema_failed += 1
+            self.report.warning(
+                title="Failed to fetch acquired model schema",
+                message="The Data Export Service metadata request failed; the model is emitted without a schema.",
+                context=f"{model.namespace}:{model.model_id}: {e}",
+            )
+            return None
+        if response.status_code == 412:
+            self.report.acquired_model_schema_skipped_live_412 += 1
+            return None
+        if not response.ok:
+            self.report.acquired_model_schema_failed += 1
+            self.report.warning(
+                title="Failed to fetch acquired model schema",
+                message="The Data Export Service metadata request failed; the model is emitted without a schema.",
+                context=f"{model.namespace}:{model.model_id} (status={response.status_code})",
+            )
+            return None
+
+        parse_result = parse_data_export_metadata(response.text)
+        if parse_result.error is not None:
+            self.report.acquired_model_schema_failed += 1
+            self.report.warning(
+                title="Failed to parse acquired model schema",
+                message="The Data Export Service metadata could not be parsed; the model is emitted without a schema.",
+                context=f"{model.namespace}:{model.model_id}: {parse_result.error}",
+            )
+            return None
+        if not parse_result.fields:
+            self.report.acquired_model_schema_failed += 1
+            self.report.warning(
+                title="Acquired model schema was empty",
+                message="The Data Export Service FactData entity had no properties; the model is emitted without a schema.",
+                context=f"{model.namespace}:{model.model_id}",
+            )
+            return None
+        if parse_result.unknown_edm_types:
+            self.report.warning(
+                title="Unknown EDMX field type(s)",
+                message="Field(s) have an EDMX type that is not mapped; those columns use NullType.",
+                context=f"{model.namespace}:{model.model_id}: "
+                + ", ".join(
+                    f"{u.column}:{u.type}" for u in parse_result.unknown_edm_types
+                ),
+            )
+        return parse_result
+
     def get_query_name(self, query: str) -> str:
         if not self.config.query_name_template:
             return query
@@ -782,6 +989,71 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             return f"{schema}.{namespace}::{view}"
 
         return f"{schema}.{view}"
+
+    def _emit_upstream_dataset_key(
+        self, upstream_dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        # Emit the upstream key once so the node exists even if that source was never
+        # ingested; deduped across models so a shared upstream yields a single key.
+        if upstream_dataset_urn in self.ingested_upstream_dataset_keys:
+            return
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=upstream_dataset_urn,
+            aspect=dataset_urn_to_key(upstream_dataset_urn),
+        ).as_workunit(is_primary_source=False)
+
+        self.ingested_upstream_dataset_keys.add(upstream_dataset_urn)
+
+    def _resolve_datasphere_upstream(self, model: ResourceModel) -> Optional[str]:
+        # SAC exposes the Datasphere object's technical name (the model name) but not its
+        # space, so the space comes from connection_mapping and the urn is built directly.
+        object_name = (model.name or "").strip()
+        # SAC synthesizes `<namespace>:<model_id>` as the name when OData exposes no real
+        # technical name; that value can't identify the Datasphere object, so treat it as
+        # unresolved rather than stitching to a fabricated urn. ponytail: this string compare
+        # is coupled to the fallback built when resource models are fetched — if that format
+        # changes, promote it to an explicit "name missing" flag on ResourceModel.
+        if not object_name or object_name == f"{model.namespace}:{model.model_id}":
+            self.report.dwc_lineage_unresolved += 1
+            self.report.warning(
+                title="SAP Datasphere model has no name",
+                message=(
+                    "Cannot link a DWC-backed SAC model to its SAP Datasphere source "
+                    "because the model has no name to derive the object from."
+                ),
+                context=f"{model.connection_id}: {model.namespace}:{model.model_id}",
+                log=False,
+            )
+            return None
+
+        connection = self.config.connection_mapping.get(model.connection_id or "")
+        if connection is None or not connection.datasphere_space:
+            self.report.dwc_lineage_skipped_no_space += 1
+            self.report.warning(
+                title="SAP Datasphere space not configured",
+                message=(
+                    "Cannot link a DWC-backed SAC model to its SAP Datasphere source "
+                    "because no datasphere_space is set for the connection. Add "
+                    "connection_mapping.<connection_id>.datasphere_space (the Datasphere "
+                    "space id), or set resolve_datasphere_lineage=false to silence this."
+                ),
+                context=f"{model.connection_id}: {model.name}",
+                log=False,
+            )
+            return None
+
+        # Match the Datasphere connector's urn casing so the upstream stitches.
+        dataset_name = f"{connection.datasphere_space}.{object_name}"
+        if connection.convert_urns_to_lowercase:
+            dataset_name = dataset_name.lower()
+
+        return make_dataset_urn_with_platform_instance(
+            platform=_DATASPHERE_PLATFORM,
+            name=dataset_name,
+            platform_instance=connection.platform_instance,
+            env=connection.env,
+        )
 
     def get_schema_field_data_type(
         self, column: ImportDataModelColumn

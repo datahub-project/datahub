@@ -43,6 +43,25 @@ if [[ "${PYTEST_XDIST_WORKERS:-0}" =~ ^[1-9][0-9]*$ ]]; then
   xdist_args=(-n "${PYTEST_XDIST_WORKERS}" --dist=loadscope)
 fi
 
+# SMOKE_TIER: which criticality tier to run. "p0" selects only tests carrying
+# the p0 marker -- the pull-request gate; "full" or unset runs the whole suite.
+# CI sets it from the PYTEST_P0_SMOKE repository variable.
+#
+# Selection is a plain marker expression, so conftest's batching -- which runs
+# @pytest.hookimpl(trylast=True) -- packs the set that will actually run.
+tier_args=()
+case "${SMOKE_TIER:-full}" in
+  full) ;;
+  p0)
+    echo "SMOKE_TIER=p0: selecting only p0-marked tests"
+    tier_args=(-m p0)
+    ;;
+  *)
+    echo "ERROR: unknown SMOKE_TIER='${SMOKE_TIER}' (expected 'p0' or 'full')" >&2
+    exit 1
+    ;;
+esac
+
 # pytest exit 5 = no tests collected (empty phase for this batch is OK).
 _pytest_ok() {
   local rc=$1
@@ -88,6 +107,16 @@ run_pytest_policy_phases() {
     echo "Phase 2 failed with exit code $rc2"
   fi
 
+  # rc 5 from ONE phase is normal -- most batches hold no policy mutators
+  # (empty phase 2), and a batch of only serial modules has an empty phase 1.
+  # rc 5 from BOTH means the batch collected nothing at all, which _pytest_ok
+  # would otherwise report as success: a green job that tested nothing.
+  if [[ "$rc1" -eq 5 && "$rc2" -eq 5 ]]; then
+    echo "ERROR: both pytest phases collected 0 tests for this batch." \
+         "Refusing to report an empty run as success." >&2
+    return 1
+  fi
+
   _pytest_ok "$rc1" || return "$rc1"
   _pytest_ok "$rc2" || return "$rc2"
   return 0
@@ -96,4 +125,4 @@ run_pytest_policy_phases() {
 # When invoked via the github action, BATCH_COUNT and BATCH_NUMBER env vars are set to run a slice of those tests per
 # worker for parallelism. docker-unified.yml generates a test matrix of pytests in batches. As number of tests
 # increase, the batch_count config (in docker-unified.yml) may need adjustment.
-run_pytest_policy_phases junit.smoke-pytests
+run_pytest_policy_phases junit.smoke-pytests ${tier_args[@]+"${tier_args[@]}"}

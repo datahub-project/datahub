@@ -240,6 +240,71 @@ public class DomainWriteAuthorizationValidatorTest {
   }
 
   @Test
+  public void testPatchOnMissingEntityUsesCreatePrivilege() {
+    TestMCP patchItem =
+        TestMCP.builder()
+            .urn(DATASET_URN)
+            .entitySpec(entitySpec)
+            .aspectSpec(domainsAspectSpec)
+            .changeType(ChangeType.PATCH)
+            .build();
+    Domains after = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+    when(aspectRetriever.entityExists(any(), eq(Set.of(DATASET_URN))))
+        .thenReturn(Map.of(DATASET_URN, false));
+    when(aspectRetriever.getLatestAspectObjects(any(), eq(Set.of(DATASET_URN)), any()))
+        .thenReturn(Map.of(DATASET_URN, Map.of()));
+    domainWriteUtilsMock
+        .when(
+            () ->
+                DomainWriteAuthorizationUtils.resolveAndAccumulateProposedDomains(
+                    eq(patchItem), eq(aspectRetriever), any(), any()))
+        .thenReturn(after);
+    domainWriteUtilsMock
+        .when(
+            () ->
+                DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+                    eq(session), eq(DATASET_URN), eq(ApiOperation.CREATE), eq(true), eq(after)))
+        .thenReturn(true);
+
+    assertEquals(validate(patchItem).count(), 0);
+    domainWriteUtilsMock.verify(
+        () ->
+            DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+                eq(session), eq(DATASET_URN), eq(ApiOperation.CREATE), eq(true), eq(after)));
+    domainWriteUtilsMock.verify(
+        () -> DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(any(), any(), any(), any()),
+        Mockito.never());
+  }
+
+  @Test
+  public void testPatchOnMissingEntityDeniesWhenCreateUnauthorized() {
+    TestMCP patchItem =
+        TestMCP.builder()
+            .urn(DATASET_URN)
+            .entitySpec(entitySpec)
+            .aspectSpec(domainsAspectSpec)
+            .changeType(ChangeType.PATCH)
+            .build();
+    Domains after = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+    when(aspectRetriever.entityExists(any(), eq(Set.of(DATASET_URN))))
+        .thenReturn(Map.of(DATASET_URN, false));
+    when(aspectRetriever.getLatestAspectObjects(any(), eq(Set.of(DATASET_URN)), any()))
+        .thenReturn(Map.of(DATASET_URN, Map.of()));
+    domainWriteUtilsMock
+        .when(
+            () ->
+                DomainWriteAuthorizationUtils.resolveAndAccumulateProposedDomains(
+                    eq(patchItem), eq(aspectRetriever), any(), any()))
+        .thenReturn(after);
+    stubWriteAuth(false);
+
+    assertEquals(validate(patchItem).count(), 1);
+    domainWriteUtilsMock.verify(
+        () -> DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(any(), any(), any(), any()),
+        Mockito.never());
+  }
+
+  @Test
   public void testPatchUsesBeforeAfterEditHelper() {
     TestMCP patchItem =
         TestMCP.builder()
@@ -326,8 +391,12 @@ public class DomainWriteAuthorizationValidatorTest {
     domainWriteUtilsMock
         .when(
             () ->
-                DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
-                    eq(session), eq(DATASET_URN), eq(upsertDomains), eq(patchDomains)))
+                DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+                    eq(session),
+                    eq(DATASET_URN),
+                    eq(ApiOperation.CREATE),
+                    eq(true),
+                    eq(patchDomains)))
         .thenReturn(true);
 
     assertEquals(
@@ -338,8 +407,11 @@ public class DomainWriteAuthorizationValidatorTest {
         0);
     domainWriteUtilsMock.verify(
         () ->
-            DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
-                eq(session), eq(DATASET_URN), eq(upsertDomains), eq(patchDomains)));
+            DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+                eq(session), eq(DATASET_URN), eq(ApiOperation.CREATE), eq(true), eq(patchDomains)));
+    domainWriteUtilsMock.verify(
+        () -> DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(any(), any(), any(), any()),
+        Mockito.never());
   }
 
   @Test

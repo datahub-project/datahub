@@ -14,6 +14,7 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -97,6 +98,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
   private final Map<PathSpec, String> searchableFieldPaths;
 
   private final QueryFilterRewriteChain queryFilterRewriteChain;
+  @Nullable private final EntityIndexConfiguration entityIndexConfiguration;
 
   private SearchRequestHandler(
       @Nonnull OperationContext opContext,
@@ -138,6 +140,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     searchableFieldTypes = opContext.getSearchContext().getSearchableFieldTypes();
     searchableFieldPaths = opContext.getSearchContext().getSearchableFieldPaths();
     this.queryFilterRewriteChain = queryFilterRewriteChain;
+    this.entityIndexConfiguration = configs.getEntityIndex();
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(configs.getSearch().getCustom(), customSearchConfiguration)
             .build();
@@ -213,7 +216,12 @@ public class SearchRequestHandler extends BaseRequestHandler {
   public BoolQueryBuilder getFilterQuery(
       @Nonnull OperationContext opContext, @Nullable Filter filter) {
     return getFilterQuery(
-        opContext, this.entityNames, filter, searchableFieldTypes, queryFilterRewriteChain);
+        opContext,
+        this.entityNames,
+        filter,
+        searchableFieldTypes,
+        queryFilterRewriteChain,
+        entityIndexConfiguration);
   }
 
   public static BoolQueryBuilder getFilterQuery(
@@ -222,10 +230,22 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable Filter filter,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+    return getFilterQuery(
+        opContext, entityNames, filter, searchableFieldTypes, queryFilterRewriteChain, null);
+  }
+
+  public static BoolQueryBuilder getFilterQuery(
+      @Nonnull OperationContext opContext,
+      @Nonnull final List<String> entityNames,
+      @Nullable Filter filter,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      @Nullable EntityIndexConfiguration entityIndexConfiguration) {
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
             filter, false, searchableFieldTypes, opContext, queryFilterRewriteChain);
-    return applyDefaultSearchFilters(opContext, entityNames, filter, filterQuery);
+    return applyDefaultSearchFilters(
+        opContext, entityNames, filter, filterQuery, entityIndexConfiguration);
   }
 
   /**
