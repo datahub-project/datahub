@@ -1506,7 +1506,7 @@ _LEFT_COL_ID = "a-col-k"
 _RIGHT_COL_ID = "c-col-k"
 
 
-def _join_spec_source(source: SigmaSource, join_type: str = "left") -> None:
+def _join_spec_source(source: SigmaSource, join_type: str = "left-outer") -> None:
     """Make /spec report one join predicate: A.col_k == C.col_k.
 
     Shape mirrors a live tenant: the predicate lives under
@@ -1593,8 +1593,11 @@ def test_join_key_edge_is_scored_below_a_formula_edge() -> None:
         (lineage.upstreams or [])[0]: lineage.confidenceScore for lineage in lineages
     }
     assert by_upstream[builder.make_schema_field_urn(a_urn, "col_k")] == 1.0
-    # The fixture's joinType is "left", so the equality holds only on matched
-    # rows and the edge lands in the outer-join tier rather than at 0.7.
+    # The fixture's joinType is "left-outer" -- one of the four values Sigma's
+    # write API actually accepts -- so the equality holds only on matched rows
+    # and the edge lands in the outer-join tier rather than at 0.7. It read
+    # "left" before, which Sigma rejects outright, and passed only because the
+    # code's join-type set had guessed the same invented value.
     assert by_upstream[builder.make_schema_field_urn(c_urn, "col_k")] == 0.6
 
 

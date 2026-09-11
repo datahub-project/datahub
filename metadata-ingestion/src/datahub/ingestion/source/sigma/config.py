@@ -340,6 +340,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # joins means the spec's join shape does not match what the parser expects
     # -- check data_model_join_elements_unreadable and the DM SPEC JOIN debug
     # lines, which log the descriptor's key skeleton.
+    # Every joinType seen, verbatim. The outer-join tier (0.6 instead of 0.7)
+    # keys off this, and the accepted vocabulary is inner / left-outer /
+    # right-outer / full-outer -- verified against Sigma's own write API, which
+    # rejects everything else. Any OTHER value appearing here means a real shape
+    # is being mis-scored: the previous set was invented, listed four values
+    # Sigma does not accept, and omitted "left-outer" entirely.
+    data_model_join_types: Dict[str, int] = field(default_factory=dict)
     data_model_join_key_pairs_read: int = 0
     # ``source.kind`` values seen across every Data Model /spec, with counts.
     # The only number that says which spec shapes this parser skipped, and the

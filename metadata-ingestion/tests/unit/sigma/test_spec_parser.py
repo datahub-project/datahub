@@ -71,7 +71,12 @@ def _join(
         "kind": "join",
         "primarySource": {"elementId": "el-left", "kind": "table"},
         "joins": [
-            {"joinType": "left", "left": left, "right": right, "columns": columns}
+            {
+                "joinType": "left-outer",
+                "left": left,
+                "right": right,
+                "columns": columns,
+            }
         ],
     }
 
@@ -128,9 +133,16 @@ def test_join_type_is_captured_and_outer_joins_are_flagged() -> None:
     The consumer scores those edges lower, so the parser has to carry the type
     rather than discard it.
     """
+    # VERIFIED against Sigma's write API, which rejects anything else: only
+    # these four are accepted, and a stored spec reads the value back verbatim.
+    # This test previously asserted ("left", True) -- a value Sigma does not
+    # accept -- and passed, because the fixture guessed the same value the code
+    # did. The real gap it hid was "left-outer" being absent from the set, so
+    # every left-outer join was scored as an inner one.
     for join_type, expected_outer in (
         ("inner", False),
-        ("left", True),
+        ("left-outer", True),
+        ("right-outer", True),
         ("full-outer", True),
         ("", False),
     ):
@@ -394,3 +406,22 @@ def test_unreadable_union_yields_no_pairs_and_no_join_failure() -> None:
     )
     assert index.unions == []
     assert index.unreadable_join_element_ids == []
+
+
+def test_every_join_type_is_recorded_verbatim() -> None:
+    """A value outside the verified vocabulary must surface as a number.
+
+    Sigma's write API accepts only inner / left-outer / right-outer /
+    full-outer, but that was verified on OUR tenant. If a customer spec carries
+    something else, the outer-join tier would silently score it as inner --
+    which is exactly what the previous invented set did to "left-outer".
+    """
+    source = _join(
+        _ELEMENT_SIDE_L, _ELEMENT_SIDE_R, [{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}]
+    )
+    source["joins"][0]["joinType"] = "something-sigma-invented-later"
+    index = parse_data_model_spec(_spec(source), data_model_id="dm-1")
+
+    assert index.join_type_counts == {"something-sigma-invented-later": 1}
+    # Unrecognised, so it does NOT claim the outer tier.
+    assert index.pairs[0].is_outer is False
