@@ -29,6 +29,7 @@ import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizatio
 import com.linkedin.metadata.aspect.validation.DomainWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
+import com.linkedin.metadata.aspect.validation.FormAssignmentAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.LifecycleStageValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.LogicalParentFieldPathValidator;
@@ -719,6 +720,32 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(ALL)
                             .aspectName(ASSET_SETTINGS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.aspectAuthorization.formAssignment.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator formAssignmentAuthorizationValidator() {
+    return new FormAssignmentAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(FormAssignmentAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(FORMS_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(FORM_ENTITY_NAME)
+                            .aspectName(DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME)
                             .build()))
                 .build());
   }

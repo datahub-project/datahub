@@ -22,7 +22,7 @@ Managing Compliance Forms via the DataHub UI is only available in DataHub Cloud.
 
 ### Prerequisites
 
-In order to create, edit, or remove Compliance Forms, you must have the **Manage Compliance Forms** Platform privilege.
+In order to create, edit, or remove Compliance Forms, or to assign them to assets (including dynamic assignment filters), you must have the **Manage Compliance Forms** Platform privilege. Completing and verifying a form that has already been assigned to you does not require this privilege.
 
 ### Step 1: Create a new Compliance Form
 
