@@ -6,7 +6,7 @@
 import functools
 import logging
 from datetime import datetime
-from typing import Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import more_itertools
 
@@ -26,6 +26,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
     convert_dashboard_info_to_patch,
+    get_fine_grained_lineage_key,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -60,6 +61,9 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     create_dataplatform_instance_resolver,
 )
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
+from datahub.ingestion.source.powerbi.m_query.shared_expressions import (
+    ExpressionCache,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -134,6 +138,14 @@ class Mapper:
         self.__config = config
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
+        # M-Query parse results per dataset id. The referenced queries a table
+        # walks are dataset state, so parsing them once per table repeats work --
+        # and repeats the full parse timeout when one of them times out.
+        # Parsed referenced queries per dataset id. Dropped when the owning
+        # workspace is, alongside its scan_result -- these hold whole M-Query
+        # parse trees, which this package keeps out of `repr` precisely because
+        # retaining them is expensive.
+        self.__expression_caches: Dict[str, ExpressionCache] = {}
         self.workspace_key: Optional[ContainerKey] = None
 
     @staticmethod
@@ -142,6 +154,33 @@ class Mapper:
             return lowercase_dataset_urn(value)
 
         return value
+
+    def expression_cache_for(
+        self, dataset: Optional[powerbi_data_classes.PowerBIDataset]
+    ) -> ExpressionCache:
+        """One cache per dataset, so its tables parse a referenced query once.
+
+        A dataset-less table gets a throwaway cache rather than sharing one: its
+        referenced queries would be another dataset's, and the cache keys on
+        query name alone.
+        """
+        if dataset is None:
+            return ExpressionCache()
+        return self.__expression_caches.setdefault(dataset.id, ExpressionCache())
+
+    def release_expression_caches(self) -> None:
+        """Release the parse trees held for the workspace just emitted.
+
+        All of them, not only the ids that workspace owns: a report or tile can
+        be built on a dataset from another workspace, and that dataset's cache is
+        keyed by its own id, so releasing only the emitted workspace's ids would
+        leave those behind for the rest of the run.
+
+        The reuse that matters is within a workspace -- to_datahub_dataset is
+        re-entered per tile and per report -- so this keeps the saving while
+        bounding what is held to one workspace at a time.
+        """
+        self.__expression_caches.clear()
 
     def lineage_urn_to_lowercase(self, value):
         return Mapper.urn_to_lowercase(
@@ -353,6 +392,7 @@ class Mapper:
         # Existing M-Query parsing logic for other storage modes (Import, DirectQuery, etc.)
         # table.dataset should always be set, but we check it just in case.
         parameters = table.dataset.parameters if table.dataset else {}
+        expressions = table.dataset.expressions if table.dataset else {}
 
         upstream: List[UpstreamClass] = []
         cll_lineage: List[FineGrainedLineage] = []
@@ -370,6 +410,8 @@ class Mapper:
             ctx=self.__ctx,
             config=self.__config,
             parameters=parameters,
+            expressions=expressions,
+            cache=self.expression_cache_for(table.dataset),
         )
 
         logger.debug(
@@ -377,6 +419,7 @@ class Mapper:
         )
 
         for lineage in upstream_lineage:
+            matched_any = False
             for upstream_dpt in lineage.upstreams:
                 platform_name = (
                     upstream_dpt.data_platform_pair.powerbi_data_platform_name
@@ -387,20 +430,33 @@ class Mapper:
                     )
                     continue
 
-                upstream_table_class = UpstreamClass(
-                    self.lineage_urn_to_lowercase(upstream_dpt.urn),
-                    DatasetLineageTypeClass.TRANSFORMED,
+                matched_any = True
+                upstream.append(
+                    UpstreamClass(
+                        self.lineage_urn_to_lowercase(upstream_dpt.urn),
+                        DatasetLineageTypeClass.TRANSFORMED,
+                    )
                 )
 
-                upstream.append(upstream_table_class)
-
-                # Add column level lineage if any
+            # Column edges belong to the lineage, not to each of its upstreams --
+            # building them per upstream produced one identical copy per upstream.
+            # Still gated on an upstream surviving dataset_type_mapping, so a
+            # lineage filtered out entirely contributes no column edges.
+            if matched_any:
                 cll_lineage.extend(
                     self.make_fine_grained_lineage_class(
                         lineage=lineage,
                         dataset_urn=ds_urn,
                     )
                 )
+
+        # One table can reach the same upstream by more than one route -- two
+        # queries filtering a common source, or both branches of a conditional --
+        # and the aspect should name it once. Column edges are keyed the way the
+        # patch builder keys them, so the two paths agree on what "the same edge"
+        # means, and a route contributing a mapping the others did not survives.
+        upstream = deduplicate_list(upstream, key=lambda u: u.dataset)
+        cll_lineage = deduplicate_list(cll_lineage, key=get_fine_grained_lineage_key)
 
         if len(upstream) > 0:
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
@@ -2140,6 +2196,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
                 # Fully emitted and never revisited; drop it to free its
                 # scan_result and parsed children.
+                self.mapper.release_expression_caches()
                 del workspaces[workspace_id]
 
     def get_report(self) -> SourceReport:

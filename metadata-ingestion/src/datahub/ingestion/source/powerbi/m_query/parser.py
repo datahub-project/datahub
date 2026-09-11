@@ -24,6 +24,10 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     TRACE_POWERBI_MQUERY_PARSER,
     Lineage,
 )
+from datahub.ingestion.source.powerbi.m_query.shared_expressions import (
+    ExpressionCache,
+    SharedExpressions,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
 
@@ -64,6 +68,8 @@ def get_upstream_tables(
     ctx: PipelineContext,
     config: PowerBiDashboardSourceConfig,
     parameters: Optional[Dict[str, str]] = None,
+    expressions: Optional[Dict[str, str]] = None,
+    cache: Optional[ExpressionCache] = None,
 ) -> List[Lineage]:
     """Parse the M-Query expression on *table* and return upstream lineage.
 
@@ -72,6 +78,35 @@ def get_upstream_tables(
     caller has opted out of (``native_query_parsing=False``).
     """
     parameters = parameters or {}
+
+    # The dataset's other queries, so a reference to one that is not loaded into
+    # the model can still be followed to the data source it holds. The
+    # native_query_parsing opt-out has to apply here as well: the check below
+    # only sees the table's own expression, so without this a native query one
+    # hop away would be parsed despite the flag.
+    shared_texts = expressions or {}
+    if not config.native_query_parsing:
+        withheld = [
+            name for name, text in shared_texts.items() if "Value.NativeQuery" in text
+        ]
+        if withheld:
+            logger.debug(
+                "Not following %s (native_query_parsing=False)",
+                withheld,
+            )
+        shared_texts = {
+            name: text
+            for name, text in shared_texts.items()
+            if "Value.NativeQuery" not in text
+        }
+
+    shared = SharedExpressions(
+        texts=shared_texts,
+        parse=lambda text: _parse_with_bridge(text, config.m_query_parse_timeout),
+        # Shared across the dataset's tables when the caller supplies one, so a
+        # referenced query is parsed once per dataset rather than once per table.
+        cache=cache if cache is not None else ExpressionCache(),
+    )
 
     if table.expression is None:
         logger.debug("There is no M-Query expression in table %s", table.full_name)
@@ -151,7 +186,7 @@ def get_upstream_tables(
 
     try:
         data_access_func_details = mquery_resolver.resolve_to_data_access_functions(
-            node_map, parameters=parameters
+            node_map, parameters=parameters, shared=shared
         )
 
         if not data_access_func_details:
@@ -211,3 +246,39 @@ def get_upstream_tables(
             exc=e,
         )
         return []
+    finally:
+        # In a finally because a handler raising must not discard the record of
+        # which referenced queries came up short -- that is the diagnostic the
+        # operator needs most when a table ends up with no lineage.
+        _report_referenced_query_stops(reporter, table, shared)
+
+
+def _report_referenced_query_stops(
+    reporter: PowerBiDashboardSourceReport,
+    table: Table,
+    shared: SharedExpressions,
+) -> None:
+    """Tell the operator which referenced queries yielded nothing, and why.
+
+    One warning per stop: the report already groups entries on title and message
+    and collects a context for each occurrence, so a dataset whose queries all
+    hit the same wall lands as one entry listing them.
+
+    The counters carry table impact, not distinct failures -- a referenced query
+    is parsed once per dataset, but every table depending on it is short of
+    lineage, and that is the number worth acting on. Deliberately not
+    m_query_parse_timeouts, even for a timeout: that counter sizes
+    m_query_parse_timeout and must stay a count of timeouts actually paid.
+    """
+    for name, (reason, detail) in shared.stops.items():
+        if reason.is_failure:
+            reporter.m_query_referenced_query_failures += 1
+        else:
+            reporter.m_query_referenced_query_not_followed += 1
+
+        context = f"table-full-name={table.full_name}, query={name}"
+        reporter.warning(
+            title=reason.title,
+            message=reason.message,
+            context=f"{context}, {detail}" if detail else context,
+        )
