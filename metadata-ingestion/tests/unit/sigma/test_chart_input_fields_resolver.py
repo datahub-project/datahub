@@ -104,7 +104,7 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source._known_id_spaces = {}
     source._dm_column_owner = {}
     source._dm_url_id_by_id = {}
-    source._unknown_head_ids = set()
+    source._unknown_head_ids = {}
     return source
 
 
@@ -2088,3 +2088,73 @@ class TestWorkbookSourcesMeasurement:
 
         assert src.reporter.workbook_sources_workbooks_read == 1
         assert src.reporter.workbook_sources_dm_elements_new_vs_lineage == 1
+
+
+class TestUnknownHeadRecheck:
+    """A head missed early must not be reported as unidentifiable.
+
+    `space=` is decided when a head is first met, against a set that is still
+    filling as workbooks are walked. The re-check is the correction.
+    """
+
+    def _source(self, *, heads: Dict[str, int], spaces: Dict[str, set]) -> SigmaSource:
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src._unknown_head_ids = dict(heads)
+        src._known_id_spaces = dict(spaces)
+        return src
+
+    def test_a_head_seen_before_its_workbook_was_walked_is_recovered(self) -> None:
+        src = self._source(
+            heads={"lateHead": 5},
+            spaces={"workbook_element_id_seen_so_far": {"lateHead"}},
+        )
+        src._recheck_unknown_heads()
+
+        assert src.reporter.chart_ref_schema_unknown_head_recheck_heads == {
+            "workbook_element_id_seen_so_far": 1
+        }
+        # The columns figure is what says how much lineage is at stake.
+        assert src.reporter.chart_ref_schema_unknown_head_recheck_columns == {
+            "workbook_element_id_seen_so_far": 5
+        }
+
+    def test_a_genuinely_absent_head_stays_unidentified(self) -> None:
+        src = self._source(
+            heads={"reallyUnknown": 3},
+            spaces={"workbook_element_id_seen_so_far": {"somethingElse"}},
+        )
+        src._recheck_unknown_heads()
+
+        assert src.reporter.chart_ref_schema_unknown_head_recheck_heads == {
+            "still_unidentified": 1
+        }
+        assert src.reporter.chart_ref_schema_unknown_head_recheck_columns == {
+            "still_unidentified": 3
+        }
+
+    def test_repeated_calls_do_not_accumulate(self) -> None:
+        """get_report() runs repeatedly during a run.
+
+        The sibling accounting check had exactly this bug: it read back its own
+        previous output, so the first call was right and every one after it was
+        nonsense. Build fresh, assign once.
+        """
+        src = self._source(
+            heads={"lateHead": 5},
+            spaces={"workbook_element_id_seen_so_far": {"lateHead"}},
+        )
+        src._recheck_unknown_heads()
+        first = dict(src.reporter.chart_ref_schema_unknown_head_recheck_columns)
+        src._recheck_unknown_heads()
+        src._recheck_unknown_heads()
+
+        assert src.reporter.chart_ref_schema_unknown_head_recheck_columns == first, (
+            "the re-check must be idempotent"
+        )
+
+    def test_nothing_is_reported_when_no_head_was_unknown(self) -> None:
+        src = self._source(heads={}, spaces={"any": {"x"}})
+        src._recheck_unknown_heads()
+
+        assert src.reporter.chart_ref_schema_unknown_head_recheck_heads == {}

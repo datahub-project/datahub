@@ -650,6 +650,19 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # tenant is 1:1 across all 19 sheets; this measures whether that holds on a
     # real tenant before a resolver is built on it.
     chart_ref_schema_sheet_element_fanout: Dict[str, int] = field(default_factory=dict)
+    # The same unknown heads re-tested at END of run, once every id space is
+    # complete. `space=` is decided when a head is first met, and one space it
+    # tests against is accumulated as workbooks are walked -- so a head owned by
+    # a workbook processed later misses for reasons of ORDER, not absence. Any
+    # non-"still_unidentified" entry here is a head the first pass misreported.
+    # `_heads` counts distinct ids; `_columns` counts the columns citing them,
+    # which is the number that says how much lineage is at stake.
+    chart_ref_schema_unknown_head_recheck_heads: Dict[str, int] = field(
+        default_factory=dict
+    )
+    chart_ref_schema_unknown_head_recheck_columns: Dict[str, int] = field(
+        default_factory=dict
+    )
     # Splits unknown_source_but_name_exists_in_a_data_model_this_workbook_loads
     # by whether a same-named element actually OWNS the referenced column:
     # exactly one owner means the ref is real and the candidate list was too

@@ -670,7 +670,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Distinct unresolvable heads. 24 refs resolved to 4 heads on a dev
         # tenant, so the ref count alone overstates how many distinct objects
         # are actually unaccounted for.
-        self._unknown_head_ids: Set[str] = set()
+        # head -> how many columns cited it. Occurrences, not just distinct
+        # ids, so the end-of-run re-check can say how many COLUMNS a head
+        # that turns out to be identifiable actually accounts for.
+        self._unknown_head_ids: Dict[str, int] = {}
         # Built once per run, lazily, by _ensure_global_warehouse_index.
         self._global_warehouse_index_built: bool = False
         self._global_warehouse_file_entries: Dict[str, Dict[str, Any]] = {}
@@ -7641,6 +7644,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_report(self) -> SourceReport:
         self._check_chart_column_accounting()
+        self._recheck_unknown_heads()
         return self.reporter
 
     @staticmethod
@@ -7952,7 +7956,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             p1 = "dm_column_owner_differs"
         else:
             p1 = "unknown_column"
-        self._unknown_head_ids.add(head)
+        self._unknown_head_ids[head] = self._unknown_head_ids.get(head, 0) + 1
         self.reporter.chart_ref_schema_unknown_head_distinct = len(
             self._unknown_head_ids
         )
@@ -8055,6 +8059,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             f"reasons={sorted(item.reasons)} detail={detail!r} "
             f"nameRef_paths={paths[:6]}"
         )
+
+    def _recheck_unknown_heads(self) -> None:
+        """Re-test retained unknown heads once every id space is complete.
+
+        ``space=`` is decided the moment a head is met, and one of the spaces it
+        tests against -- ``workbook_element_id_seen_so_far`` -- is accumulated
+        AS WORKBOOKS ARE WALKED. So a head owned by a workbook processed later
+        is a guaranteed miss, and the report prints "none" as though it were
+        final. That reading put 8,370 columns in the unidentifiable bucket on
+        the last customer run; how many were merely early is unknown.
+
+        Costs nothing: every set is already in memory. Built fresh and assigned
+        once, because get_report() runs repeatedly during a run and a check that
+        reads back its own previous output reports nonsense on the second call.
+        """
+        if not self._unknown_head_ids:
+            return
+        by_space: Dict[str, int] = {}
+        columns_by_space: Dict[str, int] = {}
+        for head, occurrences in self._unknown_head_ids.items():
+            space = "still_unidentified"
+            for name, ids in self._known_id_spaces.items():
+                if head in ids:
+                    space = name
+                    break
+            by_space[space] = by_space.get(space, 0) + 1
+            columns_by_space[space] = columns_by_space.get(space, 0) + occurrences
+        self.reporter.chart_ref_schema_unknown_head_recheck_heads = by_space
+        self.reporter.chart_ref_schema_unknown_head_recheck_columns = columns_by_space
 
     def _check_chart_column_accounting(self) -> None:
         """Reconcile the chart-column counters against each other, in-run.
