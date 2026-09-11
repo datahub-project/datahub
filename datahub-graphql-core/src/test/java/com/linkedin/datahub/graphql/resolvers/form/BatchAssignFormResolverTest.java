@@ -16,7 +16,7 @@ import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-public class BatchRemoveFormResolverTest {
+public class BatchAssignFormResolverTest {
 
   private static final String TEST_DATASET_URN =
       "urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)";
@@ -28,9 +28,8 @@ public class BatchRemoveFormResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     FormService mockFormService = initMockFormService(true);
-    BatchRemoveFormResolver resolver = new BatchRemoveFormResolver(mockFormService);
+    BatchAssignFormResolver resolver = new BatchAssignFormResolver(mockFormService);
 
-    // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
@@ -40,9 +39,8 @@ public class BatchRemoveFormResolverTest {
 
     assertTrue(success);
 
-    // Validate that we called unassign on the service
     Mockito.verify(mockFormService, Mockito.times(1))
-        .batchUnassignFormForEntities(
+        .batchAssignFormToEntities(
             any(),
             Mockito.eq(ImmutableList.of(UrnUtils.getUrn(TEST_DATASET_URN))),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)));
@@ -51,9 +49,8 @@ public class BatchRemoveFormResolverTest {
   @Test
   public void testGetUnauthorized() throws Exception {
     FormService mockFormService = initMockFormService(true);
-    BatchRemoveFormResolver resolver = new BatchRemoveFormResolver(mockFormService);
+    BatchAssignFormResolver resolver = new BatchAssignFormResolver(mockFormService);
 
-    // Execute resolver
     QueryContext mockContext = getMockDenyContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
@@ -61,17 +58,16 @@ public class BatchRemoveFormResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    // Validate that we did NOT call unassign on the service
+    // Validate that we did NOT call assign on the service
     Mockito.verify(mockFormService, Mockito.times(0))
-        .batchUnassignFormForEntities(any(), Mockito.any(), Mockito.any());
+        .batchAssignFormToEntities(any(), Mockito.any(), Mockito.any());
   }
 
   @Test
   public void testThrowsError() throws Exception {
     FormService mockFormService = initMockFormService(false);
-    BatchRemoveFormResolver resolver = new BatchRemoveFormResolver(mockFormService);
+    BatchAssignFormResolver resolver = new BatchAssignFormResolver(mockFormService);
 
-    // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
@@ -79,9 +75,8 @@ public class BatchRemoveFormResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    // Validate that we called unassign on the service - but it throws an error
     Mockito.verify(mockFormService, Mockito.times(1))
-        .batchUnassignFormForEntities(
+        .batchAssignFormToEntities(
             any(),
             Mockito.eq(ImmutableList.of(UrnUtils.getUrn(TEST_DATASET_URN))),
             Mockito.eq(UrnUtils.getUrn(TEST_FORM_URN)));
@@ -93,7 +88,7 @@ public class BatchRemoveFormResolverTest {
     if (!shouldSucceed) {
       Mockito.doThrow(new RuntimeException())
           .when(service)
-          .batchUnassignFormForEntities(any(), Mockito.any(), Mockito.any());
+          .batchAssignFormToEntities(any(), Mockito.any(), Mockito.any());
     }
 
     return service;

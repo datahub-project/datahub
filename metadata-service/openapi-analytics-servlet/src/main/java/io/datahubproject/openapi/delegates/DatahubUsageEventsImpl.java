@@ -1,12 +1,10 @@
 package io.datahubproject.openapi.delegates;
 
-import static com.linkedin.metadata.authorization.ApiGroup.ANALYTICS;
-import static com.linkedin.metadata.authorization.ApiOperation.READ;
-
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -50,10 +48,19 @@ public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
         _searchService.raw(opContext, DATAHUB_USAGE_INDEX, body).map(Objects::toString));
   }
 
+  /**
+   * This endpoint forwards a caller-supplied search request to the search engine, which is
+   * considerably more powerful than viewing the analytics dashboard. It therefore requires the
+   * dedicated {@code GET_ANALYTICS_PRIVILEGE} (or {@code MANAGE_SYSTEM_OPERATIONS}), not the {@code
+   * VIEW_ANALYTICS} privilege that every user holds by default.
+   */
   private void checkAnalyticsAuthorized(@Nonnull OperationContext opContext) {
-    if (!AuthUtil.isAPIAuthorized(opContext, ANALYTICS, READ)) {
+    if (!AuthUtil.isAPIOperationsAuthorized(opContext, PoliciesConfig.GET_ANALYTICS_PRIVILEGE)) {
       throw new UnauthorizedException(
-          opContext.getActorContext().getActorUrn() + " is unauthorized to get analytics.");
+          opContext.getActorContext().getActorUrn()
+              + " is unauthorized to query raw analytics data. Requires "
+              + PoliciesConfig.GET_ANALYTICS_PRIVILEGE.getType()
+              + ".");
     }
   }
 }
