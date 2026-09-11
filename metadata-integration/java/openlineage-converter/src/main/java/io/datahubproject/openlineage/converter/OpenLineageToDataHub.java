@@ -437,7 +437,7 @@ public class OpenLineageToDataHub {
       jobBuilder.eventTime(event.getEventTime().toInstant().toEpochMilli());
     }
 
-    log.info("Emitting lineage: {}", OpenLineageClientUtils.toJson(event));
+    log.debug("Emitting lineage: {}", OpenLineageClientUtils.toJson(event));
     DataFlowInfo dfi = convertRunEventToDataFlowInfo(event, datahubConf.getPipelineName());
 
     String processingEngine = null;
@@ -956,7 +956,7 @@ public class OpenLineageToDataHub {
       @SuppressWarnings("unchecked")
       Map<String, Object> sparkProperties =
           (Map<String, Object>) facet.getAdditionalProperties().get("properties");
-      log.info("Spark properties: {}, Properties: {}", facet, sparkProperties);
+      log.debug("Spark properties: {}, Properties: {}", facet, sparkProperties);
       if (sparkProperties != null) {
         forEachValue(sparkProperties, customProperties);
       }
