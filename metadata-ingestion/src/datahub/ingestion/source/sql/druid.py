@@ -1,12 +1,12 @@
 # This import verifies that the dependencies are available.
-from typing import Any, Dict, Optional
+from typing import Annotated, Any, Dict, Optional
 
 import pydruid  # noqa: F401
 from pydantic.fields import Field
 from pydruid.db.sqlalchemy import DruidDialect
 from sqlalchemy.exc import ResourceClosedError
 
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, Filters, HiddenFromDocs
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -15,6 +15,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 
@@ -35,7 +36,14 @@ DruidDialect.get_table_names = get_table_names
 class DruidConfig(BasicSQLAlchemyConfig):
     # defaults
     scheme: HiddenFromDocs[str] = "druid"
-    schema_pattern: AllowDenyPattern = Field(
+    # Annotated, not a bare redeclaration: pydantic v2 replaces the annotation
+    # wholesale, so restating an inherited field silently drops the Filters(...)
+    # the parent attached. Nothing failed when it did -- the `<kind>_pattern`
+    # name convention covered for it -- which is how BigQuery came to resolve
+    # to a deprecated alias and report wrong verdicts.
+    schema_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(
         default=AllowDenyPattern(deny=["^(lookup|sysgit|view).*"]),
         description="regex patterns for schemas to filter in ingestion.",
     )

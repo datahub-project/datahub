@@ -1,8 +1,20 @@
 import re
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from sqlalchemy import text
+from sqlalchemy.engine import Connection
 from sqlalchemy.sql.elements import TextClause
+
+# Databases Postgres/RDS always excludes from enumeration, independent of
+# database_pattern -- template databases can't be connected to (see
+# https://www.postgresql.org/docs/current/manage-ag-templatedbs.html) and
+# rdsadmin is AWS RDS's internal administrative database. Single source of
+# truth for PostgresQuery.list_databases() below and the agent probe
+# (PostgresConfig.default_databases()).
+POSTGRES_SYSTEM_DATABASES = ("template0", "template1", "rdsadmin")
+_SYSTEM_DATABASE_EXCLUSION = ", ".join(
+    f"'{name}'" for name in POSTGRES_SYSTEM_DATABASES
+)
 
 
 class PostgresQuery:
@@ -67,6 +79,19 @@ class PostgresQuery:
         return text(
             "SELECT current_setting('server_version_num')::integer as version_num"
         )
+
+    @staticmethod
+    def list_databases(conn: Connection) -> List[str]:
+        """List databases visible on this connection, minus Postgres/RDS
+        system databases (see POSTGRES_SYSTEM_DATABASES). Does not apply
+        database_pattern -- callers (PostgresSource.get_inspectors() and the
+        agent probe) apply that themselves, so both filter on the exact same
+        raw listing rather than each re-deriving it.
+        """
+        rows = conn.execute(
+            f"SELECT datname from pg_database where datname not in ({_SYSTEM_DATABASE_EXCLUSION})"
+        )
+        return [str(row["datname"]) for row in rows]
 
     @staticmethod
     def get_query_history(

@@ -316,6 +316,17 @@ class SnowflakeConnectionConfig(ConfigModel):
         self.options["connect_args"] = options_connect_args
         return self.options
 
+    # Overrides the SQLAlchemy answer inherited from SQLCommonConfig: this
+    # connector probes through its own client, not a second engine. Inheriting it
+    # would advertise six typed getters that provider does not have.
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.snowflake.snowflake_probe import (
+            SnowflakeMetadataProbe,
+        )
+
+        return SnowflakeMetadataProbe
+
     def get_oauth_connection(self) -> NativeSnowflakeConnection:
         assert self.oauth_config, (
             "oauth_config should be provided if using oauth based authentication"

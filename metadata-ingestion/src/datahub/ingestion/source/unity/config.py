@@ -2,7 +2,7 @@ import logging
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Union
+from typing import Annotated, Callable, Dict, List, Optional, Union
 
 import pydantic
 from pydantic import Field, field_validator, model_validator
@@ -12,6 +12,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigEnum,
     ConfigModel,
+    Filters,
     HiddenFromDocs,
 )
 from datahub.configuration.source_common import (
@@ -27,6 +28,10 @@ from datahub.ingestion.api.incremental_ownership_helper import (
 from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
 )
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -37,6 +42,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulProfilingConfigMixin,
 )
 from datahub.ingestion.source.unity.connection import UnityCatalogConnectionConfig
+from datahub.ingestion.source.unity.proxy_types import qualified_table_name
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
@@ -245,12 +251,19 @@ class UnityCatalogSourceConfig(
         description="Regex patterns for catalogs to filter in ingestion. Specify regex to match the full `metastore.catalog` name.",
     )
 
-    schema_pattern: AllowDenyPattern = Field(
+    # Annotated, not a bare redeclaration: pydantic v2 replaces the annotation
+    # wholesale, so restating an inherited field silently drops the Filters(...)
+    # the parent attached. Nothing failed when it did -- the `<kind>_pattern`
+    # name convention covered for it -- which is how BigQuery came to resolve
+    # to a deprecated alias and report wrong verdicts.
+    schema_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for schemas to filter in ingestion. Specify regex to the full `metastore.catalog.schema` name. e.g. to match all tables in schema analytics, use the regex `^mymetastore\\.mycatalog\\.analytics$`.",
     )
 
-    table_pattern: AllowDenyPattern = Field(
+    table_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in `catalog.schema.table` format. e.g. to match all tables starting with customer in Customer catalog and public schema, use the regex `Customer\\.public\\.customer.*`.",
     )
@@ -620,6 +633,47 @@ class UnityCatalogSourceConfig(
 
     def uses_table_level_profiler(self) -> bool:
         return self.is_sqlalchemy_profiling()
+
+    def probe_filter_target(
+        self,
+        schema: str,
+        entity: str,
+        warn: Callable[[str], None],
+        database: Optional[str] = None,
+    ) -> Optional[str]:
+        """sql_probe.py's generic get_identifier shim has no get_identifier to
+        call for Unity Catalog: UnityCatalogSource doesn't extend
+        SQLAlchemySource, and process_tables (source.py) actually matches
+        table_pattern against `table.ref.qualified_table_name`, i.e.
+        `<catalog>.<schema>.<table>` (see proxy_types.qualified_table_name,
+        reused here rather than reimplemented).
+
+        The probe's Table level otherwise only knows `schema` -- it has no
+        catalog in its parent_path (Unity Catalog reuses SQLCommonConfig's
+        schema-top hierarchy for this level; see sql_probe.SQL_PROBE) -- so the
+        catalog has to come from config, exactly as RedshiftConfig's `database`
+        does. Unlike `database`, `catalogs` is a list: only usable here when it
+        pins exactly one, since a pattern-selected or multi-catalog recipe has
+        no single answer to hand back without guessing.
+
+        Degrading to None (the shim's plain "schema.entity") is a real loss of
+        accuracy versus ingestion's "catalog.schema.table" -- silently
+        returning it would repeat the exact defect this stage exists to
+        remove, just for a different reason. So the degrade is reported via
+        `warn`, which feeds the same ProbeMethodResult.warnings list ProbeSoftError
+        does (see ClassifyContext.warn), not just explained here in a
+        docstring the agent never sees.
+        """
+        if self.catalogs is not None and len(self.catalogs) == 1:
+            return qualified_table_name(self.catalogs[0], schema, entity)
+
+        warn(
+            "unity-catalog: `catalogs` does not pin exactly one catalog, so "
+            "table verdicts are matched against `schema.table` while "
+            "ingestion matches `catalog.schema.table`; set a single catalog "
+            "for exact verdicts."
+        )
+        return None
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."

@@ -2,7 +2,15 @@ import logging
 import re
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 from pydantic import (
     Field,
@@ -13,7 +21,13 @@ from pydantic import (
     model_validator,
 )
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Filters,
+    HiddenFromDocs,
+    Qualifier,
+)
 from datahub.configuration.env_vars import get_bigquery_schema_parallelism
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -31,8 +45,12 @@ from datahub.ingestion.glossary.classification_mixin import (
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
+from datahub.ingestion.source.sql.sql_config import (
+    SQLCommonConfig,
+    SQLFilterConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -214,7 +232,7 @@ class GcsDatasetLineageProviderConfigBase(ConfigModel):
 
 
 class BigQueryFilterConfig(SQLFilterConfig):
-    project_ids: List[str] = Field(
+    project_ids: Annotated[List[str], Qualifier()] = Field(
         default_factory=list,
         description=(
             "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
@@ -232,12 +250,23 @@ class BigQueryFilterConfig(SQLFilterConfig):
         ),
     )
 
-    project_id_pattern: AllowDenyPattern = Field(
+    project_id_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.BIGQUERY_PROJECT)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for project_id to filter in ingestion.",
     )
 
-    dataset_pattern: AllowDenyPattern = Field(
+    # Annotated so the probe resolves Schema to *this* field. Without the hint it
+    # falls back to the `<kind>_pattern` name convention, which finds the
+    # schema_pattern alias below -- and that alias is allow-all unless the recipe
+    # sets it, so `probe filter --kind Schema` reported every dataset included
+    # while ingestion filtered on dataset_pattern and excluded most of them. A
+    # verdict that says "this will be ingested" about something that will not is
+    # the failure the command exists to prevent.
+    dataset_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for dataset to filter in ingestion. Specify regex to only match the schema name. "
         "e.g. to match all tables in schema analytics, use the regex 'analytics'",
@@ -257,6 +286,10 @@ class BigQueryFilterConfig(SQLFilterConfig):
     )
 
     # NOTE: `schema_pattern` is added here only to hide it from docs.
+    # Deliberately not annotated with Filters(...): it is a deprecated alias that
+    # the validator below folds into dataset_pattern, and only when
+    # dataset_pattern is unset. Labelling it would point an agent at a field that
+    # is ignored whenever the canonical one is set.
     schema_pattern: HiddenFromDocs[AllowDenyPattern] = Field(
         default=AllowDenyPattern.allow_all(),
     )

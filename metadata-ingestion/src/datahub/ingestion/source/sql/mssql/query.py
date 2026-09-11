@@ -1,7 +1,24 @@
 from typing import Dict, List, Optional, Tuple, Union
 
 from sqlalchemy import text
+from sqlalchemy.engine import Connection
 from sqlalchemy.sql.elements import TextClause
+
+# Databases MSSQL always excludes from enumeration, independent of
+# database_pattern -- SQL Server's own system databases plus the reporting
+# services pair. Single source of truth for MSSQLQuery.list_databases()
+# below and the agent probe (SQLServerConfig.default_databases()).
+MSSQL_SYSTEM_DATABASES = (
+    "master",
+    "model",
+    "msdb",
+    "tempdb",
+    "Resource",
+    "distribution",
+    "reportserver",
+    "reportservertempdb",
+)
+_SYSTEM_DATABASE_EXCLUSION = ", ".join(f"'{name}'" for name in MSSQL_SYSTEM_DATABASES)
 
 
 class MSSQLQuery:
@@ -171,7 +188,20 @@ class MSSQLQuery:
     def get_mssql_version() -> TextClause:
         """Get SQL Server version number."""
         return text("""
-            SELECT 
+            SELECT
                 CAST(SERVERPROPERTY('ProductVersion') AS VARCHAR) AS version,
                 CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) AS major_version
         """)
+
+    @staticmethod
+    def list_databases(conn: Connection) -> List[str]:
+        """List databases visible on this connection, minus MSSQL system
+        databases (see MSSQL_SYSTEM_DATABASES). Does not apply
+        database_pattern -- callers (SQLServerSource.get_inspectors() and the
+        agent probe) apply that themselves, so both filter on the exact same
+        raw listing rather than each re-deriving it.
+        """
+        rows = conn.execute(
+            f"SELECT name FROM master.sys.databases WHERE name NOT IN ({_SYSTEM_DATABASE_EXCLUSION})"
+        ).fetchall()
+        return [str(row["name"]) for row in rows]

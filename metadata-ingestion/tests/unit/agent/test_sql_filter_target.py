@@ -1,0 +1,535 @@
+from types import SimpleNamespace
+from typing import Any, Callable, List, cast
+
+import pytest
+from sqlalchemy.engine.reflection import Inspector
+
+import datahub.ingestion.source.sql.sql_probe as sql_probe_module
+from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.verdicts import ClassifyContext
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.redshift.config import RedshiftConfig
+from datahub.ingestion.source.sql.druid import DruidConfig
+from datahub.ingestion.source.sql.mysql import MySQLConfig
+from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
+from datahub.ingestion.source.sql.sql_probe import (
+    _identifier_target,
+    _shim_inspector,
+)
+from datahub.ingestion.source.sql.trino import TrinoConfig
+from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+
+# db2 and starrocks are imported inside the two tests that need them, and not
+# up here with the rest.
+#
+# The reason is only true of db2, and this comment claimed it of both until a
+# reviewer checked setup.py: `starrocks>=1.3.3,<2.0` is in the `[dev]` block
+# unconditionally, so its dialect is installed wherever these tests run.
+# db2's is not unconditional -- "ibm_db_sa==0.4.3; platform_machine ==
+# 'x86_64' or platform_system == 'Darwin'" -- so it is present on a Mac or an
+# x86_64 runner and absent on, say, linux aarch64.
+#
+# Both imports stay local anyway, and starrocks' is now insurance rather than
+# necessity: it works today only because neither module imports its driver at
+# import time, and nothing enforces that. A top-level `import ibm_db_sa`
+# added to db2.py would turn this file's collection into an error and take
+# all of its tests down with it, instead of failing the one test that needs
+# db2.
+#
+# db2 cannot be added to `[dev]` to make the guarantee real: its requirement is
+# platform-conditional ("ibm_db_sa==0.4.3; platform_machine == 'x86_64' or
+# platform_system == 'Darwin'"), so there is no environment where it always
+# installs. Keeping the import local is what bounds the damage to one test.
+#
+# The other connectors here are safe at module scope, checked rather than
+# assumed: athena, bigquery, druid, kafka, mode, postgres, redshift, snowflake,
+# trino and unity-catalog are all in `[dev]`. Two are not, and neither needs to
+# be -- hex's extra is only requests and sqlglot, both core; and mysql.py does
+# hard-import pymysql, but `mysql`, `mariadb` and `tidb` share one requirement
+# set and the latter two are in `[dev]`, so the driver arrives either way.
+
+
+def _ignore_warn(message: str) -> None:
+    """Default `warn` sink for tests that don't exercise a degrade path."""
+
+
+class _WarningCollector:
+    """Test-only `warn` sink mirroring ClientProbe.list_children's dedup, so a
+    unit test can assert on collected messages without going through a real
+    probe call."""
+
+    def __init__(self) -> None:
+        self.messages: List[str] = []
+
+    def __call__(self, message: str) -> None:
+        if message not in self.messages:
+            self.messages.append(message)
+
+
+def _ctx(
+    config: Any,
+    schema: str,
+    entity: str,
+    warn: Callable[[str], None] = _ignore_warn,
+) -> ClassifyContext:
+    return ClassifyContext(
+        config=config,
+        name=entity,
+        fqn=f"{schema}.{entity}",
+        pattern_field="table_pattern",
+        parent_path=(schema,),
+        warn=warn,
+    )
+
+
+def _container_ctx(config: Any, schema: str) -> ClassifyContext:
+    # The Schema level is the top of the (schema-top) SQL_PROBE hierarchy, so
+    # it has no parent -- ctx.parent_path is empty and ctx.fqn is just the
+    # bare schema name, mirroring how ClientProbe._nodes_for_level builds it.
+    return ClassifyContext(
+        config=config,
+        name=schema,
+        fqn=schema,
+        pattern_field="schema_pattern",
+        parent_path=(),
+        warn=_ignore_warn,
+    )
+
+
+def test_shim_matches_get_identifier_for_each_sql_source():
+    """The probe's filter target is whatever the source's own get_identifier
+    says. trino/druid/mysql override get_identifier at the Config level, so
+    the real function is directly reachable and checked here without an
+    instantiated Source; postgres overrides it at the Source level instead,
+    so it gets its own (stronger) check in
+    test_shim_matches_a_real_postgres_source_instance below. Verified values:
+
+        postgres, database from the connection : mydb.public.orders
+        postgres, database from config         : explicit_db.public.orders
+        trino   (config-level get_identifier)  : hive.public.orders
+        druid   (config-level get_identifier)  : orders
+        mysql   (config-level get_identifier)  : app.orders
+    """
+
+    # Kept as separate, concretely-typed assertions (rather than one loop over
+    # a mixed list) so each config's own get_identifier is checked against its
+    # own declared signature, not a common supertype that doesn't declare it.
+    trino_config = TrinoConfig(host_port="localhost:8080", database="hive")
+    assert trino_config.get_identifier(schema="public", table="orders") == (
+        "hive.public.orders"
+    )
+    assert _identifier_target(_ctx(trino_config, "public", "orders")) == (
+        "hive.public.orders"
+    )
+
+    druid_config = DruidConfig(host_port="localhost:8082")
+    assert druid_config.get_identifier(schema="public", table="orders") == "orders"
+    assert _identifier_target(_ctx(druid_config, "public", "orders")) == "orders"
+
+    mysql_config = MySQLConfig(host_port="localhost:3306")
+    assert mysql_config.get_identifier(schema="app", table="orders") == "app.orders"
+    assert _identifier_target(_ctx(mysql_config, "app", "orders")) == "app.orders"
+
+
+def test_shim_matches_a_real_postgres_source_instance():
+    """Postgres overrides get_identifier at the Source level (not the
+    Config), so the strongest check is against a fully constructed
+    PostgresSource -- not the probe's shim -- fed the exact same pure
+    inspector stand-in. Proves __new__(PostgresSource) resolves get_db_name
+    identically to a real instance, not just plausibly. Covers both of
+    postgres's branches: database taken from the live connection, and
+    database pinned explicitly in the recipe."""
+
+    from_connection = PostgresConfig(
+        host_port="localhost:5432",
+        sqlalchemy_uri="postgresql://user@localhost:5432/mydb",
+    )
+    from_config = PostgresConfig(
+        host_port="localhost:5432",
+        sqlalchemy_uri="postgresql://user@localhost:5432/mydb",
+        database="explicit_db",
+    )
+    for config, expected in [
+        (from_connection, "mydb.public.orders"),
+        (from_config, "explicit_db.public.orders"),
+    ]:
+        real_source = PostgresSource(config, PipelineContext(run_id="test"))
+        # cast: _shim_inspector's stand-in is deliberately not a real
+        # Inspector (see sql_probe.py), only pure-parseable-URL-shaped.
+        real_target = real_source.get_identifier(
+            schema="public",
+            entity="orders",
+            inspector=cast(Inspector, _shim_inspector(config)),
+        )
+        assert real_target == expected
+        assert _identifier_target(_ctx(config, "public", "orders")) == real_target
+
+
+def test_postgres_identifier_target_pins_the_database_from_a_database_level():
+    """With a Database level above Schema (see sql_probe._build's
+    database_url= branch), ctx.parent_path is (database, schema) instead of
+    just (schema,) -- the database segment must come from that path element,
+    not from get_db_name(inspector)'s default-connection fallback (which would
+    silently report whatever config.database/the bare connection happens to
+    be, wrong for any database other than the first one iterated). No
+    double-prefixing: the result has exactly three dot-separated parts."""
+
+    config = PostgresConfig(host_port="localhost:5432")
+    ctx = ClassifyContext(
+        config=config,
+        name="orders",
+        fqn="salesdb.public.orders",
+        pattern_field="table_pattern",
+        parent_path=("salesdb", "public"),
+        warn=_ignore_warn,
+    )
+    target = _identifier_target(ctx)
+    assert target == "salesdb.public.orders"
+    assert target.count(".") == 2
+
+    # Matches a real, fully constructed PostgresSource fed the same per-database
+    # shim -- not just the probe's own shim resolving consistently with itself.
+    real_source = PostgresSource(config, PipelineContext(run_id="test"))
+    # cast: _shim_inspector's stand-in is deliberately not a real Inspector
+    # (see sql_probe.py), only pure-parseable-URL-shaped.
+    real_target = real_source.get_identifier(
+        schema="public",
+        entity="orders",
+        inspector=cast(Inspector, _shim_inspector(config, database="salesdb")),
+    )
+    assert target == real_target
+
+
+def test_postgres_identifier_target_unaffected_without_a_database_level():
+    """The generic (schema-top) SQL_PROBE's Table level still has parent_path
+    of length 1 -- this must stay exactly as it was before the Database level
+    existed (get_db_name's default-connection fallback), a regression guard
+    against the length check in _identifier_target misfiring for every other
+    SQL connector."""
+
+    config = PostgresConfig(
+        host_port="localhost:5432",
+        sqlalchemy_uri="postgresql://user@localhost:5432/mydb",
+    )
+    assert _identifier_target(_ctx(config, "public", "orders")) == "mydb.public.orders"
+
+
+def test_druid_target_stays_the_bare_table_name():
+    """Druid is the canary: pydruid already formats table names fully
+    qualified, so DruidConfig.get_identifier drops the schema entirely. Any
+    structural (schema.table) rule would get this wrong -- if this test ever
+    starts failing, the fix has gone structural again."""
+
+    config = DruidConfig(host_port="localhost:8082")
+    ctx = _ctx(config, "public", "orders")
+    assert _identifier_target(ctx) == "orders"
+
+
+def test_db2_shim_still_applies_the_uppercase_db_name_override():
+    """Db2Source overrides get_db_name (uppercasing it), and its
+    get_identifier calls self.get_db_name -- so the shim must be a real
+    (uninitialized) Db2Source instance, not a generic stand-in carrying only
+    the base get_db_name, or this override's super() call would either raise
+    or silently skip the uppercasing."""
+    # Local: db2's driver is outside `[dev]` -- see the note beside the imports.
+    from datahub.ingestion.source.sql.db2 import Db2Config
+
+    config = Db2Config(host_port="localhost:50000", database="mydb")
+    ctx = _ctx(config, "public", "orders")
+    assert _identifier_target(ctx) == "MYDB.public.orders"
+
+
+def test_starrocks_shim_primes_current_catalog_to_its_init_state():
+    """StarRocksSource.get_identifier reads self._current_catalog, which
+    real ingestion reassigns before every table (get_inspectors sets it once
+    per catalog, ahead of enumerating that catalog's tables) -- so it is
+    never actually None while any table is being classified. At __init__,
+    though, it IS None, and get_identifier's own fallback for a None catalog
+    is the literal "default_catalog" -- StarRocks's name for its built-in
+    internal catalog that most tables actually live in. Priming the shim to
+    that same __init__ value (mirroring current_database's mssql handling)
+    turns what used to be an AttributeError fallback into a real answer, not
+    a guess: this is exactly the failure mode a recipe with
+    table_pattern.allow: ["default_catalog\\.analytics\\..*"] hit before this
+    fix (every table reported excluded_by: table_pattern while ingestion
+    ingested them all). No warning: this is a real (if partial -- external
+    catalogs still can't be resolved) answer, not a degrade."""
+    # Local for symmetry with the db2 test, not because the dialect is
+    # missing: `[dev]` does install starrocks. See the note beside the
+    # imports.
+    from datahub.ingestion.source.sql.starrocks import StarRocksConfig
+
+    config = StarRocksConfig()
+    warn = _WarningCollector()
+    ctx = _ctx(config, "analytics", "orders", warn=warn)
+    assert _identifier_target(ctx) == "default_catalog.analytics.orders"
+    assert warn.messages == []
+
+
+def test_attribute_error_fallback_message_excludes_fqn_so_dedupe_works(monkeypatch):
+    """Regression guard: ctx.warn dedupes on message identity (see
+    ClientProbe.list_children's warn closure), but an earlier version of this
+    message embedded ctx.fqn, which is different for every node -- defeating
+    the dedupe and, per a whole-plan review, flooding ProbeResult.warnings
+    with one near-identical entry per table (measured: 200 for 200 StarRocks
+    tables, before StarRocks itself was fixed to no longer hit this path at
+    all -- see test_starrocks_shim_primes_current_catalog_to_its_init_state
+    above). Faking the AttributeError here (rather than relying on a real
+    connector) keeps this test valid regardless of which real connectors do
+    or don't exercise the fallback at any given time.
+    """
+
+    class _FakeSource:
+        def get_identifier(self, *, schema, entity, inspector):
+            raise AttributeError("'_FakeSource' object has no attribute '_never_set'")
+
+    monkeypatch.setattr(
+        sql_probe_module, "_source_class_for", lambda config: _FakeSource
+    )
+    config = SimpleNamespace(get_sql_alchemy_url=lambda: "sqlite://")
+
+    warn = _WarningCollector()
+    for entity in ("orders", "sessions", "customers"):
+        ctx = _ctx(config, "public", entity, warn=warn)
+        # Falls back to the plain fqn for every node -- this assertion
+        # doesn't change; only how many warnings that produces does.
+        assert _identifier_target(ctx) == ctx.fqn
+    # Before this fix: 3 distinct messages (one per fqn). After: 1.
+    assert len(warn.messages) == 1
+    assert "_FakeSource" in warn.messages[0]
+    assert "_never_set" in warn.messages[0]
+
+
+def test_redshift_probe_filter_target_includes_the_database_segment():
+    """RedshiftSource doesn't extend SQLAlchemySource, so the generic shim has
+    no get_identifier to call -- RedshiftConfig.probe_filter_target supplies
+    ingestion's own "database.schema.table" target instead (see
+    redshift.py's _process_table / _process_view / cache_tables_and_views,
+    which all match table_pattern/view_pattern against that same string)."""
+
+    config = RedshiftConfig(host_port="localhost:5439", database="analytics")
+    assert _identifier_target(_ctx(config, "public", "orders")) == (
+        "analytics.public.orders"
+    )
+
+
+def test_unity_catalog_probe_filter_target_includes_the_catalog_segment():
+    """UnityCatalogSource also doesn't extend SQLAlchemySource; process_tables
+    (source.py) matches table_pattern against table.ref.qualified_table_name,
+    i.e. "catalog.schema.table". A recipe pinning exactly one catalog gives
+    UnityCatalogSourceConfig.probe_filter_target an unambiguous answer -- the
+    normal, non-degraded case, so it must record no warning."""
+
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://workspace_url",
+            "catalogs": ["main"],
+        }
+    )
+    warn = _WarningCollector()
+    assert _identifier_target(_ctx(config, "public", "orders", warn=warn)) == (
+        "main.public.orders"
+    )
+    assert warn.messages == []
+
+
+def test_unity_catalog_probe_filter_target_falls_back_without_one_pinned_catalog():
+    """Without exactly one catalog pinned (none, or several), there is no
+    single catalog to prepend without guessing -- so this falls back to the
+    generic shim's plain "schema.entity" rather than fabricating an answer.
+    That degrade must be visible to whatever reads ProbeResult.warnings, not
+    just explained in a docstring -- a plausible-looking two-part target with
+    no accompanying warning is exactly the silent-mismatch defect this whole
+    stage exists to remove, so both ambiguous shapes (no catalogs, several
+    catalogs) must record one."""
+
+    no_catalogs = UnityCatalogSourceConfig.model_validate(
+        {"token": "token", "workspace_url": "https://workspace_url"}
+    )
+    warn = _WarningCollector()
+    assert _identifier_target(_ctx(no_catalogs, "public", "orders", warn=warn)) == (
+        "public.orders"
+    )
+    assert len(warn.messages) == 1
+    assert "unity-catalog" in warn.messages[0]
+    assert "catalogs" in warn.messages[0]
+
+    several_catalogs = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://workspace_url",
+            "catalogs": ["main", "other"],
+        }
+    )
+    warn = _WarningCollector()
+    assert _identifier_target(
+        _ctx(several_catalogs, "public", "orders", warn=warn)
+    ) == ("public.orders")
+    assert len(warn.messages) == 1
+    assert "unity-catalog" in warn.messages[0]
+
+
+def test_unity_catalog_probe_warning_is_not_duplicated_per_node():
+    """A single connector-wide reason must not be appended once per node
+    classified in one list_children() call -- see ClientProbe.list_children's
+    warn dedup. Simulates classifying two different tables under the same
+    ambiguous config within one probe call."""
+
+    config = UnityCatalogSourceConfig.model_validate(
+        {"token": "token", "workspace_url": "https://workspace_url"}
+    )
+    warn = _WarningCollector()
+    _identifier_target(_ctx(config, "public", "orders", warn=warn))
+    _identifier_target(_ctx(config, "public", "sessions", warn=warn))
+    assert len(warn.messages) == 1
+
+
+def _schema_verdict(config_dict, name="public"):
+    """Drive the same Redshift rule through the command that owns it now."""
+
+    result = check_filters(
+        source_type="redshift",
+        config_dict=config_dict,
+        kind="Schema",
+        parent_path=[],
+        names=[name],
+    )
+    return result.results[0]
+
+
+_REDSHIFT = {"host_port": "localhost:5439", "database": "analytics"}
+
+
+def test_redshift_schema_verdict_matches_fully_qualified_name_when_enabled():
+    """redshift.py gates schema iteration through is_schema_allowed(...,
+    match_fully_qualified_names) -- so once that flag is on, ingestion checks
+    "database.schema" against schema_pattern, not the bare schema name.
+    RedshiftConfig.probe_schema_verdict_override carries that, and
+    filter_check consults it before applying the pattern generically."""
+    bare_name_deny = _schema_verdict(
+        {
+            **_REDSHIFT,
+            "match_fully_qualified_names": True,
+            "schema_pattern": {"deny": [r"^public$"]},
+        }
+    )
+    # A deny anchored to the bare schema name no longer excludes once
+    # match_fully_qualified_names is on: ingestion checks "analytics.public".
+    assert bare_name_deny.included is True
+    assert bare_name_deny.excluded_by is None
+
+    qualified_deny = _schema_verdict(
+        {
+            **_REDSHIFT,
+            "match_fully_qualified_names": True,
+            "schema_pattern": {"deny": [r"^analytics\.public$"]},
+        }
+    )
+    assert qualified_deny.included is False
+    assert qualified_deny.excluded_by == "schema_pattern"
+
+
+def test_redshift_schema_verdict_unchanged_when_flag_is_off():
+    """match_fully_qualified_names defaults to False, so the override must be a
+    no-op and the bare-name check stays exactly as every other SQL connector's
+    does -- matching Redshift's own behaviour when the flag is unset."""
+    verdict = _schema_verdict({**_REDSHIFT, "schema_pattern": {"deny": [r"^public$"]}})
+    assert verdict.included is False
+    assert verdict.excluded_by == "schema_pattern"
+
+
+# --- the warehouses match on three parts, and the probe now does too -------
+#
+# Neither SnowflakeV2Source nor BigQueryV2Source extends SQLAlchemySource, so
+# sql_probe's shim resolved no Source class for them and fell back to
+# SQLAlchemySource.get_identifier -- `schema.entity`, dropping the database
+# or project. Ingestion matches three parts
+# (snowflake_utils._cleanup_qualified_name,
+# BigQueryTableIdentifier.raw_table_name), so every Table verdict on those
+# two could be inverted, with no warning.
+
+
+def test_snowflake_tables_are_judged_on_the_qualified_name_ingestion_uses():
+    result = check_filters(
+        source_type="snowflake",
+        config_dict={
+            "account_id": "a",
+            "username": "u",
+            "password": "p",
+            "warehouse": "w",
+            "table_pattern": {"allow": [r"^DB\.PUBLIC\.ORDERS$"]},
+        },
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["DB", "PUBLIC"],
+        names=["ORDERS"],
+    )
+    assert result.results[0].target == "DB.PUBLIC.ORDERS"
+    assert result.results[0].included is True
+
+
+def test_bigquery_tables_are_judged_on_the_qualified_name_ingestion_uses():
+    result = check_filters(
+        source_type="bigquery",
+        config_dict={
+            "project_ids": ["p1"],
+            "table_pattern": {"allow": [r"^p1\.ds1\.t1$"]},
+        },
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["p1", "ds1"],
+        names=["t1"],
+    )
+    assert result.results[0].target == "p1.ds1.t1"
+    assert result.results[0].included is True
+
+
+@pytest.mark.parametrize(
+    "source_type,config_dict,word",
+    [
+        (
+            "snowflake",
+            {"account_id": "a", "username": "u", "password": "p", "warehouse": "w"},
+            "database",
+        ),
+        # Two projects, because one is now answerable without a --parent:
+        # Qualifier() on project_ids supplies it. That is the fallback doing
+        # its job, not a degrade, so the case that must still warn is the
+        # one with no single answer to give.
+        ("bigquery", {"project_ids": ["p1", "p2"]}, "container"),
+    ],
+)
+def test_a_missing_parent_degrades_loudly_rather_than_inventing_one(
+    source_type, config_dict, word
+):
+    """One recipe spans several databases/projects, so there is nothing to
+    fall back to. Guessing would give a verdict about an object in a
+    different database; the partial answer plus a warning is the honest
+    one."""
+    result = check_filters(
+        source_type=source_type,
+        config_dict=config_dict,
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["ds1"],
+        names=["t1"],
+    )
+    assert any(word in w for w in result.warnings), result.warnings
+
+
+def test_a_single_pinned_container_needs_no_parent():
+    """The other side of the same coin: Qualifier() on project_ids means a
+    single-project recipe is answerable without --parent, which is the
+    common case and used to warn."""
+    result = check_filters(
+        source_type="bigquery",
+        config_dict={
+            "project_ids": ["p1"],
+            "table_pattern": {"allow": [r"^p1\.ds1\.t1$"]},
+        },
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["ds1"],
+        names=["t1"],
+    )
+    assert result.results[0].target == "p1.ds1.t1"
+    assert result.results[0].included is True
+    assert not result.warnings, result.warnings

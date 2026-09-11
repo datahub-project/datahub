@@ -528,6 +528,27 @@ def _get_cli_context() -> Dict[str, str]:
     return {}
 
 
+# Set on every wrapper this decorator produces, and the only reliable way to
+# recognise one. cli_utils.enable_auto_decorators used to look for "telemetry" in
+# __module__ and "with_telemetry" in __name__, but the wrapper below carries
+# @wraps(func) and so advertises the *wrapped* function's identity -- the check
+# could never match, and every explicitly decorated command got a second,
+# auto-applied wrapper on top. An attribute survives @wraps in both directions.
+TELEMETRY_WRAPPED_ATTR = "__datahub_telemetry_wrapped__"
+
+
+def is_telemetry_wrapped(func: object) -> bool:
+    """Whether `func` already has a with_telemetry wrapper anywhere in its chain."""
+    current: object = func
+    seen = 0
+    while current is not None and seen < 20:
+        if getattr(current, TELEMETRY_WRAPPED_ATTR, False):
+            return True
+        current = getattr(current, "__wrapped__", None)
+        seen += 1
+    return False
+
+
 def with_telemetry(
     *, capture_kwargs: Optional[List[str]] = None
 ) -> Callable[[Callable[_P, _T]], Callable[_P, _T]]:
@@ -607,6 +628,8 @@ def with_telemetry(
                 telemetry_instance.capture_exception(e)
                 raise e
 
+        # After @wraps, which would otherwise not carry it.
+        setattr(wrapper, TELEMETRY_WRAPPED_ATTR, True)
         return wrapper
 
     return with_telemetry_decorator

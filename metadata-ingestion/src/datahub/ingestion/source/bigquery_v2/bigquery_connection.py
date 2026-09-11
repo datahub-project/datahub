@@ -183,3 +183,14 @@ class BigQueryConnectionConfig(GCPWIFConfig):
         # based on the credentials or environment variables.
         # See https://github.com/mxmzdlv/pybigquery#authentication.
         return "bigquery://"
+
+    # Overrides the SQLAlchemy answer inherited from SQLCommonConfig: this
+    # connector probes through its own client, not a second engine. Inheriting it
+    # would advertise six typed getters that provider does not have.
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.bigquery_v2.bigquery_probe import (
+            BigQueryMetadataProbe,
+        )
+
+        return BigQueryMetadataProbe

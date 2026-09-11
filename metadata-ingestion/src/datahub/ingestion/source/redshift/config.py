@@ -1,16 +1,24 @@
 import logging
 from copy import deepcopy
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, FrozenSet, List, Optional
 
 from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    HiddenFromDocs,
+    Qualifier,
+)
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.agent.sql_gate import (
+    INFORMATION_SCHEMA,
+    CatalogScope,
+)
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -27,6 +35,16 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 logger = logging.Logger(__name__)
+
+
+def dataset_name(database: str, schema: str, table: str) -> str:
+    """The identifier table_pattern/view_pattern is matched against.
+
+    Shared by ingestion (redshift.py) and the probe hook below
+    (RedshiftConfig.probe_filter_target) so both sides filter on the same
+    string; they used to build it independently and disagreed.
+    """
+    return f"{database}.{schema}.{table}"
 
 
 # The lineage modes are documented in the Redshift source's docstring.
@@ -86,7 +104,9 @@ class RedshiftConfig(
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
 ):
-    database: str = Field(default="dev", description="database")
+    database: Annotated[str, Qualifier(authoritative=True)] = Field(
+        default="dev", description="database"
+    )
 
     # Although Amazon Redshift is compatible with Postgres's wire format,
     # we actually want to use the sqlalchemy-redshift package and dialect
@@ -253,6 +273,14 @@ class RedshiftConfig(
             or self.include_table_rename_lineage
         )
 
+    @classmethod
+    def default_schemas(cls) -> FrozenSet[str]:
+        # Reuse the same list the schema-listing SQL excludes, so the agent probe
+        # marks pg_catalog / information_schema as auto-dropped, not user-filtered.
+        from datahub.ingestion.source.redshift.query import REDSHIFT_DEFAULT_SCHEMAS
+
+        return frozenset(REDSHIFT_DEFAULT_SCHEMAS)
+
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> "RedshiftConfig":
         if (
@@ -292,3 +320,61 @@ class RedshiftConfig(
             else:
                 values["options"] = {"connect_args": values["extra_client_options"]}
         return values
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # pg_catalog is named relation by relation here, NOT allowed at schema
+        # level, because Redshift keeps executed SQL in that schema: stl_query
+        # (querytxt), stl_querytext (text) and svl_statementtext (text) sit right
+        # beside the svv_* metadata views.
+        #
+        # An earlier version of this declaration allowed the schema *and* listed
+        # relations, with a comment claiming the list was what kept the query-text
+        # tables out. It was not: permits_path short-circuits on a schema-level
+        # allow, so the list was dead code and all three were readable. Naming
+        # relations only works when the schema is not also allowed.
+        #
+        # The list is derived from redshift/query.py: every catalog relation
+        # ingestion reads for schema shape belongs here, so the probe can see
+        # what the recipe will see. Naming too few is its own failure -- the
+        # first cut omitted pg_database, which list_databases reads, so the
+        # probe could not answer a question ingestion answers routinely.
+        #
+        # Deliberately absent, and the reason each is:
+        #   stl_query, stl_querytext, svl_statementtext -- executed SQL, which
+        #     carries literal values out of users' queries.
+        #   pg_user, pg_user_info, svv_user_info, svl_user_info -- user names
+        #     rather than schema shape.
+        #   stl_insert/delete/scan/load_commits/unload_log,
+        #     svl_query_metrics_summary -- operational history feeding lineage
+        #     and usage, not shape a probe needs to report.
+        return CatalogScope(
+            schemas=frozenset({INFORMATION_SCHEMA}),
+            relations=frozenset(
+                {
+                    # svv_* metadata views
+                    "pg_catalog.svv_table_info",
+                    "pg_catalog.svv_all_schemas",
+                    "pg_catalog.svv_external_schemas",
+                    "pg_catalog.svv_external_tables",
+                    "pg_catalog.svv_external_columns",
+                    "pg_catalog.svv_redshift_databases",
+                    "pg_catalog.svv_redshift_schemas",
+                    "pg_catalog.svv_redshift_tables",
+                    "pg_catalog.svv_redshift_columns",
+                    "pg_catalog.svv_datashares",
+                    "pg_catalog.svv_mv_info",
+                    "pg_catalog.stv_mv_info",
+                    # Postgres-inherited catalog: names, columns, comments and
+                    # dependencies. No statement text in any of these.
+                    "pg_catalog.pg_database",
+                    "pg_catalog.pg_class",
+                    "pg_catalog.pg_class_info",
+                    "pg_catalog.pg_namespace",
+                    "pg_catalog.pg_attribute",
+                    "pg_catalog.pg_attrdef",
+                    "pg_catalog.pg_depend",
+                    "pg_catalog.pg_description",
+                }
+            ),
+        )

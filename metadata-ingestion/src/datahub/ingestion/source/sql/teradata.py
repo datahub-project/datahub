@@ -48,15 +48,18 @@ from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql.expression import text
 from teradatasqlalchemy.dialect import TeradataDialect
 from teradatasqlalchemy.options import configure
-from typing_extensions import ClassVar, LiteralString
+from typing_extensions import Annotated, ClassVar, LiteralString
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, Filters
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_user_urn,
 )
 from datahub.emitter.mcp_builder import ContainerKey, add_owner_to_entity_wu
+from datahub.ingestion.agent.sql_gate import (
+    CatalogScope,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -69,7 +72,10 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.data_reader import DataReader
-from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -1197,6 +1203,25 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
     scheme: str = Field(default="teradatasql", description="database scheme")
 
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # Teradata has no information_schema; its catalog is DBC. Not allowed
+        # wholesale, because DBC.QryLogV is the query log -- our own usage
+        # extraction reads it -- and DBC.SessionInfoV carries session detail.
+        return CatalogScope(
+            schemas=frozenset(),
+            relations=frozenset(
+                {
+                    "dbc.tablesv",
+                    "dbc.columnsv",
+                    "dbc.indicesv",
+                    "dbc.databasesv",
+                    "dbc.all_ri_childrenv",
+                    "dbc.tablesizev",
+                }
+            ),
+        )
+
 
 class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     databases: Optional[List[str]] = Field(
@@ -1207,7 +1232,14 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         ),
     )
 
-    database_pattern: AllowDenyPattern = Field(
+    # Annotated, not a bare redeclaration: pydantic v2 replaces the annotation
+    # wholesale, so restating the field silently drops the Filters metadata
+    # TwoTierSQLAlchemyConfig attached to it. Nothing failed when it did -- the
+    # name convention picked up the slack for `probe filter` while `describe`
+    # reported no filter at all, and the two commands contradicted each other.
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
         default=AllowDenyPattern(deny=EXCLUDED_DATABASES),
         description="Regex patterns for databases to filter in ingestion.",
     )

@@ -1,0 +1,658 @@
+from types import SimpleNamespace
+from typing import Any, Dict
+from urllib.parse import parse_qs, urlparse
+
+import pytest
+import requests
+
+from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.agent.probe_methods import _iter_specs
+from datahub.ingestion.agent.verdicts import ProbeSoftError
+from datahub.ingestion.source.mode import ModeAPIConfig, ModeConfig, ModeSource
+from datahub.ingestion.source.mode_probe import (
+    ModeProbeSource,
+    _get_embedded_paged,
+)
+
+_WORKSPACE = "https://app.mode.com/api/acryltest"
+
+# Every body below plants extra keys a real Mode record carries beyond what a
+# hierarchy node's name projects (ids, tokens, _links, _forms, timestamps, ...),
+# so equality asserts can tell "observed and used" apart from "observed and
+# ignored." data_sources/definitions are the opposite case on purpose: they
+# assert those extra keys survive verbatim, since those two commands are
+# mode.py's own raw fetchers annotated in place, not a probe-side projection.
+# Shapes are drawn from tests/integration/mode/setup/*.json.
+_RESPONSES: Dict[str, Dict[str, Any]] = {
+    f"{_WORKSPACE}/spaces": {
+        "spaces": [
+            {"name": "Personal", "token": "sp1"},
+            {"name": "Archive", "token": "sp2"},
+            {"name": "SharedSpaceA", "token": "sp3"},
+            # Present regardless of exclude_restricted -- filtering happens
+            # client-side in _fetch_spaces, not by the fake session.
+            {"name": "RestrictedSpace", "token": "sp5", "restricted": True},
+            # No "name" key at all -- for proving the space_pattern filter
+            # test uses mode.py's raw-name-or-"" semantics, not _display_name
+            # (which would fall back to this token).
+            {"token": "sp7"},
+        ]
+    },
+    f"{_WORKSPACE}/spaces/sp1/reports": {
+        "reports": [{"name": "Weekly", "token": "r1"}]
+    },
+    # Despite the "/datasets" path, Mode embeds this listing under the
+    # "reports" HAL key (see tests/integration/mode/setup/datasets_*.json) --
+    # a Mode "dataset" is implemented as a special kind of report. Keying this
+    # fixture as "datasets" would encode the bug it exists to catch.
+    f"{_WORKSPACE}/spaces/sp1/datasets": {"reports": [{"name": "Seed", "token": "d1"}]},
+    # One archived, one not -- exercises exclude_archived's client-side filter.
+    f"{_WORKSPACE}/spaces/sp3/reports": {
+        "reports": [
+            {"name": "NewReport", "token": "r-new"},
+            {"name": "OldReport", "token": "r-old", "archived": True},
+        ]
+    },
+    f"{_WORKSPACE}/reports/r1/queries": {
+        "queries": [
+            {
+                "id": 10149707,
+                "token": "q1",
+                "name": "q_main",
+                "raw_query": "select 1",
+                "data_source_id": 34499,
+                "last_run_id": 1897576958,
+                "_links": {"self": {"href": "/api/acryltest/reports/r1/queries/q1"}},
+            }
+        ]
+    },
+    f"{_WORKSPACE}/data_sources": {
+        # Every entry needs a unique "id" -- like a real Mode payload (see
+        # tests/integration/mode/setup/data_sources.json) -- since
+        # source._get_data_sources_by_id() (mode.py) indexes this listing by
+        # int(id) for O(1) lookup; entries sharing a (missing) id would
+        # collide and silently overwrite each other in that dict.
+        "data_sources": [
+            {
+                "id": "34499",
+                "name": "PostgreSQL",
+                "adapter": "jdbc:postgresql",
+                "database": "dvdrental",
+                "host": "72.38.17.64",
+                "username": "postgres",
+            },
+            {
+                "id": "34500",
+                "name": "BigQueryConn",
+                "adapter": "jdbc:bigquery",
+                # BigQuery's raw "database" is always the literal "default";
+                # data_sources returns it as-is -- no probe-side substitution.
+                "database": "default",
+                "host": "some-project-id",
+                "username": "should-not-appear",
+            },
+        ]
+    },
+    f"{_WORKSPACE}/definitions": {
+        "definitions": [
+            {
+                "id": 40065,
+                "token": "d575d5553bd6",
+                "name": "active_users",
+                "description": "Users active in 30d",
+                "source": "SELECT user_id FROM users WHERE active",
+                "data_source_id": 34499,
+                "_links": {"self": {"href": "/api/acryltest/definitions/d575d5553bd6"}},
+            }
+        ]
+    },
+}
+
+
+class _FakeSession:
+    """Answers the Mode endpoints the branching and method probes use.
+
+    Any request for page > 1 gets an empty page, terminating pagination --
+    every fixture above fits on one page, mirroring how the real Mode API
+    (and tests/integration/mode/test_mode.py's own mock) signals "no more
+    pages" by returning an empty `_embedded` list.
+    """
+
+    def __init__(self):
+        self.calls = []
+        self.timeouts = []
+        self.closed = False
+        # mode.py's own _get_request_json (unlike fetch_json's narrower
+        # ModeApiSession Protocol) logs a curl-equivalent via
+        # make_curl_command before every request, which reads session.headers
+        # and session.auth directly -- data_sources/definitions now go
+        # through it (see ModeSource.for_probe), so every session fake used
+        # with _method_probe needs both attributes, not just get()/close().
+        self.headers: Dict[str, str] = {}
+        self.auth = None
+
+    def get(self, url, **kw):
+        self.calls.append(url)
+        self.timeouts.append(kw.get("timeout"))
+        page = int(parse_qs(urlparse(url).query).get("page", ["1"])[0])
+        base_url = url.split("?")[0]
+        body = {} if page > 1 else _RESPONSES.get(base_url, {})
+        return SimpleNamespace(
+            status_code=200,
+            raise_for_status=lambda: None,
+            json=lambda: {"_embedded": body},
+        )
+
+    def close(self):
+        self.closed = True
+
+
+class _DatasetsFailSession(_FakeSession):
+    """Like _FakeSession, but Personal's datasets endpoint always 404s --
+    proving one sibling level's failure doesn't take down the other."""
+
+    def get(self, url, **kw):
+        base_url = url.split("?")[0]
+        if base_url == f"{_WORKSPACE}/spaces/sp1/datasets":
+            self.calls.append(url)
+            response = SimpleNamespace(status_code=404, text="mocked error body")
+
+            def _raise() -> None:
+                raise requests.HTTPError(
+                    f"404 Client Error: Not Found for url: {url}", response=response
+                )
+
+            response.raise_for_status = _raise
+            return response
+        return super().get(url, **kw)
+
+
+class _StatusSession:
+    """Every request fails with the given HTTP status code."""
+
+    def __init__(self, status_code: int):
+        self._status_code = status_code
+        self.closed = False
+        # See _FakeSession.__init__ -- mode.py's _get_request_json reads both.
+        self.headers: Dict[str, str] = {}
+        self.auth = None
+
+    def get(self, url, **kw):
+        response = SimpleNamespace(
+            status_code=self._status_code, text="mocked error body"
+        )
+
+        def _raise() -> None:
+            raise requests.HTTPError(
+                f"{self._status_code} Client Error for url: {url}", response=response
+            )
+
+        response.raise_for_status = _raise
+        return response
+
+    def close(self):
+        self.closed = True
+
+
+class _TwoPageSession:
+    """Two non-empty pages of "things", then an empty third page."""
+
+    def __init__(self):
+        self.pages = {1: [{"name": "a"}], 2: [{"name": "b"}]}
+        # See _FakeSession.__init__ -- mode.py's _get_request_json reads both.
+        self.headers: Dict[str, str] = {}
+        self.auth = None
+
+    def get(self, url, **kw):
+        page = int(parse_qs(urlparse(url).query).get("page", ["1"])[0])
+        items = self.pages.get(page, [])
+        return SimpleNamespace(
+            status_code=200,
+            raise_for_status=lambda: None,
+            json=lambda: {"_embedded": {"things": items}},
+        )
+
+    def close(self):
+        pass
+
+
+class _SoftErrorOnSecondPageSession:
+    """Page 1 succeeds with real data; page 2 (and beyond) 403s."""
+
+    def __init__(self):
+        # See _FakeSession.__init__ -- mode.py's _get_request_json reads both.
+        self.headers: Dict[str, str] = {}
+        self.auth = None
+
+    def get(self, url, **kw):
+        page = int(parse_qs(urlparse(url).query).get("page", ["1"])[0])
+        if page >= 2:
+            response = SimpleNamespace(status_code=403, text="mocked error body")
+
+            def _raise() -> None:
+                raise requests.HTTPError("403 Client Error", response=response)
+
+            response.raise_for_status = _raise
+            return response
+        return SimpleNamespace(
+            status_code=200,
+            raise_for_status=lambda: None,
+            json=lambda: {"_embedded": {"things": [{"name": "a"}]}},
+        )
+
+    def close(self):
+        pass
+
+
+def _api_options(**over):
+    base: Dict[str, Any] = dict(
+        timeout=40,
+        retry_backoff_multiplier=2,
+        max_retry_interval=60,
+        max_attempts=1,
+        requests_per_minute=1000,
+    )
+    base.update(over)
+    return ModeAPIConfig(**base)
+
+
+def _cfg(session=None, **over):
+    base = dict(
+        space_pattern=AllowDenyPattern(allow=[".*"], deny=["^Archive$"]),
+        report_pattern=AllowDenyPattern.allow_all(),
+        items_per_page=100,
+        exclude_personal_collections=False,
+        exclude_restricted=False,
+        exclude_archived=False,
+        api_options=_api_options(),
+    )
+    base.update(over)
+    session = session or _FakeSession()
+    cfg = SimpleNamespace(
+        get_mode_session=lambda: (session, _WORKSPACE),
+        # Mirrors ModeConfig.space_filter_param (mode.py) -- _fetch_spaces
+        # (mode_probe.py) calls this the same way on a real ModeConfig.
+        space_filter_param=lambda: (
+            "custom" if base["exclude_personal_collections"] else "all"
+        ),
+        **base,
+    )
+    cfg._session = session  # not read by mode_probe.py; exposed for assertions
+    return cfg
+
+
+def _real_config(**over):
+    """A real ModeConfig (not _cfg()'s duck-typed SimpleNamespace), for the
+    method-probe tests below: ModeSource.for_probe() takes the concrete
+    ModeConfig -- the same type for_config passes in production --
+    since its shim's `.config` is read by mode.py's own _get_request_json
+    (self.config.api_options.*)."""
+    base: Dict[str, Any] = dict(
+        token="test-token",
+        password="test-password",
+        workspace="acryltest",
+        space_pattern=AllowDenyPattern(allow=[".*"], deny=["^Archive$"]),
+        report_pattern=AllowDenyPattern.allow_all(),
+        items_per_page=100,
+        exclude_personal_collections=False,
+        exclude_restricted=False,
+        exclude_archived=False,
+        api_options=_api_options(),
+    )
+    base.update(over)
+    return ModeConfig(**base)
+
+
+def _probe(cfg):
+    """The provider ModeProbeSource.for_config returns, over the fake session."""
+    return ModeProbeSource.for_probe(cfg, cfg._session, _WORKSPACE)
+
+
+def test_spaces_lists_every_space_including_denied_ones():
+    # A denied space is reported, not hidden: `probe filter` explains it, and
+    # hiding it would make a workspace look emptier than it is.
+    assert "Archive" in _probe(_cfg()).spaces()
+
+
+def test_spaces_report_the_same_raw_name_space_token_resolves_by():
+    # Regression guard: spaces() once reported a null-named space by its token
+    # while _space_token() matched on the raw name, so one physical space got
+    # two identities depending which path asked. sp7 (see _RESPONSES) has no
+    # "name" key; both paths now agree on "".
+    names = _probe(_cfg()).spaces()
+    assert "" in names
+    assert "sp7" not in names
+
+
+def test_reports_and_datasets_are_separate_listings_of_one_space():
+    probe = _probe(_cfg())
+    assert probe.reports("Personal") == ["Weekly"]
+    # Despite the /datasets path, Mode embeds these under the "reports" HAL key.
+    assert probe.datasets("Personal") == ["Seed"]
+
+
+def test_queries_are_addressed_by_space_and_report_name():
+    assert _probe(_cfg()).queries("Personal", "Weekly") == ["q_main"]
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda p: p.reports("Personal"),
+        lambda p: p.datasets("Personal"),
+        lambda p: p.queries("Personal", "Weekly"),
+    ],
+)
+def test_a_space_scoped_command_lists_spaces_exactly_once(call):
+    """One name-to-token resolution per command, not one per sub-fetch.
+
+    Mode addresses objects by opaque token while the probe addresses them by the
+    display name a pattern is matched against, so every space-scoped command
+    resolves the name by listing spaces. When one command listed a Space's
+    children it invoked the reports and datasets listers together and each
+    resolved independently, so a single command listed every space in the
+    workspace twice. Commands are now separate, which is what fixed it.
+
+    The residual cost is one spaces listing per command and it is inherent: each
+    `probe run` is a fresh process holding only what the caller typed. This pins
+    "once" so a future convenience wrapper cannot quietly reintroduce the double
+    fetch.
+    """
+    cfg = _cfg()
+    call(_probe(cfg))
+    # Counts listings, not requests: one listing is several paged requests, the
+    # last of which comes back empty to terminate. Its first page is the marker.
+    listings = [
+        c
+        for c in cfg._session.calls
+        if c.split("?")[0].endswith("/spaces")
+        and parse_qs(urlparse(c).query).get("page") == ["1"]
+    ]
+    assert len(listings) == 1, cfg._session.calls
+
+
+def test_an_unknown_space_degrades_with_a_warning_not_a_false_empty():
+    probe = _probe(_cfg())
+    assert probe.reports("NoSuchSpace") == []
+    assert any("NoSuchSpace" in w for w in probe.warnings)
+
+
+def test_the_provider_closes_its_session():
+    cfg = _cfg()
+    with _probe(cfg):
+        pass
+    assert cfg._session.closed is True
+
+
+def test_exclude_restricted_hides_restricted_spaces():
+    assert "RestrictedSpace" not in _probe(_cfg(exclude_restricted=True)).spaces()
+
+
+def test_restricted_spaces_visible_by_default():
+    # exclude_restricted defaults to False, matching ModeConfig.
+    assert "RestrictedSpace" in _probe(_cfg()).spaces()
+
+
+def test_exclude_archived_hides_archived_reports():
+    probe = _probe(_cfg(exclude_archived=True))
+    assert probe.reports("SharedSpaceA") == ["NewReport"]
+
+
+def test_archived_reports_visible_by_default():
+    probe = _probe(_cfg())
+    assert set(probe.reports("SharedSpaceA")) == {"NewReport", "OldReport"}
+
+
+def test_datasets_404_degrades_to_empty_and_records_a_warning():
+    # Regression guard: list_children fans Report and Dataset out as two
+    # independent sibling levels under one Space with no built-in
+    # containment; if a lister raises on a 404 the whole call used to die
+    # with zero nodes, discarding the reports that had already succeeded.
+    # And a token that can read Reports but 403s on Datasets must be
+    # distinguishable from "this space genuinely has no datasets" -- the
+    # warning is that distinction.
+    cfg = _cfg(session=_DatasetsFailSession())
+    probe = _probe(cfg)
+    # Reports still list; only the failing sibling listing degrades.
+    assert probe.reports("Personal") == ["Weekly"]
+    assert probe.datasets("Personal") == []
+    assert len(probe.warnings) == 1
+    assert "404" in probe.warnings[0]
+
+
+def test_unresolvable_parent_produces_warnings_not_a_silent_empty_listing():
+    # Regression guard: a typo'd --parent must not look identical to "this
+    # space genuinely has no reports/datasets" -- both sibling levels resolve
+    # the same parent name independently, so each contributes its own
+    # warning (see _reports/_datasets) instead of the call quietly returning
+    # nodes=[], warnings=[].
+    probe = _probe(_cfg())
+    assert probe.reports("NoSuchSpace") == []
+    assert probe.datasets("NoSuchSpace") == []
+    # One shared reason, deduped, rather than one per listing asked.
+    assert len(probe.warnings) == 1
+    assert "NoSuchSpace" in probe.warnings[0]
+
+
+def test_spaces_listing_sends_filter_all_and_pagination_params_by_default():
+    cfg = _cfg(exclude_personal_collections=False)
+    _probe(cfg).spaces()
+    spaces_calls = [
+        c for c in cfg._session.calls if c.split("?")[0] == f"{_WORKSPACE}/spaces"
+    ]
+    assert spaces_calls, "expected at least one request to the spaces endpoint"
+    assert "filter=all" in spaces_calls[0]
+    assert "per_page=100" in spaces_calls[0]
+    assert "page=1" in spaces_calls[0]
+
+
+def test_spaces_listing_sends_filter_custom_when_excluding_personal_collections():
+    cfg = _cfg(exclude_personal_collections=True)
+    _probe(cfg).spaces()
+    spaces_calls = [
+        c for c in cfg._session.calls if c.split("?")[0] == f"{_WORKSPACE}/spaces"
+    ]
+    assert spaces_calls
+    assert "filter=custom" in spaces_calls[0]
+
+
+def test_requests_use_the_configured_timeout():
+    cfg = _cfg(api_options=_api_options(timeout=7))
+    _probe(cfg).spaces()
+    assert cfg._session.timeouts
+    assert all(t == 7 for t in cfg._session.timeouts)
+
+
+def _method_probe(session=None, **cfg_over):
+    # data_sources/definitions delegate their fetch to a real ModeSource shim
+    # -- see ModeSource.for_probe -- so this needs a real ModeConfig,
+    # matching what for_config passes in production. Builds a
+    # ModeProbeSource, not a plain ModeSource, matching what
+    # for_config actually returns (its __exit__ closes the ad hoc
+    # session -- see ModeProbeSource's docstring).
+    session = session or _FakeSession()
+    cfg = _real_config(**cfg_over)
+    return ModeProbeSource.for_probe(cfg, session, _WORKSPACE)
+
+
+def test_data_sources_returns_mode_s_raw_records_indexed_by_id():
+    # data_sources is mode.py's own _get_data_sources_by_id, annotated in
+    # place -- no probe-side re-projection. Exact equality (not a subset
+    # check) proves this is Mode's payload verbatim: username/host survive,
+    # the adapter stays the raw "jdbc:..." string, and BigQuery's "database"
+    # stays the literal "default" rather than being replaced by the project
+    # id from "host".
+    with _method_probe() as p:
+        result = p._get_data_sources_by_id()
+    assert result == {
+        34499: {
+            "id": "34499",
+            "name": "PostgreSQL",
+            "adapter": "jdbc:postgresql",
+            "database": "dvdrental",
+            "host": "72.38.17.64",
+            "username": "postgres",
+        },
+        34500: {
+            "id": "34500",
+            "name": "BigQueryConn",
+            "adapter": "jdbc:bigquery",
+            "database": "default",
+            "host": "some-project-id",
+            "username": "should-not-appear",
+        },
+    }
+
+
+def test_definitions_returns_raw_name_to_source_map():
+    # definitions is mode.py's own _get_definitions_map, annotated in place --
+    # the same {name: source} cache `{{@name}}` template expansion uses, so
+    # "description" is not returned even though Mode's API has one.
+    with _method_probe() as p:
+        result = p._get_definitions_map()
+    assert result == {"active_users": "SELECT user_id FROM users WHERE active"}
+
+
+def test_probe_source_context_manager_closes_session():
+    # ModeProbeSource.__exit__ exists only for the probe's ad hoc session --
+    # a real ingestion run relies on ModeSource's own inherited (Closeable)
+    # __exit__, which closes its report, not its session (see
+    # ModeProbeSource's docstring).
+    session = _FakeSession()
+    probe = _method_probe(session=session)
+    with probe:
+        pass
+    assert session.closed is True
+
+
+@pytest.mark.parametrize("status_code", [404, 403, 401, 500])
+def test_data_sources_degrades_to_empty_dict_on_any_http_error(status_code):
+    # _get_data_sources_by_id (mode.py) is annotated in place, not wrapped by
+    # a probe-side soft/hard split -- so it keeps its own ingestion policy of
+    # degrading to {} on ANY HTTP error (not just 404/403), reported to its
+    # own (ephemeral) ModeSourceReport rather than raising.
+    with _method_probe(session=_StatusSession(status_code)) as p:
+        assert p._get_data_sources_by_id() == {}
+
+
+def test_get_embedded_paged_aggregates_multiple_pages():
+    # _get_embedded_paged now fetches through a real ModeSource shim (see
+    # ModeSource.for_probe) rather than a bare (session, config, rate_limiter)
+    # tuple -- _real_config(), not _cfg()'s duck type, for the same reason
+    # _method_probe() above uses it.
+    source = ModeSource.for_probe(_real_config(), _TwoPageSession(), "https://x")
+    result = _get_embedded_paged(
+        source, "https://x/things?filter=all", "things", context="test"
+    )
+    assert [r["name"] for r in result] == ["a", "b"]
+
+
+def test_get_embedded_paged_raises_instead_of_returning_partial_pages():
+    # A soft error on page 2 must not return page 1's items as if the
+    # listing were complete -- that's indistinguishable from "there really
+    # is only one page", silently truncating the result.
+    source = ModeSource.for_probe(
+        _real_config(), _SoftErrorOnSecondPageSession(), "https://x"
+    )
+    with pytest.raises(ProbeSoftError):
+        _get_embedded_paged(
+            source, "https://x/things?filter=all", "things", context="test"
+        )
+
+
+def test_probe_methods_registered():
+
+    # _iter_specs uses dir(), which includes inherited attributes -- so
+    # data_sources/definitions (annotated on ModeSource itself) are found on
+    # ModeProbeSource too, the class probe_provider_class actually returns.
+    commands = [c for c, _ in _iter_specs(ModeProbeSource)]
+    # The four listings are declared on ModeProbeSource itself: Mode has no SQL
+    # surface, so `probe sql` cannot enumerate it and these are the only way to
+    # walk a workspace.
+    assert commands == [
+        "api",
+        "data_sources",
+        "datasets",
+        "definitions",
+        "queries",
+        "reports",
+        "spaces",
+    ]
+
+
+# Every token-addressed endpoint, and where its token can only come from. The
+# probe never returns tokens -- getters return the display name a pattern is
+# matched against -- so `probe api` bootstraps its own from the raw listings.
+_TOKEN_CHAIN = [
+    ("GET /spaces", "the bootstrap: needs no token, and yields space tokens"),
+    ("GET /spaces/{token}/reports", "space token from /spaces; yields report tokens"),
+    ("GET /reports/{token}/queries", "report token from a space's reports listing"),
+    ("GET /reports/{token}", "same report token"),
+]
+
+
+@pytest.mark.parametrize("entry,why", _TOKEN_CHAIN)
+def test_every_token_addressed_endpoint_has_a_route_to_its_token(entry, why):
+    # The three entries that look like duplicates of the getters are what make the
+    # other four reachable. Removing one as redundant does not shrink the surface,
+    # it strands everything downstream of it.
+    assert entry in set(ModeProbeSource.api_allowlist), f"{entry} missing -- {why}"
+
+
+def test_excluding_personal_collections_is_reported_not_just_applied():
+    """Mode filters personal spaces server-side (?filter=custom), so they
+    never reach us to be reported as excluded the way a space_pattern denial
+    is. A quietly shorter list is the one answer this interface must not
+    give, so the narrowing is stated."""
+    probe = _probe(_cfg(exclude_personal_collections=True))
+    probe.spaces()
+    assert any("personal" in w for w in probe.warnings), probe.warnings
+
+
+def test_an_ordinary_recipe_gets_no_such_warning():
+    """The control: a warning that always fires is the one on screen when a
+    real one appears."""
+    probe = _probe(_cfg())
+    probe.spaces()
+    assert not any("personal" in w for w in probe.warnings), probe.warnings
+
+
+def test_a_paging_failure_keeps_the_spaces_already_read():
+    """An ingestion regression this branch introduced and then fixed.
+
+    The original populated space_info *inside* the page loop with the
+    `except ModeRequestError` outside it, so a workspace whose second page
+    500s still ingested the first. Extracting fetch_spaces turned it into a
+    buffered list, so the exception escaped before anything was returned,
+    _get_space_name_and_tokens caught it with an empty dict, and the run
+    emitted no dashboards, charts or datasets at all.
+
+    Asserting on the probe would not have caught this -- the probe wants the
+    failure to surface. The loss is on the ingestion side, so that is what
+    this drives.
+    """
+    from requests.exceptions import HTTPError
+
+    from datahub.ingestion.source.mode import ModeSource, ModeSourceReport
+
+    # ModeRequestError is a TUPLE of exception classes, not a class, so the
+    # stub raises a member of it rather than the name itself.
+
+    source = ModeSource.__new__(ModeSource)
+    source.config = _cfg()
+    source.report = ModeSourceReport()
+    source.workspace_uri = _WORKSPACE
+
+    def _pages(url, key, per_page):
+        yield [{"token": "sp1", "name": "Kept"}]
+        raise HTTPError("page 2 exploded")
+
+    source._get_paged_request_json = _pages  # type: ignore[method-assign]
+
+    space_info = source._get_space_name_and_tokens()
+
+    assert space_info == {"sp1": "Kept"}, (
+        "the page read before the failure was discarded; ingestion would emit "
+        "nothing for this workspace"
+    )
+    assert source.report.failures, "and the failure must still be reported"

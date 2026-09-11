@@ -471,6 +471,102 @@ ls recipe_directory/*.yml | xargs -n 1 -I {} datahub ingest deploy -c {}
 ls recipe_directory/*.yml | xargs -n 1 -I {} datahub ingest deploy --executor-id "production-executor" -c {}
 ```
 
+### recipe
+
+The `recipe` commands help you author and verify an ingestion recipe before you run it. They
+answer two kinds of question: _what does this source type accept?_ (offline, no connection)
+and _what does this source actually contain, given my recipe?_ (live, needs working
+credentials).
+
+They are designed to be driven by an AI coding assistant as well as by hand — every command
+prints JSON, and every failure uses a distinct exit code so a caller can tell "your input was
+wrong" from "I could not reach the source".
+
+#### Offline commands
+
+These need only a source type or a recipe file — no connection, no credentials.
+
+```shell
+# What configuration fields does this source accept, and what does the connector
+# declare it can do? Reports each field's type, whether it is required or a secret,
+# and for AllowDenyPattern fields which hierarchy level it filters.
+datahub recipe describe snowflake
+
+# Emit a starter recipe for a source type
+datahub recipe scaffold snowflake
+
+# Validate a recipe's configuration without connecting
+datahub recipe validate my_recipe.yml
+```
+
+#### Live commands
+
+These connect using the recipe's own credentials. Secrets are resolved in-process and
+redacted from all output.
+
+```shell
+# Verify the credentials work
+datahub recipe test-connection --recipe my_recipe.yml
+```
+
+**Exploring what a source contains.** Start with `probe methods`, which is connection-free and
+lists what this connector offers — each command's parameters and what it returns:
+
+```shell
+datahub recipe probe methods --recipe my_recipe.yml
+
+# Call one; a command's parameters imply the nesting
+datahub recipe probe run columns --recipe my_recipe.yml --schema public --table orders
+datahub recipe probe run topics --recipe my_recipe.yml --limit 50
+```
+
+SQL sources expose a `sql` command for catalog queries, usually faster. It is an ordinary
+command in the `probe methods` list — there is no separate subcommand to learn:
+
+```shell
+datahub recipe probe run sql --recipe my_recipe.yml --limit 50 \
+  --query "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+```
+
+Only single `SELECT` statements over catalog schemas (`information_schema`, plus `pg_catalog`
+on Postgres-likes) are permitted. Anything else — a user table, a second statement, a
+vendor-specific function — is refused with exit code 2 before the database sees it. The check
+narrows what a query can reach; it is not a security boundary, so point the recipe at a
+read-only role.
+
+**Checking what your filters would do.** `probe filter` judges names you already have, with no
+connection:
+
+```shell
+datahub recipe probe filter --recipe my_recipe.yml \
+  --kind Table --parent public --names orders,users,audit_log_v2
+
+# Try a different pattern without editing the recipe
+datahub recipe probe filter --recipe my_recipe.yml --kind Table --parent public \
+  --names orders,users --try-allow '^public\.ord.*'
+```
+
+Each result reports the `target` the pattern was matched against — which is usually the
+qualified identifier, not the bare name. That matters: `AllowDenyPattern` is start-anchored, so
+`^orders.*` matches nothing when ingestion evaluates `public.orders`. The output also names the
+`pattern_field` that actually decided, which is not always the one named after the kind (MySQL
+copies `table_pattern` into `view_pattern`).
+
+Probe output is **metadata only** — names, types, constraints, DDL, counts. No table rows,
+no column values, no message payloads.
+
+#### Exit codes
+
+| Code | Meaning                                                                             |
+| ---- | ----------------------------------------------------------------------------------- |
+| 0    | success                                                                             |
+| 1    | internal error                                                                      |
+| 2    | invalid input — a bad recipe, an unknown command, a name that could not be resolved |
+| 3    | could not connect to the source, or the source returned an error                    |
+
+A non-empty `warnings` list alongside an empty or partial result means _part of the source
+could not be read_ — not that the source is empty. Treat the two differently.
+
 ### init
 
 The init command is used to tell `datahub` about where your DataHub instance is located. The CLI will point to localhost DataHub by default.
