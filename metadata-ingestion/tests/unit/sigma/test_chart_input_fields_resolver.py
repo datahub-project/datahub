@@ -2176,7 +2176,10 @@ class TestSchemaCrossSheetResolver:
     elements[<id>].viz.sheetId as the sheet -> element mapping.
     """
 
-    _SHEETS = {"upSheet": {"columns": {}}, "downSheet": {"columns": {}}}
+    _SHEETS: Dict[str, Any] = {
+        "upSheet": {"columns": {}},
+        "downSheet": {"columns": {}},
+    }
     _ELEMENTS = {
         "upEl": {"viz": {"sheetId": "upSheet"}},
         "downEl": {"viz": {"sheetId": "downSheet"}},
