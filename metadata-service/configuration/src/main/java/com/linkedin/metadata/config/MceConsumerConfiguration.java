@@ -20,6 +20,12 @@ public class MceConsumerConfiguration {
     private Integer metadataChangeProposalMaxBatch;
 
     /**
+     * Maximum empty-poll sleep for MCP workers (single-record and batch). Exponential backoff
+     * starts at {@code postgres.pgQueue.consumerPoll.emptyPollSleepMinMillis}.
+     */
+    private Long metadataChangeProposalEmptyPollSleepMillis;
+
+    /**
      * Max rows per poll for batch MCP processing ({@code BatchMetadataChangeProposalsProcessor}).
      */
     private Integer batchMetadataChangeProposalMaxBatch;

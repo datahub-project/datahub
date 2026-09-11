@@ -81,3 +81,36 @@ AS $$
     INSERT INTO processed_orders (order_id, customer_id, total)
     SELECT id AS order_id, customer_id, amount AS total FROM raw_orders;
 $$;
+
+-- Types that previously fell back to NullType / lost their native name (#18575).
+-- pgvector and PostGIS are not available in the test image, so they are
+-- covered by unit tests instead.
+CREATE EXTENSION ltree;
+CREATE EXTENSION citext;
+
+CREATE TABLE special_types (
+    id BIGINT PRIMARY KEY,
+    bbox BOX,
+    seg LSEG,
+    poly POLYGON,
+    pt POINT,
+    pth PATH,
+    circ CIRCLE,
+    ln LINE,
+    doc XML,
+    tree_path LTREE,
+    ci CITEXT,
+    ip_range CIDR,
+    int_range INT4RANGE,
+    int_multirange INT4MULTIRANGE,
+    bigint_multirange INT8MULTIRANGE,
+    num_multirange NUMMULTIRANGE,
+    date_multirange DATEMULTIRANGE,
+    ts_multirange TSMULTIRANGE,
+    tstz_multirange TSTZMULTIRANGE
+);
+
+-- Populate reltuples so special_types gets a real row-count estimate instead
+-- of -1. Scoped to this table: raw_orders/processed_orders were created after
+-- the ANALYZE above and intentionally cover the never-analyzed (-1) branch.
+ANALYZE special_types;

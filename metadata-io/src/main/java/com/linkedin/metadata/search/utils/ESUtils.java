@@ -19,6 +19,7 @@ import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.LogicalValueType;
@@ -35,6 +36,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
@@ -1228,7 +1230,23 @@ public class ESUtils {
       @Nullable Filter filter,
       @Nonnull BoolQueryBuilder filterQuery) {
     return applyDefaultSearchFilters(
-        opContext, entityNames, filter, filterQuery, resolveHiddenStageUrns(entityNames));
+        opContext, entityNames, filter, filterQuery, resolveHiddenStageUrns(entityNames), null);
+  }
+
+  @Nonnull
+  public static BoolQueryBuilder applyDefaultSearchFilters(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nullable Filter filter,
+      @Nonnull BoolQueryBuilder filterQuery,
+      @Nullable EntityIndexConfiguration entityIndexConfiguration) {
+    return applyDefaultSearchFilters(
+        opContext,
+        entityNames,
+        filter,
+        filterQuery,
+        resolveHiddenStageUrns(entityNames),
+        entityIndexConfiguration);
   }
 
   @Nonnull
@@ -1238,11 +1256,25 @@ public class ESUtils {
       @Nullable Filter filter,
       @Nonnull BoolQueryBuilder filterQuery,
       @Nonnull Set<String> hiddenLifecycleStageUrns) {
+    return applyDefaultSearchFilters(
+        opContext, entityNames, filter, filterQuery, hiddenLifecycleStageUrns, null);
+  }
+
+  @Nonnull
+  public static BoolQueryBuilder applyDefaultSearchFilters(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
+      @Nullable Filter filter,
+      @Nonnull BoolQueryBuilder filterQuery,
+      @Nonnull Set<String> hiddenLifecycleStageUrns,
+      @Nullable EntityIndexConfiguration entityIndexConfiguration) {
     filterSoftDeletedAndHiddenStages(
         filter,
         filterQuery,
         opContext.getSearchContext().getSearchFlags(),
         hiddenLifecycleStageUrns);
+    EntitySearchIndexResolver.applyEntityTypeFilter(
+        filterQuery, entityNames, entityIndexConfiguration);
     return filterQuery;
   }
 

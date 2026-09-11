@@ -2,7 +2,7 @@ import { COLOR_SCHEMES } from '@components/components/BarChart/constants';
 
 import dayjs from '@utils/dayjs';
 
-export function generateMockData(length = 30, maxValue = 50_000, minValue = 0) {
+function generateMockData(length = 30, maxValue = 50_000, minValue = 0) {
     return Array(length)
         .fill(0)
         .map((_, index) => {

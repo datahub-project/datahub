@@ -118,6 +118,7 @@ export default function LineageControls() {
                     <StyledDivider />
                     <StyledPanelButton
                         $showText={isExpanded}
+                        data-testid="lineage-filters-button"
                         onClick={() =>
                             visiblePanel === 'filters' ? setVisiblePanel(null) : setVisiblePanel('filters')
                         }

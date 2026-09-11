@@ -962,10 +962,17 @@ def ingest_sample_data(token: Optional[str], pack: Optional[str]) -> None:
 
     # Run ingestion.
     click.echo("Starting ingestion...")
-    source_config: dict = {}
+    gms_server = "http://localhost:8080"
+    source_config: dict = {"server": gms_server}
     if pack:
         source_config["pack_name"] = pack
         source_config["no_time_shift"] = False
+    if token is not None:
+        source_config["token"] = token
+
+    sink_config: dict = {"server": gms_server}
+    if token is not None:
+        sink_config["token"] = token
 
     recipe: dict = {
         "source": {
@@ -974,12 +981,9 @@ def ingest_sample_data(token: Optional[str], pack: Optional[str]) -> None:
         },
         "sink": {
             "type": "datahub-rest",
-            "config": {"server": "http://localhost:8080"},
+            "config": sink_config,
         },
     }
-
-    if token is not None:
-        recipe["sink"]["config"]["token"] = token
 
     pipeline = Pipeline.create(recipe)
     pipeline.run()

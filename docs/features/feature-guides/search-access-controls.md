@@ -43,13 +43,14 @@ When Search Access Controls are enabled:
 
 When Search Access Controls are enabled, some entity types still **bypass** view authorization entirely and can appear
 in search without a View Entity grant. The lean baseline is declared on entities in `entity-registry.yml` via
-`viewUnrestricted: true`. Optional overlays use `VIEW_UNRESTRICTED_ENTITY_TYPES` (full replace when non-empty) plus
-`_ADD` / `_REMOVE`. All other types are restricted by default.
+`viewUnrestricted: true`. Optional overlays use `VIEW_UNRESTRICTED_ENTITY_TYPES` (stock application CSV;
+replacing it overrides that CSV, not the registry baseline) plus `_ADD` / `_REMOVE`. The add/remove overlays
+mutate the effective defaults. All other types are restricted by default.
 
-Stock `_ADD` defaults to the previous unrestricted CSV **minus** types already flagged in
-`entity-registry.yml`. Stock `_ADD` does **not** include `document`, `schemaField`, or `container` — those types are
+The effective defaults include the previous unrestricted CSV **minus** types already flagged in
+`entity-registry.yml`. They do **not** include `document`, `schemaField`, or `container` — those types are
 view-restricted by default when view authorization is on (`container` is no longer `viewUnrestricted` in the
-registry). Do not re-add them via `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD` unless you intentionally want view bypass.
+registry). Do not add them via `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD` unless you intentionally want view bypass.
 
 These are GMS environment variables (see [Environment Variables](../../deploy/environment-vars.md)). The same list
 applies to core view authorization when `VIEW_AUTHORIZATION_ENABLED=true` on DataHub Core deployments — that only
