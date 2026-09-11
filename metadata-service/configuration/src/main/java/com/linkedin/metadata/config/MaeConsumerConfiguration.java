@@ -30,8 +30,20 @@ public class MaeConsumerConfiguration {
     /** Max rows per poll for {@link com.linkedin.metadata.kafka.DataHubUsageEventsProcessor}. */
     private Integer usageEventsMaxBatch;
 
+    /**
+     * Maximum empty-poll sleep for usage-events workers. Exponential backoff starts at {@code
+     * postgres.pgQueue.consumerPoll.emptyPollSleepMinMillis}.
+     */
+    private Long usageEventsEmptyPollSleepMillis;
+
     /** Max rows per poll for MCL hook consumers. */
     private Integer metadataChangeLogMaxBatch;
+
+    /**
+     * Maximum empty-poll sleep for MCL hook workers. Exponential backoff starts at {@code
+     * postgres.pgQueue.consumerPoll.emptyPollSleepMinMillis}.
+     */
+    private Long metadataChangeLogEmptyPollSleepMillis;
   }
 
   @Data
