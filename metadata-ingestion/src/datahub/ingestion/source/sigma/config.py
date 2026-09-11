@@ -565,6 +565,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # but that tenant holds 3 data models against a customer's 891, so absence
     # there is not evidence about the id space in general.
     chart_ref_schema_unknown_head_kinds: Dict[str, int] = field(default_factory=dict)
+    # Distinct heads behind those refs. On a dev tenant 24 refs resolved to 4
+    # heads, so the ref count on its own overstates how many distinct objects
+    # are unaccounted for -- and a handful of heavily shared heads is a very
+    # different problem from thousands of one-off ones.
+    chart_ref_schema_unknown_head_distinct: int = 0
     # The endpoint has the column but its formula contains no reference at all.
     chart_ref_schema_no_refs: int = 0
     # /schema has no entry for that columnId -- the two endpoints disagree about

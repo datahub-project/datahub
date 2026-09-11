@@ -662,6 +662,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # ingest_data_models is off, which the reader reports as "not checked"
         # rather than as "matched nothing".
         self._known_id_spaces: Dict[str, Set[str]] = {}
+        # columnId -> owning Data Model elementId, filled with the above.
+        self._dm_column_owner: Dict[str, str] = {}
+        # Distinct unresolvable heads. 24 refs resolved to 4 heads on a dev
+        # tenant, so the ref count alone overstates how many distinct objects
+        # are actually unaccounted for.
+        self._unknown_head_ids: Set[str] = set()
         # Built once per run, lazily, by _ensure_global_warehouse_index.
         self._global_warehouse_index_built: bool = False
         self._global_warehouse_file_entries: Dict[str, Dict[str, Any]] = {}
@@ -7588,6 +7594,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     for element_id in id_map
                 },
             }
+            # columnId -> the Data Model element that owns it. The head of an
+            # unresolvable ref is opaque, but its SECOND segment is a column
+            # id (never a display name, on every ref observed), and a column
+            # id is something this run has the full universe of. If path[1] is
+            # a known column, its owning element identifies what the head must
+            # be -- and whether the head EQUALS that owner is the test of
+            # whether heads are element ids at all.
+            self._dm_column_owner = {
+                column.columnId: element.elementId
+                for data_model in all_data_models
+                for element in data_model.elements
+                for column in element.columns
+            }
         for workbook in self.sigma_api.get_sigma_workbooks():
             yield from self._gen_workbook_workunit(workbook)
 
@@ -7746,8 +7765,29 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # space, when most spaces were never built. Those are different
             # findings and pooling them would misreport the smaller one.
             space = "none_dm_pass_skipped"
+        # What the SECOND segment is. Observed to be an id on every ref and
+        # never a display name, so if this run knows the column, the element
+        # owning it says what the head denotes -- independently of whether the
+        # head itself is in any space above. "owner_is_head" confirms heads are
+        # element ids; "owner_differs" says they are something else and names
+        # what the ref actually points at.
+        second = next((p[1] for p in refs if len(p) == 2 and p[0] == head), "")
+        owner = self._dm_column_owner.get(second)
+        if not self._dm_column_owner:
+            p1 = "not_checked"
+        elif owner is None:
+            p1 = "unknown_column"
+        elif owner == head:
+            p1 = "dm_column_owner_is_head"
+        else:
+            p1 = "dm_column_owner_differs"
+        self._unknown_head_ids.add(head)
+        self.reporter.chart_ref_schema_unknown_head_distinct = len(
+            self._unknown_head_ids
+        )
         key = (
-            f"space={space} len={len(head)} sheet={sheet_type or 'unknown'} "
+            f"space={space} p1={p1} len={len(head)} "
+            f"sheet={sheet_type or 'unknown'} "
             f"self_ref={self_ref} defined_in_doc={defined_in_doc} "
             f"shared_by={'1' if shared_by <= 1 else '2-5' if shared_by <= 5 else '6+'}"
         )

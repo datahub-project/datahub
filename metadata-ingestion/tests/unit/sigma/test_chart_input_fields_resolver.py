@@ -102,6 +102,8 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source._chart_cols_memo = None
     source._pending_schema_probe = []
     source._known_id_spaces = {}
+    source._dm_column_owner = {}
+    source._unknown_head_ids = set()
     return source
 
 
@@ -1096,6 +1098,54 @@ class TestSchemaMeasurementRecordsFailures:
         (kind,) = src.reporter.chart_ref_schema_unknown_head_kinds
         assert kind.startswith("space=data_model_element_id ")
         assert "sheet=levelTable" in kind
+
+    def test_path1_identifies_the_head_even_when_the_head_is_in_no_space(
+        self,
+    ) -> None:
+        """path[1] is a column id, and this run knows every Data Model column.
+
+        So the element owning that column says what the ref points at even
+        when the head matches nothing -- which is the case on every tenant
+        measured so far, and would otherwise be the end of the enquiry.
+        """
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src._known_id_spaces = {"data_model_id": {"dm1"}}
+        src._dm_column_owner = {"colB": "ownerElement"}
+        src.sigma_api = MagicMock()
+        src.sigma_api.get_workbook_schema.return_value = {
+            "sheets": {
+                "sheet1": {
+                    "columns": {
+                        "col1": {
+                            "formula": {
+                                "type": "nameRef",
+                                "path": ["qQ1zXvB2pL", "colB"],
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        src._measure_schema_resolvable_refs(
+            _make_workbook_with_elements([[_make_element("e1", "El")]]),
+            [
+                _UnresolvedChartColumn(
+                    element_id="e1",
+                    column="Col",
+                    column_id="col1",
+                    reasons=frozenset({"some_reason"}),
+                )
+            ],
+        )
+
+        (kind,) = src.reporter.chart_ref_schema_unknown_head_kinds
+        # The head is in no space, but the column it names is owned by an
+        # element that is NOT the head -- so heads are not element ids here,
+        # and the ref points at that owner.
+        assert "space=none " in kind
+        assert "p1=dm_column_owner_differs" in kind
+        assert src.reporter.chart_ref_schema_unknown_head_distinct == 1
 
     def test_a_cross_sheet_ref_outranks_a_warehouse_ref_in_the_same_formula(
         self,
