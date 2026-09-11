@@ -310,7 +310,9 @@ def _normalize_hostname(hostname: str) -> str:
     return h
 
 
-def _parse_ip(hostname: str) -> Optional[ipaddress._BaseAddress]:
+def _parse_ip(
+    hostname: str,
+) -> Optional[Union[ipaddress.IPv4Address, ipaddress.IPv6Address]]:
     """Parse a hostname as an IP literal. Handles alternative IPv4 encodings
     (decimal/hex/octal) and IPv4-mapped IPv6, which curl/git accept but
     ``ipaddress.ip_address`` does not."""
@@ -365,7 +367,7 @@ def _hostname_from_git_url(url: str) -> Optional[str]:
     return None
 
 
-def _is_blocked_ip(ip: ipaddress._BaseAddress) -> bool:
+def _is_blocked_ip(ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> bool:
     if ip in _BLOCKED_GIT_IPS:
         return True
     return bool(
