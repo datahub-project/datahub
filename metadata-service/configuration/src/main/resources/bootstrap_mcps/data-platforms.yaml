@@ -749,6 +749,16 @@
     displayName: NiFi
     type: OTHERS
     logoUrl: "assets/platforms/nifilogo.svg"
+- entityUrn: urn:li:dataPlatform:openflow
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: openflow
+    displayName: Snowflake Openflow
+    type: OTHERS
+    logoUrl: "assets/platforms/openflowlogo.png"
 - entityUrn: urn:li:dataPlatform:superset
   entityType: dataPlatform
   aspectName: dataPlatformInfo

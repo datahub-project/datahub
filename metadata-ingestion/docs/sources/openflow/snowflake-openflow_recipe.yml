@@ -1,0 +1,37 @@
+source:
+  type: snowflake-openflow
+  config:
+    connection:
+      account_id: "abc12345.us-west-2"
+      username: "${SNOWFLAKE_USER}"
+      private_key: "${SNOWFLAKE_PRIVATE_KEY}"
+      authentication_type: KEY_PAIR_AUTHENTICATOR
+      role: "datahub_role"
+      warehouse: "datahub_wh"
+
+    # Coordinates for Openflow's own entities.
+    env: PROD
+
+    # Coordinates of the Snowflake datasets lineage points at. These MUST match
+    # your `snowflake` recipe, or lineage produces well-formed URNs that join to
+    # nothing.
+    snowflake_platform_instance: null
+    snowflake_env: PROD
+    # Folds the destination Snowflake identifiers only. Upstream identifiers are
+    # always emitted verbatim -- postgres/mysql/mssql preserve case by default.
+    convert_urns_to_lowercase: true
+
+    # Coordinates of the upstream datasets lineage points at -- the systems
+    # Openflow connectors read from. These MUST match the recipe that ingests
+    # that system (e.g. your `postgres` recipe), for the same reason.
+    source_platform_instance: null
+    source_env: PROD
+
+    include_table_lineage: true
+
+sink:
+  # datahub-rest, datahub-kafka, or any other sink
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    token: "${DATAHUB_GMS_TOKEN}"

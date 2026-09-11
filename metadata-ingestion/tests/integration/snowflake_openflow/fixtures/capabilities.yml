@@ -1,0 +1,24 @@
+# Fixture recipe: capability sweep (M4).
+pipeline_name: snowflake_openflow_capabilities_fixture
+source:
+  type: snowflake-openflow
+  config:
+    connection:
+      account_id: ${SNOWFLAKE_ACCOUNT}
+      username: ${SNOWFLAKE_USER}
+      private_key: ${SNOWFLAKE_PRIVATE_KEY}
+      authentication_type: KEY_PAIR_AUTHENTICATOR
+      role: ${SNOWFLAKE_ROLE}
+      warehouse: ${SNOWFLAKE_WAREHOUSE}
+    env: PROD
+    snowflake_env: PROD
+    convert_urns_to_lowercase: true
+    include_table_lineage: true
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+sink:
+  type: datahub-rest
+  config:
+    server: ${DATAHUB_GMS_URL:-http://localhost:8080}
+    token: ${DATAHUB_GMS_TOKEN}
