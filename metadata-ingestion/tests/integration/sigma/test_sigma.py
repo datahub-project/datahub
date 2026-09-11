@@ -468,6 +468,22 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         },
     }
 
+    # Default /v2/dataModels mock (empty listing). ingest_data_models defaults
+    # to True, so every test lists Data Models whether or not it cares about
+    # them. Before entity-listing failures were escalated to report.failure(),
+    # a missing mock here surfaced only as a warning -- so these tests passed
+    # while silently exercising a FAILED listing. An empty listing makes them
+    # exercise "this tenant has no Data Models" instead, which is what they
+    # actually mean. Tests about Data Models override this with real entries.
+    api_vs_response.setdefault(
+        "https://aws-api.sigmacomputing.com/v2/dataModels",
+        {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+    )
+
     api_vs_response.update(override_data)
 
     for url in api_vs_response:
@@ -4972,8 +4988,14 @@ def test_sigma_ingest_data_models_elements_http_error(
     pytestconfig, tmp_path, requests_mock
 ):
     """Partial-failure regression: ``/dataModels/{id}/elements`` returning 500
-    leaves the rest of the run healthy. The DM Container should still be
-    emitted with zero elements, and the pipeline must not raise.
+    degrades gracefully -- the DM Container is still emitted, with zero
+    elements, and the run completes.
+
+    It DOES report a failure, and must: the elements that call would have
+    returned are entities, so losing them has to suppress stale-entity removal
+    rather than let the next run soft-delete objects that still exist. This
+    test previously asserted the opposite (``raise_from_status()`` clean),
+    which was only true while the connector had no failure sites at all.
     """
 
     override_data = get_mock_data_model_api()
@@ -4986,8 +5008,13 @@ def test_sigma_ingest_data_models_elements_http_error(
     output_path = f"{tmp_path}/sigma_dm_elements_5xx_mces.json"
     pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
     pipeline.run()
-    # Must not raise — _paginated_entries swallows and returns [].
-    pipeline.raise_from_status()
+    # The run completes -- _paginated_entries swallows and returns [] -- but the
+    # lost listing is reported as a failure so stale removal is suppressed.
+    failures = pipeline.source.get_report().failures
+    assert any("entity listing failed" in str(f).lower() for f in failures), (
+        f"a 5xx on an entity listing must be reported as a failure so "
+        f"stale-entity removal is suppressed; got {list(failures)}"
+    )
 
     with open(output_path) as f:
         mces = json.load(f)
