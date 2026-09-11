@@ -32,7 +32,17 @@ _SOURCE_COLUMNS = "sourceColumns"
 _MAX_SOURCE_KIND_SAMPLES = 5
 _JOIN_TYPE = "joinType"
 # Join types whose ON equality holds only on matched rows.
-_OUTER_JOIN_TYPES = frozenset({"left", "right", "full", "outer", "full-outer"})
+#
+# VERIFIED against Sigma's own write API, which rejects anything outside this
+# vocabulary: only "inner", "left-outer", "right-outer" and "full-outer" are
+# accepted, and a stored spec reads back the value verbatim. The earlier set
+# was invented -- it listed "left", "right", "full" and "outer", none of which
+# Sigma accepts, and OMITTED "left-outer", the commonest outer join. Every
+# left-outer join was therefore scored as an inner one. The unit test asserted
+# ("left", True) and passed, because the fixture had guessed the same value the
+# code did.
+_OUTER_JOIN_TYPES = frozenset({"left-outer", "right-outer", "full-outer"})
+_INNER_JOIN_TYPE = "inner"
 
 
 @dataclass(frozen=True)
@@ -103,6 +113,12 @@ class DataModelSpecIndex:
     # debug log holds the key skeleton needed to correct it.
     unreadable_join_element_ids: List[str] = field(default_factory=list)
     source_kind_counts: Dict[str, int] = field(default_factory=dict)
+    # Every joinType seen, verbatim. The accepted vocabulary was confirmed
+    # against Sigma's write API as inner / left-outer / right-outer /
+    # full-outer, but that was confirmed on OUR tenant; anything else
+    # appearing here means the outer-join tier is mis-scoring a real shape,
+    # which is precisely the failure an invented set already caused once.
+    join_type_counts: Dict[str, int] = field(default_factory=dict)
     # Samples already logged per unread source kind. Per index rather than
     # module-level: a module global survives between ingestion runs in a
     # long-lived process, so the second run logs nothing, and it makes test
@@ -246,6 +262,10 @@ def _predicates_for_join(
     out: List[JoinPredicate] = []
     understood = 0
     join_type = str(join.get(_JOIN_TYPE) or "").strip().lower()
+    # Recorded verbatim, so a value outside the verified vocabulary shows up as
+    # a number instead of silently landing in the inner-join tier. An invented
+    # set already caused exactly that: it omitted "left-outer".
+    index.join_type_counts[join_type] = index.join_type_counts.get(join_type, 0) + 1
     # The descriptor's KEY NAMES, per join, before anything is interpreted.
     # This is the line that says whether a cross-model side carries
     # ``dataModelId`` -- the consumer cannot resolve such a side without it,

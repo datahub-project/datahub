@@ -3747,6 +3747,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.data_model_spec_source_kinds[kind] = (
                     self.reporter.data_model_spec_source_kinds.get(kind, 0) + n
                 )
+            for join_type, n in cached.join_type_counts.items():
+                self.reporter.data_model_join_types[join_type] = (
+                    self.reporter.data_model_join_types.get(join_type, 0) + n
+                )
             self.reporter.data_model_union_output_columns_read += len(cached.unions)
             self.reporter.data_model_union_branch_index_out_of_range += (
                 cached.union_branch_index_out_of_range
