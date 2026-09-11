@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.search;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -13,7 +14,9 @@ import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es7CompatibilitySearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import java.util.HashMap;
 import java.util.Map;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
@@ -135,6 +138,41 @@ public class SearchClientShimFactorySemanticGateTest {
         os3Shim, semanticConfiguration("faiss"), true);
     SearchClientShimFactory.assertNoNmslibOnOpenSearch3(
         os3Shim, semanticConfiguration("nmslib"), false);
+  }
+
+  @Test
+  public void factoryNmslibGuardSkipsWhenNoModelsOrNoEngineConfigured() {
+    SearchClientShim<?> os3Shim = mock(SearchClientShim.class);
+    when(os3Shim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+
+    ElasticSearchConfiguration noModels = semanticConfiguration("nmslib");
+    noModels.getEntityIndex().getSemanticSearch().setModels(null);
+    SearchClientShimFactory.assertNoNmslibOnOpenSearch3(os3Shim, noModels, true);
+
+    Map<String, ModelEmbeddingConfig> sparse = new HashMap<>();
+    sparse.put("absent", null);
+    ModelEmbeddingConfig noEngine = new ModelEmbeddingConfig();
+    noEngine.setKnnEngine(null);
+    sparse.put("no_engine", noEngine);
+    ElasticSearchConfiguration sparseModels = semanticConfiguration("faiss");
+    sparseModels.getEntityIndex().getSemanticSearch().setModels(sparse);
+    SearchClientShimFactory.assertNoNmslibOnOpenSearch3(os3Shim, sparseModels, true);
+  }
+
+  @Test
+  public void parseEngineTypeAcceptsOpenSearch3Aliases() {
+    SearchClientShimFactory factory = new SearchClientShimFactory();
+    assertEquals(
+        ReflectionTestUtils.invokeMethod(factory, "parseEngineType", "OPENSEARCH_3"),
+        SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    assertEquals(
+        ReflectionTestUtils.invokeMethod(factory, "parseEngineType", "os3"),
+        SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    IllegalArgumentException unsupported =
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> ReflectionTestUtils.invokeMethod(factory, "parseEngineType", "OPENSEARCH_9"));
+    assertTrue(unsupported.getMessage().contains("OPENSEARCH_3"), unsupported.getMessage());
   }
 
   private static ElasticSearchConfiguration semanticConfiguration(String knnEngine) {
