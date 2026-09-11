@@ -672,6 +672,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.buildIndices.reindexBatchSize",
           "elasticsearch.buildIndices.reindexMaxSlices",
           "elasticsearch.buildIndices.reindexNoProgressRetryMinutes",
+          "elasticsearch.buildIndices.waitForUnresolvedReindexTask",
           "elasticsearch.buildIndices.reconcileInPlaceMappingUpdates",
           "elasticsearch.buildIndices.clusterHealthCheckIntervalSeconds",
           "elasticsearch.buildIndices.clusterHeapThresholdPercent",

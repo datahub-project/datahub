@@ -1144,8 +1144,21 @@ public class ESIndexBuilder {
 
         final long lastUpdateDelta = System.currentTimeMillis() - documentCountsLastUpdated;
         final int noProgressRetryMinutes = getReindexNoProgressRetryMinutes();
-        if (completedButShort || lastUpdateDelta > (noProgressRetryMinutes * 60L * 1000)) {
-          if (reindexCount <= indexConfig.getNumRetries()) {
+        final boolean noProgressStall = lastUpdateDelta > (noProgressRetryMinutes * 60L * 1000);
+        if (completedButShort || noProgressStall) {
+          if (isWaitForUnresolvedReindexTaskEnabled() && isUnresolvedReindexTask(taskLookup)) {
+            // Keep the in-flight ES task; stacking another _reindex into the same destination
+            // causes version conflicts and retry-limit timeouts while dest already matches.
+            log.warn(
+                "Skipping reindex retry for {} because ES task [{}] is still {}. "
+                    + "waitForUnresolvedReindexTask is enabled; would otherwise have retried due to"
+                    + " no progress for {} minutes.",
+                sourceIndex,
+                activeTaskId,
+                taskLookup,
+                noProgressRetryMinutes);
+            documentCountsLastUpdated = System.currentTimeMillis();
+          } else if (reindexCount <= indexConfig.getNumRetries()) {
             log.warn(
                 "Re-triggering reindex #{} for {} ({}). Prior task [{}]: {}",
                 reindexCount,
@@ -1223,6 +1236,11 @@ public class ESIndexBuilder {
     return lookup == ReindexTaskLookup.BLANK_TASK_ID
         || lookup == ReindexTaskLookup.COMPLETED
         || lookup == ReindexTaskLookup.NOT_FOUND;
+  }
+
+  /** Task is still in flight, or status could not be read — not safe to stack another _reindex. */
+  static boolean isUnresolvedReindexTask(@Nonnull final ReindexTaskLookup lookup) {
+    return lookup == ReindexTaskLookup.RUNNING || lookup == ReindexTaskLookup.LOOKUP_ERROR;
   }
 
   /**
@@ -1595,6 +1613,10 @@ public class ESIndexBuilder {
     return Objects.requireNonNull(
         config.getBuildIndices().getReindexNoProgressRetryMinutes(),
         "elasticsearch.buildIndices.reindexNoProgressRetryMinutes must be set (e.g. in application.yaml)");
+  }
+
+  private boolean isWaitForUnresolvedReindexTaskEnabled() {
+    return config.getBuildIndices().isWaitForUnresolvedReindexTask();
   }
 
   private int calculateOptimalSlices(int targetShards) {
@@ -2372,7 +2394,8 @@ public class ESIndexBuilder {
     return reindexInfo;
   }
 
-  private Pair<Long, Long> getDocumentCounts(
+  @VisibleForTesting
+  protected Pair<Long, Long> getDocumentCounts(
       @Nonnull OperationContext opContext,
       Callable<Long> expectedCountSupplier,
       String destinationIndex)
