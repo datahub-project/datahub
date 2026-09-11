@@ -1636,8 +1636,13 @@ structuredProperties:
   # Requires systemUpdateEnabled as well; both must be true for type-mismatch reindex.
   typeMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX:true}
   dropMissingPropertyValuesWithWarning: ${STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING:true} # drop assignments for hard-deleted/missing definitions with WARN; fail if none remain
-  # Lucene keyword term limit (Elasticsearch/OpenSearch default). Used for ignore_above on structured
-  # property keyword mappings and for rejecting oversized string-backed structured property values.
+  # When true, persist oversized string-backed SP values in SQL but omit them from search documents.
+  # Default false: StructuredPropertiesValidator rejects those writes (HTTP 422).
+  dropOversizedKeywordValuesFromIndex: ${STRUCTURED_PROPERTIES_DROP_OVERSIZED_KEYWORD_VALUES_FROM_INDEX:false}
+  # Lucene keyword term limit (Elasticsearch/OpenSearch default, ESUtils.KEYWORD_MAXLENGTH). Used
+  # for ignore_above on structured property keyword mappings and as the write-validation / search-
+  # document threshold. Not a hard cap on primary-store size when dropOversizedKeywordValuesFromIndex
+  # is true.
   keywordMaxLength: ${STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH:32766}
 
 # Consistency check configuration (shared by upgrade job and API endpoints)

@@ -1054,6 +1054,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "springdoc.swagger-ui.urls-primary-name",
           "structuredProperties.enabled",
           "structuredProperties.dropMissingPropertyValuesWithWarning",
+          "structuredProperties.dropOversizedKeywordValuesFromIndex",
           "structuredProperties.keywordMaxLength",
           "structuredProperties.systemUpdateEnabled",
           "structuredProperties.typeMismatchReindexEnabled",
