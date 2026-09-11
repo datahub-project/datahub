@@ -1,3 +1,8 @@
+// Transaction meta key used by DetailsExtension to mark a details open/close toggle.
+// OnChangeMarkdown ignores transactions carrying this key so that expanding/collapsing
+// a section does not trigger an autosave or mark the document as dirty.
+export const DETAILS_TOGGLE_META = 'detailsToggle';
+
 export type FileUploadSource = 'drag-and-drop' | 'button';
 
 export enum FileUploadFailureType {
@@ -7,7 +12,7 @@ export enum FileUploadFailureType {
     UNKNOWN = 'unknown',
 }
 
-export interface FileUploadProps {
+interface FileUploadProps {
     onFileUpload?: (file: File) => Promise<string>;
     onFileUploadAttempt?: (fileType: string, fileSize: number, source: FileUploadSource) => void;
     onFileUploadFailed?: (
@@ -38,6 +43,8 @@ export type EditorProps = {
     hideBorder?: boolean;
     uploadFileProps?: FileUploadProps;
     fixedBottomToolbar?: boolean;
+    /** Optional content rendered below the formatting buttons inside the toolbar card. */
+    belowToolbar?: React.ReactNode;
     /** Hide the formatting toolbar completely (for chat input use case) */
     hideToolbar?: boolean;
     /** Enable compact mode with smaller min-height and adjusted padding */

@@ -6,7 +6,7 @@
 # Pre-v1.5.0: when users pass e.g. --version v1.4.0, the CLI downloads the compose file from that
 # version's git tag, which still includes those setup containers. No code changes needed.
 # v1.5.0+ quickstart: compose uses system-update only; no separate setup containers. Default uses
-# compose from master (includes ZDU stage flags) with the v1.7.0 docker tag. `head` / `quickstart`
+# compose from master (includes ZDU stage flags) with the v1.7.0.1 docker tag. `head` / `quickstart`
 # use master compose and the floating `quickstart` tag. Default must be v1.4.0.3+ for SqlSetup.
 #
 # If --version is specified during CLI run:
@@ -14,6 +14,8 @@
 # - The handling of `stable` is special. See below.
 # - Otherwise, we'll assume that it represents a docker-compose git ref and docker tag.
 #   e.g. `--version v0.x.y` will use the v0.x.y tag for all images and the compose file from the v0.x.y git tag.
+#   Unmapped four-part hotfix tags (e.g. v1.5.0.6) use that docker tag for DataHub images and the
+#   shorter release (v1.5.0, or that key's mapping) for composefile_git_ref and mysql_tag.
 # - If no version is specified the "default" key will be used.
 #
 # This file can also be used to map broken releases to fixed ones.
@@ -28,7 +30,7 @@ quickstart_version_map:
   # The "default" key is mandatory and is used if no version is specified.
   default:
     composefile_git_ref: master
-    docker_tag: v1.7.0
+    docker_tag: v1.7.0.1
     mysql_tag: "8.2"
   # default:  # Use this to pin default to a specific version.
   #   composefile_git_ref: fd1bd51541a132017a648f4a2f037eec8f70ba26 # v0.10.0 + quickstart compose file fixes
@@ -45,6 +47,11 @@ quickstart_version_map:
     mysql_tag: "8.2"
 
   # Remap minor release label to the latest patch (security + bugfixes).
+  v1.7.0:
+    composefile_git_ref: v1.7.0.1
+    docker_tag: v1.7.0.1
+    mysql_tag: "8.2"
+
   v1.6.0:
     composefile_git_ref: v1.6.0.2
     docker_tag: v1.6.0.2

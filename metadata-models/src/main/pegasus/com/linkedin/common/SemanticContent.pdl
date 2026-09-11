@@ -23,4 +23,19 @@ record SemanticContent {
    * Allows storing embeddings from multiple models simultaneously.
    */
   embeddings: map[string, EmbeddingModelData]
+
+  /**
+   * Set (with an empty embeddings map) when the embedding pipeline deliberately declined to
+   * embed this entity, so consumers can distinguish never-embeddable entities from indexing
+   * lag or failures. Values written today: EMPTY_TEXT (no resolved text),
+   * BELOW_MIN_TEXT_LENGTH (resolved text shorter than the recipe's min_text_length),
+   * NO_INDEXABLE_CONTENT (text partitioned to no indexable elements). Overwritten with real
+   * embeddings when the entity later becomes embeddable and is processed.
+   */
+  skipReason: optional string
+
+  /**
+   * Timestamp (milliseconds since epoch) when the skip decision was recorded.
+   */
+  skippedAt: optional Time
 }

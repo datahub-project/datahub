@@ -6,21 +6,24 @@ Code examples extracted from the DataHub smoke test suite at `smoke-test/`.
 
 ## Data Lifecycle Pattern
 
-The canonical fixture for test data management. Pre-deletes for idempotency, ingests, yields for tests, then cleans up.
+Prefer run-unique ingest (`_ingest_cleanup_unique_dataset_impl` /
+`materialize_with_unique_name`) from `smoke-test/AGENTS.md`. The helper below
+is the fallback when fixture keys are already unique to the module: pre-delete,
+ingest, yield, cleanup.
 
-**Source:** `smoke-test/conftest.py:82-117`
+**Source:** `_ingest_cleanup_data_impl` in `smoke-test/conftest.py`
 
 ```python
 def _ingest_cleanup_data_impl(
     auth_session, graph_client, data_file, test_name, to_delete_urns=None,
 ):
-    print(f"deleting {test_name} test data for idempotency")
+    logger.info("deleting %s test data for idempotency", test_name)
     delete_urns_from_file(graph_client, data_file)
-    print(f"ingesting {test_name} test data")
+    logger.info("ingesting %s test data", test_name)
     ingest_file_via_rest(auth_session, data_file)
     wait_for_writes_to_sync()
     yield
-    print(f"removing {test_name} test data")
+    logger.info("removing %s test data", test_name)
     delete_urns_from_file(graph_client, data_file)
     if to_delete_urns:
         delete_urns(graph_client, to_delete_urns)
