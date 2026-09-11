@@ -7,19 +7,28 @@
 import { test, expect } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
 import { MetricsPage } from '../../pages/metrics.page';
+import { AutocompletePage } from '../../pages/autocomplete.page';
 import { TIMEOUTS } from '../../utils/constants';
-import { METRICS_FEATURE_FLAGS, NAMES, SEMANTIC_MODEL_ORDERS_URN, TOTAL_REVENUE_URN } from './constants';
+import {
+  METRICS_FEATURE_FLAGS,
+  NAMES,
+  ORDERS_LOGICAL_URN,
+  SEMANTIC_MODEL_ORDERS_URN,
+  TOTAL_REVENUE_URN,
+} from './constants';
 
 test.use({ featureName: 'metrics' });
 
 test.describe('Metrics global search', () => {
   let searchPage: SearchPage;
   let metricsPage: MetricsPage;
+  let autocompletePage: AutocompletePage;
 
   test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
     await apiMock.setFeatureFlags(METRICS_FEATURE_FLAGS);
     searchPage = new SearchPage(page, logger, logDir);
     metricsPage = new MetricsPage(page, logger, logDir);
+    autocompletePage = new AutocompletePage(page, logger, logDir);
     await searchPage.navigateToHome();
   });
 
@@ -88,11 +97,11 @@ test.describe('Metrics global search', () => {
   });
 
   test('shows autocomplete suggestions for metrics entities', async ({ page }) => {
-    await searchPage.searchInput.fill(NAMES.ORDERS_MODEL);
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- debounce for autocomplete
-    await page.waitForTimeout(1000);
-    await expect(searchPage.autocompleteDropdown).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await expect(page.getByTestId(`autocomplete-item-${SEMANTIC_MODEL_ORDERS_URN}`)).toBeVisible({
+    // Search-bar ranking often surfaces related datasets over the Semantic Model entity
+    // itself for this query; the ORDERS logical dataset under that model is a reliable hit.
+    await autocompletePage.typeInSearchBar(NAMES.ORDERS_MODEL);
+    await autocompletePage.expectAutocompleteVisible();
+    await expect(page.getByTestId(`autocomplete-item-${ORDERS_LOGICAL_URN}`)).toBeVisible({
       timeout: TIMEOUTS.LONG,
     });
   });
