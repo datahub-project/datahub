@@ -62,7 +62,7 @@ from datahub.configuration.env_vars import (
 # graph.config can reference it for the default_emit_mode field without a cycle.
 from datahub.emitter.emit_mode import EmitMode as EmitMode
 from datahub.emitter.generic_emitter import Emitter
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp import MetadataChangeProposalWrapper, validate_emitted_urn
 from datahub.emitter.request_helper import (
     OpenApiRequest,
     has_sync_emit_marker,
@@ -813,6 +813,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         snapshot_fqn = (
             f"com.linkedin.metadata.snapshot.{mce.proposedSnapshot.RECORD_SCHEMA.name}"
         )
+        validate_emitted_urn(mce.proposedSnapshot.urn)
         ensure_has_system_metadata(mce)
         # To make lint happy
         assert mce.systemMetadata is not None
@@ -870,6 +871,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         elif emit_mode is None:
             emit_mode = self._default_emit_mode
 
+        validate_emitted_urn(mcp.entityUrn)
         ensure_has_system_metadata(mcp)
         effective_async = self._is_batch_async([mcp], emit_mode)
 
@@ -961,6 +963,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             logger.debug(f"Attempting to emit MCP batch of size {len(mcps)}")
 
         for mcp in mcps:
+            validate_emitted_urn(mcp.entityUrn)
             ensure_has_system_metadata(mcp)
 
         if self._openapi_ingestion:

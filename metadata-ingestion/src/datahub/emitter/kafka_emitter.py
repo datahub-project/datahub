@@ -14,7 +14,7 @@ from datahub.configuration.kafka import KafkaProducerConnectionConfig
 from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.generic_emitter import Emitter
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp import MetadataChangeProposalWrapper, validate_emitted_urn
 from datahub.ingestion.api.closeable import Closeable
 from datahub.metadata.schema_classes import (
     MetadataChangeEventClass as MetadataChangeEvent,
@@ -268,6 +268,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         mce: MetadataChangeEvent,
         callback: Callable[[Exception, str], None],
     ) -> None:
+        validate_emitted_urn(mce.proposedSnapshot.urn)
         if MCE_KEY not in self.config.topic_routes:
             error = Exception(
                 f"Cannot emit MetadataChangeEvent: {MCE_KEY} topic not configured in topic_routes"
@@ -292,6 +293,7 @@ class DatahubKafkaEmitter(Closeable, Emitter):
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         callback: Callable[[Exception, str], None],
     ) -> None:
+        validate_emitted_urn(mcp.entityUrn)
         # Call poll to trigger any callbacks on success / failure of previous writes
         producer: SerializingProducer = self.producers[MCP_KEY]
         producer.poll(0)

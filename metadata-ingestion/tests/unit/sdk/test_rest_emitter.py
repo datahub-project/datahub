@@ -1175,7 +1175,7 @@ class TestDataHubRestEmitter:
 
         # Create a test MCP
         test_mcp = MetadataChangeProposalWrapper(
-            entityUrn="urn:li:dataset:(test,sync_full,PROD)",
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:test,sync_full,PROD)",
             aspect=DatasetProfile(
                 rowCount=500,
                 columnCount=10,
@@ -2284,7 +2284,7 @@ class TestOpenApiIntegration:
 
             # Create test MCP
             test_mcp = MetadataChangeProposalWrapper(
-                entityUrn="urn:li:dataset:(test,sdk,PROD)",
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:test,sdk,PROD)",
                 aspect=Status(removed=False),
             )
 
@@ -2325,7 +2325,7 @@ class TestOpenApiIntegration:
 
             # Create test MCP
             test_mcp = MetadataChangeProposalWrapper(
-                entityUrn="urn:li:dataset:(test,ingestion,PROD)",
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:test,ingestion,PROD)",
                 aspect=Status(removed=False),
             )
 
@@ -2363,7 +2363,7 @@ class TestOpenApiIntegration:
 
         # Create test MCP
         test_mcp = MetadataChangeProposalWrapper(
-            entityUrn="urn:li:dataset:(test,explicit,PROD)",
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:test,explicit,PROD)",
             aspect=DatasetProfile(rowCount=100, columnCount=10, timestampMillis=0),
         )
 
@@ -2399,7 +2399,7 @@ class TestOpenApiIntegration:
 
         # Create MCPs with different entity types
         dataset_mcp = MetadataChangeProposalWrapper(
-            entityUrn="urn:li:dataset:(test,batch1,PROD)",
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:test,batch1,PROD)",
             entityType="dataset",
             aspect=Status(removed=False),
         )
@@ -2896,7 +2896,7 @@ class TestAsyncUnlessSyncMarker:
             emitter, "_emit_generic", return_value=mock_response
         ) as mock_emit:
             item = mcp or MetadataChangeProposalWrapper(
-                entityUrn="urn:li:dataset:(test,async_unless_sync,PROD)",
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:test,async_unless_sync,PROD)",
                 aspect=Status(removed=False),
             )
             emitter.emit_mcp(item, emit_mode=emit_mode)
@@ -2917,7 +2917,7 @@ class TestAsyncUnlessSyncMarker:
             emitter, "_emit_generic", return_value=mock_response
         ) as mock_emit:
             item = mcp or MetadataChangeProposalWrapper(
-                entityUrn="urn:li:dataset:(test,async_unless_sync_openapi,PROD)",
+                entityUrn="urn:li:dataset:(urn:li:dataPlatform:test,async_unless_sync_openapi,PROD)",
                 aspect=Status(removed=False),
             )
             emitter.emit_mcp(item, emit_mode=emit_mode)
@@ -2948,7 +2948,7 @@ class TestAsyncUnlessSyncMarker:
         from datahub.metadata.schema_classes import SystemMetadataClass
 
         return MetadataChangeProposalWrapper(
-            entityUrn="urn:li:dataset:(test,sync_demanded,PROD)",
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:test,sync_demanded,PROD)",
             aspect=Status(removed=False),
             systemMetadata=SystemMetadataClass(properties={"emitModeMarker": "sync"}),
         )
@@ -2985,7 +2985,7 @@ class TestAsyncUnlessSyncMarker:
         from datahub.metadata.schema_classes import SystemMetadataClass
 
         mcp = MetadataChangeProposalWrapper(
-            entityUrn="urn:li:dataset:(test,sync_demanded_caps,PROD)",
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:test,sync_demanded_caps,PROD)",
             aspect=Status(removed=False),
             systemMetadata=SystemMetadataClass(properties={"emitModeMarker": "Sync"}),
         )
@@ -3015,7 +3015,7 @@ class TestAsyncUnlessSyncMarker:
         mock_response.json.return_value = {"value": "success"}
 
         plain = MetadataChangeProposalWrapper(
-            entityUrn="urn:li:dataset:(test,plain,PROD)",
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:test,plain,PROD)",
             aspect=Status(removed=False),
         )
 
