@@ -9,7 +9,10 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.common.FabricType;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import io.datahubproject.openlineage.dataset.ConnectionInstanceDetail;
+import io.datahubproject.openlineage.dataset.PathSpec;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -387,6 +390,102 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
     @Test
     public void testUsePatchCanBeDisabled() {
       assertFalse(mappingConfig.getDatahubConfig().isUsePatch());
+    }
+  }
+
+  /**
+   * The converter's PathSpec and ConnectionInstanceDetail use final fields and {@code Optional}, so
+   * they cannot be bound directly — these cover the translation. Connection keys contain {@code :}
+   * and {@code /}, so they need bracket syntax; the backslashes escape the colons, which inline
+   * {@code @TestPropertySource} entries would otherwise read as a properties-format key/value
+   * separator.
+   */
+  @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigBoundProperties.class})
+  @TestPropertySource(
+      properties = {
+        "datahub.openlineage.env=PROD",
+        "datahub.openlineage.connections[snowflake\\://my-account].platform-instance=my_instance",
+        "datahub.openlineage.connections[snowflake\\://my-account].env=DEV",
+        "datahub.openlineage.path-specs.s3[0].alias=events",
+        "datahub.openlineage.path-specs.s3[0].platform=s3",
+        "datahub.openlineage.path-specs.s3[0].path-spec-list=s3\\://my-bucket/{table}",
+        "datahub.openlineage.path-specs.s3[0].platform-instance=my_s3"
+      })
+  public static class BoundNestedConfigTest extends AbstractTestNGSpringContextTests {
+
+    @Autowired private RunEventMapper.MappingConfig mappingConfig;
+
+    @Test
+    public void testConnectionsBindAndReachConverterConfig() {
+      ConnectionInstanceDetail detail =
+          mappingConfig.getDatahubConfig().getConnectionInstanceMap().get("snowflake://my-account");
+      assertNotNull(detail, "connection entry should bind under its namespace authority");
+      assertEquals(detail.getPlatformInstance(), Optional.of("my_instance"));
+      // env is validated to a FabricType at startup, not left as a raw string.
+      assertEquals(detail.getEnv(), Optional.of(FabricType.DEV));
+    }
+
+    @Test
+    public void testPathSpecsBindAndReachConverterConfig() {
+      List<PathSpec> specs = mappingConfig.getDatahubConfig().getPathSpecs().get("s3");
+      assertNotNull(specs, "path specs should bind under their platform key");
+      assertEquals(specs.size(), 1);
+      assertEquals(specs.get(0).getAlias(), "events");
+      assertEquals(specs.get(0).getPathSpecList(), List.of("s3://my-bucket/{table}"));
+      assertEquals(specs.get(0).getPlatformInstance(), Optional.of("my_s3"));
+    }
+  }
+
+  /** An invalid connection env must not silently become the global env without a warning. */
+  @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigBoundProperties.class})
+  @TestPropertySource(
+      properties = {
+        "datahub.openlineage.env=PROD",
+        "datahub.openlineage.connections[postgres\\://my-host\\:5432].env=NOT_A_FABRIC_TYPE"
+      })
+  public static class InvalidConnectionEnvTest extends AbstractTestNGSpringContextTests {
+
+    @Autowired private RunEventMapper.MappingConfig mappingConfig;
+
+    @Test
+    public void testInvalidConnectionEnvFallsBack() {
+      ConnectionInstanceDetail detail =
+          mappingConfig
+              .getDatahubConfig()
+              .getConnectionInstanceMap()
+              .get("postgres://my-host:5432");
+      assertNotNull(detail);
+      assertEquals(detail.getEnv(), Optional.empty());
+    }
+  }
+
+  /** The URN-shaping and advanced flags were declared on the converter but never wired. */
+  @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigBoundProperties.class})
+  @TestPropertySource(
+      properties = {
+        "datahub.openlineage.env=PROD",
+        "datahub.openlineage.pipeline-name=my_pipeline",
+        "datahub.openlineage.lower-case-dataset-urns=true",
+        "datahub.openlineage.hive-platform-alias=glue",
+        "datahub.openlineage.disable-symlink-resolution=true",
+        "datahub.openlineage.remove-legacy-lineage=true",
+        "datahub.openlineage.include-indirect-column-lineage=false",
+        "datahub.openlineage.enhanced-merge-into-extraction=true"
+      })
+  public static class AdvancedFlagsTest extends AbstractTestNGSpringContextTests {
+
+    @Autowired private RunEventMapper.MappingConfig mappingConfig;
+
+    @Test
+    public void testAdvancedFlagsReachConverterConfig() {
+      DatahubOpenlineageConfig config = mappingConfig.getDatahubConfig();
+      assertEquals(config.getPipelineName(), "my_pipeline");
+      assertTrue(config.isLowerCaseDatasetUrns());
+      assertEquals(config.getHivePlatformAlias(), "glue");
+      assertTrue(config.isDisableSymlinkResolution());
+      assertTrue(config.isRemoveLegacyLineage());
+      assertFalse(config.isIncludeIndirectColumnLineage());
+      assertTrue(config.isEnhancedMergeIntoExtraction());
     }
   }
 
