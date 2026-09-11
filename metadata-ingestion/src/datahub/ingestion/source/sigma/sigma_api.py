@@ -1106,6 +1106,16 @@ class SigmaAPI:
                 result.setdefault(elem_id, {})[name] = formula
                 if column_id:
                     col_ids.setdefault(elem_id, {})[name] = column_id
+            else:
+                # A /columns row we could not key. Silently dropping these made
+                # a payload-shape change indistinguishable from Sigma having no
+                # formula for the column, which is the wrong conclusion and the
+                # expensive one to chase.
+                self.report.workbook_columns_rows_unkeyed += 1
+                self.report.workbook_columns_unkeyed_samples.append(
+                    f"workbook={workbook_id} has_elementId={bool(elem_id)} "
+                    f"has_name={bool(name)} keys={sorted(col)}"
+                )
         if self.report.pagination_aborted > aborts_before:
             self.report.column_formulas_fetch_partial += 1
             # Recorded, not just counted. Without the id, a chart column from
@@ -1174,6 +1184,9 @@ class SigmaAPI:
                 )
                 element = Element.model_validate(element_dict)
                 if column_formulas_by_element is not None:
+                    element.columns_payload_present = (
+                        element.elementId in column_formulas_by_element
+                    )
                     element.column_formulas = column_formulas_by_element.get(
                         element.elementId, {}
                     )

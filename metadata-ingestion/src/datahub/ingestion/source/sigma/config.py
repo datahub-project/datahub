@@ -510,6 +510,18 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # different findings, and the counter cannot tell them apart -- so the
     # element's own formula coverage is recorded alongside each sample.
     chart_no_formula_samples: LossyList[str] = field(default_factory=LossyList)
+    # Rows from GET /workbooks/{id}/columns that carried no elementId or no
+    # name, so they could not be keyed and were dropped. A payload-shape change
+    # would otherwise surface only as "Sigma has no formula" for whole elements.
+    workbook_columns_rows_unkeyed: int = 0
+    workbook_columns_unkeyed_samples: LossyList[str] = field(default_factory=LossyList)
+    # Chart elements the /columns payload never mentioned, in workbooks whose
+    # /columns call SUCCEEDED. This is the distinction that decides whether a
+    # missing column lineage is Sigma's gap or ours: an element Sigma described
+    # with null formulas has genuinely nothing to map, while one Sigma never
+    # returned means the payload did not cover it and the fault is upstream of
+    # our resolver entirely. Both used to land in the same counter.
+    chart_elements_absent_from_columns_payload: int = 0
     # Elements with zero column formulas whose workbook fetched formulas fine.
     # A non-zero value here means the gap is per-ELEMENT, not per-workbook,
     # which no existing counter distinguishes.

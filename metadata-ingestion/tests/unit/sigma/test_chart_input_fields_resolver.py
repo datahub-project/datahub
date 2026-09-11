@@ -16,6 +16,7 @@ from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSource
 from datahub.ingestion.source.sigma.data_classes import (
     Element,
     Page,
+    SheetUpstream,
     WarehouseTableUpstream,
     Workbook,
 )
@@ -2604,3 +2605,56 @@ class TestNoFormulaBucketCarriesEvidence:
         )
         assert list(self.src.reporter.chart_no_formula_samples) == []
         assert self.src.reporter.chart_input_fields_formulas_not_fetched == 1
+
+
+class TestPayloadPresenceIsRecordedNotInferred:
+    """``column_formulas == {}`` has two causes with different owners.
+
+    Hydration uses ``.get(elementId, {})``, so an element the /columns payload
+    never mentioned is byte-identical downstream to one it described with null
+    formulas. Only the second means "Sigma has nothing to give"; the first
+    means the payload did not cover the element at all. Both used to be filed
+    as chart_input_fields_self_ref_no_formula, so the report asserted Sigma's
+    limitation in a case where we had never actually been told anything.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+
+    def _sample_for(self, element: Element) -> str:
+        self.src._count_unresolved_chart_column(
+            element=element,
+            column="a",
+            refs=[],
+            all_param=False,
+            all_sibling=False,
+            all_unresolvable_mixed=False,
+            formulas_incomplete=False,
+        )
+        samples = list(self.src.reporter.chart_no_formula_samples)
+        assert len(samples) == 1
+        return samples[0]
+
+    def test_an_element_sigma_described_is_marked_present(self) -> None:
+        element = _make_element_with_formula("e1", "Chart", {"a": None})
+        element.columns_payload_present = True
+        assert "present_in_columns_payload=True" in self._sample_for(element)
+
+    def test_an_element_sigma_never_returned_is_marked_absent(self) -> None:
+        element = _make_element("e1", "Chart", ["a"])
+        element.columns_payload_present = False
+        sample = self._sample_for(element)
+        assert "present_in_columns_payload=False" in sample
+        # Same counter, opposite conclusion -- which is the whole point of
+        # recording it rather than inferring it from an empty dict.
+        assert self.src.reporter.chart_input_fields_self_ref_no_formula == 1
+
+    def test_the_sample_carries_the_upstreams_sigma_did_declare(self) -> None:
+        """A chart with a declared upstream and no formulas is a COMPLETE
+        finding: it explains chart-level lineage with no column lineage, which
+        is exactly what gets reported."""
+        element = _make_element("e1", "Chart", ["a"])
+        element.columns_payload_present = True
+        element.upstream_sources = {"n1": SheetUpstream(element_id="other")}
+        assert "upstreams=['SheetUpstream']" in self._sample_for(element)
