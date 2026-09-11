@@ -40,6 +40,21 @@ The endpoint responds with:
 | `422`  | The event is well-formed but carries nothing DataHub can store (for example, no job name) |
 | `500`  | A server-side failure                                                                     |
 
+### Supported event types
+
+The endpoint accepts all three OpenLineage 2.0 event types:
+
+| Event          | Carries                           | What DataHub creates                                |
+| -------------- | --------------------------------- | --------------------------------------------------- |
+| `RunEvent`     | A run, its job, and dataset edges | DataFlow, DataJob, DataProcessInstance, lineage     |
+| `JobEvent`     | A job and dataset edges, no run   | DataFlow, DataJob, lineage — no DataProcessInstance |
+| `DatasetEvent` | A single dataset, no job or run   | Dataset aspects only                                |
+
+`JobEvent` and `DatasetEvent` are the spec's static-lineage path: a producer describing a job or a
+table it did not just execute or write. The event type comes from `schemaURL`; when a producer omits
+it, the event's shape decides — a `run` means a RunEvent, a top-level `dataset` means a DatasetEvent,
+otherwise a JobEvent.
+
 ### What DataHub captures from an event
 
 | OpenLineage facet                                                 | Where it lands                                                                   |
@@ -168,6 +183,36 @@ Values must be full domain URNs. A domain name such as `finance` cannot be resol
 skipped with a warning. The remaining valid domains are written as the entity's complete domain
 list, replacing any existing assignment — including one made in the UI. If no configured value
 parses at all, nothing is emitted, so a bad value cannot silently clear domains.
+
+##### Path specs and per-connection instances
+
+Two settings take structured values and so cannot be set through environment variables — their keys
+contain `:` and `/`, which environment variable names cannot express. Set them in `application.yml`:
+
+```yaml
+datahub:
+  openlineage:
+    # Per-platform path-to-URN rules for object-storage datasets.
+    path-specs:
+      s3:
+        - alias: events
+          platform: s3
+          platform-instance: my_s3
+          path-spec-list:
+            - "s3://my-bucket/{table}"
+    # Align URNs with what each platform's own connector stamps. Keys are OpenLineage namespace
+    # authorities: arn:aws:glue:{region}:{account}, snowflake://{account}, postgres://{host}:{port}.
+    connections:
+      "snowflake://my-account":
+        platform-instance: my_instance
+        env: PROD
+      "arn:aws:glue:us-east-1:111111111111":
+        platform-instance: my_glue_catalog
+```
+
+Without `connections`, a deployment spanning two accounts emits URNs for one of them and the lineage
+for the other dangles against datasets the platform's own connector ingested under a different
+instance.
 
 ##### Usage Examples
 

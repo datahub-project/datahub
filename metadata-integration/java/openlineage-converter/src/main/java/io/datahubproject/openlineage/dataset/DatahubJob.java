@@ -118,6 +118,27 @@ public class DatahubJob {
             b.entityType(DATASET_ENTITY_TYPE).entityUrn(datasetUrn).upsert().aspect(datasetAspect));
   }
 
+  /**
+   * Emits the aspects for a single dataset with no job or run attached — the OpenLineage {@code
+   * DatasetEvent} path. Mirrors what {@link #processUpstreams} does per dataset, minus the lineage
+   * edges, which need a job to hang from.
+   */
+  public static List<MetadataChangeProposal> datasetOnlyMcps(
+      DatahubDataset dataset, DatahubOpenlineageConfig config) throws IOException {
+    DatahubJob shell = DatahubJob.builder().build();
+    List<MetadataChangeProposal> mcps = new ArrayList<>();
+    if (config.isMaterializeDataset()) {
+      mcps.add(shell.eventFormatter.convert(materializeDataset(dataset.getUrn())));
+      shell.generateStatus(dataset.getUrn(), DATASET_ENTITY_TYPE, mcps);
+    }
+    if (dataset.getSchemaMetadata() != null && config.isIncludeSchemaMetadata()) {
+      shell.addAspectToMcps(
+          dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
+    }
+    shell.addDatasetFacetAspects(dataset, mcps);
+    return mcps;
+  }
+
   public List<MetadataChangeProposal> toMcps(DatahubOpenlineageConfig config) throws IOException {
     List<MetadataChangeProposal> mcps = new ArrayList<>();
 
@@ -187,8 +208,11 @@ public class DatahubJob {
     // Generate and add DataJobInputOutput Aspect
     generateDataJobInputOutputMcp(inputEdges, outputEdges, config, mcps);
 
-    // Generate and add DataProcessInstance Aspect
-    generateDataProcessInstanceMcp(inputUrnArray, outputUrnArray, mcps);
+    // Generate and add DataProcessInstance Aspect. JobEvents carry no run, so there is no
+    // process instance to describe.
+    if (dataProcessInstanceUrn != null) {
+      generateDataProcessInstanceMcp(inputUrnArray, outputUrnArray, mcps);
+    }
 
     log.debug("Mcp generation finished for urn {}", jobUrn);
     return mcps;
