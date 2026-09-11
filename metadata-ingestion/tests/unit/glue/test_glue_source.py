@@ -2367,8 +2367,12 @@ def test_propagated_table_tag_is_marked_as_propagated() -> None:
     assert global_tags is not None
     by_urn = {a.tag: a for a in global_tags.tags}
 
-    # Directly-assigned table tag is not marked as propagated.
-    assert by_urn[make_tag_urn("DataClassification:Sensitive")].attribution is None
+    # Directly-assigned table tag carries Lake Formation attribution (not propagated),
+    # so it can be told apart from a tag added in the DataHub UI.
+    direct = by_urn[make_tag_urn("DataClassification:Sensitive")]
+    assert direct.attribution is not None
+    assert direct.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in direct.attribution.sourceDetail
     # Inherited database tag is marked as propagated, with origin + legacy context.
     propagated = by_urn[make_tag_urn("Owner:DataTeam")]
     assert propagated.attribution is not None
@@ -2411,8 +2415,12 @@ def test_propagated_column_tag_is_marked_as_propagated() -> None:
         for f in schema.fields
         if f.globalTags
     }
-    # Inherited tag on customer_id is marked propagated; its own pii tag is not.
-    assert by_field["customer_id"][make_tag_urn("pii:true")].attribution is None
+    # customer_id's own pii tag is directly assigned: Lake Formation attribution,
+    # not propagated. The inherited DataClassification tag is marked propagated.
+    own = by_field["customer_id"][make_tag_urn("pii:true")]
+    assert own.attribution is not None
+    assert own.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in own.attribution.sourceDetail
     inherited = by_field["customer_id"][make_tag_urn("DataClassification:Sensitive")]
     assert inherited.attribution is not None
     assert inherited.attribution.sourceDetail["propagated"] == "true"
@@ -2421,6 +2429,66 @@ def test_propagated_column_tag_is_marked_as_propagated() -> None:
         by_field["id"][make_tag_urn("DataClassification:Sensitive")].attribution
         is not None
     )
+
+
+def test_direct_table_tag_carries_lake_formation_attribution() -> None:
+    # A directly-assigned Lake Formation tag is stamped with attribution so it
+    # can be distinguished from a tag added in the DataHub UI (which has none).
+    source = glue_source(extract_lakeformation_tags=True)
+    direct = [
+        LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c"),
+        LakeFormationTag(key="Owner", value="DataTeam", catalog="c"),
+    ]
+    global_tags = source._build_lf_global_tags(direct)
+    assert global_tags is not None
+    for assoc in global_tags.tags:
+        assert assoc.attribution is not None
+        assert assoc.attribution.source == "urn:li:dataPlatform:glue"
+        assert assoc.attribution.sourceDetail["origin"] == "lake-formation"
+        assert assoc.attribution.sourceDetail["external"] == "true"
+        assert "propagated" not in assoc.attribution.sourceDetail
+        # Legacy context mirrors sourceDetail for older readers.
+        assert assoc.context is not None
+        assert json.loads(assoc.context)["origin"] == "lake-formation"
+
+
+def test_direct_column_tag_carries_lake_formation_attribution() -> None:
+    source = glue_source(extract_lakeformation_tags=True)
+    table = {
+        "Name": "sales",
+        "StorageDescriptor": {"Columns": [{"Name": "customer_id", "Type": "string"}]},
+    }
+    column_tags = {
+        "customer_id": [LakeFormationTag(key="pii", value="true", catalog="c")]
+    }
+    schema = source._get_glue_schema_metadata(table, "sales", column_tags)
+    assert schema is not None
+    field = next(f for f in schema.fields if f.fieldPath.endswith("customer_id"))
+    assert field.globalTags is not None
+    assoc = field.globalTags.tags[0]
+    assert assoc.tag == make_tag_urn("pii:true")
+    assert assoc.attribution is not None
+    assert assoc.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in assoc.attribution.sourceDetail
+
+
+def test_direct_tag_precedence_keeps_direct_attribution_over_propagated() -> None:
+    # The same tag URN assigned directly and inherited: the direct assignment
+    # wins, so the association keeps Lake Formation (not propagated) attribution.
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    same = LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c")
+    global_tags = source._build_lf_global_tags(
+        [same], [same], propagated_origin="urn:li:container:db"
+    )
+    assert global_tags is not None
+    assert len(global_tags.tags) == 1
+    assoc = global_tags.tags[0]
+    assert assoc.attribution is not None
+    assert assoc.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in assoc.attribution.sourceDetail
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
