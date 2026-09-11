@@ -300,6 +300,21 @@ def test_provider_pool_unexpected_rank_raises(tmp_path, monkeypatch):
         provider._pool(np.zeros((2,)), np.ones((1, 2)))
 
 
+def test_provider_embed_rejects_batch_mismatch(tmp_path, monkeypatch):
+    np = pytest.importorskip("numpy")
+    from datahub.ingestion.source.unstructured.embedding_providers.onnx import (
+        OnnxEmbeddingProvider,
+    )
+
+    # Model returns one already-pooled vector but two texts were requested; the
+    # output guard must reject the short batch rather than write mismatched vectors.
+    out = np.zeros((1, 2), dtype=np.float32)
+    _stub_onnx_modules(monkeypatch, out)
+    provider = OnnxEmbeddingProvider(model="m", model_dir=str(_model_dir(tmp_path)))
+    with pytest.raises(RuntimeError, match="malformed embeddings"):
+        provider.embed(["a", "b"])
+
+
 def test_provider_init_invalid_pooling_raises(tmp_path, monkeypatch):
     pytest.importorskip("numpy")
     from datahub.ingestion.source.unstructured.embedding_providers.onnx import (
