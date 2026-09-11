@@ -244,6 +244,23 @@ public class EntityAspectAuthorizationUtilsTest {
   }
 
   @Test
+  public void testIsAuthorizedToManageForms_requiresManageDocumentationForms() {
+    authUtilMockedStatic
+        .when(
+            () ->
+                AuthUtil.isAuthorized(
+                    eq(mockAuthSession), eq(PoliciesConfig.MANAGE_DOCUMENTATION_FORMS_PRIVILEGE)))
+        .thenReturn(true);
+
+    Assert.assertTrue(EntityAspectAuthorizationUtils.isAuthorizedToManageForms(mockAuthSession));
+  }
+
+  @Test
+  public void testIsAuthorizedToManageForms_deniesWithoutPrivilege() {
+    Assert.assertFalse(EntityAspectAuthorizationUtils.isAuthorizedToManageForms(mockAuthSession));
+  }
+
+  @Test
   public void testIsAuthorizedToRenameDataProduct_allowsEditOnProduct() {
     authUtilMockedStatic
         .when(

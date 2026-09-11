@@ -82,6 +82,16 @@ public final class EntityAspectAuthorizationUtils {
   }
 
   /**
+   * Returns true when the actor may change which forms are assigned to assets, i.e. holds the
+   * platform-level {@code MANAGE_DOCUMENTATION_FORMS} privilege. Matches the GraphQL {@code
+   * canManageForms} check used by the form CRUD mutations.
+   */
+  public static boolean isAuthorizedToManageForms(@Nonnull AuthorizationSession session) {
+    return com.datahub.authorization.AuthUtil.isAuthorized(
+        session, PoliciesConfig.MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
+  }
+
+  /**
    * Authorization candidates for a {@code logicalParent} write on {@code urn}, ordered for
    * evaluation: containing dataset first for schema fields (most common), then the entity URN.
    */
