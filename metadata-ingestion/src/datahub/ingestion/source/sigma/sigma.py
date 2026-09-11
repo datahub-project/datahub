@@ -132,6 +132,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -7966,17 +7967,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     for reason in item.reasons or {"none_recorded"}
                 }
             )
-            self.reporter.chart_ref_schema_samples.append(
-                f"{item.element_id}.{item.column}: columnId={item.column_id} "
-                f"reasons={sorted(item.reasons)} -> {detail}"
-            )
-            return
+        # Sample EVERY outcome into its own budget. A single shared reservoir
+        # samples in proportion to each outcome's share, which guarantees that
+        # the rarest -- usually the most interesting -- gets nothing: join_chain
+        # was 1.6% of the population and drew 0 of 10 slots on a full run.
+        #
         # The paths, not the whole tree: a formula can be large and the shape is
-        # what says why this column is not resolvable from /schema.
+        # what says why this column resolved the way it did.
         paths = self._schema_name_refs(formula) if formula is not None else []
-        self.reporter.chart_ref_schema_unresolvable_samples.append(
-            f"{outcome} {item.element_id}.{item.column}: columnId={item.column_id} "
-            f"reasons={sorted(item.reasons)} nameRef_paths={paths[:6]}"
+        self.reporter.chart_ref_schema_samples_by_outcome.setdefault(
+            outcome, LossyList()
+        ).append(
+            f"{item.element_id}.{item.column}: columnId={item.column_id} "
+            f"reasons={sorted(item.reasons)} detail={detail!r} "
+            f"nameRef_paths={paths[:6]}"
         )
 
     def _check_chart_column_accounting(self) -> None:

@@ -615,9 +615,6 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # The call failed, so these columns are unmeasured rather than unresolvable.
     chart_ref_schema_unavailable: int = 0
     workbook_schema_fetch_failed: int = 0
-    # Element, column, columnId and the sheet/column path it points at, for the
-    # cross-sheet cases -- enough to hand-verify a sample before trusting it.
-    chart_ref_schema_samples: LossyList[str] = field(default_factory=LossyList)
     # The cross-sheet count above, split by the cause the column was already
     # filed under. A single total is consistent with closing the 6,679
     # "element named but not a lineage upstream" refs, or the 1,065 whose name
@@ -630,12 +627,20 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # "cross_sheet: small" cannot answer that. Reading both off the same run is
     # the difference between one run and three.
     chart_ref_schema_outcomes_by_reason: Dict[str, int] = field(default_factory=dict)
-    # The nameRef paths /schema does hold for columns it CANNOT resolve. The
-    # shape is the evidence: a path of unexpected length or head means this
-    # reader is wrong, no paths at all means the endpoint genuinely has nothing
-    # for that column, and the two call for opposite responses.
-    chart_ref_schema_unresolvable_samples: LossyList[str] = field(
-        default_factory=LossyList
+    # The nameRef paths /schema holds, sampled PER OUTCOME. The shape is the
+    # evidence: a path of unexpected length or head means this reader is wrong,
+    # no paths at all means the endpoint genuinely has nothing for that column,
+    # and the two call for opposite responses.
+    #
+    # One shared LossyList was wrong, and produced a concrete failure: it
+    # reservoir-samples 10 entries across every outcome, so a minority outcome
+    # is starved in proportion to its share. `join_chain` was 263 of ~16,236
+    # unresolvable columns (1.6%), giving an expected yield of 0.16 samples --
+    # and it returned ZERO on a full customer run, leaving the one gap that is
+    # entirely ours with a count and no evidence. Keyed by outcome, each gets
+    # its own budget regardless of how rare it is.
+    chart_ref_schema_samples_by_outcome: Dict[str, LossyList[str]] = field(
+        default_factory=dict
     )
     # Splits unknown_source_but_name_exists_in_a_data_model_this_workbook_loads
     # by whether a same-named element actually OWNS the referenced column:

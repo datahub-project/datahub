@@ -999,6 +999,51 @@ class TestSchemaMeasurementRecordsFailures:
         )
         return src
 
+    def test_a_rare_outcome_is_still_sampled_beside_a_flood(self) -> None:
+        """The regression this change exists for.
+
+        One shared LossyList reservoir-samples ~10 entries across all outcomes,
+        so a minority outcome draws slots in proportion to its share. On a full
+        customer run `join_chain` was 263 of ~16,236 unresolvable columns --
+        expected yield 0.16 -- and returned ZERO samples, leaving the one gap
+        that is entirely ours with a count and no evidence. Per-outcome budgets
+        make the rare one survive regardless of how much else there is.
+        """
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src.sigma_api = MagicMock()
+        # 200 local_only columns and a single 3-segment join chain.
+        columns: Dict[str, Any] = {
+            f"c{i}": {"formula": {"type": "nameRef", "path": ["sibling"]}}
+            for i in range(200)
+        }
+        columns["rare"] = {"formula": {"type": "nameRef", "path": ["a", "b", "Col"]}}
+        src.sigma_api.get_workbook_schema.return_value = {
+            "sheets": {"sheet1": {"columns": columns}}
+        }
+        workbook = _make_workbook_with_elements([[_make_element("e1", "El")]])
+        src._measure_schema_resolvable_refs(
+            workbook,
+            [
+                _UnresolvedChartColumn(
+                    element_id="e1",
+                    column=f"Col {cid}",
+                    column_id=cid,
+                    reasons=frozenset({"some_reason"}),
+                )
+                for cid in columns
+            ],
+        )
+
+        by_outcome = src.reporter.chart_ref_schema_samples_by_outcome
+        assert src.reporter.chart_ref_schema_local_only == 200
+        assert src.reporter.chart_ref_schema_join_chain == 1
+        assert len(by_outcome["join_chain"]) == 1, (
+            "the 1-in-201 outcome must still be sampled; a shared reservoir "
+            f"would very likely drop it. got {dict(by_outcome)}"
+        )
+        assert by_outcome["local_only"], "the common outcome is sampled too"
+
     def test_a_local_only_column_is_sampled_with_its_paths(self) -> None:
         src = self._measure({"type": "nameRef", "path": ["someOtherColumn"]})
 
@@ -1006,7 +1051,7 @@ class TestSchemaMeasurementRecordsFailures:
         assert src.reporter.chart_ref_schema_outcomes_by_reason == {
             "local_only::some_reason": 1
         }
-        (sample,) = list(src.reporter.chart_ref_schema_unresolvable_samples)
+        (sample,) = list(src.reporter.chart_ref_schema_samples_by_outcome["local_only"])
         assert "someOtherColumn" in sample
         assert "some_reason" in sample
 
@@ -1196,9 +1241,11 @@ class TestSchemaMeasurementRecordsFailures:
         assert src.reporter.chart_ref_schema_outcomes_by_reason == {
             "column_absent::some_reason": 1
         }
-        assert len(list(src.reporter.chart_ref_schema_unresolvable_samples)) == 1
+        assert (
+            len(src.reporter.chart_ref_schema_samples_by_outcome["column_absent"]) == 1
+        )
 
-    def test_a_resolvable_column_is_not_in_the_failure_samples(self) -> None:
+    def test_a_resolvable_column_is_sampled_under_its_own_outcome(self) -> None:
         src = self._measure(
             {"type": "nameRef", "path": ["sheet1", "col1"]},
             reason="element_named_but_not_a_lineage_upstream",
@@ -1208,7 +1255,9 @@ class TestSchemaMeasurementRecordsFailures:
         assert src.reporter.chart_ref_schema_resolvable_by_reason == {
             "element_named_but_not_a_lineage_upstream": 1
         }
-        assert list(src.reporter.chart_ref_schema_unresolvable_samples) == []
+        # Sampled under cross_sheet, and crucially not pooled with the
+        # failures -- a shared reservoir starved join_chain to zero.
+        assert list(src.reporter.chart_ref_schema_samples_by_outcome) == ["cross_sheet"]
         # Present in the by-outcome map too, so one map covers every column.
         assert src.reporter.chart_ref_schema_outcomes_by_reason == {
             "cross_sheet::element_named_but_not_a_lineage_upstream": 1
