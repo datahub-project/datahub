@@ -109,10 +109,11 @@ export default function StructuredPropertyResourceSelect({
     const { t } = useTranslation('settings.permissions');
     const initializedRef = React.useRef(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const definitionCacheRef = React.useRef<Map<string, StructuredPropertyDefinition>>(new Map());
 
     const { data: propertiesData } = useSearchStructuredPropertiesQuery({
         variables: { query: searchQuery, start: 0, count: 100 },
-        fetchPolicy: 'cache-first',
+        fetchPolicy: 'cache-and-network',
     });
 
     // Initialize with one empty row on first mount if structuredProperties is empty
@@ -125,9 +126,19 @@ export default function StructuredPropertyResourceSelect({
 
     const propertyDefinitions = useMemo(() => {
         const results = propertiesData?.searchAcrossEntities?.searchResults || [];
-        return results
+        const searchResultDefs = results
             .map((result) => result.entity)
-            .filter((entity) => entity?.__typename === 'StructuredPropertyEntity');
+            .filter((entity) => entity?.__typename === 'StructuredPropertyEntity') as StructuredPropertyDefinition[];
+
+        // Update cache with new search results
+        searchResultDefs.forEach((def) => {
+            if (def?.urn) {
+                definitionCacheRef.current.set(def.urn, def);
+            }
+        });
+
+        // Return cache + new results (cache ensures selected properties remain available after search)
+        return Array.from(definitionCacheRef.current.values());
     }, [propertiesData]);
 
     const propertyOptions = useMemo(() => {
@@ -235,7 +246,7 @@ export default function StructuredPropertyResourceSelect({
 
                 <PropertyRowsContainer $hasRows={structuredProperties.length > 0}>
                     {structuredProperties.map((prop, index) => {
-                        const propertyKey = prop.propertyUrn || `empty_${index}`;
+                        const propertyKey = prop.propertyUrn ? `${prop.propertyUrn}-${index}` : `empty-${index}`;
 
                         return (
                             <PropertyRow key={propertyKey} data-testid={`property-row-${propertyKey}`}>

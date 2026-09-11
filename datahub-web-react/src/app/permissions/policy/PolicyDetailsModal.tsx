@@ -113,6 +113,8 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
     const tagCondition = getFieldCondition(resources?.filter, 'TAG') || PolicyMatchCondition.Equals;
     const glossaryEntities = getFieldValues(resources?.filter, 'GLOSSARY') || [];
     const glossaryCondition = getFieldCondition(resources?.filter, 'GLOSSARY') || PolicyMatchCondition.Equals;
+    const structuredPropertyCondition =
+        getFieldCondition(resources?.filter, 'STRUCTURED_PROPERTY') || PolicyMatchCondition.Equals;
     const structuredProperties = useMemo(
         () =>
             resources?.filter?.criteria?.find((c) => c.field === FIELD_TYPES.STRUCTURED_PROPERTY)
@@ -146,12 +148,13 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
         return new Map(sources.map((source) => [source.urn, source.name]));
     }, [sourceNamesData]);
 
-    // Extract property URNs from the policy
+    // Extract property URNs from the policy with proper type safety
     const propertyUrns = useMemo(() => {
         const urns = new Set<string>();
         structuredProperties?.forEach((prop) => {
-            if ((prop as any)?.propertyUrn?.trim()) {
-                urns.add((prop as any).propertyUrn);
+            const propertyUrn = prop?.propertyUrn;
+            if (propertyUrn && typeof propertyUrn === 'string' && propertyUrn.trim()) {
+                urns.add(propertyUrn);
             }
         });
         return Array.from(urns);
@@ -174,15 +177,18 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
         return nameMap;
     }, [structuredPropertiesData]);
 
-    // Extract URNs from structured property values that might be entity references
+    // Extract URNs from structured property values that might be entity references with proper type safety
     const propertyValueUrns = useMemo(() => {
         const urns = new Set<string>();
         structuredProperties?.forEach((prop) => {
-            (prop as any)?.values?.forEach((value) => {
-                if (value?.startsWith('urn:li:')) {
-                    urns.add(value);
-                }
-            });
+            const values = prop?.values;
+            if (Array.isArray(values)) {
+                values.forEach((value) => {
+                    if (typeof value === 'string' && value.startsWith('urn:li:')) {
+                        urns.add(value);
+                    }
+                });
+            }
         });
         return Array.from(urns);
     }, [structuredProperties]);
@@ -397,53 +403,58 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                         )}
                         {isStructuredPropertiesInPoliciesEnabled && (
                             <div>
-                                <Heading type="h5" size="md" weight="bold" color="text">
-                                    {t('details.structuredPropertiesLabel')}
-                                </Heading>
+                                {renderFieldWithCondition(
+                                    t('details.structuredPropertiesLabel'),
+                                    structuredPropertyCondition,
+                                )}
                                 <ThinDivider />
                                 {(structuredProperties?.length > 0 && (
                                     <>
-                                        {structuredProperties.map((prop) => (
-                                            <PropertyRow key={prop?.propertyUrn}>
-                                                <Text type="span" color="textSecondary">
-                                                    <strong>{t('details.structuredPropertyLabel')}:</strong>{' '}
-                                                    {structuredPropertyNames.get(prop?.propertyUrn) ||
-                                                        prop?.propertyUrn}
-                                                </Text>
-                                                <ValueLabelAndValuesContainer>
-                                                    <ValueLabel>
-                                                        <Text type="span" color="textSecondary">
-                                                            <strong>
-                                                                {t('details.structuredPropertyValuesLabel')}:
-                                                            </strong>
-                                                        </Text>
-                                                    </ValueLabel>
-                                                    {prop?.values?.map((value) => {
-                                                        const isEntityUrn = value?.startsWith('urn:li:');
-                                                        const entity = isEntityUrn ? entityValueMap.get(value) : null;
+                                        {structuredProperties.map((prop, index) => {
+                                            // Use stable key combining URN with first value to avoid duplicates
+                                            // eslint-disable-next-line react/no-array-index-key
+                                            const rowKey = `${prop?.propertyUrn || ''}-${prop?.values?.[0] || ''}-${index}`;
+                                            return (
+                                                <PropertyRow key={rowKey}>
+                                                    <Text type="span" color="textSecondary">
+                                                        <strong>{t('details.structuredPropertyLabel')}:</strong>{' '}
+                                                        {structuredPropertyNames.get(prop?.propertyUrn) ||
+                                                            prop?.propertyUrn}
+                                                    </Text>
+                                                    <ValueLabelAndValuesContainer>
+                                                        <ValueLabel>
+                                                            <Text type="span" color="textSecondary">
+                                                                <strong>
+                                                                    {t('details.structuredPropertyValuesLabel')}:
+                                                                </strong>
+                                                            </Text>
+                                                        </ValueLabel>
+                                                        {prop?.values?.map((value, valueIndex) => {
+                                                            const isEntityUrn = value?.startsWith('urn:li:');
+                                                            const entity = isEntityUrn
+                                                                ? entityValueMap.get(value)
+                                                                : null;
+                                                            // Use valueIndex as discriminator to ensure unique keys for duplicate properties
+                                                            // eslint-disable-next-line react/no-array-index-key
+                                                            const valueKey = `${prop.propertyUrn}-${value}-${valueIndex}`;
 
-                                                        if (entity) {
-                                                            return (
-                                                                <CompactEntityNameComponent
-                                                                    key={`${prop.propertyUrn}-${value}`}
-                                                                    entity={entity}
-                                                                    showFullTooltip
-                                                                    showMargin={false}
-                                                                />
-                                                            );
-                                                        }
+                                                            if (entity) {
+                                                                return (
+                                                                    <CompactEntityNameComponent
+                                                                        key={valueKey}
+                                                                        entity={entity}
+                                                                        showFullTooltip
+                                                                        showMargin={false}
+                                                                    />
+                                                                );
+                                                            }
 
-                                                        return (
-                                                            <Pill
-                                                                key={`${prop.propertyUrn}-${value}`}
-                                                                label={value}
-                                                                size="md"
-                                                            />
-                                                        );
-                                                    })}
-                                                </ValueLabelAndValuesContainer>
-                                            </PropertyRow>
-                                        ))}
+                                                            return <Pill key={valueKey} label={value} size="md" />;
+                                                        })}
+                                                    </ValueLabelAndValuesContainer>
+                                                </PropertyRow>
+                                            );
+                                        })}
                                     </>
                                 )) || <Text>-</Text>}
                             </div>

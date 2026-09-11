@@ -3236,6 +3236,8 @@ public class PolicyEngineTest {
             EntityFieldType.GROUP_MEMBERSHIP,
             FieldResolver.getResolverFromValues(groups),
             EntityFieldType.TAG,
-            FieldResolver.getResolverFromValues(tags)));
+            FieldResolver.getResolverFromValues(tags),
+            EntityFieldType.STRUCTURED_PROPERTY,
+            structuredPropertyResolver));
   }
 }

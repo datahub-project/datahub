@@ -92,7 +92,7 @@ export const NativeInput = styled.input(
 
     &[type="number"]::-webkit-outer-spin-button,
     &[type="number"]::-webkit-inner-spin-button {
-        -webkit-appearance: innerSpinButton;
+        -webkit-appearance: inner-spin-button;
         opacity: 1;
     }
 `,

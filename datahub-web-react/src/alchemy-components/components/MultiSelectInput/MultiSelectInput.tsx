@@ -1,6 +1,6 @@
 import { Pill } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -31,42 +31,51 @@ export const MultiSelectInput = ({
 }: MultiSelectInputProps) => {
     const { t } = useTranslation('alchemy');
     const [inputValue, setInputValue] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
 
     const handleInputChange = (newValue: string) => {
         setInputValue(newValue);
+    };
+
+    // Helper: Commit pending input value if valid
+    const commitPendingValue = () => {
+        const trimmedValue = inputValue.trim();
+        if (trimmedValue && !values.includes(trimmedValue)) {
+            onUpdate([...values, trimmedValue]);
+        }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' || e.key === ',') {
             e.preventDefault();
             e.stopPropagation();
-            const trimmedValue = inputValue.trim();
-            if (trimmedValue && !values.includes(trimmedValue)) {
-                onUpdate([...values, trimmedValue]);
-                setInputValue('');
-            }
+            commitPendingValue();
+            setInputValue('');
         } else if (e.key === 'Backspace' && inputValue === '' && values.length > 0) {
             onUpdate(values.slice(0, -1));
         }
     };
 
-    const handleRemoveTag = (tagToRemove: string) => {
+    const handleRemoveTag = (tagToRemove: string, e: React.MouseEvent) => {
+        // Prevent blur from firing on the input
+        e.preventDefault();
         const newValues = values.filter((v) => v !== tagToRemove);
         onUpdate(newValues);
+        // Refocus input to prevent blur from committing pending text
+        inputRef.current?.focus();
     };
 
-    const handleClearAll = () => {
+    const handleClearAll = (e: React.MouseEvent) => {
+        // Prevent blur from firing on the input
+        e.preventDefault();
         onUpdate([]);
         setInputValue('');
     };
 
-    // Commit pending input value when input loses focus
+    // Commit pending input value when input loses focus, always clear input
     const handleBlur = () => {
-        const trimmedValue = inputValue.trim();
-        if (trimmedValue && !values.includes(trimmedValue)) {
-            onUpdate([...values, trimmedValue]);
-            setInputValue('');
-        }
+        commitPendingValue();
+        setInputValue('');
     };
 
     const showError = !!error;
@@ -83,7 +92,7 @@ export const MultiSelectInput = ({
                             rightIcons={[
                                 {
                                     icon: X,
-                                    onClick: () => handleRemoveTag(tag),
+                                    onClick: (e) => handleRemoveTag(tag, e),
                                     ariaLabel: t('multiSelectInput.removeTagAriaLabel', { tag }),
                                     testId: `remove-tag-${tag}`,
                                 },
@@ -92,6 +101,7 @@ export const MultiSelectInput = ({
                         />
                     ))}
                     <NativeInput
+                        ref={inputRef}
                         type={inputType}
                         value={inputValue}
                         onChange={(e) => handleInputChange(e.target.value)}
@@ -104,7 +114,7 @@ export const MultiSelectInput = ({
                 </TagsWrapper>
                 {values.length > 0 && (
                     <ClearButton
-                        onClick={handleClearAll}
+                        onClick={(e) => handleClearAll(e)}
                         disabled={disabled}
                         data-testid="clear-all-button"
                         icon={{ icon: X, size: 'lg', color: 'icon' }}

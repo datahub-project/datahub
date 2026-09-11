@@ -96,15 +96,28 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
 
     // Filter out empty structured property rows
     const filterEmptyStructuredProperties = () => {
-        const cleanedPolicy = { ...policy };
-        if (cleanedPolicy.resources?.filter?.criteria) {
-            cleanedPolicy.resources.filter.criteria = cleanedPolicy.resources.filter.criteria.map((c) => ({
-                ...c,
-                structuredPropertyValues: (c as any).structuredPropertyValues?.filter((prop) =>
-                    prop.propertyUrn?.trim(),
-                ),
-            }));
-        }
+        const cleanedPolicy = {
+            ...policy,
+            resources: policy.resources
+                ? {
+                      ...policy.resources,
+                      filter: policy.resources.filter
+                          ? {
+                                ...policy.resources.filter,
+                                criteria: policy.resources.filter.criteria?.map((c) => ({
+                                    ...c,
+                                    structuredPropertyValues: (c as any).structuredPropertyValues?.filter(
+                                        (prop) =>
+                                            prop.propertyUrn?.trim() &&
+                                            Array.isArray(prop.values) &&
+                                            prop.values.length > 0,
+                                    ),
+                                })),
+                            }
+                          : policy.resources.filter,
+                  }
+                : policy.resources,
+        };
         return cleanedPolicy;
     };
 

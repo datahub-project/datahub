@@ -133,7 +133,6 @@ export const NestedOption = <OptionType extends NestedSelectOption>({
                             isLoadingParentChildList && loadingParentUrns.includes(option.value) ? 'wait' : 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: hideParentCheckbox ? 'space-between' : 'normal',
                     }}
                     data-testid={`${option.isParent ? 'parent' : 'child'}-option-${option.value}`}
                 >

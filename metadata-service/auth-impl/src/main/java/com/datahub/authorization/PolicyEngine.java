@@ -427,7 +427,7 @@ public class PolicyEngine {
       PolicyMatchCondition condition) {
 
     if (structuredPropertyValues == null || structuredPropertyValues.isEmpty()) {
-      return true;
+      return condition == PolicyMatchCondition.NOT_EQUALS;
     }
 
     // Get all structured property values from the resource as a map: propertyUrn -> Set<value>

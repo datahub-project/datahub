@@ -103,6 +103,9 @@ public class ResolvedEntitySpec {
       log.warn("Timeout while resolving structured properties for entity spec: {}", spec, e);
       return Collections.emptyMap();
     } catch (Exception e) {
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
       log.error("Error while resolving structured properties for entity spec: {}", spec, e);
       return Collections.emptyMap();
     }

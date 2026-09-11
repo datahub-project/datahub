@@ -22,15 +22,42 @@ public class PolicyUpdateInputInfoMapperTest {
 
   private static final PolicyUpdateInputInfoMapper mapper = PolicyUpdateInputInfoMapper.INSTANCE;
 
-  @Test
-  public void testMapBasicPolicyFields() {
+  private static PolicyUpdateInput createBasicPolicyInput(String policyName) {
     PolicyUpdateInput input = new PolicyUpdateInput();
-    input.setName("Test Policy");
+    input.setName(policyName);
     input.setType(PolicyType.METADATA);
     input.setState(PolicyState.ACTIVE);
     input.setPrivileges(Arrays.asList("EDIT_ENTITY_TAGS"));
     input.setActors(new ActorFilterInput());
     input.getActors().setAllUsers(true);
+    return input;
+  }
+
+  private static void applyResourceFilter(
+      PolicyUpdateInput input, PolicyMatchCriterionInput criterion) {
+    PolicyMatchFilterInput filter = new PolicyMatchFilterInput();
+    filter.setCriteria(Arrays.asList(criterion));
+
+    ResourceFilterInput resources = new ResourceFilterInput();
+    resources.setAllResources(true);
+    resources.setFilter(filter);
+    input.setResources(resources);
+  }
+
+  private static void applyResourceFilter(
+      PolicyUpdateInput input, PolicyMatchCriterionInput... criteria) {
+    PolicyMatchFilterInput filter = new PolicyMatchFilterInput();
+    filter.setCriteria(Arrays.asList(criteria));
+
+    ResourceFilterInput resources = new ResourceFilterInput();
+    resources.setAllResources(true);
+    resources.setFilter(filter);
+    input.setResources(resources);
+  }
+
+  @Test
+  public void testMapBasicPolicyFields() {
+    PolicyUpdateInput input = createBasicPolicyInput("Test Policy");
 
     DataHubPolicyInfo result = mapper.map(null, input);
 
@@ -43,13 +70,7 @@ public class PolicyUpdateInputInfoMapperTest {
 
   @Test
   public void testMapTraditionalFieldCriteria() {
-    PolicyUpdateInput input = new PolicyUpdateInput();
-    input.setName("Tag Policy");
-    input.setType(PolicyType.METADATA);
-    input.setState(PolicyState.ACTIVE);
-    input.setPrivileges(Arrays.asList("EDIT_ENTITY_TAGS"));
-    input.setActors(new ActorFilterInput());
-    input.getActors().setAllUsers(true);
+    PolicyUpdateInput input = createBasicPolicyInput("Tag Policy");
 
     // Traditional TAG field criterion
     PolicyMatchCriterionInput tagCriterion = new PolicyMatchCriterionInput();
@@ -57,13 +78,7 @@ public class PolicyUpdateInputInfoMapperTest {
     tagCriterion.setValues(Arrays.asList("urn:li:tag:PII"));
     tagCriterion.setCondition(PolicyMatchCondition.EQUALS);
 
-    PolicyMatchFilterInput filter = new PolicyMatchFilterInput();
-    filter.setCriteria(Arrays.asList(tagCriterion));
-
-    ResourceFilterInput resources = new ResourceFilterInput();
-    resources.setAllResources(true);
-    resources.setFilter(filter);
-    input.setResources(resources);
+    applyResourceFilter(input, tagCriterion);
 
     DataHubPolicyInfo result = mapper.map(null, input);
 
@@ -78,13 +93,7 @@ public class PolicyUpdateInputInfoMapperTest {
 
   @Test
   public void testMapStructuredPropertyCriteria() {
-    PolicyUpdateInput input = new PolicyUpdateInput();
-    input.setName("Structured Property Policy");
-    input.setType(PolicyType.METADATA);
-    input.setState(PolicyState.ACTIVE);
-    input.setPrivileges(Arrays.asList("EDIT_ENTITY_TAGS"));
-    input.setActors(new ActorFilterInput());
-    input.getActors().setAllUsers(true);
+    PolicyUpdateInput input = createBasicPolicyInput("Structured Property Policy");
 
     // Structured property criterion
     StructuredPropertyCriterionValueInput propValue = new StructuredPropertyCriterionValueInput();
@@ -97,13 +106,7 @@ public class PolicyUpdateInputInfoMapperTest {
     structuredPropCriterion.setStructuredPropertyValues(Arrays.asList(propValue));
     structuredPropCriterion.setCondition(PolicyMatchCondition.EQUALS);
 
-    PolicyMatchFilterInput filter = new PolicyMatchFilterInput();
-    filter.setCriteria(Arrays.asList(structuredPropCriterion));
-
-    ResourceFilterInput resources = new ResourceFilterInput();
-    resources.setAllResources(true);
-    resources.setFilter(filter);
-    input.setResources(resources);
+    applyResourceFilter(input, structuredPropCriterion);
 
     DataHubPolicyInfo result = mapper.map(null, input);
 
@@ -128,13 +131,7 @@ public class PolicyUpdateInputInfoMapperTest {
 
   @Test
   public void testMapMultipleStructuredProperties() {
-    PolicyUpdateInput input = new PolicyUpdateInput();
-    input.setName("Multi Structured Property Policy");
-    input.setType(PolicyType.METADATA);
-    input.setState(PolicyState.ACTIVE);
-    input.setPrivileges(Arrays.asList("EDIT_ENTITY_TAGS"));
-    input.setActors(new ActorFilterInput());
-    input.getActors().setAllUsers(true);
+    PolicyUpdateInput input = createBasicPolicyInput("Multi Structured Property Policy");
 
     // First structured property
     StructuredPropertyCriterionValueInput propValue1 = new StructuredPropertyCriterionValueInput();
@@ -152,13 +149,7 @@ public class PolicyUpdateInputInfoMapperTest {
     structuredPropCriterion.setStructuredPropertyValues(Arrays.asList(propValue1, propValue2));
     structuredPropCriterion.setCondition(PolicyMatchCondition.EQUALS);
 
-    PolicyMatchFilterInput filter = new PolicyMatchFilterInput();
-    filter.setCriteria(Arrays.asList(structuredPropCriterion));
-
-    ResourceFilterInput resources = new ResourceFilterInput();
-    resources.setAllResources(true);
-    resources.setFilter(filter);
-    input.setResources(resources);
+    applyResourceFilter(input, structuredPropCriterion);
 
     DataHubPolicyInfo result = mapper.map(null, input);
 
@@ -181,13 +172,7 @@ public class PolicyUpdateInputInfoMapperTest {
 
   @Test
   public void testMapMixedCriteria() {
-    PolicyUpdateInput input = new PolicyUpdateInput();
-    input.setName("Mixed Criteria Policy");
-    input.setType(PolicyType.METADATA);
-    input.setState(PolicyState.ACTIVE);
-    input.setPrivileges(Arrays.asList("EDIT_ENTITY_TAGS"));
-    input.setActors(new ActorFilterInput());
-    input.getActors().setAllUsers(true);
+    PolicyUpdateInput input = createBasicPolicyInput("Mixed Criteria Policy");
 
     // TAG criterion
     PolicyMatchCriterionInput tagCriterion = new PolicyMatchCriterionInput();
@@ -206,13 +191,7 @@ public class PolicyUpdateInputInfoMapperTest {
     structuredPropCriterion.setStructuredPropertyValues(Arrays.asList(propValue));
     structuredPropCriterion.setCondition(PolicyMatchCondition.EQUALS);
 
-    PolicyMatchFilterInput filter = new PolicyMatchFilterInput();
-    filter.setCriteria(Arrays.asList(tagCriterion, structuredPropCriterion));
-
-    ResourceFilterInput resources = new ResourceFilterInput();
-    resources.setAllResources(true);
-    resources.setFilter(filter);
-    input.setResources(resources);
+    applyResourceFilter(input, tagCriterion, structuredPropCriterion);
 
     DataHubPolicyInfo result = mapper.map(null, input);
 
@@ -232,13 +211,7 @@ public class PolicyUpdateInputInfoMapperTest {
 
   @Test
   public void testMapStructuredPropertyWithStartsWithCondition() {
-    PolicyUpdateInput input = new PolicyUpdateInput();
-    input.setName("Starts With Policy");
-    input.setType(PolicyType.METADATA);
-    input.setState(PolicyState.ACTIVE);
-    input.setPrivileges(Arrays.asList("EDIT_ENTITY_TAGS"));
-    input.setActors(new ActorFilterInput());
-    input.getActors().setAllUsers(true);
+    PolicyUpdateInput input = createBasicPolicyInput("Starts With Policy");
 
     StructuredPropertyCriterionValueInput propValue = new StructuredPropertyCriterionValueInput();
     propValue.setPropertyUrn("urn:li:structuredProperty:name");
@@ -250,13 +223,7 @@ public class PolicyUpdateInputInfoMapperTest {
     structuredPropCriterion.setStructuredPropertyValues(Arrays.asList(propValue));
     structuredPropCriterion.setCondition(PolicyMatchCondition.STARTS_WITH);
 
-    PolicyMatchFilterInput filter = new PolicyMatchFilterInput();
-    filter.setCriteria(Arrays.asList(structuredPropCriterion));
-
-    ResourceFilterInput resources = new ResourceFilterInput();
-    resources.setAllResources(true);
-    resources.setFilter(filter);
-    input.setResources(resources);
+    applyResourceFilter(input, structuredPropCriterion);
 
     DataHubPolicyInfo result = mapper.map(null, input);
 
@@ -267,13 +234,7 @@ public class PolicyUpdateInputInfoMapperTest {
 
   @Test
   public void testMapStructuredPropertyWithNotEqualsCondition() {
-    PolicyUpdateInput input = new PolicyUpdateInput();
-    input.setName("Not Equals Policy");
-    input.setType(PolicyType.METADATA);
-    input.setState(PolicyState.ACTIVE);
-    input.setPrivileges(Arrays.asList("EDIT_ENTITY_TAGS"));
-    input.setActors(new ActorFilterInput());
-    input.getActors().setAllUsers(true);
+    PolicyUpdateInput input = createBasicPolicyInput("Not Equals Policy");
 
     StructuredPropertyCriterionValueInput propValue = new StructuredPropertyCriterionValueInput();
     propValue.setPropertyUrn("urn:li:structuredProperty:status");
@@ -285,13 +246,7 @@ public class PolicyUpdateInputInfoMapperTest {
     structuredPropCriterion.setStructuredPropertyValues(Arrays.asList(propValue));
     structuredPropCriterion.setCondition(PolicyMatchCondition.NOT_EQUALS);
 
-    PolicyMatchFilterInput filter = new PolicyMatchFilterInput();
-    filter.setCriteria(Arrays.asList(structuredPropCriterion));
-
-    ResourceFilterInput resources = new ResourceFilterInput();
-    resources.setAllResources(true);
-    resources.setFilter(filter);
-    input.setResources(resources);
+    applyResourceFilter(input, structuredPropCriterion);
 
     DataHubPolicyInfo result = mapper.map(null, input);
 
@@ -302,34 +257,20 @@ public class PolicyUpdateInputInfoMapperTest {
 
   @Test
   public void testMapEmptyStructuredPropertyValues() {
-    PolicyUpdateInput input = new PolicyUpdateInput();
-    input.setName("Empty Structured Property Policy");
-    input.setType(PolicyType.METADATA);
-    input.setState(PolicyState.ACTIVE);
-    input.setPrivileges(Arrays.asList("EDIT_ENTITY_TAGS"));
-    input.setActors(new ActorFilterInput());
-    input.getActors().setAllUsers(true);
+    PolicyUpdateInput input = createBasicPolicyInput("Empty Structured Property Policy");
 
     PolicyMatchCriterionInput structuredPropCriterion = new PolicyMatchCriterionInput();
     structuredPropCriterion.setField("STRUCTURED_PROPERTY");
     structuredPropCriterion.setValues(Arrays.asList());
-    structuredPropCriterion.setStructuredPropertyValues(Arrays.asList()); // Empty
+    structuredPropCriterion.setStructuredPropertyValues(Arrays.asList());
     structuredPropCriterion.setCondition(PolicyMatchCondition.EQUALS);
 
-    PolicyMatchFilterInput filter = new PolicyMatchFilterInput();
-    filter.setCriteria(Arrays.asList(structuredPropCriterion));
+    applyResourceFilter(input, structuredPropCriterion);
 
-    ResourceFilterInput resources = new ResourceFilterInput();
-    resources.setAllResources(true);
-    resources.setFilter(filter);
-    input.setResources(resources);
-
-    // Should not throw exception
     DataHubPolicyInfo result = mapper.map(null, input);
 
     PolicyMatchCriterion criterion = result.getResources().getFilter().getCriteria().get(0);
     assertEquals("STRUCTURED_PROPERTY", criterion.getField());
-    // Empty array should not cause issues
     assertTrue(
         criterion.getStructuredPropertyValues() == null
             || criterion.getStructuredPropertyValues().isEmpty());
