@@ -11,6 +11,7 @@ import graphql.parser.InvalidSyntaxException;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.datahubproject.openapi.exception.UnprocessableEntityException;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import jakarta.annotation.PostConstruct;
@@ -112,6 +113,12 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   @ExceptionHandler(ActorAccessException.class)
   public static ResponseEntity<Map<String, String>> actorAccessException(ActorAccessException e) {
     return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.FORBIDDEN);
+  }
+
+  @ExceptionHandler(UnprocessableEntityException.class)
+  public static ResponseEntity<Map<String, String>> handleUnprocessableEntityException(
+      UnprocessableEntityException e) {
+    return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.UNPROCESSABLE_ENTITY);
   }
 
   private static final long ASYNC_TIMEOUT_RETRY_AFTER_SECONDS = 30;

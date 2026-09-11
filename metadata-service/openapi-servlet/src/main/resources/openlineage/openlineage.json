@@ -10,7 +10,7 @@
     }
   },
   "paths": {
-  "/lineage": {
+    "/lineage": {
       "post": {
         "summary": "Send an event related to the state of a run",
         "description": "Updates a run state for a job.",
@@ -28,8 +28,20 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "OK"
+          "201": {
+            "description": "Created - the event was accepted and its metadata ingested"
+          },
+          "400": {
+            "description": "Bad Request - the payload is not a well-formed OpenLineage event"
+          },
+          "403": {
+            "description": "Forbidden - the actor lacks privileges on one or more affected entities"
+          },
+          "422": {
+            "description": "Unprocessable Entity - the event is well-formed but cannot be converted"
+          },
+          "500": {
+            "description": "Internal Server Error"
           }
         }
       }
