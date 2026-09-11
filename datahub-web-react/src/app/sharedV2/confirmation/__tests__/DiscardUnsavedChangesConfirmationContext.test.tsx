@@ -195,7 +195,7 @@ describe('DiscardUnsavedChangesConfirmationContext', () => {
                             enableTabClosingHandling
                             enableRedirectHandling
                             confirmationModalTitle="Custom Title"
-                            confirmationModalContent="Custom Text"
+                            confirmModalContent="Custom Text"
                         >
                             <div>Test Child</div>
                         </DiscardUnsavedChangesConfirmationProvider>

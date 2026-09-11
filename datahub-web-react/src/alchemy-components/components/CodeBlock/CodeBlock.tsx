@@ -3,12 +3,13 @@ import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { ListChecks } from '@phosphor-icons/react/dist/csr/ListChecks';
 import { MagicWand } from '@phosphor-icons/react/dist/csr/MagicWand';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { useTheme } from 'styled-components';
 
 import { Button } from '@components/components/Button';
+import { CodeBlockDiff } from '@components/components/CodeBlock/CodeBlockDiff';
 import { CodeBlockEditor } from '@components/components/CodeBlock/CodeBlockEditor';
 import { LanguageControl } from '@components/components/CodeBlock/LanguageControl';
 import {
@@ -26,6 +27,7 @@ import {
     TruncatedBanner,
 } from '@components/components/CodeBlock/components';
 import { codeBlockDefaults } from '@components/components/CodeBlock/defaults';
+import { buildCodeDiff, shouldRenderCodeBlockDiff } from '@components/components/CodeBlock/diffCode';
 import {
     formatCode,
     isFormatCodeSuccess,
@@ -102,6 +104,7 @@ export function CodeBlock({
     showLineNumbers = codeBlockDefaults.showLineNumbers,
     hideLineNumbers = false,
     wrap = codeBlockDefaults.wrap,
+    diffAgainst,
     highlightedLines,
     lineProps: linePropsProp,
     maxHeight,
@@ -126,7 +129,12 @@ export function CodeBlock({
     const isMountedRef = useRef(true);
     const validateRequestIdRef = useRef(0);
     const isCopied = isCopiedProp ?? internalCopied;
-    const isEditable = isCodeBlockEditable({ isReadOnly, onChange });
+    const showDiff = shouldRenderCodeBlockDiff(code, diffAgainst);
+    const isEditable = isCodeBlockEditable({ isReadOnly: isReadOnly || showDiff, onChange });
+    const diffLines = useMemo(
+        () => (showDiff && diffAgainst !== undefined ? buildCodeDiff(diffAgainst, code) : null),
+        [code, diffAgainst, showDiff],
+    );
     const showFormatButton = shouldShowFormatButton({ showFormat, isEditable: isEditable && !isDisabled });
     const showValidateButton = shouldShowValidateButton({
         validateSyntax,
@@ -303,6 +311,14 @@ export function CodeBlock({
                 onRequestFormat={showFormatButton ? handleFormat : undefined}
                 dataTestId={getCodeBlockTestId(dataTestId, 'editor', 'code-block-editor')}
                 ariaLabel={t('codeBlock.editorLabel')}
+            />
+        );
+    } else if (diffLines) {
+        body = (
+            <CodeBlockDiff
+                lines={diffLines}
+                wrap={wrap}
+                dataTestId={getCodeBlockTestId(dataTestId, 'diff', 'code-block-diff')}
             />
         );
     } else if (emptyBody) {

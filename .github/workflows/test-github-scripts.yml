@@ -35,4 +35,4 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest .github/scripts/test
+          pytest .github/scripts/test .github/scripts/release/test
