@@ -41,8 +41,24 @@ _JOIN_TYPE = "joinType"
 # left-outer join was therefore scored as an inner one. The unit test asserted
 # ("left", True) and passed, because the fixture had guessed the same value the
 # code did.
-_OUTER_JOIN_TYPES = frozenset({"left-outer", "right-outer", "full-outer"})
+# ``lookup`` is the fifth value, and it belongs here: Sigma documents it as
+# preserving the primary side's row structure while pulling columns from a
+# related table, "similar to a left outer join" -- so the ON equality holds
+# only on matched rows, exactly like the other three. Confirmed accepted by
+# POST /dataModels/spec.
+_OUTER_JOIN_TYPES = frozenset({"left-outer", "right-outer", "full-outer", "lookup"})
+# ``joinType`` is OPTIONAL and defaults to inner (an absent key was accepted on
+# write). Recorded under this name rather than "" so the histogram does not
+# invent a sixth value for what Sigma treats as the default.
 _INNER_JOIN_TYPE = "inner"
+# A predicate side pair carries an optional operator. Only equality means the
+# two columns hold the same value, which is what a join-key EDGE asserts; the
+# rest make the column a participant without making it equal, so they are
+# refused rather than emitted at a confidence we cannot justify.
+_JOIN_OP = "op"
+_EQUALITY_OPS = frozenset({"=", ""})
+# Label for an absent op in the histogram, since absent means "=".
+_EQUALITY_DEFAULT = "=(absent)"
 
 
 @dataclass(frozen=True)
@@ -119,6 +135,11 @@ class DataModelSpecIndex:
     # appearing here means the outer-join tier is mis-scoring a real shape,
     # which is precisely the failure an invented set already caused once.
     join_type_counts: Dict[str, int] = field(default_factory=dict)
+    # Every predicate operator seen. Only equality justifies a key edge;
+    # this says how much is being declined and whether Sigma uses operators
+    # outside the documented set.
+    predicate_op_counts: Dict[str, int] = field(default_factory=dict)
+    non_equality_predicates: int = 0
     # Samples already logged per unread source kind. Per index rather than
     # module-level: a module global survives between ingestion runs in a
     # long-lived process, so the second run logs nothing, and it makes test
@@ -261,7 +282,7 @@ def _predicates_for_join(
     """
     out: List[JoinPredicate] = []
     understood = 0
-    join_type = str(join.get(_JOIN_TYPE) or "").strip().lower()
+    join_type = str(join.get(_JOIN_TYPE) or _INNER_JOIN_TYPE).strip().lower()
     # Recorded verbatim, so a value outside the verified vocabulary shows up as
     # a number instead of silently landing in the inner-join tier. An invented
     # set already caused exactly that: it omitted "left-outer".
@@ -289,6 +310,27 @@ def _predicates_for_join(
         if left is None or right is None:
             continue
         understood += 1
+        op = str(entry.get(_JOIN_OP) or "").strip()
+        index.predicate_op_counts[op or _EQUALITY_DEFAULT] = (
+            index.predicate_op_counts.get(op or _EQUALITY_DEFAULT, 0) + 1
+        )
+        if op not in _EQUALITY_OPS:
+            # A join-key EDGE asserts the two columns hold the same value. That
+            # is only true for equality; "<", "!=", "within" and "intersects"
+            # make the column a participant in the join without making it
+            # equal, so emitting one would over-claim. Counted so the volume is
+            # visible rather than silently dropped.
+            index.non_equality_predicates += 1
+            logger.debug(
+                "DM SPEC PREDICATE %s/%s: op=%r is not an equality, so no "
+                "key edge is claimed for %r <-> %r",
+                data_model_id,
+                join_element_id,
+                op,
+                left.column,
+                right.column,
+            )
+            continue
         logger.debug(
             "DM SPEC PREDICATE %s/%s: left(element=%r dm=%r column=%r) "
             "right(element=%r dm=%r column=%r) joinType=%r",

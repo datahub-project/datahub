@@ -347,6 +347,17 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # is being mis-scored: the previous set was invented, listed four values
     # Sigma does not accept, and omitted "left-outer" entirely.
     data_model_join_types: Dict[str, int] = field(default_factory=dict)
+    # Every join predicate operator seen. Sigma's vocabulary is "=", "!=", "<",
+    # "<=", ">", ">=", "within", "intersects", and the key is OPTIONAL meaning
+    # "=" -- all confirmed accepted by POST /dataModels/spec. An earlier note
+    # recorded that predicates carry no op at all, which was wrong: the probe
+    # had sent "equals", an invalid VALUE, and read the rejection as absence.
+    data_model_join_predicate_ops: Dict[str, int] = field(default_factory=dict)
+    # Predicates declined because their operator is not an equality. A key edge
+    # asserts the two columns hold the SAME value; "<" or "within" makes a
+    # column a join participant without making it equal, so an edge there would
+    # over-claim. Counted so the declined volume is visible rather than silent.
+    data_model_join_non_equality_predicates: int = 0
     data_model_join_key_pairs_read: int = 0
     # ``source.kind`` values seen across every Data Model /spec, with counts.
     # The only number that says which spec shapes this parser skipped, and the
