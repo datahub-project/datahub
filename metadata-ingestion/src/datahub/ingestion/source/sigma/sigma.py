@@ -657,6 +657,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._pending_schema_probe: List[_UnresolvedChartColumn] = []
         # Intra-DM element ancestry, keyed by dataModelId.
         self._dm_ancestors_cache: Dict[str, Dict[str, Set[str]]] = {}
+        # Id spaces seen this run, filled once Data Models are walked and read
+        # only to name an otherwise-unidentifiable /schema ref head. Empty when
+        # ingest_data_models is off, which the reader reports as "not checked"
+        # rather than as "matched nothing".
+        self._known_id_spaces: Dict[str, Set[str]] = {}
         # Built once per run, lazily, by _ensure_global_warehouse_index.
         self._global_warehouse_index_built: bool = False
         self._global_warehouse_file_entries: Dict[str, Dict[str, Any]] = {}
@@ -6871,6 +6876,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         Map Sigma page element to Datahub Chart
         """
+        # Workbook element ids are the other 10-char space a /schema ref head
+        # can belong to, and the dominant unresolved head on the customer
+        # tenant is 10 chars. Accumulated as workbooks are walked rather than
+        # pre-fetched, so coverage grows through the run: a match names the
+        # space, a miss on an early workbook does not rule it out. The space is
+        # reported under a name that says so.
+        self._known_id_spaces.setdefault(
+            "workbook_element_id_seen_so_far", set()
+        ).update(element.elementId for element in elements)
         # Data Models any element of this workbook loads. The last-resort
         # name lookup is confined to these rather than searching every model in
         # the run: a formula in this workbook referring to a model the workbook
@@ -7555,6 +7569,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._gen_data_model_workunit(
                     data_model, elementId_maps_by_dm[data_model.dataModelId]
                 )
+            # Snapshot the id spaces this run has seen, for naming the head of
+            # a /schema ref that resolves to none of a workbook's own sheets or
+            # elements. Datasets and Data Models are both fully walked by now,
+            # and their id shapes match what those refs carry (a DM urlId is a
+            # 22-char slug, a DM element id is 10 chars), so the check is worth
+            # making before concluding an id is unidentifiable. Built once, and
+            # only from data already in memory.
+            self._known_id_spaces = {
+                "sigma_dataset_url_id": set(self.sigma_dataset_urn_by_url_id),
+                "data_model_id": set(elementId_maps_by_dm),
+                "data_model_url_id": {
+                    dm.urlId for dm in all_data_models if dm.urlId is not None
+                },
+                "data_model_element_id": {
+                    element_id
+                    for id_map in elementId_maps_by_dm.values()
+                    for element_id in id_map
+                },
+            }
         for workbook in self.sigma_api.get_sigma_workbooks():
             yield from self._gen_workbook_workunit(workbook)
 
@@ -7697,8 +7730,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         shared_by = len(head_users.get(head, ()))
         self_ref = any(len(p) == 2 and p[0] == head and p[1] == column_id for p in refs)
+        # The decisive test, and the one a standalone probe cannot make: this
+        # run has already walked every dataset and Data Model, so if the head
+        # belongs to one of those spaces it can be named outright rather than
+        # described. "not_checked" and "none" are different answers and must
+        # not collapse -- the spaces are empty when ingest_data_models is off.
+        space = "none"
+        for name, ids in self._known_id_spaces.items():
+            if head in ids:
+                space = name
+                break
+        if space == "none" and "data_model_id" not in self._known_id_spaces:
+            # The Data Model pass is where most of the id universe comes from.
+            # Without it "none" would assert that the head is in no known
+            # space, when most spaces were never built. Those are different
+            # findings and pooling them would misreport the smaller one.
+            space = "none_dm_pass_skipped"
         key = (
-            f"len={len(head)} sheet={sheet_type or 'unknown'} "
+            f"space={space} len={len(head)} sheet={sheet_type or 'unknown'} "
             f"self_ref={self_ref} defined_in_doc={defined_in_doc} "
             f"shared_by={'1' if shared_by <= 1 else '2-5' if shared_by <= 5 else '6+'}"
         )

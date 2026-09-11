@@ -101,6 +101,7 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.dm_element_urn_by_name = {}
     source._chart_cols_memo = None
     source._pending_schema_probe = []
+    source._known_id_spaces = {}
     return source
 
 
@@ -1045,6 +1046,56 @@ class TestSchemaMeasurementRecordsFailures:
         assert list(src.reporter.chart_ref_schema_unknown_head_samples) == [
             "qQ1zXvB2pL"
         ]
+        # No Data Model pass ran, so most spaces were never built. That must say
+        # so explicitly, not plain "none", which would claim the head was
+        # checked against a universe this run never assembled.
+        (kind,) = src.reporter.chart_ref_schema_unknown_head_kinds
+        assert kind.startswith("space=none_dm_pass_skipped ")
+
+    def test_a_head_matching_a_known_id_space_is_named(self) -> None:
+        """A head in a space this run already walked is named, not described.
+
+        This is the identification a standalone probe of /schema cannot make:
+        the head is never defined inside the document that cites it, so only a
+        run that has also walked datasets and Data Models can place it.
+        """
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src._known_id_spaces = {
+            "sigma_dataset_url_id": {"someDataset"},
+            "data_model_element_id": {"qQ1zXvB2pL"},
+        }
+        src.sigma_api = MagicMock()
+        src.sigma_api.get_workbook_schema.return_value = {
+            "sheets": {
+                "sheet1": {
+                    "type": "levelTable",
+                    "columns": {
+                        "col1": {
+                            "formula": {
+                                "type": "nameRef",
+                                "path": ["qQ1zXvB2pL", "Col B"],
+                            }
+                        }
+                    },
+                }
+            }
+        }
+        src._measure_schema_resolvable_refs(
+            _make_workbook_with_elements([[_make_element("e1", "El")]]),
+            [
+                _UnresolvedChartColumn(
+                    element_id="e1",
+                    column="Col",
+                    column_id="col1",
+                    reasons=frozenset({"some_reason"}),
+                )
+            ],
+        )
+
+        (kind,) = src.reporter.chart_ref_schema_unknown_head_kinds
+        assert kind.startswith("space=data_model_element_id ")
+        assert "sheet=levelTable" in kind
 
     def test_a_cross_sheet_ref_outranks_a_warehouse_ref_in_the_same_formula(
         self,
