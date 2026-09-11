@@ -135,6 +135,13 @@ public class RestoreStorageStep implements UpgradeStep {
       }
 
       context.report().addLine(String.format("Added %d rows to the aspect v2 table", numRows));
+      if (backupReader instanceof AutoCloseable closeable) {
+        try {
+          closeable.close();
+        } catch (Exception e) {
+          context.report().addLine("Failed to close BackupReader: " + e.getMessage());
+        }
+      }
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }

@@ -30,9 +30,10 @@ import software.amazon.awssdk.utils.SdkAutoCloseable;
 /**
  * Process-wide AWS credential and object-storage client lifecycle for GMS.
  *
- * <p>Centralizes {@link DefaultCredentialsProvider#create()} and shared S3 clients so IRSA refresh
- * tasks are not orphaned by per-call client construction. Callers should inject these beans rather
- * than creating their own credential providers or S3 clients.
+ * <p>Centralizes one process-owned {@link DefaultCredentialsProvider} ({@code builder().build()},
+ * closed on shutdown) and shared S3 clients so IRSA refresh tasks are not orphaned by per-call
+ * credential-chain construction. Callers should inject these beans rather than creating their own
+ * credential providers or S3 clients.
  *
  * <p>Non-AWS environments (no region/endpoint, no IAM auth, no Bedrock, no object-storage role)
  * skip bean creation and do not fail startup.
@@ -52,10 +53,13 @@ public class AwsClientFactory {
   @Nullable private S3Presigner managedObjectStorageS3Presigner;
 
   /**
-   * The only place in GMS that calls {@link DefaultCredentialsProvider#create()}.
+   * The only place in GMS that constructs {@link DefaultCredentialsProvider}.
    *
-   * <p>Created when AWS region/endpoint, OpenSearch IAM auth, Bedrock embedding, or object-storage
-   * role assumption is configured.
+   * <p>Uses {@code builder().build()} once (not deprecated {@code create()}) and stores the result
+   * for {@link PreDestroy} {@code close()}. Callers must inject this bean and must not {@code
+   * close()} it. Created when AWS region/endpoint, OpenSearch IAM auth, Bedrock embedding, or
+   * object-storage role assumption is configured. Also bound into the AWS JDBC wrapper IAM plugin
+   * so token minting reuses this provider.
    */
   @Bean(name = "defaultAwsCredentialsProvider")
   @Nullable
@@ -66,7 +70,8 @@ public class AwsClientFactory {
       return null;
     }
     log.info("Creating shared DefaultCredentialsProvider bean");
-    defaultCredentialsProvider = DefaultCredentialsProvider.create();
+    defaultCredentialsProvider = DefaultCredentialsProvider.builder().build();
+    AwsJdbcIamAuth.installSharedCredentials(defaultCredentialsProvider);
     return defaultCredentialsProvider;
   }
 
@@ -182,6 +187,7 @@ public class AwsClientFactory {
 
   @PreDestroy
   public void shutdown() {
+    AwsJdbcIamAuth.reset();
     closeQuietly(managedObjectStorageS3Presigner);
     managedObjectStorageS3Presigner = null;
     closeQuietly(managedObjectStorageS3Client);

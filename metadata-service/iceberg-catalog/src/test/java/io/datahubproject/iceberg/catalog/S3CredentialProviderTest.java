@@ -10,14 +10,10 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.iceberg.exceptions.BadRequestException;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sts.StsClient;
-import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 import software.amazon.awssdk.services.sts.model.Credentials;
@@ -31,8 +27,6 @@ public class S3CredentialProviderTest {
 
   private S3CredentialProvider credentialProvider;
 
-  @Mock private StsClientBuilder stsClientBuilder;
-
   @BeforeMethod
   public void setUp() {
 
@@ -40,11 +34,7 @@ public class S3CredentialProviderTest {
 
     storageProviderCreds =
         new CredentialProvider.StorageProviderCredentials(
-            "testClientId",
-            "testClientSecret",
-            "arn:aws:iam::123456789012:role/test-role",
-            "us-east-1",
-            null);
+            null, null, "arn:aws:iam::123456789012:role/test-role", "us-east-1", null);
 
     cacheKey =
         new CredentialProvider.CredentialsCacheKey(
@@ -52,20 +42,10 @@ public class S3CredentialProviderTest {
             PoliciesConfig.DATA_READ_ONLY_PRIVILEGE,
             Set.of("s3://test-bucket/path/to/data"));
 
-    credentialProvider = new S3CredentialProvider();
+    credentialProvider = new S3CredentialProvider(stsClient);
   }
 
-  @Test
-  public void testGetCredentials() {
-    StsClientBuilder builderMock = mock(StsClientBuilder.class);
-    StsClient clientMock = mock(StsClient.class);
-
-    // Mock the builder chain
-    when(builderMock.region(any(Region.class))).thenReturn(builderMock);
-    when(builderMock.credentialsProvider(any(StaticCredentialsProvider.class)))
-        .thenReturn(builderMock);
-    when(builderMock.build()).thenReturn(clientMock);
-
+  private void stubAssumeRole() {
     AssumeRoleResponse assumeRoleResponse =
         AssumeRoleResponse.builder()
             .credentials(
@@ -76,35 +56,40 @@ public class S3CredentialProviderTest {
                     .expiration(java.time.Instant.now().plusSeconds(900))
                     .build())
             .build();
-    when(clientMock.assumeRole(any(AssumeRoleRequest.class))).thenReturn(assumeRoleResponse);
+    when(stsClient.assumeRole(any(AssumeRoleRequest.class))).thenReturn(assumeRoleResponse);
+  }
 
-    try (MockedStatic<StsClient> stsClientMockedStatic = mockStatic(StsClient.class)) {
-      // Mock the static builder() method
-      stsClientMockedStatic.when(StsClient::builder).thenReturn(builderMock);
+  @Test
+  public void testGetCredentials() {
+    stubAssumeRole();
 
-      /*        "client.region",
-       REGION.id(),
-       "s3.access-key-id",
-       response.credentials().accessKeyId(),
-       "s3.secret-access-key",
-       response.credentials().secretAccessKey(),
-       "s3.session-token",
-       response.credentials().sessionToken());
+    Map<String, String> creds = credentialProvider.getCredentials(cacheKey, storageProviderCreds);
+    assertNotNull(creds);
+    assertEquals(creds.get("client.region"), "us-east-1");
+    assertEquals(creds.get("s3.access-key-id"), "testAccessId-temp");
+    assertEquals(creds.get("s3.secret-access-key"), "testSecretKey-temp");
+    assertEquals(creds.get("s3.session-token"), "testSessionToken-temp");
+    verify(stsClient, never()).close();
+  }
 
-      */
+  @Test
+  public void testGetCredentialsReusesInjectedStsClient() {
+    stubAssumeRole();
+    credentialProvider.getCredentials(cacheKey, storageProviderCreds);
+    credentialProvider.getCredentials(cacheKey, storageProviderCreds);
+    verify(stsClient, times(2)).assumeRole(any(AssumeRoleRequest.class));
+    verify(stsClient, never()).close();
+  }
 
-      Map<String, String> creds = credentialProvider.getCredentials(cacheKey, storageProviderCreds);
-      assertNotNull(creds);
-      assertEquals(creds.get("client.region"), Region.of("us-east-1").id());
-      assertEquals(creds.get("s3.access-key-id"), "testAccessId-temp");
-      assertEquals(creds.get("s3.secret-access-key"), "testSecretKey-temp");
-      assertEquals(creds.get("s3.session-token"), "testSessionToken-temp");
-    }
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testGetCredentialsRequiresKeysOrSharedClient() {
+    S3CredentialProvider provider = new S3CredentialProvider();
+    provider.getCredentials(cacheKey, storageProviderCreds);
   }
 
   @Test(expectedExceptions = IllegalStateException.class)
   public void testGetWithUnsupportedPrivilege() {
-    S3CredentialProvider provider = new S3CredentialProvider();
+    S3CredentialProvider provider = new S3CredentialProvider(stsClient);
     CredentialProvider.CredentialsCacheKey keyWithUnsupportedPrivilege =
         new CredentialProvider.CredentialsCacheKey(
             "testPlatform",
@@ -116,7 +101,7 @@ public class S3CredentialProviderTest {
 
   @Test(expectedExceptions = BadRequestException.class)
   public void testGetWithEmptyLocations() {
-    S3CredentialProvider provider = new S3CredentialProvider();
+    S3CredentialProvider provider = new S3CredentialProvider(stsClient);
     CredentialProvider.CredentialsCacheKey keyWithEmptyLocations =
         new CredentialProvider.CredentialsCacheKey(
             "testPlatform", PoliciesConfig.DATA_READ_ONLY_PRIVILEGE, Set.of());

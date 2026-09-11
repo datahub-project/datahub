@@ -166,6 +166,7 @@ public class KafkaEventConsumerFactory {
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
         kafkaConfiguration.getConsumer().getMaxPartitionFetchBytes());
 
+    KafkaMskIamAuth.disableDebugCallerIdentity(customizedProperties);
     return customizedProperties;
   }
 
