@@ -45,6 +45,9 @@ public class AwsClientFactoryShutdownTest {
 
   @AfterMethod
   public void tearDown() throws Exception {
+    if (awsClientFactory != null) {
+      awsClientFactory.shutdown();
+    }
     AwsJdbcIamAuth.reset();
     System.clearProperty("aws.region");
     if (mocks != null) {

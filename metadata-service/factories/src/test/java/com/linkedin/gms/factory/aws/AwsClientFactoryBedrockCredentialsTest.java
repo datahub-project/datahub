@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.aws;
 
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -17,6 +18,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 public class AwsClientFactoryBedrockCredentialsTest {
 
@@ -41,6 +43,9 @@ public class AwsClientFactoryBedrockCredentialsTest {
 
   @AfterMethod
   public void tearDown() throws Exception {
+    if (awsClientFactory != null) {
+      awsClientFactory.shutdown();
+    }
     System.clearProperty("AWS_REGION");
     System.clearProperty("AWS_ENDPOINT_URL");
     System.clearProperty("aws.region");
@@ -81,6 +86,27 @@ public class AwsClientFactoryBedrockCredentialsTest {
     when(configurationProvider.getElasticSearch()).thenReturn(esConfig);
 
     assertTrue(awsClientFactory.isOpenSearchIamAuthConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
+  }
+
+  @Test
+  public void ebeanIamAuthRequiresSharedCredentialsEvenWithoutPodRegion() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanUseIamAuth", true);
+
+    assertTrue(awsClientFactory.isEbeanIamAuthConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
+    AwsCredentialsProvider provider = awsClientFactory.defaultAwsCredentialsProvider();
+    assertNotNull(provider);
+    awsClientFactory.shutdown();
+  }
+
+  @Test
+  public void ebeanPostgresIamAuthRequiresSharedCredentialsEvenWithoutPodRegion() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanPostgresUseIamAuth", true);
+
+    assertTrue(awsClientFactory.isEbeanIamAuthConfigured());
     assertTrue(awsClientFactory.isAwsCredentialsRequired());
   }
 

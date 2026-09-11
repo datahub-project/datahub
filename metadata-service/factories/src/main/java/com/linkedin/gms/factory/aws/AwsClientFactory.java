@@ -13,6 +13,7 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -47,6 +48,12 @@ public class AwsClientFactory {
   @Autowired(required = false)
   private ConfigurationProvider configurationProvider;
 
+  @Value("${ebean.useIamAuth:false}")
+  private boolean ebeanUseIamAuth;
+
+  @Value("${ebean.postgresUseIamAuth:false}")
+  private boolean ebeanPostgresUseIamAuth;
+
   @Nullable private DefaultCredentialsProvider defaultCredentialsProvider;
   @Nullable private StsAssumeRoleCredentialsProvider objectStorageRoleCredentialsProvider;
   @Nullable private S3Client managedObjectStorageS3Client;
@@ -57,16 +64,16 @@ public class AwsClientFactory {
    *
    * <p>Uses {@code builder().build()} once (not deprecated {@code create()}) and stores the result
    * for {@link PreDestroy} {@code close()}. Callers must inject this bean and must not {@code
-   * close()} it. Created when AWS region/endpoint, OpenSearch IAM auth, Bedrock embedding, or
-   * object-storage role assumption is configured. Also bound into the AWS JDBC wrapper IAM plugin
-   * so token minting reuses this provider.
+   * close()} it. Created when AWS region/endpoint, OpenSearch IAM auth, Bedrock embedding, Ebean
+   * JDBC IAM, or object-storage role assumption is configured. Also bound into the AWS JDBC wrapper
+   * IAM plugin so token minting reuses this provider.
    */
   @Bean(name = "defaultAwsCredentialsProvider")
   @Nullable
   protected AwsCredentialsProvider defaultAwsCredentialsProvider() {
     if (!isAwsCredentialsRequired()) {
       log.debug(
-          "Skipping DefaultCredentialsProvider (no AWS region/endpoint, OpenSearch IAM, Bedrock, or object-storage roleArn)");
+          "Skipping DefaultCredentialsProvider (no AWS region/endpoint, OpenSearch IAM, Bedrock, Ebean IAM, or object-storage roleArn)");
       return null;
     }
     log.info("Creating shared DefaultCredentialsProvider bean");
@@ -187,15 +194,17 @@ public class AwsClientFactory {
 
   @PreDestroy
   public void shutdown() {
-    AwsJdbcIamAuth.reset();
     closeQuietly(managedObjectStorageS3Presigner);
     managedObjectStorageS3Presigner = null;
     closeQuietly(managedObjectStorageS3Client);
     managedObjectStorageS3Client = null;
     closeQuietly(objectStorageRoleCredentialsProvider);
     objectStorageRoleCredentialsProvider = null;
-    closeQuietly(defaultCredentialsProvider);
-    defaultCredentialsProvider = null;
+    if (defaultCredentialsProvider != null) {
+      AwsJdbcIamAuth.resetIfInstalled(defaultCredentialsProvider);
+      closeQuietly(defaultCredentialsProvider);
+      defaultCredentialsProvider = null;
+    }
   }
 
   @Nonnull
@@ -302,11 +311,17 @@ public class AwsClientFactory {
     return isObjectStorageRoleArnConfigured(configurationProvider);
   }
 
+  /** True when Ebean/Postgres JDBC uses AWS IAM token authentication. */
+  boolean isEbeanIamAuthConfigured() {
+    return ebeanUseIamAuth || ebeanPostgresUseIamAuth;
+  }
+
   boolean isAwsCredentialsRequired() {
     return isAwsConfigured()
         || isBedrockEmbeddingConfigured()
         || isOpenSearchIamAuthConfigured()
-        || isObjectStorageRoleArnConfigured();
+        || isObjectStorageRoleArnConfigured()
+        || isEbeanIamAuthConfigured();
   }
 
   private static boolean hasAwsEndpoint() {

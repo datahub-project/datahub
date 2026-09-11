@@ -90,6 +90,11 @@ public class AwsIrsaCredentialProviderHistogramTest {
       int before = countLiveWebIdentityStsProviders();
       DefaultCredentialsProvider shared = DefaultCredentialsProvider.builder().build();
       try {
+        try {
+          shared.resolveCredentials();
+        } catch (RuntimeException ignored) {
+          // Fake IRSA token / unreachable STS is expected; the provider must still materialize.
+        }
         for (int i = 0; i < 8; i++) {
           StsClient client =
               StsClient.builder()

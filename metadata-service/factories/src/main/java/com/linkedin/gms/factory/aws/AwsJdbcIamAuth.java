@@ -13,17 +13,32 @@ import software.amazon.jdbc.authentication.AwsCredentialsManager;
 @Slf4j
 public final class AwsJdbcIamAuth {
 
+  @Nullable private static volatile AwsCredentialsProvider installed;
+
   private AwsJdbcIamAuth() {}
 
   public static void installSharedCredentials(@Nullable AwsCredentialsProvider shared) {
     if (shared == null) {
       return;
     }
+    installed = shared;
     AwsCredentialsManager.setCustomHandler((hostSpec, properties) -> shared);
     log.info("Bound AWS JDBC IAM credentials to the process-wide DefaultCredentialsProvider");
   }
 
   public static void reset() {
     AwsCredentialsManager.resetCustomHandler();
+    installed = null;
+  }
+
+  /**
+   * Clears the JDBC handler only if {@code provider} is the one this class currently bound. Other
+   * Spring contexts / factories that did not install credentials must not wipe a live handler.
+   */
+  public static void resetIfInstalled(@Nullable AwsCredentialsProvider provider) {
+    if (provider == null || provider != installed) {
+      return;
+    }
+    reset();
   }
 }

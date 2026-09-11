@@ -2,7 +2,6 @@ package com.linkedin.gms.factory.event;
 
 import static com.linkedin.gms.factory.common.LocalEbeanConfigFactory.getListenerToTrackCounts;
 
-import com.linkedin.gms.factory.aws.AwsJdbcIamAuth;
 import com.linkedin.gms.factory.common.CrossCloudIamUtils;
 import com.linkedin.gms.factory.common.EbeanPoolDefaults;
 import com.linkedin.metadata.config.messaging.KafkaMessagingDisabled;
@@ -13,14 +12,11 @@ import io.ebean.config.DatabaseConfig;
 import io.ebean.datasource.DataSourceConfig;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.DependsOn;
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 /**
  * Dedicated Ebean {@link Database} for the PostgreSQL queue store. Lives on its own connection pool
@@ -108,14 +104,8 @@ public class PgQueueEbeanConfigFactory {
   @Value("${INSTANCE_CONNECTION_NAME:#{null}}")
   private String instanceConnectionName;
 
-  @Autowired(required = false)
-  @Qualifier("defaultAwsCredentialsProvider")
-  private AwsCredentialsProvider defaultAwsCredentialsProvider;
-
   @Bean("pgQueueDataSourceConfig")
-  @DependsOn("defaultAwsCredentialsProvider")
   public DataSourceConfig buildDataSourceConfig(MetricUtils metricUtils) {
-    AwsJdbcIamAuth.installSharedCredentials(defaultAwsCredentialsProvider);
     return buildDataSourceConfig(url, metricUtils);
   }
 

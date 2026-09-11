@@ -44,6 +44,22 @@ public class AwsJdbcIamAuthTest {
   }
 
   @Test
+  public void resetIfInstalledIgnoresADifferentProvider() {
+    AwsCredentialsProvider shared =
+        StaticCredentialsProvider.create(AwsBasicCredentials.create("id", "secret"));
+    AwsCredentialsProvider other =
+        StaticCredentialsProvider.create(AwsBasicCredentials.create("other", "secret"));
+    AwsJdbcIamAuth.installSharedCredentials(shared);
+
+    AwsJdbcIamAuth.resetIfInstalled(other);
+    assertSame(AwsCredentialsManager.getProvider(hostSpec(), new Properties()), shared);
+
+    AwsJdbcIamAuth.resetIfInstalled(shared);
+    AwsCredentialsProvider first = AwsCredentialsManager.getProvider(hostSpec(), new Properties());
+    assertNotSame(first, shared);
+  }
+
+  @Test
   public void resetRestoresPerCallDefaultChainConstruction() {
     AwsCredentialsProvider shared =
         StaticCredentialsProvider.create(AwsBasicCredentials.create("id", "secret"));
