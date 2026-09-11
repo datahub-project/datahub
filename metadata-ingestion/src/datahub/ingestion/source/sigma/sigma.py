@@ -4460,6 +4460,66 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             [(f.upstreams or [""])[0] for f in new_fgls],
         )
 
+    @dataclass(frozen=True)
+    class _SiblingCandidates:
+        """Intra-DM elements a ref's source names, and which may be its referent.
+
+        ``named_eids`` is every element carrying that name, including this one;
+        ``resolvable_eids`` is the subset that could actually be the upstream.
+        The caller needs both: an empty ``resolvable_eids`` with a non-empty
+        ``named_eids`` is what distinguishes "the ref names this element's own
+        source" from "the ref names nothing in this Data Model".
+        """
+
+        named_eids: List[str]
+        resolvable_eids: List[str]
+
+    def _sibling_candidates_for_ref(
+        self,
+        *,
+        ref: "BracketRef",
+        element: SigmaDataModelElement,
+        element_name_to_eids: Dict[str, List[str]],
+    ) -> "SigmaSource._SiblingCandidates":
+        """Which siblings could a ref's source denote?
+
+        Self-references are stripped: element-name == warehouse-table name is a
+        common Sigma authoring pattern, and the ref then resolves to the element
+        itself, which is not a valid FGL upstream -- the real upstream is the
+        warehouse inode /lineage reports.
+
+        That reasoning applies to same-named SIBLINGS too, and dropping only
+        this element's own id did not. Sigma names a warehouse-sourced element
+        after its table, so every element reading one table carries the same
+        name; resolving the ref to one of them fabricated a sibling edge
+        instead of the warehouse table. Observed on a fixture as a mutual
+        A <-> B cycle across four independent passthroughs, 14 refs on a
+        7-workbook tenant.
+
+        Returning no resolvable candidate routes the caller into the branch
+        that already handles this: cross-DM self-named first, then warehouse.
+        """
+        named_eids = element_name_to_eids.get(ref.source.lower(), [])
+        self_named = _normalize_element_name(ref.source) == _normalize_element_name(
+            element.name
+        )
+        if not self_named:
+            return SigmaSource._SiblingCandidates(
+                named_eids=named_eids,
+                resolvable_eids=[eid for eid in named_eids if eid != element.elementId],
+            )
+        if len(named_eids) > 1:
+            self.reporter.data_model_element_fgl_self_named_siblings_skipped += 1
+            logger.debug(
+                "element %s: ref %r names this element's own name, which %d "
+                "elements in this Data Model share; none of them is the "
+                "referent, so resolving to the element's own source instead",
+                element.elementId,
+                ref.raw,
+                len(named_eids),
+            )
+        return SigmaSource._SiblingCandidates(named_eids=named_eids, resolvable_eids=[])
+
     def _build_dm_element_fine_grained_lineages(
         self,
         *,
@@ -4575,43 +4635,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 ):
                     continue
 
-                candidate_eids = element_name_to_eids.get(ref.source.lower(), [])
-
-                # Strip self-references: element-name == warehouse-table name is a
-                # common Sigma authoring pattern.  The formula ref resolves to the
-                # element itself, which is not a valid FGL upstream (the real upstream
-                # is the warehouse inode reported by /lineage).
-                #
-                # That reasoning applies to same-named SIBLINGS too, and dropping
-                # only this element's own id did not. Sigma names a
-                # warehouse-sourced element after its table, so every element
-                # reading one table carries the same name -- and resolving the ref
-                # to one of them fabricated a sibling edge instead of the warehouse
-                # table /lineage reports. Observed on a fixture as a mutual
-                # srcC <-> srcD cycle across four independent passthroughs, each of
-                # which should have pointed at Snowflake.
-                #
-                # Emptying the list routes into the branch below, which already
-                # handles exactly this case: cross-DM self-named first, then the
-                # warehouse edge.
-                self_named_ref = _normalize_element_name(
-                    ref.source
-                ) == _normalize_element_name(element.name)
-                if self_named_ref and len(candidate_eids) > 1:
-                    self.reporter.data_model_element_fgl_self_named_siblings_skipped += 1
-                    logger.debug(
-                        "element %s: ref %r names this element's own name, which %d "
-                        "elements in this Data Model share; none of them is the "
-                        "referent, so resolving to the element's own source instead",
-                        element.elementId,
-                        ref.raw,
-                        len(candidate_eids),
-                    )
-                candidate_eids_after_self_strip = (
-                    []
-                    if self_named_ref
-                    else [eid for eid in candidate_eids if eid != element.elementId]
+                candidates = self._sibling_candidates_for_ref(
+                    ref=ref,
+                    element=element,
+                    element_name_to_eids=element_name_to_eids,
                 )
+                candidate_eids = candidates.named_eids
+                candidate_eids_after_self_strip = candidates.resolvable_eids
 
                 if not candidate_eids_after_self_strip:
                     if candidate_eids:
