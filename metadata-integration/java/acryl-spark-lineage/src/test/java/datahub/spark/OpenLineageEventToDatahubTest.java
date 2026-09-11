@@ -685,6 +685,32 @@ public class OpenLineageEventToDatahubTest {
   }
 
   @Test
+  public void testUnityCatalogTableSymlinkConvertsToCatalogQualifiedUrn()
+      throws URISyntaxException {
+    OpenLineage openLineage = new OpenLineage(URI.create("https://test"));
+    OpenLineage.SymlinksDatasetFacet symlinks =
+        openLineage.newSymlinksDatasetFacet(
+            List.of(
+                openLineage.newSymlinksDatasetFacetIdentifiers(
+                    "unity-catalog", "main.sales.orders", "TABLE")));
+    OpenLineage.InputDataset inputDataset =
+        openLineage
+            .newInputDatasetBuilder()
+            .namespace("s3://bucket")
+            .name("managed/tables/12345678-1234-1234-1234-123456789abc")
+            .facets(openLineage.newDatasetFacetsBuilder().symlinks(symlinks).build())
+            .build();
+
+    Optional<DatasetUrn> urn =
+        OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn(
+            inputDataset, DatahubOpenlineageConfig.builder().fabricType(FabricType.PROD).build());
+
+    assertTrue(urn.isPresent());
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:hive,main.sales.orders,PROD)", urn.get().toString());
+  }
+
+  @Test
   public void testFilePartitionRegexpStripsBareFileNamespace() throws URISyntaxException {
     // Local "file" datasets use a bare namespace (no scheme), so they bypass HdfsPathDataset where
     // file_partition_regexp is normally applied. The opt-in regexp must still strip the partition.
