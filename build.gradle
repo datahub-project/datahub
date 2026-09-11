@@ -35,11 +35,12 @@ buildscript {
   ext.mavenVersion = '3.9.15'
   ext.versionGradle = '9.5.0'
   // CVE-2026-41842, CVE-2026-41845 (spring-webmvc), CVE-2026-41850 (spring-expression): fixed in 7.0.8+ / 6.2.19+
-  ext.springVersion = '7.0.8'
+  // JDK 25 ClassFile-reader OOM (spring-framework#37111): fixed in 7.0.9+ (#37112)
+  ext.springVersion = '7.0.9'
   // CVE-2026-40976 / GHSA (spring-boot 4.0.6+); CVE-2026-41001 (Artemis data dir): fixed in 4.0.7+
-  ext.springBootVersion = '4.0.7'
+  ext.springBootVersion = '4.0.8'
   // CVE-2026-22748 (oauth2-jose), CVE-2026-22751: fixed in 7.0.5+; explicit pins were 7.0.4 — use latest 7.0.x patch
-  ext.springSecurityVersion = '7.0.6'
+  ext.springSecurityVersion = '7.0.7'
   // CVE-2026-41731 (spring-kafka header deserialization): fixed in 4.0.6+ / 3.3.16+
   ext.springKafkaVersion = '4.0.7'
   // CVE-2023-50572 (GroovyEngine OOM); GHSA-2r2c-cx56-8933 (remote-telnet NAWS DoS): fixed in 4.2.1+
@@ -403,7 +404,7 @@ project.ext.externalDependency = [
     'springBeans': "org.springframework:spring-beans:$springVersion",
     'springContext': "org.springframework:spring-context:$springVersion",
     'springCore': "org.springframework:spring-core:$springVersion",
-    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2',
+    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3',
     'springJdbc': "org.springframework:spring-jdbc:$springVersion",
     'springWeb': "org.springframework:spring-web:$springVersion",
     'springWebMVC': "org.springframework:spring-webmvc:$springVersion",
@@ -429,7 +430,7 @@ project.ext.externalDependency = [
     'springBootElasticsearch': "org.springframework.boot:spring-boot-elasticsearch:$springBootVersion",
     // Spring Boot 4.0: WebMvc test slice moved to separate module
     'springBootWebMvcTest': "org.springframework.boot:spring-boot-webmvc-test:$springBootVersion",
-    'springRetry': "org.springframework.retry:spring-retry:2.0.12",
+    'springRetry': "org.springframework.retry:spring-retry:2.0.13",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.30',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
     'swaggerCore': 'io.swagger.core.v3:swagger-core:2.2.30',
@@ -1100,57 +1101,6 @@ tasks.register('verifyVendorJars') {
       }
     }
     logger.lifecycle("Vendor JAR integrity OK (${expected.size()} jars).")
-  }
-}
-
-// Spring 7 JDK-25 Class-File-reader OOM workaround (gradle/spring-jdk25-shim). Spring 7's
-// multi-release jar selects a JDK-Class-File-API metadata reader on JDK 24+ whose annotation
-// delegate retains the parsed class model -> jdk.internal.classfile heap flood -> OOM during
-// classpath scanning (spring-projects/spring-framework#37111). The shim shadows spring-core's
-// versions/24 MetadataReaderFactoryDelegate to force the lean ASM SimpleMetadataReaderFactory.
-// Centralized here so it isn't repeated per module. It must land in each Spring runtime app's OWN
-// classes (BOOT-INF/classes / WEB-INF/classes, ahead of spring-core.jar), so it goes on src/main
-// for the runtime apps and src/test for the Spring-Boot-test modules that OOM.
-// TEMP: fix merged upstream (PR #37112) for Spring 7.0.9 — delete this block + gradle/spring-jdk25-shim
-// once on spring-framework >= 7.0.9.
-// Auto-applied so new Spring modules are covered without editing a list:
-//  - TEST source set of ANY module that declares a Spring dependency (that's where the OOM bites),
-//  - MAIN source set of deployable Spring runtime apps (Boot plugin apps auto-detected; plus the
-//    non-Boot war deployables listed below) so the shim lands in their own BOOT-INF/classes /
-//    WEB-INF/classes ahead of spring-core.jar.
-// Obsolescence guard: the shim is only needed until the upstream fix ships (Spring 7.0.9). Fail the
-// build the moment we bump Spring >= 7.0.9 so the workaround gets deleted instead of lingering.
-def springVerMatcher = (springVersion =~ /(\d+)\.(\d+)\.(\d+)/)
-if (springVerMatcher.find()) {
-  def cur = [springVerMatcher.group(1), springVerMatcher.group(2), springVerMatcher.group(3)]*.toInteger()
-  def min = [7, 0, 9]
-  int cmp = 0
-  for (int i = 0; i < 3 && cmp == 0; i++) { cmp = cur[i] <=> min[i] }
-  if (cmp >= 0) {
-    throw new GradleException(
-      "spring-framework ${springVersion} >= 7.0.9: the ClassFile-reader fix (spring-projects/spring-framework#37112) " +
-      "is released. Delete the gradle/spring-jdk25-shim/ directory and this whole shim block in build.gradle.")
-  }
-}
-def springJdk25ShimDir = "$rootDir/gradle/spring-jdk25-shim"
-// Non-Boot Spring runtime deployables that still package their own classes first (war/GMS).
-def springRuntimeWarApps = [':metadata-service:war']
-// Only configs that reach the TEST compile classpath — so we never add the shim to a module where
-// spring-core isn't compilable there (e.g. Spring declared only in main compileOnly/runtimeOnly).
-def springTestCompileCfgs = ['api', 'implementation', 'testImplementation', 'testCompileOnly']
-subprojects { sp ->
-  plugins.withType(JavaPlugin) {
-    afterEvaluate {
-      boolean springOnTestCompile = springTestCompileCfgs.any { n ->
-        sp.configurations.findByName(n)?.allDependencies?.any { it.group?.startsWith('org.springframework') }
-      }
-      if (springOnTestCompile && sp.sourceSets.findByName('test')) {
-        sp.sourceSets.test.java.srcDir(springJdk25ShimDir)
-      }
-      if (sp.plugins.hasPlugin('org.springframework.boot') || sp.path in springRuntimeWarApps) {
-        sp.sourceSets.main.java.srcDir(springJdk25ShimDir)
-      }
-    }
   }
 }
 

@@ -101,6 +101,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(GMS / Java services)** Spring Framework **7.0.9**, Spring Boot **4.0.8**, and Spring Security **7.0.7** (current 7.0 / 4.0 patches). The temporary JDK 25 ClassFile-reader classpath shim is removed; the OOM fix shipped upstream in 7.0.9. **Action:** none for operators; rebuild/redeploy picks up the new JARs. Custom GMS plugins compiled against 7.0.8 remain binary-compatible.
+
 - **(View authorization)** `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD` and
   `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE` now mutate the complete effective default list instead of
   replacing it. Operators can add or remove one entity type without restating every default
