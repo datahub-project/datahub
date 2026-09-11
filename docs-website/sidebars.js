@@ -1597,7 +1597,7 @@ module.exports = {
           type: "category",
           label: "RFCs",
           link: { type: "doc", id: "docs/rfcs/README" },
-          items: ["docs/rfcs/active/000-resumable-audit-coverage"],
+          items: ["docs/rfcs/active/19731-resumable-audit-coverage"],
         },
         "SECURITY",
       ],
