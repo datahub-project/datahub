@@ -116,11 +116,15 @@ class OnnxEmbeddingProvider(EmbeddingProvider):
         # pooling excludes pad tokens via the attention mask.
         self._tokenizer.enable_padding()
 
+        # Log the effective pre-processing so it can be compared against the GMS query-side
+        # provider's startup log; pooling or truncation drift silently degrades kNN recall.
         logger.info(
-            "Initialized OnnxEmbeddingProvider: model=%s, file=%s, pooling=%s, inputs=%s",
+            "Initialized OnnxEmbeddingProvider: model=%s, file=%s, pooling=%s, "
+            "truncation_max_length=%s, inputs=%s",
             model,
             model_file.name,
             self._pooling,
+            max_length,
             sorted(self._input_names),
         )
 
@@ -142,6 +146,13 @@ class OnnxEmbeddingProvider(EmbeddingProvider):
 
         outputs = self._session.run(None, feeds)
         pooled = self._pool(outputs[0], attention_mask)
+        # Guard against a malformed model output before writing vectors: pooling must yield one
+        # non-empty vector per input text, else kNN silently breaks on dimension/count mismatch.
+        if pooled.ndim != 2 or pooled.shape[0] != len(texts) or pooled.shape[1] == 0:
+            raise RuntimeError(
+                f"ONNX model {self.model_id} produced malformed embeddings: shape "
+                f"{pooled.shape}, expected [{len(texts)}, hidden>0]."
+            )
         return EmbeddingResult(embeddings=pooled.tolist())
 
     def _pool(

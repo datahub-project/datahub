@@ -135,16 +135,25 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
       float[] probe = embedInternal("dimension probe");
       this.outputDimension = probe.length;
 
+      // Log the effective pre/post-processing so an operator can confirm it matches the
+      // document-side (executor) provider — a pooling or truncation mismatch silently collapses
+      // kNN recall rather than erroring. queryInstruction is operator-controlled text, so log only
+      // its length, never its content.
       log.info(
           "Initialized OnnxEmbeddingProvider in {}ms: model={}, file={}, outputDimension={}, "
-              + "inputs={}, outputs={}, intraOpThreads={}",
+              + "inputs={}, outputs={}, intraOpThreads={}, pooling={}, tokenizerTruncation={}, "
+              + "tokenizerMaxLength={}, queryInstruction={}",
           loadElapsedMs,
           modelName,
           modelFile.getFileName(),
           outputDimension,
           ortSession.getInputNames(),
           ortSession.getOutputNames(),
-          intraOpThreads > 0 ? intraOpThreads : "default");
+          intraOpThreads > 0 ? intraOpThreads : "default",
+          pooling,
+          tokenizer.getTruncation(),
+          tokenizer.getMaxLength(),
+          queryInstruction.isBlank() ? "none" : "set(len=" + queryInstruction.length() + ")");
     } catch (Exception e) {
       if (localTokenizer != null) {
         localTokenizer.close();
@@ -245,16 +254,22 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
     Encoding encoding = tokenizer.encode(text);
     long[] inputIds = encoding.getIds();
     long[] attentionMask = encoding.getAttentionMask();
-    long[] tokenTypeIds = encoding.getTypeIds();
 
     long[] shape = new long[] {1, inputIds.length};
 
+    // Only allocate the token_type_ids tensor when the model declares that input. A tokenizer may
+    // return an empty type-ids array; creating a tensor from it against the [1, seq_len] shape
+    // would fail for a model that never consumes token_type_ids anyway.
+    OnnxTensor tokenTypeIdsTensor = null;
     try (OnnxTensor inputIdsTensor =
             OnnxTensor.createTensor(ortEnvironment, LongBuffer.wrap(inputIds), shape);
         OnnxTensor attentionMaskTensor =
-            OnnxTensor.createTensor(ortEnvironment, LongBuffer.wrap(attentionMask), shape);
-        OnnxTensor tokenTypeIdsTensor =
-            OnnxTensor.createTensor(ortEnvironment, LongBuffer.wrap(tokenTypeIds), shape)) {
+            OnnxTensor.createTensor(ortEnvironment, LongBuffer.wrap(attentionMask), shape)) {
+
+      if (supportsTokenTypeIds) {
+        tokenTypeIdsTensor =
+            OnnxTensor.createTensor(ortEnvironment, LongBuffer.wrap(encoding.getTypeIds()), shape);
+      }
 
       Map<String, OnnxTensor> inputs =
           buildInputMap(inputIdsTensor, attentionMaskTensor, tokenTypeIdsTensor);
@@ -262,19 +277,22 @@ public class OnnxEmbeddingProvider implements EmbeddingProvider {
       try (OrtSession.Result result = ortSession.run(inputs)) {
         return extractEmbedding(result, attentionMask);
       }
+    } finally {
+      if (tokenTypeIdsTensor != null) {
+        tokenTypeIdsTensor.close();
+      }
     }
   }
 
   private Map<String, OnnxTensor> buildInputMap(
-      OnnxTensor inputIds, OnnxTensor attentionMask, OnnxTensor tokenTypeIds) {
-    var builder =
-        new HashMap<String, OnnxTensor>(
-            Map.of("input_ids", inputIds, "attention_mask", attentionMask));
-
-    if (supportsTokenTypeIds) {
-      builder.put("token_type_ids", tokenTypeIds);
+      OnnxTensor inputIds, OnnxTensor attentionMask, @Nullable OnnxTensor tokenTypeIds) {
+    Map<String, OnnxTensor> inputs = new HashMap<>();
+    inputs.put("input_ids", inputIds);
+    inputs.put("attention_mask", attentionMask);
+    if (tokenTypeIds != null) {
+      inputs.put("token_type_ids", tokenTypeIds);
     }
-    return builder;
+    return inputs;
   }
 
   /**

@@ -150,8 +150,11 @@ dependencies {
   implementation platform(externalDependency.awsSdk2Bom)
   implementation 'software.amazon.awssdk:bedrockruntime'
 
-  // ONNX Runtime for in-process embedding inference (semantic search)
-  // TODO: Consider moving to compileOnly to avoid shipping ~80MB of native libs in all images.
+  // ONNX Runtime for in-process embedding inference (semantic search).
+  // These land on the runtimeClasspath of every metadata-io consumer (~80MB of native libs),
+  // including images that never embed. Accepted for the initial opt-in provider; slimming the
+  // default images via ONNX-only variant builds is tracked as R3 in the design review
+  // (docs/design-reviews/2026-05-06-onnx-embedding-design-review.md).
   implementation externalDependency.onnxRuntime
   implementation externalDependency.djlApi
   implementation externalDependency.djlHuggingFaceTokenizers

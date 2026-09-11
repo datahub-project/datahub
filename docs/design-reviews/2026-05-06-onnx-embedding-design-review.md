@@ -63,6 +63,8 @@ ONNX Runtime (~60MB native) and DJL tokenizer are `implementation` in `metadata-
 
 **Action:** For production, move to a two-image strategy. Make ONNX deps `compileOnly` in base build, create a `datahub-gms-onnx` Dockerfile that includes the ONNX JARs and baked-in model.
 
+**Status: Deferred.** The initial provider is opt-in (`EMBEDDING_PROVIDER_TYPE` defaults to `openai`) but the ~80MB still ships in every default image. Slimming is a self-contained packaging change (variant ONNX boot archives for GMS + `datahub-upgrade`, `compileOnlyApi` in `metadata-io`, an ONNX-only image-selection path), tracked as a separate follow-up so this change stays a minimal, at-parity provider port. The accepted footprint is recorded at `metadata-io/build.gradle`. Note: a slim image cannot simply `COPY` the jars in — GMS builds its classpath from `BOOT-INF/classpath.idx` and `datahub-upgrade` launches via `JarLauncher` (ignores `-Dloader.path`), so the jars must land in `BOOT-INF/lib` of a variant boot archive.
+
 #### R4. No model bake-in mechanism in Docker
 
 **Flagged by:** Deployment (A2)
@@ -82,6 +84,8 @@ No Dockerfile, build script, or documentation for baking an ONNX model into the 
 **Evidence:** `OnnxEmbeddingProvider.java:130` — `tokenizer.encode(text)` with no bounds
 **Action:** Wire `maxCharacterLength` from config. Add a hard token-count cap after tokenization.
 
+**Status: Resolved (char cap).** `maxCharacterLength` is wired from `EMBEDDING_PROVIDER_MAX_CHAR_LENGTH` (default 2048) and applied before tokenization. The DJL tokenizer additionally truncates to `tokenizerMaxLength` (512) by default, so token count is bounded independently; both values are now logged at startup.
+
 #### I2. `intraOpThreads` not exposed through configuration
 
 **Flagged by:** Deployment (A6), Separation (D7), Ops (C4)
@@ -96,6 +100,8 @@ Constructor accepts `intraOpThreads` but factory hardcodes default (0 = all core
 
 **Action:** Add `intraOpThreads` to `OnnxConfig` with env var `ONNX_EMBEDDING_INTRA_OP_THREADS`, default 4.
 
+**Status: Resolved.** `intraOpThreads` is exposed via `ONNX_EMBEDDING_INTRA_OP_THREADS` (default 4) and passed to the provider by the factory.
+
 #### I3. AutoCloseable not wired to Spring destroy lifecycle
 
 **Flagged by:** Threat (B4), Ops (C5), Separation (D5)
@@ -103,6 +109,8 @@ Constructor accepts `intraOpThreads` but factory hardcodes default (0 = all core
 `OnnxEmbeddingProvider` implements `AutoCloseable` but the `@Bean` return type is `EmbeddingProvider` (which doesn't extend `AutoCloseable`). Spring may not auto-detect `close()`.
 
 **Action:** Add `destroyMethod = "close"` to the `@Bean` annotation.
+
+**Status: Resolved.** The bean keeps `destroyMethod = ""` (the shared `@Bean` refactored to manage its own credentials lifecycle); instead the factory holds the concrete `OnnxEmbeddingProvider` and closes it from its `@PreDestroy`, releasing the ONNX session and tokenizer native memory on shutdown.
 
 #### I4. No performance instrumentation on embed()
 

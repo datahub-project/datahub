@@ -356,6 +356,12 @@ embedding:
 - `onnx_model_dir` must contain the same `model.onnx` (or `model_quantized.onnx`)
   and `tokenizer.json` as the GMS query-side provider, or kNN results will not
   match. Falls back to the `ONNX_EMBEDDING_MODEL_DIR` environment variable.
+- The document side (this connector) and the query side (GMS) are configured
+  independently. A mismatch in model, tokenizer, or `onnx_pooling` between the two
+  produces **no error** — it silently collapses kNN recall, because the two sides
+  write and query vectors in different spaces. Both providers log their effective
+  model, pooling, and truncation length at startup; compare those log lines across
+  GMS and the executor when recall looks wrong.
 
 **Break-Glass Override (NOT RECOMMENDED):**
 
