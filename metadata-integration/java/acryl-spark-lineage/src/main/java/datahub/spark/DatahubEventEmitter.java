@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.Operation;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.data.DataMap;
@@ -16,6 +17,7 @@ import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
 import com.linkedin.dataprocess.RunResultType;
+import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.domain.Domains;
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.client.Emitter;
@@ -212,6 +214,36 @@ public class DatahubEventEmitter extends EventEmitter {
     log.info("Emitting coalesced lineage completed in {} ms", elapsedTime);
   }
 
+  /**
+   * Carries the job-level decoration from one stored event onto the coalesced job. Each facet
+   * appears only on the events that happened to carry it, so the first non-null wins rather than
+   * the last event's value. Without this the coalesced path -- Spark's default -- converts tags,
+   * owners and sourceCodeLocation and then discards them, and the DataJob never receives them.
+   */
+  static void mergeJobDecoration(DatahubJob target, DatahubJob stored) {
+    if (target.getJobOwnership() == null) {
+      target.setJobOwnership(stored.getJobOwnership());
+    }
+    if (target.getJobInstitutionalMemory() == null) {
+      target.setJobInstitutionalMemory(stored.getJobInstitutionalMemory());
+    }
+    if (target.getJobGlobalTags() == null) {
+      target.setJobGlobalTags(stored.getJobGlobalTags());
+    }
+    if (target.getFlowGlobalTags() == null) {
+      target.setFlowGlobalTags(stored.getFlowGlobalTags());
+    }
+    if (target.getJobPlatformInstance() == null) {
+      target.setJobPlatformInstance(stored.getJobPlatformInstance());
+    }
+    if (target.getFlowDomains() == null) {
+      target.setFlowDomains(stored.getFlowDomains());
+    }
+    if (target.getJobDomains() == null) {
+      target.setJobDomains(stored.getJobDomains());
+    }
+  }
+
   public List<MetadataChangeProposal> generateCoalescedMcps() {
     List<MetadataChangeProposal> mcps = new ArrayList<>();
 
@@ -256,6 +288,8 @@ public class DatahubEventEmitter extends EventEmitter {
           if (datahubJob.getDataFlowInfo() == null) {
             datahubJob.setDataFlowInfo(storedDatahubJob.getDataFlowInfo());
           }
+
+          mergeJobDecoration(datahubJob, storedDatahubJob);
 
           if (storedDatahubJob.getStartTime() < minStartTime.get()) {
             minStartTime.set(storedDatahubJob.getStartTime());
@@ -303,17 +337,40 @@ public class DatahubEventEmitter extends EventEmitter {
     }
   }
 
-  private static void mergeDatasets(
-      Set<DatahubDataset> storedDatahubJob, Set<DatahubDataset> datahubJob) {
+  static void mergeDatasets(Set<DatahubDataset> storedDatahubJob, Set<DatahubDataset> datahubJob) {
     for (DatahubDataset dataset : storedDatahubJob) {
       Optional<DatahubDataset> oldDataset =
           datahubJob.stream().filter(ds -> ds.getUrn().equals(dataset.getUrn())).findFirst();
       if (oldDataset.isPresent()) {
+        // Every field a DatahubDataset can carry has to be merged here. A START event may
+        // introduce the dataset and a later event add its facets, so anything missed is silently
+        // dropped from coalesced lineage.
         if (dataset.getSchemaMetadata() != null) {
           oldDataset.get().setSchemaMetadata(dataset.getSchemaMetadata());
         }
         if (dataset.getLineage() != null) {
           oldDataset.get().setLineage(dataset.getLineage());
+        }
+        // Timeseries aspects: every execution contributes its own point, so these accumulate
+        // rather than replace. Overwriting kept only the last execution of a coalesced run.
+        if (!dataset.getOperations().isEmpty()) {
+          List<Operation> operations = new ArrayList<>(oldDataset.get().getOperations());
+          operations.addAll(dataset.getOperations());
+          oldDataset.get().setOperations(operations);
+        }
+        if (!dataset.getProfiles().isEmpty()) {
+          List<DatasetProfile> profiles = new ArrayList<>(oldDataset.get().getProfiles());
+          profiles.addAll(dataset.getProfiles());
+          oldDataset.get().setProfiles(profiles);
+        }
+        if (dataset.getTags() != null) {
+          oldDataset.get().setTags(dataset.getTags());
+        }
+        if (dataset.getOwnership() != null) {
+          oldDataset.get().setOwnership(dataset.getOwnership());
+        }
+        if (dataset.getProperties() != null) {
+          oldDataset.get().setProperties(dataset.getProperties());
         }
       } else {
         datahubJob.add(dataset);

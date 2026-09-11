@@ -1,5 +1,6 @@
 package datahub.spark;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -12,6 +13,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datajob.DataFlowInfo;
 import com.linkedin.datajob.DataJobInfo;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
+import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
 import io.datahubproject.openlineage.dataset.DatahubDataset;
@@ -73,6 +76,31 @@ class DatahubJobMcpGenerationTest {
 
   private static boolean hasDataJobInputOutputMcp(List<MetadataChangeProposal> mcps) {
     return mcps.stream().anyMatch(mcp -> "dataJobInputOutput".equals(mcp.getAspectName()));
+  }
+
+  /**
+   * OpenLineage only ever names a description and a handful of custom properties, so a whole-aspect
+   * write clears name, qualifiedName and whatever another connector recorded. usePatch decides
+   * whether a terminal event may replace the lineage an earlier event declared, which is a question
+   * about edges, so it must not reach this aspect -- and Spark leaves it off by default.
+   */
+  @Test
+  void testDatasetPropertiesPatchEvenWhenUsePatchIsOff() throws URISyntaxException, IOException {
+    DatahubJob job = createMinimalJob();
+    DatasetProperties properties = new DatasetProperties();
+    properties.setDescription("described by OpenLineage");
+    DatasetUrn urn =
+        new DatasetUrn(new DataPlatformUrn("s3"), "my_db.my_schema.events", FabricType.PROD);
+    job.getOutSet().add(DatahubDataset.builder().urn(urn).properties(properties).build());
+
+    List<MetadataChangeProposal> mcps = job.toMcps(createConfig(false));
+
+    MetadataChangeProposal datasetProperties =
+        mcps.stream()
+            .filter(mcp -> "datasetProperties".equals(mcp.getAspectName()))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("no datasetProperties MCP was emitted"));
+    assertEquals(ChangeType.PATCH, datasetProperties.getChangeType());
   }
 
   /**

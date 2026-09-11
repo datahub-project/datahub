@@ -40,6 +40,28 @@ The endpoint responds with:
 | `422`  | The event is well-formed but carries nothing DataHub can store (for example, no job name) |
 | `500`  | A server-side failure                                                                     |
 
+### What DataHub captures from an event
+
+| OpenLineage facet                                                 | Where it lands                                                                   |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `schema`                                                          | Dataset `schemaMetadata`                                                         |
+| `columnLineage`                                                   | Column-level lineage on the DataJob                                              |
+| `symlinks`                                                        | Dataset URN resolution (Glue, Hive)                                              |
+| `outputStatistics`, `lifecycleStateChange`                        | Dataset `Operation` — row counts, operation type, write history                  |
+| `dataQualityMetrics`                                              | Dataset `DatasetProfile` — row count, size, per-column null and distinct counts  |
+| `tags`, `ownership` (dataset)                                     | Dataset `GlobalTags`, `Ownership`                                                |
+| `documentation`, `storage`, `datasetType`, `version`              | Dataset `DatasetProperties`                                                      |
+| `tags`, `ownership` (job)                                         | DataJob `GlobalTags`, `Ownership`                                                |
+| `documentation` (job)                                             | DataJob description                                                              |
+| `jobType`                                                         | DataJob custom properties — `BATCH` vs `STREAMING`, and the emitting integration |
+| `sourceCodeLocation`                                              | DataJob `InstitutionalMemory` link                                               |
+| `nominalTime`, `externalQuery`, `extractionError`, `errorMessage` | DataProcessInstance custom properties                                            |
+| `parent`                                                          | Job-to-job lineage edge                                                          |
+| `processing_engine`                                               | Orchestrator name and custom properties                                          |
+
+Facets outside this table are not stored. An `extractionError` facet also raises a warning in the GMS
+log, because it is the producer reporting that its own lineage output is incomplete.
+
 The caller needs `Edit Entity` and `Edit Lineage` privileges on the entity types the event
 touches — DataFlow, DataJob, DataProcessInstance and Dataset.
 
