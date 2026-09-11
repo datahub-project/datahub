@@ -260,18 +260,37 @@ def test_every_ownership_bearing_entity_routes_through_one_accounting_path() -> 
         pathlib.Path(__file__).resolve().parents[3]
         / "src/datahub/ingestion/source/snowflake/snowflake_openflow.py"
     )
+    COUNTER = "num_owners_emitted"
     tree = ast.parse(source_file.read_text())
 
-    sites = [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.AugAssign)
-        and isinstance(node.target, ast.Attribute)
-        and node.target.attr == "num_owners_emitted"
-    ]
+    def writes_the_counter(node: ast.AST) -> bool:
+        # Every shape that assigns to it, not just `+= 1`. Probed the narrow
+        # version: it missed `x = x + 1` and setattr(). `+= 1` is the idiom
+        # used throughout this file, so those are unlikely -- but a guard whose
+        # own blind spots are known and unclosed is the thing this connector
+        # has repeatedly been bitten by.
+        if isinstance(node, ast.AugAssign):
+            target: ast.AST = node.target
+            return isinstance(target, ast.Attribute) and target.attr == COUNTER
+        if isinstance(node, ast.Assign):
+            return any(
+                isinstance(t, ast.Attribute) and t.attr == COUNTER for t in node.targets
+            )
+        if isinstance(node, ast.Call):
+            return (
+                isinstance(node.func, ast.Name)
+                and node.func.id == "setattr"
+                and len(node.args) >= 2
+                and isinstance(node.args[1], ast.Constant)
+                and node.args[1].value == COUNTER
+            )
+        return False
+
+    sites = [node for node in ast.walk(tree) if writes_the_counter(node)]
 
     assert len(sites) == 1, (
         f"ownership is counted at {len(sites)} sites (lines "
-        f"{[n.lineno for n in sites]}); it must be one, because a second site "
+        f"{[getattr(n, 'lineno', '?') for n in sites]}); it must be one, "
+        "because a second site "
         "is a site that can forget to check whether the owner urn fits"
     )
