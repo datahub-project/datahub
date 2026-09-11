@@ -6,6 +6,11 @@ import com.linkedin.common.Edge;
 import com.linkedin.common.EdgeArray;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.InstitutionalMemoryMetadata;
+import com.linkedin.common.InstitutionalMemoryMetadataArray;
+import com.linkedin.common.Operation;
+import com.linkedin.common.OperationType;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
@@ -16,6 +21,7 @@ import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.TimeStamp;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
@@ -34,7 +40,11 @@ import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
 import com.linkedin.dataprocess.DataProcessInstanceRunResult;
 import com.linkedin.dataprocess.DataProcessRunStatus;
 import com.linkedin.dataprocess.RunResultType;
+import com.linkedin.dataset.DatasetFieldProfile;
+import com.linkedin.dataset.DatasetFieldProfileArray;
 import com.linkedin.dataset.DatasetLineageType;
+import com.linkedin.dataset.DatasetProfile;
+import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.FineGrainedLineage;
 import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.dataset.FineGrainedLineageDownstreamType;
@@ -82,6 +92,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -114,6 +125,24 @@ public class OpenLineageToDataHub {
   public static final String SPARK_VERSION_KEY = "spark-version";
   public static final String OPENLINEAGE_SPARK_VERSION_KEY = "openlineage-spark-version";
   public static final String SPARK_LOGICAL_PLAN_KEY = "spark.logicalPlan";
+  public static final String NOMINAL_START_TIME_KEY = "nominalStartTime";
+  public static final String NOMINAL_END_TIME_KEY = "nominalEndTime";
+  public static final String EXTERNAL_QUERY_ID_KEY = "externalQueryId";
+  public static final String EXTERNAL_QUERY_SOURCE_KEY = "externalQuerySource";
+  public static final String EXTRACTION_ERROR_TOTAL_TASKS_KEY = "extractionErrorTotalTasks";
+  public static final String EXTRACTION_ERROR_FAILED_TASKS_KEY = "extractionErrorFailedTasks";
+  public static final String EXTRACTION_ERROR_MESSAGES_KEY = "extractionErrorMessages";
+  public static final String JOB_PROCESSING_TYPE_KEY = "processingType";
+  public static final String JOB_INTEGRATION_KEY = "integration";
+  public static final String JOB_TYPE_KEY = "jobType";
+  public static final String STORAGE_LAYER_KEY = "storageLayer";
+  public static final String FILE_FORMAT_KEY = "fileFormat";
+  public static final String DATASET_TYPE_KEY = "datasetType";
+  public static final String DATASET_SUB_TYPE_KEY = "datasetSubType";
+  public static final String DATASET_VERSION_KEY = "datasetVersion";
+  // Extraction-error messages are producer-supplied and unbounded; cap the joined string so one
+  // bad run cannot write a multi-megabyte aspect.
+  private static final int EXTRACTION_ERROR_MESSAGE_CAP = 4096;
 
   // SQL patterns
   public static final String MERGE_INTO_COMMAND_PATTERN = "execute_merge_into_command_edge";
@@ -491,6 +520,9 @@ public class OpenLineageToDataHub {
     Ownership ownership = generateOwnership(event);
     jobBuilder.jobOwnership(ownership);
 
+    // SourceCodeLocationJobFacet points at the code that produced this job.
+    jobBuilder.jobInstitutionalMemory(getSourceCodeLocation(event));
+
     // Airflow-style DAG tags live in the run facet and stay on the DataFlow (backward compatible).
     GlobalTags flowTags = generateTags(event);
     jobBuilder.flowGlobalTags(flowTags);
@@ -844,6 +876,25 @@ public class OpenLineageToDataHub {
   private static StringMap generateCustomProperties(
       OpenLineage.RunEvent event, boolean flowProperties) {
     StringMap customProperties = new StringMap();
+
+    // JobTypeJobFacet describes the task (BATCH vs STREAMING, and which integration emitted it),
+    // so it belongs on the DataJob rather than the parent DataFlow. It was previously read only to
+    // detect RDD_JOB and then discarded.
+    if (!flowProperties
+        && event.getJob() != null
+        && event.getJob().getFacets() != null
+        && event.getJob().getFacets().getJobType() != null) {
+      OpenLineage.JobTypeJobFacet jobType = event.getJob().getFacets().getJobType();
+      if (jobType.getProcessingType() != null) {
+        customProperties.put(JOB_PROCESSING_TYPE_KEY, jobType.getProcessingType());
+      }
+      if (jobType.getIntegration() != null) {
+        customProperties.put(JOB_INTEGRATION_KEY, jobType.getIntegration());
+      }
+      if (jobType.getJobType() != null) {
+        customProperties.put(JOB_TYPE_KEY, jobType.getJobType());
+      }
+    }
     if ((event.getRun().getFacets() != null)
         && (event.getRun().getFacets().getProcessing_engine() != null)) {
       if (event.getRun().getFacets().getProcessing_engine().getName() != null) {
@@ -1345,10 +1396,12 @@ public class OpenLineageToDataHub {
     dpiProperties.setCreated(auditStamp);
 
     // Surface the OpenLineage ErrorMessageRunFacet (message / programmingLanguage / stackTrace) as
-    // custom properties so FAIL/ABORT diagnostics aren't lost.
-    StringMap errorProperties = errorMessageProperties(event);
-    if (!errorProperties.isEmpty()) {
-      dpiProperties.setCustomProperties(errorProperties);
+    // custom properties so FAIL/ABORT diagnostics aren't lost, alongside the run-level facets that
+    // have no dedicated aspect (nominalTime, externalQuery, extractionError).
+    StringMap runProperties = errorMessageProperties(event);
+    runProperties.putAll(runDiagnosticProperties(event));
+    if (!runProperties.isEmpty()) {
+      dpiProperties.setCustomProperties(runProperties);
     }
     return dpiProperties;
   }
@@ -1449,6 +1502,12 @@ public class OpenLineageToDataHub {
         builder.urn(datasetUrn.get());
         if (datahubConf.isMaterializeDataset()) {
           builder.schemaMetadata(getSchemaMetadata(input, datahubConf));
+          // Descriptive facets are gated the same way schema is: if we are not materializing the
+          // dataset we do not decorate it either.
+          builder.tags(getDatasetTags(input));
+          builder.ownership(getDatasetOwnership(input));
+          builder.properties(getDatasetProperties(input));
+          builder.profile(getDatasetProfile(input, event.getEventTime()));
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
           UpstreamLineage upstreamLineage =
@@ -1479,6 +1538,12 @@ public class OpenLineageToDataHub {
         builder.urn(datasetUrn.get());
         if (datahubConf.isMaterializeDataset()) {
           builder.schemaMetadata(getSchemaMetadata(output, datahubConf));
+          builder.tags(getDatasetTags(output));
+          builder.ownership(getDatasetOwnership(output));
+          builder.properties(getDatasetProperties(output));
+          builder.profile(getDatasetProfile(output, event.getEventTime()));
+          // Only outputs get an Operation: it records what this run wrote.
+          builder.operation(getOperation(output, event.getEventTime()));
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
           UpstreamLineage upstreamLineage =
@@ -1894,6 +1959,359 @@ public class OpenLineageToDataHub {
       sb.append(token);
     }
     return sb.toString();
+  }
+
+  /**
+   * Builds an {@link Operation} from an output dataset's {@code outputStatistics} and {@code
+   * lifecycleStateChange} facets. Operation is a timeseries aspect, so each run appends a point
+   * rather than overwriting — this is what gives a dataset a write history and a freshness signal
+   * from OpenLineage alone.
+   */
+  private static Operation getOperation(OpenLineage.OutputDataset output, ZonedDateTime eventTime) {
+    OpenLineage.OutputStatisticsOutputDatasetFacet statistics =
+        output.getOutputFacets() == null ? null : output.getOutputFacets().getOutputStatistics();
+    OpenLineage.LifecycleStateChangeDatasetFacet lifecycle =
+        output.getFacets() == null ? null : output.getFacets().getLifecycleStateChange();
+
+    if (statistics == null && lifecycle == null) {
+      return null;
+    }
+
+    long timestamp =
+        eventTime == null ? System.currentTimeMillis() : eventTime.toInstant().toEpochMilli();
+    Operation operation = new Operation();
+    operation.setTimestampMillis(timestamp);
+    operation.setLastUpdatedTimestamp(timestamp);
+    operation.setActor(UrnUtils.getUrn(URN_LI_CORPUSER_DATAHUB));
+    operation.setOperationType(
+        lifecycle == null
+            // Statistics without a lifecycle facet only tell us the run wrote to the dataset.
+            // UPDATE is the least surprising reading of that and still feeds the freshness signal.
+            ? OperationType.UPDATE
+            : mapLifecycleToOperationType(lifecycle.getLifecycleStateChange()));
+
+    if (statistics != null && statistics.getRowCount() != null) {
+      operation.setNumAffectedRows(statistics.getRowCount());
+    }
+
+    StringMap operationProperties = new StringMap();
+    if (statistics != null) {
+      if (statistics.getSize() != null) {
+        operationProperties.put("sizeInBytes", String.valueOf(statistics.getSize()));
+      }
+      if (statistics.getFileCount() != null) {
+        operationProperties.put("fileCount", String.valueOf(statistics.getFileCount()));
+      }
+    }
+    if (!operationProperties.isEmpty()) {
+      operation.setCustomProperties(operationProperties);
+    }
+    return operation;
+  }
+
+  /**
+   * OpenLineage's lifecycle vocabulary is wider than DataHub's {@link OperationType}. TRUNCATE and
+   * OVERWRITE have no direct equivalent, so they map to the closest type and keep their original
+   * name in {@code customOperationType} via the caller.
+   */
+  private static OperationType mapLifecycleToOperationType(
+      OpenLineage.LifecycleStateChangeDatasetFacet.LifecycleStateChange lifecycle) {
+    if (lifecycle == null) {
+      return OperationType.UPDATE;
+    }
+    switch (lifecycle) {
+      case CREATE:
+        return OperationType.CREATE;
+      case DROP:
+        return OperationType.DROP;
+      case TRUNCATE:
+        return OperationType.DELETE;
+      case ALTER:
+      case RENAME:
+        return OperationType.ALTER;
+      case OVERWRITE:
+      default:
+        return OperationType.UPDATE;
+    }
+  }
+
+  /**
+   * Builds a {@link DatasetProfile} from the {@code dataQualityMetrics} facet. Only the metrics
+   * DataHub models are carried across; producer-specific ones in {@code additionalProperties} are
+   * left alone rather than being flattened into a shape they do not fit.
+   */
+  private static DatasetProfile getDatasetProfile(
+      OpenLineage.Dataset dataset, ZonedDateTime eventTime) {
+    if (dataset.getFacets() == null || dataset.getFacets().getDataQualityMetrics() == null) {
+      return null;
+    }
+    OpenLineage.DataQualityMetricsDatasetFacet metrics =
+        dataset.getFacets().getDataQualityMetrics();
+
+    DatasetProfile profile = new DatasetProfile();
+    profile.setTimestampMillis(
+        eventTime == null ? System.currentTimeMillis() : eventTime.toInstant().toEpochMilli());
+    if (metrics.getRowCount() != null) {
+      profile.setRowCount(metrics.getRowCount());
+    }
+    if (metrics.getBytes() != null) {
+      profile.setSizeInBytes(metrics.getBytes());
+    }
+
+    if (metrics.getColumnMetrics() != null
+        && metrics.getColumnMetrics().getAdditionalProperties() != null) {
+      DatasetFieldProfileArray fieldProfiles = new DatasetFieldProfileArray();
+      metrics
+          .getColumnMetrics()
+          .getAdditionalProperties()
+          .forEach(
+              (fieldName, columnMetrics) -> {
+                if (columnMetrics == null) {
+                  return;
+                }
+                DatasetFieldProfile fieldProfile = new DatasetFieldProfile();
+                fieldProfile.setFieldPath(fieldName);
+                if (columnMetrics.getNullCount() != null) {
+                  fieldProfile.setNullCount(columnMetrics.getNullCount());
+                }
+                if (columnMetrics.getDistinctCount() != null) {
+                  fieldProfile.setUniqueCount(columnMetrics.getDistinctCount());
+                }
+                // DataHub stores min/max as strings so they can hold any column type.
+                if (columnMetrics.getMin() != null) {
+                  fieldProfile.setMin(String.valueOf(columnMetrics.getMin()));
+                }
+                if (columnMetrics.getMax() != null) {
+                  fieldProfile.setMax(String.valueOf(columnMetrics.getMax()));
+                }
+                fieldProfiles.add(fieldProfile);
+              });
+      if (!fieldProfiles.isEmpty()) {
+        profile.setFieldProfiles(fieldProfiles);
+      }
+    }
+    if (!profile.hasRowCount() && !profile.hasSizeInBytes() && !profile.hasFieldProfiles()) {
+      return null;
+    }
+    return profile;
+  }
+
+  /** Maps the dataset-level {@code tags} facet onto DataHub {@code GlobalTags}. */
+  private static GlobalTags getDatasetTags(OpenLineage.Dataset dataset) {
+    if (dataset.getFacets() == null
+        || dataset.getFacets().getTags() == null
+        || dataset.getFacets().getTags().getTags() == null) {
+      return null;
+    }
+    TagAssociationArray tagAssociations = new TagAssociationArray();
+    for (OpenLineage.TagsDatasetFacetFields tag : dataset.getFacets().getTags().getTags()) {
+      if (tag.getKey() == null || tag.getKey().trim().isEmpty()) {
+        continue;
+      }
+      // Same key:value convention the job-level TagsJobFacet mapping uses.
+      String name =
+          tag.getValue() == null || tag.getValue().trim().isEmpty()
+              ? tag.getKey()
+              : tag.getKey() + ":" + tag.getValue();
+      try {
+        tagAssociations.add(
+            new TagAssociation().setTag(TagUrn.createFromString("urn:li:tag:" + name)));
+      } catch (URISyntaxException e) {
+        log.warn("Unable to create tag urn for dataset tag: {}", name);
+      }
+    }
+    if (tagAssociations.isEmpty()) {
+      return null;
+    }
+    return new GlobalTags().setTags(tagAssociations);
+  }
+
+  /** Maps the dataset-level {@code ownership} facet onto a DataHub {@code Ownership} aspect. */
+  private static Ownership getDatasetOwnership(OpenLineage.Dataset dataset) {
+    if (dataset.getFacets() == null
+        || dataset.getFacets().getOwnership() == null
+        || dataset.getFacets().getOwnership().getOwners() == null) {
+      return null;
+    }
+    OwnerArray owners = new OwnerArray();
+    for (OpenLineage.OwnershipDatasetFacetOwners ownerFacet :
+        dataset.getFacets().getOwnership().getOwners()) {
+      if (ownerFacet.getName() == null || ownerFacet.getName().trim().isEmpty()) {
+        continue;
+      }
+      try {
+        Owner owner = new Owner();
+        owner.setOwner(Urn.createFromString(URN_LI_CORPUSER + ownerFacet.getName()));
+        owner.setType(mapOwnershipType(ownerFacet.getType()));
+        OwnershipSource source = new OwnershipSource();
+        source.setType(OwnershipSourceType.SERVICE);
+        owner.setSource(source);
+        owners.add(owner);
+      } catch (URISyntaxException e) {
+        log.warn("Unable to create owner urn for dataset owner: {}", ownerFacet.getName());
+      }
+    }
+    if (owners.isEmpty()) {
+      return null;
+    }
+    Ownership ownership = new Ownership();
+    ownership.setOwners(owners);
+    ownership.setLastModified(createAuditStamp(null));
+    return ownership;
+  }
+
+  /**
+   * Collects the descriptive dataset facets DataHub has no dedicated aspect for — {@code storage},
+   * {@code datasetType} and {@code version} — into {@code DatasetProperties}, with {@code
+   * documentation} becoming the description.
+   */
+  private static DatasetProperties getDatasetProperties(OpenLineage.Dataset dataset) {
+    if (dataset.getFacets() == null) {
+      return null;
+    }
+    OpenLineage.DatasetFacets facets = dataset.getFacets();
+    DatasetProperties properties = new DatasetProperties();
+    boolean populated = false;
+
+    if (facets.getDocumentation() != null && facets.getDocumentation().getDescription() != null) {
+      properties.setDescription(facets.getDocumentation().getDescription());
+      populated = true;
+    }
+
+    StringMap customProperties = new StringMap();
+    if (facets.getStorage() != null) {
+      if (facets.getStorage().getStorageLayer() != null) {
+        customProperties.put(STORAGE_LAYER_KEY, facets.getStorage().getStorageLayer());
+      }
+      if (facets.getStorage().getFileFormat() != null) {
+        customProperties.put(FILE_FORMAT_KEY, facets.getStorage().getFileFormat());
+      }
+    }
+    if (facets.getDatasetType() != null) {
+      if (facets.getDatasetType().getDatasetType() != null) {
+        customProperties.put(DATASET_TYPE_KEY, facets.getDatasetType().getDatasetType());
+      }
+      if (facets.getDatasetType().getSubType() != null) {
+        customProperties.put(DATASET_SUB_TYPE_KEY, facets.getDatasetType().getSubType());
+      }
+    }
+    if (facets.getVersion() != null && facets.getVersion().getDatasetVersion() != null) {
+      customProperties.put(DATASET_VERSION_KEY, facets.getVersion().getDatasetVersion());
+    }
+    if (!customProperties.isEmpty()) {
+      properties.setCustomProperties(customProperties);
+      populated = true;
+    }
+    return populated ? properties : null;
+  }
+
+  /**
+   * Run-level diagnostics that have no dedicated DataHub aspect. {@code nominalTime} distinguishes
+   * a backfill from a scheduled run, {@code externalQuery} is the join key back to the warehouse's
+   * own query history, and {@code extractionError} is the producer reporting that its own output is
+   * incomplete.
+   */
+  private static StringMap runDiagnosticProperties(OpenLineage.RunEvent event) {
+    StringMap properties = new StringMap();
+    if (event.getRun() == null || event.getRun().getFacets() == null) {
+      return properties;
+    }
+    OpenLineage.RunFacets facets = event.getRun().getFacets();
+
+    if (facets.getNominalTime() != null) {
+      if (facets.getNominalTime().getNominalStartTime() != null) {
+        properties.put(
+            NOMINAL_START_TIME_KEY, facets.getNominalTime().getNominalStartTime().toString());
+      }
+      if (facets.getNominalTime().getNominalEndTime() != null) {
+        properties.put(
+            NOMINAL_END_TIME_KEY, facets.getNominalTime().getNominalEndTime().toString());
+      }
+    }
+
+    if (facets.getExternalQuery() != null) {
+      if (facets.getExternalQuery().getExternalQueryId() != null) {
+        properties.put(EXTERNAL_QUERY_ID_KEY, facets.getExternalQuery().getExternalQueryId());
+      }
+      if (facets.getExternalQuery().getSource() != null) {
+        properties.put(EXTERNAL_QUERY_SOURCE_KEY, facets.getExternalQuery().getSource());
+      }
+    }
+
+    if (facets.getExtractionError() != null) {
+      OpenLineage.ExtractionErrorRunFacet extractionError = facets.getExtractionError();
+      if (extractionError.getTotalTasks() != null) {
+        properties.put(
+            EXTRACTION_ERROR_TOTAL_TASKS_KEY, String.valueOf(extractionError.getTotalTasks()));
+      }
+      if (extractionError.getFailedTasks() != null) {
+        properties.put(
+            EXTRACTION_ERROR_FAILED_TASKS_KEY, String.valueOf(extractionError.getFailedTasks()));
+      }
+      if (extractionError.getErrors() != null && !extractionError.getErrors().isEmpty()) {
+        String messages =
+            extractionError.getErrors().stream()
+                .map(OpenLineage.ExtractionErrorRunFacetErrors::getErrorMessage)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining("; "));
+        if (!messages.isEmpty()) {
+          properties.put(EXTRACTION_ERROR_MESSAGES_KEY, truncate(messages));
+        }
+      }
+      // The producer is telling us its own lineage is incomplete. That must not be silent, or a
+      // partial graph looks identical to a complete one.
+      log.warn(
+          "OpenLineage producer reported extraction errors for job '{}': {} of {} tasks failed",
+          event.getJob() == null ? "unknown" : event.getJob().getName(),
+          extractionError.getFailedTasks(),
+          extractionError.getTotalTasks());
+    }
+    return properties;
+  }
+
+  private static String truncate(String value) {
+    return value.length() <= EXTRACTION_ERROR_MESSAGE_CAP
+        ? value
+        : value.substring(0, EXTRACTION_ERROR_MESSAGE_CAP) + "...[truncated]";
+  }
+
+  /**
+   * Turns the {@code sourceCodeLocation} job facet into an {@code InstitutionalMemory} link, which
+   * is where DataHub keeps "go and read the code that produced this".
+   */
+  private static InstitutionalMemory getSourceCodeLocation(OpenLineage.RunEvent event) {
+    if (event.getJob() == null
+        || event.getJob().getFacets() == null
+        || event.getJob().getFacets().getSourceCodeLocation() == null) {
+      return null;
+    }
+    OpenLineage.SourceCodeLocationJobFacet location =
+        event.getJob().getFacets().getSourceCodeLocation();
+    String url = location.getUrl() != null ? location.getUrl().toString() : location.getRepoUrl();
+    if (url == null || url.trim().isEmpty()) {
+      return null;
+    }
+
+    StringBuilder description = new StringBuilder("Source code location");
+    if (location.getBranch() != null) {
+      description.append(" (branch ").append(location.getBranch()).append(")");
+    } else if (location.getTag() != null) {
+      description.append(" (tag ").append(location.getTag()).append(")");
+    }
+
+    InstitutionalMemoryMetadata element = new InstitutionalMemoryMetadata();
+    try {
+      element.setUrl(new Url(url));
+    } catch (IllegalArgumentException e) {
+      log.warn("Unable to record source code location '{}': {}", url, e.getMessage());
+      return null;
+    }
+    element.setDescription(description.toString());
+    element.setCreateStamp(createAuditStamp(event.getEventTime()));
+
+    InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray();
+    elements.add(element);
+    return new InstitutionalMemory().setElements(elements);
   }
 
   public static SchemaMetadata getSchemaMetadata(

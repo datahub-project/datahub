@@ -8,6 +8,7 @@ import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.Edge;
 import com.linkedin.common.EdgeArray;
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
@@ -81,6 +82,7 @@ public class DatahubJob {
   DataJobUrn jobUrn;
   DataJobInfo jobInfo;
   Ownership jobOwnership;
+  InstitutionalMemory jobInstitutionalMemory;
   GlobalTags flowGlobalTags;
   GlobalTags jobGlobalTags;
   Domains flowDomains;
@@ -155,6 +157,9 @@ public class DatahubJob {
     generateGlobalTagsAspect(flowUrn, DATA_FLOW_ENTITY_TYPE, flowGlobalTags, config, mcps);
     generateGlobalTagsAspect(jobUrn, DATAJOB_ENTITY_TYPE, jobGlobalTags, config, mcps);
     generateOwnershipAspect(jobUrn, DATAJOB_ENTITY_TYPE, jobOwnership, config, mcps);
+    if (jobInstitutionalMemory != null) {
+      addAspectToMcps(jobUrn, DATAJOB_ENTITY_TYPE, jobInstitutionalMemory, mcps);
+    }
 
     // Generate and add domain Aspect
     generateDomainsAspect(flowUrn, DATA_FLOW_ENTITY_TYPE, flowDomains, mcps);
@@ -386,6 +391,8 @@ public class DatahubJob {
                 dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
           }
 
+          addDatasetFacetAspects(dataset, mcps);
+
           // Remove lineage which was added by older plugin that set lineage on Datasets and not on
           // DataJobs
           if (config.isRemoveLegacyLineage()) {
@@ -423,6 +430,8 @@ public class DatahubJob {
             addAspectToMcps(
                 dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
           }
+
+          addDatasetFacetAspects(dataset, mcps);
         });
     return Pair.of(inputUrnArray, inputEdges);
   }
@@ -478,6 +487,29 @@ public class DatahubJob {
   private void generateStatus(Urn entityUrn, String entityType, List<MetadataChangeProposal> mcps) {
     Status statusInfo = new Status().setRemoved(false);
     addAspectToMcps(entityUrn, entityType, statusInfo, mcps);
+  }
+
+  /**
+   * Emits the dataset aspects derived from OpenLineage dataset facets. {@code operation} and {@code
+   * profile} are timeseries aspects, so repeated events append points rather than overwriting and
+   * need no patch handling; the rest are written whole, matching how schema is handled.
+   */
+  private void addDatasetFacetAspects(DatahubDataset dataset, List<MetadataChangeProposal> mcps) {
+    if (dataset.getOperation() != null) {
+      addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getOperation(), mcps);
+    }
+    if (dataset.getProfile() != null) {
+      addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getProfile(), mcps);
+    }
+    if (dataset.getTags() != null) {
+      addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getTags(), mcps);
+    }
+    if (dataset.getOwnership() != null) {
+      addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getOwnership(), mcps);
+    }
+    if (dataset.getProperties() != null) {
+      addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getProperties(), mcps);
+    }
   }
 
   private void addAspectToMcps(
