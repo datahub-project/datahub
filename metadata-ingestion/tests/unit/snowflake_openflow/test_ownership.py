@@ -6,10 +6,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_openflow import (
     ConnectorTableLineage,
     SnowflakeOpenflowSource,
-    _owner_classes,
     _owner_group_urn,
     build_connector_flow,
     build_connector_table_job,
+    owner_classes_for,
 )
 from datahub.ingestion.source.snowflake.snowflake_openflow_config import (
     SnowflakeOpenflowSourceConfig,
@@ -150,7 +150,10 @@ def test_connector_flow_owner_is_a_technical_corp_group_owner():
         name="pg_cdc", runtime_name="my_runtime", owner=OWNER_ROLE
     )
     flow = build_connector_flow(
-        connector, _owner_classes(connector.owner), platform_instance=None, env="PROD"
+        connector,
+        owner_classes_for(_owner_group_urn(connector.owner)),
+        platform_instance=None,
+        env="PROD",
     )
 
     ownership = _ownership_aspects(flow.as_workunits())
@@ -175,10 +178,13 @@ def test_connector_job_owner_is_a_technical_corp_group_owner():
         name="pg_cdc", runtime_name="my_runtime", owner=OWNER_ROLE
     )
     flow = build_connector_flow(
-        connector, _owner_classes(connector.owner), platform_instance=None, env="PROD"
+        connector,
+        owner_classes_for(_owner_group_urn(connector.owner)),
+        platform_instance=None,
+        env="PROD",
     )
     job = build_connector_table_job(
-        connector, flow, _PAIR, _owner_classes(connector.owner)
+        connector, flow, _PAIR, owner_classes_for(_owner_group_urn(connector.owner))
     )
 
     ownership = _ownership_aspects(job.as_workunits())
@@ -194,10 +200,13 @@ def test_connector_job_owner_is_a_technical_corp_group_owner():
 def test_connector_emits_no_ownership_aspect_when_owner_is_absent():
     connector = OpenflowConnector(name="pg_cdc", runtime_name="my_runtime")
     flow = build_connector_flow(
-        connector, _owner_classes(connector.owner), platform_instance=None, env="PROD"
+        connector,
+        owner_classes_for(_owner_group_urn(connector.owner)),
+        platform_instance=None,
+        env="PROD",
     )
     job = build_connector_table_job(
-        connector, flow, _PAIR, _owner_classes(connector.owner)
+        connector, flow, _PAIR, owner_classes_for(_owner_group_urn(connector.owner))
     )
 
     assert _ownership_aspects(flow.as_workunits()) == []

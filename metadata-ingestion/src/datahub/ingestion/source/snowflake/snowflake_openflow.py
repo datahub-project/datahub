@@ -599,29 +599,24 @@ def _owner_group_urn(owner: Optional[str]) -> Optional[str]:
 def owner_classes_for(owner_urn: Optional[str]) -> Optional[List[OwnerClass]]:
     """The ownership aspect for an ALREADY-RESOLVED owner urn.
 
-    Separate from _owner_classes so a caller that has already paid for
-    _owner_group_urn -- which costs an encoded-length measurement -- does not
-    pay again. build_connector_table_job used to recompute it per replicated
-    table, which at 500 connectors x 100 tables was ~50,000 redundant
-    measurements; the connector resolves it once and passes it down.
+    Returns None -- not [] -- when there is no owner, so the SDK v2 entities
+    skip the aspect entirely. An OwnershipClass with an empty owners list would
+    overwrite owners a user had set in DataHub by hand.
+
+    An explicit OwnerClass, never a bare string: `owners=["MY_ROLE"]` is routed
+    through make_user_urn by HasOwnership._parse_owner_class (sdk/_shared.py),
+    which would silently emit urn:li:corpuser:MY_ROLE.
+
+    Takes the urn rather than the role name so a caller that has already paid
+    for _owner_group_urn -- which costs an encoded-length measurement -- does
+    not pay again. build_connector_table_job used to derive it from the name
+    per replicated table, which at 500 connectors x 100 tables was ~50,000
+    redundant measurements; the connector now resolves it once and passes it
+    down.
     """
     if owner_urn is None:
         return None
     return [OwnerClass(owner=owner_urn, type=OWNERSHIP_TYPE)]
-
-
-def _owner_classes(owner: Optional[str]) -> Optional[List[OwnerClass]]:
-    # Returns None -- not [] -- when there is no owner, so the SDK v2 entities
-    # skip the aspect entirely. An OwnershipClass with an empty owners list
-    # would overwrite owners a user had set in DataHub by hand.
-    #
-    # An explicit OwnerClass, never a bare string: `owners=["MY_ROLE"]` is
-    # routed through make_user_urn by HasOwnership._parse_owner_class
-    # (sdk/_shared.py), which would silently emit urn:li:corpuser:MY_ROLE.
-    urn = _owner_group_urn(owner)
-    if urn is None:
-        return None
-    return [OwnerClass(owner=urn, type=OWNERSHIP_TYPE)]
 
 
 # --- Connector DataFlow / DataJob -------------------------------------------
