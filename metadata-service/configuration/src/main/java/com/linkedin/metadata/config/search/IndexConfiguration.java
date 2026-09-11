@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config.search;
 
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,6 +18,15 @@ public class IndexConfiguration {
   // Reindex configuration flags
   private boolean enableSettingsReindex;
   private boolean enableMappingsReindex;
+
+  /**
+   * Per-entity mapping limit overrides, e.g. {@code mapping.total_fields.limit}. Applied on index
+   * creation and reapplied to existing indices on every system update run (idempotently). The
+   * reserved entity key {@code "default"} provides a fallback for entity indices not listed
+   * explicitly. Today only the {@code totalFields} limit key is honored (maps to ES setting {@code
+   * mapping.total_fields.limit}); other keys are ignored with a warning.
+   */
+  private Map<String, Map<String, Integer>> entityMappingLimits;
 
   // Index structure configuration
   private int numShards;
