@@ -136,16 +136,19 @@ source:
 
 Under the hood, DataHub will check out your remote repository using the provisioned deploy key, and use it to navigate includes that you have in the model files from your primary project.
 
-If a `remote_dependency` is listed in `manifest.lkml` but not in `project_dependencies`, DataHub clones the `url` from the manifest. That URL is a trust boundary: anyone who can change `manifest.lkml` can change where the clone goes. DataHub always rejects non-HTTPS/SSH schemes and loopback, link-local, or cloud-metadata hosts. To restrict clones further, set `allowed_remote_dependency_domains` to the Git hosts you expect (for example `github.com`). Matching hosts and their subdomains are cloned; anything else is skipped and reported as a warning.
+If a `remote_dependency` is listed in `manifest.lkml` but not in `project_dependencies`, DataHub clones the `url` from the manifest. That URL is a trust boundary: anyone who can change `manifest.lkml` can change where the clone goes. DataHub rejects non-HTTPS/SSH schemes, malformed URLs, and loopback, link-local, or cloud-metadata hosts (including hosts that resolve to those IPs via DNS, and alternative IP encodings such as decimal or hex). To restrict clones further, set `remote_dependency_domain_pattern` to the Git hosts you expect. Patterns are regexes matched from the start of the host string (case-insensitive); anchor with `^...$` for an exact match. For example, to allow `github.com` and its subdomains, use `allow: ['^github\.com$', '.*\.github\.com$']`. Hosts matching a `deny` pattern are always skipped. Anything that does not match is skipped and reported as a warning. For defense in depth, also restrict executor network egress to those same hosts.
 
 ```
 source:
   type: lookml
   config:
     ... other config variables
-    allowed_remote_dependency_domains:
-      - github.com
-      - gitlab.example.com
+    remote_dependency_domain_pattern:
+      allow:
+        - ^github\.com$
+        - .*\.github\.com$
+      deny:
+        - ^evil\.example$
 ```
 
 If you have the remote project checked out locally, and do not need DataHub to clone the project for you, you can provide DataHub directly with the path to the project like the config snippet below:
