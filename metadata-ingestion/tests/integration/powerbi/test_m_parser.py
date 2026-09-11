@@ -1488,6 +1488,58 @@ def test_bigquery_external_query_tsql_preamble_recovered_after_cleanup():
 
 
 @pytest.mark.integration
+def test_bigquery_external_query_set_option_preamble_recovered_after_cleanup():
+    # A `SET NOCOUNT ON` option preamble with no separator before the SELECT does NOT fail
+    # the parse — sqlglot collapses the whole batch into one opaque Command, so the first
+    # extraction returns parse_failed=False with no references. This is the case the retry
+    # gate covers via `not (references or unresolvable)` rather than `parse_failed`:
+    # remove_drop_statement strips `SET NOCOUNT ON`, the cleaned query re-parses as a real
+    # SELECT, and the federation resolves. Narrowing the gate back to `if parse_failed:`
+    # would silently drop this lineage, so this test pins the wider gate.
+    table = powerbi_data_classes.Table(
+        name="mytable",
+        full_name="dev.public.mytable",
+        expression="""
+            let
+                Source = Value.NativeQuery(GoogleBigQuery.Database([BillingProject="my_project"]){[Name="my_project"]}[Data], "SET NOCOUNT ON#(lf)select account_name from EXTERNAL_QUERY(""my_project.us-east1.my_connection"", ""SELECT account_name FROM ext_schema.usage_report"")", null, [EnableFolding=true])
+            in
+                Source
+        """,
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "bigquery_external_query_connection_to_platform": {
+                "my_project.us-east1.my_connection": {
+                    "platform": "postgres",
+                    "default_database": "ext_db",
+                }
+            },
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,ext_db.ext_schema.usage_report,PROD)"
+    )
+    assert reporter.m_query_external_query_connections_resolved == 1
+    assert reporter.m_query_external_query_failures == 0
+
+
+@pytest.mark.integration
 def test_bigquery_external_query_set_assignment_preamble_yields_no_bogus_upstream():
     # An assignment-style `SET @x = 1` preamble (no statement separator before the SELECT)
     # collapses the whole batch into a single opaque sqlglot Command: parse_failed stays
