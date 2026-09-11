@@ -676,6 +676,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Columns whose lineage was recovered from /schema by ID, replacing a
     # self-referential InputField the name-based path could not resolve.
     chart_input_fields_recovered_from_schema: int = 0
+    # How a <dmUrlId>/<elementId> head breaks down. The largest
+    # resolvable-looking outcome and the least understood: path[1] is a DISPLAY
+    # NAME in the customer samples and an opaque COLUMN ID on our dev tenant,
+    # so a handler has to try both and the mix decides how it is written. Also
+    # says how often the element is not in the run at all -- true for BOTH dev
+    # heads, which is why this shape cannot be cross-validated there.
+    chart_ref_schema_dm_element_shape: Dict[str, int] = field(default_factory=dict)
     # Splits unknown_source_but_name_exists_in_a_data_model_this_workbook_loads
     # by whether a same-named element actually OWNS the referenced column:
     # exactly one owner means the ref is real and the candidate list was too

@@ -667,6 +667,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._dm_column_owner: Dict[str, str] = {}
         # dataModelId -> urlId, to reconcile /sources with per-element /lineage.
         self._dm_url_id_by_id: Dict[str, str] = {}
+        self._dm_id_by_url_id: Dict[str, str] = {}
         # Distinct unresolvable heads. 24 refs resolved to 4 heads on a dev
         # tenant, so the ref count alone overstates how many distinct objects
         # are actually unaccounted for.
@@ -7641,6 +7642,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 for dm in all_data_models
                 if dm.urlId is not None
             }
+            # The inverse: a /schema dm_element head names the model by urlId.
+            self._dm_id_by_url_id = {
+                url_id: dm_id for dm_id, url_id in self._dm_url_id_by_id.items()
+            }
         for workbook in self.sigma_api.get_sigma_workbooks():
             yield from self._gen_workbook_workunit(workbook)
 
@@ -7864,6 +7869,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 "no_refs": "chart_ref_schema_no_refs",
             }[outcome]
             setattr(self.reporter, counter, getattr(self.reporter, counter) + 1)
+            if outcome == "dm_element":
+                self._describe_dm_element_head(detail, refs)
             if outcome == "unknown_head":
                 # The head itself is the only thing that can identify the id
                 # space, and it is an opaque id, not a name.
@@ -7964,6 +7971,50 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.chart_ref_sources_outcomes_by_reason[key] = (
                     self.reporter.chart_ref_sources_outcomes_by_reason.get(key, 0) + 1
                 )
+
+    def _describe_dm_element_head(self, detail: str, refs: List[List[str]]) -> None:
+        """Can a ``<dmUrlId>/<elementId>`` head be resolved, and via which half?
+
+        This is the largest resolvable-looking outcome (4,163 columns on the
+        customer tenant) and the least understood, because its two halves
+        disagree between tenants: ``path[1]`` is a DISPLAY NAME in the customer
+        samples (``Account Type Name``) and an opaque COLUMN ID on our dev
+        tenant (``-huDtVJMTb``). A handler must try both, and writing one before
+        the mix is known is how the union reader ended up emitting 0 edges.
+
+        It also cannot be cross-validated on dev the way the cross-sheet rule
+        was: both dev heads name an element absent from that Data Model's
+        ``/elements``. So measure it where the volume is.
+        """
+        url_id, _, element_id = detail.partition("/")
+        dm_id = self._dm_id_by_url_id.get(url_id)
+        if dm_id is None:
+            self._bump_dm_element_shape("dm_url_id_unknown")
+            return
+        element_urn = builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=f"{dm_id}.{element_id}",
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+        columns = self.dm_element_urn_to_cols.get(element_urn)
+        if columns is None:
+            self._bump_dm_element_shape("dm_element_not_in_run")
+            return
+        second = next((p[1] for p in refs if len(p) == 2 and p[0] == detail), "")
+        if second in columns or second.lower() in columns:
+            self._bump_dm_element_shape("path1_is_a_column_name")
+        elif self._dm_column_owner.get(second) == element_id:
+            self._bump_dm_element_shape("path1_is_a_column_id_of_this_element")
+        elif second in self._dm_column_owner:
+            self._bump_dm_element_shape("path1_is_a_column_id_of_another_element")
+        else:
+            self._bump_dm_element_shape("path1_unrecognised")
+
+    def _bump_dm_element_shape(self, key: str) -> None:
+        self.reporter.chart_ref_schema_dm_element_shape[key] = (
+            self.reporter.chart_ref_schema_dm_element_shape.get(key, 0) + 1
+        )
 
     @staticmethod
     def _elements_by_sheet(elements: Dict[str, Any]) -> Dict[str, List[str]]:

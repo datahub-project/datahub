@@ -106,6 +106,7 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source._dm_column_owner = {}
     source._dm_url_id_by_id = {}
     source._unknown_head_ids = {}
+    source._dm_id_by_url_id = {}
     return source
 
 
@@ -2382,3 +2383,85 @@ class TestSchemaInputFieldRecovery:
             )
         )
         assert wus == []
+
+
+class TestDmElementHeadShape:
+    """Measurement only: which half of a <dmUrlId>/<elementId> head resolves.
+
+    path[1] is a display name on the customer tenant and an opaque column id on
+    ours, so a handler must try both. These pin that each case is told apart --
+    a single "dm_element: 4,163" cannot say which handler to write.
+    """
+
+    def _measure(
+        self,
+        *,
+        head: str,
+        second: str,
+        url_map: Optional[Dict[str, str]] = None,
+        cols: Optional[Dict[str, Dict[str, str]]] = None,
+        owners: Optional[Dict[str, str]] = None,
+    ) -> SigmaSource:
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src._dm_id_by_url_id = url_map if url_map is not None else {"u1": "dm-1"}
+        src.dm_element_urn_to_cols = cols if cols is not None else {}
+        src._dm_column_owner = owners if owners is not None else {}
+        src._describe_dm_element_head(head, [[head, second]])
+        return src
+
+    _URN = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm-1.el1,PROD)"
+
+    def test_an_unknown_data_model_url_id_is_named(self) -> None:
+        src = self._measure(head="nope/el1", second="x")
+        assert src.reporter.chart_ref_schema_dm_element_shape == {
+            "dm_url_id_unknown": 1
+        }
+
+    def test_an_element_absent_from_the_run_is_named(self) -> None:
+        """True for BOTH dev heads, which is why dev cannot validate this shape."""
+        src = self._measure(head="u1/el1", second="x")
+        assert src.reporter.chart_ref_schema_dm_element_shape == {
+            "dm_element_not_in_run": 1
+        }
+
+    def test_path1_as_a_display_name_is_named(self) -> None:
+        src = self._measure(
+            head="u1/el1",
+            second="Account Type Name",
+            cols={self._URN: {"account type name": "Account Type Name"}},
+        )
+        assert src.reporter.chart_ref_schema_dm_element_shape == {
+            "path1_is_a_column_name": 1
+        }
+
+    def test_path1_as_a_column_id_of_that_element_is_named(self) -> None:
+        src = self._measure(
+            head="u1/el1",
+            second="-huDtVJMTb",
+            cols={self._URN: {"other": "Other"}},
+            owners={"-huDtVJMTb": "el1"},
+        )
+        assert src.reporter.chart_ref_schema_dm_element_shape == {
+            "path1_is_a_column_id_of_this_element": 1
+        }
+
+    def test_a_column_id_owned_by_another_element_is_kept_separate(self) -> None:
+        """Different finding, different fix -- it must not pool with the above."""
+        src = self._measure(
+            head="u1/el1",
+            second="someCol",
+            cols={self._URN: {"other": "Other"}},
+            owners={"someCol": "adifferentElement"},
+        )
+        assert src.reporter.chart_ref_schema_dm_element_shape == {
+            "path1_is_a_column_id_of_another_element": 1
+        }
+
+    def test_an_unrecognised_path1_is_named(self) -> None:
+        src = self._measure(
+            head="u1/el1", second="???", cols={self._URN: {"other": "Other"}}
+        )
+        assert src.reporter.chart_ref_schema_dm_element_shape == {
+            "path1_unrecognised": 1
+        }
