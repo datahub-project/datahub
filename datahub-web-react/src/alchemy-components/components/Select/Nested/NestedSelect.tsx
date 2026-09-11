@@ -196,11 +196,11 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                 newStagedOptions = [...stagedOptions, option];
             }
             setStagedOptions(newStagedOptions);
-            if (!isMultiSelect) {
+            if (!isMultiSelect && !shouldDisplayConfirmationFooter) {
                 closeDropdown();
             }
         },
-        [closeDropdown, stagedOptions, isMultiSelect],
+        [closeDropdown, stagedOptions, isMultiSelect, shouldDisplayConfirmationFooter],
     );
 
     const addOptions = useCallback(

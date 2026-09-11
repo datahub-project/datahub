@@ -130,7 +130,7 @@ def _categorize_error(error_message: str, tb: str) -> str:
     if "500" in msg or "internal server error" in msg:
         return "Server error: check GMS logs (docker logs datahub-gms)"
     if "connection" in msg and ("refused" in msg or "error" in msg):
-        return "Connection error: is the DataHub stack running? Try: python3 scripts/datahub_dev.py status"
+        return "Connection error: is the DataHub stack running? Try: python3 scripts/dev/datahub_dev.py status"
     if "timeout" in msg:
         return "Timeout: service may be slow or unresponsive"
     if "assertionerror" in msg or "assert" in msg:
