@@ -4,6 +4,15 @@
       "url": "/openapi/v3/entity/datajob/urn%3Ali%3AdataJob%3A%28urn%3Ali%3AdataFlow%3A%28airflow%2Csmoke_ol_incremental%2Csmoke_ol_ns%29%2Csmoke_ol_incremental%29",
       "method": "delete",
       "description": "Remove the DataJob so the run starts from a clean slate"
+    },
+    "response": {
+      "status_codes": [
+        200,
+        201,
+        202,
+        204,
+        404
+      ]
     }
   },
   {
@@ -11,6 +20,63 @@
       "url": "/openapi/v3/entity/dataflow/urn%3Ali%3AdataFlow%3A%28airflow%2Csmoke_ol_incremental%2Csmoke_ol_ns%29",
       "method": "delete",
       "description": "Remove the DataFlow"
+    },
+    "response": {
+      "status_codes": [
+        200,
+        201,
+        202,
+        204,
+        404
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataprocessinstance/urn%3Ali%3AdataProcessInstance%3Aa0000000-0000-4000-8000-00000000c0de",
+      "method": "delete",
+      "description": "Remove the run instance from a previous execution"
+    },
+    "response": {
+      "status_codes": [
+        200,
+        201,
+        202,
+        204,
+        404
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cmy_db.my_schema.smoke_ol_src%2CPROD%29",
+      "method": "delete",
+      "description": "Remove the input dataset"
+    },
+    "response": {
+      "status_codes": [
+        200,
+        201,
+        202,
+        204,
+        404
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Apostgres%2Cmy_db.my_schema.smoke_ol_dst%2CPROD%29",
+      "method": "delete",
+      "description": "Remove the output dataset"
+    },
+    "response": {
+      "status_codes": [
+        200,
+        201,
+        202,
+        204,
+        404
+      ]
     }
   },
   {

@@ -118,7 +118,8 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   @ExceptionHandler(UnprocessableEntityException.class)
   public static ResponseEntity<Map<String, String>> handleUnprocessableEntityException(
       UnprocessableEntityException e) {
-    return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.UNPROCESSABLE_ENTITY);
+    return new ResponseEntity<>(
+        Map.of("error", sanitizeExceptionMessage(e.getMessage())), HttpStatus.UNPROCESSABLE_ENTITY);
   }
 
   private static final long ASYNC_TIMEOUT_RETRY_AFTER_SECONDS = 30;
