@@ -1,6 +1,6 @@
-import { Typography } from 'antd';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import React from 'react';
-import styled, { useTheme } from 'styled-components';
+import { useTheme } from 'styled-components';
 
 import {
     BrowseProvider,
@@ -8,20 +8,14 @@ import {
     useEnvironmentAggregation,
     useIsEnvironmentSelected,
 } from '@app/searchV2/sidebar/BrowseContext';
-import ExpandableNode from '@app/searchV2/sidebar/ExpandableNode';
 import PlatformNode from '@app/searchV2/sidebar/PlatformNode';
 import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
 import useAggregationsQuery from '@app/searchV2/sidebar/useAggregationsQuery';
 import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
 import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { formatNumber } from '@app/shared/formatNumber';
 import useToggle from '@app/shared/useToggle';
-
-const Count = styled(Typography.Text)`
-    font-size: 12px;
-    color: ${(props) => props.color};
-    padding-right: 8px;
-`;
+import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
+import { TREE_ROW_ENTITY_ICON_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 
 const EnvironmentNode = () => {
     const theme = useTheme();
@@ -29,6 +23,7 @@ const EnvironmentNode = () => {
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useEnvironmentAggregation();
     const { count } = environmentAggregation;
+    const label = environmentAggregation?.value;
     const { trackToggleNodeEvent } = useSidebarAnalytics();
     const { isOpen, isClosing, toggle } = useToggle({
         initialValue: isSelected,
@@ -36,7 +31,7 @@ const EnvironmentNode = () => {
         onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen, 'environment'),
     });
 
-    const onClickHeader = () => {
+    const onToggle = () => {
         if (count) toggle();
     };
 
@@ -45,28 +40,25 @@ const EnvironmentNode = () => {
         facets: [PLATFORM_FILTER_NAME],
     });
 
-    const color = theme.colors.text;
+    const showChildren = isOpen && !isClosing && loaded;
 
     return (
-        <ExpandableNode
-            isOpen={isOpen && !isClosing && loaded}
-            header={
-                <ExpandableNode.Header isOpen={isOpen} showBorder onClick={onClickHeader}>
-                    <ExpandableNode.HeaderLeft>
-                        <ExpandableNode.TriangleButton
-                            isOpen={isOpen && !isClosing}
-                            isVisible={!!count}
-                            onClick={onClickHeader}
-                        />
-                        <ExpandableNode.Title color={color} size={14}>
-                            {environmentAggregation?.value}
-                        </ExpandableNode.Title>
-                    </ExpandableNode.HeaderLeft>
-                    <Count color={color}>{formatNumber(count)}</Count>
-                </ExpandableNode.Header>
-            }
-            body={
-                <ExpandableNode.Body>
+        <>
+            <HierarchicalBrowseTreeRow
+                level={1}
+                isSelected={isSelected}
+                hasChildren={!!count}
+                isExpanded={isOpen && !isClosing}
+                isLoadingChildren={isOpen && !loaded}
+                count={count}
+                icon={<Globe size={TREE_ROW_ENTITY_ICON_SIZE} color={theme.colors.icon} />}
+                label={label}
+                labelTitle={label}
+                onSelect={onToggle}
+                onToggleExpand={onToggle}
+            />
+            {showChildren && (
+                <>
                     {platformAggregations?.map((platformAggregation) => (
                         <BrowseProvider
                             key={platformAggregation.value}
@@ -74,13 +66,13 @@ const EnvironmentNode = () => {
                             environmentAggregation={environmentAggregation}
                             platformAggregation={platformAggregation}
                         >
-                            <PlatformNode />
+                            <PlatformNode level={2} />
                         </BrowseProvider>
                     ))}
                     {error && <SidebarLoadingError onClickRetry={retry} />}
-                </ExpandableNode.Body>
-            }
-        />
+                </>
+            )}
+        </>
     );
 };
 

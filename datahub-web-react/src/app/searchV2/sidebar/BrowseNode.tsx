@@ -1,7 +1,6 @@
-import { FolderOutlined } from '@ant-design/icons';
-import { Loader } from '@components';
-import { Typography } from 'antd';
-import React, { CSSProperties } from 'react';
+import { Loader, Pill } from '@components';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
+import React from 'react';
 import styled, { useTheme } from 'styled-components';
 
 import {
@@ -16,35 +15,25 @@ import {
     usePlatformAggregation,
 } from '@app/searchV2/sidebar/BrowseContext';
 import EntityLink from '@app/searchV2/sidebar/EntityLink';
-import ExpandableNode from '@app/searchV2/sidebar/ExpandableNode';
 import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
 import useBrowsePagination from '@app/searchV2/sidebar/useBrowsePagination';
 import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
 import { formatNumber } from '@app/shared/formatNumber';
 import useToggle from '@app/shared/useToggle';
+import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
+import { TREE_ROW_ENTITY_ICON_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 
 import { EntityType } from '@types';
 
-const TRIANGLE_BUTTON_STYLE: CSSProperties = { display: 'block', width: 18 };
-
-const FolderStyled = styled(FolderOutlined)`
-    font-size: 16px;
-    color: ${(props) => props.theme.colors.text};
-    margin-right: 4px;
+const LoadingWrapper = styled.div<{ $level: number }>`
+    padding: 4px 8px 4px ${(props) => 8 + props.$level * 16}px;
 `;
 
-const Count = styled(Typography.Text)`
-    font-size: 10px;
-    color: ${(props) => props.color};
-    padding: 2px 8px;
-    margin-left: 8px;
-    border-radius: 12px;
-    background-color: ${(props) => props.theme.colors.bg};
-    display: block;
-    flex-grow: 0;
-`;
+type Props = {
+    level: number;
+};
 
-const BrowseNode = () => {
+const BrowseNode = ({ level }: Props) => {
     const isBrowsePathPrefix = useIsBrowsePathPrefix();
     const isBrowsePathSelected = useIsBrowsePathSelected();
     const onSelectBrowsePath = useOnSelectBrowsePath();
@@ -52,10 +41,11 @@ const BrowseNode = () => {
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
     const browseResultGroup = useBrowseResultGroup();
-    const { count, entity } = browseResultGroup;
+    const { count, entity, hasSubGroups } = browseResultGroup;
     const hasEntityLink = !!entity && entity.type !== EntityType.DataPlatformInstance;
     const displayName = useBrowseDisplayName();
     const { trackSelectNodeEvent, trackToggleNodeEvent } = useSidebarAnalytics();
+    const theme = useTheme();
 
     const { isOpen, isClosing, toggle } = useToggle({
         initialValue: isBrowsePathPrefix && !isBrowsePathSelected,
@@ -63,11 +53,11 @@ const BrowseNode = () => {
         onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen, 'browse'),
     });
 
-    const onClickTriangle = () => {
+    const onToggleExpand = () => {
         if (count) toggle();
     };
 
-    const onClickBrowseHeader = () => {
+    const onSelect = () => {
         const isNowSelected = !isBrowsePathSelected;
         onSelectBrowsePath(isNowSelected);
         trackSelectNodeEvent(isNowSelected ? 'select' : 'deselect', 'browse');
@@ -77,38 +67,37 @@ const BrowseNode = () => {
         skip: !isOpen || !browseResultGroup.hasSubGroups,
     });
 
-    const theme = useTheme();
-    const color = theme.colors.text;
+    const showChildren = isOpen && !isClosing && loaded && hasSubGroups;
+    const childLevel = level + 1;
+    const leafCount = !hasSubGroups && count > 0 ? <Pill label={formatNumber(count)} size="sm" /> : null;
 
     return (
-        <ExpandableNode
-            isOpen={isOpen && !isClosing && loaded}
-            header={
-                <ExpandableNode.SelectableHeader
-                    isOpen={isOpen}
-                    $isSelected={isBrowsePathSelected}
-                    onClick={onClickBrowseHeader}
-                    data-testid={`browse-node-${displayName}`}
-                >
-                    <ExpandableNode.HeaderLeft>
-                        <ExpandableNode.TriangleButton
-                            isOpen={isOpen && !isClosing}
-                            isVisible={browseResultGroup.hasSubGroups}
-                            onClick={onClickTriangle}
-                            dataTestId={`browse-node-expand-${displayName}`}
-                            style={TRIANGLE_BUTTON_STYLE}
-                        />
-                        <FolderStyled />
-                        <ExpandableNode.Title color={color} size={12} dynamicWidth padLeft>
-                            {displayName}
-                        </ExpandableNode.Title>
-                        {hasEntityLink && <EntityLink entity={entity} targetNode="browse" />}
-                    </ExpandableNode.HeaderLeft>
-                    <Count color={color}>{formatNumber(count)}</Count>
-                </ExpandableNode.SelectableHeader>
-            }
-            body={
-                <ExpandableNode.Body>
+        <>
+            <HierarchicalBrowseTreeRow
+                level={level}
+                isSelected={isBrowsePathSelected}
+                hasChildren={hasSubGroups}
+                isExpanded={isOpen && !isClosing}
+                isLoadingChildren={isOpen && !loaded}
+                count={hasSubGroups ? count : undefined}
+                icon={<Folder size={TREE_ROW_ENTITY_ICON_SIZE} color={theme.colors.icon} />}
+                label={displayName}
+                labelTitle={displayName}
+                trailing={
+                    hasEntityLink || leafCount ? (
+                        <>
+                            {hasEntityLink ? <EntityLink entity={entity} targetNode="browse" /> : null}
+                            {leafCount}
+                        </>
+                    ) : undefined
+                }
+                onSelect={onSelect}
+                onToggleExpand={hasSubGroups ? onToggleExpand : undefined}
+                expandTestId={`browse-node-expand-${displayName}`}
+                data-testid={`browse-node-${displayName}`}
+            />
+            {showChildren && (
+                <>
                     {groups.map((group) => (
                         <BrowseProvider
                             key={group.name}
@@ -118,15 +107,19 @@ const BrowseNode = () => {
                             browseResultGroup={group}
                             parentPath={path}
                         >
-                            <BrowseNode />
+                            <BrowseNode level={childLevel} />
                         </BrowseProvider>
                     ))}
-                    {loading && <Loader size="sm" />}
+                    {loading && (
+                        <LoadingWrapper $level={childLevel}>
+                            <Loader size="xs" padding={0} />
+                        </LoadingWrapper>
+                    )}
                     {error && <SidebarLoadingError onClickRetry={retry} />}
                     {observable}
-                </ExpandableNode.Body>
-            }
-        />
+                </>
+            )}
+        </>
     );
 };
 

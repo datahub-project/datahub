@@ -49,6 +49,7 @@ export type HierarchicalBrowseTreeRowProps = {
     onSelect: () => void;
     onToggleExpand?: () => void;
     isLoadingChildren?: boolean;
+    expandTestId?: string;
     'data-testid'?: string;
     className?: string;
 };
@@ -71,6 +72,7 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
             onSelect,
             onToggleExpand,
             isLoadingChildren = false,
+            expandTestId,
             'data-testid': dataTestId,
             className,
         },
@@ -112,6 +114,7 @@ const HierarchicalBrowseTreeRow = React.forwardRef<HTMLDivElement, HierarchicalB
                     onClick={handleExpand}
                     aria-expanded={isExpanded}
                     aria-label={isExpanded ? tc('collapse') : tc('expand')}
+                    data-testid={expandTestId}
                 >
                     <span className="tree-row-entity-icon">{icon}</span>
                     <span className="tree-row-caret-icon">{caretGlyph}</span>

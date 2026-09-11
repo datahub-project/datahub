@@ -203,7 +203,7 @@ export const Content = styled.div`
     min-height: 0;
 `;
 
-export const HomeNavLink = styled(Link)<{ $isSelected: boolean }>`
+const homeNavRow = css<{ $isSelected: boolean }>`
     ${treeRowHitTarget}
     display: flex;
     align-items: center;
@@ -211,4 +211,16 @@ export const HomeNavLink = styled(Link)<{ $isSelected: boolean }>`
     text-decoration: none;
     cursor: pointer;
     ${treeRowInteractionBg}
+`;
+
+export const HomeNavLink = styled(Link)<{ $isSelected: boolean }>`
+    ${homeNavRow}
+`;
+
+export const HomeNavButton = styled.button<{ $isSelected: boolean }>`
+    ${homeNavRow}
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: left;
 `;
