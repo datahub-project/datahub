@@ -4581,9 +4581,37 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # common Sigma authoring pattern.  The formula ref resolves to the
                 # element itself, which is not a valid FGL upstream (the real upstream
                 # is the warehouse inode reported by /lineage).
-                candidate_eids_after_self_strip = [
-                    eid for eid in candidate_eids if eid != element.elementId
-                ]
+                #
+                # That reasoning applies to same-named SIBLINGS too, and dropping
+                # only this element's own id did not. Sigma names a
+                # warehouse-sourced element after its table, so every element
+                # reading one table carries the same name -- and resolving the ref
+                # to one of them fabricated a sibling edge instead of the warehouse
+                # table /lineage reports. Observed on a fixture as a mutual
+                # srcC <-> srcD cycle across four independent passthroughs, each of
+                # which should have pointed at Snowflake.
+                #
+                # Emptying the list routes into the branch below, which already
+                # handles exactly this case: cross-DM self-named first, then the
+                # warehouse edge.
+                self_named_ref = _normalize_element_name(
+                    ref.source
+                ) == _normalize_element_name(element.name)
+                if self_named_ref and len(candidate_eids) > 1:
+                    self.reporter.data_model_element_fgl_self_named_siblings_skipped += 1
+                    logger.debug(
+                        "element %s: ref %r names this element's own name, which %d "
+                        "elements in this Data Model share; none of them is the "
+                        "referent, so resolving to the element's own source instead",
+                        element.elementId,
+                        ref.raw,
+                        len(candidate_eids),
+                    )
+                candidate_eids_after_self_strip = (
+                    []
+                    if self_named_ref
+                    else [eid for eid in candidate_eids if eid != element.elementId]
+                )
 
                 if not candidate_eids_after_self_strip:
                     if candidate_eids:

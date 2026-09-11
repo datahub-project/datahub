@@ -402,6 +402,13 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Column edges added because a join predicate equates the column an existing
     # edge points at with a column on the other side of the join. These are the
     # edges no formula can produce: a join's output column names only one side.
+    # A formula ref naming the element's OWN name, where several elements in
+    # the Data Model share that name. Sigma names a warehouse-sourced element
+    # after its table, so sibling passthroughs all collide -- and resolving to
+    # one of them fabricated a sibling edge (seen as a mutual A<->B cycle)
+    # instead of the warehouse table /lineage reports. Counted because it says
+    # how many edges the old precedence was getting wrong.
+    data_model_element_fgl_self_named_siblings_skipped: int = 0
     data_model_element_fgl_join_key_resolved: int = 0
     # A single workbook element's lineage/query fetch raised. The element is
     # still emitted without upstreams; previously such an exception escaped to
