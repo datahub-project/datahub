@@ -33,8 +33,9 @@ setuptools>=80.10.1,<82.0.0
 # CVE-2026-69249: exponential path-building DoS on duplicate self-signed intermediates.
 cryptography>=50.0.0,<51.0.0
 # snowflake-connector-python: CVE-2026-15925 (improper TLS hostname verification); fixed in 4.7.1
-# (4.7.0 was yanked). Matches the setup.py floor so published acryl-datahub installs get it too.
-snowflake-connector-python>=4.7.1,<5.0.0
+# (4.7.0 was yanked). Floor is 4.7.3 because 4.7.1/4.7.2 break hostname verification for account
+# locators containing underscores. Matches the setup.py floor so published acryl-datahub installs get it too.
+snowflake-connector-python>=4.7.3,<5.0.0
 # GHSA-6v7p-g79w-8964: Unpacker reuse after error can SEGV / DoS; fixed in 1.2.1.
 msgpack>=1.2.1
 # JWE RSA1_5 padding oracle (CVE); fixed in 1.6.9
