@@ -186,8 +186,10 @@ parses at all, nothing is emitted, so a bad value cannot silently clear domains.
 
 ##### Path specs and per-connection instances
 
-Two settings take structured values and so cannot be set through environment variables — their keys
-contain `:` and `/`, which environment variable names cannot express. Set them in `application.yml`:
+Two settings take structured values and so cannot be set through environment variables. `path-specs`
+is keyed by platform and nests a list of objects, which environment variable names cannot express;
+`connections` is keyed by an OpenLineage namespace authority containing `:` and `/`, which they
+cannot express either. Set both in `application.yml`:
 
 ```yaml
 datahub:

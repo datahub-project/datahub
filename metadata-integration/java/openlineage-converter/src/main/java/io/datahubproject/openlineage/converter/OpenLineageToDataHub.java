@@ -1217,6 +1217,12 @@ public class OpenLineageToDataHub {
       return tableName;
     }
 
+    // The remaining strategies all read the run event. A JobEvent has no run, so only the
+    // SQL facet above is available to it.
+    if (event == null) {
+      return null;
+    }
+
     // Method 2: Look for direct table names in the outputs
     tableName = extractTableNameFromOutputs(event);
     if (tableName != null) {
@@ -2387,13 +2393,19 @@ public class OpenLineageToDataHub {
     jobBuilder.jobGlobalTags(generateJobTags(job));
     jobBuilder.jobInstitutionalMemory(getSourceCodeLocation(job, event.getEventTime()));
     if (datahubConf.getDomains() != null && !datahubConf.getDomains().isEmpty()) {
-      jobBuilder.jobDomains(generateDomains(datahubConf.getDomains()));
+      // A JobEvent creates the DataFlow as well, so it gets the same domains the RunEvent path
+      // stamps on both entities.
+      Domains domains = generateDomains(datahubConf.getDomains());
+      jobBuilder.jobDomains(domains);
+      jobBuilder.flowDomains(domains);
     }
 
     DatahubJob datahubJob = jobBuilder.build();
 
     DataJobInfo jobInfo = new DataJobInfo();
-    jobInfo.setName(job.getName());
+    // Mirror the RunEvent path so the display name is trimmed the same way.
+    JobNameResult jobNames = extractJobNames(job, null, datahubConf);
+    jobInfo.setName(jobNames.displayName);
     jobInfo.setFlowUrn(dataFlowUrn);
     jobInfo.setType(DataJobInfo.Type.create(dataFlowUrn.getOrchestratorEntity()));
     jobInfo.setCustomProperties(jobTypeProperties(job));
@@ -2405,7 +2417,7 @@ public class OpenLineageToDataHub {
       jobInfo.setCreated(new TimeStamp().setTime(event.getEventTime().toInstant().toEpochMilli()));
     }
     datahubJob.setJobInfo(jobInfo);
-    datahubJob.setJobUrn(new DataJobUrn(dataFlowUrn, job.getName()));
+    datahubJob.setJobUrn(new DataJobUrn(dataFlowUrn, jobNames.urnName));
 
     processJobInputs(datahubJob, event.getInputs(), job, event.getEventTime(), datahubConf);
     processJobOutputs(datahubJob, event.getOutputs(), job, event.getEventTime(), datahubConf);
@@ -2436,11 +2448,15 @@ public class OpenLineageToDataHub {
 
     DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
     builder.urn(datasetUrn.get());
-    builder.schemaMetadata(getSchemaMetadata(dataset, datahubConf));
-    builder.tags(getDatasetTags(dataset));
-    builder.ownership(getDatasetOwnership(dataset));
-    builder.properties(getDatasetProperties(dataset));
-    builder.profile(getDatasetProfile(dataset, event.getEventTime()));
+    // Same gating as the run and job paths: a deployment that does not materialize datasets does
+    // not get them decorated either.
+    if (datahubConf.isMaterializeDataset()) {
+      builder.schemaMetadata(getSchemaMetadata(dataset, datahubConf));
+      builder.tags(getDatasetTags(dataset));
+      builder.ownership(getDatasetOwnership(dataset));
+      builder.properties(getDatasetProperties(dataset));
+      builder.profile(getDatasetProfile(dataset, event.getEventTime()));
+    }
 
     return DatahubJob.datasetOnlyMcps(builder.build(), datahubConf);
   }
