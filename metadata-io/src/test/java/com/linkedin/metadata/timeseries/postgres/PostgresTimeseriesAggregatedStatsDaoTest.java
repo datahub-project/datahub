@@ -77,6 +77,32 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
   }
 
   @Test
+  public void dateGroupingMillisExpr_eventTimeFields_useEventTimeColumn() {
+    String sql = PostgresTimeseriesAggregatedStatsDao.dateGroupingMillisExpr("@timestamp");
+    assertTrue(sql.contains("event_time"));
+    assertFalse(sql.contains("document"));
+    assertEquals(
+        PostgresTimeseriesAggregatedStatsDao.dateGroupingMillisExpr("timestampMillis"), sql);
+  }
+
+  @Test
+  public void dateGroupingMillisExpr_otherField_readsDocument() {
+    assertEquals(
+        PostgresTimeseriesAggregatedStatsDao.dateGroupingMillisExpr("customTs"),
+        "document->>'customTs'");
+  }
+
+  @Test
+  public void latestValueSql_usesMaxTextPrefixNotArrayAgg() {
+    String sql =
+        PostgresTimeseriesAggregatedStatsDao.latestValueSql("document->>'uniqueUserCount'");
+    assertFalse(sql.contains("ARRAY_AGG"));
+    assertTrue(sql.contains("substr(MAX("));
+    assertTrue(sql.contains("event_time"));
+    assertTrue(sql.contains("|| (document->>'uniqueUserCount')"));
+  }
+
+  @Test
   public void shouldIncludeEmptyDateBuckets_dayAndCoarserOnly() {
     assertTrue(
         PostgresTimeseriesAggregatedStatsDao.shouldIncludeEmptyDateBuckets(

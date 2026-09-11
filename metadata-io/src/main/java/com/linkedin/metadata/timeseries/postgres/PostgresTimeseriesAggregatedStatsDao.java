@@ -66,7 +66,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       groupAliases.add(alias);
       if (b.getType() == GroupingBucketType.DATE_GROUPING_BUCKET) {
         ZoneId z = zoneForBucket(b);
-        String millisExpr = PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(b.getKey());
+        String millisExpr = dateGroupingMillisExpr(b.getKey());
         String keyExpr = postgresDateBucketSql(b.getTimeWindowSize(), millisExpr, z);
         groupKeyExprs.add(keyExpr);
         groupSql.add(keyExpr + " AS " + alias);
@@ -117,15 +117,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
                   + sqlAlias);
           break;
         case LATEST:
-          metricSql.add(
-              "(ARRAY_AGG("
-                  + path
-                  + " ORDER BY event_time DESC NULLS LAST) FILTER (WHERE "
-                  + path
-                  + " IS NOT NULL AND trim("
-                  + path
-                  + ") <> ''))[1] AS "
-                  + sqlAlias);
+          metricSql.add(latestValueSql(path) + " AS " + sqlAlias);
           break;
         default:
           throw new IllegalStateException(spec.getAggregationType().toString());
@@ -646,10 +638,44 @@ public final class PostgresTimeseriesAggregatedStatsDao {
     }
   }
 
+  /**
+   * Epoch-millis expression for DATE grouping. {@code timestampMillis} / {@code @timestamp} are
+   * stored on {@code event_time}, so grouping must use that column (partition prune / BRIN) instead
+   * of scanning {@code document} JSON.
+   */
+  @Nonnull
+  static String dateGroupingMillisExpr(@Nonnull String fieldKey) {
+    if (TimeseriesFilterSqlBuilder.isEventTimeField(fieldKey)) {
+      return "(EXTRACT(EPOCH FROM event_time) * 1000.0)";
+    }
+    return documentTextPathSql(fieldKey);
+  }
+
+  /**
+   * Latest non-empty {@code path} in the group by {@code event_time}, without materializing a
+   * per-group array of every matching value. A fixed-width UTC timestamp prefix sorts correctly
+   * under {@code MAX(text)}; {@code substr(..., 28)} skips the 26-char timestamp and delimiter.
+   */
+  @Nonnull
+  static String latestValueSql(@Nonnull String path) {
+    String tsKey =
+        "to_char(COALESCE(event_time, TIMESTAMPTZ '0001-01-01 00:00:00+00')"
+            + " AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS.US')";
+    return "substr(MAX("
+        + tsKey
+        + " || chr(31) || ("
+        + path
+        + ")) FILTER (WHERE "
+        + path
+        + " IS NOT NULL AND trim("
+        + path
+        + ") <> ''), 28)";
+  }
+
   /** Resolved member type for a timeseries field path (parity with ESAggregatedStatsDAO). */
   @Nonnull
   static DataSchema.Type getTimeseriesFieldType(AspectSpec aspectSpec, String fieldPath) {
-    if ("timestampMillis".equals(fieldPath) || "@timestamp".equals(fieldPath)) {
+    if (TimeseriesFilterSqlBuilder.isEventTimeField(fieldPath)) {
       return DataSchema.Type.LONG;
     }
     String[] memberParts = fieldPath.split("\\.");

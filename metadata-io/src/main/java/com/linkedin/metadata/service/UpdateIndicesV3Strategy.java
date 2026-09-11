@@ -63,6 +63,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final EntityDocumentIdHasher entityDocumentIdHasher;
   private final List<V3SearchDocumentContributor> documentContributors;
   private final boolean v2Enabled;
+  private final String idHashAlgo;
 
   public UpdateIndicesV3Strategy(
       @Nonnull EntityIndexVersionConfiguration v3Config,
@@ -86,6 +87,26 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nonnull String idHashAlgo,
+      boolean v2Enabled,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache) {
+    this(
+        v3Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        timeseriesThrottleCache,
+        new Sha256UrnEntityDocumentIdHasher(),
+        List.of(),
+        v2Enabled,
+        idHashAlgo);
+  }
+
+  public UpdateIndicesV3Strategy(
+      @Nonnull EntityIndexVersionConfiguration v3Config,
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
       @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
       @Nonnull List<V3SearchDocumentContributor> documentContributors) {
@@ -97,7 +118,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         timeseriesThrottleCache,
         entityDocumentIdHasher,
         documentContributors,
-        false);
+        false,
+        "MD5");
   }
 
   public UpdateIndicesV3Strategy(
@@ -109,6 +131,28 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
       @Nonnull List<V3SearchDocumentContributor> documentContributors,
       boolean v2Enabled) {
+    this(
+        v3Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        timeseriesThrottleCache,
+        entityDocumentIdHasher,
+        documentContributors,
+        v2Enabled,
+        "MD5");
+  }
+
+  public UpdateIndicesV3Strategy(
+      @Nonnull EntityIndexVersionConfiguration v3Config,
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
+      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
+      @Nonnull List<V3SearchDocumentContributor> documentContributors,
+      boolean v2Enabled,
+      @Nonnull String idHashAlgo) {
     this.v3Config = v3Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
@@ -118,6 +162,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     this.documentContributors =
         documentContributors == null ? List.of() : List.copyOf(documentContributors);
     this.v2Enabled = v2Enabled;
+    this.idHashAlgo = idHashAlgo;
     try {
       this.mappingsBuilder =
           new MultiEntityMappingsBuilder(
