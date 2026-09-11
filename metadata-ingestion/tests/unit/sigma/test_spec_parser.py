@@ -460,3 +460,35 @@ def test_a_non_equality_predicate_claims_no_key_edge() -> None:
         assert index.non_equality_predicates == (0 if expect_pair else 1), f"op={op!r}"
         # The operator is recorded either way, so the declined volume is visible.
         assert index.predicate_op_counts == {op or "=(absent)": 1}
+
+
+def test_a_declared_relationship_is_not_lineage() -> None:
+    """relationships[] is a declared, UNUSED join -- not a data flow.
+
+    It is the most lineage-looking field in the whole spec: explicit
+    {sourceColumnId, targetColumnId} pairs, no formula, no prefix resolution.
+    But verified on a live tenant, declaring one between two independent
+    warehouse passthroughs left each element's /lineage sourceIds pointing only
+    at the warehouse table, with neither mentioning the other and neither
+    gaining a column. An edge here would assert a derivation that does not
+    exist. Consumption goes through a lookup JOIN, which is already read.
+    """
+    spec = _spec(
+        _join(
+            _ELEMENT_SIDE_L,
+            _ELEMENT_SIDE_R,
+            [{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}],
+        )
+    )
+    spec["pages"][0]["elements"][0]["relationships"] = [
+        {
+            "id": "rel1",
+            "targetElementId": "el-right",
+            "keys": [{"sourceColumnId": "c-a", "targetColumnId": "c-b"}],
+        }
+    ]
+    index = parse_data_model_spec(spec, data_model_id="dm-1")
+
+    # Exactly the one join predicate -- the relationship contributes nothing.
+    assert len(index.pairs) == 1
+    assert index.pairs[0].join_element_id == "el-join"

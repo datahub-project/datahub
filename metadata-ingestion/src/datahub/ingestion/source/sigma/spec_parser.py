@@ -172,6 +172,29 @@ class JoinPredicate:
         return self.join_type in _OUTER_JOIN_TYPES
 
 
+# ``relationships[]`` is DELIBERATELY not consumed, and the reasoning is worth
+# keeping because the field looks like exactly what a lineage extractor wants:
+# a table element may carry
+# ``relationships: [{id, targetElementId, keys: [{sourceColumnId, targetColumnId}]}]``
+# -- a join expressed as explicit column-id pairs, with no formula to parse and
+# no prefix to resolve.
+#
+# It is not lineage. A relationship is a DECLARED, UNUSED join: it makes a link
+# available for later use rather than moving any data. Verified on a live
+# tenant by declaring one between two independent warehouse passthroughs and
+# re-reading ``/dataModels/{id}/lineage``: each element's ``sourceIds`` still
+# listed only the warehouse table, neither mentioned the other, and neither
+# gained a column. Emitting ``source.QUANTITY <- target.COST`` would assert a
+# derivation that does not exist -- both columns come from the warehouse
+# independently.
+#
+# Consumption happens through a LOOKUP JOIN ("Add columns through Lookup" in
+# the UI), which reaches the spec as a ``source.kind="join"`` with
+# ``joinType="lookup"`` and its own predicate columns -- already read by
+# _predicates_for_join. So the relationship adds nothing the join path does not
+# already cover, and reading it would only add fabricated edges.
+
+
 def _iter_spec_elements(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
     elements: List[Dict[str, Any]] = []
     for page in spec.get(_PAGES) or []:
