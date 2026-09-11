@@ -10306,18 +10306,6 @@ type PolicyMatchFilter {
   criteria: [PolicyMatchCriterion!]
 }
 
-input StructuredPropertyCriterionValueInput {
-  """
-  The URN of the structured property
-  """
-  propertyUrn: String!
-
-  """
-  Values to match for this structured property
-  """
-  values: [String!]!
-}
-
 """
 Criterion to define relationship between field and values
 """
