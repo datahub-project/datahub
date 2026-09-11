@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 import datahub.ingestion.source.snowflake.snowflake_utils
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationWarning
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.snowflake.constants import (
@@ -21,6 +21,9 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
     SnowflakeIdentifierConfig,
     SnowflakeV2Config,
+)
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnectionConfig,
 )
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import UpstreamLineageEdge
 from datahub.ingestion.source.snowflake.snowflake_queries import (
@@ -378,10 +381,6 @@ def test_private_key_set_but_auth_not_changed():
 def test_snowflake_connection_config_excludes_secrets_from_serialization():
     """Ensure secret fields are excluded from model_dump() to prevent leaking
     credentials in logs, reports, or the system info endpoint."""
-    from datahub.ingestion.source.snowflake.snowflake_connection import (
-        SnowflakeConnectionConfig,
-    )
-
     config = SnowflakeConnectionConfig.model_validate(
         {
             "account_id": "acctname",
@@ -398,6 +397,22 @@ def test_snowflake_connection_config_excludes_secrets_from_serialization():
     assert "private_key" not in dumped
     assert "private_key_password" not in dumped
     assert dumped["username"] == "user"  # non-secret field still present
+
+
+def test_is_using_password_auth_ignores_empty_password():
+    # bool(SecretStr("")) is True (the wrapper is truthy), so the predicate must
+    # read get_secret_value() to avoid flagging an empty password as set.
+    config_dict = default_config_dict.copy()
+    config_dict["password"] = ""
+    config = SnowflakeConnectionConfig.model_validate(config_dict)
+    assert not config.is_using_password_auth()
+
+
+def test_config_validation_emits_configuration_warning_for_password_auth():
+    # warnings.warn is the channel --test-source-connection prints; a regression
+    # that drops it (keeping only add_global_warning) would silence that path.
+    with pytest.warns(ConfigurationWarning, match="DEFAULT_AUTHENTICATOR"):
+        SnowflakeV2Config.model_validate(default_config_dict)
 
 
 def test_snowflake_config_with_connect_args_overrides_base_connect_args():
