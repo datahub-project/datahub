@@ -196,6 +196,16 @@ public class LineageApiImplTest {
     assertDispatched(SAMPLE_DATASET_EVENT);
   }
 
+  /**
+   * A client that serializes optional fields emits "run": null on a JobEvent. JsonNode.has() is
+   * true for an explicit null, so shape classification used to send it down the RunEvent path and
+   * reproduce the very null-run failure this dispatch exists to prevent.
+   */
+  @Test
+  public void testExplicitNullRunIsNotClassifiedAsARunEvent() {
+    assertDispatched("{\"run\":null," + JOB_EVENT_WITHOUT_SCHEMA_URL.substring(1));
+  }
+
   @Test
   public void testEventWithoutSchemaUrlIsClassifiedByShape() {
     // A JobEvent with no schemaURL has a job but no run; before dispatch this deserialized as a

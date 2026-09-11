@@ -1,5 +1,6 @@
 package io.datahubproject.openlineage;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -32,6 +33,49 @@ public class OpenLineageStaticEventTest {
         .materializeDataset(true)
         .includeSchemaMetadata(true)
         .build();
+  }
+
+  /** Same as {@link #config()} but leaves the orchestrator to be derived from the event. */
+  private static DatahubOpenlineageConfig configWithoutOrchestrator() {
+    return DatahubOpenlineageConfig.builder()
+        .fabricType(FabricType.PROD)
+        .materializeDataset(true)
+        .includeSchemaMetadata(true)
+        .build();
+  }
+
+  /**
+   * A JobEvent has no run, so it cannot carry the processing_engine run facet that names the
+   * orchestrator on the RunEvent path. Falling back to the producer-URI heuristics meant an
+   * unrecognised producer was rejected outright, and a recognised one filed the JobEvent under a
+   * different DataFlow than the RunEvent describing the same job.
+   */
+  @Test
+  public void jobEventTakesTheOrchestratorFromJobTypeIntegration() throws Exception {
+    OpenLineage ol = new OpenLineage(URI.create("https://example.com/house-built-emitter"));
+    OpenLineage.JobEvent event =
+        ol.newJobEventBuilder()
+            .eventTime(ZonedDateTime.parse("2024-03-01T10:00:00Z"))
+            .job(
+                ol.newJobBuilder()
+                    .namespace("my_namespace")
+                    .name("my_job")
+                    .facets(
+                        ol.newJobFacetsBuilder()
+                            .jobType(
+                                ol.newJobTypeJobFacetBuilder()
+                                    .processingType("BATCH")
+                                    .integration("SPARK")
+                                    .jobType("QUERY")
+                                    .build())
+                            .build())
+                    .build())
+            .build();
+
+    DatahubJob job = OpenLineageToDataHub.convertJobEventToJob(event, configWithoutOrchestrator());
+
+    // Lowercased the same way the RunEvent path lowercases processing_engine.
+    assertEquals(job.getFlowUrn().getOrchestratorEntity(), "spark");
   }
 
   @Test
