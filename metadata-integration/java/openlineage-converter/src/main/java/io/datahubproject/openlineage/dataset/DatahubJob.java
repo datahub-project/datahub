@@ -135,7 +135,7 @@ public class DatahubJob {
       shell.addAspectToMcps(
           dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
     }
-    shell.addDatasetFacetAspects(dataset, mcps);
+    shell.addDatasetFacetAspects(dataset, config, mcps);
     return mcps;
   }
 

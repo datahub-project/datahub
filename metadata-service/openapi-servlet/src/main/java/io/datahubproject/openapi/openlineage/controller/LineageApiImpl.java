@@ -84,30 +84,41 @@ public class LineageApiImpl implements LineageApi {
       log.warn("Rejecting malformed OpenLineage payload: {}", e.getMessage());
       throw new IllegalArgumentException("Malformed OpenLineage event: " + e.getMessage());
     }
+    // An empty or whitespace-only body parses to null rather than throwing.
+    if (parsed == null || parsed.isNull() || !parsed.isObject()) {
+      log.warn("Rejecting OpenLineage payload that is not a JSON object");
+      throw new IllegalArgumentException("Malformed OpenLineage event: expected a JSON object");
+    }
 
     EventKind kind = classify(parsed);
+    // Deserialization is the only step whose failure means "the caller sent us nonsense". It is
+    // scoped tightly on purpose: wrapping the ingest call too would report a GMS write failure,
+    // including a transaction conflict, as a 400.
+    switch (kind) {
+      case DATASET:
+        OpenLineage.DatasetEvent datasetEvent =
+            deserialize(body, kind, new TypeReference<OpenLineage.DatasetEvent>() {});
+        return ingest(mapper -> mapper.map(datasetEvent, this._mappingConfig));
+      case JOB:
+        OpenLineage.JobEvent jobEvent =
+            deserialize(body, kind, new TypeReference<OpenLineage.JobEvent>() {});
+        return ingest(mapper -> mapper.map(jobEvent, this._mappingConfig));
+      case RUN:
+      default:
+        OpenLineage.RunEvent runEvent;
+        try {
+          runEvent = OpenLineageClientUtils.runEventFromJson(body);
+        } catch (Exception e) {
+          log.warn("Rejecting malformed OpenLineage {} payload: {}", kind, e.getMessage());
+          throw new IllegalArgumentException("Malformed OpenLineage event: " + e.getMessage());
+        }
+        return postRunEventRaw(runEvent);
+    }
+  }
+
+  private static <T> T deserialize(String body, EventKind kind, TypeReference<T> type) {
     try {
-      switch (kind) {
-        case DATASET:
-          return ingest(
-              mapper ->
-                  mapper.map(
-                      OpenLineageClientUtils.fromJson(
-                          body, new TypeReference<OpenLineage.DatasetEvent>() {}),
-                      this._mappingConfig));
-        case JOB:
-          return ingest(
-              mapper ->
-                  mapper.map(
-                      OpenLineageClientUtils.fromJson(
-                          body, new TypeReference<OpenLineage.JobEvent>() {}),
-                      this._mappingConfig));
-        case RUN:
-        default:
-          return postRunEventRaw(OpenLineageClientUtils.runEventFromJson(body));
-      }
-    } catch (IllegalArgumentException | UnauthorizedException | UnprocessableEntityException e) {
-      throw e;
+      return OpenLineageClientUtils.fromJson(body, type);
     } catch (Exception e) {
       log.warn("Rejecting malformed OpenLineage {} payload: {}", kind, e.getMessage());
       throw new IllegalArgumentException("Malformed OpenLineage event: " + e.getMessage());
