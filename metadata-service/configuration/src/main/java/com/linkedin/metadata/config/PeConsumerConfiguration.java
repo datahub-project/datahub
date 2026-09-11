@@ -16,5 +16,11 @@ public class PeConsumerConfiguration {
   public static class PgQueuePoll {
     /** Max rows per poll for {@code PlatformEventProcessor}. */
     private Integer platformEventMaxBatch;
+
+    /**
+     * Maximum empty-poll sleep for platform-event workers. Exponential backoff starts at {@code
+     * postgres.pgQueue.consumerPoll.emptyPollSleepMinMillis}.
+     */
+    private Long platformEventEmptyPollSleepMillis;
   }
 }

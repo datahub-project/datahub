@@ -16,8 +16,9 @@ import {
 } from '@components/components/Select/components';
 
 import EntitySearchInputResultV2 from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
+import { getEntityDisplayName as getEntityDisplayNameUtil } from '@app/entityV2/shared/EntitySearchSelect/utils';
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useListIngestionSourcesQuery } from '@graphql/ingestion.generated';
 import { useGetEntitySearchResultsAutoCompleteFieldsLazyQuery } from '@graphql/search.generated';
@@ -95,7 +96,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
 }) => {
     const { t } = useTranslation('entity.shared.selectors');
     const resolvedPlaceholder = placeholder ?? t('entitySearch.placeholder');
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
     const [searchQuery, setSearchQuery] = useState('');
     const prevOpenRef = useRef<boolean>(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -181,10 +182,15 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
         setSearchQuery(value);
     }, []);
 
+    const getEntityDisplayName = useCallback(
+        (entity: Entity) => getEntityDisplayNameUtil(entity, entityRegistry),
+        [entityRegistry],
+    );
+
     const entityOptions = useMemo(() => {
         const entityResults = shouldSearchEntities
             ? (resourcesSearchData?.searchAcrossEntities?.searchResults || []).map((result) => ({
-                  label: entityRegistry.getDisplayName(result.entity.type, result.entity),
+                  label: getEntityDisplayName(result.entity as Entity),
                   value: result.entity.urn,
                   entity: result.entity as Entity,
               }))
@@ -207,7 +213,7 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
         );
 
         return [...entityResults, ...ingestionSourceResults];
-    }, [resourcesSearchData, ingestionSourcesData, entityRegistry, shouldSearchEntities]);
+    }, [resourcesSearchData, ingestionSourcesData, getEntityDisplayName, shouldSearchEntities]);
 
     const handleOptionClick = useCallback(
         (option: { value: string; entity: Entity }) => {
