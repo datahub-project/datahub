@@ -200,6 +200,7 @@ def test_an_unnested_flow_still_gets_a_browse_path() -> None:
     # reverting `unset` to None passed the whole suite.
     flow = build_connector_flow(
         OpenflowConnector(name="conn", runtime_name="rt"),
+        None,
         platform_instance=None,
         env="PROD",
         parent_container=None,

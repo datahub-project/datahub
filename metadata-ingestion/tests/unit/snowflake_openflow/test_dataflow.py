@@ -5,6 +5,7 @@ import pytest
 from datahub.ingestion.source.common.subtypes import DataFlowSubTypes, DataJobSubTypes
 from datahub.ingestion.source.snowflake.snowflake_openflow import (
     ConnectorTableLineage,
+    _owner_classes,
     build_connector_flow,
     build_connector_table_job,
     encoded_urn_len,
@@ -27,7 +28,9 @@ CONNECTOR = OpenflowConnector(
 
 
 def test_flow_urn_uses_the_composite_runtime_and_connector_name():
-    flow = build_connector_flow(CONNECTOR, platform_instance=None, env="PROD")
+    flow = build_connector_flow(
+        CONNECTOR, _owner_classes(CONNECTOR.owner), platform_instance=None, env="PROD"
+    )
     assert str(flow.urn) == "urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD)"
 
 
@@ -40,7 +43,14 @@ def test_flow_urn_is_stable_when_the_view_has_not_caught_up():
     without_id = OpenflowConnector(name="pg_cdc", runtime_name="MyRuntime")
     assert without_id.connector_id is None
     assert (
-        str(build_connector_flow(without_id, platform_instance=None, env="PROD").urn)
+        str(
+            build_connector_flow(
+                without_id,
+                _owner_classes(without_id.owner),
+                platform_instance=None,
+                env="PROD",
+            ).urn
+        )
         == "urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD)"
     )
 
@@ -48,13 +58,23 @@ def test_flow_urn_is_stable_when_the_view_has_not_caught_up():
 def test_connectors_sharing_a_name_in_different_runtimes_do_not_collide():
     a = OpenflowConnector(connector_id="1", name="pg_cdc", runtime_name="RuntimeA")
     b = OpenflowConnector(connector_id="2", name="pg_cdc", runtime_name="RuntimeB")
-    urn_a = str(build_connector_flow(a, platform_instance=None, env="PROD").urn)
-    urn_b = str(build_connector_flow(b, platform_instance=None, env="PROD").urn)
+    urn_a = str(
+        build_connector_flow(
+            a, _owner_classes(a.owner), platform_instance=None, env="PROD"
+        ).urn
+    )
+    urn_b = str(
+        build_connector_flow(
+            b, _owner_classes(b.owner), platform_instance=None, env="PROD"
+        ).urn
+    )
     assert urn_a != urn_b
 
 
 def test_flow_carries_the_connector_subtype_and_definition():
-    flow = build_connector_flow(CONNECTOR, platform_instance=None, env="PROD")
+    flow = build_connector_flow(
+        CONNECTOR, _owner_classes(CONNECTOR.owner), platform_instance=None, env="PROD"
+    )
     assert flow.subtype == DataFlowSubTypes.OPENFLOW_CONNECTOR
     assert flow.custom_properties["connector_definition"] == "OPENFLOW_POSTGRES_CDC"
     assert flow.custom_properties["default_version"] == "3"
@@ -64,13 +84,17 @@ def test_table_job_is_nested_in_its_flow():
     # A job is keyed on the flow's composite connector.key plus the table, so
     # its URN nests inside the flow URN -- not on CONNECTOR_ID, for the
     # identical reasons the flow isn't.
-    flow = build_connector_flow(CONNECTOR, platform_instance=None, env="PROD")
+    flow = build_connector_flow(
+        CONNECTOR, _owner_classes(CONNECTOR.owner), platform_instance=None, env="PROD"
+    )
     pair = ConnectorTableLineage(
         source_schema="public",
         source_table="t",
         outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)",
     )
-    job = build_connector_table_job(CONNECTOR, flow, pair)
+    job = build_connector_table_job(
+        CONNECTOR, flow, pair, _owner_classes(CONNECTOR.owner)
+    )
     assert str(job.urn) == (
         "urn:li:dataJob:(urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD),"
         "MyRuntime/pg_cdc/public.t)"
@@ -81,13 +105,17 @@ def test_table_job_is_nested_in_its_flow():
 def test_a_table_job_with_no_upstream_still_carries_its_outlet():
     # Losing the upstream half must not lose the edge: the destination is what
     # the connector definitely did, and is emitted either way.
-    flow = build_connector_flow(CONNECTOR, platform_instance=None, env="PROD")
+    flow = build_connector_flow(
+        CONNECTOR, _owner_classes(CONNECTOR.owner), platform_instance=None, env="PROD"
+    )
     pair = ConnectorTableLineage(
         source_schema="public",
         source_table="t",
         outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)",
     )
-    job = build_connector_table_job(CONNECTOR, flow, pair)
+    job = build_connector_table_job(
+        CONNECTOR, flow, pair, _owner_classes(CONNECTOR.owner)
+    )
     assert job.inlets == []
     assert [str(outlet) for outlet in job.outlets] == [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)"
@@ -101,7 +129,9 @@ def test_display_name_prefers_the_human_label():
         connector_id="1",
         display_name="Postgres CDC",
     )
-    flow = build_connector_flow(connector, platform_instance=None, env="PROD")
+    flow = build_connector_flow(
+        connector, _owner_classes(connector.owner), platform_instance=None, env="PROD"
+    )
     # The URN stays keyed on the composite runtime/name; only the label changes.
     assert str(flow.urn) == "urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD)"
     assert flow.display_name == "Postgres CDC"
@@ -139,14 +169,22 @@ def test_a_long_name_keeps_both_urns_inside_what_gms_accepts(
         outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)",
     )
 
-    flow = build_connector_flow(connector, platform_instance=None, env="PROD")
-    job = build_connector_table_job(connector, flow, pair)
+    flow = build_connector_flow(
+        connector, _owner_classes(connector.owner), platform_instance=None, env="PROD"
+    )
+    job = build_connector_table_job(
+        connector, flow, pair, _owner_classes(connector.owner)
+    )
 
     assert urn_fits(flow.urn), len(urllib.parse.quote_plus(str(flow.urn)))
     assert urn_fits(job.urn), len(urllib.parse.quote_plus(str(job.urn)))
     # Stable across runs: a per-process salt would rename the entity every
     # ingest and orphan the previous one.
-    assert str(job.urn) == str(build_connector_table_job(connector, flow, pair).urn)
+    assert str(job.urn) == str(
+        build_connector_table_job(
+            connector, flow, pair, _owner_classes(connector.owner)
+        ).urn
+    )
 
 
 def test_an_ordinary_name_is_left_readable() -> None:
@@ -158,8 +196,12 @@ def test_an_ordinary_name_is_left_readable() -> None:
         outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.mytable,PROD)",
     )
 
-    flow = build_connector_flow(connector, platform_instance=None, env="PROD")
-    job = build_connector_table_job(connector, flow, pair)
+    flow = build_connector_flow(
+        connector, _owner_classes(connector.owner), platform_instance=None, env="PROD"
+    )
+    job = build_connector_table_job(
+        connector, flow, pair, _owner_classes(connector.owner)
+    )
 
     assert str(flow.urn) == "urn:li:dataFlow:(openflow,MyRuntime/pg_cdc,PROD)"
     assert str(job.urn).endswith("MyRuntime/pg_cdc/public.mytable)")
@@ -172,8 +214,12 @@ def test_a_short_table_name_stays_readable() -> None:
         source_table="t",
         outlet="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.public.t,PROD)",
     )
-    flow = build_connector_flow(connector, platform_instance=None, env="PROD")
-    job = build_connector_table_job(connector, flow, pair)
+    flow = build_connector_flow(
+        connector, _owner_classes(connector.owner), platform_instance=None, env="PROD"
+    )
+    job = build_connector_table_job(
+        connector, flow, pair, _owner_classes(connector.owner)
+    )
     assert str(job.urn).endswith("rt/conn/public.t)")
 
 
@@ -200,8 +246,15 @@ def test_no_identifier_length_produces_an_urn_gms_would_reject(char: str) -> Non
 
     for length in (1, 50, 120, 200, 209, 230, 255):
         connector = OpenflowConnector(name=char * length, runtime_name=char * length)
-        flow = build_connector_flow(connector, platform_instance=None, env="PROD")
-        job = build_connector_table_job(connector, flow, pair)
+        flow = build_connector_flow(
+            connector,
+            _owner_classes(connector.owner),
+            platform_instance=None,
+            env="PROD",
+        )
+        job = build_connector_table_job(
+            connector, flow, pair, _owner_classes(connector.owner)
+        )
 
         assert encoded_urn_len(flow.urn) <= 512, (char, length, "flow")
         assert encoded_urn_len(job.urn) <= 512, (char, length, "job")
@@ -234,8 +287,15 @@ def test_the_platform_instance_limit_matches_what_the_builders_actually_accept()
 
     def both_fit(instance: str) -> bool:
         connector = OpenflowConnector(name="c" * 255, runtime_name="r" * 255)
-        flow = build_connector_flow(connector, platform_instance=instance, env="PROD")
-        job = build_connector_table_job(connector, flow, pair)
+        flow = build_connector_flow(
+            connector,
+            _owner_classes(connector.owner),
+            platform_instance=instance,
+            env="PROD",
+        )
+        job = build_connector_table_job(
+            connector, flow, pair, _owner_classes(connector.owner)
+        )
         return urn_fits(flow.urn) and urn_fits(job.urn)
 
     low, high = 0, 600

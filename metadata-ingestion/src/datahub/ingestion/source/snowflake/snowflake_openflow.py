@@ -596,6 +596,20 @@ def _owner_group_urn(owner: Optional[str]) -> Optional[str]:
     return urn if urn_fits(urn) else None
 
 
+def owner_classes_for(owner_urn: Optional[str]) -> Optional[List[OwnerClass]]:
+    """The ownership aspect for an ALREADY-RESOLVED owner urn.
+
+    Separate from _owner_classes so a caller that has already paid for
+    _owner_group_urn -- which costs an encoded-length measurement -- does not
+    pay again. build_connector_table_job used to recompute it per replicated
+    table, which at 500 connectors x 100 tables was ~50,000 redundant
+    measurements; the connector resolves it once and passes it down.
+    """
+    if owner_urn is None:
+        return None
+    return [OwnerClass(owner=owner_urn, type=OWNERSHIP_TYPE)]
+
+
 def _owner_classes(owner: Optional[str]) -> Optional[List[OwnerClass]]:
     # Returns None -- not [] -- when there is no owner, so the SDK v2 entities
     # skip the aspect entirely. An OwnershipClass with an empty owners list
@@ -630,6 +644,7 @@ def _connector_properties(connector: OpenflowConnector) -> Dict[str, str]:
 
 def build_connector_flow(
     connector: OpenflowConnector,
+    owners: Optional[List[OwnerClass]],
     platform_instance: Optional[str],
     env: str,
     parent_container: Optional[OpenflowRuntimeKey] = None,
@@ -648,7 +663,13 @@ def build_connector_flow(
     # this cannot drift from however the SDK composes it.
     return _fitted(
         lambda name: _flow_with_name(
-            connector, name, platform_instance, env, parent_container, external_url
+            connector,
+            owners,
+            name,
+            platform_instance,
+            env,
+            parent_container,
+            external_url,
         ),
         connector.key,
         FLOW_URN_BUDGET,
@@ -657,6 +678,7 @@ def build_connector_flow(
 
 def _flow_with_name(
     connector: OpenflowConnector,
+    owners: Optional[List[OwnerClass]],
     name: str,
     platform_instance: Optional[str],
     env: str,
@@ -671,7 +693,7 @@ def _flow_with_name(
         display_name=connector.display_name or connector.name,
         subtype=DataFlowSubTypes.OPENFLOW_CONNECTOR,
         custom_properties=_connector_properties(connector),
-        owners=_owner_classes(connector.owner),
+        owners=owners,
         external_url=external_url,
         # `unset`, not None: the SDK treats None as "this entity has no parent"
         # and writes an EMPTY browsePathsV2, which then suppresses the one
@@ -732,14 +754,17 @@ def _table_job_name(connector: OpenflowConnector, pair: ConnectorTableLineage) -
 
 
 def build_connector_table_job(
-    connector: OpenflowConnector, flow: DataFlow, pair: ConnectorTableLineage
+    connector: OpenflowConnector,
+    flow: DataFlow,
+    pair: ConnectorTableLineage,
+    owners: Optional[List[OwnerClass]],
 ) -> DataJob:
     """One DataJob per replicated table, carrying that table's edge alone."""
     # The job urn nests the flow urn, so it carries connector.key twice and can
     # exceed the cap while the flow's own urn is comfortably inside it. The flow
     # handed in here is already fitted, so only the job half can still overflow.
     return _fitted(
-        lambda name: _job_with_name(connector, flow, pair, name),
+        lambda name: _job_with_name(connector, flow, pair, owners, name),
         _table_job_name(connector, pair),
     )
 
@@ -748,6 +773,7 @@ def _job_with_name(
     connector: OpenflowConnector,
     flow: DataFlow,
     pair: ConnectorTableLineage,
+    owners: Optional[List[OwnerClass]],
     name: str,
 ) -> DataJob:
     return DataJob(
@@ -757,7 +783,7 @@ def _job_with_name(
         subtype=DataJobSubTypes.OPENFLOW_CONNECTOR_SYNC,
         inlets=[pair.inlet] if pair.inlet else [],
         outlets=[pair.outlet],
-        owners=_owner_classes(connector.owner),
+        owners=owners,
     )
 
 
@@ -1330,7 +1356,9 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 raise RuntimeError("GET reported no error but produced no local file")
             return decode_config_payload(downloaded[0].read_bytes())
 
-    def _account_for_owner(self, owner: Optional[str], context: str) -> None:
+    def _account_for_owner(
+        self, owner: Optional[str], owner_urn: Optional[str], context: str
+    ) -> None:
         """Count the ownership aspect, or report that it had to be dropped.
 
         Owner.owner is a Urn-typed field, so UrnAnnotationValidator applies the
@@ -1346,7 +1374,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
         """
         if not owner:
             return
-        if _owner_group_urn(owner) is None:
+        if owner_urn is None:
             self.report.num_owners_dropped_urn_too_long += 1
             self.report.warning(
                 title="Ownership dropped: owner urn too long",
@@ -1893,7 +1921,9 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 ownership_type=OWNERSHIP_TYPE,
                 extra_properties=self._deployment_properties(deployment),
             )
-            self._account_for_owner(deployment.owner, deployment.key)
+            self._account_for_owner(
+                deployment.owner, _owner_group_urn(deployment.owner), deployment.key
+            )
 
         # Populated as runtime containers are emitted, then read by the connector
         # loop below, so a connector's DataFlow can only ever point at a container
@@ -1967,7 +1997,9 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 ownership_type=OWNERSHIP_TYPE,
                 extra_properties=self._runtime_properties(runtime),
             )
-            self._account_for_owner(runtime.owner, runtime.key)
+            self._account_for_owner(
+                runtime.owner, _owner_group_urn(runtime.owner), runtime.key
+            )
 
         connectors = self._fetch_connectors()
         self._decide_url_lookup(
@@ -2011,8 +2043,15 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                 )
             elif parent_runtime_key is None:
                 self._report_connector_without_runtime_parent(connector)
+            # Resolved ONCE per connector: _owner_group_urn costs an
+            # encoded-length measurement, and the per-table jobs below
+            # would otherwise each repeat it -- ~50,000 redundant
+            # measurements on a 500-connector, 100-table account.
+            owner_urn = _owner_group_urn(connector.owner)
+            owners = owner_classes_for(owner_urn)
             flow = build_connector_flow(
                 connector,
+                owners,
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
                 parent_container=parent_runtime_key,
@@ -2021,7 +2060,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
             if not self._urn_is_emittable(flow.urn, connector.key, "DataFlow"):
                 continue
             yield from flow.as_workunits()
-            self._account_for_owner(connector.owner, connector.key)
+            self._account_for_owner(connector.owner, owner_urn, connector.key)
             # No connector-level DataJob. The DataFlow above already IS the
             # connector -- identical name, properties, ownership and external
             # link -- so an anchor job duplicated it as a task inside its own
@@ -2035,7 +2074,7 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                     emittable = self._edge_within_urn_limits(pair, connector)
                     if emittable is None:
                         continue
-                    job = build_connector_table_job(connector, flow, emittable)
+                    job = build_connector_table_job(connector, flow, emittable, owners)
                     if not self._urn_is_emittable(job.urn, connector.key, "DataJob"):
                         continue
                     yield from job.as_workunits()
@@ -2044,7 +2083,9 @@ class SnowflakeOpenflowSource(StatefulIngestionSourceBase, TestableSource):
                         # Per-table jobs carry the connector's owner too, so
                         # the counter has to see them or it under-reports the
                         # aspects its name promises.
-                        self._account_for_owner(connector.owner, connector.key)
+                        self._account_for_owner(
+                            connector.owner, owner_urn, connector.key
+                        )
 
     def _report_connector_without_runtime_parent(
         self, connector: OpenflowConnector

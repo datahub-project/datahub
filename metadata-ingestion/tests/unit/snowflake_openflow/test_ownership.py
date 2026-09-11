@@ -6,6 +6,8 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_openflow import (
     ConnectorTableLineage,
     SnowflakeOpenflowSource,
+    _owner_classes,
+    _owner_group_urn,
     build_connector_flow,
     build_connector_table_job,
 )
@@ -147,7 +149,9 @@ def test_connector_flow_owner_is_a_technical_corp_group_owner():
     connector = OpenflowConnector(
         name="pg_cdc", runtime_name="my_runtime", owner=OWNER_ROLE
     )
-    flow = build_connector_flow(connector, platform_instance=None, env="PROD")
+    flow = build_connector_flow(
+        connector, _owner_classes(connector.owner), platform_instance=None, env="PROD"
+    )
 
     ownership = _ownership_aspects(flow.as_workunits())
 
@@ -170,8 +174,12 @@ def test_connector_job_owner_is_a_technical_corp_group_owner():
     connector = OpenflowConnector(
         name="pg_cdc", runtime_name="my_runtime", owner=OWNER_ROLE
     )
-    flow = build_connector_flow(connector, platform_instance=None, env="PROD")
-    job = build_connector_table_job(connector, flow, _PAIR)
+    flow = build_connector_flow(
+        connector, _owner_classes(connector.owner), platform_instance=None, env="PROD"
+    )
+    job = build_connector_table_job(
+        connector, flow, _PAIR, _owner_classes(connector.owner)
+    )
 
     ownership = _ownership_aspects(job.as_workunits())
 
@@ -185,8 +193,12 @@ def test_connector_job_owner_is_a_technical_corp_group_owner():
 
 def test_connector_emits_no_ownership_aspect_when_owner_is_absent():
     connector = OpenflowConnector(name="pg_cdc", runtime_name="my_runtime")
-    flow = build_connector_flow(connector, platform_instance=None, env="PROD")
-    job = build_connector_table_job(connector, flow, _PAIR)
+    flow = build_connector_flow(
+        connector, _owner_classes(connector.owner), platform_instance=None, env="PROD"
+    )
+    job = build_connector_table_job(
+        connector, flow, _PAIR, _owner_classes(connector.owner)
+    )
 
     assert _ownership_aspects(flow.as_workunits()) == []
     assert _ownership_aspects(job.as_workunits()) == []
@@ -225,7 +237,8 @@ def test_an_owning_role_whose_urn_is_too_long_drops_ownership_and_says_so() -> N
     # group or none.
     source = _make_source()
 
-    source._account_for_owner("数" * 165, "rt/c")
+    owner = "数" * 165
+    source._account_for_owner(owner, _owner_group_urn(owner), "rt/c")
 
     assert source.report.num_owners_dropped_urn_too_long == 1
     assert source.report.num_owners_emitted == 0
@@ -237,7 +250,7 @@ def test_an_owning_role_whose_urn_is_too_long_drops_ownership_and_says_so() -> N
 def test_an_ordinary_owning_role_is_counted_not_dropped() -> None:
     source = _make_source()
 
-    source._account_for_owner("ANALYST", "rt/c")
+    source._account_for_owner("ANALYST", _owner_group_urn("ANALYST"), "rt/c")
 
     assert source.report.num_owners_emitted == 1
     assert source.report.num_owners_dropped_urn_too_long == 0
