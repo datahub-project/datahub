@@ -460,6 +460,24 @@ class _CustomSqlRegistration:
     "Enabled by default, configured using `ingest_owner`",
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@dataclass
+class _PendingChartOutcome:
+    """Per-chart context held until its InputFields stop changing.
+
+    The outcome cannot be decided at build time: _apply_schema_resolution
+    REPLACES self-referential fields with resolved ones and re-emits the
+    aspect, so a chart classified as "no column lineage" during the element
+    loop may have lineage by the time the run finishes. Classifying early
+    overstated the problem in exactly the direction that would send someone
+    chasing charts that turned out fine.
+    """
+
+    element: Element
+    chart_urn: str
+    causes: Dict[str, int]
+    workbook_formulas_incomplete: bool
+
+
 class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
@@ -6791,6 +6809,34 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         aborted is neither -- it is our fetch that failed. Only the middle case
         is logged, so the probe cannot flood the log.
         """
+        # WHAT SIGMA HANDED US, recorded BEFORE any branch runs.
+        #
+        # Every other line on this path describes the bucket we chose, so a
+        # column that matches no branch -- or one filed under a bucket that
+        # turns out to be the wrong one -- explains nothing at all. The whole
+        # point of this line is that it is true regardless of which branch is
+        # taken next, and it is emitted for EVERY unresolved column rather than
+        # sampled, because the interesting column is always a specific one
+        # somebody asked about. Bounded by the unresolved population (~56k on
+        # one tenant), not by total columns (~493k).
+        formula = element.column_formulas.get(column)
+        logger.debug(
+            "chart column input element=%s column=%r workbook=%s "
+            "payload_present=%s formula=%.300r column_id=%r refs=%d raw_refs=%r "
+            "all_param=%s all_sibling=%s mixed=%s formulas_incomplete=%s",
+            element.elementId,
+            column,
+            self._current_workbook_id(),
+            element.columns_payload_present,
+            formula,
+            element.column_id_by_name.get(column),
+            len(refs),
+            [r.raw for r in refs],
+            all_param,
+            all_sibling,
+            all_unresolvable_mixed,
+            formulas_incomplete,
+        )
         if all_param:
             self.reporter.chart_input_fields_skipped_parameter += 1
             return
@@ -7080,7 +7126,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         workbook: Workbook,
         chart_urn: str,
         fields: List[InputFieldClass],
-        causes_before: Dict[str, int],
+        causes: Dict[str, int],
         workbook_formulas_incomplete: bool,
     ) -> None:
         """Record this chart's column-lineage outcome and what produced it.
@@ -7116,12 +7162,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             for f in fields
             if f.schemaFieldUrn and f.schemaFieldUrn.startswith(self_ref_prefix)
         )
-        causes_after = self._chart_column_cause_tally()
-        causes = {
-            cause: causes_after[cause] - before
-            for cause, before in causes_before.items()
-            if causes_after[cause] != before
-        }
         self.reporter.note_chart_column_lineage_outcome(
             chart_element_id=element.elementId,
             workbook_id=workbook.workbookId,
@@ -7197,6 +7237,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
         # Retained for the /schema recovery pass below.
         fields_by_chart_urn: Dict[str, List[InputFieldClass]] = {}
+        pending_chart_outcomes: List[_PendingChartOutcome] = []
         chart_urn_by_element_id: Dict[str, str] = {}
         for element in elements:
             chart_urn = builder.make_chart_urn(
@@ -7377,13 +7418,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 wb_only_warehouse_keys=wb_only_warehouse_keys,
                 formulas_incomplete=workbook_formulas_incomplete,
             )
-            self._note_chart_column_outcome(
-                element=element,
-                workbook=workbook,
-                chart_urn=chart_urn,
-                fields=element_input_fields,
-                causes_before=causes_before,
-                workbook_formulas_incomplete=workbook_formulas_incomplete,
+            causes_after = self._chart_column_cause_tally()
+            pending_chart_outcomes.append(
+                _PendingChartOutcome(
+                    element=element,
+                    chart_urn=chart_urn,
+                    causes={
+                        cause: causes_after[cause] - before
+                        for cause, before in causes_before.items()
+                        if causes_after[cause] != before
+                    },
+                    workbook_formulas_incomplete=workbook_formulas_incomplete,
+                )
             )
 
             # Stash formula-derived fields for customSQL charts so we can merge at
@@ -7428,6 +7474,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             fields_by_chart_urn=fields_by_chart_urn,
             chart_urn_by_element_id=chart_urn_by_element_id,
         )
+        # Now that _apply_schema_resolution has had its say, the fields are
+        # final and the per-chart outcome can be decided on what will actually
+        # be stored rather than on an intermediate state.
+        for outcome in pending_chart_outcomes:
+            self._note_chart_column_outcome(
+                element=outcome.element,
+                workbook=workbook,
+                chart_urn=outcome.chart_urn,
+                fields=fields_by_chart_urn.get(outcome.chart_urn) or [],
+                causes=outcome.causes,
+                workbook_formulas_incomplete=outcome.workbook_formulas_incomplete,
+            )
+
         self._measure_schema_resolvable_refs(workbook, pending, schema=schema)
         self._measure_workbook_sources(workbook, pending, workbook_dm_url_ids)
 

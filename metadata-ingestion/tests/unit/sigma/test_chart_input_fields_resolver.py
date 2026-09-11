@@ -2699,7 +2699,7 @@ class TestThePerChartLineIsTheInstrumentThatAnswersATicket:
                 workbook=_make_workbook_with_elements([[element]]),
                 chart_urn=chart_urn,
                 fields=fields,
-                causes_before=src._chart_column_cause_tally(),
+                causes={},
                 workbook_formulas_incomplete=False,
             )
         lines = [
@@ -2754,7 +2754,57 @@ class TestThePerChartLineIsTheInstrumentThatAnswersATicket:
                 workbook=_make_workbook_with_elements([[element]]),
                 chart_urn=chart_urn,
                 fields=fields,
-                causes_before=src._chart_column_cause_tally(),
+                causes={},
                 workbook_formulas_incomplete=False,
             )
         assert [r for r in caplog.records if "chart element e1" in r.getMessage()] == []
+
+
+class TestOutcomeIsDecidedOnTheFieldsThatWillBeSTORED:
+    """_apply_schema_resolution replaces self-referential fields and re-emits.
+
+    Classifying a chart during the element loop reads an INTERMEDIATE state, so
+    a chart whose lineage is recovered moments later was still filed as "no
+    column lineage" -- overstating the problem in the direction that sends
+    someone chasing charts which turned out fine. The outcome is therefore
+    decided after that pass, on the fields the aspect will actually carry.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+        self.element = _make_element("e1", "Chart", ["c0"])
+        self.chart_urn = builder.make_chart_urn("sigma", "e1")
+
+    def _field(self, *, resolved: bool) -> InputFieldClass:
+        parent = "urn:li:dataset:(x,y,PROD)" if resolved else self.chart_urn
+        return InputFieldClass(
+            schemaFieldUrn=builder.make_schema_field_urn(parent, "c0"),
+            schemaField=None,
+        )
+
+    def _classify(self, fields: List[InputFieldClass]) -> None:
+        self.src._note_chart_column_outcome(
+            element=self.element,
+            workbook=_make_workbook_with_elements([[self.element]]),
+            chart_urn=self.chart_urn,
+            fields=fields,
+            causes={"unresolved_refs": 1},
+            workbook_formulas_incomplete=False,
+        )
+
+    def test_a_chart_recovered_by_schema_resolution_is_not_reported_as_broken(
+        self,
+    ) -> None:
+        # The state during the element loop would have been the self-ref field;
+        # what gets stored is the recovered one.
+        self._classify([self._field(resolved=True)])
+        assert self.src.reporter.charts_with_no_column_lineage == 0
+        assert self.src.reporter.charts_with_column_lineage == 1
+
+    def test_a_chart_nothing_recovered_for_is_still_reported(self) -> None:
+        self._classify([self._field(resolved=False)])
+        assert self.src.reporter.charts_with_no_column_lineage == 1
+        assert self.src.reporter.charts_with_no_column_lineage_by_cause == {
+            "unresolved_refs": 1
+        }
