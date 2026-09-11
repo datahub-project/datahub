@@ -7706,6 +7706,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 for path in self._schema_name_refs(column.get("formula")):
                     if len(path) == 2:
                         head_users.setdefault(path[0], set()).add(column_id)
+        # columnId -> the element of THIS workbook that owns it. The run
+        # already has this (``/workbooks/{id}/columns`` populates
+        # ``column_id_by_name`` per element); nothing was looking in it.
+        # _dm_column_owner holds Data Model columns ONLY, so a path[1] that is a
+        # workbook column id was reported as "unknown_column" without ever being
+        # looked up -- 7,663 of 8,370 unknown heads on the last customer run.
+        # Built per workbook rather than accumulated across the run, so it is
+        # complete at the moment it is consulted.
+        wb_column_owner: Dict[str, str] = {}
+        for page in workbook.pages:
+            for element in page.elements:
+                for column_id in element.column_id_by_name.values():
+                    if column_id:
+                        wb_column_owner.setdefault(column_id, element.elementId)
+
         for item in unresolved:
             formula = column_formula.get(item.column_id)
             if formula is None:
@@ -7736,6 +7751,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     sheet_type=column_sheet_type.get(item.column_id, ""),
                     head_users=head_users,
                     defined_in_doc=detail in sheets or detail in elements,
+                    wb_column_owner=wb_column_owner,
                 )
             self._record_schema_outcome(item, outcome, formula=formula, detail=detail)
 
@@ -7834,6 +7850,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         sheet_type: str,
         head_users: Dict[str, Set[str]],
         defined_in_doc: bool,
+        wb_column_owner: Dict[str, str],
     ) -> None:
         """Record the readable properties of an id whose space we cannot name.
 
@@ -7870,15 +7887,34 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # element ids; "owner_differs" says they are something else and names
         # what the ref actually points at.
         second = next((p[1] for p in refs if len(p) == 2 and p[0] == head), "")
-        owner = self._dm_column_owner.get(second)
-        if not self._dm_column_owner:
+        dm_owner = self._dm_column_owner.get(second)
+        wb_owner = wb_column_owner.get(second)
+        if _is_warehouse_column_id(second) or (
+            second and second == second.upper() and not second.isdigit()
+        ):
+            # Decided by SHAPE, so it is checked before the map guards below:
+            # Sigma writes a warehouse column here as a bare native name
+            # (ORDER_NUMBER, SKU_NUMBER), and that is identifiable whether or
+            # not any column map was built. Filing those as "unknown_column"
+            # overstated how much is unidentifiable -- the column is perfectly
+            # well named, it is simply not a Sigma id.
+            p1 = "warehouse_native_name"
+        elif not self._dm_column_owner and not wb_column_owner:
+            # No map was built, so "unknown" would assert a lookup that never
+            # happened. Distinct answers must not pool.
             p1 = "not_checked"
-        elif owner is None:
-            p1 = "unknown_column"
-        elif owner == head:
-            p1 = "dm_column_owner_is_head"
-        else:
+        elif dm_owner == head or wb_owner == head:
+            p1 = "column_owner_is_head"
+        elif wb_owner is not None:
+            # The decisive new answer. path[1] is a column of THIS workbook, so
+            # the ref is resolvable without ever identifying the head: the
+            # owning element is the upstream. This is the population a resolver
+            # would recover.
+            p1 = "workbook_column_owner_differs"
+        elif dm_owner is not None:
             p1 = "dm_column_owner_differs"
+        else:
+            p1 = "unknown_column"
         self._unknown_head_ids.add(head)
         self.reporter.chart_ref_schema_unknown_head_distinct = len(
             self._unknown_head_ids

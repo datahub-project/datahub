@@ -999,6 +999,86 @@ class TestSchemaMeasurementRecordsFailures:
         )
         return src
 
+    def _measure_unknown_head(
+        self, *, head: str, second: str, owner_columns: Dict[str, str]
+    ) -> SigmaSource:
+        """Probe one 2-segment ref whose HEAD is in no id space this run holds."""
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src.sigma_api = MagicMock()
+        src.sigma_api.get_workbook_schema.return_value = {
+            "sheets": {
+                "sheet1": {
+                    "columns": {
+                        "col1": {
+                            "formula": {
+                                "type": "nameRef",
+                                "path": [head, second],
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        element = _make_element("e1", "El", columns=list(owner_columns))
+        element.column_id_by_name = dict(owner_columns)
+        workbook = _make_workbook_with_elements([[element]])
+        src._measure_schema_resolvable_refs(
+            workbook,
+            [
+                _UnresolvedChartColumn(
+                    element_id="e1",
+                    column="Col",
+                    column_id="col1",
+                    reasons=frozenset({"some_reason"}),
+                )
+            ],
+        )
+        return src
+
+    def test_path1_that_is_a_workbook_column_is_no_longer_unknown(self) -> None:
+        """The 7,663-column finding.
+
+        _dm_column_owner holds Data Model columns only, so a path[1] that is a
+        WORKBOOK column id was reported as "unknown_column" without ever being
+        looked up. The owning element makes the ref resolvable without ever
+        identifying the head.
+        """
+        src = self._measure_unknown_head(
+            head="notAnIdWeHold", second="wbCol1", owner_columns={"Amount": "wbCol1"}
+        )
+
+        kinds = src.reporter.chart_ref_schema_unknown_head_kinds
+        (key,) = list(kinds)
+        assert "p1=workbook_column_owner_differs" in key, key
+        assert "p1=unknown_column" not in key
+
+    def test_a_bare_warehouse_native_name_is_not_called_an_unknown_column(self) -> None:
+        """Sigma writes a warehouse column here as a bare native name.
+
+        Filing ORDER_NUMBER as "unknown_column" overstated how much is
+        unidentifiable -- it is not a Sigma id at all, and it is well named.
+        """
+        src = self._measure_unknown_head(
+            head="notAnIdWeHold", second="ORDER_NUMBER", owner_columns={}
+        )
+
+        (key,) = list(src.reporter.chart_ref_schema_unknown_head_kinds)
+        assert "p1=warehouse_native_name" in key, key
+
+    def test_an_opaque_unknown_path1_is_still_reported_unknown(self) -> None:
+        """The residual must stay visible, or the two fixes above would hide it."""
+        src = self._measure_unknown_head(
+            head="notAnIdWeHold",
+            second="_K2Iau-Uzf",
+            # A populated map the id is absent from, so the lookup is real --
+            # with no map at all "not_checked" would be the honest answer.
+            owner_columns={"Amount": "someOtherColumnId"},
+        )
+
+        (key,) = list(src.reporter.chart_ref_schema_unknown_head_kinds)
+        assert "p1=unknown_column" in key, key
+
     def test_a_rare_outcome_is_still_sampled_beside_a_flood(self) -> None:
         """The regression this change exists for.
 
