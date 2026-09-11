@@ -7630,9 +7630,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         elements = schema.get("elements") or {}
         # A column id is unique within a sheet, so index it across all of them.
         column_formula: Dict[str, Any] = {}
+        column_sheet_type: Dict[str, str] = {}
+        # head -> the column ids that cite it. A head cited by many columns is a
+        # shared upstream object; one cited once could be anything.
+        head_users: Dict[str, Set[str]] = {}
         for sheet in sheets.values():
+            sheet_type = str(sheet.get("type") or "")
             for column_id, column in (sheet.get("columns") or {}).items():
                 column_formula.setdefault(column_id, column.get("formula"))
+                column_sheet_type.setdefault(column_id, sheet_type)
+                for path in self._schema_name_refs(column.get("formula")):
+                    if len(path) == 2:
+                        head_users.setdefault(path[0], set()).add(column_id)
         for item in unresolved:
             formula = column_formula.get(item.column_id)
             if formula is None:
@@ -7656,7 +7665,46 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # The head itself is the only thing that can identify the id
                 # space, and it is an opaque id, not a name.
                 self.reporter.chart_ref_schema_unknown_head_samples.append(detail)
+                self._describe_unknown_head(
+                    head=detail,
+                    refs=refs,
+                    column_id=item.column_id,
+                    sheet_type=column_sheet_type.get(item.column_id, ""),
+                    head_users=head_users,
+                    defined_in_doc=detail in sheets or detail in elements,
+                )
             self._record_schema_outcome(item, outcome, formula=formula, detail=detail)
+
+    def _describe_unknown_head(
+        self,
+        *,
+        head: str,
+        refs: List[List[str]],
+        column_id: str,
+        sheet_type: str,
+        head_users: Dict[str, Set[str]],
+        defined_in_doc: bool,
+    ) -> None:
+        """Record the readable properties of an id whose space we cannot name.
+
+        Counting unidentified refs says how many there are and nothing about
+        what they are, and the id is opaque so a sample does not help either.
+        These five properties can all be read off the response without knowing
+        the space, and together they separate the candidate explanations: a
+        pass-through of a source column points back at the column's own id, a
+        shared upstream object is cited by many columns, and a head the
+        document never defines came from outside it.
+        """
+        shared_by = len(head_users.get(head, ()))
+        self_ref = any(len(p) == 2 and p[0] == head and p[1] == column_id for p in refs)
+        key = (
+            f"len={len(head)} sheet={sheet_type or 'unknown'} "
+            f"self_ref={self_ref} defined_in_doc={defined_in_doc} "
+            f"shared_by={'1' if shared_by <= 1 else '2-5' if shared_by <= 5 else '6+'}"
+        )
+        self.reporter.chart_ref_schema_unknown_head_kinds[key] = (
+            self.reporter.chart_ref_schema_unknown_head_kinds.get(key, 0) + 1
+        )
 
     @staticmethod
     def _classify_schema_refs(

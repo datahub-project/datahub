@@ -554,6 +554,17 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     chart_ref_schema_unknown_head_samples: LossyList[str] = field(
         default_factory=LossyList
     )
+    # The raw head is opaque, so the counter and a sample id cannot say what the
+    # id space IS. These are the properties that can be read off the response
+    # without knowing it: the head's length (10 and 22 are different spaces),
+    # the containing sheet's type, whether the ref points back at the column's
+    # own id (a pass-through of a source column), how many columns share the
+    # head (a shared head is a real upstream object, not a per-column quirk),
+    # and whether the document defines the head anywhere or only cites it.
+    # On a dev tenant every occurrence was a citation and nothing was defined,
+    # but that tenant holds 3 data models against a customer's 891, so absence
+    # there is not evidence about the id space in general.
+    chart_ref_schema_unknown_head_kinds: Dict[str, int] = field(default_factory=dict)
     # The endpoint has the column but its formula contains no reference at all.
     chart_ref_schema_no_refs: int = 0
     # /schema has no entry for that columnId -- the two endpoints disagree about
