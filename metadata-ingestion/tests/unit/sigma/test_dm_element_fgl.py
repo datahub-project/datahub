@@ -874,7 +874,11 @@ def test_orphan_branch_not_rescued_without_cross_dm_sources() -> None:
 
     consumer = _element(
         "consumer-eid",
-        "Shared",
+        # Deliberately NOT "Shared": a ref naming the element's OWN name
+        # resolves to that element's own source, so a same-named sibling is
+        # never the referent. This test is about the cross-DM guard on a
+        # genuine orphan, which needs the ref to name a DIFFERENT element.
+        "Consumer",
         [_column("c1", "x", "[Shared/x]")],
         # source_ids=[] — no cross-DM refs
     )
@@ -886,7 +890,7 @@ def test_orphan_branch_not_rescued_without_cross_dm_sources() -> None:
         source,
         consumer,
         element_dataset_urn=consumer_urn,
-        element_name_to_eids={"shared": ["sibling-eid", "consumer-eid"]},
+        element_name_to_eids={"shared": ["sibling-eid"]},
         elementId_to_dataset_urn={
             "sibling-eid": sibling_urn,
             "consumer-eid": consumer_urn,
@@ -917,7 +921,11 @@ def test_intra_dm_only_source_ids_not_treated_as_cross_dm() -> None:
 
     consumer = _element(
         "consumer-eid",
-        "Shared",
+        # Deliberately NOT "Shared": a ref naming the element's OWN name
+        # resolves to that element's own source, so a same-named sibling is
+        # never the referent. This test is about the cross-DM guard on a
+        # genuine orphan, which needs the ref to name a DIFFERENT element.
+        "Consumer",
         [_column("c1", "x", "[Shared/x]")],
         # Intra-DM source IDs only — no "/" separator, not cross-DM shaped.
         source_ids=["some-intra-dm-eid"],
@@ -930,7 +938,7 @@ def test_intra_dm_only_source_ids_not_treated_as_cross_dm() -> None:
         source,
         consumer,
         element_dataset_urn=consumer_urn,
-        element_name_to_eids={"shared": ["sibling-eid", "consumer-eid"]},
+        element_name_to_eids={"shared": ["sibling-eid"]},
         elementId_to_dataset_urn={
             "sibling-eid": sibling_urn,
             "consumer-eid": consumer_urn,
@@ -990,7 +998,11 @@ def test_inode_source_ids_excluded_from_cross_dm_guard() -> None:
 
     consumer = _element(
         "consumer-eid",
-        "Shared",
+        # Deliberately NOT "Shared": a ref naming the element's OWN name
+        # resolves to that element's own source, so a same-named sibling is
+        # never the referent. This test is about the cross-DM guard on a
+        # genuine orphan, which needs the ref to name a DIFFERENT element.
+        "Consumer",
         [_column("c1", "x", "[Shared/x]")],
         # inode-shaped entry has '/' but is NOT a cross-DM source ID.
         source_ids=["inode-abc123/some-suffix"],
@@ -1003,7 +1015,7 @@ def test_inode_source_ids_excluded_from_cross_dm_guard() -> None:
         source,
         consumer,
         element_dataset_urn=consumer_urn,
-        element_name_to_eids={"shared": ["sibling-eid", "consumer-eid"]},
+        element_name_to_eids={"shared": ["sibling-eid"]},
         elementId_to_dataset_urn={
             "sibling-eid": sibling_urn,
             "consumer-eid": consumer_urn,
@@ -2188,3 +2200,58 @@ class TestDataModelSpecOptOut:
     def test_enabled_is_the_default(self) -> None:
         source = _source()
         assert source.config.extract_data_model_spec_lineage is True
+
+
+def test_same_named_passthrough_siblings_do_not_link_to_each_other() -> None:
+    """Sigma names a warehouse-sourced element after its table.
+
+    So every element reading one table carries the same name, and a ref like
+    "[THE_TABLE/Brand]" matches its own element's name AND every sibling's.
+    Stripping only the element's own id left the siblings as candidates, and the
+    resolver picked one -- fabricating a sibling edge instead of pointing at the
+    warehouse table /lineage reports. Observed on a live fixture as a MUTUAL
+    A<->B cycle across four independent passthroughs.
+    """
+    source = _source()
+    a_urn, b_urn = _urn("a"), _urn("b")
+    # Both named after the warehouse table they read, as Sigma names them.
+    a = _element("a", "THE_TABLE", [_column("a-brand", "Brand", "[THE_TABLE/Brand]")])
+    b = _element("b", "THE_TABLE", [_column("b-brand", "Brand", "[THE_TABLE/Brand]")])
+
+    lineages = _build(
+        source,
+        a,
+        element_dataset_urn=a_urn,
+        element_name_to_eids={"the_table": ["a", "b"]},
+        elementId_to_dataset_urn={"a": a_urn, "b": b_urn},
+        entity_level_upstream_urns={b_urn},
+        upstream_elements=[b],
+    )
+
+    assert lineages == [], (
+        "a same-named sibling is never the referent of a self-named ref; the "
+        f"real upstream is the warehouse table. got {lineages}"
+    )
+    assert source.reporter.data_model_element_fgl_self_named_siblings_skipped == 1
+
+
+def test_a_ref_naming_a_differently_named_sibling_still_resolves() -> None:
+    """The fix must stay narrow: normal sibling resolution is untouched."""
+    source = _source()
+    up_urn, down_urn = _urn("up"), _urn("down")
+    down = _element("down", "Downstream", [_column("d1", "x", "[Upstream/x]")])
+
+    lineages = _build(
+        source,
+        down,
+        element_dataset_urn=down_urn,
+        element_name_to_eids={"upstream": ["up"]},
+        elementId_to_dataset_urn={"up": up_urn, "down": down_urn},
+        entity_level_upstream_urns={up_urn},
+        upstream_elements=[_upstream_element("up", "Upstream", ["x"])],
+    )
+
+    assert [lineage.upstreams[0] for lineage in lineages] == [
+        builder.make_schema_field_urn(up_urn, "x")
+    ]
+    assert source.reporter.data_model_element_fgl_self_named_siblings_skipped == 0
