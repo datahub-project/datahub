@@ -9,6 +9,7 @@ import itIT from 'antd/lib/locale/it_IT';
 import jaJP from 'antd/lib/locale/ja_JP';
 import nbNO from 'antd/lib/locale/nb_NO';
 import ptBR from 'antd/lib/locale/pt_BR';
+import ruRU from 'antd/lib/locale/ru_RU';
 import svSE from 'antd/lib/locale/sv_SE';
 import zhCN from 'antd/lib/locale/zh_CN';
 
@@ -98,6 +99,13 @@ export const ZH_CN_LOCALE_CONFIG: LocaleConfig = {
     label: '简体中文',
 };
 
+export const RU_LOCALE_CONFIG: LocaleConfig = {
+    lang: 'ru',
+    antd: ruRU,
+    dayjs: 'ru',
+    label: 'Русский (Beta)',
+};
+
 export const LOCALE_MAP: Record<SupportedLanguage, LocaleConfig> = {
     en: EN_LOCALE_CONFIG,
     de: DE_LOCALE_CONFIG,
@@ -111,6 +119,7 @@ export const LOCALE_MAP: Record<SupportedLanguage, LocaleConfig> = {
     fi: FI_LOCALE_CONFIG,
     ja: JA_LOCALE_CONFIG,
     'zh-CN': ZH_CN_LOCALE_CONFIG,
+    ru: RU_LOCALE_CONFIG,
 };
 
 export const LANGUAGE_OPTIONS: SelectOption[] = [
@@ -126,6 +135,7 @@ export const LANGUAGE_OPTIONS: SelectOption[] = [
     FI_LOCALE_CONFIG,
     JA_LOCALE_CONFIG,
     ZH_CN_LOCALE_CONFIG,
+    RU_LOCALE_CONFIG,
 ].map((localeConfig) => ({
     value: localeConfig.lang,
     label: localeConfig.label,

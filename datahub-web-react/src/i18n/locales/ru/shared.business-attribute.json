@@ -1,0 +1,13 @@
+{
+    "addAttribute": "Добавить атрибут",
+    "addError": "Не удалось добавить: \n {{error}}",
+    "addSuccess": "Бизнес-атрибут добавлен!",
+    "modal.addTitle": "Добавить {{entityName}}",
+    "modal.removeTitle": "Удалить {{entityName}}",
+    "removeAttributeError": "Не удалось удалить бизнес-атрибут: \n {{error}}",
+    "removeConfirm.content": "Вы уверены, что хотите удалить атрибут {{attributeName}}?",
+    "removeConfirm.title": "Удалить атрибут {{attributeName}}?",
+    "removeError": "Не удалось удалить: \n {{error}}",
+    "removeSuccess": "Бизнес-атрибут удалён!",
+    "searchPlaceholder": "Поиск {{entityName}}..."
+}

@@ -1,0 +1,22 @@
+{
+    "addImage.altText": "Альтернативный текст",
+    "addImage.imageUrl": "URL изображения",
+    "addImage.title": "Добавить изображение",
+    "heading.heading1": "Заголовок 1",
+    "heading.heading2": "Заголовок 2",
+    "heading.heading3": "Заголовок 3",
+    "heading.heading4": "Заголовок 4",
+    "heading.heading5": "Заголовок 5",
+    "heading.normal": "Обычный",
+    "link.linkUrl": "URL ссылки",
+    "link.text": "Текст",
+    "link.title": "Добавить ссылку",
+    "mentions.failedToFindEntity": "Не удалось найти объект",
+    "table.deleteColumn": "Удалить столбец",
+    "table.deleteRow": "Удалить строку",
+    "table.deleteTable": "Удалить таблицу",
+    "table.insertColumnLeft": "Вставить столбец слева",
+    "table.insertColumnRight": "Вставить столбец справа",
+    "table.insertRowAbove": "Вставить строку выше",
+    "table.insertRowBelow": "Вставить строку ниже"
+}
