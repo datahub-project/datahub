@@ -664,6 +664,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._known_id_spaces: Dict[str, Set[str]] = {}
         # columnId -> owning Data Model elementId, filled with the above.
         self._dm_column_owner: Dict[str, str] = {}
+        # dataModelId -> urlId, to reconcile /sources with per-element /lineage.
+        self._dm_url_id_by_id: Dict[str, str] = {}
         # Distinct unresolvable heads. 24 refs resolved to 4 heads on a dev
         # tenant, so the ref count alone overstates how many distinct objects
         # are actually unaccounted for.
@@ -7101,6 +7103,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         pending = self._pending_schema_probe
         self._pending_schema_probe = []
         self._measure_schema_resolvable_refs(workbook, pending)
+        self._measure_workbook_sources(workbook, pending, workbook_dm_url_ids)
 
     def _gen_pages_workunit(
         self,
@@ -7607,6 +7610,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 for element in data_model.elements
                 for column in element.columns
             }
+            # /sources identifies a Data Model by dataModelId; per-element
+            # /lineage identifies it by urlId. Comparing what sources declares
+            # against what lineage already reached needs both.
+            self._dm_url_id_by_id = {
+                dm.dataModelId: dm.urlId
+                for dm in all_data_models
+                if dm.urlId is not None
+            }
         for workbook in self.sigma_api.get_sigma_workbooks():
             yield from self._gen_workbook_workunit(workbook)
 
@@ -7726,6 +7737,92 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     defined_in_doc=detail in sheets or detail in elements,
                 )
             self._record_schema_outcome(item, outcome, formula=formula, detail=detail)
+
+    def _measure_workbook_sources(
+        self,
+        workbook: Workbook,
+        unresolved: List["_UnresolvedChartColumn"],
+        lineage_dm_url_ids: AbstractSet[str],
+    ) -> None:
+        """What would GET /workbooks/{id}/sources explain? Measure only.
+
+        Sigma states the Data Model elements and warehouse tables a workbook
+        consumes. The connector reconstructs that from per-element ``/lineage``
+        plus display-name matching, and the name matcher was deleted as
+        unattributable -- so a DECLARED dependency is worth sizing.
+
+        Three things are recorded, and the second and third matter most when
+        the hypothesis is WRONG. The type vocabulary, because it is
+        undocumented and a resolver must handle every form. The elements
+        sources declares that ``/lineage`` never mentioned, because if that is
+        near zero then sources adds nothing and the idea dies here. And the
+        unresolved columns whose referenced column belongs to a declared
+        element, because that -- not the size of the source list -- is what a
+        resolver would actually fix.
+        """
+        # Measured for EVERY workbook, not only ones with unresolved columns.
+        # The type vocabulary and the "declared but absent from /lineage"
+        # delta are properties of the tenant, and sampling them only where the
+        # connector already fails would understate both -- the question is what
+        # this endpoint adds overall, not what it adds where we happen to
+        # struggle. 273 workbooks against ~17,000 calls in a run, so under 2%.
+        entries = self.sigma_api.get_workbook_sources(workbook.workbookId)
+        if entries is None:
+            return
+        self.reporter.workbook_sources_workbooks_read += 1
+        declared_elements: Set[str] = set()
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            entry_type = str(entry.get("type") or "unknown")
+            self.reporter.workbook_sources_entry_types[entry_type] = (
+                self.reporter.workbook_sources_entry_types.get(entry_type, 0) + 1
+            )
+            data_model_id = entry.get("dataModelId")
+            if data_model_id:
+                self.reporter.workbook_sources_data_model_entries += 1
+                element_ids = entry.get("elementIds")
+                if isinstance(element_ids, list):
+                    declared_elements.update(str(e) for e in element_ids)
+                    self.reporter.workbook_sources_dm_elements_declared += len(
+                        element_ids
+                    )
+                    # A DM this workbook's own lineage never reached: the
+                    # whole case for this endpoint rests on this being > 0.
+                    url_id = self._dm_url_id_by_id.get(str(data_model_id))
+                    if url_id is not None and url_id not in lineage_dm_url_ids:
+                        self.reporter.workbook_sources_dm_elements_new_vs_lineage += (
+                            len(element_ids)
+                        )
+            elif entry.get("inodeId"):
+                self.reporter.workbook_sources_warehouse_entries += 1
+        for item in unresolved:
+            owner = self._dm_column_owner.get(item.column_id)
+            if owner is None:
+                outcome = "column_owner_unknown"
+                self.reporter.chart_ref_sources_column_owner_unknown += 1
+            elif owner in declared_elements:
+                outcome = "explains"
+                self.reporter.chart_ref_sources_explains += 1
+                for reason in item.reasons or {"none_recorded"}:
+                    self.reporter.chart_ref_sources_explains_by_reason[reason] = (
+                        self.reporter.chart_ref_sources_explains_by_reason.get(
+                            reason, 0
+                        )
+                        + 1
+                    )
+                self.reporter.chart_ref_sources_samples.append(
+                    f"{item.element_id}.{item.column}: columnId={item.column_id} "
+                    f"owner={owner} reasons={sorted(item.reasons)}"
+                )
+            else:
+                outcome = "owner_not_declared"
+                self.reporter.chart_ref_sources_owner_not_declared += 1
+            for reason in item.reasons or {"none_recorded"}:
+                key = f"{outcome}::{reason}"
+                self.reporter.chart_ref_sources_outcomes_by_reason[key] = (
+                    self.reporter.chart_ref_sources_outcomes_by_reason.get(key, 0) + 1
+                )
 
     def _describe_unknown_head(
         self,

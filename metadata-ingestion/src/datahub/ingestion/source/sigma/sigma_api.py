@@ -1037,6 +1037,40 @@ class SigmaAPI:
             return None
         return payload if isinstance(payload, dict) else None
 
+    def get_workbook_sources(self, workbook_id: str) -> Optional[List[Dict[str, Any]]]:
+        """GET /workbooks/{id}/sources -- what the workbook consumes, by id.
+
+        Returns a bare LIST (not the usual ``{"entries": [...]}`` envelope) of
+        typed entries::
+
+            {"type": ..., "inodeId": "<urlId>"}                warehouse table
+            {"type": ..., "dataModelId": ..., "elementIds": []} Data Model
+
+        This is a DECLARED dependency: the Data Model form names the specific
+        elements the workbook consumes, which the connector currently has to
+        reconstruct from per-element ``/lineage`` plus display-name matching.
+        Used only to MEASURE what it would explain -- see
+        _measure_workbook_sources. Never fatal.
+        """
+        try:
+            response = self._get_api_call(
+                f"{self.config.api_url}/workbooks/{workbook_id}/sources"
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except Exception:
+            self._log_http_error(
+                message=f"Unable to fetch sources for workbook {workbook_id}.",
+                report_warning=False,
+            )
+            self.report.workbook_sources_fetch_failed += 1
+            return None
+        # Documented as a list, but an envelope would silently read as empty.
+        if isinstance(payload, dict):
+            entries = payload.get("entries")
+            return entries if isinstance(entries, list) else None
+        return payload if isinstance(payload, list) else None
+
     def get_workbook_column_formulas(
         self, workbook_id: str
     ) -> Tuple[Dict[str, Dict[str, Optional[str]]], Dict[str, Dict[str, str]]]:

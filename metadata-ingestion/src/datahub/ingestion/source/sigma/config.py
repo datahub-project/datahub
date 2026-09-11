@@ -570,6 +570,43 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # are unaccounted for -- and a handful of heavily shared heads is a very
     # different problem from thousands of one-off ones.
     chart_ref_schema_unknown_head_distinct: int = 0
+
+    # --- GET /workbooks/{id}/sources, measurement only -----------------------
+    # Sigma states which Data Model elements and warehouse tables a workbook
+    # consumes. The connector reconstructs that today from per-element
+    # /lineage plus name matching, which is where most unresolved chart
+    # columns come from -- so the question is how much of the gap a DECLARED
+    # dependency closes. Measured before building anything on it, the same way
+    # /schema was, because the last resolver built on an estimate produced
+    # 1,106 edges and was deleted.
+    workbook_sources_fetch_failed: int = 0
+    workbook_sources_workbooks_read: int = 0
+    # The "type" vocabulary, which is undocumented. Reading it off a real
+    # tenant is the only way to know which forms a resolver must handle --
+    # the observed values are "table" and "data-model", and the hyphen is a
+    # reminder that this was guessed wrong before it was measured. Nothing
+    # branches on the string (the entry shape is keyed on dataModelId /
+    # inodeId), precisely so an unseen value cannot silently drop an entry.
+    workbook_sources_entry_types: Dict[str, int] = field(default_factory=dict)
+    workbook_sources_data_model_entries: int = 0
+    workbook_sources_warehouse_entries: int = 0
+    # Data Model elements sources DECLARES that the workbook's own /lineage
+    # never mentioned. This is the recovered set: if it is ~0 then sources
+    # says nothing /lineage did not, and there is nothing here to build on.
+    workbook_sources_dm_elements_declared: int = 0
+    workbook_sources_dm_elements_new_vs_lineage: int = 0
+    # Unresolved chart columns whose referenced column is owned by a Data
+    # Model element that sources declares for this workbook -- the columns
+    # this endpoint would actually explain, which is the number that decides
+    # whether a resolver is worth building.
+    chart_ref_sources_explains: int = 0
+    chart_ref_sources_owner_not_declared: int = 0
+    chart_ref_sources_column_owner_unknown: int = 0
+    # Split by the cause the column was already filed under, so a single total
+    # cannot be read as closing whichever gap the reader hoped for.
+    chart_ref_sources_explains_by_reason: Dict[str, int] = field(default_factory=dict)
+    chart_ref_sources_outcomes_by_reason: Dict[str, int] = field(default_factory=dict)
+    chart_ref_sources_samples: LossyList[str] = field(default_factory=LossyList)
     # The endpoint has the column but its formula contains no reference at all.
     chart_ref_schema_no_refs: int = 0
     # /schema has no entry for that columnId -- the two endpoints disagree about

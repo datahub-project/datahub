@@ -6,7 +6,7 @@ Cases cover probe-derived chart formulas and resolver behavior.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -103,6 +103,7 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source._pending_schema_probe = []
     source._known_id_spaces = {}
     source._dm_column_owner = {}
+    source._dm_url_id_by_id = {}
     source._unknown_head_ids = set()
     return source
 
@@ -1784,3 +1785,139 @@ class TestFetchFailureIsNotReportedAsMissingFormula:
         # Still one column in the fallback bucket either way: the split is a
         # sub-category, so the per-element invariant is unchanged.
         assert self.src.reporter.chart_input_fields_self_ref_fallback == 1
+
+
+class TestWorkbookSourcesMeasurement:
+    """What GET /workbooks/{id}/sources would explain, measured before built.
+
+    The counters that matter are the ones read when the hypothesis is WRONG:
+    a declared-element set that /lineage already covered means the endpoint
+    adds nothing, and that has to be legible directly rather than inferred
+    from a small "explains" number.
+    """
+
+    def _measure(
+        self,
+        entries: Any,
+        *,
+        column_owner: Optional[Dict[str, str]] = None,
+        lineage_dm_url_ids: FrozenSet[str] = frozenset(),
+        url_id_by_id: Optional[Dict[str, str]] = None,
+    ) -> SigmaSource:
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src._dm_column_owner = column_owner or {}
+        src._dm_url_id_by_id = url_id_by_id or {}
+        src.sigma_api = MagicMock()
+        src.sigma_api.get_workbook_sources.return_value = entries
+        src._measure_workbook_sources(
+            _make_workbook_with_elements([[_make_element("e1", "El")]]),
+            [
+                _UnresolvedChartColumn(
+                    element_id="e1",
+                    column="Col",
+                    column_id="colB",
+                    reasons=frozenset({"some_reason"}),
+                )
+            ],
+            lineage_dm_url_ids,
+        )
+        return src
+
+    def test_a_declared_element_owning_the_column_is_counted_as_explained(
+        self,
+    ) -> None:
+        src = self._measure(
+            [{"type": "data-model", "dataModelId": "dm1", "elementIds": ["ownerEl"]}],
+            column_owner={"colB": "ownerEl"},
+        )
+
+        assert src.reporter.chart_ref_sources_explains == 1
+        assert src.reporter.chart_ref_sources_explains_by_reason == {"some_reason": 1}
+        assert src.reporter.chart_ref_sources_outcomes_by_reason == {
+            "explains::some_reason": 1
+        }
+
+    def test_a_source_list_lineage_already_covered_reports_nothing_new(self) -> None:
+        """The case that kills the idea, and it must be legible as such.
+
+        sources declaring only Data Models the workbook's own lineage already
+        reached states nothing new, however many entries it returns.
+        """
+        src = self._measure(
+            [{"type": "data-model", "dataModelId": "dm1", "elementIds": ["a", "b"]}],
+            lineage_dm_url_ids=frozenset({"dm1-url"}),
+            url_id_by_id={"dm1": "dm1-url"},
+        )
+
+        assert src.reporter.workbook_sources_dm_elements_declared == 2
+        assert src.reporter.workbook_sources_dm_elements_new_vs_lineage == 0
+
+    def test_an_element_absent_from_lineage_is_the_recovered_set(self) -> None:
+        src = self._measure(
+            [{"type": "data-model", "dataModelId": "dm1", "elementIds": ["a", "b"]}],
+            lineage_dm_url_ids=frozenset({"other-url"}),
+            url_id_by_id={"dm1": "dm1-url"},
+        )
+
+        assert src.reporter.workbook_sources_dm_elements_new_vs_lineage == 2
+
+    def test_the_undocumented_type_vocabulary_is_recorded(self) -> None:
+        src = self._measure(
+            [
+                {"type": "data-model", "dataModelId": "dm1", "elementIds": []},
+                {"type": "table", "inodeId": "inode-abc"},
+            ]
+        )
+
+        assert src.reporter.workbook_sources_entry_types == {
+            "data-model": 1,
+            "table": 1,
+        }
+        assert src.reporter.workbook_sources_warehouse_entries == 1
+
+    def test_a_failed_fetch_measures_nothing_and_never_raises(self) -> None:
+        src = self._measure(None)
+
+        assert src.reporter.workbook_sources_workbooks_read == 0
+        assert src.reporter.chart_ref_sources_explains == 0
+        assert src.reporter.chart_ref_sources_owner_not_declared == 0
+
+    def test_a_column_with_no_known_owner_is_not_read_as_undeclared(self) -> None:
+        """ "Owner unknown" and "owner not declared" are different findings.
+
+        Pooling them would let a gap in the Data Model column universe read as
+        evidence against the endpoint.
+        """
+        src = self._measure(
+            [{"type": "data-model", "dataModelId": "dm1", "elementIds": ["ownerEl"]}]
+        )
+
+        assert src.reporter.chart_ref_sources_column_owner_unknown == 1
+        assert src.reporter.chart_ref_sources_owner_not_declared == 0
+
+    def test_a_workbook_with_no_unresolved_columns_still_measures_its_sources(
+        self,
+    ) -> None:
+        """The vocabulary and the lineage delta are tenant properties.
+
+        Sampling them only where the connector already fails would understate
+        both and answer a narrower question than the one being asked.
+        """
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src._dm_column_owner = {}
+        src._dm_url_id_by_id = {"dm1": "dm1-url"}
+        src.sigma_api = MagicMock()
+        src.sigma_api.get_workbook_sources.return_value = [
+            {"type": "data-model", "dataModelId": "dm1", "elementIds": ["a"]}
+        ]
+
+        src._measure_workbook_sources(
+            _make_workbook_with_elements([[_make_element("e1", "El")]]),
+            [],
+            frozenset(),
+        )
+
+        assert src.reporter.workbook_sources_workbooks_read == 1
+        assert src.reporter.workbook_sources_dm_elements_new_vs_lineage == 1
