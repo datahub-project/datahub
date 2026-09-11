@@ -1,7 +1,7 @@
 [
   {
     "request": {
-      "url": "/openapi/v3/entity/datajob/urn%3Ali%3AdataJob%3A%28urn%3Ali%3AdataFlow%3A%28airflow%2Csmoke_ol_jobevent%2Csmoke_ol_ns%29%2Csmoke_ol_jobevent%29",
+      "url": "/openapi/v3/entity/datajob/urn%3Ali%3AdataJob%3A%28urn%3Ali%3AdataFlow%3A%28spark%2Csmoke_ol_jobevent%2Csmoke_ol_ns%29%2Csmoke_ol_jobevent%29",
       "method": "delete",
       "description": "Clean slate for the JobEvent DataJob"
     },
@@ -17,7 +17,7 @@
   },
   {
     "request": {
-      "url": "/openapi/v3/entity/dataflow/urn%3Ali%3AdataFlow%3A%28airflow%2Csmoke_ol_jobevent%2Csmoke_ol_ns%29",
+      "url": "/openapi/v3/entity/dataflow/urn%3Ali%3AdataFlow%3A%28spark%2Csmoke_ol_jobevent%2Csmoke_ol_ns%29",
       "method": "delete",
       "description": "Clean slate for the JobEvent DataFlow"
     },
@@ -123,12 +123,12 @@
   },
   {
     "request": {
-      "url": "/openapi/v3/entity/datajob/urn%3Ali%3AdataJob%3A%28urn%3Ali%3AdataFlow%3A%28airflow%2Csmoke_ol_jobevent%2Csmoke_ol_ns%29%2Csmoke_ol_jobevent%29",
+      "url": "/openapi/v3/entity/datajob/urn%3Ali%3AdataJob%3A%28urn%3Ali%3AdataFlow%3A%28spark%2Csmoke_ol_jobevent%2Csmoke_ol_ns%29%2Csmoke_ol_jobevent%29",
       "method": "get",
       "params": {
         "aspects": "dataJobInputOutput"
       },
-      "description": "The JobEvent produced lineage edges without a run"
+      "description": "The JobEvent produced lineage edges without a run, under the orchestrator its jobType.integration names rather than the one its producer URI implies"
     },
     "response": {
       "status_codes": [
@@ -138,7 +138,7 @@
         "root\\['dataJobInputOutput'\\]\\['value'\\]\\['(input|output)DatasetEdges'\\]\\[\\d+\\]\\['(created|lastModified)'\\]"
       ],
       "json": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,smoke_ol_jobevent,smoke_ol_ns),smoke_ol_jobevent)",
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(spark,smoke_ol_jobevent,smoke_ol_ns),smoke_ol_jobevent)",
         "dataJobInputOutput": {
           "value": {
             "inputDatajobs": [],
