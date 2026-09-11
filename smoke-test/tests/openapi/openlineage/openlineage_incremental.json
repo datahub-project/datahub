@@ -1,0 +1,122 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v3/entity/datajob/urn%3Ali%3AdataJob%3A%28urn%3Ali%3AdataFlow%3A%28airflow%2Csmoke_ol_incremental%2Csmoke_ol_ns%29%2Csmoke_ol_incremental%29",
+      "method": "delete",
+      "description": "Remove the DataJob so the run starts from a clean slate"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataflow/urn%3Ali%3AdataFlow%3A%28airflow%2Csmoke_ol_incremental%2Csmoke_ol_ns%29",
+      "method": "delete",
+      "description": "Remove the DataFlow"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/openlineage/api/v1/lineage",
+      "description": "START declares only the input",
+      "json": {
+        "eventType": "START",
+        "eventTime": "2024-06-01T12:00:00.000Z",
+        "run": {
+          "runId": "a0000000-0000-4000-8000-00000000c0de"
+        },
+        "job": {
+          "namespace": "smoke_ol_ns",
+          "name": "smoke_ol_incremental"
+        },
+        "inputs": [
+          {
+            "namespace": "postgres://my-host:5432",
+            "name": "my_db.my_schema.smoke_ol_src"
+          }
+        ],
+        "producer": "https://github.com/apache/airflow/tree/1.0.0"
+      }
+    },
+    "response": {
+      "status_codes": [
+        201
+      ]
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/openlineage/api/v1/lineage",
+      "description": "COMPLETE declares only the output",
+      "json": {
+        "eventType": "COMPLETE",
+        "eventTime": "2024-06-01T12:05:00.000Z",
+        "run": {
+          "runId": "a0000000-0000-4000-8000-00000000c0de"
+        },
+        "job": {
+          "namespace": "smoke_ol_ns",
+          "name": "smoke_ol_incremental"
+        },
+        "outputs": [
+          {
+            "namespace": "postgres://my-host:5432",
+            "name": "my_db.my_schema.smoke_ol_dst"
+          }
+        ],
+        "producer": "https://github.com/apache/airflow/tree/1.0.0"
+      }
+    },
+    "response": {
+      "status_codes": [
+        201
+      ]
+    }
+  },
+  {
+    "request": {
+      "wait": true,
+      "description": "Let the async write land"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/datajob/urn%3Ali%3AdataJob%3A%28urn%3Ali%3AdataFlow%3A%28airflow%2Csmoke_ol_incremental%2Csmoke_ol_ns%29%2Csmoke_ol_incremental%29",
+      "method": "get",
+      "params": {
+        "aspects": "dataJobInputOutput"
+      },
+      "description": "The input from START must survive the COMPLETE event"
+    },
+    "response": {
+      "status_codes": [
+        200
+      ],
+      "exclude_regex_paths": [
+        "root\\['dataJobInputOutput'\\]\\['value'\\]\\['(input|output)DatasetEdges'\\]\\[\\d+\\]\\['(created|lastModified)'\\]"
+      ],
+      "json": {
+        "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,smoke_ol_incremental,smoke_ol_ns),smoke_ol_incremental)",
+        "dataJobInputOutput": {
+          "value": {
+            "inputDatajobs": [],
+            "inputDatajobEdges": [],
+            "inputDatasets": [],
+            "inputDatasetFields": [],
+            "outputDatasets": [],
+            "outputDatasetFields": [],
+            "fineGrainedLineages": [],
+            "inputDatasetEdges": [
+              {
+                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.smoke_ol_src,PROD)"
+              }
+            ],
+            "outputDatasetEdges": [
+              {
+                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.smoke_ol_dst,PROD)"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+]
