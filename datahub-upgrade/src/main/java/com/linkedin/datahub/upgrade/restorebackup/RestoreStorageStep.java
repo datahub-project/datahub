@@ -118,10 +118,10 @@ public class RestoreStorageStep implements UpgradeStep {
                 + ", need to implement proper constructor.");
       }
       EbeanAspectBackupIterator<? extends ReaderWrapper> iterator = null;
+      List<Future<?>> futureList = new ArrayList<>();
       try {
         iterator = backupReader.getBackupIterator(context);
         ReaderWrapper reader;
-        List<Future<?>> futureList = new ArrayList<>();
         while ((reader = iterator.getNextReader()) != null) {
           final ReaderWrapper readerRef = reader;
           futureList.add(_fileReaderThreadPool.submit(() -> readerExecutable(readerRef, context)));
@@ -138,6 +138,14 @@ public class RestoreStorageStep implements UpgradeStep {
         context.report().addLine(String.format("Added %d rows to the aspect v2 table", numRows));
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } finally {
+        // Wait for remaining file-reader tasks before closing wrappers they still hold.
+        for (Future<?> future : futureList) {
+          try {
+            future.get();
+          } catch (Exception ignored) {
+            // First failure already reported; drain so close is not concurrent with next().
+          }
+        }
         if (iterator != null) {
           try {
             iterator.close();
