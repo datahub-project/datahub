@@ -101,6 +101,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(GMS / AWS IRSA)** GMS owns a single process-wide `DefaultCredentialsProvider` constructed with `builder().build()` (not deprecated `create()`) and closed on shutdown. The AWS JDBC wrapper IAM plugin is bound to that provider (`AwsCredentialsManager.setCustomHandler`) so MySQL IAM token minting does not allocate a new default chain per reconnect. The wrapper is pinned to **4.4.0** (`wrapperPlugins=iam` only; MySQL/Postgres drivers unchanged). Iceberg warehouse credential vending reuses a shared or warehouse-scoped `StsClient` instead of building a new client per vend. AWS SDK Java v2 is pinned to **2.54.16**. On EKS IRSA, live `StsAssumeRoleWithWebIdentityCredentialsProvider` counts should stay near-flat (`jcmd <pid> GC.class_histogram`); growth of ~1.5k/hour was a credential-chain leak. **Action:** none; canary is histogram count, not RSS.
+
 - **(GMS / Java services)** Spring Framework **7.0.9**, Spring Boot **4.0.8**, and Spring Security **7.0.7** (current 7.0 / 4.0 patches). The temporary JDK 25 ClassFile-reader classpath shim is removed; the OOM fix shipped upstream in 7.0.9. **Action:** none for operators; rebuild/redeploy picks up the new JARs. Custom GMS plugins compiled against 7.0.8 remain binary-compatible.
 
 - **(View authorization)** `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD` and

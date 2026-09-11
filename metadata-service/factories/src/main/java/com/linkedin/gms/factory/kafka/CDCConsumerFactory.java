@@ -68,6 +68,7 @@ public class CDCConsumerFactory {
     customizedProperties.put(
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
         kafkaConfiguration.getConsumer().getMaxPartitionFetchBytes());
+    KafkaMskIamAuth.disableDebugCallerIdentity(customizedProperties);
 
     // customizedProperties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
     // Create factory using GenericRecord typing to match ThreadPoolContainerCustomizer
