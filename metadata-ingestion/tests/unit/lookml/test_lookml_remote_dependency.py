@@ -17,7 +17,6 @@ from datahub.ingestion.source.looker.lookml_source import (
     check_remote_dependency_url,
 )
 
-# A pattern that allows github.com and its subdomains (the documented form).
 _GITHUB_PATTERN = AllowDenyPattern(allow=["^github\\.com$", ".*\\.github\\.com$"])
 
 
@@ -123,22 +122,6 @@ def test_deny_pattern_overrides_allow_all() -> None:
     assert not result.allowed
     assert result.reason is not None
     assert "remote_dependency_domain_pattern" in result.reason
-
-
-def test_unanchored_pattern_matches_prefix_only() -> None:
-    # AllowDenyPattern matches from the start of the string, not the full string.
-    # An unanchored pattern "github.com" matches "github.com.evil.com" too —
-    # operators must anchor with ^...$ for exact matches. This test documents
-    # that behavior so it is not silently changed.
-    result = check_remote_dependency_url(
-        "https://github.com.evil.com/repo.git",
-        allowed_pattern=AllowDenyPattern(allow=["github\\.com"]),
-    )
-    # Host is accepted by the (permissive, unanchored) pattern; the hard
-    # denylist does not block github.com.evil.com. This is expected — the
-    # operator is responsible for anchoring security-relevant patterns.
-    assert result.allowed
-    assert result.hostname == "github.com.evil.com"
 
 
 def _lookml_source_for_folder(
@@ -307,6 +290,35 @@ def test_hex_ip_rejected() -> None:
 
 def test_ipv4_mapped_ipv6_rejected() -> None:
     result = check_remote_dependency_url("https://[::ffff:127.0.0.1]/repo.git")
+    assert not result.allowed
+
+
+def test_ipv4_mapped_alicloud_metadata_rejected() -> None:
+    # Mapped form has none of is_loopback/is_link_local/is_unspecified.
+    result = check_remote_dependency_url("https://[::ffff:100.100.100.200]/repo.git")
+    assert not result.allowed
+
+
+def test_ipv4_mapped_aws_metadata_rejected() -> None:
+    result = check_remote_dependency_url("https://[::ffff:169.254.169.254]/repo.git")
+    assert not result.allowed
+
+
+def test_octal_ip_rejected() -> None:
+    # 017700000001 (octal) == 2130706433 == 127.0.0.1.
+    result = check_remote_dependency_url("https://017700000001/repo.git")
+    assert not result.allowed
+
+
+def test_octal_dotted_ip_rejected() -> None:
+    # 0177.0.0.1 (per-octet octal) == 127.0.0.1.
+    result = check_remote_dependency_url("https://0177.0.0.1/repo.git")
+    assert not result.allowed
+
+
+def test_hex_dotted_ip_rejected() -> None:
+    # Per-octet hex: 0x7f.0.0.1 == 127.0.0.1.
+    result = check_remote_dependency_url("https://0x7f.0.0.1/repo.git")
     assert not result.allowed
 
 

@@ -279,7 +279,6 @@ _BLOCKED_GIT_HOSTNAMES = frozenset(
         "metadata.goog",
     }
 )
-# Loopback and cloud-metadata endpoints that must never be a clone target.
 _BLOCKED_GIT_IPS = frozenset(
     {
         ipaddress.ip_address("127.0.0.1"),
@@ -322,19 +321,44 @@ def _parse_ip(
     except ValueError:
         pass
     if normalized.startswith("::ffff:"):
-        return _parse_ipv4_alternative(normalized[len("::ffff:") :])
-    return _parse_ipv4_alternative(normalized)
+        return _parse_ipv4_loose(normalized[len("::ffff:") :])
+    return _parse_ipv4_loose(normalized)
 
 
-def _parse_ipv4_alternative(s: str) -> Optional[ipaddress.IPv4Address]:
+def _parse_int_with_prefix(s: str) -> Optional[int]:
+    """Parse an integer as decimal, octal (leading 0), or hex (leading 0x),
+    matching inet_aton/libcurl per-octet semantics."""
+    if not s:
+        return None
     try:
-        n: Optional[int] = None
+        if s.lower().startswith("0x"):
+            return int(s, 16)
+        if len(s) > 1 and s.startswith("0") and s.isdigit():
+            return int(s, 8)
         if s.isdigit():
-            n = int(s)  # decimal, e.g. 2130706433
-        elif s.lower().startswith("0x"):
-            n = int(s, 16)  # hex, e.g. 0x7f000001
-        elif len(s) > 1 and s.startswith("0") and s.isdigit():
-            n = int(s, 8)  # octal, e.g. 017700000001
+            return int(s)
+    except ValueError:
+        return None
+    return None
+
+
+def _parse_ipv4_loose(s: str) -> Optional[ipaddress.IPv4Address]:
+    """Parse inet_aton-style IPv4 forms libcurl/git accept but
+    ``ipaddress.ip_address`` rejects: per-octet octal/hex (``0177.0.0.1``)
+    and single-integer decimal/octal/hex (``2130706433``)."""
+    try:
+        if "." in s:
+            parts = s.split(".")
+            if len(parts) != 4:
+                return None
+            octets = []
+            for part in parts:
+                n = _parse_int_with_prefix(part)
+                if n is None or n > 0xFF:
+                    return None
+                octets.append(n)
+            return ipaddress.IPv4Address(bytes(octets))
+        n = _parse_int_with_prefix(s)
         if n is not None and 0 <= n < 2**32:
             return ipaddress.IPv4Address(n)
     except (ValueError, ipaddress.AddressValueError):
@@ -368,6 +392,10 @@ def _hostname_from_git_url(url: str) -> Optional[str]:
 
 
 def _is_blocked_ip(ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> bool:
+    # Unwrap IPv4-mapped IPv6 so literal blocked IPs (e.g. AliCloud 100.100.100.200)
+    # are caught; is_loopback/is_link_local don't flag their mapped forms.
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
     if ip in _BLOCKED_GIT_IPS:
         return True
     return bool(
