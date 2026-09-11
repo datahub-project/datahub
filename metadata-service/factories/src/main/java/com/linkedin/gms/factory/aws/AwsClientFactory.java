@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.aws;
 
+import com.linkedin.gms.factory.common.CrossCloudIamUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.ObjectStorageConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -53,6 +54,13 @@ public class AwsClientFactory {
 
   @Value("${ebean.postgresUseIamAuth:false}")
   private boolean ebeanPostgresUseIamAuth;
+
+  @Value("${ebean.cloudProvider:auto}")
+  private String ebeanCloudProvider = "auto";
+
+  @Value("${ebean.url:#{null}}")
+  @Nullable
+  private String ebeanDatasourceUrl;
 
   @Nullable private DefaultCredentialsProvider defaultCredentialsProvider;
   @Nullable private StsAssumeRoleCredentialsProvider objectStorageRoleCredentialsProvider;
@@ -311,9 +319,54 @@ public class AwsClientFactory {
     return isObjectStorageRoleArnConfigured(configurationProvider);
   }
 
-  /** True when Ebean/Postgres JDBC uses AWS IAM token authentication. */
+  /**
+   * True when Ebean/Postgres JDBC uses AWS IAM token authentication on AWS.
+   *
+   * <p>{@code ebean.useIamAuth} is cross-cloud (GCP Cloud SQL uses it too). Do not construct an AWS
+   * credential chain for GCP or traditional / on-prem databases.
+   */
   boolean isEbeanIamAuthConfigured() {
-    return ebeanUseIamAuth || ebeanPostgresUseIamAuth;
+    if (!ebeanUseIamAuth && !ebeanPostgresUseIamAuth) {
+      return false;
+    }
+    return isAwsCloudForEbean();
+  }
+
+  /**
+   * Explicit {@code ebean.cloudProvider} wins. In {@code auto}, reuse {@link
+   * CrossCloudIamUtils#detectCloudProvider} and treat IRSA (web-identity token file) as AWS so EKS
+   * without {@code AWS_REGION} still shares one credential chain.
+   */
+  boolean isAwsCloudForEbean() {
+    if (ebeanCloudProvider != null
+        && !ebeanCloudProvider.isBlank()
+        && !"auto".equalsIgnoreCase(ebeanCloudProvider)) {
+      return "aws".equalsIgnoreCase(ebeanCloudProvider);
+    }
+    String detected =
+        CrossCloudIamUtils.detectCloudProvider(
+            ebeanDatasourceUrl,
+            "auto",
+            envOrProperty("AWS_REGION"),
+            envOrProperty("AWS_ACCESS_KEY_ID"),
+            envOrProperty("AWS_SECRET_ACCESS_KEY"),
+            envOrProperty("AWS_SESSION_TOKEN"),
+            envOrProperty("GOOGLE_APPLICATION_CREDENTIALS"),
+            envOrProperty("GCP_PROJECT"),
+            envOrProperty("INSTANCE_CONNECTION_NAME"));
+    if ("aws".equalsIgnoreCase(detected)) {
+      return true;
+    }
+    return hasIrsaWebIdentity();
+  }
+
+  private static boolean hasIrsaWebIdentity() {
+    String tokenFile = envOrProperty("AWS_WEB_IDENTITY_TOKEN_FILE");
+    if (tokenFile != null && !tokenFile.isEmpty()) {
+      return true;
+    }
+    String tokenFileProp = System.getProperty("aws.webIdentityTokenFile");
+    return tokenFileProp != null && !tokenFileProp.isEmpty();
   }
 
   boolean isAwsCredentialsRequired() {

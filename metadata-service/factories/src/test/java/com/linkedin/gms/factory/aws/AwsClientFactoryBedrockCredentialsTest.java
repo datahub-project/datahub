@@ -49,6 +49,7 @@ public class AwsClientFactoryBedrockCredentialsTest {
     System.clearProperty("AWS_REGION");
     System.clearProperty("AWS_ENDPOINT_URL");
     System.clearProperty("aws.region");
+    System.clearProperty("aws.webIdentityTokenFile");
     if (mocks != null) {
       mocks.close();
     }
@@ -90,9 +91,10 @@ public class AwsClientFactoryBedrockCredentialsTest {
   }
 
   @Test
-  public void ebeanIamAuthRequiresSharedCredentialsEvenWithoutPodRegion() {
+  public void ebeanIamAuthOnAwsRequiresSharedCredentialsEvenWithoutPodRegion() {
     when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
     ReflectionTestUtils.setField(awsClientFactory, "ebeanUseIamAuth", true);
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanCloudProvider", "aws");
 
     assertTrue(awsClientFactory.isEbeanIamAuthConfigured());
     assertTrue(awsClientFactory.isAwsCredentialsRequired());
@@ -102,12 +104,48 @@ public class AwsClientFactoryBedrockCredentialsTest {
   }
 
   @Test
-  public void ebeanPostgresIamAuthRequiresSharedCredentialsEvenWithoutPodRegion() {
+  public void ebeanPostgresIamAuthOnAwsRequiresSharedCredentialsEvenWithoutPodRegion() {
     when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
     ReflectionTestUtils.setField(awsClientFactory, "ebeanPostgresUseIamAuth", true);
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanCloudProvider", "aws");
 
     assertTrue(awsClientFactory.isEbeanIamAuthConfigured());
     assertTrue(awsClientFactory.isAwsCredentialsRequired());
+  }
+
+  @Test
+  public void ebeanIamAuthOnGcpDoesNotRequireAwsCredentials() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanUseIamAuth", true);
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanCloudProvider", "gcp");
+
+    assertFalse(awsClientFactory.isAwsCloudForEbean());
+    assertFalse(awsClientFactory.isEbeanIamAuthConfigured());
+  }
+
+  @Test
+  public void ebeanIamAuthWithoutCloudDoesNotRequireAwsCredentials() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanUseIamAuth", true);
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanCloudProvider", "traditional");
+
+    assertFalse(awsClientFactory.isAwsCloudForEbean());
+    assertFalse(awsClientFactory.isEbeanIamAuthConfigured());
+  }
+
+  @Test
+  public void ebeanIamAuthWithIrsaDoesNotRequirePodRegion() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanUseIamAuth", true);
+    ReflectionTestUtils.setField(awsClientFactory, "ebeanCloudProvider", "auto");
+    System.setProperty("aws.webIdentityTokenFile", "/var/run/secrets/eks/token");
+
+    try {
+      assertTrue(awsClientFactory.isEbeanIamAuthConfigured());
+      assertTrue(awsClientFactory.isAwsCredentialsRequired());
+    } finally {
+      System.clearProperty("aws.webIdentityTokenFile");
+    }
   }
 
   @Test

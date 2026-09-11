@@ -12,7 +12,7 @@ import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 import software.amazon.awssdk.services.sts.model.Credentials;
 
-public class S3CredentialProviderHistogramTest {
+public class S3CredentialProviderSharedStsClientTest {
 
   @Test
   public void repeatedVendingWithSharedStsClientDoesNotCloseInjectedClient() {
