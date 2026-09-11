@@ -38,7 +38,7 @@ public final class EnrichmentBundle {
     }
     final Map<Class<? extends Enrichment>, Enrichment> map = new LinkedHashMap<>();
     for (Enrichment enrichment : enrichments) {
-      map.put(enrichment.getClass(), enrichment);
+      map.put(enrichment.enrichmentType(), enrichment);
     }
     return new EnrichmentBundle(map);
   }
@@ -49,8 +49,9 @@ public final class EnrichmentBundle {
   }
 
   /**
-   * Return the enrichment stored under {@code type} (i.e. the enrichment whose concrete class is
-   * exactly {@code type}), or empty if no such enrichment is present. No subclass lookup.
+   * Return the enrichment stored under {@code type} (i.e. the enrichment whose {@link
+   * Enrichment#enrichmentType()} is exactly {@code type}), or empty if no such enrichment is
+   * present. No subclass lookup.
    */
   @Nonnull
   public <T extends Enrichment> Optional<T> get(@Nonnull final Class<T> type) {
@@ -107,12 +108,12 @@ public final class EnrichmentBundle {
     private Builder() {}
 
     /**
-     * Add {@code enrichment}, replacing any prior value stored under the same concrete class.
-     * Returns {@code this} for chaining.
+     * Add {@code enrichment}, replacing any prior value stored under the same key. Returns {@code
+     * this} for chaining.
      */
     @Nonnull
     public Builder add(@Nonnull final Enrichment enrichment) {
-      byType.put(enrichment.getClass(), enrichment);
+      byType.put(enrichment.enrichmentType(), enrichment);
       return this;
     }
 
