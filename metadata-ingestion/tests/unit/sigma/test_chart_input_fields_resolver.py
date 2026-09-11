@@ -2255,39 +2255,47 @@ class TestSchemaCrossSheetResolver:
         assert got is None
 
 
-class TestSchemaInputFieldRecovery:
-    """The emitting half: a self-reference replaced by the edge /schema states."""
+class TestSchemaTakesPrecedenceOverNameMatching:
+    """/schema states upstreams by ID, so it gets first refusal.
+
+    The name path matches a DISPLAY NAME, and names repeat across elements --
+    the reason name matching was built and deleted once already. These pin the
+    three comparison outcomes, because the precedence was justified on 609
+    columns from a 7-workbook tenant and governs ~437,000 on the customer's.
+    """
+
+    _DOWN = "urn:li:chart:(sigma,downEl)"
+    _UP = "urn:li:chart:(sigma,upEl)"
 
     def _run(
         self,
         *,
         formula: Any,
+        current_urn: Optional[str] = None,
         elements: Optional[Dict[str, Any]] = None,
+        schema_present: bool = True,
     ) -> Tuple[List[Any], SigmaSource, Dict[str, List[InputFieldClass]]]:
         src = _make_source()
         src.reporter = SigmaSourceReport()
-        down_urn = "urn:li:chart:(sigma,downEl)"
-        up_urn = "urn:li:chart:(sigma,upEl)"
-        # What the name-based pass emitted: a self-reference for the failed
-        # column, and an unrelated field that must survive the re-emit.
-        fields_by_chart_urn = {
-            down_urn: [
+        # "Amount" is the column under test; "Other" must survive the re-emit.
+        fields = {
+            self._DOWN: [
                 InputFieldClass(
-                    schemaFieldUrn=builder.make_schema_field_urn(down_urn, "Amount"),
+                    schemaFieldUrn=current_urn
+                    or builder.make_schema_field_urn(self._DOWN, "Amount"),
                     schemaField=src._make_string_schema_field("Amount"),
                 ),
                 InputFieldClass(
-                    schemaFieldUrn=builder.make_schema_field_urn(down_urn, "Other"),
+                    schemaFieldUrn=builder.make_schema_field_urn(self._DOWN, "Other"),
                     schemaField=src._make_string_schema_field("Other"),
                 ),
             ],
-            up_urn: [
-                InputFieldClass(
-                    schemaFieldUrn=builder.make_schema_field_urn(up_urn, "Amount"),
-                    schemaField=src._make_string_schema_field("Amount"),
-                )
-            ],
+            self._UP: [],
         }
+        up = _make_element("upEl", "Up", columns=["Amount"])
+        up.column_id_by_name = {"Amount": "upAmount"}
+        down = _make_element("downEl", "Down", columns=["Amount", "Other"])
+        down.column_id_by_name = {"Amount": "downCol", "Other": "otherCol"}
         schema = {
             "sheets": {
                 "upSheet": {"columns": {}},
@@ -2300,59 +2308,81 @@ class TestSchemaInputFieldRecovery:
                 "downEl": {"viz": {"sheetId": "downSheet"}},
             },
         }
-        up_element = _make_element("upEl", "Up", columns=["Amount"])
-        up_element.column_id_by_name = {"Amount": "upAmount"}
-        down_element = _make_element("downEl", "Down", columns=["Amount", "Other"])
-        down_element.column_id_by_name = {"Amount": "downCol", "Other": "otherCol"}
         wus = list(
-            src._recover_input_fields_from_schema(
-                _make_workbook_with_elements([[up_element, down_element]]),
-                [
-                    _UnresolvedChartColumn(
-                        element_id="downEl",
-                        column="Amount",
-                        column_id="downCol",
-                        reasons=frozenset({"some_reason"}),
-                    )
-                ],
-                schema=schema,
-                fields_by_chart_urn=fields_by_chart_urn,
-                chart_urn_by_element_id={"upEl": up_urn, "downEl": down_urn},
+            src._apply_schema_resolution(
+                _make_workbook_with_elements([[up, down]]),
+                schema=schema if schema_present else None,
+                fields_by_chart_urn=fields,
+                chart_urn_by_element_id={"upEl": self._UP, "downEl": self._DOWN},
             )
         )
-        return wus, src, fields_by_chart_urn
+        return wus, src, fields
+
+    _CROSS_SHEET = {"type": "nameRef", "path": ["upSheet", "upAmount"]}
 
     def test_a_self_reference_is_replaced_by_the_stated_edge(self) -> None:
-        wus, src, _ = self._run(
-            formula={"type": "nameRef", "path": ["upSheet", "upAmount"]}
-        )
+        wus, src, _ = self._run(formula=self._CROSS_SHEET)
 
-        assert len(wus) == 1, "exactly the affected chart is re-emitted"
-        fields = wus[0].metadata.aspect.fields
-        by_path = {f.schemaField.fieldPath: f.schemaFieldUrn for f in fields}
-        assert by_path["Amount"] == builder.make_schema_field_urn(
-            "urn:li:chart:(sigma,upEl)", "Amount"
-        )
+        assert len(wus) == 1
+        by_path = {
+            f.schemaField.fieldPath: f.schemaFieldUrn
+            for f in wus[0].metadata.aspect.fields
+        }
+        assert by_path["Amount"] == builder.make_schema_field_urn(self._UP, "Amount")
         assert src.reporter.chart_input_fields_recovered_from_schema == 1
 
-    def test_the_reemit_carries_every_field_not_just_the_fixed_one(self) -> None:
+    def test_the_reemit_carries_every_field_not_just_the_changed_one(self) -> None:
         """InputFields is full-replace -- a partial re-emit would DELETE the rest."""
-        wus, _, _ = self._run(
-            formula={"type": "nameRef", "path": ["upSheet", "upAmount"]}
-        )
+        wus, _, _ = self._run(formula=self._CROSS_SHEET)
 
         paths = {f.schemaField.fieldPath for f in wus[0].metadata.aspect.fields}
         assert paths == {"Amount", "Other"}
 
-    def test_nothing_is_emitted_when_the_ref_cannot_be_resolved(self) -> None:
-        wus, src, _ = self._run(formula={"type": "nameRef", "path": ["notASheet", "x"]})
+    def test_agreement_with_the_name_path_is_counted_and_changes_nothing(self) -> None:
+        wus, src, _ = self._run(
+            formula=self._CROSS_SHEET,
+            current_urn=builder.make_schema_field_urn(self._UP, "Amount"),
+        )
+
+        assert wus == [], "nothing to re-emit when both paths already agree"
+        assert src.reporter.chart_ref_schema_agrees_with_name_path == 1
+        assert src.reporter.chart_ref_schema_disagrees_with_name_path == 0
+
+    def test_on_disagreement_the_id_answer_wins_and_is_sampled(self) -> None:
+        """The whole point of the precedence -- and it must stay auditable."""
+        wrong = builder.make_schema_field_urn(
+            "urn:li:chart:(sigma,somewhereElse)", "Amount"
+        )
+        wus, src, _ = self._run(formula=self._CROSS_SHEET, current_urn=wrong)
+
+        by_path = {
+            f.schemaField.fieldPath: f.schemaFieldUrn
+            for f in wus[0].metadata.aspect.fields
+        }
+        assert by_path["Amount"] == builder.make_schema_field_urn(self._UP, "Amount")
+        assert src.reporter.chart_ref_schema_disagrees_with_name_path == 1
+        (sample,) = list(src.reporter.chart_ref_schema_disagreement_samples)
+        assert "name_path=" in sample and "id_path=" in sample
+
+    def test_when_schema_is_silent_the_name_path_stands(self) -> None:
+        wus, src, fields = self._run(
+            formula={"type": "nameRef", "path": ["notASheet", "x"]},
+            current_urn=builder.make_schema_field_urn(
+                "urn:li:chart:(sigma,keepMe)", "Amount"
+            ),
+        )
 
         assert wus == []
-        assert src.reporter.chart_input_fields_recovered_from_schema == 0
+        assert fields[self._DOWN][0].schemaFieldUrn.endswith("keepMe),Amount)")
+        assert src.reporter.chart_ref_schema_no_id_path == 1
+        # "Other" has no /schema entry at all -- a different finding, kept
+        # separate so "described but unresolvable" is not pooled with
+        # "not described".
+        assert src.reporter.chart_ref_schema_column_not_described == 1
 
-    def test_an_ambiguous_sheet_emits_nothing(self) -> None:
+    def test_an_ambiguous_sheet_changes_nothing(self) -> None:
         wus, src, _ = self._run(
-            formula={"type": "nameRef", "path": ["upSheet", "upAmount"]},
+            formula=self._CROSS_SHEET,
             elements={
                 "upEl": {"viz": {"sheetId": "upSheet"}},
                 "alsoUp": {"viz": {"sheetId": "upSheet"}},
@@ -2363,26 +2393,11 @@ class TestSchemaInputFieldRecovery:
         assert wus == []
         assert src.reporter.chart_ref_schema_cross_sheet_sheet_ambiguous == 1
 
-    def test_no_schema_means_no_recovery_and_no_crash(self) -> None:
-        src = _make_source()
-        src.reporter = SigmaSourceReport()
-        wus = list(
-            src._recover_input_fields_from_schema(
-                _make_workbook_with_elements([[_make_element("e1", "El")]]),
-                [
-                    _UnresolvedChartColumn(
-                        element_id="e1",
-                        column="C",
-                        column_id="c1",
-                        reasons=frozenset(),
-                    )
-                ],
-                schema=None,
-                fields_by_chart_urn={},
-                chart_urn_by_element_id={},
-            )
-        )
+    def test_no_schema_means_no_change_and_no_crash(self) -> None:
+        wus, src, _ = self._run(formula=self._CROSS_SHEET, schema_present=False)
+
         assert wus == []
+        assert src.reporter.chart_ref_schema_no_id_path == 0
 
 
 class TestDmElementHeadShape:

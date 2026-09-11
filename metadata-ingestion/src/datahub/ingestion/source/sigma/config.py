@@ -690,6 +690,30 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Columns whose lineage was recovered from /schema by ID, replacing a
     # self-referential InputField the name-based path could not resolve.
     chart_input_fields_recovered_from_schema: int = 0
+    # The ID path (/schema) now gets first refusal and the name path is the
+    # fallback. These audit that decision on every column, because it was
+    # justified by 609 comparisons on a 7-workbook tenant and now governs
+    # ~437,000 on the customer's.
+    #   agrees     -- both resolved, same URN. Expected to dominate.
+    #   disagrees  -- both resolved, different URN; the ID answer wins and the
+    #                 pair is sampled. A non-trivial number here means one of
+    #                 the two paths is wrong and the samples say which.
+    #   no_id_path -- /schema was silent, so the name path stands. Sizes how
+    #                 much the fallback still carries; /schema is NOT a
+    #                 superset, since some columns have no nameRef at all.
+    chart_ref_schema_agrees_with_name_path: int = 0
+    chart_ref_schema_disagrees_with_name_path: int = 0
+    chart_ref_schema_no_id_path: int = 0
+    #   not_described -- /schema has no entry for the column at all (a
+    #                 constant, an aggregate, or simply omitted). Separate from
+    #                 no_id_path on purpose: "described but unresolvable" and
+    #                 "not described" call for opposite responses, and pooling
+    #                 them repeats the catch-all else-branch that once reported
+    #                 unrecognised shapes as "the column is local".
+    chart_ref_schema_column_not_described: int = 0
+    chart_ref_schema_disagreement_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
     # How a <dmUrlId>/<elementId> head breaks down. The largest
     # resolvable-looking outcome and the least understood: path[1] is a DISPLAY
     # NAME in the customer samples and an opaque COLUMN ID on our dev tenant,
