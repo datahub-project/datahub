@@ -50,7 +50,7 @@ POST GMS_SERVER_HOST:GMS_PORT/openapi/openlineage/api/v1/lineage/batch
 
 The body is a JSON array of the same three event types. Each event is converted on its own, so one
 unusable event does not reject the rest of the array; the events that did convert are then written
-in a single transaction. The response always has status `200` and reports what happened:
+in a single transaction. A request that is accepted answers `200` and reports what happened:
 
 ```json
 {
