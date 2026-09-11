@@ -19,7 +19,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from datahub.masking import masking_filter as filter_module
+from datahub.masking import secret_registry as registry_module
 from datahub.masking.constants import (
     CAPACITY_EXCEEDED_MESSAGE,
     CIRCUIT_OPEN_MESSAGE,
@@ -28,6 +28,7 @@ from datahub.masking.constants import (
 from datahub.masking.masking_filter import (
     SecretMaskingFilter,
     StreamMaskingWrapper,
+    _filterable_handlers,
     install_masking_filter,
     uninstall_masking_filter,
 )
@@ -482,7 +483,7 @@ class TestPerformance:
         )
         masking_filter.filter(record1)
 
-        initial_version = masking_filter._last_version
+        pattern_before, _ = registry.get_pattern_and_replacements()
 
         # Second call - should NOT rebuild pattern
         record2 = logging.LogRecord(
@@ -496,8 +497,8 @@ class TestPerformance:
         )
         masking_filter.filter(record2)
 
-        # Version should be the same (no rebuild)
-        assert masking_filter._last_version == initial_version
+        pattern_after, _ = registry.get_pattern_and_replacements()
+        assert pattern_after is pattern_before
 
 
 class TestStreamWrapper:
@@ -557,37 +558,106 @@ class TestInstallation:
         uninstall_masking_filter()
 
     def test_install_uninstall(self):
-        """Test filter installation and removal."""
+        """Install attaches the filter to handlers; uninstall detaches it."""
         registry = SecretRegistry()
-        registry.clear()
         registry.register_secret("TEST", "test_value")
 
-        # Install
-        install_masking_filter(registry)
+        probe_handler = logging.NullHandler()
+        logging.getLogger().addHandler(probe_handler)
+        try:
+            install_masking_filter(registry)
+            assert any(
+                isinstance(f, SecretMaskingFilter) for f in probe_handler.filters
+            )
 
-        # Verify installed
-        root_logger = logging.getLogger()
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-        assert len(filters) > 0
+            uninstall_masking_filter()
+            assert not any(
+                isinstance(f, SecretMaskingFilter) for f in probe_handler.filters
+            )
+        finally:
+            logging.getLogger().removeHandler(probe_handler)
 
-        # Uninstall
-        uninstall_masking_filter()
+    def test_placeholders_are_not_materialized(self):
+        """Collecting handlers must not mutate loggerDict: materializing a
+        PlaceHolder mid-iteration breaks the very iteration, and any thread
+        creating loggers concurrently does the same."""
+        logging.getLogger("mask_ph_probe.parent.child")
+        assert isinstance(
+            logging.root.manager.loggerDict["mask_ph_probe.parent"],
+            logging.PlaceHolder,
+        )
+        names_before = set(logging.root.manager.loggerDict)
 
-        # Verify removed
-        filters = [f for f in root_logger.filters if isinstance(f, SecretMaskingFilter)]
-        assert len(filters) == 0
+        _filterable_handlers()
+
+        assert set(logging.root.manager.loggerDict) == names_before
+        assert isinstance(
+            logging.root.manager.loggerDict["mask_ph_probe.parent"],
+            logging.PlaceHolder,
+        )
+
+    def test_lookalike_masking_namespace_is_covered(self):
+        """Only datahub.masking and its dotted descendants are exempt; a
+        lookalike prefix must not become an unmasked channel."""
+        lookalike = logging.getLogger("datahub.maskingness.probe")
+        handler = logging.NullHandler()
+        lookalike.addHandler(handler)
+        try:
+            install_masking_filter(SecretRegistry())
+            assert any(isinstance(f, SecretMaskingFilter) for f in handler.filters)
+        finally:
+            lookalike.removeHandler(handler)
+
+    def test_masking_safe_handler_streams_are_not_wrapped(self):
+        """Stream swapping honors the same exclusion as filter attachment:
+        masking's own diagnostic channel must keep the raw stream, or the
+        messages explaining a suppression would themselves be suppressed."""
+
+        class FakeStderr:
+            name = "<stderr>"
+
+            def write(self, text):
+                return len(text)
+
+            def flush(self):
+                pass
+
+        safe_stream = FakeStderr()
+        safe_handler = logging.StreamHandler(safe_stream)
+        safe_logger = logging.getLogger("datahub.masking.stream_probe")
+        safe_logger.addHandler(safe_handler)
+
+        covered_stream = FakeStderr()
+        covered_handler = logging.StreamHandler(covered_stream)
+        covered_logger = logging.getLogger("app.stream_probe")
+        covered_logger.addHandler(covered_handler)
+
+        try:
+            install_masking_filter(SecretRegistry())
+
+            assert safe_handler.stream is safe_stream
+            assert isinstance(covered_handler.stream, StreamMaskingWrapper)
+        finally:
+            safe_logger.removeHandler(safe_handler)
+            covered_logger.removeHandler(covered_handler)
 
     def test_double_install(self):
-        """Test that double installation is handled gracefully."""
+        """Repeated installation stacks no duplicate filters or wrappers."""
         registry = SecretRegistry()
-        registry.clear()
+        probe_handler = logging.StreamHandler(StringIO())
+        logging.getLogger().addHandler(probe_handler)
+        try:
+            install_masking_filter(registry)
+            install_masking_filter(registry)
 
-        # Install twice
-        filter1 = install_masking_filter(registry)
-        filter2 = install_masking_filter(registry)
-
-        # Should return same filter
-        assert filter1 is filter2
+            masking_filters = [
+                f for f in probe_handler.filters if isinstance(f, SecretMaskingFilter)
+            ]
+            assert len(masking_filters) == 1
+            assert isinstance(sys.stdout, StreamMaskingWrapper)
+            assert not isinstance(sys.stdout._original, StreamMaskingWrapper)
+        finally:
+            logging.getLogger().removeHandler(probe_handler)
 
         # Cleanup
         uninstall_masking_filter()
@@ -617,9 +687,7 @@ class TestCopyOnWrite:
         registry.register_secret("SECRET", "secret_value")
 
         # Get pattern snapshot
-        with masking_filter._pattern_lock:
-            masking_filter._check_and_rebuild_pattern()
-            replacements = masking_filter._replacements  # No .copy()!
+        _, replacements = registry.get_pattern_and_replacements()
 
         # Change registry in another thread
         def add_secret():
@@ -982,7 +1050,7 @@ class TestRegexSecurityFixes:
             registry.register_secret(f"DANGER_{i}", pattern)
 
         # Force pattern rebuild
-        masking_filter._check_and_rebuild_pattern()
+        registry.get_pattern_and_replacements()
 
         # This should complete quickly (not hang)
         test_text = "a" * 30 + "b"
@@ -1287,18 +1355,6 @@ class TestFailClosed:
             == CAPACITY_EXCEEDED_MESSAGE
         )
 
-    def test_pattern_build_failure_withholds_output(self, registry):
-        registry.register_secret("S", "somesecret123")
-        masking_filter = SecretMaskingFilter(registry)
-        with patch(
-            "datahub.masking.masking_filter.re.compile",
-            side_effect=RuntimeError("boom"),
-        ):
-            assert (
-                masking_filter.mask_text("text with somesecret123")
-                == MASKING_ERROR_MESSAGE
-            )
-
     def test_compile_failure_never_masks_with_stale_pattern(
         self, registry, masking_filter
     ):
@@ -1308,16 +1364,16 @@ class TestFailClosed:
         )
         registry.register_secret("NEW_KEY", "new-secret-value")
         with patch(
-            "datahub.masking.masking_filter.re.compile",
+            "datahub.masking.secret_registry.re.compile",
             side_effect=RuntimeError("boom"),
         ):
             masked = masking_filter.mask_text("text with new-secret-value")
-        assert masked == MASKING_ERROR_MESSAGE
+        assert masked == CIRCUIT_OPEN_MESSAGE
 
     def test_compile_failure_opens_circuit_permanently(self, registry, masking_filter):
         registry.register_secret("S", "somesecret123")
         with patch(
-            "datahub.masking.masking_filter.re.compile",
+            "datahub.masking.secret_registry.re.compile",
             side_effect=RuntimeError("boom"),
         ):
             masking_filter.mask_text("text with somesecret123")
@@ -1329,10 +1385,10 @@ class TestFailClosed:
         registry.register_secret("CULPRIT_KEY", "culprit-secret-value")
         with (
             patch(
-                "datahub.masking.masking_filter.re.compile",
+                "datahub.masking.secret_registry.re.compile",
                 side_effect=RuntimeError("boom"),
             ),
-            patch.object(filter_module.logger, "error") as error_log,
+            patch.object(registry_module.logger, "error") as error_log,
         ):
             masking_filter.mask_text("some text")
         logged = " ".join(str(call) for call in error_log.call_args_list)
@@ -1342,7 +1398,7 @@ class TestFailClosed:
     def test_masking_error_withholds_output(self, registry, masking_filter):
         registry.register_secret("S", "somesecret123")
         with patch.object(
-            masking_filter, "_check_and_rebuild_pattern", side_effect=KeyError("boom")
+            registry, "get_pattern_and_replacements", side_effect=KeyError("boom")
         ):
             assert (
                 masking_filter.mask_text("text with somesecret123")

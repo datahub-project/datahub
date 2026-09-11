@@ -21,7 +21,9 @@ async function loadRemirrorLocale(locale: string): Promise<void> {
         return;
     }
     const { default: messages } = await loader();
-    const plurals = (remirrorPlurals as Record<string, ((n: number, ord?: boolean) => string) | undefined>)[locale];
+    // Lingui keys plural rules by language only (`pt`, `zh`); region tags fall back to primary subtag.
+    const pluralsByLocale = remirrorPlurals as Record<string, ((n: number, ord?: boolean) => string) | undefined>;
+    const plurals = pluralsByLocale[locale] ?? pluralsByLocale[locale.split('-')[0]];
     if (plurals) {
         remirrorI18n.loadLocaleData(locale, { plurals });
     }
@@ -32,6 +34,15 @@ type Props = {
     children: React.ReactNode;
 };
 
+// Prefer full BCP-47 tag (e.g. zh-CN, pt-BR) before primary subtag.
+export function resolveRemirrorLocale(language: string): string {
+    if (REMIRROR_SUPPORTED_LOCALES.includes(language)) {
+        return language;
+    }
+    const primarySubtag = language.split('-')[0];
+    return REMIRROR_SUPPORTED_LOCALES.includes(primarySubtag) ? primarySubtag : 'en';
+}
+
 /**
  * Shares DataHub's Remirror translations with any Remirror editor. Wrap a `<Remirror>` tree
  * with this so the editor's built-in labels follow the active app language, falling back to
@@ -39,8 +50,7 @@ type Props = {
  */
 export default function RemirrorLocaleProvider({ children }: Props) {
     const { i18n: appI18n } = useTranslation();
-    const appLanguage = (appI18n.resolvedLanguage || appI18n.language || 'en').split('-')[0];
-    const locale = REMIRROR_SUPPORTED_LOCALES.includes(appLanguage) ? appLanguage : 'en';
+    const locale = resolveRemirrorLocale(appI18n.resolvedLanguage || appI18n.language || 'en');
     // Only activate once the bundle is loaded, so labels never flash raw message ids. Until then
     // the provider stays on English (Remirror's built-in).
     const [activeLocale, setActiveLocale] = useState('en');

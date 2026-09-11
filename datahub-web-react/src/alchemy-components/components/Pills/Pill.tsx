@@ -45,7 +45,7 @@ export const SUPPORTED_CONFIGURATIONS: Record<PillVariantOptions, ColorOptions[]
     [PillVariantValues.version]: [ColorValues.white, ColorValues.gray],
 };
 
-export const pillDefaults: PillPropsDefaults = {
+const pillDefaults: PillPropsDefaults = {
     size: SizeValues.md,
     variant: PillVariantValues.filled,
     color: ColorValues.gray,
@@ -106,6 +106,7 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
                         onClick={onClick}
                         aria-label={ariaLabel}
                         data-testid={testId}
+                        style={{ pointerEvents: 'auto' }}
                     >
                         {iconNode}
                     </PillIconButton>
@@ -113,7 +114,7 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
             }
 
             return (
-                <PillIconSlot key={key} $size={size}>
+                <PillIconSlot key={key} $size={size} style={{ pointerEvents: 'auto' }}>
                     {iconNode}
                 </PillIconSlot>
             );

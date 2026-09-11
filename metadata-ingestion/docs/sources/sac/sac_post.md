@@ -6,9 +6,10 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 - Only models which are used in a Story or an Application will be ingested because there is no dedicated API to retrieve models (only for Stories and Applications).
 - Browse Paths for models cannot be created because the folder where the models are saved is not returned by the API.
-- Schema metadata is only ingested for Import Data Models because there is no possibility to get the schema metadata of the other model types.
+- Schema metadata is ingested for Import Data Models by default. For acquired (SAC-stored) models it can additionally be ingested via the Data Export Service `$metadata` document by enabling the opt-in `ingest_acquired_data_model_schema_metadata` flag (off by default; requires the "Data Export Service" OAuth grant). Live Data Models (e.g. BW/HANA/DWC) keep their schema in the source system, so it cannot be retrieved from SAC.
 - Lineages for Import Data Models cannot be ingested because the API is not providing any information about it.
-- Currently, only SAP BW and SAP HANA are supported for ingesting the upstream lineages of Live Data Models - a warning is logged for all other connection types, please feel free to open an [issue on GitHub](https://github.com/datahub-project/datahub/issues/new/choose) with the warning message to have this fixed.
+- SAP BW, SAP HANA, and SAP Datasphere (Data Warehouse Cloud / `DWC` connections) are supported for ingesting the upstream lineages of Live Data Models - a warning is logged for all other connection types, please feel free to open an [issue on GitHub](https://github.com/datahub-project/datahub/issues/new/choose) with the warning message to have this fixed.
+- For SAP Datasphere-backed Live Data Models, SAC exposes the underlying object's name but not its Datasphere **space**. Configure the space per connection via `connection_mapping.<connection_id>.datasphere_space` so the upstream `sap-datasphere` dataset urn (`<space>.<model_name>`) can be built. Set `connection_mapping.<connection_id>.convert_urns_to_lowercase` (default `true`) to match the casing used by your SAP Datasphere connector recipe. Models on connections without a configured `datasphere_space` are skipped with a warning (or set `resolve_datasphere_lineage: false` to disable this entirely).
 - For some models (e.g., builtin models) it cannot be detected whether the models are Live Data or Import Data Models. Therefore, these models will be ingested only with the `Story` subtype.
 
 #### Limitations
