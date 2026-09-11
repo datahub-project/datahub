@@ -34,13 +34,11 @@ from datahub.ingestion.source.snowflake.constants import (
 from datahub.ingestion.source.snowflake.snowflake_assertion import (
     SnowflakeAssertionsHandler,
 )
-from datahub.ingestion.source.snowflake.snowflake_auth_deprecation import (
-    get_password_auth_deprecation_warning,
-)
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnection,
     SnowflakeConnectionConfig,
+    get_password_auth_deprecation_warning,
 )
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
@@ -163,6 +161,11 @@ class SnowflakeV2Source(
         super().__init__(config, ctx)
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = SnowflakeV2Report()
+
+        # Mirror the deprecation in the structured report so it surfaces in the
+        # DataHub UI, not just CLI stdout.
+        if self.config.is_using_password_auth():
+            self.report.warning(get_password_auth_deprecation_warning())
 
         self.filters = SnowflakeFilter(
             filter_config=self.config, structured_reporter=self.report
@@ -309,11 +312,6 @@ class SnowflakeV2Source(
             connection_conf = SnowflakeConnectionConfig.parse_obj_allow_extras(
                 config_dict
             )
-
-            # --test-source-connection neither prints the source report nor runs
-            # pretty_print_summary, so log the deprecation directly here.
-            if connection_conf.is_using_password_auth():
-                logger.warning(get_password_auth_deprecation_warning())
 
             connection: SnowflakeConnection = connection_conf.get_connection()
             assert connection

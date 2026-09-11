@@ -1,5 +1,6 @@
 import logging
 import threading
+import warnings
 from typing import Any, Dict, Optional
 
 import pydantic
@@ -26,6 +27,7 @@ from tenacity.before_sleep import before_sleep_log
 from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
+    ConfigurationWarning,
     HiddenFromDocs,
     MetaError,
     TransparentSecretStr,
@@ -43,10 +45,6 @@ from datahub.ingestion.source.snowflake.oauth_config import (
     OAuthIdentityProvider,
 )
 from datahub.ingestion.source.snowflake.oauth_generator import OAuthTokenGenerator
-from datahub.ingestion.source.snowflake.snowflake_auth_deprecation import (
-    check_password_auth_deprecation,
-    is_using_password_auth,
-)
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.utilities.config_clean import (
     remove_protocol,
@@ -66,6 +64,22 @@ _VALID_AUTH_TYPES: Dict[str, str] = {
     "OAUTH_AUTHENTICATOR": OAUTH_AUTHENTICATOR,
     "OAUTH_AUTHENTICATOR_TOKEN": OAUTH_AUTHENTICATOR,
 }
+
+# Snowflake is deprecating username + password (DEFAULT_AUTHENTICATOR) auth
+# during its Strong Authentication rollout (Phase 3: Aug-Oct 2026, account-
+# specific enforcement dates).
+SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL = "https://docs.datahub.com/docs/quick-ingestion-guides/snowflake/migrate-to-key-pair-auth"
+
+
+def get_password_auth_deprecation_warning() -> str:
+    return (
+        "Snowflake is deprecating username + password authentication "
+        "(DEFAULT_AUTHENTICATOR) as part of its Strong Authentication rollout. "
+        "Password auth will stop working on an account-specific enforcement date "
+        "during Phase 3 (Aug-Oct 2026). Switch this recipe to key-pair "
+        "authentication (KEY_PAIR_AUTHENTICATOR) before your account's enforcement "
+        f"date. See the migration guide: {SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL}"
+    )
 
 
 class SnowflakePermissionError(MetaError):
@@ -211,21 +225,25 @@ class SnowflakeConnectionConfig(ConfigModel):
                     f"Should be set to 'KEY_PAIR_AUTHENTICATOR' when using key pair authentication"
                 )
 
-        # Global warning so every consumer of SnowflakeConnectionConfig
-        # (Snowflake sources, Fivetran destinations, the tag propagator) sees
-        # the deprecation in the CLI summary, not just the Snowflake source
-        # reports. Sources do not re-emit it, avoiding a duplicate print.
-        deprecation_warning = check_password_auth_deprecation(
-            self.authentication_type, self.password
-        )
-        if deprecation_warning is not None:
-            add_global_warning(deprecation_warning)
+        # add_global_warning reaches the CLI summary; warnings.warn reaches
+        # --test-source-connection, which prints neither the summary nor the
+        # source report. SnowflakeV2Source mirrors this in its structured report.
+        if self.is_using_password_auth():
+            warning = get_password_auth_deprecation_warning()
+            add_global_warning(warning)
+            warnings.warn(warning, ConfigurationWarning, stacklevel=2)
 
         return self
 
     def is_using_password_auth(self) -> bool:
-        """True when this recipe is configured for username+password auth."""
-        return is_using_password_auth(self.authentication_type, self.password)
+        """True when configured for username+password (DEFAULT_AUTHENTICATOR) auth.
+
+        bool(SecretStr("")) is True (the wrapper is always truthy), so read
+        get_secret_value() first to treat an empty password as unset.
+        """
+        return self.authentication_type == "DEFAULT_AUTHENTICATOR" and bool(
+            self.password and self.password.get_secret_value()
+        )
 
     @staticmethod
     def _check_oauth_config(oauth_config: Optional[OAuthConfiguration]) -> None:
