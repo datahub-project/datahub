@@ -144,6 +144,13 @@ def test_join_type_is_captured_and_outer_joins_are_flagged() -> None:
         ("left-outer", True),
         ("right-outer", True),
         ("full-outer", True),
+        # The FIFTH value. Sigma documents lookup as preserving the primary
+        # side's rows while pulling columns from a related table, "similar to a
+        # left outer join" -- so its ON equality holds only on matched rows.
+        # Accepted by POST /dataModels/spec; an earlier four-value set scored
+        # every lookup join as an inner one.
+        ("lookup", True),
+        # Absent means inner: Sigma accepts a join with no joinType at all.
         ("", False),
     ):
         source = _join(
@@ -153,7 +160,7 @@ def test_join_type_is_captured_and_outer_joins_are_flagged() -> None:
         )
         source["joins"][0]["joinType"] = join_type
         index = parse_data_model_spec(_spec(source), data_model_id="dm-1")
-        assert index.pairs[0].join_type == join_type
+        assert index.pairs[0].join_type == (join_type or "inner")
         assert index.pairs[0].is_outer is expected_outer
 
 
@@ -425,3 +432,31 @@ def test_every_join_type_is_recorded_verbatim() -> None:
     assert index.join_type_counts == {"something-sigma-invented-later": 1}
     # Unrecognised, so it does NOT claim the outer tier.
     assert index.pairs[0].is_outer is False
+
+
+def test_a_non_equality_predicate_claims_no_key_edge() -> None:
+    """A key edge asserts the two columns hold the SAME value.
+
+    Sigma predicates carry an optional op -- "=", "!=", "<", "<=", ">", ">=",
+    "within", "intersects" -- and all of those were accepted by the write API.
+    Only equality justifies the claim; the rest make a column a participant in
+    the join without making it equal, so emitting one would over-claim.
+    """
+    for op, expect_pair in (
+        ("=", True),
+        ("", True),
+        ("!=", False),
+        ("<", False),
+        ("within", False),
+    ):
+        predicate = {"left": _LEFT_EXPR, "right": _RIGHT_EXPR}
+        if op:
+            predicate["op"] = op
+        index = parse_data_model_spec(
+            _spec(_join(_ELEMENT_SIDE_L, _ELEMENT_SIDE_R, [predicate])),
+            data_model_id="dm-1",
+        )
+        assert bool(index.pairs) is expect_pair, f"op={op!r}"
+        assert index.non_equality_predicates == (0 if expect_pair else 1), f"op={op!r}"
+        # The operator is recorded either way, so the declined volume is visible.
+        assert index.predicate_op_counts == {op or "=(absent)": 1}

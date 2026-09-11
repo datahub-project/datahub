@@ -3751,6 +3751,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.data_model_join_types[join_type] = (
                     self.reporter.data_model_join_types.get(join_type, 0) + n
                 )
+            for op, n in cached.predicate_op_counts.items():
+                self.reporter.data_model_join_predicate_ops[op] = (
+                    self.reporter.data_model_join_predicate_ops.get(op, 0) + n
+                )
+            self.reporter.data_model_join_non_equality_predicates += (
+                cached.non_equality_predicates
+            )
             self.reporter.data_model_union_output_columns_read += len(cached.unions)
             self.reporter.data_model_union_branch_index_out_of_range += (
                 cached.union_branch_index_out_of_range
