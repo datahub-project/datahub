@@ -2658,3 +2658,103 @@ class TestPayloadPresenceIsRecordedNotInferred:
         element.columns_payload_present = True
         element.upstream_sources = {"n1": SheetUpstream(element_id="other")}
         assert "upstreams=['SheetUpstream']" in self._sample_for(element)
+
+
+class TestThePerChartLineIsTheInstrumentThatAnswersATicket:
+    """Sample lists cannot answer "why did THIS chart get no column lineage".
+
+    LossyList holds 10 elements, so on a tenant with ~942 no-formula columns
+    the chance a specific chart named in a ticket appears in one rounds to
+    zero -- the same reservoir starvation that returned 0 samples for a
+    263-column population on an earlier run. The uncapped per-chart debug line
+    is what makes a reported chart URN greppable, so it has to fire for every
+    chart that lost ANY column and carry the facts that decide the cause.
+    """
+
+    def _emit(
+        self, *, total: int, self_ref: int, caplog: pytest.LogCaptureFixture
+    ) -> str:
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        element = _make_element_with_formula(
+            "e1", "Chart", {f"c{i}": None for i in range(total)}
+        )
+        element.columns_payload_present = True
+        element.upstream_sources = {"n1": SheetUpstream(element_id="other")}
+        chart_urn = builder.make_chart_urn("sigma", "e1")
+        fields = [
+            InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(
+                    chart_urn if i < self_ref else "urn:li:dataset:(x,y,PROD)", f"c{i}"
+                ),
+                schemaField=None,
+            )
+            for i in range(total)
+        ]
+        with caplog.at_level(
+            logging.DEBUG, logger="datahub.ingestion.source.sigma.sigma"
+        ):
+            src._note_chart_column_outcome(
+                element=element,
+                workbook=_make_workbook_with_elements([[element]]),
+                chart_urn=chart_urn,
+                fields=fields,
+                causes_before=src._chart_column_cause_tally(),
+                workbook_formulas_incomplete=False,
+            )
+        lines = [
+            r.getMessage()
+            for r in caplog.records
+            if "chart element e1" in r.getMessage()
+        ]
+        assert len(lines) == 1, lines
+        return lines[0]
+
+    def test_a_chart_with_no_column_lineage_is_greppable_by_element_id(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        line = self._emit(total=2, self_ref=2, caplog=caplog)
+        assert "chart element e1" in line
+        assert "2 of 2 column(s) have NO upstream" in line
+        # The three facts that decide the cause, on one line.
+        assert "columns_payload_present=True" in line
+        assert "element_columns_with_formulas=0/2" in line
+        assert "declared_upstreams=['SheetUpstream']" in line
+
+    def test_a_PARTIALLY_resolved_chart_also_logs(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Previously the line was gated on ALL columns being self-referential,
+        so a chart that lost only some of its lineage -- exactly what a user
+        calls "flaky" -- produced no log line at all."""
+        line = self._emit(total=3, self_ref=1, caplog=caplog)
+        assert "1 of 3 column(s) have NO upstream" in line
+
+    def test_a_fully_resolved_chart_stays_silent(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A line per healthy chart would be ~5,800 lines of noise per run."""
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        element = _make_element_with_formula("e1", "Chart", {"c0": "[S/x]"})
+        chart_urn = builder.make_chart_urn("sigma", "e1")
+        fields = [
+            InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(
+                    "urn:li:dataset:(x,y,PROD)", "c0"
+                ),
+                schemaField=None,
+            )
+        ]
+        with caplog.at_level(
+            logging.DEBUG, logger="datahub.ingestion.source.sigma.sigma"
+        ):
+            src._note_chart_column_outcome(
+                element=element,
+                workbook=_make_workbook_with_elements([[element]]),
+                chart_urn=chart_urn,
+                fields=fields,
+                causes_before=src._chart_column_cause_tally(),
+                workbook_formulas_incomplete=False,
+            )
+        assert [r for r in caplog.records if "chart element e1" in r.getMessage()] == []
