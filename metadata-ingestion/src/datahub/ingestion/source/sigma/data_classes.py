@@ -133,6 +133,15 @@ class Element(BaseModel):
     # Built in _gen_elements_workunit after connection config is resolved.
     column_native_names: Dict[str, str] = Field(default_factory=dict)
     upstream_sources: Dict[str, "ElementUpstream"] = Field(default_factory=dict)
+    # Did GET /workbooks/{id}/columns mention this element AT ALL?
+    # ``column_formulas == {}`` is produced by two very different situations --
+    # the payload never carried the element, or it carried it and every formula
+    # was null -- and hydration uses ``.get(elementId, {})``, so the two are
+    # byte-identical downstream. Every column of such an element is then filed
+    # under "Sigma reported no formula", which is only true in the second case.
+    # None means the question was never asked (formulas not fetched for this
+    # workbook at all).
+    columns_payload_present: Optional[bool] = None
 
     @model_validator(mode="before")
     @classmethod
