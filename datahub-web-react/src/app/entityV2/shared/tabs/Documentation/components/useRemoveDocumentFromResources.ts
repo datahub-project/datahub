@@ -1,7 +1,6 @@
 import { toast } from '@components';
 import { useCallback, useEffect, useState } from 'react';
 
-import { RelatedDocumentExpectations } from '@app/document/hooks/useRelatedDocuments.utils';
 import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
 import {
     computeRelatedEntitiesForLinkChange,
@@ -14,7 +13,6 @@ import { Document } from '@types';
 type UseRemoveDocumentFromResourcesInput = {
     entityUrn: string | null | undefined;
     documents: Document[];
-    reconcile: (expectations: RelatedDocumentExpectations) => Promise<boolean>;
     successMessage: string;
     errorMessage: string;
 };
@@ -23,13 +21,12 @@ type UseRemoveDocumentFromResourcesInput = {
  * Unlink a document from an entity's Resources section — the confirmation-modal
  * side of the pill's "X" affordance.
  *
- * Related documents are Elasticsearch-backed, so successful removals stay hidden
- * optimistically until reconciliation confirms that the index no longer returns them.
+ * Related documents search can lag writes, so successful removals stay hidden in
+ * local state for the rest of this entity visit.
  */
 export function useRemoveDocumentFromResources({
     entityUrn,
     documents,
-    reconcile,
     successMessage,
     errorMessage,
 }: UseRemoveDocumentFromResourcesInput) {
@@ -38,20 +35,9 @@ export function useRemoveDocumentFromResources({
     const { updateRelatedEntities } = useUpdateDocument();
 
     useEffect(() => {
-        setRemovedUrns((prev) => {
-            if (prev.size === 0) return prev;
-            const present = new Set(documents.map((d) => d.urn));
-            let changed = false;
-            const next = new Set(prev);
-            prev.forEach((urn) => {
-                if (!present.has(urn)) {
-                    next.delete(urn);
-                    changed = true;
-                }
-            });
-            return changed ? next : prev;
-        });
-    }, [documents]);
+        setRemovedUrns(new Set());
+        setDocumentUrnToRemove(null);
+    }, [entityUrn]);
 
     const requestRemove = useCallback((urn: string) => setDocumentUrnToRemove(urn), []);
     const cancelRemove = useCallback(() => setDocumentUrnToRemove(null), []);
@@ -92,7 +78,6 @@ export function useRemoveDocumentFromResources({
 
         if (ok) {
             toast.success(successMessage);
-            reconcile({ absentUrns: [targetUrn] });
         } else {
             setRemovedUrns((prev) => {
                 if (!prev.has(targetUrn)) return prev;
@@ -102,16 +87,7 @@ export function useRemoveDocumentFromResources({
             });
             toast.error(errorMessage);
         }
-    }, [
-        documentUrnToRemove,
-        entityUrn,
-        documents,
-        markRemoved,
-        updateRelatedEntities,
-        reconcile,
-        successMessage,
-        errorMessage,
-    ]);
+    }, [documentUrnToRemove, entityUrn, documents, markRemoved, updateRelatedEntities, successMessage, errorMessage]);
 
     return {
         documentUrnToRemove,

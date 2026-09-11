@@ -13,6 +13,7 @@ import {
     extractRelatedDocumentUrns,
 } from '@app/document/utils/documentUtils';
 import {
+    ApplyLinkResult,
     DocumentLinkChanges,
     getDocumentLinkChanges,
     getSuccessfulDocumentLinkChanges,
@@ -21,7 +22,7 @@ import { DocumentPopoverBase } from '@app/homeV2/layout/sidebar/documents/shared
 import { Button } from '@src/alchemy-components';
 
 import { GetDocumentDocument, useCreateDocumentMutation } from '@graphql/document.generated';
-import { DocumentSourceType } from '@types';
+import { Document, DocumentSourceType } from '@types';
 
 const NewDocumentButton = styled(Button)`
     width: 100%;
@@ -47,8 +48,9 @@ type AddContextDocumentPopoverProps = {
  *
  * The checkboxes are a view of the entity's Resources: already-linked docs open
  * pre-checked, and toggling a box stages an add/remove without persisting. Saving
- * applies the staged changes, reports successful URNs for reconciliation, and closes.
- * Creating a new document links it to the entity and opens it in the editor.
+ * applies the staged changes, reports successful documents/removals for local list
+ * updates, and closes. Creating a new document links it to the entity and opens it
+ * in the editor.
  */
 export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps> = ({
     entityUrn,
@@ -85,10 +87,11 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
      * Fetch a document and set its link to the current entity to `shouldBeLinked`.
      * A document can be linked to a regular entity (relatedAssets) or to another
      * document (relatedDocuments); we edit whichever list the current entity belongs
-     * to and leave the other untouched. Returns whether the write succeeded.
+     * to and leave the other untouched. Returns the write result and, on a successful
+     * add, the document so Resources can render it without waiting on search.
      */
     const applyLink = useCallback(
-        async (documentUrn: string, shouldBeLinked: boolean): Promise<boolean> => {
+        async (documentUrn: string, shouldBeLinked: boolean): Promise<ApplyLinkResult> => {
             try {
                 const { data } = await apolloClient.query({
                     query: GetDocumentDocument,
@@ -96,8 +99,8 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
                     fetchPolicy: 'network-only',
                 });
 
-                const document = data?.document;
-                if (!document) return false;
+                const document = (data?.document as Document | null | undefined) ?? null;
+                if (!document) return { ok: false, document: null };
 
                 const { relatedAssets, relatedDocuments } = computeRelatedEntitiesForLinkChange({
                     entityUrn,
@@ -106,14 +109,15 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
                     shouldBeLinked,
                 });
 
-                return await updateRelatedEntities({
+                const ok = await updateRelatedEntities({
                     urn: documentUrn,
                     relatedAssets,
                     relatedDocuments,
                 });
+                return { ok, document: ok && shouldBeLinked ? document : null };
             } catch (error) {
                 console.error('Failed to update document link', documentUrn, error);
-                return false;
+                return { ok: false, document: null };
             }
         },
         [entityUrn, apolloClient, updateRelatedEntities],
@@ -123,13 +127,14 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
         if (!hasChanges || isSavingRef.current) return;
         isSavingRef.current = true;
         setIsSaving(true);
-        const results = await Promise.all([
-            ...addedUrns.map((urn) => applyLink(urn, true)),
-            ...removedUrns.map((urn) => applyLink(urn, false)),
+        const [addedResults, removedResults] = await Promise.all([
+            Promise.all(addedUrns.map((urn) => applyLink(urn, true))),
+            Promise.all(removedUrns.map((urn) => applyLink(urn, false))),
         ]);
-        const failureCount = results.filter((ok) => !ok).length;
-        const successCount = results.length - failureCount;
-        const successfulChanges = getSuccessfulDocumentLinkChanges(changes, results);
+        const successfulChanges = getSuccessfulDocumentLinkChanges(addedResults, removedUrns, removedResults);
+        const failureCount =
+            addedResults.filter((result) => !result.ok).length + removedResults.filter((result) => !result.ok).length;
+        const successCount = successfulChanges.addedDocuments.length + successfulChanges.removedUrns.length;
 
         if (failureCount > 0) {
             toast.error(t('failedToLinkDocument'));
@@ -141,7 +146,7 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
             onDocumentsChanged?.(successfulChanges);
             onClose();
         }
-    }, [hasChanges, addedUrns, removedUrns, applyLink, changes, onDocumentsChanged, onClose, t]);
+    }, [hasChanges, addedUrns, removedUrns, applyLink, onDocumentsChanged, onClose, t]);
 
     /**
      * Handle creating a new document

@@ -104,7 +104,7 @@ export const RelatedSection: React.FC = () => {
         confirmRemove: handleConfirmRemoveDocument,
         handleDocumentsChanged,
         handleDocumentCreated,
-        handleDocumentDeleted: reconcileDocumentDeleted,
+        handleDocumentDeleted,
     } = useResourcesDocuments({
         entityUrn: urn,
         removeSuccessMessage: t('removeDocumentSuccess'),
@@ -119,10 +119,10 @@ export const RelatedSection: React.FC = () => {
         setIsAddLinkModalVisible(true);
     }, []);
 
-    const handleDocumentDeleted = useCallback(() => {
+    const handleDocumentModalDeleted = useCallback(() => {
         if (!selectedDocumentUrn) return;
-        reconcileDocumentDeleted(selectedDocumentUrn);
-    }, [reconcileDocumentDeleted, selectedDocumentUrn]);
+        handleDocumentDeleted(selectedDocumentUrn);
+    }, [handleDocumentDeleted, selectedDocumentUrn]);
 
     const handleAddContext = useCallback(() => {
         setShowAddContextPopover(true);
@@ -155,8 +155,8 @@ export const RelatedSection: React.FC = () => {
     const hasContent = hasRelatedContent(hasLinks, hasDocuments);
 
     // Docs already in this section render pre-checked in the picker so users can
-    // add/remove by toggling. Using `visibleDocuments` means a doc the user just
-    // removed shows unchecked immediately, without waiting for the ES refetch.
+    // add/remove by toggling. Using `visibleDocuments` includes local add/remove
+    // so the picker matches what the pills show.
     const linkedDocumentUrns = useMemo(
         () => (hasDocuments ? visibleDocuments.map((d) => d.urn) : []),
         [hasDocuments, visibleDocuments],
@@ -247,7 +247,7 @@ export const RelatedSection: React.FC = () => {
                 <DocumentModal
                     documentUrn={selectedDocumentUrn}
                     onClose={() => setSelectedDocumentUrn(null)}
-                    onDocumentDeleted={handleDocumentDeleted}
+                    onDocumentDeleted={handleDocumentModalDeleted}
                 />
             )}
             <ConfirmationModal
