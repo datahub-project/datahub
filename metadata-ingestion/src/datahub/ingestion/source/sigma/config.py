@@ -503,6 +503,62 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # tenant (2026-09) 12 workbooks aborted having retrieved ZERO entries, and
     # every column in them was attributed to the wrong cause.
     chart_input_fields_formulas_not_fetched: int = 0
+    # Raw evidence for chart_input_fields_self_ref_no_formula, which is
+    # otherwise a bare number and was the last silent bucket on the chart path.
+    # "Sigma returned no formula for this column" and "this element got no
+    # formulas at all while its workbook's /columns call SUCCEEDED" are very
+    # different findings, and the counter cannot tell them apart -- so the
+    # element's own formula coverage is recorded alongside each sample.
+    chart_no_formula_samples: LossyList[str] = field(default_factory=LossyList)
+    # Elements with zero column formulas whose workbook fetched formulas fine.
+    # A non-zero value here means the gap is per-ELEMENT, not per-workbook,
+    # which no existing counter distinguishes.
+    chart_elements_without_formulas_in_a_fetched_workbook: int = 0
+    # Workbook /lineage element entries whose sourceIds name something other
+    # than a customSQL node. The parser keeps only sourceIds it can match to a
+    # customSQL name and drops the rest with no counter and no log; on one
+    # tenant (2026-09) the payload carried 14,358 element entries against just
+    # 84 customSQL nodes, so nearly all of that graph was discarded silently.
+    # Bucketed by what the dropped id turned out to be, which is the only way
+    # to tell "chart sourced from another chart" (worth consuming) from a node
+    # type we genuinely have no use for.
+    workbook_lineage_element_source_ids_dropped: int = 0
+    workbook_lineage_dropped_source_id_kinds: Dict[str, int] = field(
+        default_factory=dict
+    )
+    workbook_lineage_dropped_source_id_samples: Dict[str, LossyList[str]] = field(
+        default_factory=dict
+    )
+    # ------------------------------------------------------------------
+    # Chart-GRANULARITY outcomes.
+    #
+    # Every other counter here is per COLUMN, and a customer reports a
+    # PROBLEM PER CHART ("this chart has no column lineage"). Answering that
+    # from per-column counters is not possible: 437,000 resolved columns say
+    # nothing about whether one particular chart got zero. On 2026-09-11 three
+    # reported chart URNs could not be explained from a 105MB log for exactly
+    # this reason -- the run knew the answer and had no place to put it.
+    #
+    # ``no_column_lineage`` counts charts where EVERY column fell back to a
+    # self-referential URN, which is what renders as "lineage at the chart
+    # level only". ``partial`` counts charts where some columns resolved and
+    # others did not -- invisible in both the per-column totals and in
+    # no_column_lineage.
+    charts_with_column_lineage: int = 0
+    charts_with_partial_column_lineage: int = 0
+    charts_with_no_column_lineage: int = 0
+    # no_column_lineage split by the cause that dominated the chart's columns,
+    # using the same vocabulary as the per-column counters (no_formula,
+    # formulas_not_fetched, unresolved_refs, parameter, sibling, mixed). A
+    # chart is filed under whichever cause claimed the most of its columns.
+    charts_with_no_column_lineage_by_cause: Dict[str, int] = field(default_factory=dict)
+    # One sample list PER CAUSE, never one shared list. A shared LossyList is
+    # reservoir sampling, so it is proportional BY DESIGN and the rare bucket
+    # -- always the interesting one -- can never be evidenced. That exact bug
+    # returned zero samples for a 263-column population in an earlier run.
+    charts_with_no_column_lineage_samples: Dict[str, LossyList[str]] = field(
+        default_factory=dict
+    )
     # Why chart formula refs failed to resolve, by cause. The aggregate
     # (chart_input_fields_self_ref_unresolved_refs) reached 17,944 on one tenant
     # while concentrating in just 87 distinct source names, so the bucket is a
@@ -1116,6 +1172,42 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     #   parent_urn_unresolved         -- connection unmappable / no platform
     #   connection_not_in_registry    -- connection id absent from /connections
     warehouse_passthrough_miss_reasons: Dict[str, int] = field(default_factory=dict)
+
+    # Chart element -> workbook, for the charts above. Without this a chart URN
+    # from a ticket cannot be placed in a workbook from the log at all; it took
+    # a bisect of emission-order dashboard URNs to do it by hand once.
+    def note_chart_column_lineage_outcome(
+        self,
+        *,
+        chart_element_id: str,
+        workbook_id: str,
+        workbook_name: str,
+        total_columns: int,
+        self_ref_columns: int,
+        causes: Dict[str, int],
+    ) -> None:
+        """File one chart under its column-lineage outcome.
+
+        ``causes`` is the per-column cause tally for THIS chart, as counter
+        deltas measured across the element's build.
+        """
+        if self_ref_columns == 0:
+            self.charts_with_column_lineage += 1
+            return
+        if self_ref_columns < total_columns:
+            self.charts_with_partial_column_lineage += 1
+            return
+        self.charts_with_no_column_lineage += 1
+        cause = max(causes, key=lambda k: causes[k]) if causes else "unattributed"
+        self.charts_with_no_column_lineage_by_cause[cause] = (
+            self.charts_with_no_column_lineage_by_cause.get(cause, 0) + 1
+        )
+        self.charts_with_no_column_lineage_samples.setdefault(
+            cause, LossyList()
+        ).append(
+            f"element={chart_element_id} workbook={workbook_id} "
+            f"workbook_name={workbook_name!r} columns={total_columns}"
+        )
 
 
 class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):

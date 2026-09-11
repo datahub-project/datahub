@@ -76,6 +76,9 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     config = SigmaSourceConfig.model_validate(config_dict)
     source = SigmaSource.__new__(SigmaSource)
     source.config = config
+    # __new__ skips __init__, so attributes a real instance always
+    # has must be set here or diagnostics reading them raise.
+    source._current_workbook = None
     source.reporter = MagicMock()
     source.reporter.chart_input_fields_resolved = 0
     source.reporter.chart_input_fields_self_ref_fallback = 0
@@ -2483,3 +2486,121 @@ class TestDmElementHeadShape:
         assert src.reporter.chart_ref_schema_dm_element_shape == {
             "path1_unrecognised": 1
         }
+
+
+class TestChartGranularityOutcome:
+    """Charts, not columns, are the unit a customer reports a problem in.
+
+    Every other counter on this path is per column, so "437,000 columns
+    resolved" could coexist with a specific chart having none and the report
+    could not say so. On 2026-09-11 three reported chart URNs had to be placed
+    in a workbook by bisecting emission-order dashboard URNs in a 105MB log,
+    because nothing recorded the outcome per chart.
+    """
+
+    def setup_method(self) -> None:
+        self.reporter = SigmaSourceReport()
+
+    def _note(self, *, total: int, self_ref: int, causes: Dict[str, int]) -> None:
+        self.reporter.note_chart_column_lineage_outcome(
+            chart_element_id="e1",
+            workbook_id="wb-1",
+            workbook_name="A Workbook",
+            total_columns=total,
+            self_ref_columns=self_ref,
+            causes=causes,
+        )
+
+    def test_a_fully_resolved_chart_is_not_filed_as_a_problem(self) -> None:
+        self._note(total=3, self_ref=0, causes={})
+        assert self.reporter.charts_with_column_lineage == 1
+        assert self.reporter.charts_with_no_column_lineage == 0
+        assert self.reporter.charts_with_partial_column_lineage == 0
+
+    def test_a_partly_resolved_chart_is_its_own_bucket(self) -> None:
+        """Invisible in both other buckets, and the one a user calls "flaky"."""
+        self._note(total=3, self_ref=1, causes={"no_formula": 1})
+        assert self.reporter.charts_with_partial_column_lineage == 1
+        assert self.reporter.charts_with_no_column_lineage == 0
+
+    def test_a_chart_with_no_upstream_at_all_is_filed_and_sampled(self) -> None:
+        self._note(total=2, self_ref=2, causes={"no_formula": 2})
+        assert self.reporter.charts_with_no_column_lineage == 1
+        assert self.reporter.charts_with_no_column_lineage_by_cause == {"no_formula": 1}
+        sample = list(self.reporter.charts_with_no_column_lineage_samples["no_formula"])
+        assert len(sample) == 1
+        # The workbook is the whole point: without it a chart URN from a ticket
+        # cannot be placed in a workbook from the report at all.
+        assert "workbook=wb-1" in sample[0]
+        assert "element=e1" in sample[0]
+
+    def test_the_dominant_cause_wins_when_a_chart_has_several(self) -> None:
+        self._note(total=5, self_ref=5, causes={"no_formula": 1, "unresolved_refs": 4})
+        assert self.reporter.charts_with_no_column_lineage_by_cause == {
+            "unresolved_refs": 1
+        }
+
+    def test_each_cause_gets_its_own_sample_list(self) -> None:
+        """One shared reservoir is proportional BY DESIGN, so the rare cause --
+        always the interesting one -- can never be evidenced. That exact bug
+        returned 0 samples for a 263-column population on a previous run."""
+        self._note(total=1, self_ref=1, causes={"no_formula": 1})
+        self._note(total=1, self_ref=1, causes={"unresolved_refs": 1})
+        assert set(self.reporter.charts_with_no_column_lineage_samples) == {
+            "no_formula",
+            "unresolved_refs",
+        }
+
+    def test_a_cause_free_chart_is_still_attributed(self) -> None:
+        """A silent path must not produce an unlabelled chart; that is how the
+        234-column residual stayed unattributable across two full runs."""
+        self._note(total=1, self_ref=1, causes={})
+        assert self.reporter.charts_with_no_column_lineage_by_cause == {
+            "unattributed": 1
+        }
+
+
+class TestNoFormulaBucketCarriesEvidence:
+    """chart_input_fields_self_ref_no_formula was the last silent bucket here.
+
+    It is where three reported chart URNs landed, and a bare count could not
+    distinguish "Sigma had no formula for this column" from "this element got
+    no formulas at all while its workbook's /columns call succeeded".
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+
+    def test_the_sample_records_the_elements_formula_coverage(self) -> None:
+        element = _make_element_with_formula("e1", "Chart", {"a": None, "b": "[Src/x]"})
+        self.src._count_unresolved_chart_column(
+            element=element,
+            column="a",
+            refs=[],
+            all_param=False,
+            all_sibling=False,
+            all_unresolvable_mixed=False,
+            formulas_incomplete=False,
+        )
+        samples = list(self.src.reporter.chart_no_formula_samples)
+        assert len(samples) == 1
+        # 1 of 2 columns carries a formula: the gap is this COLUMN, not the
+        # element. The opposite reading (0/N) is the one worth acting on.
+        assert "element_columns_with_formulas=1/2" in samples[0]
+        assert "column='a'" in samples[0]
+
+    def test_an_aborted_fetch_is_not_sampled_here(self) -> None:
+        """It has its own counter; mixing the two would re-create the bug that
+        reported our fetch failure as an upstream limitation."""
+        self.src._count_unresolved_chart_column(
+            element=_make_element("e1", "Chart", ["a"]),
+            column="a",
+            refs=[],
+            all_param=False,
+            all_sibling=False,
+            all_unresolvable_mixed=False,
+            formulas_incomplete=True,
+        )
+        assert list(self.src.reporter.chart_no_formula_samples) == []
+        assert self.src.reporter.chart_input_fields_formulas_not_fetched == 1
