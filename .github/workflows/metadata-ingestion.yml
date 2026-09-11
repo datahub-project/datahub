@@ -322,6 +322,38 @@ jobs:
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
+  wolfi-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Set up JDK 25
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "temurin"
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+      - name: Generate datahub.metadata from PDL models
+        run: ./gradlew :metadata-ingestion:codegen
+      - name: Run metadata-ingestion unit tests on Wolfi
+        run: |
+          docker run --rm -v "$PWD:/workspace" -w /workspace/metadata-ingestion \
+            -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONDONTWRITEBYTECODE=1 \
+            cgr.dev/chainguard/wolfi-base:latest sh -c '
+              set -eux
+              apk add --no-cache python-3.11 python-3.11-dev uv git bash \
+                build-base krb5-dev krb5-libs openldap-2.6-dev cyrus-sasl-mit-dev \
+                libaio-dev librdkafka-dev unixodbc-dev
+              ln -sf /usr/bin/python3.11 /usr/bin/python3
+              uv venv /tmp/.venv
+              . /tmp/.venv/bin/activate
+              uv pip install ".[dev,integration-tests]"
+              pytest tests/unit -m "not integration" -q --junit-xml=/tmp/junit.xml
+            '
+
   # ── Single required branch protection check ────────────────────────────────
   integration-tests-gate:
     needs: [detect, ci]
