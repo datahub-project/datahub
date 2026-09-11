@@ -12,7 +12,7 @@ import javax.annotation.Nonnull;
  * Immutable, type-keyed container of {@link Enrichment} values carried on {@code
  * OperationFingerprint} / {@code OperationContext}.
  *
- * <p>One entry per concrete {@link Enrichment} implementation class. Retrieval is typed via {@link
+ * <p>One entry per {@link Enrichment#enrichmentType()} key. Retrieval is typed via {@link
  * #get(Class)} — no string keys, no casts at call sites. See {@link Enrichment} for the extension
  * pattern rationale.
  *
@@ -64,8 +64,8 @@ public final class EnrichmentBundle {
 
   /**
    * Return a new {@link EnrichmentBundle} containing everything in this container plus {@code
-   * additional}. If an enrichment of the same concrete class is already present, {@code additional}
-   * replaces it (last-writer-wins). This instance is unchanged.
+   * additional}. If an enrichment with the same key is already present, {@code additional} replaces
+   * it (last-writer-wins). This instance is unchanged.
    */
   @Nonnull
   public EnrichmentBundle plus(@Nonnull final Enrichment additional) {
@@ -74,7 +74,7 @@ public final class EnrichmentBundle {
 
   /**
    * Return a new {@link EnrichmentBundle} merging {@code other} on top of this one — entries in
-   * {@code other} replace same-class entries here. This instance is unchanged.
+   * {@code other} replace same-key entries here. This instance is unchanged.
    */
   @Nonnull
   public EnrichmentBundle plus(@Nonnull final EnrichmentBundle other) {

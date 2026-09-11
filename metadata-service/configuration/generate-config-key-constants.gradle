@@ -16,11 +16,11 @@ tasks.register('generateConfigKeyConstants') {
         }
         // Java identifiers cannot start with a digit; escape with '_'.
         def constantName = { String seg ->
-            def name = words(seg).join('_').toUpperCase()
+            def name = words(seg).join('_').toUpperCase(Locale.ROOT)
             (name && Character.isDigit(name.charAt(0))) ? '_' + name : name
         }
         def className = { String seg ->
-            def name = words(seg).collect { it[0].toUpperCase() + it.substring(1) }.join('')
+            def name = words(seg).collect { it[0].toUpperCase(Locale.ROOT) + it.substring(1) }.join('')
             (name && Character.isDigit(name.charAt(0))) ? '_' + name : name
         }
 

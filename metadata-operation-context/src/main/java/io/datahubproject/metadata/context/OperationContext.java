@@ -732,6 +732,7 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   public <T> T getConfig(@Nonnull final String key, @Nonnull final T defaultValue) {
     return getEnrichment(ConfigEnrichment.class)
         .map(enrichment -> enrichment.resolve(this, key, defaultValue))
+        .filter(value -> defaultValue.getClass().isInstance(value))
         .orElse(defaultValue);
   }
 

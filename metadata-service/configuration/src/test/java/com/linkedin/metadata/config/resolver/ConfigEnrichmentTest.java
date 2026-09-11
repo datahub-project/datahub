@@ -52,10 +52,25 @@ public class ConfigEnrichmentTest {
 
   @Test
   public void implementationsAreStoredUnderTheConfigEnrichmentKey() {
-    EnrichmentBundle bundle =
-        EnrichmentBundle.of(new StubConfigEnrichment(ConfigKeyConstants.Views.ENABLED, false));
+    StubConfigEnrichment first = new StubConfigEnrichment(ConfigKeyConstants.Views.ENABLED, false);
+    StubConfigEnrichment second = new StubConfigEnrichment(ConfigKeyConstants.Views.ENABLED, true);
+    EnrichmentBundle bundle = EnrichmentBundle.of(first, second);
 
-    assertTrue(bundle.get(ConfigEnrichment.class).isPresent());
+    assertEquals(bundle.get(ConfigEnrichment.class).orElseThrow(), second);
+    assertTrue(bundle.get(StubConfigEnrichment.class).isEmpty());
+  }
+
+  @Test
+  public void mismatchedTypesFallBackToTheDefaultInsteadOfThrowing() {
+    OperationContext base = TestOperationContexts.systemContextNoSearchAuthorization();
+    OperationContext opContext =
+        base.toBuilder()
+            .enrichmentBundle(
+                base.getEnrichmentBundle()
+                    .plus(new StubConfigEnrichment(ConfigKeyConstants.Views.ENABLED, "yes")))
+            .build(base.getSessionActorContext(), false);
+
+    assertTrue(opContext.getConfig(ConfigKeyConstants.Views.ENABLED, true));
   }
 
   /** The generated constants carry the exact authored yaml spelling. */
