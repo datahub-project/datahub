@@ -1,3 +1,4 @@
+import subprocess
 from typing import Any, List, Optional, Tuple
 from unittest.mock import patch
 
@@ -43,7 +44,12 @@ def test_project_image_ids_survives_compose_failure() -> None:
 
 
 def _run_prune(
-    image_ids: set, *, ci: bool, returncode: int = 0
+    image_ids: set,
+    *,
+    ci: bool,
+    returncode: int = 0,
+    stderr: str = "boom",
+    raises: Optional[Exception] = None,
 ) -> List[Tuple[Any, ...]]:
     calls: List[Tuple[Any, ...]] = []
 
@@ -51,10 +57,12 @@ def _run_prune(
         def __init__(self) -> None:
             self.returncode = returncode
             self.stdout = ""
-            self.stderr = "boom"
+            self.stderr = stderr
 
     def fake_run(cmd: Any, **kwargs: Any) -> Any:
         calls.append(tuple(cmd))
+        if raises is not None:
+            raise raises
         return _Result()
 
     with (
@@ -85,3 +93,71 @@ def test_prune_images_tolerates_removal_failure() -> None:
     # warning, not an exception raised from a passing module's teardown.
     calls = _run_prune({"aaa111"}, ci=True, returncode=1)
     assert calls == [("docker", "image", "rm", "-f", "aaa111")]
+
+
+def test_prune_images_survives_missing_docker_binary() -> None:
+    # No docker on PATH raises FileNotFoundError from subprocess.run. Pruning
+    # is an optimization, so teardown must swallow it rather than fail a module
+    # whose tests all passed.
+    calls = _run_prune(
+        {"aaa111"}, ci=True, raises=FileNotFoundError(2, "No such file: 'docker'")
+    )
+    assert calls == [("docker", "image", "rm", "-f", "aaa111")]
+
+
+def test_prune_images_survives_timeout() -> None:
+    # A wedged daemon must not block teardown forever and stall every module
+    # after this one.
+    calls = _run_prune(
+        {"aaa111"},
+        ci=True,
+        raises=subprocess.TimeoutExpired(cmd="docker image rm", timeout=300.0),
+    )
+    assert calls == [("docker", "image", "rm", "-f", "aaa111")]
+
+
+def test_prune_images_passes_a_timeout() -> None:
+    kwargs: List[Any] = []
+
+    def fake_run(cmd: Any, **kw: Any) -> Any:
+        kwargs.append(kw)
+
+        class _R:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return _R()
+
+    with (
+        patch("datahub.testing.docker_utils.is_ci", return_value=True),
+        patch("datahub.testing.docker_utils.subprocess.run", side_effect=fake_run),
+    ):
+        _prune_images({"aaa111"})
+
+    assert kwargs[0].get("timeout"), "removal must be bounded"
+
+
+def test_prune_images_ignores_benign_missing_image_lines() -> None:
+    # A genuine failure still reports the ids another module already pruned.
+    # Those lines must not be logged alongside the real conflict.
+    import logging
+
+    with patch.object(
+        logging.getLogger("datahub.testing.docker_utils"), "warning"
+    ) as warn:
+        _run_prune(
+            {"aaa111", "bbb222"},
+            ci=True,
+            returncode=1,
+            stderr=(
+                "Error response from daemon: conflict: unable to delete aaa111 "
+                "(cannot be forced) - image is being used by running container x\n"
+                "Error response from daemon: No such image: sha256:bbb222\n"
+            ),
+        )
+
+    assert warn.call_count == 1
+    logged = warn.call_args[0][0]
+    assert "conflict" in logged
+    assert "No such image" not in logged

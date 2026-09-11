@@ -77,6 +77,13 @@ def wait_for_port(
         subprocess.run(f"docker logs {container_name}", shell=True, check=True)
 
 
+# Ceiling on the teardown image removal. Deleting several multi-GB stacks is
+# genuinely slow on a loaded runner, so this is deliberately generous -- it
+# exists only so a wedged daemon cannot hang the session, not to bound normal
+# work.
+_PRUNE_TIMEOUT = 300.0
+
+
 def _project_image_ids(
     compose: pytest_docker.plugin.DockerComposeExecutor,
 ) -> Set[str]:
@@ -121,18 +128,44 @@ def _prune_images(image_ids: Set[str]) -> None:
     logger.info(f"Pruning {len(image_ids)} docker image(s) used by this module")
     # `-f` for two reasons: an image carrying several tags is removed rather
     # than merely untagged, and an image a previous module already pruned (the
-    # same base image is shared by several suites) is a no-op instead of an
-    # error. Docker's per-layer "Deleted:" chatter is captured, not logged --
-    # writing it to the job log would feed the very problem this fixes.
-    result = subprocess.run(
-        ["docker", "image", "rm", "-f", *sorted(image_ids)],
-        capture_output=True,
-        text=True,
-    )
+    # same base image is shared by several suites) exits 0 rather than failing.
+    # Docker's per-layer "Deleted:" chatter is captured, not logged -- writing
+    # it to the job log would feed the very problem this fixes.
+    try:
+        result = subprocess.run(
+            ["docker", "image", "rm", "-f", *sorted(image_ids)],
+            capture_output=True,
+            text=True,
+            timeout=_PRUNE_TIMEOUT,
+        )
+    except OSError as e:
+        # No docker on PATH, fork failure, etc. Pruning is an optimization, so
+        # a module whose tests passed must not fail in teardown over it.
+        logger.warning(f"Could not run docker image rm: {e}")
+        return
+    except subprocess.TimeoutExpired:
+        # Without a timeout a wedged daemon blocks teardown forever and stalls
+        # every module after this one. Leaking the images is the lesser cost.
+        logger.warning(
+            f"Timed out after {_PRUNE_TIMEOUT}s pruning docker images; "
+            "leaving them on disk"
+        )
+        return
+
     if result.returncode != 0:
         # Best-effort by design. An image still held by a container outside
         # this project can't be removed, and that must not fail a green module.
-        logger.warning(f"Failed to prune docker image(s): {result.stderr.strip()}")
+        # Absent images alone exit 0, but a run that genuinely fails for one
+        # image still reports the absent ones on stderr -- drop those so a real
+        # conflict is not buried in benign noise, as the stale-container
+        # removal above does for "No such container".
+        real_errors = [
+            line
+            for line in result.stderr.splitlines()
+            if line.strip() and "No such image" not in line
+        ]
+        if real_errors:
+            logger.warning(f"Failed to prune docker image(s): {' '.join(real_errors)}")
 
 
 DOCKER_DEFAULT_UNLIMITED_PARALLELISM = -1
