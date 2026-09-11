@@ -6,11 +6,17 @@ import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
+import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.datahubproject.openapi.exception.UnprocessableEntityException;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openlineage.generated.controller.LineageApi;
 import io.openlineage.client.OpenLineage;
@@ -35,10 +41,6 @@ public class LineageApiImpl implements LineageApi {
 
   @Autowired private RunEventMapper.MappingConfig _mappingConfig;
 
-  // @Autowired
-  // @Qualifier("javaEntityClient")
-  // private EntityClient _entityClient;
-
   @Autowired private EntityServiceImpl _entityService;
 
   @Autowired private AuthorizerChain _authorizerChain;
@@ -56,15 +58,18 @@ public class LineageApiImpl implements LineageApi {
 
   @Override
   public ResponseEntity<Void> postRunEventRaw(String body) {
+    // Event payloads carry table names, column names and SQL text, so they stay at DEBUG rather
+    // than being written to shipped logs on every request.
+    log.debug("Received lineage event: {}", body);
+    OpenLineage.RunEvent openlineageRunEvent;
     try {
-      log.info("Received lineage event: {}", body);
-      OpenLineage.RunEvent openlineageRunEvent = OpenLineageClientUtils.runEventFromJson(body);
-      log.info("Deserialized to lineage event: {}", openlineageRunEvent);
-      return postRunEventRaw(openlineageRunEvent);
+      openlineageRunEvent = OpenLineageClientUtils.runEventFromJson(body);
     } catch (Exception e) {
-      log.error(e.getMessage(), e);
-      return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+      log.warn("Rejecting malformed OpenLineage payload: {}", e.getMessage());
+      throw new IllegalArgumentException("Malformed OpenLineage event: " + e.getMessage());
     }
+    log.debug("Deserialized to lineage event: {}", openlineageRunEvent);
+    return postRunEventRaw(openlineageRunEvent);
   }
 
   public ResponseEntity<Void> postRunEventRaw(OpenLineage.RunEvent openlineageRunEvent) {
@@ -80,26 +85,55 @@ public class LineageApiImpl implements LineageApi {
             authentication,
             true);
 
-    log.info("PostRun received lineage event: {}", openlineageRunEvent);
-
-    RunEventMapper runEventMapper = new RunEventMapper();
     AuditStamp auditStamp =
         new AuditStamp()
             .setActor(UrnUtils.getUrn(authentication.getActor().toUrnStr()))
             .setTime(System.currentTimeMillis());
+
+    // A conversion failure means the caller sent something we understood but cannot store, which
+    // is a 422 rather than a server fault. Only the mapping is wrapped, so a genuine GMS failure
+    // during ingest still surfaces as a 500.
+    List<MetadataChangeProposal> proposals;
     try {
-      for (MetadataChangeProposal mcp :
-          runEventMapper
+      proposals =
+          new RunEventMapper()
               .map(openlineageRunEvent, this._mappingConfig)
-              .collect(Collectors.toList())) {
-        log.info("Ingesting MCP: {}", mcp);
-        _entityService.ingestProposal(opContext, mcp, auditStamp, true);
-      }
-      return new ResponseEntity<>(HttpStatus.OK);
+              .collect(Collectors.toList());
     } catch (Exception e) {
-      // log.error(e.getMessage(), e);
-      throw new RuntimeException(e);
-      // return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+      log.warn("OpenLineage event could not be converted: {}", e.getMessage());
+      throw new UnprocessableEntityException(
+          "OpenLineage event could not be converted: " + e.getMessage());
     }
+
+    // Authorization has to happen here rather than being left to the entity service: this endpoint
+    // writes through EntityServiceImpl, which is the storage layer and performs no privilege check.
+    List<Pair<MetadataChangeProposal, Integer>> denied =
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(
+                opContext, opContext.getEntityRegistry(), proposals)
+            .stream()
+            .filter(p -> p.getSecond() != com.linkedin.restli.common.HttpStatus.S_200_OK.getCode())
+            .collect(Collectors.toList());
+    if (!denied.isEmpty()) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr()
+              + " is unauthorized to ingest OpenLineage lineage for: "
+              + denied.stream()
+                  .map(
+                      p ->
+                          p.getFirst().getEntityUrn() == null
+                              ? p.getFirst().getEntityType()
+                              : p.getFirst().getEntityUrn().toString())
+                  .distinct()
+                  .collect(Collectors.joining(", ")));
+    }
+
+    // One batch rather than a proposal-at-a-time loop: a partial failure midway through the loop
+    // left some aspects committed with nothing recording which.
+    AspectsBatch batch =
+        AspectsBatchImpl.builder()
+            .mcps(proposals, auditStamp, opContext.getRetrieverContext())
+            .build(opContext);
+    _entityService.ingestProposal(opContext, batch, true);
+    return new ResponseEntity<>(HttpStatus.CREATED);
   }
 }
