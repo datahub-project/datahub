@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.kafka;
 
 import java.util.Map;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -15,6 +16,8 @@ final class KafkaMskIamAuth {
   private static final String SASL_MECHANISM = "sasl.mechanism";
   private static final String AWS_MSK_IAM = "AWS_MSK_IAM";
   private static final String IAM_LOGIN_MODULE = "IAMLoginModule";
+  private static final Pattern AWS_DEBUG_CREDS_TRUE =
+      Pattern.compile("awsDebugCreds\\s*=\\s*\"?true\"?", Pattern.CASE_INSENSITIVE);
 
   private KafkaMskIamAuth() {}
 
@@ -26,11 +29,12 @@ final class KafkaMskIamAuth {
     if (!(jaas instanceof String jaasConfig) || jaasConfig.isBlank()) {
       return;
     }
-    if (!jaasConfig.contains("awsDebugCreds=true")) {
+    if (!AWS_DEBUG_CREDS_TRUE.matcher(jaasConfig).find()) {
       return;
     }
     kafkaProperties.put(
-        SASL_JAAS_CONFIG, jaasConfig.replace("awsDebugCreds=true", "awsDebugCreds=false"));
+        SASL_JAAS_CONFIG,
+        AWS_DEBUG_CREDS_TRUE.matcher(jaasConfig).replaceAll("awsDebugCreds=false"));
     log.warn(
         "Disabled awsDebugCreds on MSK IAM JAAS config (GetCallerIdentity StsClient is never closed)");
   }

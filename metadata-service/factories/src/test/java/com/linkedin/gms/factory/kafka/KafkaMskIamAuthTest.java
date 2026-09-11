@@ -31,6 +31,30 @@ public class KafkaMskIamAuthTest {
   }
 
   @Test
+  public void disablesQuotedAwsDebugCreds() {
+    Map<String, Object> props = new HashMap<>();
+    props.put(
+        "sasl.jaas.config",
+        "software.amazon.msk.auth.iam.IAMLoginModule required awsDebugCreds=\"true\";");
+    KafkaMskIamAuth.disableDebugCallerIdentity(props);
+    assertEquals(
+        props.get("sasl.jaas.config"),
+        "software.amazon.msk.auth.iam.IAMLoginModule required awsDebugCreds=false;");
+  }
+
+  @Test
+  public void disablesAwsDebugCredsWithWhitespaceAroundEquals() {
+    Map<String, Object> props = new HashMap<>();
+    props.put(
+        "sasl.jaas.config",
+        "software.amazon.msk.auth.iam.IAMLoginModule required awsDebugCreds = true;");
+    KafkaMskIamAuth.disableDebugCallerIdentity(props);
+    assertEquals(
+        props.get("sasl.jaas.config"),
+        "software.amazon.msk.auth.iam.IAMLoginModule required awsDebugCreds=false;");
+  }
+
+  @Test
   public void leavesNonMskJaasUnchanged() {
     Map<String, Object> props = new HashMap<>();
     props.put(

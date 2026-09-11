@@ -1,7 +1,6 @@
 package com.linkedin.gms.factory.common;
 
 import com.linkedin.gms.factory.aws.AwsClientFactory;
-import com.linkedin.gms.factory.aws.AwsJdbcIamAuth;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.config.DatabaseConfig;
 import io.ebean.datasource.DataSourceConfig;
@@ -9,14 +8,12 @@ import io.ebean.datasource.DataSourcePoolListener;
 import java.sql.Connection;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Import;
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 @Slf4j
 @Configuration
@@ -90,10 +87,6 @@ public class LocalEbeanConfigFactory {
   @Value("${INSTANCE_CONNECTION_NAME:#{null}}")
   private String instanceConnectionName;
 
-  @Autowired(required = false)
-  @Qualifier("defaultAwsCredentialsProvider")
-  private AwsCredentialsProvider defaultAwsCredentialsProvider;
-
   public static DataSourcePoolListener getListenerToTrackCounts(
       MetricUtils metricUtils, String metricName) {
     final String counterName = "ebeans_connection_pool_size_" + metricName;
@@ -113,7 +106,6 @@ public class LocalEbeanConfigFactory {
   @Bean("ebeanDataSourceConfig")
   @DependsOn("defaultAwsCredentialsProvider")
   public DataSourceConfig buildDataSourceConfig(MetricUtils metricUtils) {
-    AwsJdbcIamAuth.installSharedCredentials(defaultAwsCredentialsProvider);
     return buildDataSourceConfig(ebeanDatasourceUrl, metricUtils);
   }
 

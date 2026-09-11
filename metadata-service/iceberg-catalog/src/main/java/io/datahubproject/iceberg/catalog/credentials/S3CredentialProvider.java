@@ -3,7 +3,11 @@ package io.datahubproject.iceberg.catalog.credentials;
 import static com.linkedin.metadata.authorization.PoliciesConfig.*;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -66,10 +70,9 @@ public class S3CredentialProvider implements CredentialProvider, AutoCloseable {
 
   private StsClient stsClient(StorageProviderCredentials storageProviderCredentials) {
     if (hasStaticKeys(storageProviderCredentials)) {
-      String cacheKey =
-          storageProviderCredentials.region + "|" + storageProviderCredentials.clientId;
       return ownedClients.computeIfAbsent(
-          cacheKey, ignored -> buildWarehouseStsClient(storageProviderCredentials));
+          warehouseClientCacheKey(storageProviderCredentials),
+          ignored -> buildWarehouseStsClient(storageProviderCredentials));
     }
     if (injectedStsClient != null) {
       return injectedStsClient;
@@ -83,6 +86,24 @@ public class S3CredentialProvider implements CredentialProvider, AutoCloseable {
         && !storageProviderCredentials.clientId.isEmpty()
         && storageProviderCredentials.clientSecret != null
         && !storageProviderCredentials.clientSecret.isEmpty();
+  }
+
+  private static String warehouseClientCacheKey(
+      StorageProviderCredentials storageProviderCredentials) {
+    return storageProviderCredentials.region
+        + "|"
+        + storageProviderCredentials.clientId
+        + "|"
+        + sha256Hex(storageProviderCredentials.clientSecret);
+  }
+
+  private static String sha256Hex(String secret) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      return HexFormat.of().formatHex(digest.digest(secret.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 is required to key warehouse STS clients", e);
+    }
   }
 
   private static StsClient buildWarehouseStsClient(

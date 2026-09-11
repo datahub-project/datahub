@@ -117,32 +117,42 @@ public class RestoreStorageStep implements UpgradeStep {
                 + clazz.getSimpleName()
                 + ", need to implement proper constructor.");
       }
-      EbeanAspectBackupIterator<? extends ReaderWrapper> iterator =
-          backupReader.getBackupIterator(context);
-      ReaderWrapper reader;
-      List<Future<?>> futureList = new ArrayList<>();
-      while ((reader = iterator.getNextReader()) != null) {
-        final ReaderWrapper readerRef = reader;
-        futureList.add(_fileReaderThreadPool.submit(() -> readerExecutable(readerRef, context)));
-      }
-      for (Future<?> future : futureList) {
-        try {
-          future.get();
-        } catch (InterruptedException | ExecutionException e) {
-          context.report().addLine("Reading interrupted, not able to finish processing.");
-          throw new RuntimeException(e);
+      EbeanAspectBackupIterator<? extends ReaderWrapper> iterator = null;
+      try {
+        iterator = backupReader.getBackupIterator(context);
+        ReaderWrapper reader;
+        List<Future<?>> futureList = new ArrayList<>();
+        while ((reader = iterator.getNextReader()) != null) {
+          final ReaderWrapper readerRef = reader;
+          futureList.add(_fileReaderThreadPool.submit(() -> readerExecutable(readerRef, context)));
         }
-      }
+        for (Future<?> future : futureList) {
+          try {
+            future.get();
+          } catch (InterruptedException | ExecutionException e) {
+            context.report().addLine("Reading interrupted, not able to finish processing.");
+            throw new RuntimeException(e);
+          }
+        }
 
-      context.report().addLine(String.format("Added %d rows to the aspect v2 table", numRows));
-      if (backupReader instanceof AutoCloseable closeable) {
-        try {
-          closeable.close();
-        } catch (Exception e) {
-          context.report().addLine("Failed to close BackupReader: " + e.getMessage());
+        context.report().addLine(String.format("Added %d rows to the aspect v2 table", numRows));
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+      } finally {
+        if (iterator != null) {
+          try {
+            iterator.close();
+          } catch (Exception e) {
+            context.report().addLine("Failed to close backup iterator: " + e.getMessage());
+          }
+        }
+        if (backupReader instanceof AutoCloseable closeable) {
+          try {
+            closeable.close();
+          } catch (Exception e) {
+            context.report().addLine("Failed to close BackupReader: " + e.getMessage());
+          }
         }
       }
-      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
   }
 
