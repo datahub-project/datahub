@@ -663,6 +663,19 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     chart_ref_schema_unknown_head_recheck_columns: Dict[str, int] = field(
         default_factory=dict
     )
+
+    # Refusals from the ID-based cross-sheet resolver. Each is a case where the
+    # chain was not exact, and the resolver declines rather than guess: a wrong
+    # pick attaches correct lineage to the WRONG chart.
+    # Several elements render the referenced sheet, so there is no single target.
+    chart_ref_schema_cross_sheet_sheet_ambiguous: int = 0
+    # path[1] is not a column of the element that renders that sheet.
+    chart_ref_schema_cross_sheet_column_unknown: int = 0
+    # The element exists but was filtered from chart emission, so it has no URN.
+    chart_ref_schema_cross_sheet_no_chart_urn: int = 0
+    # Columns whose lineage was recovered from /schema by ID, replacing a
+    # self-referential InputField the name-based path could not resolve.
+    chart_input_fields_recovered_from_schema: int = 0
     # Splits unknown_source_but_name_exists_in_a_data_model_this_workbook_loads
     # by whether a same-named element actually OWNS the referenced column:
     # exactly one owner means the ref is real and the candidate list was too

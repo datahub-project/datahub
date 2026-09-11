@@ -7847,6 +7847,72 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     self.reporter.chart_ref_sources_outcomes_by_reason.get(key, 0) + 1
                 )
 
+    @staticmethod
+    def _elements_by_sheet(elements: Dict[str, Any]) -> Dict[str, List[str]]:
+        """sheet id -> the element ids rendering it, from ``viz.sheetId``.
+
+        Shared by the fan-out measurement and the cross-sheet resolver so the
+        two cannot disagree about what "one element renders this sheet" means.
+        """
+        out: Dict[str, List[str]] = {}
+        for element_id, meta in elements.items():
+            if not isinstance(meta, dict):
+                continue
+            viz = meta.get("viz")
+            sheet_id = viz.get("sheetId") if isinstance(viz, dict) else None
+            if sheet_id:
+                out.setdefault(str(sheet_id), []).append(str(element_id))
+        return out
+
+    def _resolve_schema_cross_sheet_ref(
+        self,
+        path: List[str],
+        *,
+        sheets: Dict[str, Any],
+        elements: Dict[str, Any],
+        column_name_by_element_column: Dict[Tuple[str, str], str],
+        elementId_to_chart_urn: Dict[str, str],
+    ) -> Optional[Tuple[str, str]]:
+        """Resolve a ``[sheetId, columnId]`` /schema ref to (chart urn, field).
+
+        ``/columns`` gives a formula as the display name a user typed, so the
+        existing resolver has to match names; ``/schema`` states the same
+        dependency by ID, which cannot collide the way a name can.
+
+        Cross-validated against the name-based resolver on 609 real dev columns:
+        byte-identical URNs, zero disagreements. An earlier version resolved
+        ``path[1]`` to "the element that owns that columnId" and disagreed 39% of
+        the time -- ``/columns`` lists one columnId under EVERY element that
+        surfaces it (``inode-<urlId>/NATIVE`` under every reader of that
+        warehouse column, and opaque ids under several elements), so
+        columnId -> owner is not a function. ``(elementId, columnId) -> name``
+        is, which is why the head is resolved through the sheet instead.
+
+        Refuses rather than guesses whenever the chain is not exact, because a
+        wrong pick attaches correct lineage to the WRONG chart -- worse than
+        emitting nothing.
+        """
+        if len(path) != 2 or path[0] not in sheets:
+            return None
+        owners = self._elements_by_sheet(elements).get(path[0], [])
+        if len(owners) != 1:
+            # Several elements render this sheet, so there is no single correct
+            # target. Never observed on our dev tenant (1:1 on all 19 sheets);
+            # chart_ref_schema_sheet_element_fanout measures it per tenant.
+            self.reporter.chart_ref_schema_cross_sheet_sheet_ambiguous += 1
+            return None
+        upstream_element_id = owners[0]
+        field = column_name_by_element_column.get((upstream_element_id, path[1]))
+        if field is None:
+            self.reporter.chart_ref_schema_cross_sheet_column_unknown += 1
+            return None
+        upstream_urn = elementId_to_chart_urn.get(upstream_element_id)
+        if upstream_urn is None:
+            # The element exists but was filtered from chart emission.
+            self.reporter.chart_ref_schema_cross_sheet_no_chart_urn += 1
+            return None
+        return (upstream_urn, field)
+
     def _measure_sheet_element_fanout(
         self, sheets: Dict[str, Any], elements: Dict[str, Any]
     ) -> None:
@@ -7865,14 +7931,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         than assumed: our dev tenant is 1:1 across all 19 sheets, which is too
         small a sample to design on.
         """
-        per_sheet: Dict[str, int] = {}
-        for meta in elements.values():
-            if not isinstance(meta, dict):
-                continue
-            viz = meta.get("viz")
-            sheet_id = viz.get("sheetId") if isinstance(viz, dict) else None
-            if sheet_id:
-                per_sheet[str(sheet_id)] = per_sheet.get(str(sheet_id), 0) + 1
+        per_sheet: Dict[str, int] = {
+            sheet_id: len(eids)
+            for sheet_id, eids in self._elements_by_sheet(elements).items()
+        }
         for sheet_id in sheets:
             count = per_sheet.get(sheet_id, 0)
             # Bucketed, not summed: "how many sheets are ambiguous" is the

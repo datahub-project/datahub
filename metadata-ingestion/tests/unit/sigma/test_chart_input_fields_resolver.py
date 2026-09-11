@@ -2158,3 +2158,89 @@ class TestUnknownHeadRecheck:
         src._recheck_unknown_heads()
 
         assert src.reporter.chart_ref_schema_unknown_head_recheck_heads == {}
+
+
+class TestSchemaCrossSheetResolver:
+    """The ID-based cross-sheet rule, cross-validated on 609 real dev columns.
+
+    Fixtures mirror the real /schema shape: sheets keyed by id, and
+    elements[<id>].viz.sheetId as the sheet -> element mapping.
+    """
+
+    _SHEETS = {"upSheet": {"columns": {}}, "downSheet": {"columns": {}}}
+    _ELEMENTS = {
+        "upEl": {"viz": {"sheetId": "upSheet"}},
+        "downEl": {"viz": {"sheetId": "downSheet"}},
+    }
+
+    def _resolve(
+        self,
+        path: List[str],
+        *,
+        elements: Optional[Dict[str, Any]] = None,
+        names: Optional[Dict[Tuple[str, str], str]] = None,
+        urns: Optional[Dict[str, str]] = None,
+    ) -> Tuple[Optional[Tuple[str, str]], SigmaSource]:
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        got = src._resolve_schema_cross_sheet_ref(
+            path,
+            sheets=self._SHEETS,
+            elements=elements if elements is not None else self._ELEMENTS,
+            column_name_by_element_column=(
+                names if names is not None else {("upEl", "c1"): "Order Number"}
+            ),
+            elementId_to_chart_urn=(
+                urns if urns is not None else {"upEl": "urn:li:chart:(sigma,upEl)"}
+            ),
+        )
+        return got, src
+
+    def test_a_sheet_ref_resolves_through_viz_sheet_id(self) -> None:
+        got, _ = self._resolve(["upSheet", "c1"])
+        assert got == ("urn:li:chart:(sigma,upEl)", "Order Number")
+
+    def test_the_column_name_comes_from_the_resolved_element(self) -> None:
+        """(elementId, columnId) -> name is a function; columnId -> owner is not.
+
+        /columns lists one columnId under every element that surfaces it, so
+        resolving path[1] to "its owner" picked an arbitrary winner and
+        disagreed with the name-based resolver 39% of the time.
+        """
+        got, _ = self._resolve(
+            ["upSheet", "shared"],
+            names={("upEl", "shared"): "Mine", ("downEl", "shared"): "Theirs"},
+        )
+        assert got == ("urn:li:chart:(sigma,upEl)", "Mine")
+
+    def test_several_elements_on_one_sheet_is_refused(self) -> None:
+        got, src = self._resolve(
+            ["upSheet", "c1"],
+            elements={
+                "upEl": {"viz": {"sheetId": "upSheet"}},
+                "alsoUp": {"viz": {"sheetId": "upSheet"}},
+            },
+        )
+        assert got is None
+        assert src.reporter.chart_ref_schema_cross_sheet_sheet_ambiguous == 1
+
+    def test_a_column_absent_from_that_element_is_refused(self) -> None:
+        got, src = self._resolve(["upSheet", "notAColumn"])
+        assert got is None
+        assert src.reporter.chart_ref_schema_cross_sheet_column_unknown == 1
+
+    def test_an_element_filtered_from_chart_emission_is_refused(self) -> None:
+        got, src = self._resolve(["upSheet", "c1"], urns={})
+        assert got is None
+        assert src.reporter.chart_ref_schema_cross_sheet_no_chart_urn == 1
+
+    def test_a_head_that_is_not_a_sheet_is_not_this_handler(self) -> None:
+        got, src = self._resolve(["inode-abc", "ORDER_NUMBER"])
+        assert got is None
+        # Not a refusal -- a different head shape, for a different handler.
+        assert src.reporter.chart_ref_schema_cross_sheet_sheet_ambiguous == 0
+        assert src.reporter.chart_ref_schema_cross_sheet_column_unknown == 0
+
+    def test_a_one_segment_path_is_not_this_handler(self) -> None:
+        got, _ = self._resolve(["justAColumn"])
+        assert got is None
