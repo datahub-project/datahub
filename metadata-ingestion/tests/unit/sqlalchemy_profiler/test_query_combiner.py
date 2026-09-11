@@ -21,6 +21,10 @@ from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
     MAX_QUERIES_TO_COMBINE_AT_ONCE,
     MisTaggedQueryError,
     SQLAlchemyQueryCombiner,
+    _QueryFuture,
+    _ResultProxyFake,
+    _RowProxyFake,
+    flattenable_query,
     get_query_columns,
     is_single_row_query,
     single_row_query,
@@ -61,6 +65,26 @@ def test_table(engine):
     return table
 
 
+@pytest.fixture
+def cardinality_table(engine):
+    """A table whose column c{k} holds exactly k distinct values.
+
+    Distinct-chunking tests need results that differ per column: if every
+    COUNT(DISTINCT) returns the same number, a chunk-to-future mapping bug
+    hands each future the wrong column and every assertion still passes.
+    """
+    metadata = sa.MetaData()
+    cols = [Column(f"c{k}", Integer) for k in range(1, 8)]
+    table = sa.Table("cardinality_table", metadata, *cols)
+    metadata.create_all(engine)
+    with engine.connect() as conn, conn.begin():
+        conn.execute(
+            sa.insert(table),
+            [{f"c{k}": min(row, k) for k in range(1, 8)} for row in range(1, 8)],
+        )
+    return table
+
+
 def _make_combiner(**overrides: Any) -> SQLAlchemyQueryCombiner:
     defaults: Dict[str, Any] = {
         "enabled": True,
@@ -82,21 +106,30 @@ class _Capture:
     done: bool = False
 
 
+def tagged(query: Any) -> Any:
+    """Tag a query the way ProfilingConnection.execute_aggregate would."""
+    return flattenable_query(single_row_query(query))
+
+
 def _schedule(
     qc: SQLAlchemyQueryCombiner,
     conn: Connection,
     query: Any,
     multiparams: Any = (),
     combinable: bool = True,
+    flattenable: bool = True,
 ) -> _Capture:
     """Schedule a query on the combiner.
 
-    Tags the query as single-row by default, since most tests here exercise
-    batching. Pass combinable=False to schedule an untagged query.
+    Tagged single-row and flattenable by default, as execute_aggregate would.
+    Pass combinable=False for an untagged query, flattenable=False for one the
+    caller built itself.
     """
     cap = _Capture()
     if combinable:
         query = single_row_query(query)
+        if flattenable:
+            query = flattenable_query(query)
 
     def execute() -> None:
         try:
@@ -339,18 +372,20 @@ class TestResultExtraction:
             with pytest.raises(sa.exc.InvalidRequestError):
                 row["v"]
 
-    def test_duplicate_labels_across_queries_do_not_collide(self, engine, test_table):
-        # Two separate queries, each with a single column labelled 'v', combine
-        # into one statement. Each query gets its own result dict, so identical
-        # labels across queries must not collide. This is the case that matters
-        # for the flattening change.
+    @pytest.mark.parametrize("flatten_enabled", [False, True])
+    def test_duplicate_labels_across_queries_do_not_collide(
+        self, engine, test_table, flatten_enabled
+    ):
+        # Identical labels across two queries must not collide. Run on both
+        # paths: the flat path rebuilds result dicts from its own plan, so it
+        # can collide where the CTE path cannot.
         q_min = sa.select(sa.func.min(test_table.c.value).label("v")).select_from(
             test_table
         )
         q_max = sa.select(sa.func.max(test_table.c.value).label("v")).select_from(
             test_table
         )
-        combiner = _make_combiner()
+        combiner = _make_combiner(flatten_enabled=flatten_enabled)
         with engine.connect() as conn, combiner.activate() as qc:
             cap_min = _schedule(qc, conn, q_min)
             cap_max = _schedule(qc, conn, q_max)
@@ -393,6 +428,52 @@ class TestExceptionAndFallback:
         assert combiner.report.combined_queries_issued == 1
         assert combiner.report.uncombined_queries_issued == 2
         assert combiner.report.total_queries == 2
+
+    def test_serial_fallback_skips_already_done_futures(self, engine, test_table):
+        # The whole-queue caller can be handed an already-done queue, and
+        # without the skip-done guard those futures re-execute serially:
+        # correct results, N wasted round trips.
+        combiner = _make_combiner()
+        with engine.connect() as conn:
+            done_query = sa.select(sa.func.count().label("done")).select_from(
+                test_table
+            )
+            undone_query = sa.select(sa.func.count().label("rowcount")).select_from(
+                test_table
+            )
+
+            # Two futures already done, carrying a sentinel result that
+            # re-execution would overwrite.
+            done_fut_a = _QueryFuture(conn, done_query, (), {})
+            done_fut_a.done = True
+            done_fut_a.res = _ResultProxyFake(
+                [_RowProxyFake({"sentinel": "a-untouched"})]
+            )
+            done_fut_b = _QueryFuture(conn, done_query, (), {})
+            done_fut_b.done = True
+            done_fut_b.res = _ResultProxyFake(
+                [_RowProxyFake({"sentinel": "b-untouched"})]
+            )
+
+            # Two futures not yet done — these should be executed.
+            undone_fut_a = _QueryFuture(conn, undone_query, (), {})
+            undone_fut_b = _QueryFuture(conn, undone_query, (), {})
+
+            combiner._execute_futures_serially(
+                [done_fut_a, undone_fut_a, done_fut_b, undone_fut_b]
+            )
+
+        # Only the two un-done futures counted.
+        assert combiner.report.uncombined_queries_issued == 2
+        # Done futures were skipped: sentinel results untouched, still done.
+        assert done_fut_a.res.fetchone()["sentinel"] == "a-untouched"
+        assert done_fut_b.res.fetchone()["sentinel"] == "b-untouched"
+        assert done_fut_a.done and done_fut_b.done
+        # Un-done futures were executed: real result, now done.
+        assert undone_fut_a.done and undone_fut_b.done
+        assert undone_fut_a.res is not None and undone_fut_b.res is not None
+        assert undone_fut_a.res.scalar() == 3
+        assert undone_fut_b.res.scalar() == 3
 
     def test_no_fallback_raises_when_disabled(self, engine, test_table):
         bad = sa.select(sa.func.count().label("bad")).select_from(
@@ -569,7 +650,7 @@ class TestUnbatchableQueries:
         # ObjectNotExecutableError. It executes fine, it just cannot be batched.
         combiner = _make_combiner(catch_exceptions=False)
         with engine.connect() as conn, combiner.activate() as qc:
-            cap = _schedule(qc, conn, "SELECT 1", combinable=False)
+            cap = _schedule(qc, conn, "SELECT 1", combinable=False, flattenable=False)
             qc.flush()
 
         assert cap.exc is None
@@ -592,3 +673,446 @@ class TestUnbatchableQueries:
 
         assert [r for r in caplog.records if r.levelno == logging.WARNING] == []
         assert combiner.report.uncombined_queries_in_greenlet == 1
+
+
+class TestFlattenPath:
+    """The flatten path partitions by FROM signature and emits one flat
+    SELECT per group (COUNT(DISTINCT) capped at MAX_DISTINCT_PER_STATEMENT),
+    instead of one CTE per query. Flag off by default; these tests opt in via
+    _make_combiner(flatten_enabled=True).
+    """
+
+    def test_flat_path_combines_same_from_queries_into_one_statement(
+        self, engine, test_table
+    ):
+        # Three cheap aggregates on the same table, no clauses. The flatten
+        # path emits ONE flat SELECT (not one CTE per query).
+        queries = [
+            sa.select(sa.func.count().label("rowcount")).select_from(test_table),
+            sa.select(sa.func.min(test_table.c.value).label("minv")).select_from(
+                test_table
+            ),
+            sa.select(sa.func.max(test_table.c.value).label("maxv")).select_from(
+                test_table
+            ),
+        ]
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert all(c.done and c.exc is None for c in caps)
+        assert caps[0].result.scalar() == 3
+        assert caps[1].result.scalar() == 10.5
+        assert caps[2].result.scalar() == 30.5
+        assert combiner.report.flat_queries_issued == 1
+        assert combiner.report.combined_queries_issued == 1
+        assert combiner.report.queries_combined == 3
+        assert combiner.report.uncombined_queries_issued == 0
+        assert combiner.report.scans_avoided == 2  # 3 queued - 1 scan
+        assert combiner.report.query_exceptions == 0
+        assert combiner.report.total_queries == 3
+
+    def test_flat_path_unique_labels_for_anonymous_columns(self, engine, test_table):
+        # The flat SELECT must use generated labels and map back by position,
+        # so colliding inner-column names still resolve correctly.
+        queries = [
+            sa.select(sa.func.count()).select_from(test_table),
+            sa.select(sa.func.count(sa.column("id"))).select_from(test_table),
+        ]
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert caps[0].result.scalar() == 3
+        assert caps[1].result.scalar() == 3
+        assert combiner.report.flat_queries_issued == 1
+        assert combiner.report.query_exceptions == 0
+        assert combiner.report.total_queries == 2
+
+    def test_unmatched_shape_falls_through_to_cte_path(self, engine, test_table):
+        # A clause-bearing query goes through execute_single_row, so it is
+        # never tagged and falls to the CTE path.
+        # Two flattenable queries so the group is not a demoted singleton.
+        flat_query = sa.select(sa.func.count().label("rowcount")).select_from(
+            test_table
+        )
+        flat_query2 = sa.select(
+            sa.func.min(test_table.c.value).label("minv")
+        ).select_from(test_table)
+        where_query = (
+            sa.select(sa.func.count().label("filtered"))
+            .select_from(test_table)
+            .where(test_table.c.id > 1)
+        )
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap_flat = _schedule(qc, conn, flat_query)
+            cap_flat2 = _schedule(qc, conn, flat_query2)
+            cap_where = _schedule(qc, conn, where_query, flattenable=False)
+            qc.flush()
+
+        assert cap_flat.result.scalar() == 3
+        assert cap_flat2.result.scalar() == 10.5
+        assert cap_where.result.scalar() == 2
+        # The two cheap queries flatten into 1 flat SELECT; the WHERE query is
+        # unmatched and runs through the CTE path (1 CTE combine).
+        assert combiner.report.flat_queries_issued == 1
+        assert combiner.report.combined_queries_issued == 2
+        assert combiner.report.scans_avoided == 1
+        assert combiner.report.flatten_rejected == 1
+        assert combiner.report.query_exceptions == 0
+        assert combiner.report.total_queries == 3
+
+    def test_flatten_disabled_uses_cte_path(self, engine, test_table):
+        # Flag off: today's CTE path. flat_queries_issued never increments.
+        queries = [
+            sa.select(sa.func.count().label("rowcount")).select_from(test_table),
+            sa.select(sa.func.min(test_table.c.value).label("minv")).select_from(
+                test_table
+            ),
+        ]
+        combiner = _make_combiner(flatten_enabled=False)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert caps[0].result.scalar() == 3
+        assert caps[1].result.scalar() == 10.5
+        assert combiner.report.flat_queries_issued == 0
+        assert combiner.report.combined_queries_issued == 1
+        assert combiner.report.queries_combined == 2
+        assert combiner.report.total_queries == 2
+
+    @pytest.mark.parametrize(
+        "distinct_fn",
+        [
+            lambda c: sa.func.count(sa.func.distinct(c)),
+            lambda c: sa.func.count(sa.distinct(c)),
+            lambda c: sa.func.count(c.distinct()),
+        ],
+        ids=["func.distinct", "sa.distinct", "col.distinct()"],
+    )
+    def test_count_distinct_cap_covers_all_three_spellings(
+        self, engine, cardinality_table, distinct_fn
+    ):
+        # All three COUNT(DISTINCT) spellings must trip the cap; missing one
+        # trades a scan problem for a server-memory problem.
+        queries = [
+            sa.select(
+                distinct_fn(cardinality_table.c[f"c{k}"]).label(f"uc{k}")
+            ).select_from(cardinality_table)
+            for k in range(1, 8)
+        ]
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert all(c.done and c.exc is None for c in caps)
+        assert [c.result.scalar() for c in caps] == [1, 2, 3, 4, 5, 6, 7]
+        assert combiner.report.flat_queries_issued == 2
+        assert combiner.report.query_exceptions == 0
+
+    @pytest.mark.parametrize("flatten_enabled", [False, True])
+    def test_having_query_returns_zero_rows_under_both_flags(
+        self, engine, test_table, flatten_enabled
+    ):
+        # HAVING count(*) > 100 over 3 rows must return zero rows under both
+        # flags. A fabricated row here would be a silent correctness break.
+        q = (
+            sa.select(sa.func.count().label("c"))
+            .select_from(test_table)
+            .having(sa.func.count() > 100)
+        )
+        combiner = _make_combiner(flatten_enabled=flatten_enabled)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap = _schedule(qc, conn, q)
+            qc.flush()
+
+        assert cap.done and cap.exc is None
+        assert cap.result.fetchall() == []
+
+    def test_failing_unit_does_not_demote_out_of_window_futures(
+        self, engine, test_table
+    ):
+        # Futures beyond MAX_QUERIES_TO_COMBINE_AT_ONCE were never attempted
+        # and must still flatten next pass; a global fallback would demote
+        # them and zero scans_avoided.
+        bad = sa.select(
+            sa.func.count(sa.column("no_such_col")).label("bad")
+        ).select_from(test_table)
+        good_count = MAX_QUERIES_TO_COMBINE_AT_ONCE + 10
+        good = [
+            sa.select(sa.func.count().label(f"c{i}")).select_from(test_table)
+            for i in range(good_count)
+        ]
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in [bad] + good]
+            qc.flush()
+
+        assert caps[0].exc is not None  # the bad query fails
+        assert all(c.done and c.exc is None for c in caps[1:])  # all good resolve
+        assert all(c.result.scalar() == 3 for c in caps[1:])
+        # uncombined is the failed group's size, not the whole queue.
+        assert (
+            combiner.report.uncombined_queries_issued == MAX_QUERIES_TO_COMBINE_AT_ONCE
+        )
+        # The out-of-window good futures collapsed into one scan.
+        assert (
+            combiner.report.scans_avoided == good_count - MAX_QUERIES_TO_COMBINE_AT_ONCE
+        )
+
+    def test_same_name_different_object_tables_not_grouped(self, engine):
+        # Two Table objects named "t" must not group, or the flat SELECT
+        # becomes `FROM t, t`. SQLite shares one physical table across
+        # MetaData, so this asserts grouping, not per-table data.
+        md1 = sa.MetaData()
+        t1 = sa.Table("t", md1, Column("id", Integer))
+        md2 = sa.MetaData()
+        t2 = sa.Table("t", md2, Column("id", Integer))
+        md1.create_all(engine)
+        md2.create_all(engine)
+        with engine.connect() as conn, conn.begin():
+            conn.execute(sa.insert(t1).values(id=1))
+            conn.execute(sa.insert(t2).values(id=2))
+
+        # Two queries per table, so each group has a partner and survives the
+        # singleton demotion — otherwise both would land in the CTE path and
+        # the grouping being tested here would be invisible.
+        q1 = sa.select(sa.func.count().label("c1")).select_from(t1)
+        q1b = sa.select(sa.func.min(t1.c.id).label("m1")).select_from(t1)
+        q2 = sa.select(sa.func.count().label("c2")).select_from(t2)
+        q2b = sa.select(sa.func.min(t2.c.id).label("m2")).select_from(t2)
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap1 = _schedule(qc, conn, q1)
+            cap1b = _schedule(qc, conn, q1b)
+            cap2 = _schedule(qc, conn, q2)
+            cap2b = _schedule(qc, conn, q2b)
+            qc.flush()
+
+        assert all(c.done and c.exc is None for c in (cap1, cap1b, cap2, cap2b))
+        assert cap1.result.scalar() == 2
+        assert cap2.result.scalar() == 2
+        # Two separate groups (keyed on from-object identity) -> two flat
+        # statements, not one cross-joined statement.
+        assert combiner.report.flat_queries_issued == 2
+        assert combiner.report.flatten_singletons == 0
+        assert combiner.report.query_exceptions == 0
+
+    def test_no_fallback_raises_when_disabled_under_flatten(self, engine, test_table):
+        # With fallback disabled the failure must propagate rather than leave
+        # futures un-done (a livelock). Two members so this is a real flat
+        # group, not a demoted singleton.
+        bad = sa.select(
+            sa.func.count(sa.column("no_such_col")).label("bad")
+        ).select_from(test_table)
+        bad2 = sa.select(
+            sa.func.max(sa.column("no_such_col")).label("bad2")
+        ).select_from(test_table)
+        combiner = _make_combiner(
+            flatten_enabled=True, serial_execution_fallback_enabled=False
+        )
+        with engine.connect() as conn, combiner.activate() as qc:
+            _schedule(qc, conn, bad)
+            _schedule(qc, conn, bad2)
+            with pytest.raises(sa.exc.SQLAlchemyError):
+                qc.flush()
+        assert combiner.report.flatten_singletons == 0
+
+    def test_max_distinct_per_statement_knob_splits_distinct_heavy(
+        self, engine, cardinality_table
+    ):
+        # K=3 with 7 one-distinct queries packs into 3 statements; ignoring
+        # the knob and using the module default of 5 would give 2.
+        queries = [
+            sa.select(
+                sa.func.count(sa.func.distinct(cardinality_table.c[f"c{k}"])).label(
+                    f"uc{k}"
+                )
+            ).select_from(cardinality_table)
+            for k in range(1, 8)
+        ]
+        combiner = _make_combiner(flatten_enabled=True, max_distinct_per_statement=3)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert all(c.done and c.exc is None for c in caps)
+        assert [c.result.scalar() for c in caps] == [1, 2, 3, 4, 5, 6, 7]
+        assert combiner.report.flat_queries_issued == 3
+        assert combiner.report.scans_avoided == 4  # (3-1) + (3-1) + (1-1)
+        assert combiner.report.query_exceptions == 0
+
+    def test_only_execute_aggregate_queries_are_flattenable(self, test_table):
+        # Anything not built by execute_aggregate carries no tag, so it stays
+        # on the CTE path however plain it looks.
+        query = sa.select(sa.func.count().label("c")).select_from(test_table)
+        assert not SQLAlchemyQueryCombiner._is_flattenable(single_row_query(query))
+        assert SQLAlchemyQueryCombiner._is_flattenable(tagged(query))
+
+    def test_untagged_query_still_cte_batches(self, engine, test_table):
+        # Orthogonality: the flatten tag must not disturb the existing
+        # combiner. A single-row query with an empty allowlist batches exactly
+        # as it did before the flatten path existed.
+        queries = [
+            sa.select(sa.func.count().label("c")).select_from(test_table),
+            sa.select(sa.func.min(test_table.c.value).label("m")).select_from(
+                test_table
+            ),
+        ]
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q, flattenable=False) for q in queries]
+            qc.flush()
+
+        assert caps[0].result.scalar() == 3
+        assert caps[1].result.scalar() == 10.5
+        assert combiner.report.flat_queries_issued == 0
+        assert combiner.report.scans_avoided == 0
+        assert combiner.report.combined_queries_issued == 1
+        assert combiner.report.query_exceptions == 0
+
+    def test_plain_column_keeps_all_its_rows_alongside_aggregates(
+        self, engine, test_table
+    ):
+        # The shape the untagged fallback exists for: flattening it would emit
+        # `SELECT count(*), value FROM t` and return one row, losing the rest.
+        from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+            ProfilingConnection,
+        )
+
+        combiner = _make_combiner(flatten_enabled=True)
+        got: Dict[str, Any] = {}
+        with engine.connect() as raw, combiner.activate() as qc:
+            conn = ProfilingConnection(raw)
+            qc.run(
+                lambda: got.__setitem__(
+                    "count",
+                    conn.execute_aggregate(test_table, sa.func.count()).scalar(),
+                )
+            )
+            qc.run(
+                lambda: got.__setitem__(
+                    "min",
+                    conn.execute_aggregate(
+                        test_table, sa.func.min(test_table.c.value)
+                    ).scalar(),
+                )
+            )
+            qc.run(
+                lambda: got.__setitem__(
+                    "plain",
+                    conn.execute_aggregate(test_table, sa.column("value")).fetchall(),
+                )
+            )
+            qc.flush()
+
+        assert got["count"] == 3
+        assert got["min"] == 10.5
+        assert [r[0] for r in got["plain"]] == [10.5, 20.5, 30.5]
+        # The real aggregates still flattened; only the plain column opted out.
+        assert combiner.report.flat_queries_issued == 1
+        assert combiner.report.query_exceptions == 0
+
+    def test_singleton_groups_are_demoted_to_one_cte_combine(self, engine):
+        # A window spanning N tables gives one group each. Flattening them
+        # would cost N round trips at identical scan count, where the CTE path
+        # needs one.
+        md = sa.MetaData()
+        tables = [sa.Table(f"st{i}", md, Column("id", Integer)) for i in range(5)]
+        md.create_all(engine)
+
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [
+                _schedule(
+                    qc, conn, sa.select(sa.func.count().label(f"c{i}")).select_from(t)
+                )
+                for i, t in enumerate(tables)
+            ]
+            qc.flush()
+
+        assert all(c.done and c.exc is None for c in caps)
+        assert all(c.result.scalar() == 0 for c in caps)
+        assert combiner.report.flatten_singletons == 5
+        assert combiner.report.flat_queries_issued == 0
+        # The whole window still costs one round trip, as it did flag-off.
+        assert combiner.report.combined_queries_issued == 1
+        assert combiner.report.query_exceptions == 0
+
+    def test_distinct_budget_counts_columns_not_queries(self, engine, test_table):
+        # Two queries with two COUNT(DISTINCT) each are four trees, so a cap
+        # of 2 must split them. A per-future cap would see "2 <= 2" and emit
+        # one statement holding all four.
+        queries = [
+            sa.select(
+                sa.func.count(sa.func.distinct(test_table.c.id)).label(f"a{i}"),
+                sa.func.count(sa.func.distinct(test_table.c.name)).label(f"b{i}"),
+            ).select_from(test_table)
+            for i in range(2)
+        ]
+        combiner = _make_combiner(flatten_enabled=True, max_distinct_per_statement=2)
+        with engine.connect() as conn, combiner.activate() as qc:
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert all(c.done and c.exc is None for c in caps)
+        assert combiner.report.flat_queries_issued == 2
+        assert combiner.report.query_exceptions == 0
+
+    def test_query_exceeding_the_budget_still_executes_alone(self, engine, test_table):
+        # A query over budget cannot be split, so it must still run rather
+        # than be dropped. Given a partner so the group reaches the packer.
+        big = sa.select(
+            sa.func.count(sa.func.distinct(test_table.c.id)).label("a"),
+            sa.func.count(sa.func.distinct(test_table.c.name)).label("b"),
+            sa.func.count(sa.func.distinct(test_table.c.value)).label("c"),
+        ).select_from(test_table)
+        partner = sa.select(
+            sa.func.count(sa.func.distinct(test_table.c.id)).label("d")
+        ).select_from(test_table)
+        combiner = _make_combiner(flatten_enabled=True, max_distinct_per_statement=1)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap = _schedule(qc, conn, big)
+            cap_partner = _schedule(qc, conn, partner)
+            qc.flush()
+
+        assert cap.done and cap.exc is None
+        assert cap_partner.done and cap_partner.exc is None
+        # 3 columns in one query > budget of 1, so it forms its own statement
+        # rather than being dropped; the partner takes a second.
+        assert combiner.report.flat_queries_issued == 2
+        assert combiner.report.flatten_singletons == 0
+        row = cap.result.one()
+        assert (row["a"], row["b"], row["c"]) == (3, 3, 3)
+        assert cap_partner.result.scalar() == 3
+        assert combiner.report.query_exceptions == 0
+
+
+class TestGroupKeySeparatesDistinct:
+    def test_a_lone_cheap_and_lone_distinct_do_not_become_two_statements(
+        self, engine, test_table
+    ):
+        # They end up in separate statements anyway, so keying them together
+        # hid them from the singleton demotion: two flat statements saving
+        # nothing, where the CTE path needs one.
+        cheap = sa.select(sa.func.count().label("c")).select_from(test_table)
+        distinct = sa.select(
+            sa.func.count(sa.func.distinct(test_table.c.value)).label("u")
+        ).select_from(test_table)
+
+        combiner = _make_combiner(flatten_enabled=True)
+        with engine.connect() as conn, combiner.activate() as qc:
+            cap_c = _schedule(qc, conn, cheap)
+            cap_u = _schedule(qc, conn, distinct)
+            qc.flush()
+
+        assert cap_c.result.scalar() == 3
+        assert cap_u.result.scalar() == 3
+        assert combiner.report.flat_queries_issued == 0
+        assert combiner.report.flatten_singletons == 2
+        assert combiner.report.combined_queries_issued == 1

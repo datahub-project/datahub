@@ -4,7 +4,7 @@ import React from 'react';
 import { useTheme } from 'styled-components';
 
 import { PreviewType } from '@app/entity/Entity';
-import { PreviewContext } from '@app/entityV2/Entity';
+import { PreviewContextProps } from '@app/entityV2/shared/PreviewContext';
 import { HoverEntityTooltipContext } from '@app/recommendations/HoverEntityTooltipContext';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
@@ -20,7 +20,7 @@ type Props = {
     width?: number;
     maxWidth?: number;
     entityCount?: number;
-    previewContext?: PreviewContext;
+    previewContext?: PreviewContextProps;
 };
 
 export const HoverEntityTooltip = ({
