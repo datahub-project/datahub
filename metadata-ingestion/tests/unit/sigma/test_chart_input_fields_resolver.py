@@ -995,16 +995,81 @@ class TestSchemaMeasurementRecordsFailures:
         )
         return src
 
-    def test_a_sibling_only_column_is_sampled_with_its_paths(self) -> None:
+    def test_a_local_only_column_is_sampled_with_its_paths(self) -> None:
         src = self._measure({"type": "nameRef", "path": ["someOtherColumn"]})
 
-        assert src.reporter.chart_ref_schema_sibling_only == 1
+        assert src.reporter.chart_ref_schema_local_only == 1
         assert src.reporter.chart_ref_schema_outcomes_by_reason == {
-            "sibling_only::some_reason": 1
+            "local_only::some_reason": 1
         }
         (sample,) = list(src.reporter.chart_ref_schema_unresolvable_samples)
         assert "someOtherColumn" in sample
         assert "some_reason" in sample
+
+    def test_a_one_segment_inode_ref_is_warehouse_not_local(self) -> None:
+        """Sigma writes a warehouse column as ONE segment, not two.
+
+        Keying the inode test on a two-segment path filed 23 of 83 one-segment
+        refs on a real tenant as local columns, which reports the opposite of
+        what they say. The shape here is copied from a live /schema response.
+        """
+        src = self._measure(
+            {"type": "nameRef", "path": ["inode-Kq7dR2mXbT9nZv4LsW6yHc/COST"]}
+        )
+
+        assert src.reporter.chart_ref_schema_warehouse_resolvable == 1
+        assert src.reporter.chart_ref_schema_local_only == 0
+
+    def test_a_data_model_element_ref_is_not_reported_as_local(self) -> None:
+        """A "<dataModelId>/<elementId>" head names a Data Model element by id.
+
+        It fell into the old catch-all else, so a ref that states a dependency
+        was counted as one that denies having any.
+        """
+        src = self._measure(
+            {"type": "nameRef", "path": ["Vb3TgN8kQm5RzXc7WdLp2J/Zt4KpQ7nWx", "Col B"]}
+        )
+
+        assert src.reporter.chart_ref_schema_dm_element == 1
+        assert src.reporter.chart_ref_schema_local_only == 0
+
+    def test_an_unrecognised_head_is_reported_with_the_raw_id(self) -> None:
+        """An unknown id space must surface the head, not be silently dropped.
+
+        The head is the only thing that can identify which id space it belongs
+        to, and it is opaque, so the counter alone says nothing actionable.
+        """
+        src = self._measure({"type": "nameRef", "path": ["qQ1zXvB2pL", "Col B"]})
+
+        assert src.reporter.chart_ref_schema_unknown_head == 1
+        assert list(src.reporter.chart_ref_schema_unknown_head_samples) == [
+            "qQ1zXvB2pL"
+        ]
+
+    def test_a_cross_sheet_ref_outranks_a_warehouse_ref_in_the_same_formula(
+        self,
+    ) -> None:
+        """A formula holding both shapes is filed under the more specific one.
+
+        Live /schema writes cross-sheet refs whose TARGET is itself warehouse-
+        qualified ("<sheetId>", "inode-<urlId>/<COL>"), so an unordered test
+        would classify by dict iteration order.
+        """
+        src = self._measure(
+            {
+                "type": "binOp",
+                "args": [
+                    {
+                        "type": "nameRef",
+                        "path": ["sheet1", "inode-Kq7dR2mXbT9nZv4LsW6yHc/ORDER_NUMBER"],
+                    },
+                    {"type": "nameRef", "path": ["inode-Kq7dR2mXbT9nZv4LsW6yHc/COST"]},
+                ],
+            }
+        )
+
+        assert src.reporter.chart_ref_schema_cross_sheet_resolvable == 1
+        assert src.reporter.chart_ref_schema_warehouse_resolvable == 0
 
     def test_a_column_absent_from_schema_is_sampled_too(self) -> None:
         """The two endpoints disagreeing about the workbook is a finding."""

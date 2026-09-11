@@ -7622,6 +7622,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.chart_ref_schema_unavailable += len(unresolved)
             return
         sheets = schema.get("sheets") or {}
+        # /schema returns an element map of its own, keyed by the SAME 10-char
+        # ids as /workbooks/{id}/elements (verified 52/52 on a dev tenant). The
+        # sheet keys are a different id space, so consulting only "sheets" made
+        # every cross-element ref unresolvable. This is the sheet-to-element
+        # mapping whose absence previously blocked building a resolver here.
+        elements = schema.get("elements") or {}
         # A column id is unique within a sheet, so index it across all of them.
         column_formula: Dict[str, Any] = {}
         for sheet in sheets.values():
@@ -7634,30 +7640,65 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self._record_schema_outcome(item, "column_absent", formula=None)
                 continue
             refs = self._schema_name_refs(formula)
-            cross_sheet = [
-                path
-                for path in refs
-                if len(path) == 2
-                and path[0] in sheets
-                and not path[0].startswith("inode-")
-            ]
-            warehouse = [
-                path for path in refs if len(path) == 2 and path[0].startswith("inode-")
-            ]
-            if cross_sheet:
-                self.reporter.chart_ref_schema_cross_sheet_resolvable += 1
-                self._record_schema_outcome(
-                    item, "cross_sheet", formula=formula, detail=str(cross_sheet)
-                )
-            elif warehouse:
-                self.reporter.chart_ref_schema_warehouse_resolvable += 1
-                self._record_schema_outcome(item, "warehouse", formula=formula)
-            elif refs:
-                self.reporter.chart_ref_schema_sibling_only += 1
-                self._record_schema_outcome(item, "sibling_only", formula=formula)
+            outcome, detail = self._classify_schema_refs(refs, sheets, elements)
+            counter = {
+                "cross_sheet": "chart_ref_schema_cross_sheet_resolvable",
+                "element": "chart_ref_schema_element_resolvable",
+                "warehouse": "chart_ref_schema_warehouse_resolvable",
+                "dm_element": "chart_ref_schema_dm_element",
+                "join_chain": "chart_ref_schema_join_chain",
+                "unknown_head": "chart_ref_schema_unknown_head",
+                "local_only": "chart_ref_schema_local_only",
+                "no_refs": "chart_ref_schema_no_refs",
+            }[outcome]
+            setattr(self.reporter, counter, getattr(self.reporter, counter) + 1)
+            if outcome == "unknown_head":
+                # The head itself is the only thing that can identify the id
+                # space, and it is an opaque id, not a name.
+                self.reporter.chart_ref_schema_unknown_head_samples.append(detail)
+            self._record_schema_outcome(item, outcome, formula=formula, detail=detail)
+
+    @staticmethod
+    def _classify_schema_refs(
+        refs: List[List[str]],
+        sheets: Dict[str, Any],
+        elements: Dict[str, Any],
+    ) -> Tuple[str, str]:
+        """Classify a column's nameRef paths into exactly one outcome.
+
+        Ordered most-resolvable first, so a column with several refs is filed
+        under the best one available. Every branch is named: the previous
+        version ended in an ``else`` that reported unrecognised shapes as
+        "sibling_only", which reads as "Sigma says this column is local" when
+        it actually meant "this reader did not recognise the path". Those are
+        opposite conclusions and the wrong one was being reported.
+        """
+        if not refs:
+            return "no_refs", ""
+        # Ranked best-first; a column with several refs is filed under its best.
+        # Length does NOT gate the inode test: Sigma also writes a warehouse
+        # column as a SINGLE segment, "inode-<urlId>/<NATIVE_COLUMN>", and
+        # keying on len==2 filed 23 of 83 one-segment refs on a dev tenant as
+        # local columns when they name a warehouse column outright.
+        ranked: List[Tuple[int, str, str]] = []
+        for path in refs:
+            head = path[0]
+            if len(path) == 2 and head in sheets:
+                ranked.append((0, "cross_sheet", str([path])))
+            elif len(path) == 2 and head in elements:
+                ranked.append((1, "element", str([path])))
+            elif head.startswith("inode-"):
+                ranked.append((2, "warehouse", str(path)))
+            elif len(path) == 2 and "/" in head:
+                ranked.append((3, "dm_element", str([path])))
+            elif len(path) >= 3:
+                ranked.append((4, "join_chain", str([path])))
+            elif len(path) == 1 and "/" not in head:
+                ranked.append((6, "local_only", ""))
             else:
-                self.reporter.chart_ref_schema_no_refs += 1
-                self._record_schema_outcome(item, "no_refs", formula=formula)
+                ranked.append((5, "unknown_head", head))
+        rank, outcome, detail = min(ranked, key=lambda r: r[0])
+        return outcome, detail
 
     def _record_schema_outcome(
         self,

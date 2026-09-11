@@ -529,9 +529,31 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # The formula refers to a warehouse column by inode. Some of these already
     # resolve through the warehouse path; overlap is expected.
     chart_ref_schema_warehouse_resolvable: int = 0
-    # Only same-sheet sibling refs, which name no upstream and are already
-    # counted as skipped elsewhere.
-    chart_ref_schema_sibling_only: int = 0
+    # Was a single "sibling_only" bucket. It was an else-branch, so it absorbed
+    # every path shape this reader did not recognise and reported them as though
+    # Sigma had said the column was local -- the opposite of what most of them
+    # mean. Measured on a dev tenant, 45% of that bucket was misfiled. The four
+    # below are mutually exclusive and replace it.
+    #
+    # A path of length 1: a bare column in the same sheet. The ONLY shape that
+    # genuinely names no upstream.
+    chart_ref_schema_local_only: int = 0
+    # Head is "<dataModelId>/<elementId>" -- a Data Model element named by id,
+    # which maps onto a Sigma dataset URN this connector already emits.
+    chart_ref_schema_dm_element: int = 0
+    # Head is an id in no structure /schema returns (not a sheet, element,
+    # inode, or compound). Unidentified; the samples carry the raw head so the
+    # next run can say what it is rather than discarding it silently.
+    chart_ref_schema_unknown_head: int = 0
+    # A path of 3+ segments, Sigma's join-chain shape.
+    chart_ref_schema_join_chain: int = 0
+    # Head is a 10-char element id present in /schema's own "elements" map. Only
+    # "sheets" was ever consulted, so cross-element refs could not resolve.
+    chart_ref_schema_element_resolvable: int = 0
+    # Raw heads for chart_ref_schema_unknown_head, to identify the id space.
+    chart_ref_schema_unknown_head_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
     # The endpoint has the column but its formula contains no reference at all.
     chart_ref_schema_no_refs: int = 0
     # /schema has no entry for that columnId -- the two endpoints disagree about
