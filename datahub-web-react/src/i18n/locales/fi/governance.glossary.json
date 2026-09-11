@@ -9,6 +9,7 @@
     "empty.title": "Tyhjä sanasto",
     "list.error": "Sanaston lataaminen epäonnistui! Tapahtui odottamaton virhe.",
     "list.loading": "Ladataan sanastoa...",
+    "page.contactAdmin": "Ota yhteyttä DataHub-pääkäyttäjääsi ottaaksesi sanaston käyttöön.",
     "page.createGlossary": "Luo sanasto",
     "page.subtitle": "Luokittele kohteesi ja sarakkeesi tietosanakirjojen avulla",
     "page.title": "Sanasto",
