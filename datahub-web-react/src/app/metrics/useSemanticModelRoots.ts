@@ -1,7 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useInView } from 'react-intersection-observer';
 
+import useMetricsSidebarPagination from '@app/metrics/hooks/useMetricsSidebarPagination';
 import { SemanticModel } from '@app/metrics/metricsTypes';
+import {
+    advanceMetricsSidebarPagination,
+    mergeMetricsSidebarPaginationPage,
+} from '@app/metrics/utils/metricsSidebarPagination';
 import {
     DEFAULT_METRICS_SIDEBAR_SORT,
     MetricsSidebarSortValue,
@@ -32,58 +37,41 @@ export default function useSemanticModelRoots(
     sort: MetricsSidebarSortValue = DEFAULT_METRICS_SIDEBAR_SORT,
     skip = false,
 ) {
-    const [scrollId, setScrollId] = useState<string | null>(null);
-    const [data, setData] = useState<SemanticModel[]>([]);
-
-    useEffect(() => {
-        setScrollId(null);
-        setData([]);
-    }, [sort]);
+    const criteriaKey = sort;
+    const { scrollId, entities: data, setPagination } = useMetricsSidebarPagination<SemanticModel>(criteriaKey);
 
     const variables = useMemo(() => buildScrollInput(scrollId, sort), [scrollId, sort]);
 
     const {
         data: scrollData,
         loading,
+        error,
         refetch,
     } = useScrollSemanticModelsQuery({
         variables,
         skip,
         notifyOnNetworkStatusChange: true,
+        fetchPolicy: 'network-only',
     });
 
     useEffect(() => {
-        if (scrollData?.scrollAcrossEntities?.searchResults) {
+        if (!skip && !loading && !error && scrollData?.scrollAcrossEntities?.searchResults) {
             const fresh = scrollData.scrollAcrossEntities.searchResults
                 .map((r) => r.entity)
                 .filter((e): e is SemanticModel => e?.__typename === 'SemanticModel');
-            const freshByUrn = new Map(fresh.map((e) => [e.urn, e]));
-
-            setData((currData) => {
-                if (scrollId === null) {
-                    return fresh;
-                }
-                const updated = currData.map((e) => freshByUrn.get(e.urn) || e);
-                const seenUrns = new Set(updated.map((e) => e.urn));
-                const additions = fresh.filter((e) => !seenUrns.has(e.urn));
-                if (additions.length === 0 && updated.every((e, i) => e === currData[i])) {
-                    return currData;
-                }
-                return [...updated, ...additions];
-            });
+            setPagination((current) => mergeMetricsSidebarPaginationPage(current, criteriaKey, fresh));
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [scrollData]);
+    }, [criteriaKey, error, loading, scrollData, setPagination, skip]);
 
     const nextScrollId = scrollData?.scrollAcrossEntities?.nextScrollId;
 
     const [scrollRef, inView] = useInView({ triggerOnce: false });
 
     useEffect(() => {
-        if (!loading && nextScrollId && scrollId !== nextScrollId && inView) {
-            setScrollId(nextScrollId);
+        if (!skip && !loading && !error && nextScrollId && scrollId !== nextScrollId && inView) {
+            setPagination((current) => advanceMetricsSidebarPagination(current, criteriaKey, nextScrollId));
         }
-    }, [inView, nextScrollId, scrollId, loading]);
+    }, [criteriaKey, error, inView, nextScrollId, scrollId, loading, setPagination, skip]);
 
     return {
         data,

@@ -106,13 +106,17 @@ authorization:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
       peerGroupEnabled: ${VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
     # Entity types that bypass view authorization when enabled. All other types are restricted by
-    # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`). Empty `value`
-    # keeps that registry baseline; a non-empty `value` replaces it. `add` / `remove` always overlay.
-    # Default `add` is the previous unrestricted CSV minus (1) types already flagged in the
-    # registry and (2) non-OSS entity names (Cloud-only; soft-dropped here anyway). Document,
-    # schemaField, and container are intentionally absent from stock unrestricted overlays when
-    # view authorization is on (container is no longer viewUnrestricted in the registry). Re-add
-    # via VIEW_UNRESTRICTED_ENTITY_TYPES_ADD if needed (not recommended).
+    # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`) plus `value`.
+    # Operator `add` / `remove` always mutate that list.
+    # Stock `value` is the previous unrestricted CSV minus types already flagged in the registry
+    # (OSS entity names only; Cloud-only types are omitted and would be soft-dropped here anyway).
+    # Override with VIEW_UNRESTRICTED_ENTITY_TYPES (replaces this CSV, not the registry baseline).
+    # An explicitly empty VIEW_UNRESTRICTED_ENTITY_TYPES keeps only the registry baseline.
+    # Document, schemaField, and container are intentionally absent from the effective defaults:
+    # they are view-restricted when view authorization is on (container is no longer
+    # viewUnrestricted in the registry). Unrestricted overlays only bypass view gates and do not
+    # disable DocumentService or REST API authorization.
+    # Re-add via VIEW_UNRESTRICTED_ENTITY_TYPES_ADD if needed (not recommended).
     #
     # Registry baseline (entity-registry.yml viewUnrestricted: true):
     #   identity: corpuser, corpGroup
@@ -121,8 +125,8 @@ authorization:
     #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, post
     #   settings / internal: globalSettings, dataHubRetention, dataHubOpenAPISchema, telemetry, dataHubUpgrade, dataHubStepState
     unrestrictedEntityTypes:
-      value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:}
-      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
+      value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
+      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:}
       remove: ${VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE:}
 
 ingestion:
@@ -705,8 +709,7 @@ postgres:
       leakTimeMinutes: ${DATAHUB_PGQUEUE_LEAK_TIME_MINUTES:15}
       waitTimeoutMillis: ${DATAHUB_PGQUEUE_WAIT_TIMEOUT_MILLIS:1000}
     consumerPoll:
-      emptyPollSleepMillis: ${DATAHUB_PGQUEUE_EMPTY_POLL_SLEEP_MS:100}
-      mclEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MCL_EMPTY_POLL_SLEEP_MS:25}
+      emptyPollSleepMinMillis: ${DATAHUB_PGQUEUE_EMPTY_POLL_SLEEP_MIN_MS:1000}
       missingTopicSleepMillis: ${DATAHUB_PGQUEUE_MISSING_TOPIC_SLEEP_MS:500}
       errorRecoverySleepMillis: ${DATAHUB_PGQUEUE_ERROR_RECOVERY_SLEEP_MS:1000}
 
@@ -718,18 +721,22 @@ maeConsumer:
     connectionRequestTimeoutMs: ${MAE_ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:10000}
   pgQueue:
     usageEventsMaxBatch: ${DATAHUB_PGQUEUE_MAE_USAGE_POLL_MAX_BATCH:200}
+    usageEventsEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MAE_USAGE_EMPTY_POLL_SLEEP_MS:5000}
     metadataChangeLogMaxBatch: ${DATAHUB_PGQUEUE_MAE_MCL_POLL_MAX_BATCH:50}
+    metadataChangeLogEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MAE_MCL_EMPTY_POLL_SLEEP_MS:5000}
 
 # MCE consumer (standalone or embedded in GMS): pgQueue poll tuning when transport=pgqueue.
 mceConsumer:
   pgQueue:
     metadataChangeProposalMaxBatch: ${DATAHUB_PGQUEUE_MCE_MCP_POLL_MAX_BATCH:50}
+    metadataChangeProposalEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MCE_MCP_EMPTY_POLL_SLEEP_MS:5000}
     batchMetadataChangeProposalMaxBatch: ${DATAHUB_PGQUEUE_MCE_BATCH_MCP_POLL_MAX_BATCH:100}
 
 # PE consumer (standalone or embedded in GMS): pgQueue poll tuning when transport=pgqueue.
 peConsumer:
   pgQueue:
     platformEventMaxBatch: ${DATAHUB_PGQUEUE_PE_POLL_MAX_BATCH:50}
+    platformEventEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_PE_EMPTY_POLL_SLEEP_MS:5000}
 
 elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}

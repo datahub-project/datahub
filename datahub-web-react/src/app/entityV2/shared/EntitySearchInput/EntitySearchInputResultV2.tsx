@@ -4,11 +4,15 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
+import {
+    getEntityDisplayName as getEntityDisplayNameUtil,
+    getEntityTypeLabel,
+} from '@app/entityV2/shared/EntitySearchSelect/utils';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import ContextPath from '@app/previewV2/ContextPath';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Entity, EntityType } from '@types';
+import { Entity } from '@types';
 
 const Wrapper = styled.div`
     display: flex;
@@ -33,13 +37,15 @@ type Props = {
 };
 
 export default function EntitySearchInputResultV2({ entity }: Props) {
-    const { t } = useTranslation('entity.shared.display');
+    const { t } = useTranslation('entity.shared.selectors');
     const entityRegistry = useEntityRegistry() as EntityRegistry;
     const displayNameFromRegistry = entityRegistry.getDisplayName(entity.type, entity);
 
-    // Fallback for unregistered entity types (like INGESTION_SOURCE)
-    if (!displayNameFromRegistry || entity.type === EntityType.IngestionSource) {
-        const displayName = (entity as any).name || entity.urn || 'Unknown';
+    // Fallback for entity types the registry has no entry for (INGESTION_SOURCE,
+    // CUSTOM_OWNERSHIP_TYPE), which would otherwise render as a blank row. DefaultEntity's
+    // displayName returns '' for those, so the falsy check alone covers them.
+    if (!displayNameFromRegistry) {
+        const displayName = getEntityDisplayNameUtil(entity, entityRegistry) || entity.urn || 'Unknown';
 
         return (
             <Wrapper>
@@ -49,7 +55,7 @@ export default function EntitySearchInputResultV2({ entity }: Props) {
                     </Text>
                     <ContextPath
                         entityType={entity.type}
-                        displayedEntityType={t('ingestionSource')}
+                        displayedEntityType={getEntityTypeLabel(entity.type, t)}
                         browsePaths={undefined}
                         parentEntities={undefined}
                         linksDisabled
