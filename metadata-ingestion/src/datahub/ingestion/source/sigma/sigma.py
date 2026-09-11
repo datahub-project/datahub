@@ -6909,6 +6909,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if isinstance(upstream, DataModelElementUpstream)
             and upstream.data_model_url_id
         )
+        # Retained for the /schema recovery pass below.
+        fields_by_chart_urn: Dict[str, List[InputFieldClass]] = {}
+        chart_urn_by_element_id: Dict[str, str] = {}
         for element in elements:
             chart_urn = builder.make_chart_urn(
                 platform=self.platform,
@@ -7100,13 +7103,29 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             ).as_workunit()
 
             all_input_fields.extend(element_input_fields)
+            # InputFields is full-replace, so a corrected re-emit has to carry
+            # EVERY field for the chart, not just the ones that changed.
+            fields_by_chart_urn[chart_urn] = element_input_fields
+            chart_urn_by_element_id[element.elementId] = chart_urn
 
         # One /schema call per workbook, after every element is resolved, and
         # only when something failed -- a workbook that resolved cleanly has
         # nothing to measure and should not pay for the call.
         pending = self._pending_schema_probe
         self._pending_schema_probe = []
-        self._measure_schema_resolvable_refs(workbook, pending)
+        # Fetched once and shared: the recovery pass and the measurement pass
+        # both need it, and a workbook that resolved cleanly pays for neither.
+        schema = (
+            self.sigma_api.get_workbook_schema(workbook.workbookId) if pending else None
+        )
+        yield from self._recover_input_fields_from_schema(
+            workbook,
+            pending,
+            schema=schema,
+            fields_by_chart_urn=fields_by_chart_urn,
+            chart_urn_by_element_id=chart_urn_by_element_id,
+        )
+        self._measure_schema_resolvable_refs(workbook, pending, schema=schema)
         self._measure_workbook_sources(workbook, pending, workbook_dm_url_ids)
 
     def _gen_pages_workunit(
@@ -7667,8 +7686,108 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 stack.extend(node)
         return found
 
+    def _recover_input_fields_from_schema(
+        self,
+        workbook: Workbook,
+        unresolved: List["_UnresolvedChartColumn"],
+        *,
+        schema: Optional[Dict[str, Any]],
+        fields_by_chart_urn: Dict[str, List[InputFieldClass]],
+        chart_urn_by_element_id: Dict[str, str],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Re-emit InputFields for columns /schema can resolve by ID.
+
+        A column that reached here fell back to a self-reference because the
+        name-based path could not match the source name its /columns formula
+        spells. /schema states the same dependency as ids, so the edge is
+        recoverable without inferring anything from a name.
+
+        Emitted as a second InputFields aspect for the affected charts, after
+        the first -- the same pattern the customSQL drain already uses. The
+        aspect is FULL-REPLACE, so the re-emit carries every field the chart
+        had, not just the corrected ones; carrying a subset would delete the
+        rest.
+        """
+        if not unresolved or schema is None:
+            return
+        sheets = schema.get("sheets") or {}
+        elements = schema.get("elements") or {}
+        if not sheets:
+            return
+
+        # (elementId, columnId) -> display name, inverted from the
+        # ``/workbooks/{id}/columns`` data the run already holds. A function,
+        # unlike columnId -> owner: /columns lists one columnId under EVERY
+        # element that surfaces it, so resolving "the owner" of a columnId
+        # picked an arbitrary winner and disagreed with the name-based resolver
+        # 39% of the time. This is the same map the cross-validation used.
+        column_name_by_element_column: Dict[Tuple[str, str], str] = {}
+        for page in workbook.pages:
+            for element in page.elements:
+                for name, column_id in element.column_id_by_name.items():
+                    if column_id:
+                        column_name_by_element_column[
+                            (element.elementId, column_id)
+                        ] = name
+
+        column_formula: Dict[str, Any] = {}
+        for sheet in sheets.values():
+            for column_id, column in (sheet.get("columns") or {}).items():
+                column_formula.setdefault(column_id, column.get("formula"))
+
+        changed: Set[str] = set()
+        for item in unresolved:
+            chart_urn = chart_urn_by_element_id.get(item.element_id)
+            if chart_urn is None:
+                continue
+            refs = self._schema_name_refs(column_formula.get(item.column_id))
+            resolved: Optional[Tuple[str, str]] = None
+            for path in refs:
+                resolved = self._resolve_schema_cross_sheet_ref(
+                    path,
+                    sheets=sheets,
+                    elements=elements,
+                    column_name_by_element_column=column_name_by_element_column,
+                    elementId_to_chart_urn=chart_urn_by_element_id,
+                )
+                if resolved is not None:
+                    break
+            if resolved is None:
+                continue
+            upstream_urn, upstream_field = resolved
+            new_urn = builder.make_schema_field_urn(upstream_urn, upstream_field)
+            self_urn = builder.make_schema_field_urn(chart_urn, item.column)
+            fields = fields_by_chart_urn.get(chart_urn) or []
+            for index, field in enumerate(fields):
+                if field.schemaFieldUrn != self_urn:
+                    continue
+                fields[index] = InputFieldClass(
+                    schemaFieldUrn=new_urn,
+                    schemaField=field.schemaField,
+                )
+                changed.add(chart_urn)
+                self.reporter.chart_input_fields_recovered_from_schema += 1
+                logger.debug(
+                    "chart element %s column %r: /schema resolved by id to %s, "
+                    "replacing the self-reference the name-based path left",
+                    item.element_id,
+                    item.column,
+                    new_urn,
+                )
+                break
+
+        for chart_urn in sorted(changed):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=InputFieldsClass(fields=fields_by_chart_urn[chart_urn]),
+            ).as_workunit()
+
     def _measure_schema_resolvable_refs(
-        self, workbook: Workbook, unresolved: List["_UnresolvedChartColumn"]
+        self,
+        workbook: Workbook,
+        unresolved: List["_UnresolvedChartColumn"],
+        *,
+        schema: Optional[Dict[str, Any]],
     ) -> None:
         """How many unresolved chart columns does /schema explain? Measure only.
 
@@ -7685,7 +7804,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         if not unresolved:
             return
-        schema = self.sigma_api.get_workbook_schema(workbook.workbookId)
         if schema is None:
             self.reporter.chart_ref_schema_unavailable += len(unresolved)
             return

@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from datahub.emitter import mce_builder as builder
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
 from datahub.ingestion.source.sigma.data_classes import (
     Element,
@@ -26,7 +27,7 @@ from datahub.ingestion.source.sigma.sigma import (
     SigmaSource,
     _UnresolvedChartColumn,
 )
-from datahub.metadata.schema_classes import InputFieldsClass
+from datahub.metadata.schema_classes import InputFieldClass, InputFieldsClass
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -996,6 +997,7 @@ class TestSchemaMeasurementRecordsFailures:
                     reasons=frozenset({reason}),
                 )
             ],
+            schema=src.sigma_api.get_workbook_schema(None),
         )
         return src
 
@@ -1033,6 +1035,7 @@ class TestSchemaMeasurementRecordsFailures:
                     reasons=frozenset({"some_reason"}),
                 )
             ],
+            schema=src.sigma_api.get_workbook_schema(None),
         )
         return src
 
@@ -1113,6 +1116,7 @@ class TestSchemaMeasurementRecordsFailures:
                     reasons=frozenset({"some_reason"}),
                 )
             ],
+            schema=src.sigma_api.get_workbook_schema(None),
         )
 
         assert src.reporter.chart_ref_schema_sheet_element_fanout == {"1": 1, "2+": 1}
@@ -1151,6 +1155,7 @@ class TestSchemaMeasurementRecordsFailures:
                 )
                 for cid in columns
             ],
+            schema=src.sigma_api.get_workbook_schema(None),
         )
 
         by_outcome = src.reporter.chart_ref_schema_samples_by_outcome
@@ -1257,6 +1262,7 @@ class TestSchemaMeasurementRecordsFailures:
                     reasons=frozenset({"some_reason"}),
                 )
             ],
+            schema=src.sigma_api.get_workbook_schema(None),
         )
 
         (kind,) = src.reporter.chart_ref_schema_unknown_head_kinds
@@ -1301,6 +1307,7 @@ class TestSchemaMeasurementRecordsFailures:
                     reasons=frozenset({"some_reason"}),
                 )
             ],
+            schema=src.sigma_api.get_workbook_schema(None),
         )
 
         (kind,) = src.reporter.chart_ref_schema_unknown_head_kinds
@@ -1353,6 +1360,7 @@ class TestSchemaMeasurementRecordsFailures:
                     reasons=frozenset({"some_reason"}),
                 )
             ],
+            schema=src.sigma_api.get_workbook_schema(None),
         )
 
         assert src.reporter.chart_ref_schema_column_absent == 1
@@ -2244,3 +2252,133 @@ class TestSchemaCrossSheetResolver:
     def test_a_one_segment_path_is_not_this_handler(self) -> None:
         got, _ = self._resolve(["justAColumn"])
         assert got is None
+
+
+class TestSchemaInputFieldRecovery:
+    """The emitting half: a self-reference replaced by the edge /schema states."""
+
+    def _run(
+        self,
+        *,
+        formula: Any,
+        elements: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[List[Any], SigmaSource, Dict[str, List[InputFieldClass]]]:
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        down_urn = "urn:li:chart:(sigma,downEl)"
+        up_urn = "urn:li:chart:(sigma,upEl)"
+        # What the name-based pass emitted: a self-reference for the failed
+        # column, and an unrelated field that must survive the re-emit.
+        fields_by_chart_urn = {
+            down_urn: [
+                InputFieldClass(
+                    schemaFieldUrn=builder.make_schema_field_urn(down_urn, "Amount"),
+                    schemaField=src._make_string_schema_field("Amount"),
+                ),
+                InputFieldClass(
+                    schemaFieldUrn=builder.make_schema_field_urn(down_urn, "Other"),
+                    schemaField=src._make_string_schema_field("Other"),
+                ),
+            ],
+            up_urn: [
+                InputFieldClass(
+                    schemaFieldUrn=builder.make_schema_field_urn(up_urn, "Amount"),
+                    schemaField=src._make_string_schema_field("Amount"),
+                )
+            ],
+        }
+        schema = {
+            "sheets": {
+                "upSheet": {"columns": {}},
+                "downSheet": {"columns": {"downCol": {"formula": formula}}},
+            },
+            "elements": elements
+            if elements is not None
+            else {
+                "upEl": {"viz": {"sheetId": "upSheet"}},
+                "downEl": {"viz": {"sheetId": "downSheet"}},
+            },
+        }
+        up_element = _make_element("upEl", "Up", columns=["Amount"])
+        up_element.column_id_by_name = {"Amount": "upAmount"}
+        down_element = _make_element("downEl", "Down", columns=["Amount", "Other"])
+        down_element.column_id_by_name = {"Amount": "downCol", "Other": "otherCol"}
+        wus = list(
+            src._recover_input_fields_from_schema(
+                _make_workbook_with_elements([[up_element, down_element]]),
+                [
+                    _UnresolvedChartColumn(
+                        element_id="downEl",
+                        column="Amount",
+                        column_id="downCol",
+                        reasons=frozenset({"some_reason"}),
+                    )
+                ],
+                schema=schema,
+                fields_by_chart_urn=fields_by_chart_urn,
+                chart_urn_by_element_id={"upEl": up_urn, "downEl": down_urn},
+            )
+        )
+        return wus, src, fields_by_chart_urn
+
+    def test_a_self_reference_is_replaced_by_the_stated_edge(self) -> None:
+        wus, src, _ = self._run(
+            formula={"type": "nameRef", "path": ["upSheet", "upAmount"]}
+        )
+
+        assert len(wus) == 1, "exactly the affected chart is re-emitted"
+        fields = wus[0].metadata.aspect.fields
+        by_path = {f.schemaField.fieldPath: f.schemaFieldUrn for f in fields}
+        assert by_path["Amount"] == builder.make_schema_field_urn(
+            "urn:li:chart:(sigma,upEl)", "Amount"
+        )
+        assert src.reporter.chart_input_fields_recovered_from_schema == 1
+
+    def test_the_reemit_carries_every_field_not_just_the_fixed_one(self) -> None:
+        """InputFields is full-replace -- a partial re-emit would DELETE the rest."""
+        wus, _, _ = self._run(
+            formula={"type": "nameRef", "path": ["upSheet", "upAmount"]}
+        )
+
+        paths = {f.schemaField.fieldPath for f in wus[0].metadata.aspect.fields}
+        assert paths == {"Amount", "Other"}
+
+    def test_nothing_is_emitted_when_the_ref_cannot_be_resolved(self) -> None:
+        wus, src, _ = self._run(formula={"type": "nameRef", "path": ["notASheet", "x"]})
+
+        assert wus == []
+        assert src.reporter.chart_input_fields_recovered_from_schema == 0
+
+    def test_an_ambiguous_sheet_emits_nothing(self) -> None:
+        wus, src, _ = self._run(
+            formula={"type": "nameRef", "path": ["upSheet", "upAmount"]},
+            elements={
+                "upEl": {"viz": {"sheetId": "upSheet"}},
+                "alsoUp": {"viz": {"sheetId": "upSheet"}},
+                "downEl": {"viz": {"sheetId": "downSheet"}},
+            },
+        )
+
+        assert wus == []
+        assert src.reporter.chart_ref_schema_cross_sheet_sheet_ambiguous == 1
+
+    def test_no_schema_means_no_recovery_and_no_crash(self) -> None:
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        wus = list(
+            src._recover_input_fields_from_schema(
+                _make_workbook_with_elements([[_make_element("e1", "El")]]),
+                [
+                    _UnresolvedChartColumn(
+                        element_id="e1",
+                        column="C",
+                        column_id="c1",
+                        reasons=frozenset(),
+                    )
+                ],
+                schema=None,
+                fields_by_chart_urn={},
+                chart_urn_by_element_id={},
+            )
+        )
+        assert wus == []
