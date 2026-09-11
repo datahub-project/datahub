@@ -30,6 +30,24 @@ POST GMS_SERVER_HOST:GMS_PORT/openapi/openlineage/api/v1/lineage
 
 Include the OpenLineage message in the request body in JSON format.
 
+The endpoint responds with:
+
+| Status | Meaning                                                                                   |
+| ------ | ----------------------------------------------------------------------------------------- |
+| `201`  | The event was accepted and its metadata ingested                                          |
+| `400`  | The payload is not a well-formed OpenLineage event                                        |
+| `403`  | The caller lacks privileges on one or more of the entities the event would write          |
+| `422`  | The event is well-formed but carries nothing DataHub can store (for example, no job name) |
+| `500`  | A server-side failure                                                                     |
+
+The caller needs `Edit Entity` and `Edit Lineage` privileges on the entity types the event
+touches — DataFlow, DataJob, DataProcessInstance and Dataset.
+
+Metadata reported across several events for one run accumulates rather than the last event
+winning, so a producer that declares inputs at `START` and outputs at `COMPLETE` ends up with
+both. Because lineage is applied additively, an edge a job no longer has is not removed
+automatically; set `DATAHUB_OPENLINEAGE_USE_PATCH=false` for last-event-wins behaviour instead.
+
 Example:
 
 ```json
@@ -102,7 +120,7 @@ The DataHub OpenLineage integration can be configured using environment variable
 | `DATAHUB_OPENLINEAGE_MATERIALIZE_DATASET`              | `datahub.openlineage.materialize-dataset`              | Boolean | `true`  | Whether to materialize dataset entities                                                                           |
 | `DATAHUB_OPENLINEAGE_INCLUDE_SCHEMA_METADATA`          | `datahub.openlineage.include-schema-metadata`          | Boolean | `true`  | Whether to include schema metadata in lineage                                                                     |
 | `DATAHUB_OPENLINEAGE_CAPTURE_COLUMN_LEVEL_LINEAGE`     | `datahub.openlineage.capture-column-level-lineage`     | Boolean | `true`  | Whether to capture column-level lineage information                                                               |
-| `DATAHUB_OPENLINEAGE_USE_PATCH`                        | `datahub.openlineage.use-patch`                        | Boolean | `false` | Whether to use patch operations for lineage/incremental lineage                                                   |
+| `DATAHUB_OPENLINEAGE_USE_PATCH`                        | `datahub.openlineage.use-patch`                        | Boolean | `true`  | Apply lineage additively, so inputs and outputs reported across separate events for one run accumulate            |
 | `DATAHUB_OPENLINEAGE_FILE_PARTITION_REGEXP_PATTERN`    | `datahub.openlineage.file-partition-regexp-pattern`    | String  | `null`  | Regular expression pattern for file partition detection                                                           |
 | `DATAHUB_OPENLINEAGE_DOMAINS`                          | `datahub.openlineage.domains`                          | List    | `empty` | Comma-separated domain URNs (`urn:li:domain:<id>`) attached to the DataFlow and DataJob                           |
 
