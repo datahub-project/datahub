@@ -3084,3 +3084,79 @@ class TestDerivedColumnsInheritTheirSiblingsUpstreams:
             + r.chart_input_fields_skipped_sibling
         )
         assert total == 2, f"expected 2 columns accounted, got {total}"
+
+
+class TestAChartColumnThatIsItselfAWarehouseColumn:
+    """Sigma gives a warehouse passthrough the columnId
+    ``inode-<tableUrlId>/<NATIVE_NAME>`` -- the table and the column, outright.
+
+    The Data Model path has exploited that for weeks. The chart path never did,
+    so on one tenant (2026-09) 2,167 unresolved chart columns fell back to a
+    self-reference while carrying their own answer. It needs no formula, so it
+    also covers columns whose formula never parsed at all.
+    """
+
+    def test_the_column_id_alone_resolves_it(self) -> None:
+        assert SigmaSource._warehouse_field_from_column_id(
+            "inode-abc123/ACCOUNT_ID", {"abc123": "urn:li:dataset:(x,db.s.t,PROD)"}
+        ) == builder.make_schema_field_urn(
+            "urn:li:dataset:(x,db.s.t,PROD)", "ACCOUNT_ID"
+        )
+
+    def test_an_unknown_table_resolves_to_nothing(self) -> None:
+        """A url_id this workbook never declared must not invent an edge."""
+        assert SigmaSource._warehouse_field_from_column_id("inode-nope/COL", {}) is None
+
+    @pytest.mark.parametrize(
+        "column_id",
+        [None, "", "opaqueId", "inode-abc123", "inode-/COL", "inode-abc123/"],
+        ids=[
+            "none",
+            "empty",
+            "not-an-inode",
+            "no-native-part",
+            "no-url-id",
+            "empty-native",
+        ],
+    )
+    def test_shapes_that_are_not_a_warehouse_column(self, column_id: Any) -> None:
+        assert (
+            SigmaSource._warehouse_field_from_column_id(
+                column_id, {"abc123": "urn:li:dataset:(x,db.s.t,PROD)"}
+            )
+            is None
+        )
+
+
+class TestNameMatchingIsOptInAndOffByDefault:
+    """The guess that was removed is reachable again, behind a flag.
+
+    It produced 1,106 edges out of 440,069 on one tenant. ``inputFields``
+    carries no confidenceScore, so a wrongly-guessed edge is byte-identical to
+    one Sigma stated -- which is why it must not be the default. "A best-effort
+    edge beats none" is still a legitimate preference for some deployments.
+    """
+
+    def _resolve(self, *, enabled: bool) -> Optional[Tuple[str, str]]:
+        src = _make_source({"resolve_chart_refs_by_element_name": enabled})
+        src.reporter = SigmaSourceReport()
+        named = _make_element("elX", "NotAnUpstream", ["col"])
+        return src._resolve_chart_ref(
+            _make_ref("NotAnUpstream", "col"),
+            chart_element_id="e1",
+            chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={"NotAnUpstream": [named]},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={"elX": builder.make_chart_urn("sigma", "elX")},
+            workbook_dm_url_ids=frozenset(),
+        )
+
+    def test_off_by_default_the_ref_stays_unresolved(self) -> None:
+        assert self._resolve(enabled=False) is None
+
+    def test_enabled_it_resolves_to_the_same_named_element(self) -> None:
+        assert self._resolve(enabled=True) == (
+            builder.make_chart_urn("sigma", "elX"),
+            "col",
+        )

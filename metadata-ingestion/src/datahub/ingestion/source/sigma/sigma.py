@@ -6519,15 +6519,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
 
-        # There is deliberately no name-matching step here. A ref whose source
-        # Sigma never declared as an upstream could be guessed at by finding the
-        # one element of this workbook -- or of the models it loads -- carrying
-        # that name. Measured on one tenant (2026-09) that guess produced 1,106
-        # edges out of 440,069, and it was removed rather than kept: InputFields
-        # carry no confidenceScore, so a wrongly-guessed edge is byte-identical
-        # to one Sigma stated, and nothing downstream can audit or filter it.
-        # The warehouse path guesses too, but there ctx.graph can check the
-        # guess against the real schema; here there is nothing to check against.
+        # Name matching is OFF by default and opt-in via
+        # resolve_chart_refs_by_element_name. A ref whose source Sigma never
+        # declared as an upstream can be guessed at by finding the one element
+        # of this workbook carrying that name. Measured on one tenant (2026-09)
+        # the guess produced 1,106 edges out of 440,069 -- and InputFields
+        # carries no confidenceScore, so a wrongly-guessed edge is
+        # byte-identical to one Sigma stated and nothing downstream can audit or
+        # filter it. The warehouse path guesses too, but there ctx.graph can
+        # check the guess against the real schema; here there is nothing to
+        # check against. Kept reachable because "a best-effort edge beats none"
+        # is a legitimate preference -- it just must not be the default.
+        if self.config.resolve_chart_refs_by_element_name and candidates:
+            named = candidates[0]
+            chart_urn_for_named = elementId_to_chart_urn.get(named.elementId)
+            if chart_urn_for_named is not None and ref.column is not None:
+                if count:
+                    self.reporter.chart_ref_resolved_by_element_name_guess += 1
+                return (chart_urn_for_named, ref.column)
 
         # Nothing matched at any step. ``candidates`` distinguishes the two
         # shapes of this: a workbook element WAS named ref.source but is neither
@@ -7037,6 +7046,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         workbook_dm_url_ids: AbstractSet[str] = frozenset(),
         wb_only_warehouse_keys: FrozenSet[str] = frozenset(),
         formulas_incomplete: bool = False,
+        warehouse_urn_by_url_id: Optional[Dict[str, str]] = None,
     ) -> List[InputFieldClass]:
         """Emit exactly one InputField per chart column.
 
@@ -7189,41 +7199,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     bool(resolved_refs),
                 )
             if resolved_refs:
-                self.reporter.chart_input_fields_resolved += 1
-                self.reporter.chart_input_fields_multi_ref_extra += (
-                    len(resolved_refs) - 1
+                self._emit_resolved_ref_fields(
+                    element=element,
+                    column=column,
+                    resolved_refs=resolved_refs,
+                    element_warehouse_table_index=element_warehouse_table_index,
+                    wb_only_warehouse_keys=wb_only_warehouse_keys,
+                    fields=fields,
+                    emitted_urns_by_column=emitted_urns_by_column,
                 )
-                for rr in resolved_refs:
-                    bridged_field = self._bridge_warehouse_column_name(
-                        upstream_urn=rr.upstream_urn,
-                        sigma_display_name=rr.upstream_field,
-                        column_native_names=element.column_native_names,
-                        element_id=element.elementId,
-                    )
-                    schema_field_urn = builder.make_schema_field_urn(
-                        rr.upstream_urn, bridged_field
-                    )
-                    # Sub-category: resolved via warehouse-table short-name index (Step 4).
-                    # The resolver (Step 4) returns None for ambiguous (>1 candidate) keys,
-                    # so upstream_urn in wh_candidates implies a single-candidate match in
-                    # practice, but the membership check is the semantically correct predicate.
-                    wh_candidates = element_warehouse_table_index.get(
-                        rr.ref.source.upper(), []
-                    )
-                    if rr.upstream_urn in wh_candidates:
-                        self.reporter.chart_input_fields_warehouse_qualified += 1
-                        if rr.ref.source.upper() in wb_only_warehouse_keys:
-                            self.reporter.chart_input_fields_warehouse_qualified_via_workbook_index += 1
-                    emitted_urns_by_column.setdefault(column, []).append(
-                        schema_field_urn
-                    )
-                    fields.append(
-                        InputFieldClass(
-                            schemaFieldUrn=schema_field_urn,
-                            schemaField=self._make_string_schema_field(column),
-                        )
-                    )
             else:
+                direct = self._direct_warehouse_field(
+                    element=element,
+                    column=column,
+                    warehouse_urn_by_url_id=warehouse_urn_by_url_id or {},
+                    fields=fields,
+                    emitted_urns_by_column=emitted_urns_by_column,
+                )
+                if direct:
+                    continue
                 schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
                 self._count_unresolved_chart_column(
                     element=element,
@@ -7337,6 +7331,106 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if not progressed:
                 break
         self.reporter.chart_input_fields_sibling_not_inheritable += len(sibling_pending)
+
+    def _emit_resolved_ref_fields(
+        self,
+        *,
+        element: Element,
+        column: str,
+        resolved_refs: List["_ResolvedRef"],
+        element_warehouse_table_index: Dict[str, List[str]],
+        wb_only_warehouse_keys: FrozenSet[str],
+        fields: List[InputFieldClass],
+        emitted_urns_by_column: Dict[str, List[str]],
+    ) -> None:
+        """Append one InputField per resolved ref, with the warehouse sub-counts.
+
+        Extracted from _build_element_input_fields purely for the complexity
+        limit; the body is unchanged.
+        """
+        self.reporter.chart_input_fields_resolved += 1
+        self.reporter.chart_input_fields_multi_ref_extra += len(resolved_refs) - 1
+        for rr in resolved_refs:
+            bridged_field = self._bridge_warehouse_column_name(
+                upstream_urn=rr.upstream_urn,
+                sigma_display_name=rr.upstream_field,
+                column_native_names=element.column_native_names,
+                element_id=element.elementId,
+            )
+            schema_field_urn = builder.make_schema_field_urn(
+                rr.upstream_urn, bridged_field
+            )
+            # Sub-category: resolved via warehouse-table short-name index (Step 4).
+            # The resolver (Step 4) returns None for ambiguous (>1 candidate) keys,
+            # so upstream_urn in wh_candidates implies a single-candidate match in
+            # practice, but the membership check is the semantically correct predicate.
+            wh_candidates = element_warehouse_table_index.get(rr.ref.source.upper(), [])
+            if rr.upstream_urn in wh_candidates:
+                self.reporter.chart_input_fields_warehouse_qualified += 1
+                if rr.ref.source.upper() in wb_only_warehouse_keys:
+                    self.reporter.chart_input_fields_warehouse_qualified_via_workbook_index += 1
+            emitted_urns_by_column.setdefault(column, []).append(schema_field_urn)
+            fields.append(
+                InputFieldClass(
+                    schemaFieldUrn=schema_field_urn,
+                    schemaField=self._make_string_schema_field(column),
+                )
+            )
+
+    def _direct_warehouse_field(
+        self,
+        *,
+        element: Element,
+        column: str,
+        warehouse_urn_by_url_id: Dict[str, str],
+        fields: List[InputFieldClass],
+        emitted_urns_by_column: Dict[str, List[str]],
+    ) -> bool:
+        """Append the columnId-derived warehouse edge, if there is one.
+
+        Extracted from _build_element_input_fields only to keep it under the
+        complexity limit. Returns whether the column was resolved this way.
+        """
+        direct = self._warehouse_field_from_column_id(
+            element.column_id_by_name.get(column), warehouse_urn_by_url_id
+        )
+        if direct is None:
+            return False
+        self.reporter.chart_input_fields_resolved += 1
+        self.reporter.chart_input_fields_warehouse_by_column_id += 1
+        emitted_urns_by_column.setdefault(column, []).append(direct)
+        fields.append(
+            InputFieldClass(
+                schemaFieldUrn=direct,
+                schemaField=self._make_string_schema_field(column),
+            )
+        )
+        return True
+
+    @staticmethod
+    def _warehouse_field_from_column_id(
+        column_id: Optional[str], warehouse_urn_by_url_id: Dict[str, str]
+    ) -> Optional[str]:
+        """A chart column whose columnId IS a warehouse column needs no formula.
+
+        Sigma gives a warehouse passthrough the columnId
+        ``inode-<tableUrlId>/<NATIVE_NAME>``, which names the table and the
+        column outright -- the same fact the Data Model path already exploits
+        via url_id lookup. On the chart path it was never used, so 2,167
+        columns on one tenant (2026-09) fell back to a self-reference while
+        carrying their own answer. Independent of formulas, so it also covers
+        columns whose formula never parsed.
+        """
+        if not column_id or not column_id.startswith("inode-"):
+            return None
+        suffix = column_id[len("inode-") :]
+        url_id, _, native = suffix.partition("/")
+        if not url_id or not native:
+            return None
+        warehouse_urn = warehouse_urn_by_url_id.get(url_id)
+        if warehouse_urn is None:
+            return None
+        return builder.make_schema_field_urn(warehouse_urn, native)
 
     def _stated_upstreams_for(
         self, element: Element, already_known: Set[str]
@@ -7740,6 +7834,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 workbook_dm_url_ids=workbook_dm_url_ids,
                 wb_only_warehouse_keys=wb_only_warehouse_keys,
                 formulas_incomplete=workbook_formulas_incomplete,
+                warehouse_urn_by_url_id=(
+                    wb_warehouse_table_index.by_url_id
+                    if wb_warehouse_table_index
+                    else {}
+                ),
             )
             causes_after = self._chart_column_cause_tally()
             pending_chart_outcomes.append(

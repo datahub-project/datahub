@@ -596,6 +596,17 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # 5,246 charts losing columns for this reason alone. Counted as resolved
     # once inherited, so the per-element identity still holds.
     chart_input_fields_sibling_inherited: int = 0
+    # Chart columns resolved straight from their own columnId
+    # (inode-<tableUrlId>/<NATIVE_NAME>) with no formula involved. The Data
+    # Model path has exploited this fact for weeks; the chart path never did,
+    # leaving 2,167 columns on one tenant falling back to a self-reference
+    # while carrying their own answer.
+    chart_input_fields_warehouse_by_column_id: int = 0
+    # Edges produced by the opt-in name-matching guess
+    # (resolve_chart_refs_by_element_name). Counted separately and never folded
+    # into the resolved total's sub-counts, because these are the only chart
+    # edges in the connector that Sigma did not state.
+    chart_ref_resolved_by_element_name_guess: int = 0
     chart_sibling_inherited_samples: LossyList[str] = field(default_factory=LossyList)
     # Sibling columns whose siblings resolved to nothing either -- a chart whose
     # raw columns have no lineage cannot give its derived columns any.
@@ -1453,6 +1464,17 @@ class SigmaSourceConfig(
         "chart entities that earlier versions did not, and costs two extra API "
         "calls per newly-admitted element; set it to ``False`` to keep the "
         "previous entity set.",
+    )
+    resolve_chart_refs_by_element_name: bool = pydantic.Field(
+        default=False,
+        description="Resolve a chart formula reference whose source Sigma never "
+        "declared as an upstream by matching the name against the workbook's "
+        "elements and the Data Models it loads. OFF by default: measured on one "
+        "tenant this guess produced 1,106 extra edges out of 440,069, and "
+        "``inputFields`` carries no confidenceScore -- so a wrongly-guessed edge "
+        "is byte-identical to one Sigma stated, and nothing downstream can audit "
+        "or filter it. Enable only if a best-effort edge is preferable to none, "
+        "accepting that some will be wrong.",
     )
     data_model_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
