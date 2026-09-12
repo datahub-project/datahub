@@ -3292,3 +3292,51 @@ class TestARefsColumnIsValidatedAgainstTheUpstream:
             == "Revenue"
         )
         assert self.src.reporter.chart_ref_column_absent_from_upstream == 0
+
+
+class TestTheAuditDecodesTheFieldPathBeforeComparing:
+    """A schemaField URN PERCENT-ENCODES its field path.
+
+    ``make_schema_field_urn(parent, "Logo Id (X)")`` yields
+    ``...,Logo Id %28X%29)``, while the upstream's schema holds the literal
+    name. Comparing without decoding made the audit accuse the pipeline of its
+    own bug: 8,439 correct edges reported as dangling on one run.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+        self.src._init_diagnostic_state()
+
+    def test_a_name_needing_encoding_is_still_verified(self) -> None:
+        upstream = "urn:li:chart:(sigma,up)"
+        name = "Logo Id (UNIVERSAL_DIM_ACCOUNTS)"
+        self.src._known_field_paths[upstream] = {name}
+        self.src._record_edges_for_audit(
+            "urn:li:chart:(sigma,down)",
+            [
+                InputFieldClass(
+                    schemaFieldUrn=builder.make_schema_field_urn(upstream, name),
+                    schemaField=None,
+                )
+            ],
+        )
+        self.src._audit_emitted_edges()
+        assert self.src.reporter.edge_audit_verified == 1
+        assert self.src.reporter.edge_audit_field_absent_from_upstream == 0
+
+    def test_a_genuinely_absent_column_is_still_caught(self) -> None:
+        """Decoding must not turn the audit into a rubber stamp."""
+        upstream = "urn:li:chart:(sigma,up)"
+        self.src._known_field_paths[upstream] = {"Logo Id (X)"}
+        self.src._record_edges_for_audit(
+            "urn:li:chart:(sigma,down)",
+            [
+                InputFieldClass(
+                    schemaFieldUrn=builder.make_schema_field_urn(upstream, "Nope (Y)"),
+                    schemaField=None,
+                )
+            ],
+        )
+        self.src._audit_emitted_edges()
+        assert self.src.reporter.edge_audit_field_absent_from_upstream == 1
