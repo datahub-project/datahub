@@ -179,6 +179,10 @@ def build_expectation_info_mcp(
     assertion_urn: str,
     dataset_urn: str,
 ) -> MetadataChangeProposalWrapper:
+    # Structured custom assertion (matching the dbt connector's row-level native
+    # test): the scope/operator/aggregation/nativeType drive DataHub's rendering
+    # ("Dataset rows are passing assertion <expectation>"), rather than a
+    # hand-written description that omits the expectation name.
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
         customProperties={
@@ -186,12 +190,13 @@ def build_expectation_info_mcp(
             "pipeline_id": result.pipeline_id,
         },
         source=make_assertion_source(),
-        description="Pipeline expectation",
         customAssertion=CustomAssertionInfoClass(
-            type=EXPECTATION_ASSERTION_TYPE,
+            type=DATABRICKS_ASSERTION_PROVIDER,
             entity=dataset_urn,
             scope=DatasetAssertionScopeClass.DATASET_ROWS,
-            operator=AssertionStdOperatorClass.EQUAL_TO,
+            aggregation=AssertionStdAggregationClass._NATIVE_,
+            operator=AssertionStdOperatorClass._NATIVE_,
+            nativeType=result.name,
             logic=result.logic,
         ),
     )

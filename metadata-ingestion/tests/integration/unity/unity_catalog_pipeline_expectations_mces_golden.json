@@ -392,10 +392,12 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Databricks Pipeline Expectation",
+                "type": "Databricks",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
                 "scope": "DATASET_ROWS",
-                "operator": "EQUAL_TO",
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "valid_id",
                 "logic": "valid_id: failed_records == 0"
             },
             "source": {
@@ -404,8 +406,7 @@
                     "time": 1638860400000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            },
-            "description": "Pipeline expectation"
+            }
         }
     },
     "systemMetadata": {
@@ -461,10 +462,12 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Databricks Pipeline Expectation",
+                "type": "Databricks",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
                 "scope": "DATASET_ROWS",
-                "operator": "EQUAL_TO",
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "non_null_amount",
                 "logic": "non_null_amount: failed_records == 0"
             },
             "source": {
@@ -473,8 +476,7 @@
                     "time": 1638860400000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            },
-            "description": "Pipeline expectation"
+            }
         }
     },
     "systemMetadata": {
