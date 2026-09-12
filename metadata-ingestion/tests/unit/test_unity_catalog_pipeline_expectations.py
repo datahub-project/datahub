@@ -66,12 +66,14 @@ class _FakeProxy:
         pipeline_name: str = "my_pipeline",
         list_error: Optional[Exception] = None,
         events_error: Optional[Exception] = None,
+        target_error: Optional[Exception] = None,
     ) -> None:
         self._events = events or []
         self._target = target
         self._pipeline = SimpleNamespace(pipeline_id="pid-1", name=pipeline_name)
         self._list_error = list_error
         self._events_error = events_error
+        self._target_error = target_error
 
     def list_pipelines(self) -> List[object]:
         if self._list_error is not None:
@@ -79,6 +81,8 @@ class _FakeProxy:
         return [self._pipeline]
 
     def get_pipeline_target(self, pipeline_id: str) -> Optional[tuple]:
+        if self._target_error is not None:
+            raise self._target_error
         return self._target
 
     def get_pipeline_events(self, pipeline_id: str) -> List[Dict[str, object]]:
@@ -88,14 +92,30 @@ class _FakeProxy:
 
 
 def _extractor(
-    proxy: _FakeProxy, config: Optional[UnityCatalogPipelineExpectationsConfig] = None
+    proxy: _FakeProxy,
+    config: Optional[UnityCatalogPipelineExpectationsConfig] = None,
+    metastore: Optional[str] = None,
 ) -> UnityCatalogPipelineExpectationsExtractor:
     return UnityCatalogPipelineExpectationsExtractor(
         config=config or UnityCatalogPipelineExpectationsConfig(enabled=True),
         report=UnityCatalogReport(),
         proxy=cast(object, proxy),  # type: ignore[arg-type]
         dataset_urn_builder=_dataset_urn,
+        metastore=metastore,
     )
+
+
+def _entity_urn(workunits: List[MetadataWorkUnit]) -> str:
+    info = next(
+        wu.metadata.aspect
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, AssertionInfoClass)
+    )
+    assert isinstance(info, AssertionInfoClass)
+    assert info.customAssertion is not None
+    assert info.customAssertion.entity is not None
+    return info.customAssertion.entity
 
 
 def _aspect_names(workunits: List[MetadataWorkUnit]) -> List[str]:
@@ -191,6 +211,74 @@ def test_fully_qualified_dataset_is_not_reprefixed() -> None:
         )
     )
     assert info.customAssertion.entity == expected_urn
+
+
+def test_schema_qualified_dataset_uses_pipeline_catalog() -> None:
+    # A schema.table name keeps the pipeline target catalog.
+    events = [_event("u1", [_expectation("valid_id", "analytics.orders", 100, 0)])]
+    wus = list(_extractor(_FakeProxy(events=events)).get_workunits())
+    expected = _dataset_urn(
+        TableReference(
+            metastore=None, catalog=CATALOG, schema="analytics", table="orders"
+        )
+    )
+    assert _entity_urn(wus) == expected
+
+
+def test_quoted_dot_identifier_is_split_on_unquoted_dots() -> None:
+    # A backtick-quoted part containing a dot must not be split inside the quotes.
+    events = [
+        _event(
+            "u1", [_expectation("valid_id", "other_cat.`sch.dotted`.orders", 100, 0)]
+        )
+    ]
+    wus = list(_extractor(_FakeProxy(events=events)).get_workunits())
+    expected = _dataset_urn(
+        TableReference(
+            metastore=None, catalog="other_cat", schema="sch.dotted", table="orders"
+        )
+    )
+    assert _entity_urn(wus) == expected
+
+
+def test_metastore_is_included_in_entity_urn() -> None:
+    # With include_metastore on, the assertion must target the metastore-qualified URN.
+    events = [_event("u1", [_expectation("valid_id", "orders", 100, 0)])]
+    wus = list(_extractor(_FakeProxy(events=events), metastore="ms-1").get_workunits())
+    expected = _dataset_urn(
+        TableReference(metastore="ms-1", catalog=CATALOG, schema=SCHEMA, table="orders")
+    )
+    assert _entity_urn(wus) == expected
+
+
+def test_pipeline_target_error_is_reported_and_skips() -> None:
+    # A target lookup failure for one pipeline must be reported, not abort extraction.
+    proxy = _FakeProxy(target_error=RuntimeError("permission denied"))
+    extractor = _extractor(proxy)
+    assert list(extractor.get_workunits()) == []
+    assert extractor.report.num_pipelines_scanned == 1
+    assert any("target" in w.message.lower() for w in extractor.report.warnings)
+
+
+def test_malformed_events_do_not_crash_and_only_valid_emitted() -> None:
+    # flow_progress events without a data_quality block (pipelines with no
+    # expectations) and events without details must be skipped gracefully.
+    events: List[Dict[str, object]] = [
+        {
+            "event_type": "flow_progress",
+            "timestamp": TS,
+            "origin": {"update_id": "u1"},
+            "details": {"flow_progress": {"cluster": {"id": "c"}}},
+        },
+        {"event_type": "flow_progress", "timestamp": TS, "origin": {"update_id": "u1"}},
+        {"event_type": "update_progress", "timestamp": TS},
+        _event("u1", [_expectation("valid_id", "orders", 5, 0)]),
+    ]
+    wus = list(_extractor(_FakeProxy(events=events)).get_workunits())
+    names = _aspect_names(wus)
+    assert names.count("assertionInfo") == 1
+    assert names.count("assertionRunEvent") == 1
+    assert _result_types(wus) == {AssertionResultTypeClass.SUCCESS}
 
 
 def test_only_latest_update_is_aggregated() -> None:
