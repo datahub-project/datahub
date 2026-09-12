@@ -37,6 +37,8 @@ public class AwsClientFactoryBedrockCredentialsTest {
     System.clearProperty("AWS_ROLE_ARN");
     System.clearProperty("AWS_WEB_IDENTITY_TOKEN_FILE");
     System.clearProperty("aws.region");
+    System.clearProperty("aws.roleArn");
+    System.clearProperty("aws.webIdentityTokenFile");
 
     DataHubConfiguration dataHubConfiguration = new DataHubConfiguration();
     dataHubConfiguration.setObjectStorage(new ObjectStorageConfiguration());
@@ -53,6 +55,7 @@ public class AwsClientFactoryBedrockCredentialsTest {
     System.clearProperty("AWS_ROLE_ARN");
     System.clearProperty("AWS_WEB_IDENTITY_TOKEN_FILE");
     System.clearProperty("aws.region");
+    System.clearProperty("aws.roleArn");
     System.clearProperty("aws.webIdentityTokenFile");
     if (mocks != null) {
       mocks.close();
@@ -156,6 +159,16 @@ public class AwsClientFactoryBedrockCredentialsTest {
   public void webIdentityConfigurationRequiresSharedCredentialsWithoutRegion() {
     System.setProperty("AWS_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role");
     System.setProperty("AWS_WEB_IDENTITY_TOKEN_FILE", "/tmp/token");
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+
+    assertTrue(AwsClientFactory.isAwsConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
+  }
+
+  @Test
+  public void sdkWebIdentityPropertiesRequireSharedCredentialsWithoutRegion() {
+    System.setProperty("aws.roleArn", "arn:aws:iam::123456789012:role/test-role");
+    System.setProperty("aws.webIdentityTokenFile", "/tmp/token");
     when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
 
     assertTrue(AwsClientFactory.isAwsConfigured());

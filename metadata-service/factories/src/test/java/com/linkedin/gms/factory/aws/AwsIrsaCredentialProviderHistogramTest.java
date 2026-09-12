@@ -78,6 +78,7 @@ public class AwsIrsaCredentialProviderHistogramTest {
     System.setProperty("aws.region", "us-east-1");
     System.setProperty("aws.roleArn", TEST_ROLE_ARN);
     System.setProperty("aws.webIdentityTokenFile", tokenFile.toAbsolutePath().toString());
+    System.setProperty("AWS_ENDPOINT_URL", "http://127.0.0.1:1");
 
     try {
       if (measureExplicitWebIdentityProviderGrowth() <= 0) {

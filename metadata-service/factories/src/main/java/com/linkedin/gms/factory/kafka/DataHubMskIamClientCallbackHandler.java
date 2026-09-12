@@ -32,6 +32,10 @@ public final class DataHubMskIamClientCallbackHandler extends IAMClientCallbackH
     }
   }
 
+  static void reset() {
+    sharedCredentialsProvider = null;
+  }
+
   static boolean isSharedCredentialsInstalled() {
     return sharedCredentialsProvider != null;
   }

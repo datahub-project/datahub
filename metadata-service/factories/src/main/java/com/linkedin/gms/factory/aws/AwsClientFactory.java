@@ -285,8 +285,10 @@ public class AwsClientFactory {
   }
 
   private static boolean hasWebIdentityConfiguration() {
-    return hasText(envOrProperty("AWS_ROLE_ARN"))
-        && hasText(envOrProperty("AWS_WEB_IDENTITY_TOKEN_FILE"));
+    return (hasText(envOrProperty("AWS_ROLE_ARN"))
+            && hasText(envOrProperty("AWS_WEB_IDENTITY_TOKEN_FILE")))
+        || (hasText(System.getProperty("aws.roleArn"))
+            && hasText(System.getProperty("aws.webIdentityTokenFile")));
   }
 
   /** True when semantic search uses aws-bedrock and a target region is configured. */
@@ -369,12 +371,9 @@ public class AwsClientFactory {
   }
 
   private static boolean hasIrsaWebIdentity() {
-    String tokenFile = envOrProperty("AWS_WEB_IDENTITY_TOKEN_FILE");
-    if (tokenFile != null && !tokenFile.isEmpty()) {
-      return true;
-    }
-    String tokenFileProp = System.getProperty("aws.webIdentityTokenFile");
-    return tokenFileProp != null && !tokenFileProp.isEmpty();
+    return hasWebIdentityConfiguration()
+        || hasText(envOrProperty("AWS_WEB_IDENTITY_TOKEN_FILE"))
+        || hasText(System.getProperty("aws.webIdentityTokenFile"));
   }
 
   boolean isAwsCredentialsRequired() {
