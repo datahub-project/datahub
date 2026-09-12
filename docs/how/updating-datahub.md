@@ -101,6 +101,12 @@ Requirements:
 
 ### Other Notable Changes
 
+- #12825 **(Ingestion / BigQuery)** New opt-in option to skip profiling of long-idle tables. `profiling.skip_stale_tables` (default `false`) skips profiling for tables not modified within `profiling.staleness_threshold_days` (default `365`), judged by BigQuery's `last_modified_time`. When enabled, skipped tables are surfaced in the ingestion report under the warning "Profiling skipped for stale table". **Action:** none — profiling of all tables is unchanged by default. Set `profiling.skip_stale_tables: true` to skip archived or abandoned tables, and adjust `profiling.staleness_threshold_days` to taste.
+
+- #12825 **(Ingestion / BigQuery)** Profiling now caps how much data each profiling query scans by default. `profiling.profiling_row_limit` defaults to `1000000`, so the generated profiling SQL is limited to scanning 1M rows and row-count-based metrics may reflect that capped sample on very large tables. **Action:** set `profiling.profiling_row_limit: 0` to remove the limit (a safety cap still applies to unpartitioned tables above ~1M rows).
+
+- #12825 **(Ingestion / BigQuery)** New opt-in option to restrict profiling of partitioned tables to a recent window. `profiling.partition_datetime_window_days` defaults to `null` (windowing disabled). When set to a number of days, only partitions within that many days of the selected partition date are profiled. **Action:** none — the full selected partition is profiled by default. Set `profiling.partition_datetime_window_days` to a number of days to focus profiling on recent data and reduce scan cost.
+
 - **(View authorization)** `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD` and
   `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE` now mutate the complete effective default list instead of
   replacing it. Operators can add or remove one entity type without restating every default
