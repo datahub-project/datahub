@@ -630,6 +630,14 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     #   upstream_schema_unknown -- out of scope here (a warehouse table); the
     #                           graph check covers those, and counting them as
     #                           failures would make this unreadable.
+    # A chart ref whose column part is a column ID rather than a display name.
+    # Sigma writes both; emitting the ID verbatim produced a schemaField URN for
+    # a column the upstream does not have. Translating it RECOVERS the edge;
+    # only when the upstream has no such column at all is the ref refused,
+    # because emitting anything then is a guess at a name nobody has.
+    chart_ref_column_id_translated_to_name: int = 0
+    chart_ref_column_absent_from_upstream: int = 0
+    chart_ref_column_absent_samples: LossyList[str] = field(default_factory=LossyList)
     edge_audit_verified: int = 0
     edge_audit_field_absent_from_upstream: int = 0
     edge_audit_upstream_schema_unknown: int = 0
