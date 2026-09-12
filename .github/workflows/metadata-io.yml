@@ -112,6 +112,7 @@ jobs:
         suite:
           - { name: other, task: testOther }
           - { name: opensearch, task: testOpenSearch }
+          - { name: opensearch3, task: testOpenSearch3 }
           - { name: es8, task: testEs8 }
           - { name: es7-cassandra-neo4j, task: testEs7CassandraNeo4j }
           - { name: postgresql, task: testPostgresql }

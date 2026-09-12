@@ -6,6 +6,14 @@
             <package name="com.linkedin.metadata.graph.search.opensearch.*" />
             <package name="com.linkedin.metadata.search.opensearch.*"/>
             <package name="com.linkedin.metadata.test.batch.opensearch.*"/>
+            <!-- Container-free shim unit tests (mocked RestClient / request converters / arch
+                 rules). Historically these ran only via the es8 suite; that leg is unwired while
+                 pre-existing failures are burned down, so run them here to keep the unified-shim
+                 unit coverage in CI. Es8SemanticSearchIT (excluded in build.gradle) is the one
+                 class in these packages that boots its own container. -->
+            <package name="com.linkedin.metadata.search.elasticsearch.client.shim"/>
+            <package name="com.linkedin.metadata.search.elasticsearch.client.shim.impl"/>
+            <package name="com.linkedin.metadata.search.elasticsearch.client.shim.builder.*"/>
         </packages>
     </test>
 </suite>
