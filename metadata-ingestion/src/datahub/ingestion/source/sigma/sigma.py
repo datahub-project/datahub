@@ -505,6 +505,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # and the workbook that produced it. Guards against a poorer duplicate
         # overwriting a richer one; see _chart_input_fields_workunits.
         self._chart_best_resolved: Dict[str, int] = {}
+        # element id -> element ids Sigma's workbook /lineage says it draws
+        # from. Workbook-scoped in practice; ids are reused across workbooks, so
+        # this is cleared per workbook by _build_workbook_customsql_registry.
+        self._stated_element_sources: Dict[str, Set[str]] = {}
         self._chart_best_workbook: Dict[str, str] = {}
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
         # Sigma Dataset url_id -> dataset URN. Used to resolve DM element
@@ -1913,6 +1917,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             element_id_by_customsql_name: customSQL name → list of elementIds of charts
               that source from it (one customSQL may feed multiple charts)
         """
+        # Element ids are NOT unique across workbooks, so a stale map would
+        # attribute one workbook's dependencies to another's chart.
+        self._stated_element_sources = {}
         entries = self.sigma_api.get_workbook_lineage_entries(workbook.workbookId)
         custom_sql_by_name: Dict[str, CustomSqlEntry] = {}
         element_entries: List[Dict[str, Any]] = []
@@ -1965,6 +1972,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         if source_id in element_ids_in_graph
                         else "unknown_node"
                     )
+                    if kind == "another_element_in_this_workbook":
+                        # Sigma STATED this dependency. Keeping it is not a
+                        # guess, which is the distinction that got name-based
+                        # matching removed from the resolver.
+                        self._stated_element_sources.setdefault(element_id, set()).add(
+                            source_id
+                        )
                     self.reporter.workbook_lineage_element_source_ids_dropped += 1
                     self.reporter.workbook_lineage_dropped_source_id_kinds[kind] = (
                         self.reporter.workbook_lineage_dropped_source_id_kinds.get(
@@ -4563,6 +4577,61 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             [(f.upstreams or [""])[0] for f in new_fgls],
         )
 
+    def _dm_column_reason_tally(self) -> Dict[str, int]:
+        """Snapshot every DM counter that explains a column producing NO edge.
+
+        Differenced across one column, this says whether that column's silence
+        was attributed. Keys are the counters a reader would consult; if a new
+        drop path is added without a counter here, the unattributed count rises
+        and says so, which is the whole point.
+        """
+        r = self.reporter
+        return {
+            "warehouse_passthrough_deferred": r.data_model_element_fgl_warehouse_passthrough_deferred,
+            "cross_dm_deferred": r.data_model_element_fgl_cross_dm_deferred,
+            "no_ref_unresolved": r.data_model_element_fgl_no_ref_unresolved,
+            "no_ref_warehouse_unresolved": r.data_model_element_fgl_no_ref_warehouse_unresolved,
+            "dropped_unknown_upstream_column": r.data_model_element_fgl_dropped_unknown_upstream_column,
+            "dropped_orphan_upstream": r.data_model_element_fgl_dropped_orphan_upstream,
+            "upstream_schema_unavailable": r.data_model_element_fgl_upstream_schema_unavailable,
+            "join_chain_unresolved": r.data_model_element_fgl_join_chain_unresolved,
+            "self_named_siblings_skipped": r.data_model_element_fgl_self_named_siblings_skipped,
+            "self_named_no_passthrough": r.data_model_element_fgl_self_named_no_passthrough,
+            "cross_dm_dropped_unknown_upstream_column": r.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column,
+            "cross_dm_upstream_schema_unavailable": r.data_model_element_fgl_cross_dm_upstream_schema_unavailable,
+        }
+
+    def _note_dm_column_outcome(
+        self,
+        *,
+        element: SigmaDataModelElement,
+        column: SigmaDataModelColumn,
+        produced: bool,
+        reasons_before: Dict[str, int],
+    ) -> None:
+        """File one Data Model column under produced-lineage or a named reason."""
+        self.reporter.dm_columns_total += 1
+        if produced:
+            self.reporter.dm_columns_with_lineage += 1
+            return
+        after = self._dm_column_reason_tally()
+        moved = [k for k, before in reasons_before.items() if after[k] != before]
+        self.reporter.dm_columns_without_lineage += 1
+        if moved:
+            for key in moved:
+                self.reporter.dm_columns_without_lineage_by_reason[key] = (
+                    self.reporter.dm_columns_without_lineage_by_reason.get(key, 0) + 1
+                )
+            return
+        # No counter moved: this column produced nothing and said nothing about
+        # why. That is the failure mode the chart-side check was built to catch,
+        # and it is the only one worth sampling here.
+        self.reporter.dm_columns_without_lineage_unattributed += 1
+        self.reporter.dm_unattributed_column_samples.append(
+            f"element={element.elementId} column={column.name!r} "
+            f"columnId={column.columnId!r} formula={column.formula!r:.200}"
+        )
+
     @dataclass(frozen=True)
     class _SiblingCandidates:
         """Intra-DM elements a ref's source names, and which may be its referent.
@@ -4735,6 +4804,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # way to tell WHICH upstream a given column bound to.
             fgl_mark = len(fgls)
             cross_mark = len(cross_dm_fgls)
+            # Snapshot the drop/defer counters so a column that produces no
+            # lineage can prove it recorded a REASON. The chart side has had
+            # this identity for weeks; the DM side -- which carries the headline
+            # fgl_emitted -- had ~25 counters and nothing checking them, so a
+            # silent path could only be found by arithmetic across a 100MB log.
+            dm_reasons_before = self._dm_column_reason_tally()
             downstream_field = builder.make_schema_field_urn(
                 element_dataset_urn, column.name
             )
@@ -4935,6 +5010,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 column=column,
                 resolution_attempted=resolution_attempted,
                 new_fgls=fgls[fgl_mark:] + cross_dm_fgls[cross_mark:],
+            )
+            self._note_dm_column_outcome(
+                element=element,
+                column=column,
+                produced=bool(fgls[fgl_mark:] or cross_dm_fgls[cross_mark:]),
+                reasons_before=dm_reasons_before,
             )
         # fgl_emitted is the umbrella count for everything appended to `fgls`:
         # intra-DM, warehouse-passthrough, warehouse-table-name and join-key
@@ -7257,6 +7338,28 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 break
         self.reporter.chart_input_fields_sibling_not_inheritable += len(sibling_pending)
 
+    def _stated_upstreams_for(
+        self, element: Element, already_known: Set[str]
+    ) -> Set[str]:
+        """Upstream elements Sigma states for this chart in the workbook graph.
+
+        Extracted only to keep _gen_elements_workunit under the complexity
+        limit. Returns the full stated set; counts and samples the part that
+        was NOT already declared by the element's own upstream_sources, which
+        is the measure of what this recovers.
+        """
+        stated = self._stated_element_sources.get(element.elementId)
+        if not stated:
+            return set()
+        novel = stated - already_known
+        if novel:
+            self.reporter.chart_upstreams_added_from_lineage_graph += len(novel)
+            self.reporter.chart_lineage_graph_upstream_samples.append(
+                f"element={element.elementId} added={sorted(novel)} "
+                f"already_known={sorted(already_known)}"
+            )
+        return stated
+
     def _chart_input_fields_workunits(
         self, chart_urn: str, fields: List[InputFieldClass]
     ) -> Iterable[MetadataWorkUnit]:
@@ -7527,6 +7630,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 for upstream in element.upstream_sources.values()
                 if isinstance(upstream, SheetUpstream)
             }
+            # Widen with the element->element edges Sigma states in the workbook
+            # lineage graph. These were parsed and thrown away: the customSQL
+            # registry kept only sourceIds naming a customSQL node. On one
+            # tenant that discarded 7,808 stated chart-to-chart dependencies,
+            # while 6,715 chart refs were being refused for naming an element
+            # that "is not a lineage upstream" -- the connector was declining to
+            # use a fact it had already fetched.
+            chart_upstream_eids |= self._stated_upstreams_for(
+                element, chart_upstream_eids
+            )
             # DataModelElementUpstream: map DM element workbook-page name -> Dataset URN.
             # Look up directly from the name maps without re-incrementing element_dm_edge
             # counters (those were already bumped inside _get_element_input_details).
@@ -9014,3 +9127,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         check["reconciles"] = 0 if check else 1
         r.chart_column_accounting_check = check
+
+        # The DM side's own identity. Two clauses: every column lands in exactly
+        # one outcome, and every column that produced nothing named a reason.
+        dm_check: Dict[str, int] = {}
+        if (
+            r.dm_columns_with_lineage + r.dm_columns_without_lineage
+            != r.dm_columns_total
+        ):
+            dm_check["column_bucket_residual"] = r.dm_columns_total - (
+                r.dm_columns_with_lineage + r.dm_columns_without_lineage
+            )
+        if r.dm_columns_without_lineage_unattributed:
+            dm_check["unattributed_columns"] = r.dm_columns_without_lineage_unattributed
+        dm_check["reconciles"] = 0 if dm_check else 1
+        r.dm_column_accounting_check = dm_check

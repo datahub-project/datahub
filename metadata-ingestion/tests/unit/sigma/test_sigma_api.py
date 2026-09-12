@@ -925,9 +925,13 @@ class TestGetElementInputDetails:
         source = SigmaSource.__new__(SigmaSource)
         # __new__ skips __init__, so attributes a real instance always
         # has must be set here or diagnostics reading them raise.
+        # These mirror attributes set in SigmaSource.__init__, which __new__
+        # skips. Three separate commits have been broken by this drifting;
+        # the assertion below fails loudly instead of at the first use.
         source._current_workbook = None
         source._chart_best_resolved = {}
         source._chart_best_workbook = {}
+        source._stated_element_sources = {}
         source.config = SigmaSourceConfig(
             client_id="x",
             client_secret="y",
