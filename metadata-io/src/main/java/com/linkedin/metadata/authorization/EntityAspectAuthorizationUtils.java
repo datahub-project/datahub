@@ -58,7 +58,35 @@ public final class EntityAspectAuthorizationUtils {
               new ConjunctivePrivilegeGroup(
                   ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE.getType()))));
 
+  private static final DisjunctivePrivilegeGroup MANAGE_ASSET_SUMMARY_PRIVILEGES =
+      new DisjunctivePrivilegeGroup(
+          ImmutableList.of(
+              ALL_ENTITY_PRIVILEGES,
+              new ConjunctivePrivilegeGroup(
+                  ImmutableList.of(PoliciesConfig.MANAGE_ASSET_SUMMARY_PRIVILEGE.getType()))));
+
   private EntityAspectAuthorizationUtils() {}
+
+  /**
+   * Returns true when the actor may write the {@code assetSettings} aspect of {@code assetUrn}.
+   * Requires {@code EDIT_ENTITY} or {@code MANAGE_ASSET_SUMMARY} on the asset itself.
+   */
+  public static boolean isAuthorizedToEditAssetSettings(
+      @Nonnull AuthorizationSession session, @Nonnull Urn assetUrn) {
+    EntitySpec assetSpec = new EntitySpec(assetUrn.getEntityType(), assetUrn.toString());
+    return com.datahub.authorization.AuthUtil.isAuthorized(
+        session, MANAGE_ASSET_SUMMARY_PRIVILEGES, assetSpec);
+  }
+
+  /**
+   * Returns true when the actor may change which forms are assigned to assets, i.e. holds the
+   * platform-level {@code MANAGE_DOCUMENTATION_FORMS} privilege. Matches the GraphQL {@code
+   * canManageForms} check used by the form CRUD mutations.
+   */
+  public static boolean isAuthorizedToManageForms(@Nonnull AuthorizationSession session) {
+    return com.datahub.authorization.AuthUtil.isAuthorized(
+        session, PoliciesConfig.MANAGE_DOCUMENTATION_FORMS_PRIVILEGE);
+  }
 
   /**
    * Authorization candidates for a {@code logicalParent} write on {@code urn}, ordered for
