@@ -1,5 +1,8 @@
 package com.linkedin.metadata.models.registry;
 
+import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.METRIC_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 
 import com.linkedin.metadata.graph.LineageDirection;
@@ -162,6 +165,7 @@ public class LineageRegistry {
     return spec.getDownstreamEdges();
   }
 
+  /** Schema-field lineage walks use this list, not {@code isLineage} on the producing aspect. */
   private List<EdgeInfo> getSchemaFieldRelationships(LineageDirection direction) {
     List<EdgeInfo> schemaFieldEdges = new ArrayList<>();
     if (direction == LineageDirection.UPSTREAM) {
@@ -170,6 +174,12 @@ public class LineageRegistry {
     } else {
       schemaFieldEdges.add(
           new EdgeInfo("DownstreamOf", RelationshipDirection.INCOMING, SCHEMA_FIELD_ENTITY_NAME));
+      schemaFieldEdges.add(
+          new EdgeInfo("Consumes", RelationshipDirection.INCOMING, METRIC_ENTITY_NAME));
+      schemaFieldEdges.add(
+          new EdgeInfo("consumesField", RelationshipDirection.INCOMING, CHART_ENTITY_NAME));
+      schemaFieldEdges.add(
+          new EdgeInfo("consumesField", RelationshipDirection.INCOMING, DASHBOARD_ENTITY_NAME));
     }
     return schemaFieldEdges;
   }
