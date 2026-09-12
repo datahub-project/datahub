@@ -120,14 +120,29 @@ public class LineageRegistryTest {
         "Expected upstream edge not found");
 
     // Verify downstream edges
-    assertEquals(downstreamEdges.size(), 1, "Schema field should have 1 downstream edge");
+    assertEquals(downstreamEdges.size(), 4, "Schema field should have 4 downstream edges");
     assertTrue(
         downstreamEdges.contains(
             new LineageRegistry.EdgeInfo(
                 "DownstreamOf",
                 RelationshipDirection.INCOMING,
                 Constants.SCHEMA_FIELD_ENTITY_NAME)),
-        "Expected downstream edge not found");
+        "Expected DownstreamOf schemaField edge not found");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "Consumes", RelationshipDirection.INCOMING, Constants.METRIC_ENTITY_NAME)),
+        "Expected Consumes metric edge not found");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "consumesField", RelationshipDirection.INCOMING, Constants.CHART_ENTITY_NAME)),
+        "Expected consumesField chart edge not found");
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "consumesField", RelationshipDirection.INCOMING, Constants.DASHBOARD_ENTITY_NAME)),
+        "Expected consumesField dashboard edge not found");
   }
 
   @Test
