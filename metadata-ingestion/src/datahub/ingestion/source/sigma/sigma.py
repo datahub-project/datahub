@@ -6283,6 +6283,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter.chart_ref_miss_reasons[reason] = (
             self.reporter.chart_ref_miss_reasons.get(reason, 0) + 1
         )
+        # The DISTINCT source names behind each reason, not a sample of refs.
+        # These misses concentrate -- 17,944 of them in 87 names on one tenant --
+        # so the question "what should we build next" is answered by the name
+        # distribution, and a 10-element reservoir over 11,028 refs would answer
+        # nothing. Bounded by distinct names, which is small by construction,
+        # and capped so a pathological tenant cannot grow it without limit.
+        names = self.reporter.chart_ref_miss_source_names.setdefault(reason, {})
+        if ref.source in names or len(names) < 200:
+            names[ref.source] = names.get(ref.source, 0) + 1
+        self.reporter.chart_ref_miss_samples.setdefault(reason, LossyList()).append(
+            f"element={chart_element_id} ref={ref.raw!r} segments={len(ref.parts)}"
+        )
         if reason == _CHART_REF_MISS_UNKNOWN_SOURCE:
             known = ref.source.strip().lower() in self._dm_element_index_for(
                 workbook_dm_url_ids
