@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set, cast
 
 from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.assertion import (
     DataQualityAssertion,
     build_assertion_info_mcp,
@@ -11,7 +13,7 @@ from datahub.ingestion.source.unity.assertion import (
 )
 from datahub.ingestion.source.unity.config import UnityCatalogDataQualityConfig
 from datahub.ingestion.source.unity.data_quality import UnityCatalogDataQualityExtractor
-from datahub.ingestion.source.unity.proxy_types import TableReference
+from datahub.ingestion.source.unity.proxy_types import Table, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -73,8 +75,8 @@ class _FakeProxy:
         return [_FakeRow(r) for r in self._rows]
 
 
-def _table(table_id: Optional[str] = "table-uuid") -> SimpleNamespace:
-    return SimpleNamespace(table_id=table_id, ref=_ref())
+def _table(table_id: Optional[str] = "table-uuid") -> Table:
+    return cast(Table, SimpleNamespace(table_id=table_id, ref=_ref()))
 
 
 def _extractor(
@@ -130,22 +132,38 @@ def test_build_info_mcp_sets_column_field_urn() -> None:
     assert info.source is not None and info.source.type == "EXTERNAL"
 
 
+def _run_event_type(result: DataQualityAssertion) -> str:
+    aspect = build_assertion_run_event_mcp(
+        result, "urn:li:assertion:x", _dataset_urn(_ref())
+    ).aspect
+    assert isinstance(aspect, AssertionRunEventClass)
+    assert aspect.result is not None
+    return str(aspect.result.type)
+
+
 def test_build_run_event_result_types() -> None:
-    dataset_urn = _dataset_urn(_ref())
-    urn = "urn:li:assertion:x"
-    passed = build_assertion_run_event_mcp(
-        _result(num_nulls=0.0), urn, dataset_urn
-    ).aspect
-    failed = build_assertion_run_event_mcp(
-        _result(num_nulls=5.0), urn, dataset_urn
-    ).aspect
-    assert isinstance(passed, AssertionRunEventClass)
-    assert passed.result.type == AssertionResultTypeClass.SUCCESS
-    assert failed.result.type == AssertionResultTypeClass.FAILURE
+    assert _run_event_type(_result(num_nulls=0.0)) == AssertionResultTypeClass.SUCCESS
+    assert _run_event_type(_result(num_nulls=5.0)) == AssertionResultTypeClass.FAILURE
 
 
-def _aspect_names(workunits) -> List[str]:
-    return [wu.metadata.aspectName for wu in workunits]
+def _aspect_names(workunits: List[MetadataWorkUnit]) -> List[str]:
+    names = []
+    for wu in workunits:
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        assert wu.metadata.aspectName is not None
+        names.append(wu.metadata.aspectName)
+    return names
+
+
+def _run_event_types(workunits: List[MetadataWorkUnit]) -> Set[str]:
+    types: Set[str] = set()
+    for wu in workunits:
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        aspect = wu.metadata.aspect
+        if isinstance(aspect, AssertionRunEventClass):
+            assert aspect.result is not None
+            types.add(str(aspect.result.type))
+    return types
 
 
 def test_extractor_emits_assertion_and_run_event_per_column() -> None:
@@ -160,12 +178,7 @@ def test_extractor_emits_assertion_and_run_event_per_column() -> None:
     assert report.num_quality_assertions_emitted == 2
     assert report.num_quality_run_events_emitted == 2
     # c1 passes (0 nulls), c2 fails (10 nulls > 0).
-    results = {
-        wu.metadata.aspect.result.type
-        for wu in wus
-        if wu.metadata.aspectName == "assertionRunEvent"
-    }
-    assert results == {
+    assert _run_event_types(wus) == {
         AssertionResultTypeClass.SUCCESS,
         AssertionResultTypeClass.FAILURE,
     }
