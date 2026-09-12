@@ -496,20 +496,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         super().__init__(config, ctx)
         self.config = config
         self.reporter = SigmaSourceReport()
-        # The workbook whose elements are currently being emitted. Chart
-        # diagnostics need to name it, and a chart URN that cannot be placed in
-        # a workbook from the log is close to un-investigable -- doing it by
-        # hand once required bisecting emission-order dashboard URNs.
-        self._current_workbook: Optional[Workbook] = None
-        # chart URN -> resolved-field count of the best aspect already emitted,
-        # and the workbook that produced it. Guards against a poorer duplicate
-        # overwriting a richer one; see _chart_input_fields_workunits.
-        self._chart_best_resolved: Dict[str, int] = {}
-        # element id -> element ids Sigma's workbook /lineage says it draws
-        # from. Workbook-scoped in practice; ids are reused across workbooks, so
-        # this is cleared per workbook by _build_workbook_customsql_registry.
-        self._stated_element_sources: Dict[str, Set[str]] = {}
-        self._chart_best_workbook: Dict[str, str] = {}
+        self._init_diagnostic_state()
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
         # Sigma Dataset url_id -> dataset URN. Used to resolve DM element
         # ``inode-<urlId>`` upstreams.
@@ -1918,8 +1905,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
               that source from it (one customSQL may feed multiple charts)
         """
         # Element ids are NOT unique across workbooks, so a stale map would
-        # attribute one workbook's dependencies to another's chart.
-        self._stated_element_sources = {}
+        # attribute one workbook's dependencies to another's chart. Cleared in
+        # place rather than rebound, so the annotated declaration in
+        # _init_diagnostic_state stays the single definition.
+        self._stated_element_sources.clear()
         entries = self.sigma_api.get_workbook_lineage_entries(workbook.workbookId)
         custom_sql_by_name: Dict[str, CustomSqlEntry] = {}
         element_entries: List[Dict[str, Any]] = []
@@ -2789,6 +2778,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             platformSchema=OtherSchemaClass(rawSchema=""),
             fields=fields,
         )
+        self._known_field_paths[element_dataset_urn] = {f.fieldPath for f in fields}
         return MetadataChangeProposalWrapper(
             entityUrn=element_dataset_urn, aspect=schema_metadata
         ).as_workunit()
@@ -6915,6 +6905,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             "param_and_sibling": r.chart_input_fields_skipped_param_and_sibling,
         }
 
+    def _init_diagnostic_state(self) -> None:
+        """Attributes the diagnostics read, in ONE place.
+
+        Unit tests build the source with ``SigmaSource.__new__``, which skips
+        __init__; every time a new attribute was added here the factories
+        drifted and the suite broke at first use rather than at construction.
+        Four commits were fixed that way before this was extracted -- the
+        factories now call this instead of restating the list.
+        """
+        # The workbook whose elements are currently being emitted. Chart
+        # diagnostics need to name it, and a chart URN that cannot be placed in
+        # a workbook from the log is close to un-investigable -- doing it by
+        # hand once required bisecting emission-order dashboard URNs.
+        self._current_workbook: Optional[Workbook] = None
+        # chart URN -> resolved-field count of the best aspect already emitted,
+        # and the workbook that produced it. Guards against a poorer duplicate
+        # overwriting a richer one; see _chart_input_fields_workunits.
+        self._chart_best_resolved: Dict[str, int] = {}
+        # element id -> element ids Sigma's workbook /lineage says it draws
+        # from. Workbook-scoped in practice; ids are reused across workbooks, so
+        # this is cleared per workbook by _build_workbook_customsql_registry.
+        self._stated_element_sources: Dict[str, Set[str]] = {}
+        self._chart_best_workbook: Dict[str, str] = {}
+        # In-process correctness audit: Sigma entity URN -> field paths this run
+        # EMITTED a schema for, and the upstream fields our edges REFERENCE.
+        self._known_field_paths: Dict[str, Set[str]] = {}
+        self._referenced_fields_by_upstream: Dict[str, Set[str]] = {}
+        self._edge_source_chart: Dict[Tuple[str, str], str] = {}
+
     def _current_workbook_id(self) -> str:
         return self._current_workbook.workbookId if self._current_workbook else "?"
 
@@ -7454,6 +7473,68 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         return stated
 
+    _SCHEMA_FIELD_RE = re.compile(
+        r"^urn:li:schemaField:\((?P<parent>.+),(?P<field>[^,]*)\)$"
+    )
+
+    def _record_edges_for_audit(
+        self, chart_urn: str, fields: List[InputFieldClass]
+    ) -> None:
+        """Remember this chart's own columns, and what its edges point at.
+
+        Stored as sets keyed by upstream URN, so the cost is bounded by
+        DISTINCT (upstream, field) pairs rather than by the ~474,000 links
+        emitted.
+        """
+        own: Set[str] = set()
+        for field in fields:
+            if field.schemaField is not None:
+                own.add(field.schemaField.fieldPath)
+            match = (
+                self._SCHEMA_FIELD_RE.match(field.schemaFieldUrn)
+                if field.schemaFieldUrn
+                else None
+            )
+            if match is None:
+                continue
+            parent, upstream_field = match.group("parent"), match.group("field")
+            if parent == chart_urn:
+                continue
+            # Keyed by (upstream, field) but carrying the DOWNSTREAM chart, so a
+            # dangling edge names the chart that emitted it. Without that the
+            # audit says an edge is wrong and gives nobody a place to look --
+            # which is what the first version did.
+            self._referenced_fields_by_upstream.setdefault(parent, set()).add(
+                upstream_field
+            )
+            self._edge_source_chart.setdefault((parent, upstream_field), chart_urn)
+        self._known_field_paths[chart_urn] = own
+
+    def _audit_emitted_edges(self) -> None:
+        """Check every edge whose upstream schema THIS RUN emitted.
+
+        Answers the question no counter answers -- "is it the right edge" --
+        for the Sigma-internal majority, without a single API call. An upstream
+        we did not emit a schema for (a warehouse table) is not counted as a
+        failure; it is out of scope here and covered by the graph check.
+        """
+        r = self.reporter
+        for upstream, referenced in self._referenced_fields_by_upstream.items():
+            known = self._known_field_paths.get(upstream)
+            if known is None:
+                r.edge_audit_upstream_schema_unknown += len(referenced)
+                continue
+            for field in referenced:
+                if field in known:
+                    r.edge_audit_verified += 1
+                else:
+                    r.edge_audit_field_absent_from_upstream += 1
+                    r.edge_audit_absent_samples.append(
+                        f"emitted_by={self._edge_source_chart.get((upstream, field))} "
+                        f"-> upstream={upstream} field={field!r} "
+                        f"upstream_has={sorted(known)[:6]}"
+                    )
+
     def _chart_input_fields_workunits(
         self, chart_urn: str, fields: List[InputFieldClass]
     ) -> Iterable[MetadataWorkUnit]:
@@ -7496,6 +7577,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 return
         self._chart_best_resolved[chart_urn] = resolved
         self._chart_best_workbook[chart_urn] = self._current_workbook_id()
+        self._record_edges_for_audit(chart_urn, fields)
         yield MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
             aspect=InputFieldsClass(fields=fields),
@@ -9241,3 +9323,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             dm_check["unattributed_columns"] = r.dm_columns_without_lineage_unattributed
         dm_check["reconciles"] = 0 if dm_check else 1
         r.dm_column_accounting_check = dm_check
+
+        # Rebuilt from scratch on every call: get_report() runs repeatedly
+        # during a run, and a version that accumulated would multiply its own
+        # counts each time the periodic report fired.
+        r.edge_audit_verified = 0
+        r.edge_audit_field_absent_from_upstream = 0
+        r.edge_audit_upstream_schema_unknown = 0
+        r.edge_audit_absent_samples = LossyList()
+        self._audit_emitted_edges()

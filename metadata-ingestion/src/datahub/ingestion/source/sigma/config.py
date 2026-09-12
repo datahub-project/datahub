@@ -503,6 +503,16 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # tenant (2026-09) 12 workbooks aborted having retrieved ZERO entries, and
     # every column in them was attributed to the wrong cause.
     chart_input_fields_formulas_not_fetched: int = 0
+    # workbook id -> the Sigma error code that blocked its /columns fetch.
+    # Turns "37,655 columns have no formula" -- which a customer cannot act on
+    # -- into "these workbooks are blocked, and here is Sigma's own reason",
+    # which they can. Observed vocabulary: inode_archived (the dataset behind
+    # the workbook was archived), inode_not_exists, unable_to_produce_query,
+    # invalid_request (a dependency cycle), warehouse_query_failed_user_error.
+    workbooks_blocked_by_sigma: Dict[str, str] = field(default_factory=dict)
+    # Charts and columns lost per blocked workbook, so the cost of each is
+    # visible rather than pooled into one untraceable total.
+    charts_blocked_by_sigma: int = 0
     # Raw evidence for chart_input_fields_self_ref_no_formula, which is
     # otherwise a bare number and was the last silent bucket on the chart path.
     # "Sigma returned no formula for this column" and "this element got no
@@ -607,6 +617,23 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # into the resolved total's sub-counts, because these are the only chart
     # edges in the connector that Sigma did not state.
     chart_ref_resolved_by_element_name_guess: int = 0
+    # THE CORRECTNESS AUDIT, not a production count. Every other counter here
+    # answers "did we emit an edge"; these answer "does the upstream actually
+    # have that column". Checked in-process against the schemas this run
+    # emitted, so it costs no API call and covers the Sigma-internal majority.
+    # Before this, the only correctness evidence in the connector was the
+    # warehouse column-name graph check: ~3,900 checks against ~474,000 links.
+    #   verified                -- the upstream has the column.
+    #   field_absent_from_upstream -- IT DOES NOT. Each one is a dangling
+    #                           schemaField URN, i.e. a wrong edge, and is
+    #                           sampled with what the upstream does have.
+    #   upstream_schema_unknown -- out of scope here (a warehouse table); the
+    #                           graph check covers those, and counting them as
+    #                           failures would make this unreadable.
+    edge_audit_verified: int = 0
+    edge_audit_field_absent_from_upstream: int = 0
+    edge_audit_upstream_schema_unknown: int = 0
+    edge_audit_absent_samples: LossyList[str] = field(default_factory=LossyList)
     chart_sibling_inherited_samples: LossyList[str] = field(default_factory=LossyList)
     # Sibling columns whose siblings resolved to nothing either -- a chart whose
     # raw columns have no lineage cannot give its derived columns any.

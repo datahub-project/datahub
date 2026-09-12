@@ -79,13 +79,9 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.config = config
     # __new__ skips __init__, so attributes a real instance always
     # has must be set here or diagnostics reading them raise.
-    # These mirror attributes set in SigmaSource.__init__, which __new__
-    # skips. Three separate commits have been broken by this drifting;
-    # the assertion below fails loudly instead of at the first use.
-    source._current_workbook = None
-    source._chart_best_resolved = {}
-    source._chart_best_workbook = {}
-    source._stated_element_sources = {}
+    # Mirrors SigmaSource.__init__, which __new__ skips. Calling the real
+    # initialiser keeps this from drifting again.
+    source._init_diagnostic_state()
     source.reporter = MagicMock()
     source.reporter.chart_input_fields_resolved = 0
     source.reporter.chart_input_fields_self_ref_fallback = 0
@@ -2931,8 +2927,7 @@ class TestARicherAspectIsNeverOverwrittenByAPoorerDuplicate:
     def setup_method(self) -> None:
         self.src = _make_source()
         self.src.reporter = SigmaSourceReport()
-        self.src._chart_best_resolved = {}
-        self.src._chart_best_workbook = {}
+        self.src._init_diagnostic_state()
         self.urn = builder.make_chart_urn("sigma", "eDup")
 
     def _fields(self, resolved: int, total: int) -> List[InputFieldClass]:
@@ -3159,4 +3154,79 @@ class TestNameMatchingIsOptInAndOffByDefault:
         assert self._resolve(enabled=True) == (
             builder.make_chart_urn("sigma", "elX"),
             "col",
+        )
+
+
+class TestTheEdgeAuditAnswersIsItTheRightEdge:
+    """Counters measure PRODUCTION, never correctness.
+
+    A mis-resolved ref increments ``resolved`` and is byte-identical to a
+    correct one, so no existing counter could distinguish them. The only
+    correctness evidence in the connector was the warehouse column-name graph
+    check -- about 3,900 checks against ~474,000 links, under 1%. Sigma-internal
+    upstreams need no API call: this run emitted their schemas.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+        self.src._init_diagnostic_state()
+        self.upstream = "urn:li:chart:(sigma,upstream)"
+
+    def _edge_to(self, field: str) -> List[InputFieldClass]:
+        return [
+            InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(self.upstream, field),
+                schemaField=None,
+            )
+        ]
+
+    def test_an_edge_to_a_column_the_upstream_has_is_verified(self) -> None:
+        self.src._known_field_paths[self.upstream] = {"Revenue"}
+        self.src._record_edges_for_audit(
+            "urn:li:chart:(sigma,down)", self._edge_to("Revenue")
+        )
+        self.src._audit_emitted_edges()
+        assert self.src.reporter.edge_audit_verified == 1
+        assert self.src.reporter.edge_audit_field_absent_from_upstream == 0
+
+    def test_a_DANGLING_edge_is_caught_and_sampled(self) -> None:
+        """The failure no counter could see: an edge naming a column the
+        upstream does not have."""
+        self.src._known_field_paths[self.upstream] = {"Revenue"}
+        self.src._record_edges_for_audit(
+            "urn:li:chart:(sigma,down)", self._edge_to("Nope")
+        )
+        self.src._audit_emitted_edges()
+        assert self.src.reporter.edge_audit_field_absent_from_upstream == 1
+        sample = list(self.src.reporter.edge_audit_absent_samples)[0]
+        assert "field='Nope'" in sample and "Revenue" in sample
+
+    def test_a_warehouse_upstream_is_out_of_scope_not_a_failure(self) -> None:
+        """We never emit a schema for a warehouse table, so counting it as
+        absent would drown the real signal. The graph check covers those."""
+        self.src._record_edges_for_audit(
+            "urn:li:chart:(sigma,down)", self._edge_to("COL")
+        )
+        self.src._audit_emitted_edges()
+        assert self.src.reporter.edge_audit_upstream_schema_unknown == 1
+        assert self.src.reporter.edge_audit_field_absent_from_upstream == 0
+
+    def test_a_chart_self_reference_is_not_audited_as_an_edge(self) -> None:
+        """A self-referential field is the ABSENCE of lineage, not an edge."""
+        own = "urn:li:chart:(sigma,down)"
+        self.src._record_edges_for_audit(
+            own,
+            [
+                InputFieldClass(
+                    schemaFieldUrn=builder.make_schema_field_urn(own, "c"),
+                    schemaField=None,
+                )
+            ],
+        )
+        self.src._audit_emitted_edges()
+        r = self.src.reporter
+        assert (r.edge_audit_verified, r.edge_audit_field_absent_from_upstream) == (
+            0,
+            0,
         )
