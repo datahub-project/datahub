@@ -843,12 +843,14 @@ def test_pipeline_expectations_ingestion(pytestconfig, tmp_path, requests_mock):
                                     "dataset": "quickstart_catalog.quickstart_schema.quickstart_table",
                                     "passed_records": 10,
                                     "failed_records": 0,
+                                    "action": "ALLOW",
                                 },
                                 {
                                     "name": "non_null_amount",
                                     "dataset": "quickstart_catalog.quickstart_schema.quickstart_table",
                                     "passed_records": 8,
                                     "failed_records": 2,
+                                    "action": "FAIL",
                                 },
                             ]
                         }

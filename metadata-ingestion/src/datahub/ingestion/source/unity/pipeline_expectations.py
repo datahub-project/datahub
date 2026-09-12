@@ -33,6 +33,9 @@ class _ExpectationTotals:
     passed: int = 0
     failed: int = 0
     latest_ts_millis: int = 0
+    # The expectation's action (ALLOW / DROP / FAIL) is constant across an update's
+    # micro-batches; keep the first one we see.
+    action: Optional[str] = None
 
 
 @dataclass
@@ -168,6 +171,9 @@ class UnityCatalogPipelineExpectationsExtractor:
                 totals.passed += _as_int(item.get("passed_records"))
                 totals.failed += _as_int(item.get("failed_records"))
                 totals.latest_ts_millis = max(totals.latest_ts_millis, ts_millis)
+                action = item.get("action")
+                if action is not None and totals.action is None:
+                    totals.action = str(action)
         return result
 
     def _emit_expectation(
@@ -191,6 +197,7 @@ class UnityCatalogPipelineExpectationsExtractor:
             pipeline_id=pipeline_id,
             failed_records=totals.failed,
             passed_records=totals.passed,
+            action=totals.action,
             timestamp_millis=totals.latest_ts_millis,
             run_id=update_id,
             native_results={
