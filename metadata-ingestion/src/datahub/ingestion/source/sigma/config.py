@@ -566,6 +566,30 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # InputFields aspect, so indistinguishable in the UI from a chart whose
     # every column failed -- and previously counted as fully resolved.
     charts_with_no_columns: int = 0
+    # InputFields is a FULL-REPLACE aspect and Sigma element ids are not unique
+    # across workbooks, so several workbooks' charts collide on one chart URN
+    # and the last one processed wins. On one tenant (2026-09) 23% of chart
+    # element ids were claimed by more than one workbook -- one by eight -- and
+    # 303 of those had a copy inside a workbook whose /columns call aborted.
+    # The observed result was a chart resolving 59 of 66 columns and then being
+    # overwritten minutes later by an empty aspect from a broken duplicate.
+    # These count emissions refused because a richer aspect was already sent.
+    chart_input_fields_regressive_emission_skipped: int = 0
+    chart_regressive_emission_samples: LossyList[str] = field(default_factory=LossyList)
+    # Chart URNs claimed by more than one workbook, and the worst case seen.
+    # The skip above prevents the DATA LOSS; it does not make the URNs correct,
+    # because two genuinely different charts still share one entity.
+    chart_urns_claimed_by_multiple_workbooks: int = 0
+    # Derived columns that took their upstreams from the sibling columns they
+    # are computed from (Sum([Revenue (1)]), DateLookback([Revenue], ...)).
+    # Largest chart-side gap measured on a real tenant: 27,037 columns, with
+    # 5,246 charts losing columns for this reason alone. Counted as resolved
+    # once inherited, so the per-element identity still holds.
+    chart_input_fields_sibling_inherited: int = 0
+    chart_sibling_inherited_samples: LossyList[str] = field(default_factory=LossyList)
+    # Sibling columns whose siblings resolved to nothing either -- a chart whose
+    # raw columns have no lineage cannot give its derived columns any.
+    chart_input_fields_sibling_not_inheritable: int = 0
     # customSQL charts get a SECOND InputFields aspect at drain time which
     # supersedes the one the element loop emitted, so the chart-level buckets
     # above do not describe their final state. These do. Keep them separate

@@ -501,6 +501,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # a workbook from the log is close to un-investigable -- doing it by
         # hand once required bisecting emission-order dashboard URNs.
         self._current_workbook: Optional[Workbook] = None
+        # chart URN -> resolved-field count of the best aspect already emitted,
+        # and the workbook that produced it. Guards against a poorer duplicate
+        # overwriting a richer one; see _chart_input_fields_workunits.
+        self._chart_best_resolved: Dict[str, int] = {}
+        self._chart_best_workbook: Dict[str, str] = {}
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
         # Sigma Dataset url_id -> dataset URN. Used to resolve DM element
         # ``inode-<urlId>`` upstreams.
@@ -2253,6 +2258,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 len(aspect.upstreams or []),
                 entity_urn in self._customsql_passthrough_mappings,
             )
+        # This path must return an MCP, so it cannot refuse the way the formula
+        # path does. Record when it would have been a regression so the
+        # customSQL population is not a blind spot in the same accounting.
+        best = self._chart_best_resolved.get(entity_urn)
+        if best is not None and resolved < best:
+            self.reporter.chart_input_fields_regressive_emission_skipped += 1
+            self.reporter.chart_regressive_emission_samples.append(
+                f"chart={entity_urn} kept={best} OVERWRITTEN_BY={resolved} "
+                f"path=customsql_drain"
+            )
+        else:
+            self._chart_best_resolved[entity_urn] = resolved
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
             aspect=InputFieldsClass(fields=input_fields),
@@ -6965,6 +6982,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
           chart_input_fields_warehouse_qualified_via_workbook_index.
         """
         fields: List[InputFieldClass] = []
+        # For sibling inheritance below: what each column resolved TO, and the
+        # columns that resolved to nothing because every ref named a sibling.
+        emitted_urns_by_column: Dict[str, List[str]] = {}
+        sibling_pending: Dict[str, Tuple[int, List[str]]] = {}
         for column in element.columns:
             formula = element.column_formulas.get(column)
             # Bound unconditionally: the diagnostic probes below read it even
@@ -7112,6 +7133,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         self.reporter.chart_input_fields_warehouse_qualified += 1
                         if rr.ref.source.upper() in wb_only_warehouse_keys:
                             self.reporter.chart_input_fields_warehouse_qualified_via_workbook_index += 1
+                    emitted_urns_by_column.setdefault(column, []).append(
+                        schema_field_urn
+                    )
                     fields.append(
                         InputFieldClass(
                             schemaFieldUrn=schema_field_urn,
@@ -7137,13 +7161,158 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         if count != misses_before.get(reason, 0)
                     ),
                 )
+                if all_sibling:
+                    sibling_pending[column] = (
+                        len(fields),
+                        [
+                            r.source
+                            for r in refs
+                            if not r.is_parameter and r.column is None
+                        ],
+                    )
                 fields.append(
                     InputFieldClass(
                         schemaFieldUrn=schema_field_urn,
                         schemaField=self._make_string_schema_field(column),
                     )
                 )
+        self._inherit_sibling_upstreams(
+            element=element,
+            fields=fields,
+            emitted_urns_by_column=emitted_urns_by_column,
+            sibling_pending=sibling_pending,
+        )
         return fields
+
+    # A derived column can sit several hops from a real upstream --
+    # LY Revenue -> Revenue -> Revenue (1) -> warehouse column -- so one pass is
+    # not enough. Bounded to keep a reference cycle (which Sigma permits in
+    # principle) from looping; anything still unresolved after this many passes
+    # keeps its self-referential field, exactly as before.
+    _SIBLING_INHERIT_MAX_PASSES = 5
+
+    def _inherit_sibling_upstreams(
+        self,
+        *,
+        element: Element,
+        fields: List[InputFieldClass],
+        emitted_urns_by_column: Dict[str, List[str]],
+        sibling_pending: Dict[str, Tuple[int, List[str]]],
+    ) -> None:
+        """Give a derived column the upstreams of the siblings it is computed from.
+
+        A formula like ``Sum([Revenue (1)])`` or
+        ``DateLookback([Revenue], [Time Period], 1, "year")`` references other
+        columns of the SAME chart, so it resolves to no external upstream and
+        used to be dropped as "sibling". But the sibling it names usually does
+        resolve, and the derived column is genuinely downstream of whatever
+        that sibling came from -- so the lineage exists, one hop away.
+
+        This was the single largest chart-side gap on a real tenant (2026-09):
+        27,037 columns, with 5,246 charts losing columns for this reason ALONE.
+        The customer-reported symptom was a dashboard whose headline measures
+        (Revenue, LY Revenue, Cost) all showed no column lineage while the raw
+        columns beside them showed it.
+
+        Counters move with the columns: a column that inherits is no longer
+        ``skipped_sibling``, it is ``resolved``, so the per-element identity
+        still holds.
+        """
+        if not sibling_pending:
+            return
+        for _ in range(self._SIBLING_INHERIT_MAX_PASSES):
+            progressed = False
+            for column, (index, sibling_names) in list(sibling_pending.items()):
+                inherited: List[str] = []
+                for name in sibling_names:
+                    inherited.extend(emitted_urns_by_column.get(name, []))
+                if not inherited:
+                    continue
+                # Deduplicate but keep order, so a column fed by two siblings
+                # that share an upstream does not emit it twice.
+                ordered = list(dict.fromkeys(inherited))
+                fields[index] = InputFieldClass(
+                    schemaFieldUrn=ordered[0],
+                    schemaField=self._make_string_schema_field(column),
+                )
+                for extra in ordered[1:]:
+                    fields.append(
+                        InputFieldClass(
+                            schemaFieldUrn=extra,
+                            schemaField=self._make_string_schema_field(column),
+                        )
+                    )
+                emitted_urns_by_column[column] = ordered
+                self.reporter.chart_input_fields_sibling_inherited += 1
+                self.reporter.chart_input_fields_multi_ref_extra += len(ordered) - 1
+                self.reporter.chart_input_fields_skipped_sibling -= 1
+                self.reporter.chart_input_fields_resolved += 1
+                self.reporter.chart_sibling_inherited_samples.append(
+                    f"element={element.elementId} column={column!r} "
+                    f"via={sibling_names} upstreams={len(ordered)}"
+                )
+                del sibling_pending[column]
+                progressed = True
+            if not progressed:
+                break
+        self.reporter.chart_input_fields_sibling_not_inheritable += len(sibling_pending)
+
+    def _chart_input_fields_workunits(
+        self, chart_urn: str, fields: List[InputFieldClass]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit InputFields unless doing so would REPLACE a richer aspect.
+
+        Sigma element ids are not unique across workbooks -- a duplicated
+        workbook reuses them -- and the chart URN is built from the element id
+        alone, so several workbooks' charts land on one URN. InputFields is
+        full-replace, so the last workbook processed wins outright. When that
+        last one is a broken duplicate (its /columns call aborted, so no column
+        carries a formula) it silently destroys correct lineage emitted
+        earlier: observed as a chart resolving 59 of 66 columns and then being
+        overwritten by an empty aspect eleven minutes later.
+
+        Refusing the poorer emission keeps the better aspect. It does NOT make
+        the URNs correct -- two genuinely different charts still share one
+        entity, which needs workbook-scoped URNs and a migration.
+        """
+        resolved = self._resolved_field_count(chart_urn, fields)
+        best = self._chart_best_resolved.get(chart_urn)
+        if best is not None:
+            self.reporter.chart_urns_claimed_by_multiple_workbooks += 1
+            if resolved < best:
+                self.reporter.chart_input_fields_regressive_emission_skipped += 1
+                self.reporter.chart_regressive_emission_samples.append(
+                    f"chart={chart_urn} kept={best} refused={resolved} "
+                    f"kept_from_workbook={self._chart_best_workbook.get(chart_urn)} "
+                    f"refused_from_workbook={self._current_workbook_id()}"
+                )
+                logger.debug(
+                    "chart %s: REFUSING InputFields with %d resolved column(s) from "
+                    "workbook %s; a richer aspect with %d is already emitted from "
+                    "workbook %s. Element ids are not unique across workbooks.",
+                    chart_urn,
+                    resolved,
+                    self._current_workbook_id(),
+                    best,
+                    self._chart_best_workbook.get(chart_urn),
+                )
+                return
+        self._chart_best_resolved[chart_urn] = resolved
+        self._chart_best_workbook[chart_urn] = self._current_workbook_id()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
+            aspect=InputFieldsClass(fields=fields),
+        ).as_workunit()
+
+    @staticmethod
+    def _resolved_field_count(chart_urn: str, fields: List[InputFieldClass]) -> int:
+        """Fields pointing at something OTHER than the chart itself."""
+        self_ref_prefix = f"urn:li:schemaField:({chart_urn},"
+        return sum(
+            1
+            for f in fields
+            if f.schemaFieldUrn and not f.schemaFieldUrn.startswith(self_ref_prefix)
+        )
 
     def _note_chart_column_outcome(
         self,
@@ -7485,10 +7654,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # by _build_workbook_chart_input_fields_mcp; the drain MCP supersedes this
             # one (later in the workunit stream).  The formula-derived fields stashed
             # above are merged into the drain MCP so nothing is silently dropped.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=InputFieldsClass(fields=element_input_fields),
-            ).as_workunit()
+            yield from self._chart_input_fields_workunits(
+                chart_urn, element_input_fields
+            )
 
             all_input_fields.extend(element_input_fields)
             # InputFields is full-replace, so a corrected re-emit has to carry
@@ -8169,10 +8337,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 changed.add(chart_urn)
 
         for chart_urn in sorted(changed):
-            yield MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=InputFieldsClass(fields=fields_by_chart_urn[chart_urn]),
-            ).as_workunit()
+            yield from self._chart_input_fields_workunits(
+                chart_urn, fields_by_chart_urn[chart_urn]
+            )
 
     def _schema_resolved_field(
         self,

@@ -26,6 +26,8 @@ def _source() -> SigmaSource:
     # __new__ skips __init__, so attributes a real instance always
     # has must be set here or diagnostics reading them raise.
     source._current_workbook = None
+    source._chart_best_resolved = {}
+    source._chart_best_workbook = {}
     source.reporter = SigmaSourceReport()
     source.dm_element_urn_by_name = {}
     source.dm_element_urn_to_cols = {}
