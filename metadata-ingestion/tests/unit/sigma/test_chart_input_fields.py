@@ -33,12 +33,14 @@ from datahub.metadata.schema_classes import InputFieldsClass
 def _make_source(
     dm_element_urn_by_name: Optional[Dict] = None,
     dm_container_urn_by_url_id: Optional[Dict] = None,
+    **config_overrides: object,
 ) -> SigmaSource:
     """Build a SigmaSource instance with the API mocked out."""
     config = SigmaSourceConfig(
         client_id="test",
         client_secret="test",
         api_url="https://aws-api.sigmacomputing.com/v2",
+        **config_overrides,  # type: ignore[arg-type]
     )
     ctx = PipelineContext(run_id="test")
 
@@ -256,6 +258,38 @@ class TestParamSiblingOnlyFormulas:
         assert fields[0].schemaFieldUrn == _schema_field_urn(chart_urn, "derived")
         assert source.reporter.chart_input_fields_skipped_sibling == 1
 
+    def test_a_param_and_sibling_mix_is_not_an_unresolved_ref(self) -> None:
+        """Neither kind can name an upstream, so this is not a resolver failure.
+
+        The two pure cases were each short-circuited, but a formula mixing them
+        satisfied neither test and fell through to
+        ``chart_input_fields_self_ref_unresolved_refs`` -- while contributing
+        NOTHING to ``chart_ref_miss_reasons``, because a parameter ref and a bare
+        sibling ref both return before any reason is recorded. That made the one
+        bucket meaning "a real ref failed, look for a defect here" unusable as
+        evidence, since some of its members had no cause at all.
+        """
+        source = _make_source()
+        elem = _make_element(
+            element_id="mixElem01",
+            name="Mix Element",
+            columns=["derived"],
+            column_formulas={"derived": "[P_Monthly_Target] - [target]"},
+        )
+        workbook = _make_workbook([elem])
+        result = _collect_input_fields(source, [elem], workbook)
+
+        chart_urn = _chart_urn("mixElem01")
+        assert result[chart_urn].fields[0].schemaFieldUrn == _schema_field_urn(
+            chart_urn, "derived"
+        )
+        assert source.reporter.chart_input_fields_skipped_param_and_sibling == 1
+        assert source.reporter.chart_input_fields_self_ref_unresolved_refs == 0
+        assert source.reporter.chart_ref_miss_reasons == {}
+        # The pure counters keep meaning exactly what they did.
+        assert source.reporter.chart_input_fields_skipped_parameter == 0
+        assert source.reporter.chart_input_fields_skipped_sibling == 0
+
 
 # ---------------------------------------------------------------------------
 # Test 4: DataModelElementUpstream resolves to Dataset URN
@@ -268,13 +302,14 @@ DM_ELEMENT_DATASET_URN = (
 
 
 class TestDmElementUpstreamResolvesToDatasetUrn:
-    def _build_source_with_dm(self) -> SigmaSource:
+    def _build_source_with_dm(self, **config_overrides: object) -> SigmaSource:
         """Source whose DM lookup maps DM_URL_ID -> {"my dm element": [DM_ELEMENT_DATASET_URN]}."""
         return _make_source(
             dm_element_urn_by_name={
                 DM_URL_ID: {"my dm element": [DM_ELEMENT_DATASET_URN]},
             },
             dm_container_urn_by_url_id={DM_URL_ID: "urn:li:container:dm-abc-123"},
+            **config_overrides,
         )
 
     def test_dm_element_formula_ref_resolves_to_dataset_urn(self) -> None:
@@ -344,11 +379,18 @@ class TestDmElementUpstreamResolvesToDatasetUrn:
         # dm_page_elem.col has no formula → self-ref fallback.
         assert source.reporter.chart_input_fields_self_ref_fallback == 1
 
-    def test_dm_element_ref_not_in_lineage_falls_back_to_self_ref(self) -> None:
-        """Chart formula refs a workbook element that IS named in the workbook
-        but has NO DataModelElementUpstream linking it to the DM. Without the
-        upstream registration, the ref is unresolvable and should fall back to
-        self-ref (preserving the column in V2) rather than emitting nothing.
+    def test_a_ref_to_an_undeclared_element_stays_a_self_ref(self) -> None:
+        """A name match is never enough to emit an edge.
+
+        The chart's formula names a workbook element that /lineage does not
+        declare as an upstream, and that element is uniquely named here and does
+        have the column -- the most favourable case a name match can present.
+        It still resolves to nothing.
+
+        Matching on the name was tried and removed: it produced 1,106 of
+        440,069 chart links on one tenant (2026-09), and because InputFields
+        carry no confidenceScore, a wrong one is byte-identical to an edge Sigma
+        actually stated, so nothing downstream could audit or filter it.
         """
         source = self._build_source_with_dm()
 
@@ -365,13 +407,8 @@ class TestDmElementUpstreamResolvesToDatasetUrn:
 
         chart_urn = _chart_urn("chartElem01")
         fields = result[chart_urn].fields
-
-        assert len(fields) == 1, (
-            "Unresolvable formula ref should still emit one InputField (self-ref fallback)"
-        )
+        assert len(fields) == 1
         assert fields[0].schemaFieldUrn == _schema_field_urn(chart_urn, "chart_col")
-        # dm_page_elem.col (no formula) + chart_elem.chart_col (unresolvable) = 2.
-        assert source.reporter.chart_input_fields_self_ref_fallback == 2
         assert source.reporter.chart_input_fields_resolved == 0
 
 
@@ -431,11 +468,13 @@ class TestCounterInvariant:
             + r.chart_input_fields_self_ref_fallback
             + r.chart_input_fields_skipped_parameter
             + r.chart_input_fields_skipped_sibling
+            + r.chart_input_fields_skipped_param_and_sibling
         )
         assert counter_sum == total_chart_columns, (
             f"Counter invariant broken: {r.chart_input_fields_resolved} resolved "
             f"+ {r.chart_input_fields_self_ref_fallback} self_ref_fallback "
             f"+ {r.chart_input_fields_skipped_parameter} skipped_param "
             f"+ {r.chart_input_fields_skipped_sibling} skipped_sibling "
+            f"+ {r.chart_input_fields_skipped_param_and_sibling} skipped_mixed "
             f"= {counter_sum} != {total_chart_columns} total chart columns"
         )

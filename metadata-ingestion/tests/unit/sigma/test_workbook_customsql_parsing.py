@@ -6,7 +6,7 @@ from unittest.mock import patch
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sigma.config import SigmaSourceConfig
+from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
 from datahub.ingestion.source.sigma.connection_registry import (
     SigmaConnectionRecord,
     SigmaConnectionRegistry,
@@ -457,3 +457,130 @@ class TestRewriteFglDownstreamsWorkbookBranch:
         list(source._drain_sql_aggregators())
         assert source.reporter.dm_customsql_upstream_emitted == 0
         assert source.reporter.workbook_customsql_upstream_emitted == 1
+
+
+class TestDroppedElementSourceIdsAreCounted:
+    """Sigma states chart-to-chart dependencies in element ``sourceIds``.
+
+    The registry keeps only sourceIds that name a customSQL node and drops the
+    rest. That is correct for building a customSQL registry, but it used to be
+    silent -- so the report could not distinguish "Sigma said nothing about
+    this chart's upstream" from "we discarded what Sigma said". On one tenant
+    (2026-09) the payload carried 14,358 element entries against 84 customSQL
+    nodes, and a customer reported missing lineage BETWEEN CHARTS.
+    """
+
+    def _run(self, entries: list) -> SigmaSource:
+        source = _make_source()
+        source.reporter = SigmaSourceReport()
+        with patch.object(
+            source.sigma_api, "get_workbook_lineage_entries", return_value=entries
+        ):
+            source._build_workbook_customsql_registry(_make_workbook())
+        return source
+
+    def test_a_source_id_naming_another_element_is_counted_and_sampled(self) -> None:
+        source = self._run(
+            [
+                {"type": "element", "elementId": "el-a", "sourceIds": []},
+                {"type": "element", "elementId": "el-b", "sourceIds": ["el-a"]},
+            ]
+        )
+        r = source.reporter
+        assert r.workbook_lineage_element_source_ids_dropped == 1
+        assert r.workbook_lineage_dropped_source_id_kinds == {
+            "another_element_in_this_workbook": 1
+        }
+        sample = list(
+            r.workbook_lineage_dropped_source_id_samples[
+                "another_element_in_this_workbook"
+            ]
+        )
+        assert sample == ["workbook=wb-001 element=el-b source_id=el-a"]
+
+    def test_an_unrecognised_source_id_is_a_separate_kind(self) -> None:
+        """Kept apart so "chart sourced from another chart" -- the case worth
+        consuming -- is not buried under node types we have no use for."""
+        source = self._run(
+            [{"type": "element", "elementId": "el-a", "sourceIds": ["node-xyz"]}]
+        )
+        assert source.reporter.workbook_lineage_dropped_source_id_kinds == {
+            "unknown_node": 1
+        }
+
+    def test_a_matched_customsql_source_id_is_not_counted_as_dropped(self) -> None:
+        source = self._run(
+            [
+                {
+                    "type": "customSQL",
+                    "name": "q1",
+                    "connectionId": _SNOWFLAKE_CONN.connection_id,
+                    "definition": "SELECT 1",
+                },
+                {"type": "element", "elementId": "el-a", "sourceIds": ["q1"]},
+            ]
+        )
+        assert source.reporter.workbook_lineage_element_source_ids_dropped == 0
+
+
+class TestStatedElementEdgesWidenRefResolution:
+    """Sigma states chart-to-chart dependencies in element ``sourceIds``.
+
+    They were parsed and discarded -- the registry kept only sourceIds naming a
+    customSQL node. On one tenant that threw away 7,808 stated dependencies
+    while 6,715 chart refs were refused for naming an element that "is not a
+    lineage upstream": the connector was declining to use a fact it had already
+    fetched. Keeping them is not a guess, which is the distinction that got
+    name-based matching removed from the resolver.
+    """
+
+    def _run(self, entries: list) -> SigmaSource:
+        source = _make_source()
+        source.reporter = SigmaSourceReport()
+        source._init_diagnostic_state()
+        with patch.object(
+            source.sigma_api, "get_workbook_lineage_entries", return_value=entries
+        ):
+            source._build_workbook_customsql_registry(_make_workbook())
+        return source
+
+    def test_a_stated_element_edge_is_recorded(self) -> None:
+        source = self._run(
+            [
+                {"type": "element", "elementId": "el-a", "sourceIds": []},
+                {"type": "element", "elementId": "el-b", "sourceIds": ["el-a"]},
+            ]
+        )
+        assert source._stated_element_sources == {"el-b": {"el-a"}}
+
+    def test_only_the_NOVEL_part_is_counted_as_recovered(self) -> None:
+        """An edge the element already declared through upstream_sources is not
+        a gain; counting it would overstate what this recovers."""
+        source = self._run(
+            [
+                {"type": "element", "elementId": "el-a", "sourceIds": []},
+                {"type": "element", "elementId": "el-b", "sourceIds": ["el-a"]},
+            ]
+        )
+        element = Element(elementId="el-b", name="B", url="u", type="table", columns=[])
+        assert source._stated_upstreams_for(element, {"el-a"}) == {"el-a"}
+        assert source.reporter.chart_upstreams_added_from_lineage_graph == 0
+
+        assert source._stated_upstreams_for(element, set()) == {"el-a"}
+        assert source.reporter.chart_upstreams_added_from_lineage_graph == 1
+
+    def test_the_map_is_cleared_between_workbooks(self) -> None:
+        """Element ids are NOT unique across workbooks, so a stale map would
+        attribute one workbook's dependencies to another workbook's chart --
+        the same root cause as the chart URN collisions."""
+        source = self._run(
+            [
+                {"type": "element", "elementId": "el-a", "sourceIds": []},
+                {"type": "element", "elementId": "el-b", "sourceIds": ["el-a"]},
+            ]
+        )
+        with patch.object(
+            source.sigma_api, "get_workbook_lineage_entries", return_value=[]
+        ):
+            source._build_workbook_customsql_registry(_make_workbook("wb-002"))
+        assert source._stated_element_sources == {}

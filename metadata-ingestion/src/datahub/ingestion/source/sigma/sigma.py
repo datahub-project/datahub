@@ -1,7 +1,20 @@
+import hashlib
 import logging
 import re
-from dataclasses import dataclass
-from typing import Any, Dict, FrozenSet, Iterable, List, Literal, Optional, Set, Tuple
+from dataclasses import dataclass, replace
+from typing import (
+    AbstractSet,
+    Any,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+)
+from urllib.parse import unquote
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
@@ -63,9 +76,19 @@ from datahub.ingestion.source.sigma.data_classes import (
 )
 from datahub.ingestion.source.sigma.formula_parser import (
     BracketRef,
+    candidate_source_column_splits,
     extract_bracket_refs,
 )
-from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
+from datahub.ingestion.source.sigma.sigma_api import (
+    BASE_ELEMENT_TYPES,
+    INGESTED_ELEMENT_TYPES,
+    SigmaAPI,
+)
+from datahub.ingestion.source.sigma.spec_parser import (
+    DataModelSpecIndex,
+    SpecColumnRef,
+    parse_data_model_spec,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -110,6 +133,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -130,6 +154,71 @@ _FGL_CONFIDENCE_SQL_PARSED: float = (
     0.2  # aggregator-derived; matches SqlParsingAggregator
 )
 _FGL_CONFIDENCE_FORMULA_DERIVED: float = 0.1  # SELECT * synthesis from formula refs
+# A formula ref naming a warehouse table the element declares. The table match
+# is exact -- the element's own source_ids carry that inode -- but the warehouse
+# COLUMN name is inferred from Sigma's display name (Title Case of snake_case),
+# because a column with an opaque columnId carries no native name anywhere in
+# the API. Scored below an exact match so consumers can tell the two apart.
+_FGL_CONFIDENCE_WAREHOUSE_NAME_DERIVED: float = 0.5
+# Same declared-table match, but the column name was read from the columnId
+# rather than inferred from the display name, so nothing about the edge is a
+# guess -- it ranks with the columnId-driven pass-through path.
+_FGL_CONFIDENCE_WAREHOUSE_NAME_EXACT_COLUMN: float = 1.0
+# Same as above, except the TABLE was not declared by the element either --
+# it was found by name in the tenant-wide /v2/files listing. Both ends of the
+# match are inferred, so it scores below the declared-table case.
+_FGL_CONFIDENCE_WAREHOUSE_GLOBAL_NAME_DERIVED: float = 0.3
+# The other side of a JOIN predicate. The two key columns are stated to hold
+# the same value, which makes the unnamed side a genuine upstream -- but it is
+# an equality, not a copy, so it scores below a formula-derived edge to let
+# consumers that want only value-propagation lineage filter these out.
+_FGL_CONFIDENCE_JOIN_KEY: float = 0.7
+# Same, under an OUTER join. The equality holds only for rows the join matched;
+# on the rest the unmatched side is NULL. Still a real upstream, but a weaker
+# claim than an inner join's, so it gets its own tier rather than being dropped.
+_FGL_CONFIDENCE_JOIN_KEY_OUTER: float = 0.6
+# A union stacks rows, so an output column IS each branch's column rather than
+# a value derived from one. /spec states the pairing per branch explicitly, so
+# this is as exact as a formula-derived edge.
+_FGL_CONFIDENCE_UNION_BRANCH: float = 1.0
+
+# Why one chart formula ref did not resolve to an upstream. Each names the step
+# that gave up, so the aggregate bucket can be split by cause rather than
+# re-derived by reading thousands of debug lines.
+_CHART_REF_MISS_SELF_OR_AMBIGUOUS_CANDIDATES = "self_ref_or_ambiguous_candidates"
+_CHART_REF_MISS_AMBIGUOUS_SIBLING = "ambiguous_sibling_element_name"
+_CHART_REF_MISS_UPSTREAM_FILTERED = "named_element_filtered_from_emission"
+_CHART_REF_MISS_NAMED_BUT_NOT_AN_UPSTREAM = "element_named_but_not_a_lineage_upstream"
+# The upstream element resolved, but it has no column of that name or id.
+_CHART_REF_MISS_COLUMN_ABSENT_FROM_UPSTREAM = "column_absent_from_resolved_upstream"
+_CHART_REF_MISS_AMBIGUOUS_WAREHOUSE = "ambiguous_warehouse_table_name"
+_CHART_REF_MISS_UNKNOWN_SOURCE = "source_name_unknown_to_this_workbook"
+# A join-chain ref (>2 segments) whose every candidate split failed schema
+# validation. It has its own counter, but a counter outside
+# chart_ref_miss_reasons cannot be reconciled against it -- these were the only
+# unresolved refs with no entry in the breakdown, on two consecutive runs.
+_CHART_REF_MISS_JOIN_CHAIN_DANGLING = "join_chain_no_valid_split"
+# Synthetic SUB-keys of _CHART_REF_MISS_UNKNOWN_SOURCE, not causes in their own
+# right: they split it by whether the name exists elsewhere in the run. Named
+# here because the accounting check has to exclude them, and a literal repeated
+# in two places is exactly how that check would silently start double-counting.
+_CHART_REF_MISS_UNKNOWN_SOURCE_ELSEWHERE = (
+    "unknown_source_but_name_exists_in_a_data_model_this_workbook_loads"
+)
+_CHART_REF_MISS_UNKNOWN_SOURCE_ABSENT = (
+    "unknown_source_absent_from_this_workbooks_data_models"
+)
+
+
+def _warehouse_column_from_display_name(display_name: str) -> str:
+    """Invert Sigma's display-name convention for a warehouse column.
+
+    Sigma renders a warehouse column ``COL_ID`` as ``Col Id``. When the
+    column's ``columnId`` is inode-shaped the native name is carried verbatim
+    and this is not needed; it is only for columns whose columnId is opaque,
+    where the display name is the sole remaining signal.
+    """
+    return display_name.strip().replace(" ", "_").upper()
 
 
 def _dm_column_ranks_above(
@@ -145,6 +234,57 @@ def _dm_column_ranks_above(
     if bool(candidate.formula) != bool(incumbent.formula):
         return bool(candidate.formula)
     return candidate.columnId < incumbent.columnId
+
+
+def _normalize_element_name(name: str) -> str:
+    """Key for tolerant workbook-element-name lookup.
+
+    Sigma element names routinely carry trailing non-breaking spaces, leading
+    spaces, and case differences from what a formula ref spells. Those refs
+    resolve to nothing today: the lookup is exact-match, so the element sits in
+    the index unreachable. Observed on one tenant (2026-09) as 6,493 near-misses plus 30
+    case-only mismatches -- e.g. 'Some Joined Element\xa0'
+    and ' Another Element'.
+    """
+    return name.replace("\xa0", " ").strip().casefold()
+
+
+def _is_warehouse_column_id(column_id: Optional[str]) -> bool:
+    """True when a DM column's ``columnId`` names a warehouse column.
+
+    Sigma encodes warehouse pass-throughs as ``inode-<url_id>/<NATIVE_NAME>``.
+    Shared by _try_emit_warehouse_passthrough_fgl (which resolves it) and the
+    no-resolvable-ref counters (which bucket on it), so the two cannot drift
+    and start mis-bucketing a real /files miss as expected volume.
+    """
+    return (column_id or "").startswith("inode-")
+
+
+def _native_column_from_column_id(
+    column_id: Optional[str], *, allowed_prefixes: AbstractSet[str]
+) -> Optional[str]:
+    """The warehouse column name Sigma already put in a ``columnId``.
+
+    Sigma spells a pass-through column ``<prefix>/<NATIVE_NAME>`` -- the prefix
+    is ``inode-<urlId>`` when /columns reports the table, and the element's own
+    id when it does not. The segment after the slash IS the warehouse column
+    name, so it beats re-deriving one from the display name: "Order Ref Id"
+    only round-trips to ORDER_REF_ID by convention, and a column whose
+    display name was edited breaks that convention silently.
+
+    The prefix must be one the caller RECOGNISES, not merely present. "Has a
+    slash" is not evidence of this shape, and a columnId in some other two-part
+    form would otherwise mint a fabricated field path at full confidence --
+    wrong and trusted at once. Same rule as ``_side_ref`` in the spec parser:
+    the shape identifies itself or it is refused.
+
+    Returns None for an opaque or unrecognised columnId, where the display name
+    really is the only signal and the edge is scored as inferred.
+    """
+    prefix, sep, native = (column_id or "").rpartition("/")
+    if not sep or not native or prefix not in allowed_prefixes:
+        return None
+    return native
 
 
 def _dedup_dm_element_columns(
@@ -214,6 +354,10 @@ _WAREHOUSE_LOWERCASE_PLATFORMS: frozenset[str] = frozenset({"snowflake"})
 # Expected root segment of the /files path for warehouse tables.
 _FILES_PATH_ROOT = "Connection Root"
 
+# A join-chain segment can carry Sigma's "and N more joins" label, e.g.
+# "DIM_A + 3", which is a display string rather than an element name.
+_JOIN_COUNT_SUFFIX = re.compile(r"^(.*?)\s*\+\s*\d+$")
+
 
 def _normalize_warehouse_identifier(name: str, platform: str, lowercase: bool) -> str:
     """Apply platform-appropriate casing to a warehouse identifier (table or column).
@@ -272,6 +416,21 @@ class _ResolvedRef:
     ref: BracketRef
 
 
+@dataclass(frozen=True)
+class _UnresolvedChartColumn:
+    """A chart column that fell back to a self-reference, and why.
+
+    Carries the causes its refs recorded so the /schema measurement can report
+    which gap that endpoint would close, rather than a single total consistent
+    with closing any of them.
+    """
+
+    element_id: str
+    column: str
+    column_id: str
+    reasons: FrozenSet[str]
+
+
 @dataclass
 class _CustomSqlRegistration:
     """Carries the per-kind variant parameters for _register_customsql_with_aggregator."""
@@ -304,6 +463,24 @@ class _CustomSqlRegistration:
     "Enabled by default, configured using `ingest_owner`",
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@dataclass
+class _PendingChartOutcome:
+    """Per-chart context held until its InputFields stop changing.
+
+    The outcome cannot be decided at build time: _apply_schema_resolution
+    REPLACES self-referential fields with resolved ones and re-emits the
+    aspect, so a chart classified as "no column lineage" during the element
+    loop may have lineage by the time the run finishes. Classifying early
+    overstated the problem in exactly the direction that would send someone
+    chasing charts that turned out fine.
+    """
+
+    element: Element
+    chart_urn: str
+    causes: Dict[str, int]
+    workbook_formulas_incomplete: bool
+
+
 class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
@@ -322,6 +499,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         super().__init__(config, ctx)
         self.config = config
         self.reporter = SigmaSourceReport()
+        self._init_diagnostic_state()
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
         # Sigma Dataset url_id -> dataset URN. Used to resolve DM element
         # ``inode-<urlId>`` upstreams.
@@ -331,6 +509,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # element Dataset URN. A name may map to multiple URNs when a DM
         # has duplicate-named elements.
         self.dm_element_urn_by_name: Dict[str, Dict[str, List[str]]] = {}
+        # bridge_key -> columnId -> [(element Dataset URN, column name)].
+        # columnId is a warehouse-column identity Sigma reuses verbatim across
+        # every element that passes the column through, so matching a consumer
+        # column to a producer column by columnId is exact -- unlike matching by
+        # display name, which would guess. Used to recover cross-DM column
+        # lineage for pass-through columns, which carry no formula ref naming
+        # their producer.
+        self.dm_element_columnid_index: Dict[str, Dict[str, List[Tuple[str, str]]]] = {}
         # DM urlId -> DM Container URN. Last-resort fallback.
         self.dm_container_urn_by_url_id: Dict[str, str] = {}
         # DM urlId -> total element count (includes blank-named elements
@@ -379,6 +565,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.dm_element_urn_to_cols: Dict[
             str, Dict[str, str]
         ] = {}  # {lowercase_col: canonical_col}
+        # Global: element Dataset URN → the bridge key of its Data Model.
+        # Lets a chart-side join-chain ref walk from a resolved DM element back
+        # to its siblings via ``dm_element_urn_by_name``. The URN itself
+        # encodes the DM, but only as an opaque name string, so parsing it
+        # would couple this lookup to the URN format.
+        self.dm_key_by_element_urn: Dict[str, str] = {}
+        # (Data Model key, elementId) -> element Dataset URN, registered under
+        # BOTH the bridge key (urlId slug) and the dataModelId, because a
+        # /spec join side names the model by dataModelId while ``source_ids``
+        # name it by slug. Element ids are NOT unique across models -- one
+        # tenant has the same id in two -- so an elementId alone cannot resolve.
+        self.dm_element_urn_by_key_and_eid: Dict[Tuple[str, str], str] = {}
+        # elementId -> every Data Model key that defines it. Lets an
+        # unqualified side be resolved when exactly one model owns the id, and
+        # refused when several do.
+        self.dm_keys_by_element_id: Dict[str, Set[str]] = {}
         # Surface as a structured report warning so operators running
         # under ``--strict`` or CI dashboards that gate on report
         # warnings (rather than stdout logs) notice the misconfiguration.
@@ -415,6 +617,94 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # is expected to be in the hundreds, not millions.  If this assumption
         # proves wrong, an LRU cap can be added without changing the interface.
         self._files_cache: Dict[str, Optional[Dict[str, Any]]] = {}
+        # Global url_id -> warehouse table, built lazily from /v2/files the
+        # first time a Data Model's own /lineage turns out to omit a table its
+        # elements reference. None until built; {} means built-and-empty.
+        # Single-entry memos for maps derived from per-workbook indexes.
+        #
+        # Each holds the SOURCE objects alongside the derived map and the
+        # reader compares them with `is`. Keying on id() alone was wrong:
+        # CPython reuses an address once an object is freed, and these indexes
+        # are built and dropped one per workbook, so the next workbook's index
+        # could land on the previous one's address and be served its data --
+        # which for _chart_cols_memo is a wrong column list used to VALIDATE a
+        # join-chain split, i.e. a wrong split accepted rather than a miss.
+        self._normalized_index_memo: Optional[
+            Tuple[Dict[str, List[Element]], Dict[str, List[Element]]]
+        ] = None
+        # Built lazily on the first chart-ref miss, by which point every Data
+        # Model has been walked. Used only to classify misses, never to resolve.
+        self._known_dm_element_index: Optional[
+            Tuple[FrozenSet[str], Dict[str, List[str]]]
+        ] = None
+        self._chart_cols_memo: Optional[
+            Tuple[
+                Dict[str, List[Element]],
+                Dict[str, str],
+                Dict[str, Dict[str, str]],
+            ]
+        ] = None
+        # urlId -> /files entry, or None when Sigma 404s (a stale reference to a
+        # deleted table). One call per distinct url_id.
+        self._warehouse_file_by_url_id: Dict[str, Optional[Dict[str, Any]]] = {}
+        self._stale_warehouse_refs_seen: Set[str] = set()
+        # One /spec parse per Data Model, keyed by dataModelId.
+        self._dm_spec_index_cache: Dict[str, DataModelSpecIndex] = {}
+        # Join partners, built once per Data Model rather than per element.
+        # Three caches with three lifetimes, deliberately:
+        #   _join_partner_cache holds ONE model. It is the largest of the three
+        #     (every predicate of every join) and elements are walked one model
+        #     at a time, so a second entry would never be read.
+        #   _dm_ancestors_cache and _dm_spec_index_cache are per-run: an
+        #     element's join-path closure is consulted again whenever another
+        #     model's join names a foreign element, so evicting them would mean
+        #     re-fetching /spec.
+        self._join_partner_cache: Optional[
+            Tuple[str, Dict[Tuple[str, str], Set[Tuple[str, str, str, bool]]]]
+        ] = None
+        # Same one-model policy: rebuilt per union element otherwise.
+        self._dm_column_lookup_cache: Optional[
+            Tuple[str, Dict[str, Dict[str, str]]]
+        ] = None
+        # Warehouse dataset urn -> its fields as DataHub holds them, or None
+        # when DataHub holds no schema. Misses are cached too: a table absent
+        # from DataHub stays absent for the run.
+        self._warehouse_schema_cache: Dict[str, Optional[Dict[str, str]]] = {}
+        # Urns whose schema read RAISED, as opposed to came back empty. Both
+        # cache as None, so without this the two are indistinguishable at the
+        # call site and a run whose every read 401s reports "DataHub has not
+        # ingested this table" for the whole warehouse.
+        self._warehouse_schema_unreadable: Set[str] = set()
+        # This workbook's unresolved columns, drained once per workbook by the
+        # /schema measurement.
+        self._pending_schema_probe: List[_UnresolvedChartColumn] = []
+        # Intra-DM element ancestry, keyed by dataModelId.
+        self._dm_ancestors_cache: Dict[str, Dict[str, Set[str]]] = {}
+        # Id spaces seen this run, filled once Data Models are walked and read
+        # only to name an otherwise-unidentifiable /schema ref head. Empty when
+        # ingest_data_models is off, which the reader reports as "not checked"
+        # rather than as "matched nothing".
+        self._known_id_spaces: Dict[str, Set[str]] = {}
+        # columnId -> owning Data Model elementId, filled with the above.
+        self._dm_column_owner: Dict[str, str] = {}
+        # dataModelId -> urlId, to reconcile /sources with per-element /lineage.
+        self._dm_url_id_by_id: Dict[str, str] = {}
+        self._dm_id_by_url_id: Dict[str, str] = {}
+        # Distinct unresolvable heads. 24 refs resolved to 4 heads on a dev
+        # tenant, so the ref count alone overstates how many distinct objects
+        # are actually unaccounted for.
+        # head -> how many columns cited it. Occurrences, not just distinct
+        # ids, so the end-of-run re-check can say how many COLUMNS a head
+        # that turns out to be identifiable actually accounts for.
+        self._unknown_head_ids: Dict[str, int] = {}
+        # Built once per run, lazily, by _ensure_global_warehouse_index.
+        self._global_warehouse_index_built: bool = False
+        self._global_warehouse_file_entries: Dict[str, Dict[str, Any]] = {}
+        # Same entries keyed by casefolded table NAME. A name is not unique --
+        # the same table name recurs across schemas and databases -- so the
+        # value is a list and every consumer must resolve the ambiguity or
+        # refuse. See _lookup_global_warehouse_table_by_name.
+        self._global_warehouse_files_by_name: Dict[str, List[Dict[str, Any]]] = {}
         # Inodes whose /files path already produced an unparseable warning;
         # prevents N identical warnings when the same inode spans N DMs (H3).
         self._files_path_unparseable_seen: Set[str] = set()
@@ -433,6 +723,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # warning has been emitted; dedup so repeated charts with the same unresolved
         # column don't flood the report.
         self._bridge_unresolved_warned: Set[Tuple[str, str]] = set()
+        # Upstream DM elements whose empty schema has already been reported; one
+        # failed /columns fetch empties every element in a DM, so without this
+        # every ref into that DM would emit its own warning.
+        self._upstream_schema_unavailable_warned: Set[str] = set()
         # Once-per-run gate flags so noisy global conditions don't flood logs.
         self._registry_empty_warned: bool = False
         # Per-platform set: platforms for which we've emitted a "first emission"
@@ -727,6 +1021,279 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self._files_cache[inode_id] = self.sigma_api.get_file_metadata(inode_id)
         return self._files_cache[inode_id]
 
+    def _warehouse_ref_from_file_entry(
+        self, entry: Dict[str, Any], connection_id: str
+    ) -> Optional[_WarehouseTableRef]:
+        """Build a table ref from a /files entry, or None if its path is unusable.
+
+        Shares the path contract of :meth:`_build_dm_warehouse_url_id_map`:
+        ``Connection Root/<SCHEMA>`` or ``Connection Root/<DB>/<SCHEMA>``.
+        """
+        path = str(entry.get("path") or "")
+        table_name = str(entry.get("name") or "")
+        parts = path.split("/")
+        if not (table_name and 2 <= len(parts) <= 3 and all(parts)):
+            logger.debug(
+                "GLOBAL WAREHOUSE INDEX reject: url_id=%r path=%r name=%r -- "
+                "expected 2-3 non-empty segments and a table name",
+                entry.get("urlId"),
+                path,
+                table_name,
+            )
+            return None
+        if parts[0] != _FILES_PATH_ROOT:
+            logger.debug(
+                "GLOBAL WAREHOUSE INDEX reject: url_id=%r path root %r is not "
+                "%r; the /files path shape is unrecognised",
+                entry.get("urlId"),
+                parts[0],
+                _FILES_PATH_ROOT,
+            )
+            return None
+        db = parts[1] if len(parts) == 3 else None
+        schema = parts[-1]
+        return _WarehouseTableRef(
+            connection_id=connection_id, db=db, schema=schema, table=table_name
+        )
+
+    def _infer_connection_id(
+        self, warehouse_map: Dict[str, _WarehouseTableRef]
+    ) -> Optional[str]:
+        """Connection to attribute a table /files does not tell us the connection for.
+
+        A /files entry carries no connectionId, so it is taken from the Data
+        Model's own already-resolved tables when they agree, else from the
+        tenant's sole mappable connection. Ambiguity is refused rather than
+        guessed: attributing a table to the wrong connection would emit a URN
+        pointing at the wrong platform or instance.
+        """
+        conns = {ref.connection_id for ref in warehouse_map.values()}
+        if len(conns) == 1:
+            return next(iter(conns))
+        if conns:
+            return None
+        mappable = [
+            cid
+            for cid, rec in self.connection_registry.by_id.items()
+            if rec.is_mappable
+        ]
+        return mappable[0] if len(mappable) == 1 else None
+
+    def _ensure_global_warehouse_index(self, trigger: str) -> None:
+        """List /v2/files once per run and index it by url_id and by name.
+
+        Built lazily and only on first need, so tenants whose Data Model
+        /lineage is complete never pay for the listing.
+        """
+        if self._global_warehouse_index_built:
+            return
+        self._global_warehouse_index_built = True
+        logger.debug(
+            "GLOBAL WAREHOUSE INDEX: first miss (%s) -- listing "
+            "/v2/files?typeFilters=table. Built once per run and only on "
+            "demand, so a tenant whose lineage is complete never pays for "
+            "this.",
+            trigger,
+        )
+        entries = self.sigma_api.list_warehouse_table_files()
+        index: Dict[str, Dict[str, Any]] = {}
+        by_name: Dict[str, List[Dict[str, Any]]] = {}
+        for raw in entries:
+            key = str(raw.get("urlId") or "")
+            if key:
+                index[key] = raw
+            name = str(raw.get("name") or "").strip().casefold()
+            if name:
+                by_name.setdefault(name, []).append(raw)
+        self._global_warehouse_file_entries = index
+        self._global_warehouse_files_by_name = by_name
+
+        self.reporter.warehouse_files_listed = len(entries)
+        # Truncation is decided by the pagination layer, which compares the
+        # rows it returned against the endpoint's own ``total``. Guessing from
+        # a round row count here missed a 5,000 cap and fired falsely on a
+        # tenant with exactly 10,000 tables.
+        truncated = any(
+            "warehouse table files" in endpoint
+            for endpoint in self.reporter.pagination_short_of_reported_total
+        )
+        colliding = sum(1 for rows in by_name.values() if len(rows) > 1)
+        logger.debug(
+            "GLOBAL WAREHOUSE INDEX built from /v2/files: %d table entries, "
+            "%d distinct url_ids, %d entries lacking a urlId, %d distinct "
+            "table names of which %d are shared by 2+ tables (those can only "
+            "be resolved by name when the Data Model's own tables disambiguate "
+            "them)%s",
+            len(entries),
+            len(index),
+            len(entries) - len(index),
+            len(by_name),
+            colliding,
+            "  *** SUSPECT SERVER-SIDE CAP: listing may be truncated ***"
+            if truncated
+            else "",
+        )
+        if truncated:
+            self.reporter.warning(
+                title="Sigma /v2/files listing may be truncated",
+                message=(
+                    "The warehouse table listing returned exactly a round "
+                    "number of entries, which suggests a server-side cap "
+                    "rather than the true total. Data Model elements whose "
+                    "table falls outside the listing will still resolve to "
+                    "no warehouse lineage."
+                ),
+                context=f"entries={len(entries)}",
+            )
+
+    def _lookup_global_warehouse_table_by_name(
+        self,
+        *,
+        table_name: str,
+        warehouse_map: Dict[str, _WarehouseTableRef],
+    ) -> Optional[_WarehouseTableRef]:
+        """Resolve a warehouse table the element names but does not declare.
+
+        A formula can reference a warehouse table by name that the element's
+        own ``source_ids`` never mention -- the same Sigma under-reporting that
+        motivates the url_id path, one level further out. The only remaining
+        signal is the name, which is NOT unique: the same table name recurs
+        across schemas and databases, and picking the wrong one emits an edge
+        to a real but unrelated dataset.
+
+        So the match must be unambiguous. A single global entry is accepted
+        outright; several are narrowed to those sharing a (db, schema) with a
+        table this Data Model already resolved, and accepted only if exactly
+        one survives. Anything still ambiguous is refused, not guessed.
+        """
+        self._ensure_global_warehouse_index(f"table name {table_name!r}")
+        rows = self._global_warehouse_files_by_name.get(
+            table_name.strip().casefold(), []
+        )
+        if not rows:
+            self.reporter.dm_element_warehouse_name_index_miss += 1
+            logger.debug(
+                "GLOBAL WAREHOUSE NAME miss: no /v2/files table is named %r "
+                "(index holds %d distinct names)",
+                table_name,
+                len(self._global_warehouse_files_by_name),
+            )
+            return None
+        connection_id = self._infer_connection_id(warehouse_map)
+        if connection_id is None:
+            self.reporter.dm_element_warehouse_connection_ambiguous += 1
+            logger.debug(
+                "GLOBAL WAREHOUSE NAME: %r matched %d entries but the "
+                "connection to attribute them to could not be inferred; "
+                "refusing rather than guessing the platform",
+                table_name,
+                len(rows),
+            )
+            return None
+        candidates = [
+            ref
+            for ref in (
+                self._warehouse_ref_from_file_entry(row, connection_id) for row in rows
+            )
+            if ref is not None
+        ]
+        if not candidates:
+            self.reporter.dm_element_warehouse_path_unparseable += 1
+            return None
+        if len(candidates) > 1:
+            # Narrow by the scopes this Data Model already demonstrably reads
+            # from. A table in a schema the DM never touches is far more likely
+            # a same-named table elsewhere in the warehouse than the referent.
+            known_scopes = {(r.db, r.schema) for r in warehouse_map.values()}
+            narrowed = [c for c in candidates if (c.db, c.schema) in known_scopes]
+            logger.debug(
+                "GLOBAL WAREHOUSE NAME ambiguous: %r matched %d tables %r; "
+                "narrowing to the Data Model's own scopes %r left %d",
+                table_name,
+                len(candidates),
+                [(c.db, c.schema) for c in candidates],
+                sorted(known_scopes),
+                len(narrowed),
+            )
+            candidates = narrowed
+        if len(candidates) != 1:
+            self.reporter.dm_element_warehouse_name_index_ambiguous += 1
+            logger.debug(
+                "GLOBAL WAREHOUSE NAME unresolved: %r left %d candidates after "
+                "narrowing; no edge emitted",
+                table_name,
+                len(candidates),
+            )
+            return None
+        ref = candidates[0]
+        self.reporter.dm_element_warehouse_name_index_resolved += 1
+        logger.debug(
+            "GLOBAL WAREHOUSE NAME hit: %r -> db=%r schema=%r table=%r via "
+            "connection %r (inferred); this table is named by a formula but "
+            "declared by neither the element nor the Data Model's /lineage",
+            table_name,
+            ref.db,
+            ref.schema,
+            ref.table,
+            connection_id,
+        )
+        return ref
+
+    def _lookup_global_warehouse_table(
+        self, url_id: str, connection_id: str
+    ) -> Optional[_WarehouseTableRef]:
+        """Resolve a url_id the owning Data Model's /lineage never described.
+
+        Asks ``/v2/files/{urlId}`` directly, one call per distinct miss.
+
+        An earlier version listed every table on the tenant and looked the
+        url_id up in that index. That recovered NOTHING across a full customer
+        run, while this direct call recovered 52 -- the tenant's
+        ``/files?typeFilters=table`` listing does not include every table a
+        ``GET /files/{urlId}`` can resolve, so the listing was both more
+        expensive (~41 paged calls) and less complete.
+
+        A 404 means only that this token cannot resolve the url_id -- the file
+        may be deleted, or simply outside what the credential can see. We cannot
+        tell which, so it is counted as an unresolved reference and nothing is
+        inferred about why.
+        """
+        if url_id not in self._warehouse_file_by_url_id:
+            self._warehouse_file_by_url_id[url_id] = (
+                self.sigma_api.get_file_metadata_by_url_id(url_id)
+            )
+        entry = self._warehouse_file_by_url_id[url_id]
+        if entry is None:
+            self.reporter.dm_element_warehouse_url_id_unresolvable += 1
+            if url_id not in self._stale_warehouse_refs_seen:
+                self._stale_warehouse_refs_seen.add(url_id)
+                logger.debug(
+                    "WAREHOUSE UNRESOLVED REF: url_id %r is not resolvable by "
+                    "this token (/v2/files/{urlId} returned 404), so columns "
+                    "naming it get no warehouse column lineage. The file may be "
+                    "deleted or merely outside the credential's visibility -- "
+                    "the API does not distinguish them, so check the token's "
+                    "access before concluding the reference is stale.",
+                    url_id,
+                )
+            return None
+        ref = self._warehouse_ref_from_file_entry(entry, connection_id)
+        if ref is None:
+            self.reporter.dm_element_warehouse_path_unparseable += 1
+            return None
+        self.reporter.dm_element_warehouse_recovered_by_url_id_lookup += 1
+        logger.debug(
+            "WAREHOUSE DIRECT LOOKUP hit: url_id %r -> db=%r schema=%r table=%r "
+            "via connection %r (inferred, since a /files entry carries none); "
+            "this table was absent from the owning Data Model's /lineage",
+            url_id,
+            ref.db,
+            ref.schema,
+            ref.table,
+            connection_id,
+        )
+        return ref
+
     def _build_dm_warehouse_url_id_map(
         self, data_model: SigmaDataModel
     ) -> Dict[str, _WarehouseTableRef]:
@@ -749,6 +1316,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
           - dm_element_warehouse_path_unparseable
         """
         result: Dict[str, _WarehouseTableRef] = {}
+        # This map is the sole bridge between a column's inode-shaped columnId
+        # and a warehouse Dataset URN. It is built from the DM's /lineage
+        # type=table rows only, so a DM whose /lineage reports no table rows
+        # yields an EMPTY map and every warehouse passthrough in it silently
+        # fails with url_id_not_in_warehouse_map -- previously with no way to
+        # see that the map was empty, or which url_ids it did contain.
+        logger.debug(
+            "WAREHOUSE MAP DM %s: building from %d type=table lineage inode(s): %r",
+            data_model.dataModelId,
+            len(data_model.warehouse_inodes_by_inode_id),
+            sorted(data_model.warehouse_inodes_by_inode_id)[:20],
+        )
         for inode_id, raw in data_model.warehouse_inodes_by_inode_id.items():
             conn_id = raw["connectionId"]
             first_attempt = inode_id not in self._files_cache
@@ -805,6 +1384,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         ),
                     )
                 continue
+            logger.debug(
+                "WAREHOUSE MAP DM %s: inode %s -> url_id=%r path=%r table=%r",
+                data_model.dataModelId,
+                inode_id,
+                url_id,
+                path,
+                table_name,
+            )
             if url_id in result:
                 logger.warning(
                     "DM %s: two inodes share the same urlId %r; "
@@ -848,6 +1435,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 schema=schema,
                 table=table_name,
             )
+        logger.debug(
+            "WAREHOUSE MAP DM %s: final map has %d url_id(s): %r",
+            data_model.dataModelId,
+            len(result),
+            sorted(result),
+        )
         return result
 
     def _resolve_dm_element_warehouse_upstream(
@@ -885,16 +1478,55 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         ref = warehouse_map.get(url_id_suffix)
         if ref is None:
+            # The owning Data Model's /lineage never described this table. Fall
+            # back to the global /v2/files index before giving up.
+            inferred = self._infer_connection_id(warehouse_map)
+            if inferred is not None:
+                ref = self._lookup_global_warehouse_table(url_id_suffix, inferred)
+            else:
+                self.reporter.dm_element_warehouse_connection_ambiguous += 1
+                logger.debug(
+                    "WAREHOUSE RESOLVE: url_id %r absent from the DM map and the "
+                    "connection could not be inferred unambiguously; skipping "
+                    "the global index",
+                    url_id_suffix,
+                )
+        if ref is None:
+            # Silent until now, and the single most common way a warehouse edge
+            # is lost: the element declares this inode but the DM's /lineage
+            # never produced a type=table row for it, so it is absent from the
+            # map. Compare url_id against the "WAREHOUSE MAP ... final map"
+            # line for this Data Model.
+            logger.debug(
+                "WAREHOUSE RESOLVE miss: url_id %r absent from the warehouse "
+                "map (map has %d entries: %r)",
+                url_id_suffix,
+                len(warehouse_map),
+                sorted(warehouse_map)[:20],
+            )
             return None
 
+        return self._warehouse_urn_from_ref(ref, context=f"url_id {url_id_suffix!r}")
+
+    def _warehouse_urn_from_ref(
+        self, ref: _WarehouseTableRef, *, context: str
+    ) -> Optional[str]:
+        """Turn resolved warehouse coordinates into a Dataset URN.
+
+        Split out of _resolve_dm_element_warehouse_upstream so a ref reached by
+        table NAME rather than by url_id produces an identically-shaped URN --
+        same casing, env and platform_instance overrides, same one-shot operator
+        warnings. ``context`` only labels the debug lines with how the ref was
+        reached.
+        """
         record = self.connection_registry.get(ref.connection_id)
         if record is None or not record.is_mappable:
             # Counter is bumped by caller gated on unresolved_seen to avoid
             # inflating on diamond source_ids.
             logger.debug(
-                "inode-%s: connectionId %r not resolvable to a warehouse platform "
+                "%s: connectionId %r not resolvable to a warehouse platform "
                 "(missing from registry or is_mappable=False).",
-                url_id_suffix,
+                context,
                 ref.connection_id,
             )
             return None
@@ -912,6 +1544,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         target_env = conn_override.env if conn_override else self.config.env
         target_platform_instance = (
             conn_override.platform_instance if conn_override else None
+        )
+        logger.debug(
+            "WAREHOUSE RESOLVE hit: %s -> platform=%r fq=%r env=%r "
+            "platform_instance=%r (connection=%r)",
+            context,
+            record.datahub_platform,
+            fq,
+            target_env,
+            target_platform_instance,
+            ref.connection_id,
         )
         # Once-per-platform info when emitting for a platform not in
         # _WAREHOUSE_LOWERCASE_PLATFORMS, so operators know to verify that
@@ -1265,6 +1907,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             element_id_by_customsql_name: customSQL name → list of elementIds of charts
               that source from it (one customSQL may feed multiple charts)
         """
+        # Element ids are NOT unique across workbooks, so a stale map would
+        # attribute one workbook's dependencies to another's chart. Cleared in
+        # place rather than rebound, so the annotated declaration in
+        # _init_diagnostic_state stays the single definition.
+        self._stated_element_sources.clear()
         entries = self.sigma_api.get_workbook_lineage_entries(workbook.workbookId)
         custom_sql_by_name: Dict[str, CustomSqlEntry] = {}
         element_entries: List[Dict[str, Any]] = []
@@ -1291,15 +1938,52 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # since either type can appear first in the API response.
         # A single customSQL may be referenced by multiple chart elements.
         element_id_by_customsql_name: Dict[str, List[str]] = {}
+        element_ids_in_graph = {
+            entry.get("elementId", "") for entry in element_entries
+        } - {""}
         for entry in element_entries:
             element_id = entry.get("elementId", "")
             source_ids = entry.get("sourceIds") or []
             if element_id and isinstance(source_ids, list):
                 for source_id in source_ids:
-                    if isinstance(source_id, str) and source_id in custom_sql_by_name:
+                    if not isinstance(source_id, str):
+                        continue
+                    if source_id in custom_sql_by_name:
                         element_id_by_customsql_name.setdefault(source_id, []).append(
                             element_id
                         )
+                        continue
+                    # Everything else is dropped here, and used to be dropped
+                    # silently. Sigma states chart-to-chart dependencies in
+                    # exactly this field, so this is where "lineage between
+                    # charts" would go missing -- and with no counter, the
+                    # report could not distinguish "Sigma said nothing" from
+                    # "we discarded what Sigma said".
+                    kind = (
+                        "another_element_in_this_workbook"
+                        if source_id in element_ids_in_graph
+                        else "unknown_node"
+                    )
+                    if kind == "another_element_in_this_workbook":
+                        # Sigma STATED this dependency. Keeping it is not a
+                        # guess, which is the distinction that got name-based
+                        # matching removed from the resolver.
+                        self._stated_element_sources.setdefault(element_id, set()).add(
+                            source_id
+                        )
+                    self.reporter.workbook_lineage_element_source_ids_dropped += 1
+                    self.reporter.workbook_lineage_dropped_source_id_kinds[kind] = (
+                        self.reporter.workbook_lineage_dropped_source_id_kinds.get(
+                            kind, 0
+                        )
+                        + 1
+                    )
+                    self.reporter.workbook_lineage_dropped_source_id_samples.setdefault(
+                        kind, LossyList()
+                    ).append(
+                        f"workbook={workbook.workbookId} element={element_id} "
+                        f"source_id={source_id}"
+                    )
         return custom_sql_by_name, element_id_by_customsql_name
 
     def _build_workbook_customsql_col_mapping(
@@ -1449,6 +2133,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             env=target_env,
             platform_instance=target_platform_instance,
         )
+        # The aggregator parses lazily at drain, and sqlglot's own warnings
+        # ("Unknown subquery scope: SELECT ...") carry no Sigma identity -- one
+        # run produced 72 of them with nothing to attribute them to. Log the
+        # registration with a fingerprint of the SQL so a later warning quoting
+        # that SQL can be tied back to the element that owns it.
+        logger.debug(
+            "CUSTOMSQL REGISTER %s urn=%s customsql_name=%r platform=%s "
+            "default_db=%r default_schema=%r sql_len=%d sql_sha1=%s "
+            "sql_first_line=%r",
+            reg.label,
+            reg.urn,
+            customsql_entry.name,
+            record.datahub_platform,
+            default_db,
+            default_schema,
+            len(definition),
+            hashlib.sha1(definition.encode("utf-8")).hexdigest()[:12],
+            definition.strip().splitlines()[0][:120] if definition.strip() else "",
+        )
         try:
             aggregator.add_view_definition(
                 view_urn=reg.urn,
@@ -1535,6 +2238,44 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     and fb.schemaField.fieldPath not in covered_paths
                 ):
                     input_fields.append(fb)
+        # This aspect SUPERSEDES the one the element loop emitted, so for a
+        # customSQL chart it -- not the earlier verdict -- is what the user
+        # sees. Classifying only the earlier one left this population
+        # unaccounted, including the case where input_fields is empty: an empty
+        # InputFields aspect renders exactly like total failure.
+        self_ref_prefix = f"urn:li:schemaField:({entity_urn},"
+        resolved = sum(
+            1
+            for f in input_fields
+            if f.schemaFieldUrn and not f.schemaFieldUrn.startswith(self_ref_prefix)
+        )
+        if resolved:
+            self.reporter.customsql_charts_final_with_column_lineage += 1
+        else:
+            self.reporter.customsql_charts_final_no_column_lineage += 1
+            # Uncapped and keyed by the chart URN, so a reported chart is
+            # greppable here exactly as it is on the formula path.
+            logger.debug(
+                "customSQL chart %s final InputFields carry NO upstream: "
+                "fields=%d fgl=%d upstreams=%d has_passthrough_mapping=%s",
+                entity_urn,
+                len(input_fields),
+                len(aspect.fineGrainedLineages or []),
+                len(aspect.upstreams or []),
+                entity_urn in self._customsql_passthrough_mappings,
+            )
+        # This path must return an MCP, so it cannot refuse the way the formula
+        # path does. Record when it would have been a regression so the
+        # customSQL population is not a blind spot in the same accounting.
+        best = self._chart_best_resolved.get(entity_urn)
+        if best is not None and resolved < best:
+            self.reporter.chart_input_fields_regressive_emission_skipped += 1
+            self.reporter.chart_regressive_emission_samples.append(
+                f"chart={entity_urn} kept={best} OVERWRITTEN_BY={resolved} "
+                f"path=customsql_drain"
+            )
+        else:
+            self._chart_best_resolved[entity_urn] = resolved
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
             aspect=InputFieldsClass(fields=input_fields),
@@ -1679,6 +2420,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     )
                 else:
                     self.reporter.dm_customsql_fgl_downstream_unmapped += 1
+                    logger.debug(
+                        "customSQL FGL downstream unmapped: SQL column %r on "
+                        "%s has no matching Sigma display column; known=%r",
+                        field_path,
+                        ds_parent_urn,
+                        sorted(col_mapping.values())[:25],
+                    )
             if rewritten_downstreams:
                 rewritten_fgls.append(
                     FineGrainedLineageClass(
@@ -1865,7 +2613,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # ``<prefix>/<suffix>`` refs are caught in the
                 # ``"/" in source_id`` branch above, so this bucket is
                 # genuinely "nothing we recognize."
-                if source_id not in unresolved_seen:
+                if not source_id:
+                    # An EMPTY entry in source_ids, which some tenants send.
+                    # There is no shape here to recognise, so filing it under
+                    # "unknown shape" sends a reader hunting for a parser gap
+                    # that does not exist -- on one tenant (2026-09) every one
+                    # of the 19 "unknown shapes" was this.
+                    self.reporter.data_model_element_upstreams_empty_source_id += 1
+                elif source_id not in unresolved_seen:
                     unresolved_seen.add(source_id)
                     self.reporter.data_model_element_upstreams_unknown_shape += 1
                     self.reporter.data_model_element_upstreams_unresolved += 1
@@ -1900,7 +2655,30 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # not document ordering, and Upstream entries have no semantic order.
         upstream_urns.sort()
         if not upstream_urns:
+            # The most important case to be able to see, and previously the only
+            # one that was completely silent: this element gets NO
+            # upstreamLineage aspect at all, and the early return happens before
+            # the FGL builder, so neither the ELEMENT nor any COLUMN record is
+            # produced either. An element with no lineage whatsoever left no
+            # trace of why.
+            self.reporter.data_model_element_no_upstreams += 1
+            logger.debug(
+                "ELEMENT NO-UPSTREAM DM %s element %s %r: source_ids=%r "
+                "columns=%d -- no source_id resolved to a URN, so no "
+                "upstreamLineage and no column lineage is emitted for this "
+                "element at all. Each unresolved source_id is reported above "
+                "with its shape (intra-DM / inode / cross-DM / customSQL / "
+                "unknown).",
+                data_model.dataModelId,
+                element.elementId,
+                element.name,
+                element.source_ids,
+                len(element.columns),
+            )
             return None
+        # Elements reached only through a join chain: Sigma's /lineage reports
+        # the direct join element, not the transitive source the formula names.
+        discovered_upstreams: Set[str] = set()
         fine_grained = self._build_dm_element_fine_grained_lineages(
             element=element,
             element_dataset_urn=element_dataset_urn,
@@ -1909,6 +2687,37 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entity_level_upstream_urns=set(upstream_urns),
             data_model=data_model,
             warehouse_url_id_map=warehouse_url_id_map,
+            discovered_upstreams=discovered_upstreams,
+        )
+        # Promote them to entity-level upstreams so every emitted schemaField
+        # has a declared parent Dataset; without this the FGL points at a
+        # Dataset missing from ``upstreams`` and the UI will not render it.
+        for urn in sorted(discovered_upstreams):
+            if urn not in upstream_urns:
+                upstream_urns.append(urn)
+                logger.debug(
+                    "DM %s element %s: promoted join-chain source %s to an "
+                    "entity-level upstream (absent from Sigma /lineage)",
+                    data_model.dataModelId,
+                    element.elementId,
+                    urn,
+                )
+        upstream_urns.sort()
+        # Element-level decision record. Pairs with the per-column COLUMN lines:
+        # this says which upstreams the element ended up declaring and how many
+        # column edges were produced, so "why is there no CLL from X to Y" can be
+        # answered by grepping one element id instead of reconstructing it.
+        logger.debug(
+            "ELEMENT DM %s element %s %r: source_ids=%r -> upstreams=%r "
+            "promoted=%r fgl_count=%d columns=%d",
+            data_model.dataModelId,
+            element.elementId,
+            element.name,
+            element.source_ids,
+            upstream_urns,
+            sorted(discovered_upstreams),
+            len(fine_grained or []),
+            len(element.columns),
         )
         return UpstreamLineage(
             upstreams=[
@@ -1972,9 +2781,41 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             platformSchema=OtherSchemaClass(rawSchema=""),
             fields=fields,
         )
+        self._known_field_paths[element_dataset_urn] = {f.fieldPath for f in fields}
         return MetadataChangeProposalWrapper(
             entityUrn=element_dataset_urn, aspect=schema_metadata
         ).as_workunit()
+
+    def _note_warehouse_miss(
+        self,
+        reason: str,
+        column: SigmaDataModelColumn,
+        element: SigmaDataModelElement,
+        col_id: str,
+    ) -> None:
+        """Record why columnId-based warehouse resolution produced nothing.
+
+        Aggregated into a per-reason histogram on the report so the largest
+        deferred bucket becomes triageable without grepping the log, plus a
+        debug line naming the column for the first occurrences.
+        """
+        self.reporter.warehouse_passthrough_miss_reasons[reason] = (
+            self.reporter.warehouse_passthrough_miss_reasons.get(reason, 0) + 1
+        )
+        # Cap generously rather than tightly: at 25 the sample was exhausted by
+        # the first couple of Data Models and the elements actually being
+        # investigated never appeared. Each line is short and only failures
+        # reach here.
+        if self.reporter.warehouse_passthrough_miss_reasons[reason] <= 2000:
+            logger.debug(
+                "warehouse passthrough miss (%s): element=%s column=%r "
+                "columnId=%r source_ids=%r",
+                reason,
+                element.elementId,
+                column.name,
+                col_id,
+                element.source_ids[:8],
+            )
 
     def _try_emit_warehouse_passthrough_fgl(
         self,
@@ -1997,33 +2838,104 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         the caller's responsibility so that None unambiguously means failure.
         """
         # Parse columnId → url_id + warehouse column name.
+        # Every early return below records WHY, because
+        # fgl_warehouse_passthrough_deferred is the largest bucket in the report
+        # (10,806 on one tenant, 2026-09) and previously said nothing about cause.
         col_id = column.columnId or ""
-        if not col_id.startswith("inode-"):
+        if not _is_warehouse_column_id(col_id):
+            self._note_warehouse_miss(
+                "columnId_not_inode_shaped", column, element, col_id
+            )
             return None
         suffix = col_id[len("inode-") :]
         url_id, sep, warehouse_col = suffix.partition("/")
         if not sep or not warehouse_col:
+            self._note_warehouse_miss(
+                "columnId_missing_native_part", column, element, col_id
+            )
             return None
 
         # Verify this url_id is one of the element's declared warehouse sources.
         # Mismatches can occur if a column belongs to a different element's inode
         # (shouldn't happen with well-formed API data, but guards against drift).
         if f"inode-{url_id}" not in element.source_ids:
-            return None
+            # The element does not declare this inode. That is expected when the
+            # element is sourced transitively -- e.g. every source_id is a
+            # cross-DM ``<dmUrlId>/<suffix>`` ref -- because the warehouse table
+            # is declared by the producer element in the other Data Model, not
+            # here. Same shape of mistake as gating join-chain resolution on
+            # Sigma's direct /lineage list.
+            #
+            # Accept it only when the element declares no inode source at all
+            # AND the url_id is in this Data Model's warehouse map, i.e. some
+            # element here does reach that table. If the element declares its
+            # own inodes and this column names a different one, that is genuine
+            # payload drift and stays rejected.
+            declares_any_inode = any(
+                sid.startswith("inode-") for sid in element.source_ids
+            )
+            if declares_any_inode or url_id not in warehouse_url_id_map:
+                self._note_warehouse_miss(
+                    "url_id_not_in_element_source_ids", column, element, col_id
+                )
+                return None
+            self.reporter.dm_element_warehouse_transitive_inode_accepted += 1
+            logger.debug(
+                "WAREHOUSE transitive accept: element %s column %r columnId=%r "
+                "-- element declares no inode source (source_ids=%r) but url_id "
+                "is in this DM's warehouse map",
+                element.elementId,
+                column.name,
+                col_id,
+                element.source_ids,
+            )
 
-        # Guard: url_id must resolve in the warehouse map (i.e. /files succeeded).
+        # The Data Model's /lineage does not describe every table its elements
+        # reference, so a miss here is not the end: ask /v2/files/{urlId}
+        # directly, exactly as the entity-level path does. Without this the
+        # recovery only ever produced a table-level edge while the COLUMN that
+        # motivated it stayed unresolved -- 1,305 columns on one tenant (2026-09).
+        # The lookup is cached per url_id, so repeats across columns are free.
         wh_ref = warehouse_url_id_map.get(url_id)
         if wh_ref is None:
+            inferred = self._infer_connection_id(warehouse_url_id_map)
+            if inferred is not None:
+                wh_ref = self._lookup_global_warehouse_table(url_id, inferred)
+            if wh_ref is not None:
+                self.reporter.dm_element_warehouse_column_recovered_by_lookup += 1
+                logger.debug(
+                    "WAREHOUSE COLUMN RECOVERED: element %s column %r url_id %r "
+                    "was absent from this Data Model's warehouse map but "
+                    "/v2/files/{urlId} resolved it to db=%r schema=%r table=%r",
+                    element.elementId,
+                    column.name,
+                    url_id,
+                    wh_ref.db,
+                    wh_ref.schema,
+                    wh_ref.table,
+                )
+        if wh_ref is None:
+            # Neither the DM's /lineage nor a direct lookup describes this table.
+            self._note_warehouse_miss(
+                "url_id_not_in_warehouse_map", column, element, col_id
+            )
             return None
 
         # Resolve the parent Dataset URN.  This is the only allowed path for
         # URN construction — env, platform_instance, and casing all live here,
         # so bypassing it risks orphan schemaFields on casing or instance drift.
-        parent_urn = self._resolve_dm_element_warehouse_upstream(
-            url_id_suffix=url_id,
-            warehouse_map=warehouse_url_id_map,
+        parent_urn = (
+            self._resolve_dm_element_warehouse_upstream(
+                url_id_suffix=url_id,
+                warehouse_map=warehouse_url_id_map,
+            )
+            if url_id in warehouse_url_id_map
+            else self._warehouse_urn_from_ref(
+                wh_ref, context=f"recovered url_id {url_id!r}"
+            )
         )
         if parent_urn is None:
+            self._note_warehouse_miss("parent_urn_unresolved", column, element, col_id)
             return None
 
         # Normalize column casing to match the platform convention used by the
@@ -2032,6 +2944,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # dict hits on the same objects.
         record = self.connection_registry.get(wh_ref.connection_id)
         if record is None:
+            self._note_warehouse_miss(
+                "connection_not_in_registry", column, element, col_id
+            )
             return None
         conn_override = self.config.connection_to_platform_map.get(wh_ref.connection_id)
         lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
@@ -2150,6 +3065,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
         if not cross_dm_candidate_urns:
             self.reporter.data_model_element_fgl_cross_dm_deferred += 1
+            logger.debug(
+                "element %s: cross-DM deferred, no candidate for ref %r "
+                "(segments=%r, source_dms=%r)",
+                element.elementId,
+                ref.raw,
+                ref.parts,
+                sorted(source_dm_url_ids),
+            )
             return None
         if len(cross_dm_candidate_urns) > 1:
             # Restrict to entity-level confirmed candidates whenever any exist.
@@ -2168,10 +3091,38 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         upstream_cols = self.dm_element_urn_to_cols.get(chosen_upstream_urn)
         if upstream_cols is None:
             self.reporter.data_model_element_fgl_cross_dm_deferred += 1
+            logger.debug(
+                "element %s: cross-DM deferred, producer %s absent from the "
+                "bridge column map for ref %r (segments=%r)",
+                element.elementId,
+                chosen_upstream_urn,
+                ref.raw,
+                ref.parts,
+            )
+            return None
+        if not upstream_cols:
+            # Producer element is known but carries no columns -- the producer
+            # DM's /columns fetch came back empty. Distinct from the `is None`
+            # case above (producer absent from the bridge map entirely), which
+            # stays on the deferred counter. Counted separately from the
+            # intra-DM equivalent: an empty sibling in this DM and an empty
+            # producer in another DM are different investigations.
+            self.reporter.data_model_element_fgl_cross_dm_upstream_schema_unavailable += 1
+            self._warn_upstream_schema_unavailable(chosen_upstream_urn, element)
             return None
         canonical_col = upstream_cols.get(ref.column.lower())
         if canonical_col is None:
             self.reporter.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column += 1
+            logger.debug(
+                "element %s: cross-DM drop, ref %r column %r absent from "
+                "producer %s (segments=%r, producer_has=%r)",
+                element.elementId,
+                ref.raw,
+                ref.column,
+                chosen_upstream_urn,
+                ref.parts,
+                sorted(upstream_cols.values())[:25],
+            )
             return None
         return FineGrainedLineageClass(
             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
@@ -2181,6 +3132,26 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 builder.make_schema_field_urn(chosen_upstream_urn, canonical_col)
             ],
             confidenceScore=1.0,
+        )
+
+    def _warn_upstream_schema_unavailable(
+        self, upstream_urn: str, element: SigmaDataModelElement
+    ) -> None:
+        """Warn once per upstream URN that its schema came back empty."""
+        if upstream_urn in self._upstream_schema_unavailable_warned:
+            return
+        self._upstream_schema_unavailable_warned.add(upstream_urn)
+        self.reporter.warning(
+            title="Sigma DM element upstream schema unavailable",
+            message=(
+                "A formula references a column on an upstream Data Model element "
+                "whose column list came back empty, so the column-level lineage "
+                "edge was dropped. Check for a `Sigma paginated endpoint aborted` "
+                "warning naming that Data Model: if one is present its /columns "
+                "fetch failed partway through, and if none is present the "
+                "upstream element genuinely has no columns."
+            ),
+            context=f"upstream={upstream_urn}, element={element.elementId}",
         )
 
     def _resolve_intra_dm_fgl(
@@ -2198,6 +3169,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         fgls: List[FineGrainedLineageClass],
         cross_dm_fgls: List[FineGrainedLineageClass],
         emitted_pairs: Set[Tuple[str, str]],
+        discovered_upstreams: Set[str],
     ) -> None:
         """Resolve a formula ref against intra-DM sibling elements.
 
@@ -2235,7 +3207,60 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 cross_dm_fgls=cross_dm_fgls,
             ):
                 return
+            # The named sibling exists in this Data Model but Sigma's /lineage
+            # did not list it as an upstream. Where that sibling actually owns
+            # the referenced column, the ref is trustworthy and the omission is
+            # a reporting gap -- the same situation as a join chain, whose
+            # owning element /lineage never lists either. Accept it on the
+            # strength of the schema and promote it to an entity-level upstream,
+            # so the emitted schemaField has a declared parent Dataset.
+            # A run measured 162 of 167 orphan drops as recoverable this way.
+            owning = [
+                u
+                for u in candidate_urns
+                if urn_to_cols.get(u, {}).get(ref.column.lower()) is not None
+            ]
+            if owning:
+                chosen = owning[0]
+                canonical = urn_to_cols[chosen][ref.column.lower()]
+                upstream_field = builder.make_schema_field_urn(chosen, canonical)
+                pair = (downstream_field, upstream_field)
+                if pair not in emitted_pairs:
+                    emitted_pairs.add(pair)
+                    fgls.append(
+                        FineGrainedLineageClass(
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            downstreams=[downstream_field],
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[upstream_field],
+                            confidenceScore=1.0,
+                        )
+                    )
+                discovered_upstreams.add(chosen)
+                self.reporter.data_model_element_fgl_orphan_recovered += 1
+                logger.debug(
+                    "DM %s element %s: orphan ref %r recovered -- sibling %s "
+                    "owns column %r though /lineage did not list it as an "
+                    "upstream; promoted to an entity-level upstream",
+                    data_model.dataModelId,
+                    element.elementId,
+                    ref.raw,
+                    chosen,
+                    canonical,
+                )
+                return
             self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
+            logger.debug(
+                "DM %s element %s: orphan drop for ref %r -- name matched an "
+                "intra-DM sibling but /lineage did not list it, the sibling "
+                "does not own the column, and cross-DM rescue failed "
+                "(segments=%r, candidates=%r)",
+                data_model.dataModelId,
+                element.elementId,
+                ref.raw,
+                ref.parts,
+                candidate_urns,
+            )
             return
 
         # Collision handling: multiple siblings passed /lineage filter.
@@ -2259,17 +3284,36 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Validate and normalise ref.column against the chosen upstream
         # element's schema winners to avoid a dangling schemaField URN.
         source_cols = urn_to_cols.get(chosen_upstream_urn, {})
+        if not source_cols:
+            # The sibling resolved but carries no columns, so the ref cannot be
+            # validated against a real fieldPath. Counted apart from the
+            # name-miss below so operators can tell a fetch problem from a
+            # genuine missing column. Reachable when /columns aborted partway
+            # through pagination (earlier pages are preserved, so some siblings
+            # are populated and later ones are not) or when the sibling really
+            # has no columns -- note a whole-DM /columns failure cannot reach
+            # here, since it empties this element too and the caller's column
+            # loop never runs.
+            self.reporter.data_model_element_fgl_upstream_schema_unavailable += 1
+            self._warn_upstream_schema_unavailable(chosen_upstream_urn, element)
+            return
         canonical_col = source_cols.get(ref.column.lower())
         if canonical_col is None:
             self.reporter.data_model_element_fgl_dropped_unknown_upstream_column += 1
             logger.debug(
                 "DM %s element %s: ref %r column %r not found in upstream "
-                "element %s schema winners; dropping FGL entry",
+                "element %s schema winners; dropping FGL entry. segments=%r, "
+                "upstream_has=%r",
                 data_model.dataModelId,
                 element.elementId,
                 ref.raw,
                 ref.column,
                 chosen_upstream_urn,
+                ref.parts,
+                # Sample of what the chosen upstream actually exposes, so a
+                # verification run shows whether the intended column is there
+                # under a different name (or not at all) without a live API call.
+                sorted(source_cols.values())[:25],
             )
             return
 
@@ -2290,6 +3334,1403 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
 
+    @staticmethod
+    def _multi_segment_refs(refs: List["BracketRef"]) -> List[str]:
+        """Raw text of refs carrying a join-chain shape (3+ segments).
+
+        Used only to keep the diagnostic probes cheap: the chart path processes
+        hundreds of thousands of columns, so probes log the raw ref text only
+        when the join-chain shape is actually present.
+        """
+        return [r.raw for r in refs if len(r.parts) >= 3]
+
+    def _try_resolve_join_chain_ref(
+        self,
+        *,
+        ref: "BracketRef",
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+        element_name_to_eids: Dict[str, List[str]],
+        elementId_to_dataset_urn: Dict[str, str],
+        entity_level_upstream_urns: Set[str],
+        urn_to_cols: Dict[str, Dict[str, str]],
+        downstream_field: str,
+        emitted_pairs: Set[Tuple[str, str]],
+        fgls: List[FineGrainedLineageClass],
+        cross_dm_fgls: List[FineGrainedLineageClass],
+        discovered_upstreams: Set[str],
+    ) -> bool:
+        """Resolve a multi-segment ref by trying alternative (source, column) splits.
+
+        Sigma writes a column reached through a join as
+        ``[JoinElement/SourceElement/Column]``, so the owning element is the
+        segment before the column. ``ref.source`` holds the *first* segment,
+        which for these refs is the join element -- a real sibling, which is why
+        the legacy path resolves it, then fails the column lookup and drops the
+        edge.
+
+        Returns True when an edge was emitted. Deliberately counts nothing on
+        failure: the caller falls through to the legacy path, which owns the
+        residual bucket, so one dropped ref is never counted twice. Each
+        candidate is self-stripped and tried intra-DM *then* cross-DM before the
+        next is considered, so neither the self-name warehouse short-circuit nor
+        an intra-DM first segment can hide a resolvable later segment.
+
+        Refs with fewer than three segments are left entirely to the legacy
+        path -- their only candidate *is* the legacy split -- so single-slash
+        behaviour and its counters are untouched.
+        """
+        if len(ref.parts) < 3:
+            return False
+        # Per-candidate verdicts, so a failure line says WHICH check rejected
+        # WHICH candidate. Without this the previous run could only say "no
+        # candidate resolved" and the blocking gate had to be inferred by
+        # reading the code.
+        trace: List[str] = []
+        for source, col in candidate_source_column_splits(ref):
+            # Intra-DM: sibling elements, self-references stripped per candidate.
+            eids = [
+                eid
+                for eid in element_name_to_eids.get(source.lower(), [])
+                if eid != element.elementId
+            ]
+            urns = sorted(
+                elementId_to_dataset_urn[eid]
+                for eid in eids
+                if eid in elementId_to_dataset_urn
+            )
+            # NOTE: deliberately NOT filtered by entity_level_upstream_urns.
+            # A join chain reaches its owning element *through* the join, so
+            # Sigma's element-level /lineage lists only the direct join element
+            # and never the transitive one. Requiring membership here made every
+            # intra-DM candidate fail: in one production run all 6 successes came
+            # from the cross-DM branch, which has no such gate, and 0 from here.
+            # The chosen element is instead recorded in discovered_upstreams and
+            # added to the entity-level upstreams by the caller, so the emitted
+            # schemaField still has a declared parent Dataset.
+            if not urns:
+                trace.append(f"{source!r}: no intra-DM element with that name")
+            if urns:
+                # Prefer a direct upstream when one matches, purely for
+                # determinism; correctness does not depend on it.
+                ordered = [u for u in urns if u in entity_level_upstream_urns] + [
+                    u for u in urns if u not in entity_level_upstream_urns
+                ]
+                cols_here = urn_to_cols.get(ordered[0], {})
+                canonical = cols_here.get(col.lower())
+                if canonical is None:
+                    trace.append(
+                        f"{source!r}: element found ({ordered[0].split('.')[-1]}) "
+                        f"but column {col!r} absent from its {len(cols_here)} "
+                        f"columns; in_direct_lineage="
+                        f"{ordered[0] in entity_level_upstream_urns}"
+                    )
+                if canonical is not None:
+                    surviving = ordered
+                    if ordered[0] not in entity_level_upstream_urns:
+                        discovered_upstreams.add(ordered[0])
+                        self.reporter.data_model_element_fgl_join_chain_upstream_added += 1
+                    upstream_field = builder.make_schema_field_urn(
+                        ordered[0], canonical
+                    )
+                    pair = (downstream_field, upstream_field)
+                    if pair not in emitted_pairs:
+                        emitted_pairs.add(pair)
+                        fgls.append(
+                            FineGrainedLineageClass(
+                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                                downstreams=[downstream_field],
+                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                                upstreams=[upstream_field],
+                                confidenceScore=1.0,
+                            )
+                        )
+                    self.reporter.data_model_element_fgl_join_chain_resolved += 1
+                    logger.debug(
+                        "element %s: join-chain ref %r resolved intra-DM to "
+                        "source=%r column=%r (upstream=%s)",
+                        element.elementId,
+                        ref.raw,
+                        source,
+                        canonical,
+                        surviving[0],
+                    )
+                    return True
+
+            # Cross-DM: the owning element may live in a source data model even
+            # when an earlier segment matched a local sibling.
+            source_dm_url_ids = {
+                sid.partition("/")[0]
+                for sid in element.source_ids
+                if "/" in sid and not sid.startswith("inode-")
+            }
+            for dm_url_id in sorted(source_dm_url_ids):
+                for urn in sorted(
+                    self.dm_element_urn_by_name.get(dm_url_id, {}).get(
+                        source.lower(), []
+                    )
+                ):
+                    if urn == element_dataset_urn:
+                        continue
+                    canonical = (self.dm_element_urn_to_cols.get(urn) or {}).get(
+                        col.lower()
+                    )
+                    if canonical is None:
+                        continue
+                    upstream_field = builder.make_schema_field_urn(urn, canonical)
+                    pair = (downstream_field, upstream_field)
+                    if pair not in emitted_pairs:
+                        emitted_pairs.add(pair)
+                        cross_dm_fgls.append(
+                            FineGrainedLineageClass(
+                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                                downstreams=[downstream_field],
+                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                                upstreams=[upstream_field],
+                                confidenceScore=1.0,
+                            )
+                        )
+                    self.reporter.data_model_element_fgl_join_chain_resolved += 1
+                    logger.debug(
+                        "element %s: join-chain ref %r resolved cross-DM to "
+                        "source=%r column=%r (upstream=%s)",
+                        element.elementId,
+                        ref.raw,
+                        source,
+                        canonical,
+                        urn,
+                    )
+                    return True
+        # Sub-count of whichever residual bucket the legacy path settles on --
+        # never an independent drop, so report totals stay additive.
+        self.reporter.data_model_element_fgl_join_chain_unresolved += 1
+        logger.debug(
+            "element %s: no candidate split of ref %r resolved; candidates "
+            "tried=%r verdicts=%r; falling back to the first-slash split",
+            element.elementId,
+            ref.raw,
+            candidate_source_column_splits(ref),
+            trace,
+        )
+        return False
+
+    def _resolve_non_sibling_ref(
+        self,
+        *,
+        ref: "BracketRef",
+        element: SigmaDataModelElement,
+        column: Optional[SigmaDataModelColumn],
+        element_dataset_urn: str,
+        entity_level_upstream_urns: Set[str],
+        downstream_field: str,
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
+        emitted_pairs: Set[Tuple[str, str]],
+        fgls: List[FineGrainedLineageClass],
+    ) -> Optional[FineGrainedLineageClass]:
+        """Resolve a ref whose source is not a sibling element in this DM.
+
+        Three attempts, in descending order of how much of the match is
+        evidenced rather than inferred:
+
+        1. a warehouse table the element itself DECLARES (exact table match);
+        2. an element in another Data Model (exact name and column match);
+        3. a warehouse table found by NAME in the tenant-wide /v2/files listing,
+           which nothing declares -- the last resort, and the only one that can
+           trigger the extra listing call.
+
+        Steps 1 and 3 append to ``fgls`` themselves and return None on success;
+        step 2's result is returned for the caller to append to
+        ``cross_dm_fgls``.
+        """
+        if self._try_resolve_warehouse_table_name_ref(
+            ref=ref,
+            element=element,
+            column=column,
+            downstream_field=downstream_field,
+            warehouse_url_id_map=warehouse_url_id_map,
+            emitted_pairs=emitted_pairs,
+            fgls=fgls,
+            allow_global_name_index=False,
+        ):
+            return None
+        cross_dm = self._resolve_cross_dm_fgl(
+            ref=ref,
+            element=element,
+            element_dataset_urn=element_dataset_urn,
+            entity_level_upstream_urns=entity_level_upstream_urns,
+            downstream_field=downstream_field,
+        )
+        if cross_dm is not None:
+            return cross_dm
+        # Nothing in the tenant's own Sigma graph names this source. Only now is
+        # the global /v2/files listing worth the call: it is the sole remaining
+        # place the referenced table could be described.
+        self._try_resolve_warehouse_table_name_ref(
+            ref=ref,
+            element=element,
+            column=column,
+            downstream_field=downstream_field,
+            warehouse_url_id_map=warehouse_url_id_map,
+            emitted_pairs=emitted_pairs,
+            fgls=fgls,
+            allow_global_name_index=True,
+        )
+        return None
+
+    def _try_resolve_warehouse_table_name_ref(
+        self,
+        *,
+        ref: "BracketRef",
+        element: SigmaDataModelElement,
+        column: Optional[SigmaDataModelColumn],
+        downstream_field: str,
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
+        emitted_pairs: Set[Tuple[str, str]],
+        fgls: List[FineGrainedLineageClass],
+        allow_global_name_index: bool,
+    ) -> bool:
+        """Resolve a ref naming a warehouse TABLE the element declares.
+
+        The columnId path handles pass-through columns, whose columnId is
+        ``inode-<urlId>/<NATIVE>``. A calculated or renamed column has an opaque
+        columnId instead, yet its formula still names the warehouse table --
+        e.g. ``[WAREHOUSE_TABLE_A/Col Id]`` on an element
+        declaring that table's inode. Those refs previously resolved to nothing
+        at all: no intra-DM element bears the table's name, and there are no
+        cross-DM sources to search.
+
+        The table match is exact (the element declares that inode and the ref
+        names that table). Only the warehouse column name is inferred, so the
+        edge is emitted at a reduced confidence.
+
+        With ``allow_global_name_index`` the search widens to the tenant-wide
+        /v2/files table listing when the element declares no table of that name
+        -- Sigma also under-reports an element's tables, so a formula can name a
+        real warehouse table that appears in neither the element's source_ids
+        nor its Data Model's /lineage. That is strictly a last resort: it is the
+        only path that can trigger the listing call, and the table identity is
+        then inferred rather than declared, so callers should try every exact
+        match first.
+        """
+        if ref.column is None:
+            return False
+        wanted = ref.source.strip().lower()
+        matches = [
+            (sid[len("inode-") :], warehouse_url_id_map[sid[len("inode-") :]])
+            for sid in element.source_ids
+            if sid.startswith("inode-")
+            and sid[len("inode-") :] in warehouse_url_id_map
+            and warehouse_url_id_map[sid[len("inode-") :]].table.strip().lower()
+            == wanted
+        ]
+        if len(matches) > 1:
+            logger.debug(
+                "WAREHOUSE NAME REF ambiguous: element %s ref %r matched %d "
+                "declared warehouse tables; skipping",
+                element.elementId,
+                ref.raw,
+                len(matches),
+            )
+            return False
+        derived_globally = not matches
+        if derived_globally:
+            if not allow_global_name_index:
+                # Deliberately quiet: the caller will retry with the global
+                # index enabled once the exact paths have all failed.
+                return False
+            if not any(sid.startswith("inode-") for sid in element.source_ids):
+                # This element reads from no inode at all, so a bare name in its
+                # formula is not plausibly a warehouse table -- and searching the
+                # tenant-wide listing for it would only risk a same-named
+                # coincidence. Also keeps elements sourced purely from other Data
+                # Models from triggering the listing call.
+                logger.debug(
+                    "WAREHOUSE NAME REF: element %s declares no inode source; "
+                    "not searching the global /v2/files index for ref %r",
+                    element.elementId,
+                    ref.raw,
+                )
+                return False
+            # The element declares no table by this name. Sigma under-reports
+            # here exactly as it does for url_ids, so consult the tenant-wide
+            # /v2/files table listing before giving up.
+            logger.debug(
+                "WAREHOUSE NAME REF: element %s ref %r names no warehouse table "
+                "the element declares (declared: %r); trying the global index",
+                element.elementId,
+                ref.raw,
+                sorted(
+                    warehouse_url_id_map[sid[len("inode-") :]].table
+                    for sid in element.source_ids
+                    if sid.startswith("inode-")
+                    and sid[len("inode-") :] in warehouse_url_id_map
+                ),
+            )
+            global_ref = self._lookup_global_warehouse_table_by_name(
+                table_name=ref.source, warehouse_map=warehouse_url_id_map
+            )
+            if global_ref is None:
+                return False
+            url_id, wh_ref = "", global_ref
+            parent_urn = self._warehouse_urn_from_ref(
+                global_ref, context=f"global table name {ref.source!r}"
+            )
+        else:
+            url_id, wh_ref = matches[0]
+            parent_urn = self._resolve_dm_element_warehouse_upstream(
+                url_id_suffix=url_id, warehouse_map=warehouse_url_id_map
+            )
+        record = self.connection_registry.get(wh_ref.connection_id)
+        if parent_urn is None or record is None:
+            return False
+        conn_override = self.config.connection_to_platform_map.get(wh_ref.connection_id)
+        lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
+        # Prefer the name Sigma already recorded. Deriving it from the display
+        # name is a convention ("Order Ref Id" -> ORDER_REF_ID) that a
+        # renamed column breaks without saying so.
+        # The prefixes this element can legitimately produce: its own id, and
+        # any warehouse inode it declares.
+        exact = _native_column_from_column_id(
+            column.columnId if column else None,
+            allowed_prefixes={element.elementId, *element.source_ids},
+        )
+        verified = False
+        if exact is not None:
+            native = _normalize_warehouse_identifier(
+                exact, record.datahub_platform, lowercase
+            )
+        else:
+            # Check the guess against the schema DataHub already holds, if it
+            # holds one. A confirmed field name is emitted verbatim -- it needs
+            # no platform normalisation, because it IS what the warehouse
+            # connector emitted.
+            candidate, verified = self._verified_warehouse_column(
+                parent_urn=parent_urn,
+                display_name=ref.column,
+                guessed=_warehouse_column_from_display_name(ref.column),
+            )
+            native = (
+                candidate
+                if verified
+                else _normalize_warehouse_identifier(
+                    candidate, record.datahub_platform, lowercase
+                )
+            )
+        upstream_field = builder.make_schema_field_urn(parent_urn, native)
+        pair = (downstream_field, upstream_field)
+        if pair not in emitted_pairs:
+            emitted_pairs.add(pair)
+            fgls.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=[downstream_field],
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=[upstream_field],
+                    confidenceScore=(
+                        _FGL_CONFIDENCE_WAREHOUSE_GLOBAL_NAME_DERIVED
+                        if derived_globally
+                        # Confirmed against the warehouse's own schema, so no
+                        # weaker than a columnId-derived name.
+                        else _FGL_CONFIDENCE_WAREHOUSE_NAME_EXACT_COLUMN
+                        if exact is not None or verified
+                        else _FGL_CONFIDENCE_WAREHOUSE_NAME_DERIVED
+                    ),
+                )
+            )
+        self.reporter.data_model_element_fgl_warehouse_table_name_resolved += 1
+        if derived_globally:
+            self.reporter.data_model_element_fgl_warehouse_global_name_resolved += 1
+        logger.debug(
+            "WAREHOUSE NAME REF hit (%s): element %s ref %r -> table %r "
+            "(url_id=%r), column display %r -> native %r, upstream=%s",
+            "global /v2/files index" if derived_globally else "element-declared",
+            element.elementId,
+            ref.raw,
+            wh_ref.table,
+            url_id or "n/a",
+            ref.column,
+            native,
+            parent_urn,
+        )
+        return True
+
+    def _admitted_element_types(self) -> FrozenSet[str]:
+        """The workbook element types this run actually ingests.
+
+        Mirrors SigmaAPI's own narrowing so a log line cannot name a type that
+        was never admitted.
+        """
+        return (
+            INGESTED_ELEMENT_TYPES
+            if self.config.ingest_pivot_and_input_tables
+            else BASE_ELEMENT_TYPES
+        )
+
+    def _resolve_no_ref_column_fgl(
+        self,
+        *,
+        column: SigmaDataModelColumn,
+        warehouse_fgl: Optional[FineGrainedLineageClass],
+        downstream_field: str,
+        fgls: List[FineGrainedLineageClass],
+        emitted_pairs: Set[Tuple[str, str]],
+    ) -> None:
+        """Handle a column no bracket ref could be resolved from.
+
+        Covers an empty/absent formula (Sigma's shape for a pass-through
+        column), a constant expression, and a formula whose only refs are
+        parameters or bare sibling-column refs. In each case no ref reached a
+        resolver, so the columnId-driven warehouse FGL -- which needs no formula
+        at all -- would otherwise be computed and discarded.
+
+        Callers must gate this on "no ref reached a resolver" rather than on
+        ``warehouse_consumed``: intra-DM resolution never sets that flag, so a
+        "no warehouse append happened" gate would give a column carrying both a
+        sibling ref and an inode columnId a second, wrong upstream.
+        """
+        if warehouse_fgl is None:
+            # Split the same way the ref-bearing path does: an inode-shaped
+            # columnId that failed to resolve is a real warehouse failure (a
+            # /files miss or an unmappable connection) and is worth chasing,
+            # while any other columnId is an intra-DM or Sigma Dataset
+            # passthrough with nothing to resolve against -- expected volume.
+            if _is_warehouse_column_id(column.columnId):
+                self.reporter.data_model_element_fgl_no_ref_warehouse_unresolved += 1
+                logger.debug(
+                    "column %r has a warehouse-shaped columnId %r but no ref "
+                    "resolved and warehouse resolution failed; no CLL emitted",
+                    column.name,
+                    column.columnId,
+                )
+            else:
+                self.reporter.data_model_element_fgl_no_ref_unresolved += 1
+                logger.debug(
+                    "column %r produced no resolvable ref and its columnId %r "
+                    "is not warehouse-shaped; no CLL emitted (formula=%r)",
+                    column.name,
+                    column.columnId,
+                    column.formula,
+                )
+            return
+        assert warehouse_fgl.upstreams
+        # No emitted_pairs check: this runs at most once per column, only when
+        # nothing in the ref loop appended for that column, and downstream_field
+        # is unique per column (columns are deduped by name upstream) -- so the
+        # pair cannot already be present.
+        emitted_pairs.add((downstream_field, warehouse_fgl.upstreams[0]))
+        fgls.append(warehouse_fgl)
+        self.reporter.data_model_element_fgl_warehouse_resolved += 1
+
+    def _get_dm_spec_index(self, data_model: SigmaDataModel) -> DataModelSpecIndex:
+        """Per-run cached join-key index for one Data Model.
+
+        Costs one ``/spec`` call per Data Model. That is negligible beside the
+        per-element fan-out that dominates a run, and unlike the warehouse
+        listing it cannot be deferred to a failure path: join-key edges are
+        ADDITIONAL to the edges a formula produces, so a column that resolved
+        perfectly well may still be missing its other side.
+        """
+        dm_id = data_model.dataModelId
+        if not self.config.extract_data_model_spec_lineage:
+            return DataModelSpecIndex()
+        cached = self._dm_spec_index_cache.get(dm_id)
+        if cached is None:
+            cached = parse_data_model_spec(
+                self.sigma_api.get_data_model_spec(dm_id), data_model_id=dm_id
+            )
+            self._dm_spec_index_cache[dm_id] = cached
+            self.reporter.data_model_join_key_pairs_read += len(cached.pairs)
+            self.reporter.data_model_join_warehouse_side_predicates += (
+                cached.warehouse_side_predicates
+            )
+            self.reporter.data_model_join_elements_unreadable += len(
+                cached.unreadable_join_element_ids
+            )
+            for kind, n in cached.source_kind_counts.items():
+                self.reporter.data_model_spec_source_kinds[kind] = (
+                    self.reporter.data_model_spec_source_kinds.get(kind, 0) + n
+                )
+            for join_type, n in cached.join_type_counts.items():
+                self.reporter.data_model_join_types[join_type] = (
+                    self.reporter.data_model_join_types.get(join_type, 0) + n
+                )
+            for op, n in cached.predicate_op_counts.items():
+                self.reporter.data_model_join_predicate_ops[op] = (
+                    self.reporter.data_model_join_predicate_ops.get(op, 0) + n
+                )
+            self.reporter.data_model_join_non_equality_predicates += (
+                cached.non_equality_predicates
+            )
+            self.reporter.data_model_union_output_columns_read += len(cached.unions)
+            self.reporter.data_model_union_branch_index_out_of_range += (
+                cached.union_branch_index_out_of_range
+            )
+        return cached
+
+    def _build_join_partner_map(
+        self,
+        *,
+        spec: DataModelSpecIndex,
+        data_model: SigmaDataModel,
+        elementId_to_dataset_urn: Dict[str, str],
+    ) -> Dict[Tuple[str, str], Set[Tuple[str, str, str, bool]]]:
+        """(urn, column name) -> (join element id, partner urn, partner column, is_outer).
+
+        A predicate side names its column by DISPLAY NAME, but columnId is also
+        accepted: the spec does not label which it uses, and matching both costs
+        nothing while making the lookup robust if Sigma switches.
+
+        The join element id travels with each partner because a predicate is
+        only evidence for elements that read THROUGH that join. Without it the
+        map is Data-Model-wide and any element referencing a key column would
+        inherit the other side, inventing lineage for a path the join is not on.
+        """
+        col_name_by_key: Dict[str, Dict[str, str]] = {}
+        for dm_el in data_model.elements:
+            winners, _ = _dedup_dm_element_columns(dm_el.columns)
+            keys: Dict[str, str] = {}
+            for col in winners.values():
+                if col.columnId:
+                    keys[col.columnId] = col.name
+                keys[col.name.strip().lower()] = col.name
+            col_name_by_key[dm_el.elementId] = keys
+
+        # Data Model keys this model's elements read from, by slug. A /spec
+        # join side can name an element in ANOTHER model, and these are the
+        # only models it can plausibly be in.
+        source_dm_keys = {
+            sid.partition("/")[0]
+            for el in data_model.elements
+            for sid in el.source_ids
+            if "/" in sid and not sid.startswith("inode-")
+        }
+
+        def resolve_foreign(side: SpecColumnRef) -> Optional[Tuple[str, str]]:
+            """A side naming an element in a different Data Model.
+
+            Element ids repeat across models, so the model has to be pinned:
+            by the side's own ``dataModelId`` when Sigma sends one, else by the
+            models this one actually sources from. More than one candidate is
+            refused rather than guessed -- picking wrong would attach a real
+            column to the wrong dataset, which is worse than no edge.
+            """
+            assert side.element_id is not None
+            eid = side.element_id
+            owning = self.dm_keys_by_element_id.get(eid, set())
+            if side.data_model_id:
+                candidates = owning & {side.data_model_id}
+                basis = "side.dataModelId"
+            else:
+                candidates = owning & source_dm_keys
+                basis = "source_ids of this model"
+                if not candidates and len(owning) == 1:
+                    candidates = set(owning)
+                    basis = "sole owning model"
+            if not candidates:
+                self.reporter.data_model_join_key_foreign_dm_unknown += 1
+                logger.debug(
+                    "JOIN KEY FOREIGN %s: element %r column %r -- no Data Model "
+                    "pinned (side.dataModelId=%r, models defining this id=%r, "
+                    "models this one sources from=%r)",
+                    data_model.dataModelId,
+                    eid,
+                    side.column,
+                    side.data_model_id,
+                    sorted(owning)[:10],
+                    sorted(source_dm_keys)[:10],
+                )
+                return None
+            if len(candidates) > 1:
+                self.reporter.data_model_join_key_foreign_ambiguous += 1
+                logger.debug(
+                    "JOIN KEY FOREIGN %s: element %r column %r is defined in "
+                    "%d candidate Data Models %r (basis=%s) -- refusing to guess",
+                    data_model.dataModelId,
+                    eid,
+                    side.column,
+                    len(candidates),
+                    sorted(candidates)[:10],
+                    basis,
+                )
+                return None
+            key = next(iter(candidates))
+            urn = self.dm_element_urn_by_key_and_eid.get((key, eid))
+            cols = self.dm_element_urn_to_cols.get(urn or "") or {}
+            name = cols.get(side.column.strip().lower())
+            if urn is None or name is None:
+                self.reporter.data_model_join_key_foreign_column_absent += 1
+                logger.debug(
+                    "JOIN KEY FOREIGN %s: element %r resolved to model %r "
+                    "(basis=%s, urn=%s) but column %r is not among its %d "
+                    "columns",
+                    data_model.dataModelId,
+                    eid,
+                    key,
+                    basis,
+                    urn,
+                    side.column,
+                    len(cols),
+                )
+                return None
+            self.reporter.data_model_join_key_foreign_resolved += 1
+            logger.debug(
+                "JOIN KEY FOREIGN %s: element %r column %r -> %s/%s "
+                "(model %r, basis=%s)",
+                data_model.dataModelId,
+                eid,
+                side.column,
+                urn,
+                name,
+                key,
+                basis,
+            )
+            return (urn, name)
+
+        def resolve(side: SpecColumnRef) -> Optional[Tuple[str, str]]:
+            if side.element_id is None:
+                return None
+            keys = col_name_by_key.get(side.element_id)
+            urn = elementId_to_dataset_urn.get(side.element_id)
+            if keys is None or urn is None:
+                # Not an element of THIS model. On one tenant a single shared
+                # mapping element accounted for 9 of 10 unresolved predicates,
+                # joined into nine different models.
+                return resolve_foreign(side)
+            name = keys.get(side.column) or keys.get(side.column.strip().lower())
+            if name is None:
+                logger.debug(
+                    "JOIN KEY DM %s: local element %r has no column matching "
+                    "%r among its %d columns",
+                    data_model.dataModelId,
+                    side.element_id,
+                    side.column,
+                    len(keys),
+                )
+                return None
+            return (urn, name)
+
+        partners: Dict[Tuple[str, str], Set[Tuple[str, str, str, bool]]] = {}
+        for predicate in spec.pairs:
+            a, b = resolve(predicate.left), resolve(predicate.right)
+            if a is None or b is None:
+                self.reporter.data_model_join_key_partner_unresolved += 1
+                # Name WHICH side failed and what it referenced. A side is a
+                # Sigma formula, so this line is the only place that shows both
+                # the raw expression and the column extracted from it.
+                logger.debug(
+                    "JOIN KEY DM %s: predicate from join element %s did not "
+                    "resolve -- left(element=%s column=%r expr=%r)=%s "
+                    "right(element=%s column=%r expr=%r)=%s",
+                    data_model.dataModelId,
+                    predicate.join_element_id,
+                    predicate.left.element_id,
+                    predicate.left.column,
+                    predicate.left.expression,
+                    "ok" if a else "UNRESOLVED",
+                    predicate.right.element_id,
+                    predicate.right.column,
+                    predicate.right.expression,
+                    "ok" if b else "UNRESOLVED",
+                )
+                continue
+            join_id = predicate.join_element_id
+            outer = predicate.is_outer
+            partners.setdefault(a, set()).add((join_id, b[0], b[1], outer))
+            partners.setdefault(b, set()).add((join_id, a[0], a[1], outer))
+        logger.debug(
+            "JOIN KEY DM %s: %d predicate(s) -> %d column(s) with partners",
+            data_model.dataModelId,
+            len(spec.pairs),
+            len(partners),
+        )
+        return partners
+
+    def _dm_element_ancestors(self, data_model: SigmaDataModel) -> Dict[str, Set[str]]:
+        """elementId -> every intra-DM element it reads from, plus itself.
+
+        Memoized per Data Model: the walk is O(elements x edges) and every
+        element of the model asks for it.
+
+        ``source_ids`` entries are ``inode-<urlId>`` for a warehouse table and
+        ``<dm-url-id>/<suffix>`` for another Data Model; a bare id is a sibling
+        element in this model. Only the last kind can carry a join, so only it
+        is walked.
+        """
+        memo = self._dm_ancestors_cache.get(data_model.dataModelId)
+        if memo is not None:
+            return memo
+        direct: Dict[str, Set[str]] = {}
+        for el in data_model.elements:
+            direct[el.elementId] = {
+                sid
+                for sid in el.source_ids
+                # ``sid`` truthiness matters: one tenant's source_ids carried an
+                # empty entry, which would otherwise sit in the closure as a
+                # blank element id.
+                if sid and "/" not in sid and not sid.startswith("inode-")
+            }
+        closure: Dict[str, Set[str]] = {}
+        for start in direct:
+            seen = {start}
+            stack = list(direct[start])
+            while stack:
+                node = stack.pop()
+                if node in seen:
+                    continue
+                seen.add(node)
+                stack.extend(direct.get(node, ()))
+            closure[start] = seen
+        self._dm_ancestors_cache[data_model.dataModelId] = closure
+        return closure
+
+    @staticmethod
+    def _dm_element_column_lookup(
+        element: SigmaDataModelElement,
+    ) -> Dict[str, str]:
+        """Column id AND lowercased display name -> canonical display name.
+
+        /spec names a column without saying which of the two it used, the same
+        ambiguity join predicate sides have, so both are accepted.
+        """
+        winners, _ = _dedup_dm_element_columns(element.columns)
+        keys: Dict[str, str] = {}
+        for col in winners.values():
+            if col.columnId:
+                keys[col.columnId] = col.name
+            keys[col.name.strip().lower()] = col.name
+        return keys
+
+    def _dm_column_lookups(
+        self, data_model: SigmaDataModel
+    ) -> Dict[str, Dict[str, str]]:
+        """Per-element column lookups for one Data Model, built once.
+
+        Cached for the same reason the join partner map is: this is called once
+        per UNION element, and rebuilding it re-walked every element's columns
+        each time. Holds one model, since elements are walked a model at a time.
+        """
+        dm_id = data_model.dataModelId
+        cached = self._dm_column_lookup_cache
+        if cached is not None and cached[0] == dm_id:
+            return cached[1]
+        lookups = {
+            dm_el.elementId: self._dm_element_column_lookup(dm_el)
+            for dm_el in data_model.elements
+        }
+        self._dm_column_lookup_cache = (dm_id, lookups)
+        return lookups
+
+    def _warehouse_schema_fields(self, dataset_urn: str) -> Optional[Dict[str, str]]:
+        """``normalised field name -> real fieldPath`` for a warehouse dataset.
+
+        None when DataHub has no schema for it -- either there is no graph
+        (a file sink, or ``--dry-run``) or the warehouse connector has not
+        ingested that table yet. None and an empty dict mean different things
+        and callers must not conflate them: no schema is "nothing can
+        contradict this", an empty schema is "the table has no columns".
+
+        One ``get_aspect`` per distinct warehouse dataset, cached for the run,
+        including the misses -- a table absent from DataHub stays absent.
+        """
+        if dataset_urn in self._warehouse_schema_cache:
+            return self._warehouse_schema_cache[dataset_urn]
+        fields: Optional[Dict[str, str]] = None
+        graph = self.ctx.graph
+        if graph is not None:
+            try:
+                schema = graph.get_aspect(dataset_urn, SchemaMetadataClass)
+            except Exception as e:
+                # A graph read must never fail the ingestion: the guess below
+                # is what the connector did before this check existed.
+                self.reporter.warehouse_schema_lookup_failed += 1
+                self._warehouse_schema_unreadable.add(dataset_urn)
+                logger.debug(
+                    "WAREHOUSE SCHEMA lookup failed for %s: %s", dataset_urn, e
+                )
+                schema = None
+            if schema is not None:
+                fields = {}
+                for schema_field in schema.fields or []:
+                    fields.setdefault(
+                        _normalize_element_name(schema_field.fieldPath),
+                        schema_field.fieldPath,
+                    )
+        self._warehouse_schema_cache[dataset_urn] = fields
+        return fields
+
+    def _verified_warehouse_column(
+        self,
+        *,
+        parent_urn: str,
+        display_name: str,
+        guessed: str,
+    ) -> Tuple[str, bool]:
+        """Return (column name to emit, whether DataHub confirmed it).
+
+        Inverting Sigma's display-name convention ("Order Ref Id" ->
+        ORDER_REF_ID) is a guess, and the connector has no warehouse schema of
+        its own to check it against. Where DataHub DOES hold that schema, the
+        guess is unnecessary: the real field name is right there, so match the
+        display name against it and emit what the warehouse actually calls the
+        column.
+
+        Where DataHub holds no schema the guess stands. That is not the same
+        risk: the dataset is an un-ingested stub, so there is no schema for a
+        wrong name to contradict, and the guess is the only signal available.
+        The guess is only ever WRONG against a real schema -- which is exactly
+        the case this checks.
+        """
+        fields = self._warehouse_schema_fields(parent_urn)
+        if fields is None:
+            # Two very different situations, and collapsing them would make a
+            # large count unactionable: no DataHub to ask at all (a file sink
+            # or a dry run -- nothing an operator can do), versus DataHub is
+            # there but has never ingested this table (run the warehouse
+            # connector and these become verifiable).
+            if self.ctx.graph is None:
+                self.reporter.warehouse_column_no_graph_configured += 1
+            elif parent_urn in self._warehouse_schema_unreadable:
+                # Do NOT report this as "not ingested": the read never got an
+                # answer, so this says nothing about what DataHub holds. A
+                # wrong token 401s every read, and attributing that to the
+                # warehouse connector sends the operator to the wrong system.
+                self.reporter.warehouse_column_schema_unreadable += 1
+                logger.debug(
+                    "WAREHOUSE COLUMN %s: the schema read failed, so whether "
+                    "DataHub holds this table is unknown and the derived name "
+                    "%r stands unchecked. See warehouse_schema_lookup_failed "
+                    "for the cause -- check credentials and GMS reachability "
+                    "before assuming the table is missing.",
+                    parent_urn,
+                    guessed,
+                )
+            else:
+                self.reporter.warehouse_column_table_not_in_datahub += 1
+                logger.debug(
+                    "WAREHOUSE COLUMN %s: DataHub is reachable but holds no "
+                    "schema for this table, so the derived name %r cannot be "
+                    "checked. Ingest this warehouse table to make these "
+                    "verifiable.",
+                    parent_urn,
+                    guessed,
+                )
+            self.reporter.warehouse_column_unverifiable_no_schema += 1
+            return guessed, False
+        wanted = _normalize_element_name(display_name)
+        real = fields.get(wanted) or fields.get(_normalize_element_name(guessed))
+        if real is None:
+            self.reporter.warehouse_column_absent_from_graph_schema += 1
+            logger.debug(
+                "WAREHOUSE COLUMN %s: neither the display name %r nor the "
+                "derived name %r matches any of the %d fields DataHub holds "
+                "for this table, so the derived name would be a dangling "
+                "field reference",
+                parent_urn,
+                display_name,
+                guessed,
+                len(fields),
+            )
+            return guessed, False
+        self.reporter.warehouse_column_verified_against_graph += 1
+        return real, True
+
+    def _add_union_fgls(
+        self,
+        *,
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+        data_model: SigmaDataModel,
+        elementId_to_dataset_urn: Dict[str, str],
+        fgls: List[FineGrainedLineageClass],
+        emitted_pairs: Set[Tuple[str, str]],
+        discovered_upstreams: Set[str],
+    ) -> None:
+        """Add one edge per branch for every output column of a union element.
+
+        A union's output column has an upstream in EVERY branch, but its
+        /columns formula names at most one of them, so all the other branches
+        are unreachable from formulas alone -- the same multi-source blind spot
+        joins have, and the reason a union element's downstreams looked
+        single-sourced.
+
+        The edges score 1.0: a union stacks rows, so the output column IS the
+        branch column, not a value derived from it.
+        """
+        spec = self._get_dm_spec_index(data_model)
+        if not spec.unions:
+            return
+        outputs = [u for u in spec.unions if u.union_element_id == element.elementId]
+        if not outputs:
+            return
+        own_columns = self._dm_element_column_lookup(element)
+        branch_columns = self._dm_column_lookups(data_model)
+
+        added = 0
+        for output in outputs:
+            downstream_name = own_columns.get(output.output_column) or own_columns.get(
+                output.output_column.strip().lower()
+            )
+            if downstream_name is None:
+                self.reporter.data_model_union_output_column_absent += 1
+                logger.debug(
+                    "UNION DM %s element %s: output column %r is not among the "
+                    "element's %d /columns entries -- no edge for its %d "
+                    "branch(es)",
+                    data_model.dataModelId,
+                    element.elementId,
+                    output.output_column,
+                    len(element.columns),
+                    len(output.branches),
+                )
+                continue
+            downstream_field = builder.make_schema_field_urn(
+                element_dataset_urn, downstream_name
+            )
+            for branch_element_id, branch_column in output.branches:
+                branch_urn = elementId_to_dataset_urn.get(branch_element_id)
+                if branch_urn is None:
+                    # The branch is filtered out of this run, or lives in
+                    # another Data Model. /spec gives no dataModelId on a union
+                    # source, so there is nothing to pin it with.
+                    self.reporter.data_model_union_branch_element_unknown += 1
+                    logger.debug(
+                        "UNION DM %s element %s: branch element %r for output "
+                        "column %r is not an element of this Data Model",
+                        data_model.dataModelId,
+                        element.elementId,
+                        branch_element_id,
+                        output.output_column,
+                    )
+                    continue
+                keys = branch_columns.get(branch_element_id) or {}
+                upstream_name = keys.get(branch_column) or keys.get(
+                    branch_column.strip().lower()
+                )
+                if upstream_name is None:
+                    self.reporter.data_model_union_branch_column_absent += 1
+                    logger.debug(
+                        "UNION DM %s element %s: output column %r names column "
+                        "%r in branch %s, but that branch has %d columns and "
+                        "none of them match by id or by name",
+                        data_model.dataModelId,
+                        element.elementId,
+                        output.output_column,
+                        branch_column,
+                        branch_element_id,
+                        len(keys),
+                    )
+                    continue
+                upstream_field = builder.make_schema_field_urn(
+                    branch_urn, upstream_name
+                )
+                pair = (downstream_field, upstream_field)
+                if pair in emitted_pairs or downstream_field == upstream_field:
+                    continue
+                emitted_pairs.add(pair)
+                fgls.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[downstream_field],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[upstream_field],
+                        confidenceScore=_FGL_CONFIDENCE_UNION_BRANCH,
+                    )
+                )
+                discovered_upstreams.add(branch_urn)
+                added += 1
+                self.reporter.data_model_element_fgl_union_resolved += 1
+        logger.debug(
+            "UNION DM %s element %s: %d output column(s) in /spec produced %d edge(s)",
+            data_model.dataModelId,
+            element.elementId,
+            len(outputs),
+            added,
+        )
+
+    def _add_join_key_fgls(
+        self,
+        *,
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+        data_model: SigmaDataModel,
+        elementId_to_dataset_urn: Dict[str, str],
+        urn_to_cols: Dict[str, Dict[str, str]],
+        fgls: List[FineGrainedLineageClass],
+        cross_dm_fgls: List[FineGrainedLineageClass],
+        emitted_pairs: Set[Tuple[str, str]],
+        discovered_upstreams: Set[str],
+    ) -> None:
+        """Add the other side of every join predicate an edge already touches.
+
+        A join's output column carries a formula naming ONE side, so /columns
+        alone can only ever produce one edge -- the reported symptom. The ON
+        clause says the two key columns hold the same value, which makes the
+        unnamed side just as much an upstream of that output column. Only
+        columns an edge already reaches are expanded, so this never invents
+        lineage for a column the formulas said nothing about.
+
+        A predicate applies only to elements that read THROUGH its join. Two
+        elements can reference the same key column while only one of them sits
+        downstream of the join that constrains it; expanding the other would
+        assert an equality its data path never applies. The join element must
+        therefore be in the element's own upstream closure, and predicates
+        skipped by that test are counted in
+        ``data_model_join_key_out_of_join_path``.
+
+        The predicate is an equality, not a copy, so these edges score below a
+        formula-derived one: consumers wanting only value-propagation lineage
+        can filter them out by confidence.
+        """
+        spec = self._get_dm_spec_index(data_model)
+        if not spec.pairs:
+            return
+        # Built once per Data Model, not once per element. Rebuilding it per
+        # element re-walked every element's columns and re-counted every
+        # unresolved predicate -- on one tenant (2026-09) 61 predicates were reported as
+        # 1,234 failures, which made the counter unreadable.
+        # Keyed by dataModelId alone. The element->URN map was part of the key
+        # via id(), which added nothing (the URNs are a pure function of the
+        # model) and risked a reused address matching a different map.
+        # Deliberately holds ONE model, as a (dataModelId, partners) pair
+        # rather than a dict that is reassigned: elements are walked one model
+        # at a time, so a second entry would only be dead weight, and the old
+        # `self._join_partner_cache = {dm_id: partners}` read as a dict that
+        # was accidentally being replaced instead of inserted into.
+        dm_id = data_model.dataModelId
+        cached = self._join_partner_cache
+        if cached is not None and cached[0] == dm_id:
+            partners = cached[1]
+        else:
+            partners = self._build_join_partner_map(
+                spec=spec,
+                data_model=data_model,
+                elementId_to_dataset_urn=elementId_to_dataset_urn,
+            )
+            self._join_partner_cache = (dm_id, partners)
+        if not partners:
+            return
+        element_id_by_urn = {urn: eid for eid, urn in elementId_to_dataset_urn.items()}
+        # The joins this element actually reads through: itself (a join
+        # element's own output IS the join) plus every intra-DM ancestor.
+        in_scope_joins = self._dm_element_ancestors(data_model).get(
+            element.elementId, {element.elementId}
+        )
+
+        added = 0
+        # (upstream dataset urn, field) pairs this element's edges actually
+        # reached. Keyed by URN, not element id, so the diagnostic below can be
+        # compared key-for-key against the partner map.
+        looked_up: Set[Tuple[str, str]] = set()
+        for fgl in list(fgls) + list(cross_dm_fgls):
+            if not fgl.upstreams or not fgl.downstreams:
+                continue
+            downstream_field = fgl.downstreams[0]
+            try:
+                upstream = SchemaFieldUrn.from_string(fgl.upstreams[0])
+            except InvalidUrnError:
+                # Only reachable if an edge built earlier in this method minted
+                # a malformed field URN. Silently skipping meant join-key
+                # expansion could stop working entirely while every counter
+                # still read as healthy.
+                self.reporter.data_model_join_key_upstream_urn_invalid += 1
+                logger.debug(
+                    "JOIN KEY DM %s element %s: existing edge has an unparseable "
+                    "upstream field URN, so no predicate can be matched against "
+                    "it -- this points at the edge builder, not at /spec",
+                    data_model.dataModelId,
+                    element.elementId,
+                )
+                continue
+            parent = str(upstream.parent)
+            parent_key = (parent, upstream.field_path)
+            if parent not in element_id_by_urn and parent_key not in partners:
+                # A warehouse table, or an element of another Data Model that
+                # no predicate in this model's spec names. The membership test
+                # cannot be "is it one of OUR elements" -- a join whose two
+                # sides both live in other models is exactly the case that
+                # needs this map, and it was silently dropped here while the
+                # partner map had already resolved both sides.
+                self.reporter.data_model_join_key_parent_outside_model += 1
+                continue
+            looked_up.add(parent_key)
+            for join_element_id, partner_urn, partner_col, is_outer in sorted(
+                partners.get((parent, upstream.field_path), set())
+            ):
+                if join_element_id not in in_scope_joins:
+                    # This element references a key column but does not read
+                    # through the join that constrains it.
+                    self.reporter.data_model_join_key_out_of_join_path += 1
+                    logger.debug(
+                        "JOIN KEY DM %s element %s: predicate from join element "
+                        "%s names %s/%s, but that join is not in this element's "
+                        "upstream closure %r -- skipping",
+                        data_model.dataModelId,
+                        element.elementId,
+                        join_element_id,
+                        element_id_by_urn.get(parent, parent),
+                        upstream.field_path,
+                        sorted(in_scope_joins)[:10],
+                    )
+                    continue
+                if partner_urn == element_dataset_urn:
+                    # The partner is this element itself; a self-loop upstream
+                    # is not lineage.
+                    continue
+                canonical = (urn_to_cols.get(partner_urn) or {}).get(
+                    partner_col.lower(), partner_col
+                )
+                partner_field = builder.make_schema_field_urn(partner_urn, canonical)
+                if partner_field == downstream_field:
+                    # A self-join can pair a column back to itself.
+                    continue
+                pair = (downstream_field, partner_field)
+                if pair in emitted_pairs:
+                    continue
+                emitted_pairs.add(pair)
+                fgls.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[downstream_field],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[partner_field],
+                        confidenceScore=(
+                            _FGL_CONFIDENCE_JOIN_KEY_OUTER
+                            if is_outer
+                            else _FGL_CONFIDENCE_JOIN_KEY
+                        ),
+                    )
+                )
+                discovered_upstreams.add(partner_urn)
+                added += 1
+                self.reporter.data_model_element_fgl_join_key_resolved += 1
+                logger.debug(
+                    "JOIN KEY DM %s element %s: %s already links to %s/%s; a "
+                    "join predicate equates that with %s, so adding it",
+                    data_model.dataModelId,
+                    element.elementId,
+                    downstream_field,
+                    element_id_by_urn.get(parent, parent),
+                    upstream.field_path,
+                    partner_field,
+                )
+        if added:
+            logger.debug(
+                "JOIN KEY DM %s element %s: added %d edge(s) from join predicates",
+                data_model.dataModelId,
+                element.elementId,
+                added,
+            )
+        elif looked_up:
+            # The remaining way this can produce nothing, and the only one with
+            # no counter of its own: predicates resolved into partners, but no
+            # edge this element already has lands on a column any predicate
+            # names. Without both sets side by side the report would say
+            # "0 join-key edges" for a reason no counter distinguishes.
+            self.reporter.data_model_join_key_no_matching_edge += 1
+            logger.debug(
+                "JOIN KEY DM %s element %s: %d partner column(s) available but "
+                "none matched this element's %d upstream field(s). "
+                "looked_up=%r available=%r",
+                data_model.dataModelId,
+                element.elementId,
+                len(partners),
+                len(looked_up),
+                sorted(looked_up)[:10],
+                sorted(partners)[:10],
+            )
+
+    @staticmethod
+    def _log_dm_column_outcome(
+        *,
+        data_model_id: str,
+        element_id: str,
+        column: SigmaDataModelColumn,
+        resolution_attempted: bool,
+        new_fgls: List[FineGrainedLineageClass],
+    ) -> None:
+        """Per-column verdict line for the Data Model FGL builder.
+
+        Guarded, and extracted for it: logger.debug evaluates its arguments
+        eagerly, so re-parsing every formula for a line the default log level
+        discards is pure waste on a path that runs for every column of every
+        element.
+        """
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        logger.debug(
+            "COLUMN DM %s element %s %r: columnId=%r formula=%r refs=%r "
+            "ref_resolution_attempted=%s -> emitted=%r",
+            data_model_id,
+            element_id,
+            column.name,
+            column.columnId,
+            column.formula,
+            [r.raw for r in extract_bracket_refs(column.formula)],
+            resolution_attempted,
+            [(f.upstreams or [""])[0] for f in new_fgls],
+        )
+
+    def _dm_column_reason_tally(self) -> Dict[str, int]:
+        """Snapshot every DM counter that explains a column producing NO edge.
+
+        Differenced across one column, this says whether that column's silence
+        was attributed. Keys are the counters a reader would consult; if a new
+        drop path is added without a counter here, the unattributed count rises
+        and says so, which is the whole point.
+        """
+        r = self.reporter
+        return {
+            "warehouse_passthrough_deferred": r.data_model_element_fgl_warehouse_passthrough_deferred,
+            "cross_dm_deferred": r.data_model_element_fgl_cross_dm_deferred,
+            "no_ref_unresolved": r.data_model_element_fgl_no_ref_unresolved,
+            "no_ref_warehouse_unresolved": r.data_model_element_fgl_no_ref_warehouse_unresolved,
+            "dropped_unknown_upstream_column": r.data_model_element_fgl_dropped_unknown_upstream_column,
+            "dropped_orphan_upstream": r.data_model_element_fgl_dropped_orphan_upstream,
+            "upstream_schema_unavailable": r.data_model_element_fgl_upstream_schema_unavailable,
+            "join_chain_unresolved": r.data_model_element_fgl_join_chain_unresolved,
+            "self_named_siblings_skipped": r.data_model_element_fgl_self_named_siblings_skipped,
+            "self_named_no_passthrough": r.data_model_element_fgl_self_named_no_passthrough,
+            "cross_dm_dropped_unknown_upstream_column": r.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column,
+            "cross_dm_upstream_schema_unavailable": r.data_model_element_fgl_cross_dm_upstream_schema_unavailable,
+        }
+
+    def _note_dm_column_outcome(
+        self,
+        *,
+        element: SigmaDataModelElement,
+        column: SigmaDataModelColumn,
+        produced: bool,
+        reasons_before: Dict[str, int],
+    ) -> None:
+        """File one Data Model column under produced-lineage or a named reason."""
+        self.reporter.dm_columns_total += 1
+        if produced:
+            self.reporter.dm_columns_with_lineage += 1
+            return
+        after = self._dm_column_reason_tally()
+        moved = [k for k, before in reasons_before.items() if after[k] != before]
+        self.reporter.dm_columns_without_lineage += 1
+        if moved:
+            for key in moved:
+                self.reporter.dm_columns_without_lineage_by_reason[key] = (
+                    self.reporter.dm_columns_without_lineage_by_reason.get(key, 0) + 1
+                )
+            return
+        # No counter moved: this column produced nothing and said nothing about
+        # why. That is the failure mode the chart-side check was built to catch,
+        # and it is the only one worth sampling here.
+        self.reporter.dm_columns_without_lineage_unattributed += 1
+        self.reporter.dm_unattributed_column_samples.append(
+            f"element={element.elementId} column={column.name!r} "
+            f"columnId={column.columnId!r} formula={column.formula!r:.200}"
+        )
+
+    @dataclass(frozen=True)
+    class _SiblingCandidates:
+        """Intra-DM elements a ref's source names, and which may be its referent.
+
+        ``named_eids`` is every element carrying that name, including this one;
+        ``resolvable_eids`` is the subset that could actually be the upstream.
+        The caller needs both: an empty ``resolvable_eids`` with a non-empty
+        ``named_eids`` is what distinguishes "the ref names this element's own
+        source" from "the ref names nothing in this Data Model".
+        """
+
+        named_eids: List[str]
+        resolvable_eids: List[str]
+
+    def _declares_warehouse_table_named(
+        self,
+        *,
+        ref_source: str,
+        element: SigmaDataModelElement,
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
+    ) -> bool:
+        """Does this element read a warehouse table of exactly that name?
+
+        If so the ref means that table, and no sibling can be the referent --
+        however many siblings happen to carry the table's name, and whatever
+        this element is called.
+        """
+        wanted = ref_source.strip().lower()
+        for source_id in element.source_ids:
+            if not source_id.startswith("inode-"):
+                continue
+            table = warehouse_url_id_map.get(source_id[len("inode-") :])
+            if table is not None and table.table.strip().lower() == wanted:
+                return True
+        return False
+
+    def _sibling_candidates_for_ref(
+        self,
+        *,
+        ref: "BracketRef",
+        element: SigmaDataModelElement,
+        element_name_to_eids: Dict[str, List[str]],
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
+    ) -> "SigmaSource._SiblingCandidates":
+        """Which siblings could a ref's source denote?
+
+        Self-references are stripped: element-name == warehouse-table name is a
+        common Sigma authoring pattern, and the ref then resolves to the element
+        itself, which is not a valid FGL upstream -- the real upstream is the
+        warehouse inode /lineage reports.
+
+        That reasoning applies to same-named SIBLINGS too, and dropping only
+        this element's own id did not. Sigma names a warehouse-sourced element
+        after its table, so every element reading one table carries the same
+        name; resolving the ref to one of them fabricated a sibling edge
+        instead of the warehouse table. Observed on a fixture as a mutual
+        A <-> B cycle across four independent passthroughs, 14 refs on a
+        7-workbook tenant.
+
+        Returning no resolvable candidate routes the caller into the branch
+        that already handles this: cross-DM self-named first, then warehouse.
+        """
+        named_eids = element_name_to_eids.get(ref.source.lower(), [])
+        # Two ways a sibling cannot be the referent, and the FIRST is the
+        # general one -- the second is a special case of it that was fixed
+        # first and turned out to be too narrow:
+        #
+        # 1. The ref names a warehouse table THIS element declares. Then it
+        #    means that table, regardless of what this element is called.
+        #    Missing this let an element named "NAMED_ELEMENT" whose ref read
+        #    "[THE_TABLE/Brand]" resolve to a SIBLING that happened to be named
+        #    after the table -- the fabrication again, one step out.
+        # 2. The ref names THIS element's own name.
+        declares_the_table = self._declares_warehouse_table_named(
+            ref_source=ref.source,
+            element=element,
+            warehouse_url_id_map=warehouse_url_id_map,
+        )
+        self_named = declares_the_table or _normalize_element_name(
+            ref.source
+        ) == _normalize_element_name(element.name)
+        if not self_named:
+            return SigmaSource._SiblingCandidates(
+                named_eids=named_eids,
+                resolvable_eids=[eid for eid in named_eids if eid != element.elementId],
+            )
+        skipped = [eid for eid in named_eids if eid != element.elementId]
+        if skipped:
+            # Count exactly the fabrications avoided: candidates that were NOT
+            # this element and would otherwise have been chosen. The previous
+            # guard was len(named_eids) > 1, which missed the case of a single
+            # same-named sibling -- still a fabrication, just a quieter one.
+            self.reporter.data_model_element_fgl_self_named_siblings_skipped += 1
+            logger.debug(
+                "element %s: ref %r denotes this element's own source (%s), so "
+                "the %d same-named sibling(s) %r cannot be the referent",
+                element.elementId,
+                ref.raw,
+                "a warehouse table it declares"
+                if declares_the_table
+                else "its own name",
+                len(skipped),
+                skipped,
+            )
+        return SigmaSource._SiblingCandidates(named_eids=named_eids, resolvable_eids=[])
+
     def _build_dm_element_fine_grained_lineages(
         self,
         *,
@@ -2300,8 +4741,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         entity_level_upstream_urns: Set[str],
         data_model: SigmaDataModel,
         warehouse_url_id_map: Dict[str, _WarehouseTableRef],
+        discovered_upstreams: Set[str],
     ) -> List[FineGrainedLineageClass]:
         """Build FineGrainedLineage entries for intra-DM [ElementName/col] refs.
+
+        ``discovered_upstreams`` is an OUT parameter: elements reached only
+        through a join chain are not in Sigma's direct /lineage list, so the
+        caller must add them to the entity-level upstreams or the emitted
+        schemaField would reference a Dataset absent from ``upstreams``.
 
         element_name_to_eids maps lowercased element name → list of elementIds.
         Self-references are stripped before resolution: when a DM element is named
@@ -2310,6 +4757,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         be filtered out to avoid self-referential FGL.  Warehouse-passthrough
         refs are resolved via _try_emit_warehouse_passthrough_fgl; unresolved
         remainder is counted under fgl_warehouse_passthrough_deferred.
+
+        Columns from which no ref reached a resolver -- an empty/absent formula
+        (Sigma's shape for a pass-through column), a constant, or a formula whose
+        only refs are parameters or bare sibling-column refs -- are handled by
+        _resolve_no_ref_column_fgl, which still resolves warehouse lineage from
+        columnId and counts the remainder under fgl_no_ref_warehouse_unresolved
+        (columnId named a warehouse column but did not resolve) or
+        fgl_no_ref_unresolved (nothing to resolve against). Those columns are
+        never name-matched against siblings: with no ref to resolve, matching on
+        column name alone would fabricate an edge to both sides of every join.
 
         When multiple sibling elements share a name and both pass the /lineage filter,
         the lexicographically-first URN is chosen (matching the collision policy
@@ -2333,8 +4790,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # (e.g. If([A/x] = 0, [A/x], [A/x] / 2) → one FGL, not three).
         emitted_pairs: Set[Tuple[str, str]] = set()
         for column in sorted(by_name.values(), key=lambda c: c.name):
-            if not column.formula:
-                continue
+            # Decision record: every column emits exactly one summary line
+            # naming what it resolved to, or nothing. Failure paths each log
+            # their own reason, but successes were silent, so an element whose
+            # columns all resolved produced no output at all and there was no
+            # way to tell WHICH upstream a given column bound to.
+            fgl_mark = len(fgls)
+            cross_mark = len(cross_dm_fgls)
+            # Snapshot the drop/defer counters so a column that produces no
+            # lineage can prove it recorded a REASON. The chart side has had
+            # this identity for weeks; the DM side -- which carries the headline
+            # fgl_emitted -- had ~25 counters and nothing checking them, so a
+            # silent path could only be found by arithmetic across a 100MB log.
+            dm_reasons_before = self._dm_column_reason_tally()
             downstream_field = builder.make_schema_field_urn(
                 element_dataset_urn, column.name
             )
@@ -2349,21 +4817,49 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 warehouse_url_id_map=warehouse_url_id_map,
             )
             warehouse_consumed = False
+            # True once any ref has reached a resolver. Distinct from
+            # `warehouse_consumed`, which only the warehouse branches set:
+            # gating the no-ref fallback on that would append a second, wrong
+            # upstream to a column that already resolved intra-DM.
+            resolution_attempted = False
             for ref in extract_bracket_refs(column.formula):
                 if ref.is_parameter or ref.column is None:
                     # [P_*] parameter refs and bare [col] intra-element refs
                     # are not cross-Dataset lineage; skip.
                     continue
+                resolution_attempted = True
 
-                candidate_eids = element_name_to_eids.get(ref.source.lower(), [])
+                # Join-chain refs ([JoinElement/SourceElement/Column], nesting
+                # further for chained joins) name the owning element in the
+                # second-to-last segment, not the first. Try the alternative
+                # readings before the legacy first-slash split, which would
+                # resolve to the wrong sibling and then fail the column check.
+                # Gated on >=3 segments so single-slash refs keep exactly their
+                # current path, counters included.
+                if self._try_resolve_join_chain_ref(
+                    discovered_upstreams=discovered_upstreams,
+                    ref=ref,
+                    element=element,
+                    element_dataset_urn=element_dataset_urn,
+                    element_name_to_eids=element_name_to_eids,
+                    elementId_to_dataset_urn=elementId_to_dataset_urn,
+                    entity_level_upstream_urns=entity_level_upstream_urns,
+                    urn_to_cols=urn_to_cols,
+                    downstream_field=downstream_field,
+                    emitted_pairs=emitted_pairs,
+                    fgls=fgls,
+                    cross_dm_fgls=cross_dm_fgls,
+                ):
+                    continue
 
-                # Strip self-references: element-name == warehouse-table name is a
-                # common Sigma authoring pattern.  The formula ref resolves to the
-                # element itself, which is not a valid FGL upstream (the real upstream
-                # is the warehouse inode reported by /lineage).
-                candidate_eids_after_self_strip = [
-                    eid for eid in candidate_eids if eid != element.elementId
-                ]
+                candidates = self._sibling_candidates_for_ref(
+                    ref=ref,
+                    element=element,
+                    element_name_to_eids=element_name_to_eids,
+                    warehouse_url_id_map=warehouse_url_id_map,
+                )
+                candidate_eids = candidates.named_eids
+                candidate_eids_after_self_strip = candidates.resolvable_eids
 
                 if not candidate_eids_after_self_strip:
                     if candidate_eids:
@@ -2384,15 +4880,45 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         # No cross-DM match; element is named after its warehouse source.
                         if not warehouse_consumed:
                             warehouse_consumed = True
-                            if warehouse_fgl is None:
-                                self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
-                            else:
+                            if warehouse_fgl is not None:
                                 assert warehouse_fgl.upstreams
                                 pair = (downstream_field, warehouse_fgl.upstreams[0])
                                 if pair not in emitted_pairs:
                                     emitted_pairs.add(pair)
                                     fgls.append(warehouse_fgl)
                                     self.reporter.data_model_element_fgl_warehouse_resolved += 1
+                                continue
+                            self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+                            # Sub-count naming WHICH of the two deferral sites
+                            # fired. Both bump the counter above, so without
+                            # this the self-named case is indistinguishable
+                            # from an inode columnId that failed to resolve --
+                            # and they need opposite fixes.
+                            self.reporter.data_model_element_fgl_self_named_no_passthrough += 1
+                        # There is no pre-built warehouse FGL, because that is
+                        # derived from an ``inode-<urlId>/<NATIVE>`` columnId and
+                        # this column's is ``<element>/<NATIVE>``. The ref still
+                        # names the warehouse table, and the element declares
+                        # exactly that table, so resolve it by name.
+                        #
+                        # Without this the branch dead-ended: a single-element
+                        # Data Model named after its own warehouse table emitted
+                        # table-level lineage and NO column lineage at all, while
+                        # every one of its columns carried a formula naming the
+                        # table. Kept to tables the element DECLARES
+                        # (allow_global_name_index=False) so the tenant-wide
+                        # /v2/files listing is not triggered from a path that
+                        # deferred ~10,700 times in one run (2026-09).
+                        self._try_resolve_warehouse_table_name_ref(
+                            ref=ref,
+                            element=element,
+                            column=column,
+                            downstream_field=downstream_field,
+                            warehouse_url_id_map=warehouse_url_id_map,
+                            emitted_pairs=emitted_pairs,
+                            fgls=fgls,
+                            allow_global_name_index=False,
+                        )
                         continue
                     # No intra-DM candidate. Before cross-DM search, try the
                     # warehouse path via columnId. Sigma elements sometimes use
@@ -2411,18 +4937,31 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                                 fgls.append(warehouse_fgl)
                                 self.reporter.data_model_element_fgl_warehouse_resolved += 1
                             continue
-                        if (column.columnId or "").startswith("inode-"):
+                        if _is_warehouse_column_id(column.columnId):
+                            # Record the warehouse failure, but do NOT stop
+                            # here. The formula still names a source, and for a
+                            # cross-DM-sourced element that source is a producer
+                            # element in another Data Model -- the warehouse
+                            # inode belongs to the producer, so failing to
+                            # resolve it says nothing about whether the ref
+                            # itself resolves. Falling through to cross-DM
+                            # resolution below is the whole point of having it.
                             self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
-                            continue
 
-                    # Source not in this DM — resolve via cross-DM sources that
-                    # Sigma's /lineage explicitly reported for this element.
-                    cross_dm_fgl = self._resolve_cross_dm_fgl(
+                    # The ref may name a warehouse TABLE this element
+                    # declares, rather than any element. Columns with an opaque
+                    # columnId reach the warehouse only this way. Falls through
+                    # to cross-DM resolution when it does not apply.
+                    cross_dm_fgl = self._resolve_non_sibling_ref(
                         ref=ref,
                         element=element,
+                        column=column,
                         element_dataset_urn=element_dataset_urn,
                         entity_level_upstream_urns=entity_level_upstream_urns,
                         downstream_field=downstream_field,
+                        warehouse_url_id_map=warehouse_url_id_map,
+                        emitted_pairs=emitted_pairs,
+                        fgls=fgls,
                     )
                     if cross_dm_fgl is not None:
                         assert cross_dm_fgl.upstreams
@@ -2446,11 +4985,56 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     fgls=fgls,
                     cross_dm_fgls=cross_dm_fgls,
                     emitted_pairs=emitted_pairs,
+                    discovered_upstreams=discovered_upstreams,
                 )
-        # fgl_emitted is the umbrella count for intra-DM AND warehouse-passthrough
-        # FGL (both appended to `fgls`). Cross-DM is tracked separately via
-        # fgl_cross_dm_resolved. Warehouse-passthrough is also sub-counted in
-        # fgl_warehouse_resolved (overlap intentional for independent triage).
+
+            if not resolution_attempted:
+                self._resolve_no_ref_column_fgl(
+                    column=column,
+                    warehouse_fgl=warehouse_fgl,
+                    downstream_field=downstream_field,
+                    fgls=fgls,
+                    emitted_pairs=emitted_pairs,
+                )
+
+            self._log_dm_column_outcome(
+                data_model_id=data_model.dataModelId,
+                element_id=element.elementId,
+                column=column,
+                resolution_attempted=resolution_attempted,
+                new_fgls=fgls[fgl_mark:] + cross_dm_fgls[cross_mark:],
+            )
+            self._note_dm_column_outcome(
+                element=element,
+                column=column,
+                produced=bool(fgls[fgl_mark:] or cross_dm_fgls[cross_mark:]),
+                reasons_before=dm_reasons_before,
+            )
+        # fgl_emitted is the umbrella count for everything appended to `fgls`:
+        # intra-DM, warehouse-passthrough, warehouse-table-name and join-key
+        # edges. Cross-DM is tracked separately via fgl_cross_dm_resolved.
+        # Sub-counts overlap it deliberately (fgl_warehouse_resolved,
+        # fgl_join_key_resolved) so each mechanism can be triaged on its own.
+        self._add_union_fgls(
+            element=element,
+            element_dataset_urn=element_dataset_urn,
+            data_model=data_model,
+            elementId_to_dataset_urn=elementId_to_dataset_urn,
+            fgls=fgls,
+            emitted_pairs=emitted_pairs,
+            discovered_upstreams=discovered_upstreams,
+        )
+        self._add_join_key_fgls(
+            element=element,
+            element_dataset_urn=element_dataset_urn,
+            data_model=data_model,
+            elementId_to_dataset_urn=elementId_to_dataset_urn,
+            urn_to_cols=urn_to_cols,
+            fgls=fgls,
+            cross_dm_fgls=cross_dm_fgls,
+            emitted_pairs=emitted_pairs,
+            discovered_upstreams=discovered_upstreams,
+        )
         self.reporter.data_model_element_fgl_emitted += len(fgls)
         all_fgls = fgls + cross_dm_fgls
         all_fgls.sort(
@@ -2732,6 +5316,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.dm_element_urn_to_cols[element_dataset_urn] = {
                 c.lower(): c for c in el_by_name
             }
+            self.dm_key_by_element_urn[element_dataset_urn] = bridge_key
+            for key in {bridge_key, data_model.dataModelId}:
+                self.dm_element_urn_by_key_and_eid[(key, element.elementId)] = (
+                    element_dataset_urn
+                )
+                self.dm_keys_by_element_id.setdefault(element.elementId, set()).add(key)
             # Blank-named elements are excluded from ``name_map`` so they
             # don't collapse into a single spuriously-ambiguous candidate.
             if element.name:
@@ -2980,6 +5570,43 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 index.setdefault(element.name, []).append(element)
         return index
 
+    def _normalized_element_index(
+        self, wb_element_index: Dict[str, List[Element]]
+    ) -> Dict[str, List[Element]]:
+        """Memoized :meth:`_build_normalized_element_index`.
+
+        The exact-match miss path is one of the hottest in the connector -- one
+        tenant reached it ~51k times -- and rebuilding this map each time walked
+        every element in the workbook.
+
+        The memo holds the source index itself and compares with ``is``, rather
+        than keying on ``id()``: an id is only unique among LIVE objects, and
+        these indexes are built and dropped one per workbook, so a freed one's
+        address can be reused by the next workbook's index and serve it the
+        previous workbook's elements.
+        """
+        memo = self._normalized_index_memo
+        if memo is not None and memo[0] is wb_element_index:
+            return memo[1]
+        built = self._build_normalized_element_index(wb_element_index)
+        self._normalized_index_memo = (wb_element_index, built)
+        return built
+
+    @staticmethod
+    def _build_normalized_element_index(
+        wb_element_index: Dict[str, List[Element]],
+    ) -> Dict[str, List[Element]]:
+        """Whitespace/case-insensitive view of the workbook element index.
+
+        Kept as a separate map rather than replacing the exact one: exact
+        matches must keep winning, and a normalized key that collapses two
+        genuinely distinct element names is ambiguous and must not be used.
+        """
+        normalized: Dict[str, List[Element]] = {}
+        for name, elements in wb_element_index.items():
+            normalized.setdefault(_normalize_element_name(name), []).extend(elements)
+        return normalized
+
     @staticmethod
     def _build_element_warehouse_table_index(
         dataset_inputs: Dict[str, List[str]],
@@ -3049,6 +5676,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         entries = self.sigma_api.get_workbook_lineage(workbook.workbookId)
         if entries is None:
             self.reporter.chart_input_fields_warehouse_index_lookup_failed += 1
+            logger.debug(
+                "workbook %s: /lineage returned nothing, so no warehouse-table "
+                "index is available; every chart column in this workbook loses "
+                "warehouse qualification",
+                workbook.workbookId,
+            )
             return _WorkbookWarehouseIndex(by_url_id={}, by_name={})
 
         for entry in entries:
@@ -3185,6 +5818,552 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 result[key] = urns
         return result
 
+    @staticmethod
+    def _chart_urn_column_index(
+        wb_element_index: Dict[str, List[Element]],
+        elementId_to_chart_urn: Dict[str, str],
+        workbook_dm_url_ids: AbstractSet[str] = frozenset(),
+    ) -> Dict[str, Dict[str, str]]:
+        """chart URN -> {lowercased column name: column name} for this workbook.
+
+        The schema half of join-chain validation. Without it a mis-split emits
+        an InputField naming a column the upstream does not have, which renders
+        as a dangling field rather than as no lineage.
+        """
+        out: Dict[str, Dict[str, str]] = {}
+        for elements in wb_element_index.values():
+            for element in elements:
+                urn = elementId_to_chart_urn.get(element.elementId)
+                if urn:
+                    out.setdefault(urn, {}).update(
+                        {c.lower(): c for c in element.columns}
+                    )
+        return out
+
+    def _resolve_chart_join_chain_ref(
+        self,
+        ref: BracketRef,
+        *,
+        chart_element_id: str,
+        chart_upstream_element_ids: Set[str],
+        dm_upstream_urn_by_element_name: Dict[str, str],
+        wb_element_index: Dict[str, List[Element]],
+        element_warehouse_table_index: Dict[str, List[str]],
+        elementId_to_chart_urn: Dict[str, str],
+        workbook_dm_url_ids: AbstractSet[str] = frozenset(),
+    ) -> Optional[Tuple[str, str]]:
+        """Resolve ``[JoinElement/SourceElement/Column]`` on the chart path.
+
+        The first-slash split reads such a ref as source=``JoinElement``,
+        column=``SourceElement/Column`` -- a column no upstream has. The Data
+        Model path already tries every split and validates each against the
+        candidate's real schema; this brings the chart path to the same
+        standard, which it needs more, not less: the chart resolver returns
+        ``ref.column`` verbatim, so a mis-split emits a dangling InputField
+        instead of simply resolving to nothing.
+
+        Only a candidate whose resolved upstream actually HAS the column is
+        accepted. When none does, this returns None and the caller keeps the
+        legacy first-slash reading, so nothing that resolves today stops
+        resolving.
+        """
+        candidates = candidate_source_column_splits(ref)
+        if len(candidates) < 2:
+            return None
+        # Identity comparison, not id(): a freed workbook index's address can be
+        # reused by the next one, and this map is what VALIDATES a candidate
+        # split -- serving another workbook's columns would accept a wrong
+        # split, not merely miss a right one.
+        memo = self._chart_cols_memo
+        if (
+            memo is not None
+            and memo[0] is wb_element_index
+            and memo[1] is elementId_to_chart_urn
+        ):
+            chart_cols = memo[2]
+        else:
+            chart_cols = self._chart_urn_column_index(
+                wb_element_index, elementId_to_chart_urn
+            )
+            # Single entry: both maps are rebuilt per workbook, so holding more
+            # would just retain dead workbooks' columns.
+            self._chart_cols_memo = (
+                wb_element_index,
+                elementId_to_chart_urn,
+                chart_cols,
+            )
+        trace: List[str] = []
+        winner: Optional[Tuple[str, str, str]] = None
+        for source, column in candidates:
+            probe = replace(
+                ref, source=source, column=column, segments=(source, column)
+            )
+            # count=False: this is speculative. Up to 2N-3 splits are tried per
+            # ref, and letting each bump the name-matching counters would make
+            # them measure attempts instead of refs.
+            result = self._resolve_chart_formula_upstream(
+                probe,
+                chart_element_id=chart_element_id,
+                chart_upstream_element_ids=chart_upstream_element_ids,
+                dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+                wb_element_index=wb_element_index,
+                element_warehouse_table_index=element_warehouse_table_index,
+                elementId_to_chart_urn=elementId_to_chart_urn,
+                workbook_dm_url_ids=workbook_dm_url_ids,
+                count=False,
+            )
+            if result is None:
+                trace.append(f"{source!r}: no upstream")
+                continue
+            upstream_urn, field = result
+            known = chart_cols.get(upstream_urn) or self.dm_element_urn_to_cols.get(
+                upstream_urn
+            )
+            if known is None:
+                # A warehouse table: this connector never learns its columns, so
+                # the candidate cannot be confirmed. Refusing it keeps the
+                # guarantee that an accepted split was checked against a schema.
+                trace.append(f"{source!r}: upstream schema unknown (warehouse)")
+                self.reporter.chart_join_chain_upstream_schema_unavailable += 1
+                continue
+            canonical = known.get(column.lower())
+            if canonical is None:
+                trace.append(
+                    f"{source!r}: upstream found but column {column!r} absent "
+                    f"from its {len(known)} columns"
+                )
+                continue
+            if winner is None:
+                winner = (upstream_urn, canonical, source)
+                # Keep scanning. Candidates are ordered most-specific-first and
+                # first-wins is deliberate -- an element genuinely named "A/B"
+                # should beat an unrelated "B" that happens to have column C --
+                # but everywhere else this connector refuses on ambiguity, so a
+                # second validating split must at least be visible.
+                continue
+            self.reporter.chart_join_chain_split_ambiguous += 1
+            logger.debug(
+                "chart element %s: join-chain ref %r had a SECOND split that "
+                "validates (source=%r) after accepting source=%r. First-wins "
+                "keeps the more specific split; a large count here means the "
+                "ordering is carrying more weight than it should.",
+                chart_element_id,
+                ref.raw,
+                source,
+                winner[2],
+            )
+            break
+
+        if winner is not None:
+            self.reporter.chart_join_chain_resolved += 1
+            logger.debug(
+                "chart element %s: join-chain ref %r resolved to source=%r "
+                "column=%r (upstream=%s); rejected candidates=%r",
+                chart_element_id,
+                ref.raw,
+                winner[2],
+                winner[1],
+                winner[0],
+                trace,
+            )
+            return (winner[0], winner[1])
+
+        # No split named an upstream the chart declares. The commonest reason,
+        # by far, is that the middle segment is a table joined in *inside* the
+        # Data Model: the chart's own upstream is the join element, and the
+        # joined table is that element's sibling, invisible from here.
+        sibling = self._resolve_join_chain_via_dm_sibling(
+            ref,
+            chart_element_id=chart_element_id,
+            chart_upstream_element_ids=chart_upstream_element_ids,
+            dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+            wb_element_index=wb_element_index,
+            element_warehouse_table_index=element_warehouse_table_index,
+            elementId_to_chart_urn=elementId_to_chart_urn,
+            workbook_dm_url_ids=workbook_dm_url_ids,
+            trace=trace,
+        )
+        if sibling is not None:
+            return sibling
+
+        self.reporter.chart_join_chain_unresolved += 1
+        logger.debug(
+            "chart element %s: no candidate split of join-chain ref %r "
+            "validated; candidates tried=%r verdicts=%r. The first-slash "
+            "reading would name column %r, which no upstream has, so no "
+            "InputField upstream is emitted and the column self-references.",
+            chart_element_id,
+            ref.raw,
+            candidates,
+            trace,
+            ref.column,
+        )
+        return None
+
+    @staticmethod
+    def _strip_join_count_suffix(name: str) -> str:
+        """``'ACCOUNTS + 3'`` -> ``'ACCOUNTS'``.
+
+        Sigma labels a join node in a ref with the number of further tables
+        joined onto it, so the segment is a display label rather than the
+        element's own name. Only a trailing ``" + <digits>"`` is removed; a
+        name that genuinely ends that way is indistinguishable, but the
+        stripped name is only ever *tried*, never preferred over an exact
+        match, so a false strip cannot displace a real element.
+        """
+        match = _JOIN_COUNT_SUFFIX.match(name)
+        return match.group(1) if match else name
+
+    def _resolve_join_chain_via_dm_sibling(
+        self,
+        ref: BracketRef,
+        *,
+        chart_element_id: str,
+        chart_upstream_element_ids: Set[str],
+        dm_upstream_urn_by_element_name: Dict[str, str],
+        wb_element_index: Dict[str, List[Element]],
+        element_warehouse_table_index: Dict[str, List[str]],
+        elementId_to_chart_urn: Dict[str, str],
+        workbook_dm_url_ids: AbstractSet[str] = frozenset(),
+        trace: List[str],
+    ) -> Optional[Tuple[str, str]]:
+        """Resolve ``[JoinElement/JoinedTable/Column]`` through the DM's siblings.
+
+        The chart declares the *join element* as its upstream; the table joined
+        into it is a sibling element of the same Data Model and appears nowhere
+        in the chart's own indices. So the middle segment is looked up among
+        the siblings of whatever Data Model the first segment resolved into.
+
+        Measured on one tenant (2026-09): 806 of 832 multi-segment refs failed with the
+        verdict pair "<middle>: no upstream" and "<first>: upstream found but
+        column absent" -- the exact signature of this shape. The Data Model
+        path already resolves the same refs this way (via
+        ``element_name_to_eids``) and succeeds ~1,470 times per run (2026-09).
+
+        Like that path, this deliberately does NOT require the sibling to be a
+        declared upstream: Sigma's element-level lineage lists only the direct
+        join element, never what the join reaches through. The guarantee is
+        kept by the schema check instead -- the sibling must actually have the
+        column -- and an ambiguous name is refused rather than guessed.
+        """
+        segments = ref.parts
+        if len(segments) < 3:
+            return None
+        column = segments[-1]
+        join_probe = replace(
+            ref,
+            source=segments[0],
+            column=column,
+            segments=(segments[0], column),
+        )
+        join_result = self._resolve_chart_formula_upstream(
+            join_probe,
+            chart_element_id=chart_element_id,
+            chart_upstream_element_ids=chart_upstream_element_ids,
+            dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+            wb_element_index=wb_element_index,
+            element_warehouse_table_index=element_warehouse_table_index,
+            elementId_to_chart_urn=elementId_to_chart_urn,
+            workbook_dm_url_ids=workbook_dm_url_ids,
+            count=False,
+        )
+        if join_result is None:
+            trace.append(f"{segments[0]!r}: join element itself has no upstream")
+            return None
+        dm_key = self.dm_key_by_element_urn.get(join_result[0])
+        if dm_key is None:
+            # The first segment resolved to a chart or a warehouse table, so
+            # there is no Data Model whose siblings could be searched.
+            self.reporter.chart_join_chain_sibling_dm_unknown += 1
+            trace.append(f"{segments[0]!r}: upstream is not a Data Model element")
+            return None
+        name_map = self.dm_element_urn_by_name.get(dm_key, {})
+
+        # Right to left: with nested joins the owning element is the segment
+        # nearest the column, matching the Data Model path's ordering.
+        for middle in reversed(segments[1:-1]):
+            for name in dict.fromkeys((middle, self._strip_join_count_suffix(middle))):
+                urns = name_map.get(name.lower(), [])
+                if not urns:
+                    trace.append(f"{name!r}: no sibling element in the same DM")
+                    continue
+                if len(urns) > 1:
+                    self.reporter.chart_join_chain_sibling_ambiguous += 1
+                    trace.append(
+                        f"{name!r}: {len(urns)} sibling elements share the name"
+                    )
+                    continue
+                cols = self.dm_element_urn_to_cols.get(urns[0]) or {}
+                canonical = cols.get(column.lower())
+                if canonical is None:
+                    self.reporter.chart_join_chain_sibling_column_absent += 1
+                    trace.append(
+                        f"{name!r}: sibling found but column {column!r} absent "
+                        f"from its {len(cols)} columns"
+                    )
+                    continue
+                self.reporter.chart_join_chain_sibling_resolved += 1
+                self.reporter.chart_join_chain_resolved += 1
+                logger.debug(
+                    "chart element %s: join-chain ref %r resolved via DM "
+                    "sibling %r column=%r (upstream=%s); earlier verdicts=%r",
+                    chart_element_id,
+                    ref.raw,
+                    name,
+                    canonical,
+                    urns[0],
+                    trace,
+                )
+                return (urns[0], canonical)
+        return None
+
+    def _chart_ref_candidates(
+        self,
+        ref: BracketRef,
+        *,
+        chart_element_id: str,
+        wb_element_index: Dict[str, List[Element]],
+        count: bool,
+    ) -> Optional[List[Element]]:
+        """Workbook elements a formula ref's source name could denote.
+
+        Exact match first, then a whitespace/case-normalized retry, which is
+        accepted only when it does not collapse two genuinely distinct names.
+        Split out of _resolve_chart_formula_upstream to keep that method under
+        the complexity limit; it is the whole 'which element is this' story.
+
+        Returns an empty list when no element matched but resolution may still
+        continue to the warehouse-table fallback, and ``None`` when the ref must
+        be REFUSED outright -- a case-only mismatch against a real element name,
+        where falling through to a warehouse table would resolve to the wrong
+        thing entirely. Collapsing those two into one value is what the caller's
+        control flow used to encode directly."""
+        candidates = wb_element_index.get(ref.source, [])
+        if not candidates:
+            # Exact match failed. Retry on a normalized key -- Sigma element
+            # names routinely differ from the ref only by a trailing
+            # non-breaking space, a leading space, or case. Only accept it when
+            # the normalized key is unambiguous: if it collapses two genuinely
+            # distinct element names, resolving would be a guess.
+            normalized_index = self._normalized_element_index(wb_element_index)
+            normalized_hits = normalized_index.get(
+                _normalize_element_name(ref.source), []
+            )
+            distinct_names = {e.name for e in normalized_hits}
+            if normalized_hits and len(distinct_names) == 1:
+                if count:
+                    self.reporter.chart_ref_source_normalized_match += 1
+                logger.debug(
+                    "chart element %s: formula ref source %r matched element "
+                    "%r after whitespace/case normalization",
+                    chart_element_id,
+                    ref.source,
+                    next(iter(distinct_names)),
+                )
+                candidates = normalized_hits
+            elif len(distinct_names) > 1:
+                if count:
+                    self.reporter.chart_ref_source_normalized_ambiguous += 1
+                logger.debug(
+                    "chart element %s: formula ref source %r normalizes to %d "
+                    "distinct element names %r; refusing to guess",
+                    chart_element_id,
+                    ref.source,
+                    len(distinct_names),
+                    sorted(distinct_names),
+                )
+        if not candidates:
+            case_mismatched_names = [
+                name for name in wb_element_index if name.lower() == ref.source.lower()
+            ]
+            if case_mismatched_names:
+                if count:
+                    self.reporter.chart_input_fields_case_mismatch += 1
+                logger.debug(
+                    "No exact-case workbook element match for formula ref source %r; "
+                    "case-insensitive workbook element candidates were %s. "
+                    "Treating as unresolved rather than falling back to warehouse "
+                    "resolution.",
+                    ref.source,
+                    case_mismatched_names,
+                )
+                return None
+            else:
+                # Say WHY the name missed, not just that it did. This is the
+                # single largest unexplained bucket in the report
+                # (chart_input_fields_self_ref_unresolved_refs, ~51k), and the
+                # ref source alone cannot distinguish "the element exists but
+                # the lookup is too strict" from "the element was never indexed
+                # at all" (e.g. dropped for being a pivot-table or input-table).
+                # Reuse the one normalization definition; a second inline copy
+                # would drift from it silently.
+                normalized = _normalize_element_name(ref.source)
+                near = [
+                    name
+                    for name in wb_element_index
+                    if _normalize_element_name(name) == normalized
+                ]
+                if near:
+                    # Reachable only when the normalized lookup above already
+                    # ran and found MORE than one distinct name -- i.e. the
+                    # ambiguous case, which chart_ref_source_normalized_ambiguous
+                    # counts. Kept as a sub-count of that: it says the ambiguity
+                    # cost a resolvable name, rather than "the lookup is too
+                    # strict", which the normalized retry has since fixed.
+                    if count:
+                        self.reporter.chart_ref_source_near_miss += 1
+                # Guarded: this is one of the hottest paths in the connector
+                # (~51k hits on one tenant, 2026-09) and sorting the whole workbook
+                # index for a discarded log line is pure waste.
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "No exact-case workbook element match for formula ref "
+                        "source %r (normalized=%r); near_matches=%r; "
+                        "index_size=%d index_sample=%r; falling back to "
+                        "warehouse-table resolution.",
+                        ref.source,
+                        normalized,
+                        near,
+                        len(wb_element_index),
+                        sorted(wb_element_index)[:15],
+                    )
+
+        return candidates
+
+    def _dm_element_index_for(
+        self, dm_url_ids: AbstractSet[str]
+    ) -> Dict[str, List[str]]:
+        """Lowercased element name -> every URN carrying it, within these models.
+
+        Scoped to the Data Models a workbook actually loads, not to every model
+        in the run. Searching the whole run made the lookup depend on how many
+        unrelated models a tenant happens to own -- a formula referring to a
+        model its workbook never loads is a name coincidence, not a reference.
+
+        Memoized on the model set, which is stable while one workbook's
+        elements are walked.
+        """
+        key = frozenset(dm_url_ids)
+        cached = self._known_dm_element_index
+        if cached is not None and cached[0] == key:
+            return cached[1]
+        index: Dict[str, List[str]] = {}
+        for dm_url_id in key:
+            by_name = self.dm_element_urn_by_name.get(dm_url_id)
+            if not isinstance(by_name, dict):
+                continue
+            for name, urns in by_name.items():
+                slug = str(name).strip().lower()
+                for urn in urns if isinstance(urns, list) else [urns]:
+                    if urn not in index.setdefault(slug, []):
+                        index[slug].append(urn)
+        self._known_dm_element_index = (key, index)
+        return index
+
+    def _note_chart_ref_miss(
+        self,
+        reason: str,
+        *,
+        ref: BracketRef,
+        chart_element_id: str,
+        workbook_dm_url_ids: AbstractSet[str],
+        count: bool,
+    ) -> None:
+        """Record WHY one formula ref did not resolve.
+
+        ``chart_input_fields_self_ref_unresolved_refs`` counted 17,944 misses on
+        one tenant (2026-09) with no breakdown, and they turned out to
+        concentrate in 87 distinct source names -- so the bucket is a handful of
+        causes, not seventeen thousand. ``count`` is False for the speculative
+        candidate splits a join-chain ref tries, which would otherwise report
+        several misses per ref.
+        """
+        if not count:
+            return
+        self.reporter.chart_ref_miss_reasons[reason] = (
+            self.reporter.chart_ref_miss_reasons.get(reason, 0) + 1
+        )
+        # The DISTINCT source names behind each reason, not a sample of refs.
+        # These misses concentrate -- 17,944 of them in 87 names on one tenant --
+        # so the question "what should we build next" is answered by the name
+        # distribution, and a 10-element reservoir over 11,028 refs would answer
+        # nothing. Bounded by distinct names, which is small by construction,
+        # and capped so a pathological tenant cannot grow it without limit.
+        names = self.reporter.chart_ref_miss_source_names.setdefault(reason, {})
+        if ref.source in names or len(names) < 200:
+            names[ref.source] = names.get(ref.source, 0) + 1
+        self.reporter.chart_ref_miss_samples.setdefault(reason, LossyList()).append(
+            f"element={chart_element_id} ref={ref.raw!r} segments={len(ref.parts)}"
+        )
+        if reason == _CHART_REF_MISS_UNKNOWN_SOURCE:
+            known = ref.source.strip().lower() in self._dm_element_index_for(
+                workbook_dm_url_ids
+            )
+            key = (
+                _CHART_REF_MISS_UNKNOWN_SOURCE_ELSEWHERE
+                if known
+                else _CHART_REF_MISS_UNKNOWN_SOURCE_ABSENT
+            )
+            self.reporter.chart_ref_miss_reasons[key] = (
+                self.reporter.chart_ref_miss_reasons.get(key, 0) + 1
+            )
+            if known:
+                # "The name exists in a model this workbook loads" is the whole
+                # of what this bucket says, and that is not enough to judge
+                # whether the ref is recoverable. Split it by whether a
+                # candidate actually OWNS the column: exactly one owner means
+                # the ref is real and our candidate list was too narrow,
+                # several means the name is ambiguous, none means the name
+                # match is a coincidence. Those need different responses and
+                # the single counter cannot tell them apart.
+                candidates = (
+                    self._dm_element_index_for(workbook_dm_url_ids).get(
+                        ref.source.strip().lower()
+                    )
+                    or []
+                )
+                wanted = (ref.column or "").strip().lower()
+                owners = [
+                    urn
+                    for urn in candidates
+                    if wanted in (self.dm_element_urn_to_cols.get(urn) or {})
+                ]
+                outcome = (
+                    "unique_owner"
+                    if len(owners) == 1
+                    else "several_owners"
+                    if len(owners) > 1
+                    else "no_candidate_owns_the_column"
+                )
+                self.reporter.chart_ref_name_in_loaded_dm_outcomes[outcome] = (
+                    self.reporter.chart_ref_name_in_loaded_dm_outcomes.get(outcome, 0)
+                    + 1
+                )
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "CHART REF MISS DETAIL element %s ref=%r -> %s: name matches "
+                        "%d DM element(s) this workbook loads, %d of which own column "
+                        "%r. candidates=%r owners=%r",
+                        chart_element_id,
+                        ref.raw,
+                        outcome,
+                        len(candidates),
+                        len(owners),
+                        ref.column,
+                        candidates[:5],
+                        owners[:5],
+                    )
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        logger.debug(
+            "CHART REF MISS element %s ref=%r reason=%s: source %r column %r",
+            chart_element_id,
+            ref.raw,
+            reason,
+            ref.source,
+            ref.column,
+        )
+
     def _resolve_chart_formula_upstream(
         self,
         ref: BracketRef,
@@ -3195,14 +6374,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         wb_element_index: Dict[str, List[Element]],
         element_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
+        workbook_dm_url_ids: AbstractSet[str] = frozenset(),
+        count: bool = True,
     ) -> Optional[Tuple[str, str]]:
         """Resolve a single bracket ref to (entity_urn, field_path), or None.
 
-        This method is a pure predicate: it never increments any reporter counter.
-        All column-level counting (resolved / self_ref_fallback / skipped_parameter
+        Column-level counting (resolved / self_ref_fallback / skipped_parameter
         / skipped_sibling) happens in the caller (_build_element_input_fields) so
         every chart column lands in exactly one counter bucket regardless of how
         many refs its formula contains.
+
+        This method does bump a few *diagnostic* name-matching counters, which is
+        why ``count`` exists. A join-chain ref is resolved by trying up to 2N-3
+        candidate splits through here, and each speculative attempt would
+        otherwise inflate those counters several times over for one ref. Pass
+        ``count=False`` when probing; the winning candidate is not re-counted
+        either, so these counters measure refs, not attempts.
 
         Returns None for parameter and bare-sibling refs (caller handles those
         at the column level).  Returns (upstream_urn, ref.column) on success.
@@ -3233,29 +6420,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # Bare refs are same-element sibling references.
             return None
 
-        candidates = wb_element_index.get(ref.source, [])
-        if not candidates:
-            case_mismatched_names = [
-                name for name in wb_element_index if name.lower() == ref.source.lower()
-            ]
-            if case_mismatched_names:
-                self.reporter.chart_input_fields_case_mismatch += 1
-                logger.debug(
-                    "No exact-case workbook element match for formula ref source %r; "
-                    "case-insensitive workbook element candidates were %s. "
-                    "Treating as unresolved rather than falling back to warehouse "
-                    "resolution.",
-                    ref.source,
-                    case_mismatched_names,
-                )
-                return None
-            else:
-                logger.debug(
-                    "No exact-case workbook element match for formula ref source %r; "
-                    "falling back to warehouse-table resolution.",
-                    ref.source,
-                )
-
+        maybe_candidates = self._chart_ref_candidates(
+            ref,
+            chart_element_id=chart_element_id,
+            wb_element_index=wb_element_index,
+            count=count,
+        )
+        if maybe_candidates is None:
+            self._note_chart_ref_miss(
+                _CHART_REF_MISS_SELF_OR_AMBIGUOUS_CANDIDATES,
+                ref=ref,
+                chart_element_id=chart_element_id,
+                workbook_dm_url_ids=workbook_dm_url_ids,
+                count=count,
+            )
+            return None
+        candidates = maybe_candidates
         if candidates:
             # Step 3a: SheetUpstream match (intra-workbook chart→chart lineage).
             sheet_matches = [
@@ -3267,24 +6447,58 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if len(sheet_matches) == 1:
                 elem_urn = elementId_to_chart_urn.get(sheet_matches[0].elementId)
                 if elem_urn:
-                    return (elem_urn, ref.column)
+                    field = self._upstream_field_for_ref(ref, sheet_matches[0])
+                    if field is None:
+                        # Record WHY, or this column lands in the unresolved
+                        # bucket with nothing in chart_ref_miss_reasons -- which
+                        # the accounting check correctly rejects, and did.
+                        self._note_chart_ref_miss(
+                            _CHART_REF_MISS_COLUMN_ABSENT_FROM_UPSTREAM,
+                            ref=ref,
+                            chart_element_id=chart_element_id,
+                            workbook_dm_url_ids=workbook_dm_url_ids,
+                            count=count,
+                        )
+                        return None
+                    return (elem_urn, field)
                 # Element exists in the workbook but was filtered from chart emission
                 # (e.g. pivot-table or control). Fall through to DM check.
             elif len(sheet_matches) > 1:
                 # Ambiguous name collision not resolved by lineage filter.
+                self._note_chart_ref_miss(
+                    _CHART_REF_MISS_AMBIGUOUS_SIBLING,
+                    ref=ref,
+                    chart_element_id=chart_element_id,
+                    workbook_dm_url_ids=workbook_dm_url_ids,
+                    count=count,
+                )
                 return None
 
             # Step 3b: DataModelElementUpstream match — ref.source is the DM
             # element's workbook-page name; resolve to its Dataset URN.
             dm_urn = dm_upstream_urn_by_element_name.get(ref.source)
             if dm_urn:
-                return (dm_urn, ref.column)
+                dm_field = self._dm_field_for_ref(
+                    ref,
+                    dm_urn,
+                    chart_element_id=chart_element_id,
+                    workbook_dm_url_ids=workbook_dm_url_ids,
+                    count=count,
+                )
+                return (dm_urn, dm_field) if dm_field is not None else None
 
             # If the element IS a registered upstream (sheet_matches==1) but was
             # filtered from chart emission and has no DM match, stop here — do not
             # fall through to warehouse because the formula ref explicitly targets
             # a known (filtered) element, not a warehouse table.
             if sheet_matches:
+                self._note_chart_ref_miss(
+                    _CHART_REF_MISS_UPSTREAM_FILTERED,
+                    ref=ref,
+                    chart_element_id=chart_element_id,
+                    workbook_dm_url_ids=workbook_dm_url_ids,
+                    count=count,
+                )
                 return None
 
             # sheet_matches is empty: the workbook element is not a registered
@@ -3307,7 +6521,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # to the warehouse-table short-name index.
             dm_urn = dm_upstream_urn_by_element_name.get(ref.source)
             if dm_urn:
-                return (dm_urn, ref.column)
+                dm_field = self._dm_field_for_ref(
+                    ref,
+                    dm_urn,
+                    chart_element_id=chart_element_id,
+                    workbook_dm_url_ids=workbook_dm_url_ids,
+                    count=count,
+                )
+                return (dm_urn, dm_field) if dm_field is not None else None
 
         # Step 4: warehouse-table short-name fallback.
         wh_candidates = element_warehouse_table_index.get(ref.source.upper(), [])
@@ -3321,8 +6542,47 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 ref.column,
                 wh_candidates,
             )
+            self._note_chart_ref_miss(
+                _CHART_REF_MISS_AMBIGUOUS_WAREHOUSE,
+                ref=ref,
+                chart_element_id=chart_element_id,
+                workbook_dm_url_ids=workbook_dm_url_ids,
+                count=count,
+            )
             return None
 
+        # Name matching is OFF by default and opt-in via
+        # resolve_chart_refs_by_element_name. A ref whose source Sigma never
+        # declared as an upstream can be guessed at by finding the one element
+        # of this workbook carrying that name. Measured on one tenant (2026-09)
+        # the guess produced 1,106 edges out of 440,069 -- and InputFields
+        # carries no confidenceScore, so a wrongly-guessed edge is
+        # byte-identical to one Sigma stated and nothing downstream can audit or
+        # filter it. The warehouse path guesses too, but there ctx.graph can
+        # check the guess against the real schema; here there is nothing to
+        # check against. Kept reachable because "a best-effort edge beats none"
+        # is a legitimate preference -- it just must not be the default.
+        if self.config.resolve_chart_refs_by_element_name and candidates:
+            named = candidates[0]
+            chart_urn_for_named = elementId_to_chart_urn.get(named.elementId)
+            if chart_urn_for_named is not None and ref.column is not None:
+                if count:
+                    self.reporter.chart_ref_resolved_by_element_name_guess += 1
+                return (chart_urn_for_named, ref.column)
+
+        # Nothing matched at any step. ``candidates`` distinguishes the two
+        # shapes of this: a workbook element WAS named ref.source but is neither
+        # a lineage upstream nor a warehouse table, versus nothing in this
+        # workbook is called that at all.
+        self._note_chart_ref_miss(
+            _CHART_REF_MISS_NAMED_BUT_NOT_AN_UPSTREAM
+            if candidates
+            else _CHART_REF_MISS_UNKNOWN_SOURCE,
+            ref=ref,
+            chart_element_id=chart_element_id,
+            workbook_dm_url_ids=workbook_dm_url_ids,
+            count=count,
+        )
         return None
 
     def _handle_warehouse_table_upstream(
@@ -3469,11 +6729,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             elif isinstance(upstream, SheetUpstream):
                 chart_urn = elementId_to_chart_urn.get(upstream.element_id)
                 if chart_urn is None:
-                    # Target element type not in our allow-list (e.g. pivot-table).
+                    # Target element type not in our allow-list.
                     logger.debug(
                         f"Upstream elementId {upstream.element_id} not in element map "
                         f"for element {element.name}; likely filtered by get_page_elements "
-                        f"(allowlist: table, visualization)"
+                        # Narrowed when ingest_pivot_and_input_tables is off,
+                        # so the line never names a type this run rejected.
+                        f"(allowlist: {sorted(self._admitted_element_types())})"
                     )
                     self.reporter.num_filtered_sheet_upstreams += 1
                     continue
@@ -3558,12 +6820,30 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.chart_input_fields_warehouse_column_bridged += 1
             return native
         self.reporter.chart_input_fields_warehouse_column_bridge_unresolved += 1
+        # Print WHAT the map held, not just that the lookup missed. Without it
+        # "map was empty", "present under different casing" and "genuinely
+        # absent" are indistinguishable, and they need different fixes.
+        casefold_hit = next(
+            (
+                key
+                for key in column_native_names
+                if key.casefold() == sigma_display_name.casefold()
+            ),
+            None,
+        )
+        if casefold_hit is not None:
+            self.reporter.chart_input_fields_bridge_case_only_miss += 1
         logger.debug(
             "Column bridge unresolved: display name %r not in native-name map "
-            "for upstream %r (element=%s); fieldPath will use display name.",
+            "for upstream %r (element=%s); map has %d entr(ies), "
+            "case-insensitive match=%r, keys sample=%r; fieldPath will use the "
+            "display name.",
             sigma_display_name,
             upstream_urn,
             element_id,
+            len(column_native_names),
+            casefold_hit,
+            sorted(column_native_names)[:15],
         )
         warn_key = (upstream_urn, sigma_display_name)
         if warn_key not in self._bridge_unresolved_warned:
@@ -3584,6 +6864,236 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         return sigma_display_name
 
+    def _resolve_chart_ref(
+        self,
+        ref: BracketRef,
+        *,
+        chart_element_id: str,
+        chart_upstream_element_ids: Set[str],
+        dm_upstream_urn_by_element_name: Dict[str, str],
+        wb_element_index: Dict[str, List[Element]],
+        element_warehouse_table_index: Dict[str, List[str]],
+        elementId_to_chart_urn: Dict[str, str],
+        workbook_dm_url_ids: AbstractSet[str] = frozenset(),
+    ) -> Optional[Tuple[str, str]]:
+        """Resolve one formula ref, choosing the strategy by segment count.
+
+        Split out of _build_element_input_fields, which otherwise carries this
+        three-way choice inside an already deep loop.
+        """
+        result = self._resolve_chart_join_chain_ref(
+            ref,
+            chart_element_id=chart_element_id,
+            chart_upstream_element_ids=chart_upstream_element_ids,
+            dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+            wb_element_index=wb_element_index,
+            element_warehouse_table_index=element_warehouse_table_index,
+            elementId_to_chart_urn=elementId_to_chart_urn,
+            workbook_dm_url_ids=workbook_dm_url_ids,
+        )
+        if result is None and len(ref.parts) <= 2:
+            # Single-slash refs never had a candidate search, so
+            # the ordinary resolver is their only path.
+            result = self._resolve_chart_formula_upstream(
+                ref,
+                chart_element_id=chart_element_id,
+                chart_upstream_element_ids=chart_upstream_element_ids,
+                dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+                wb_element_index=wb_element_index,
+                element_warehouse_table_index=element_warehouse_table_index,
+                elementId_to_chart_urn=elementId_to_chart_urn,
+                workbook_dm_url_ids=workbook_dm_url_ids,
+            )
+        elif result is None:
+            # Every split failed schema validation. The legacy
+            # first-slash reading would resolve here, but it
+            # names the un-split remainder as the column -- a
+            # field the upstream provably does not have. The
+            # Data Model path drops such refs rather than emit a
+            # dangling schemaField URN; this now matches it, and
+            # the column falls back to a self-reference so it
+            # still appears in the V2 column list.
+            self.reporter.chart_join_chain_dangling_suppressed += 1
+            # Also file it in the miss breakdown. The counter above says how
+            # many were suppressed but sits outside chart_ref_miss_reasons, so
+            # these refs were the ONLY unresolved ones with no entry there --
+            # 234 columns on each of two consecutive runs, unattributable until
+            # the branch was read. A breakdown that cannot be reconciled against
+            # its own total cannot be used as evidence that the resolver is
+            # clean, which is the entire point of collecting it.
+            self._note_chart_ref_miss(
+                _CHART_REF_MISS_JOIN_CHAIN_DANGLING,
+                ref=ref,
+                chart_element_id=chart_element_id,
+                workbook_dm_url_ids=workbook_dm_url_ids,
+                count=True,
+            )
+        return result
+
+    def _chart_column_cause_tally(self) -> Dict[str, int]:
+        """Snapshot the per-column fallback counters.
+
+        Differenced across one element's build, this attributes that chart's
+        outcome to a cause. Keys match the per-column counter vocabulary so the
+        chart-level and column-level reports can be read against each other.
+        """
+        r = self.reporter
+        return {
+            "no_formula": r.chart_input_fields_self_ref_no_formula,
+            "formulas_not_fetched": r.chart_input_fields_formulas_not_fetched,
+            "unresolved_refs": r.chart_input_fields_self_ref_unresolved_refs,
+            "parameter": r.chart_input_fields_skipped_parameter,
+            "sibling": r.chart_input_fields_skipped_sibling,
+            "param_and_sibling": r.chart_input_fields_skipped_param_and_sibling,
+        }
+
+    def _init_diagnostic_state(self) -> None:
+        """Attributes the diagnostics read, in ONE place.
+
+        Unit tests build the source with ``SigmaSource.__new__``, which skips
+        __init__; every time a new attribute was added here the factories
+        drifted and the suite broke at first use rather than at construction.
+        Four commits were fixed that way before this was extracted -- the
+        factories now call this instead of restating the list.
+        """
+        # The workbook whose elements are currently being emitted. Chart
+        # diagnostics need to name it, and a chart URN that cannot be placed in
+        # a workbook from the log is close to un-investigable -- doing it by
+        # hand once required bisecting emission-order dashboard URNs.
+        self._current_workbook: Optional[Workbook] = None
+        # chart URN -> resolved-field count of the best aspect already emitted,
+        # and the workbook that produced it. Guards against a poorer duplicate
+        # overwriting a richer one; see _chart_input_fields_workunits.
+        self._chart_best_resolved: Dict[str, int] = {}
+        # element id -> element ids Sigma's workbook /lineage says it draws
+        # from. Workbook-scoped in practice; ids are reused across workbooks, so
+        # this is cleared per workbook by _build_workbook_customsql_registry.
+        self._stated_element_sources: Dict[str, Set[str]] = {}
+        self._chart_best_workbook: Dict[str, str] = {}
+        # In-process correctness audit: Sigma entity URN -> field paths this run
+        # EMITTED a schema for, and the upstream fields our edges REFERENCE.
+        self._known_field_paths: Dict[str, Set[str]] = {}
+        self._referenced_fields_by_upstream: Dict[str, Set[str]] = {}
+        self._edge_source_chart: Dict[Tuple[str, str], str] = {}
+
+    def _current_workbook_id(self) -> str:
+        return self._current_workbook.workbookId if self._current_workbook else "?"
+
+    def _current_workbook_name(self) -> str:
+        return self._current_workbook.name if self._current_workbook else "?"
+
+    def _count_unresolved_chart_column(
+        self,
+        *,
+        element: Element,
+        column: str,
+        refs: List[BracketRef],
+        all_param: bool,
+        all_sibling: bool,
+        all_unresolvable_mixed: bool,
+        formulas_incomplete: bool,
+        reasons: FrozenSet[str] = frozenset(),
+    ) -> None:
+        """File one self-referential column under the reason it got there.
+
+        The fallback bucket is the largest in the report (~81k on one tenant,
+        2026-09) and a single number for it says nothing: a column with no
+        formula is expected, a column whose refs failed to resolve may be
+        hiding a parse defect, and a column from a workbook whose /columns call
+        aborted is neither -- it is our fetch that failed. Only the middle case
+        is logged, so the probe cannot flood the log.
+        """
+        # WHAT SIGMA HANDED US, recorded BEFORE any branch runs.
+        #
+        # Every other line on this path describes the bucket we chose, so a
+        # column that matches no branch -- or one filed under a bucket that
+        # turns out to be the wrong one -- explains nothing at all. The whole
+        # point of this line is that it is true regardless of which branch is
+        # taken next, and it is emitted for EVERY unresolved column rather than
+        # sampled, because the interesting column is always a specific one
+        # somebody asked about. Bounded by the unresolved population (~56k on
+        # one tenant), not by total columns (~493k).
+        formula = element.column_formulas.get(column)
+        logger.debug(
+            "chart column input element=%s column=%r workbook=%s "
+            "payload_present=%s formula=%.300r column_id=%r refs=%d raw_refs=%r "
+            "all_param=%s all_sibling=%s mixed=%s formulas_incomplete=%s",
+            element.elementId,
+            column,
+            self._current_workbook_id(),
+            element.columns_payload_present,
+            formula,
+            element.column_id_by_name.get(column),
+            len(refs),
+            [r.raw for r in refs],
+            all_param,
+            all_sibling,
+            all_unresolvable_mixed,
+            formulas_incomplete,
+        )
+        if all_param:
+            self.reporter.chart_input_fields_skipped_parameter += 1
+            return
+        if all_sibling:
+            self.reporter.chart_input_fields_skipped_sibling += 1
+            return
+        if all_unresolvable_mixed:
+            self.reporter.chart_input_fields_skipped_param_and_sibling += 1
+            return
+        self.reporter.chart_input_fields_self_ref_fallback += 1
+        if refs:
+            self.reporter.chart_input_fields_self_ref_unresolved_refs += 1
+            column_id = element.column_id_by_name.get(column)
+            if column_id:
+                self._pending_schema_probe.append(
+                    _UnresolvedChartColumn(
+                        element_id=element.elementId,
+                        column=column,
+                        column_id=column_id,
+                        reasons=reasons,
+                    )
+                )
+            logger.debug(
+                "chart element %s column %r: self-ref fallback with "
+                "unresolved refs=%r segment_counts=%r",
+                element.elementId,
+                column,
+                [r.raw for r in refs],
+                [len(r.parts) for r in refs],
+            )
+        elif formulas_incomplete:
+            # This workbook's /columns fetch aborted, so the absence of a
+            # formula says nothing about the column. Counting it as "Sigma
+            # reported no formula" made a fetch failure read as an upstream
+            # limitation.
+            self.reporter.chart_input_fields_formulas_not_fetched += 1
+        else:
+            self.reporter.chart_input_fields_self_ref_no_formula += 1
+            # This was the last silent bucket on the chart path, and silence
+            # cost a full investigation: three reported chart URNs landed here
+            # and the log could not say so. The element's own formula coverage
+            # goes in the sample because "no formula for THIS column" and "no
+            # formulas for this element at all" are different findings that the
+            # counter alone conflates.
+            # Record what Sigma actually RETURNED for this element, not only
+            # how we classified it. ``present`` is the load-bearing field: an
+            # element the /columns payload never mentioned and one it described
+            # with null formulas are byte-identical downstream, and only the
+            # second means "Sigma has nothing to give". ``upstreams`` is what
+            # produces the chart-level lineage a user can still see, so a chart
+            # with declared upstreams and no formulas is a complete finding
+            # rather than a starting point for another investigation.
+            self.reporter.chart_no_formula_samples.append(
+                f"element={element.elementId} column={column!r} "
+                f"workbook={self._current_workbook_id()} "
+                f"present_in_columns_payload={element.columns_payload_present} "
+                f"element_columns_with_formulas="
+                f"{sum(1 for f in element.column_formulas.values() if f)}"
+                f"/{len(element.columns)} "
+                f"type={element.type!r} has_query={element.query is not None} "
+                f"upstreams={sorted({type(u).__name__ for u in element.upstream_sources.values()})}"
+            )
+
     def _build_element_input_fields(
         self,
         *,
@@ -3594,7 +7104,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         wb_element_index: Dict[str, List[Element]],
         element_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
+        workbook_dm_url_ids: AbstractSet[str] = frozenset(),
         wb_only_warehouse_keys: FrozenSet[str] = frozenset(),
+        formulas_incomplete: bool = False,
+        warehouse_urn_by_url_id: Optional[Dict[str, str]] = None,
     ) -> List[InputFieldClass]:
         """Emit exactly one InputField per chart column.
 
@@ -3606,24 +7119,51 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
           resolved + self_ref_fallback + skipped_parameter + skipped_sibling
           == len(element.columns)
 
+        ``self_ref_fallback`` is split three ways by cause:
+        ``self_ref_unresolved_refs`` (a formula existed and its refs did not
+        resolve -- the population that can hide a resolver defect),
+        ``formulas_not_fetched`` (this workbook's /columns call aborted, so no
+        formula was ever retrieved) and ``self_ref_no_formula`` (Sigma really
+        reported none). ``formulas_incomplete`` is what separates the middle
+        one; without it a fetch failure is indistinguishable from an upstream
+        limitation.
+
         wb_only_warehouse_keys: uppercase table names that are present only in
           the workbook-level index (not in the per-element SQL-parser index).
           Used to sub-categorise chart_input_fields_warehouse_qualified into
           chart_input_fields_warehouse_qualified_via_workbook_index.
         """
         fields: List[InputFieldClass] = []
+        # For sibling inheritance below: what each column resolved TO, and the
+        # columns that resolved to nothing because every ref named a sibling.
+        emitted_urns_by_column: Dict[str, List[str]] = {}
+        sibling_pending: Dict[str, Tuple[int, List[str]]] = {}
         for column in element.columns:
             formula = element.column_formulas.get(column)
+            # Bound unconditionally: the diagnostic probes below read it even
+            # for columns with no formula at all.
+            refs: List[BracketRef] = []
             resolved_refs: List[_ResolvedRef] = []
             seen: Set[Tuple[str, str]] = set()
             all_param = False
             all_sibling = False
+            all_unresolvable_mixed = False
+            # Bound unconditionally: the counter call below reads it even for a
+            # column with no formula, where no ref was ever attempted.
+            misses_before: Dict[str, int] = dict(self.reporter.chart_ref_miss_reasons)
 
             if formula is not None:
                 refs = extract_bracket_refs(formula)
                 if refs:
                     param_count = 0
                     sibling_count = 0
+                    # Snapshot the breakdown so this column can prove, on its
+                    # own, that its failure was attributed. Twice now a silent
+                    # return has left columns in the unresolved bucket with no
+                    # entry in chart_ref_miss_reasons, and both times it took
+                    # arithmetic across two full runs to notice -- because
+                    # every counter that DID fire looked healthy. This makes a
+                    # missed attribution self-reporting, whatever the cause.
                     for ref in refs:
                         if ref.is_parameter:
                             param_count += 1
@@ -3631,7 +7171,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         if ref.column is None:
                             sibling_count += 1
                             continue
-                        result = self._resolve_chart_formula_upstream(
+                        # A join-chain ref gets every split tried and validated
+                        # against the candidate upstream's schema.
+                        result = self._resolve_chart_ref(
                             ref,
                             chart_element_id=element.elementId,
                             chart_upstream_element_ids=chart_upstream_eids,
@@ -3639,6 +7181,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             wb_element_index=wb_element_index,
                             element_warehouse_table_index=element_warehouse_table_index,
                             elementId_to_chart_urn=elementId_to_chart_urn,
+                            workbook_dm_url_ids=workbook_dm_url_ids,
                         )
                         if result is not None:
                             upstream_urn, upstream_field = result
@@ -3658,56 +7201,676 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             all_param = True
                         elif sibling_count == total:
                             all_sibling = True
+                        elif param_count + sibling_count == total:
+                            # A MIX of the two. Neither kind is ever resolvable
+                            # and neither records a miss reason, so without this
+                            # the column landed in
+                            # chart_input_fields_self_ref_unresolved_refs with
+                            # nothing at all in chart_ref_miss_reasons -- the one
+                            # bucket that is supposed to mean "a real ref failed,
+                            # look here for a resolver defect". Kept separate from
+                            # the two pure cases, which answer different questions.
+                            all_unresolvable_mixed = True
+                        elif self.reporter.chart_ref_miss_reasons == misses_before:
+                            # This column is about to be counted as "a real ref
+                            # failed" while contributing nothing to the
+                            # breakdown -- so the breakdown cannot be
+                            # reconciled against its own total, and the residual
+                            # is unattributable without reading the source.
+                            #
+                            # Do NOT try to name the cause here: the whole point
+                            # is that it is a path nobody anticipated. Record
+                            # the raw evidence instead, so the next such gap is
+                            # diagnosable from one log line rather than from
+                            # arithmetic across two full runs.
+                            self.reporter.chart_input_fields_unattributed += 1
+                            self.reporter.chart_ref_unattributed_samples.append(
+                                f"{element.elementId}.{column}: formula={formula!r} "
+                                f"refs={[r.raw for r in refs]!r} "
+                                f"segments={[len(r.parts) for r in refs]!r} "
+                                f"param={param_count} sibling={sibling_count}"
+                            )
+                            logger.debug(
+                                "CHART REF UNATTRIBUTED element %s column %r: the "
+                                "column falls back to a self-reference but no "
+                                "resolution step recorded a reason. formula=%r "
+                                "refs=%r segments=%r param_count=%d sibling_count=%d",
+                                element.elementId,
+                                column,
+                                formula,
+                                [r.raw for r in refs],
+                                [len(r.parts) for r in refs],
+                                param_count,
+                                sibling_count,
+                            )
 
-            if resolved_refs:
-                self.reporter.chart_input_fields_resolved += 1
-                self.reporter.chart_input_fields_multi_ref_extra += (
-                    len(resolved_refs) - 1
+            multi_segment = self._multi_segment_refs(refs)
+            if multi_segment:
+                # Does the chart path see join-chain refs at all? It shares the
+                # parser with the DM path and returns ref.column with no schema
+                # check, so a mis-split here emits a wrong or dangling
+                # InputField instead of falling back. The counter answers the
+                # scoping question in the report; the log line names the refs.
+                self.reporter.chart_input_fields_multi_segment_ref += 1
+                logger.debug(
+                    "chart element %s column %r: join-chain refs %r (resolved=%s)",
+                    element.elementId,
+                    column,
+                    multi_segment,
+                    bool(resolved_refs),
                 )
-                for rr in resolved_refs:
-                    bridged_field = self._bridge_warehouse_column_name(
-                        upstream_urn=rr.upstream_urn,
-                        sigma_display_name=rr.upstream_field,
-                        column_native_names=element.column_native_names,
-                        element_id=element.elementId,
-                    )
-                    schema_field_urn = builder.make_schema_field_urn(
-                        rr.upstream_urn, bridged_field
-                    )
-                    # Sub-category: resolved via warehouse-table short-name index (Step 4).
-                    # The resolver (Step 4) returns None for ambiguous (>1 candidate) keys,
-                    # so upstream_urn in wh_candidates implies a single-candidate match in
-                    # practice, but the membership check is the semantically correct predicate.
-                    wh_candidates = element_warehouse_table_index.get(
-                        rr.ref.source.upper(), []
-                    )
-                    if rr.upstream_urn in wh_candidates:
-                        self.reporter.chart_input_fields_warehouse_qualified += 1
-                        if rr.ref.source.upper() in wb_only_warehouse_keys:
-                            self.reporter.chart_input_fields_warehouse_qualified_via_workbook_index += 1
-                    fields.append(
-                        InputFieldClass(
-                            schemaFieldUrn=schema_field_urn,
-                            schemaField=self._make_string_schema_field(column),
-                        )
-                    )
+            if resolved_refs:
+                self._emit_resolved_ref_fields(
+                    element=element,
+                    column=column,
+                    resolved_refs=resolved_refs,
+                    element_warehouse_table_index=element_warehouse_table_index,
+                    wb_only_warehouse_keys=wb_only_warehouse_keys,
+                    fields=fields,
+                    emitted_urns_by_column=emitted_urns_by_column,
+                )
             else:
-                if all_param:
-                    schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
-                    self.reporter.chart_input_fields_skipped_parameter += 1
-                elif all_sibling:
-                    schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
-                    self.reporter.chart_input_fields_skipped_sibling += 1
-                else:
-                    schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
-                    self.reporter.chart_input_fields_self_ref_fallback += 1
+                direct = self._direct_warehouse_field(
+                    element=element,
+                    column=column,
+                    warehouse_urn_by_url_id=warehouse_urn_by_url_id or {},
+                    fields=fields,
+                    emitted_urns_by_column=emitted_urns_by_column,
+                )
+                if direct:
+                    continue
+                schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
+                self._count_unresolved_chart_column(
+                    element=element,
+                    column=column,
+                    refs=refs,
+                    all_param=all_param,
+                    all_sibling=all_sibling,
+                    all_unresolvable_mixed=all_unresolvable_mixed,
+                    formulas_incomplete=formulas_incomplete,
+                    # Which causes this column's refs recorded, so the /schema
+                    # measurement can say WHICH gap it would close rather than
+                    # only how many columns in total.
+                    reasons=frozenset(
+                        reason
+                        for reason, count in self.reporter.chart_ref_miss_reasons.items()
+                        if count != misses_before.get(reason, 0)
+                    ),
+                )
+                if all_sibling:
+                    sibling_pending[column] = (
+                        len(fields),
+                        [
+                            r.source
+                            for r in refs
+                            if not r.is_parameter and r.column is None
+                        ],
+                    )
                 fields.append(
                     InputFieldClass(
                         schemaFieldUrn=schema_field_urn,
                         schemaField=self._make_string_schema_field(column),
                     )
                 )
+        self._inherit_sibling_upstreams(
+            element=element,
+            fields=fields,
+            emitted_urns_by_column=emitted_urns_by_column,
+            sibling_pending=sibling_pending,
+        )
         return fields
+
+    # A derived column can sit several hops from a real upstream --
+    # LY Revenue -> Revenue -> Revenue (1) -> warehouse column -- so one pass is
+    # not enough. Bounded to keep a reference cycle (which Sigma permits in
+    # principle) from looping; anything still unresolved after this many passes
+    # keeps its self-referential field, exactly as before.
+    _SIBLING_INHERIT_MAX_PASSES = 5
+
+    def _inherit_sibling_upstreams(
+        self,
+        *,
+        element: Element,
+        fields: List[InputFieldClass],
+        emitted_urns_by_column: Dict[str, List[str]],
+        sibling_pending: Dict[str, Tuple[int, List[str]]],
+    ) -> None:
+        """Give a derived column the upstreams of the siblings it is computed from.
+
+        A formula like ``Sum([Revenue (1)])`` or
+        ``DateLookback([Revenue], [Time Period], 1, "year")`` references other
+        columns of the SAME chart, so it resolves to no external upstream and
+        used to be dropped as "sibling". But the sibling it names usually does
+        resolve, and the derived column is genuinely downstream of whatever
+        that sibling came from -- so the lineage exists, one hop away.
+
+        This was the single largest chart-side gap on a real tenant (2026-09):
+        27,037 columns, with 5,246 charts losing columns for this reason ALONE.
+        The customer-reported symptom was a dashboard whose headline measures
+        (Revenue, LY Revenue, Cost) all showed no column lineage while the raw
+        columns beside them showed it.
+
+        Counters move with the columns: a column that inherits is no longer
+        ``skipped_sibling``, it is ``resolved``, so the per-element identity
+        still holds.
+        """
+        if not sibling_pending:
+            return
+        for _ in range(self._SIBLING_INHERIT_MAX_PASSES):
+            progressed = False
+            for column, (index, sibling_names) in list(sibling_pending.items()):
+                inherited: List[str] = []
+                for name in sibling_names:
+                    inherited.extend(emitted_urns_by_column.get(name, []))
+                if not inherited:
+                    continue
+                # Deduplicate but keep order, so a column fed by two siblings
+                # that share an upstream does not emit it twice.
+                ordered = list(dict.fromkeys(inherited))
+                fields[index] = InputFieldClass(
+                    schemaFieldUrn=ordered[0],
+                    schemaField=self._make_string_schema_field(column),
+                )
+                for extra in ordered[1:]:
+                    fields.append(
+                        InputFieldClass(
+                            schemaFieldUrn=extra,
+                            schemaField=self._make_string_schema_field(column),
+                        )
+                    )
+                emitted_urns_by_column[column] = ordered
+                self.reporter.chart_input_fields_sibling_inherited += 1
+                self.reporter.chart_input_fields_multi_ref_extra += len(ordered) - 1
+                self.reporter.chart_input_fields_skipped_sibling -= 1
+                self.reporter.chart_input_fields_resolved += 1
+                self.reporter.chart_sibling_inherited_samples.append(
+                    f"element={element.elementId} column={column!r} "
+                    f"via={sibling_names} upstreams={len(ordered)}"
+                )
+                del sibling_pending[column]
+                progressed = True
+            if not progressed:
+                break
+        self.reporter.chart_input_fields_sibling_not_inheritable += len(sibling_pending)
+        for column, (_index, sibling_names) in sibling_pending.items():
+            # WHICH siblings failed is the whole question: if they are columns
+            # a blocked workbook never described, there is nothing to win here;
+            # if they are columns that should have resolved, there is.
+            self.reporter.chart_sibling_not_inheritable_samples.append(
+                f"element={element.elementId} column={column!r} "
+                f"needed={sibling_names} "
+                f"element_has={sorted(element.columns)[:6]}"
+            )
+
+    def _emit_resolved_ref_fields(
+        self,
+        *,
+        element: Element,
+        column: str,
+        resolved_refs: List["_ResolvedRef"],
+        element_warehouse_table_index: Dict[str, List[str]],
+        wb_only_warehouse_keys: FrozenSet[str],
+        fields: List[InputFieldClass],
+        emitted_urns_by_column: Dict[str, List[str]],
+    ) -> None:
+        """Append one InputField per resolved ref, with the warehouse sub-counts.
+
+        Extracted from _build_element_input_fields purely for the complexity
+        limit; the body is unchanged.
+        """
+        self.reporter.chart_input_fields_resolved += 1
+        self.reporter.chart_input_fields_multi_ref_extra += len(resolved_refs) - 1
+        for rr in resolved_refs:
+            bridged_field = self._bridge_warehouse_column_name(
+                upstream_urn=rr.upstream_urn,
+                sigma_display_name=rr.upstream_field,
+                column_native_names=element.column_native_names,
+                element_id=element.elementId,
+            )
+            schema_field_urn = builder.make_schema_field_urn(
+                rr.upstream_urn, bridged_field
+            )
+            # Sub-category: resolved via warehouse-table short-name index (Step 4).
+            # The resolver (Step 4) returns None for ambiguous (>1 candidate) keys,
+            # so upstream_urn in wh_candidates implies a single-candidate match in
+            # practice, but the membership check is the semantically correct predicate.
+            wh_candidates = element_warehouse_table_index.get(rr.ref.source.upper(), [])
+            if rr.upstream_urn in wh_candidates:
+                self.reporter.chart_input_fields_warehouse_qualified += 1
+                if rr.ref.source.upper() in wb_only_warehouse_keys:
+                    self.reporter.chart_input_fields_warehouse_qualified_via_workbook_index += 1
+            emitted_urns_by_column.setdefault(column, []).append(schema_field_urn)
+            fields.append(
+                InputFieldClass(
+                    schemaFieldUrn=schema_field_urn,
+                    schemaField=self._make_string_schema_field(column),
+                )
+            )
+
+    def _direct_warehouse_field(
+        self,
+        *,
+        element: Element,
+        column: str,
+        warehouse_urn_by_url_id: Dict[str, str],
+        fields: List[InputFieldClass],
+        emitted_urns_by_column: Dict[str, List[str]],
+    ) -> bool:
+        """Append the columnId-derived warehouse edge, if there is one.
+
+        Extracted from _build_element_input_fields only to keep it under the
+        complexity limit. Returns whether the column was resolved this way.
+        """
+        direct = self._warehouse_field_from_column_id(
+            element.column_id_by_name.get(column), warehouse_urn_by_url_id
+        )
+        if direct is None:
+            return False
+        self.reporter.chart_input_fields_resolved += 1
+        self.reporter.chart_input_fields_warehouse_by_column_id += 1
+        emitted_urns_by_column.setdefault(column, []).append(direct)
+        fields.append(
+            InputFieldClass(
+                schemaFieldUrn=direct,
+                schemaField=self._make_string_schema_field(column),
+            )
+        )
+        return True
+
+    def _warehouse_field_from_column_id(
+        self, column_id: Optional[str], warehouse_urn_by_url_id: Dict[str, str]
+    ) -> Optional[str]:
+        """A chart column whose columnId IS a warehouse column needs no formula.
+
+        Sigma gives a warehouse passthrough the columnId
+        ``inode-<tableUrlId>/<NATIVE_NAME>``, which names the table and the
+        column outright -- the same fact the Data Model path already exploits
+        via url_id lookup. On the chart path it was never used, so 2,167
+        columns on one tenant (2026-09) fell back to a self-reference while
+        carrying their own answer. Independent of formulas, so it also covers
+        columns whose formula never parsed.
+        """
+        if not column_id or not column_id.startswith("inode-"):
+            return None
+        suffix = column_id[len("inode-") :]
+        url_id, _, native = suffix.partition("/")
+        if not url_id or not native:
+            return None
+        warehouse_urn = warehouse_urn_by_url_id.get(url_id)
+        if warehouse_urn is None:
+            warehouse_urn = self._warehouse_urn_via_files_lookup(
+                url_id, warehouse_urn_by_url_id
+            )
+        if warehouse_urn is None:
+            return None
+        return builder.make_schema_field_urn(warehouse_urn, native)
+
+    def _warehouse_urn_via_files_lookup(
+        self, url_id: str, warehouse_urn_by_url_id: Dict[str, str]
+    ) -> Optional[str]:
+        """Ask /v2/files/{urlId} for a table the workbook index does not list.
+
+        The Data Model path has done this for weeks and it recovered 1,305
+        columns there. The chart path had only the workbook index, which lists
+        tables reached through workbook LINEAGE -- so a column whose columnId
+        names a table Sigma never put in that graph could not resolve, and the
+        direct resolver fired 2 times against 1,208 candidates on one run.
+        Cached per url_id, so repeats across columns are free.
+        """
+        # No per-workbook warehouse refs to infer from, so this uses the same
+        # last resort the Data Model path does: the tenant's sole mappable
+        # connection. Ambiguity is refused rather than guessed -- attributing a
+        # table to the wrong connection emits a URN pointing at the wrong
+        # platform or instance, which is worse than no edge.
+        connection_id = self._infer_connection_id({})
+        if connection_id is None:
+            self.reporter.chart_warehouse_files_lookup_no_connection += 1
+            return None
+        wh_ref = self._lookup_global_warehouse_table(url_id, connection_id)
+        if wh_ref is None:
+            self.reporter.chart_warehouse_files_lookup_miss += 1
+            return None
+        urn = self._warehouse_urn_from_ref(wh_ref, context=f"chart url_id {url_id!r}")
+        if urn is not None:
+            self.reporter.chart_warehouse_files_lookup_resolved += 1
+        return urn
+
+    def _dm_field_for_ref(
+        self,
+        ref: BracketRef,
+        dm_urn: str,
+        *,
+        chart_element_id: str,
+        workbook_dm_url_ids: AbstractSet[str],
+        count: bool,
+    ) -> Optional[str]:
+        """Same validation as the element path, against a Data Model element.
+
+        Safe here because Data Models are emitted BEFORE workbooks, so this run
+        has already produced that element's schema and ``_known_field_paths``
+        holds it. An element whose schema was never emitted (filtered out) is
+        UNKNOWN, not empty, and the ref passes through -- refusing on
+        absence-of-knowledge is how you delete real lineage.
+
+        The warehouse path deliberately gets no equivalent: this run never emits
+        a warehouse table's schema, so there is nothing to check against in
+        process. Those edges are covered by the ctx.graph column check and,
+        after the fact, by the edge audit.
+        """
+        known = self._known_field_paths.get(dm_urn)
+        if ref.column is None or not known:
+            return ref.column
+        folded = {c.casefold(): c for c in known}
+        exact = folded.get(ref.column.casefold())
+        if exact is not None:
+            return exact
+        self.reporter.chart_ref_column_absent_from_upstream += 1
+        self.reporter.chart_ref_column_absent_samples.append(
+            f"ref={ref.raw!r} upstream={dm_urn} upstream_has={sorted(known)[:6]}"
+        )
+        self._note_chart_ref_miss(
+            _CHART_REF_MISS_COLUMN_ABSENT_FROM_UPSTREAM,
+            ref=ref,
+            chart_element_id=chart_element_id,
+            workbook_dm_url_ids=workbook_dm_url_ids,
+            count=count,
+        )
+        return None
+
+    def _upstream_field_for_ref(
+        self, ref: BracketRef, upstream: Element
+    ) -> Optional[str]:
+        """The upstream column this ref names -- as a NAME the upstream has.
+
+        Sigma does not always write the column part of a ref as a display name.
+        Observed on our own dev tenant:
+
+            formula='[<Source Element Name>/CDZQGH9FD2]'
+
+        where ``CDZQGH9FD2`` is a column ID. Emitting it verbatim produced a
+        schemaField URN for a column the upstream does not have -- a dangling
+        edge, counted as ``resolved`` and byte-identical to a correct one. It
+        was invisible until the edge audit caught it, because every counter on
+        this path measures production rather than correctness.
+
+        Three outcomes, and the middle one is a genuine recovery rather than
+        only a refusal: the ref names a column the upstream HAS; the ref names
+        one of the upstream's column IDs, which translates to its display name;
+        or the upstream has no such column at all, in which case emitting
+        anything would be a guess at a name nobody has.
+        """
+        if ref.column is None:
+            return None
+        if not upstream.columns:
+            # We do not KNOW this element's columns -- /columns may never have
+            # been fetched for its workbook. Refusing here would attribute an
+            # unknown to a negative and destroy real lineage, the same mistake
+            # as reading a failed schema lookup as "the table has no such
+            # column". Emit the ref as written and let the edge audit judge it.
+            return ref.column
+        # Case-insensitive, returning the UPSTREAM's spelling: Sigma formulas
+        # differ from the stored column name by case alone often enough that
+        # this path already normalised it, and a schemaField URN must carry the
+        # upstream's casing to match its schema.
+        folded = {c.casefold(): c for c in upstream.columns}
+        exact = folded.get(ref.column.casefold())
+        if exact is not None:
+            return exact
+        for name, column_id in upstream.column_id_by_name.items():
+            if column_id == ref.column:
+                self.reporter.chart_ref_column_id_translated_to_name += 1
+                return name
+        self.reporter.chart_ref_column_absent_from_upstream += 1
+        self.reporter.chart_ref_column_absent_samples.append(
+            f"ref={ref.raw!r} upstream={upstream.elementId} "
+            f"upstream_has={sorted(upstream.columns)[:6]}"
+        )
+        return None
+
+    def _stated_upstreams_for(
+        self, element: Element, already_known: Set[str]
+    ) -> Set[str]:
+        """Upstream elements Sigma states for this chart in the workbook graph.
+
+        Extracted only to keep _gen_elements_workunit under the complexity
+        limit. Returns the full stated set; counts and samples the part that
+        was NOT already declared by the element's own upstream_sources, which
+        is the measure of what this recovers.
+        """
+        stated = self._stated_element_sources.get(element.elementId)
+        if not stated:
+            return set()
+        novel = stated - already_known
+        if novel:
+            self.reporter.chart_upstreams_added_from_lineage_graph += len(novel)
+            self.reporter.chart_lineage_graph_upstream_samples.append(
+                f"element={element.elementId} added={sorted(novel)} "
+                f"already_known={sorted(already_known)}"
+            )
+        return stated
+
+    _SCHEMA_FIELD_RE = re.compile(
+        r"^urn:li:schemaField:\((?P<parent>.+),(?P<field>[^,]*)\)$"
+    )
+
+    def _record_edges_for_audit(
+        self, chart_urn: str, fields: List[InputFieldClass]
+    ) -> None:
+        """Remember this chart's own columns, and what its edges point at.
+
+        Stored as sets keyed by upstream URN, so the cost is bounded by
+        DISTINCT (upstream, field) pairs rather than by the ~474,000 links
+        emitted.
+        """
+        own: Set[str] = set()
+        for field in fields:
+            if field.schemaField is not None:
+                own.add(field.schemaField.fieldPath)
+            match = (
+                self._SCHEMA_FIELD_RE.match(field.schemaFieldUrn)
+                if field.schemaFieldUrn
+                else None
+            )
+            if match is None:
+                continue
+            # A schemaField URN PERCENT-ENCODES its field path, so the raw
+            # capture is "Logo Id %28X%29" where the upstream's schema holds
+            # "Logo Id (X)". Comparing without decoding reported 8,439 correct
+            # edges as dangling on one run -- the audit accusing the pipeline of
+            # its own bug. Decode before comparing.
+            parent = match.group("parent")
+            upstream_field = unquote(match.group("field"))
+            if parent == chart_urn:
+                continue
+            # Keyed by (upstream, field) but carrying the DOWNSTREAM chart, so a
+            # dangling edge names the chart that emitted it. Without that the
+            # audit says an edge is wrong and gives nobody a place to look --
+            # which is what the first version did.
+            self._referenced_fields_by_upstream.setdefault(parent, set()).add(
+                upstream_field
+            )
+            self._edge_source_chart.setdefault((parent, upstream_field), chart_urn)
+        self._known_field_paths[chart_urn] = own
+
+    def _audit_emitted_edges(self) -> None:
+        """Check every edge whose upstream schema THIS RUN emitted.
+
+        Answers the question no counter answers -- "is it the right edge" --
+        for the Sigma-internal majority, without a single API call. An upstream
+        we did not emit a schema for (a warehouse table) is not counted as a
+        failure; it is out of scope here and covered by the graph check.
+        """
+        r = self.reporter
+        for upstream, referenced in self._referenced_fields_by_upstream.items():
+            known = self._known_field_paths.get(upstream)
+            if known is None:
+                r.edge_audit_upstream_schema_unknown += len(referenced)
+                continue
+            for field in referenced:
+                if field in known:
+                    r.edge_audit_verified += 1
+                else:
+                    r.edge_audit_field_absent_from_upstream += 1
+                    r.edge_audit_absent_samples.append(
+                        f"emitted_by={self._edge_source_chart.get((upstream, field))} "
+                        f"-> upstream={upstream} field={field!r} "
+                        f"upstream_has={sorted(known)[:6]}"
+                    )
+
+    def _chart_input_fields_workunits(
+        self, chart_urn: str, fields: List[InputFieldClass]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit InputFields unless doing so would REPLACE a richer aspect.
+
+        Sigma element ids are not unique across workbooks -- a duplicated
+        workbook reuses them -- and the chart URN is built from the element id
+        alone, so several workbooks' charts land on one URN. InputFields is
+        full-replace, so the last workbook processed wins outright. When that
+        last one is a broken duplicate (its /columns call aborted, so no column
+        carries a formula) it silently destroys correct lineage emitted
+        earlier: observed as a chart resolving 59 of 66 columns and then being
+        overwritten by an empty aspect eleven minutes later.
+
+        Refusing the poorer emission keeps the better aspect. It does NOT make
+        the URNs correct -- two genuinely different charts still share one
+        entity, which needs workbook-scoped URNs and a migration.
+        """
+        resolved = self._resolved_field_count(chart_urn, fields)
+        best = self._chart_best_resolved.get(chart_urn)
+        if best is not None:
+            self.reporter.chart_urns_claimed_by_multiple_workbooks += 1
+            if resolved < best:
+                self.reporter.chart_input_fields_regressive_emission_skipped += 1
+                self.reporter.chart_regressive_emission_samples.append(
+                    f"chart={chart_urn} kept={best} refused={resolved} "
+                    f"kept_from_workbook={self._chart_best_workbook.get(chart_urn)} "
+                    f"refused_from_workbook={self._current_workbook_id()}"
+                )
+                logger.debug(
+                    "chart %s: REFUSING InputFields with %d resolved column(s) from "
+                    "workbook %s; a richer aspect with %d is already emitted from "
+                    "workbook %s. Element ids are not unique across workbooks.",
+                    chart_urn,
+                    resolved,
+                    self._current_workbook_id(),
+                    best,
+                    self._chart_best_workbook.get(chart_urn),
+                )
+                return
+        self._chart_best_resolved[chart_urn] = resolved
+        self._chart_best_workbook[chart_urn] = self._current_workbook_id()
+        self._record_edges_for_audit(chart_urn, fields)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=chart_urn,
+            aspect=InputFieldsClass(fields=fields),
+        ).as_workunit()
+
+    @staticmethod
+    def _resolved_field_count(chart_urn: str, fields: List[InputFieldClass]) -> int:
+        """Fields pointing at something OTHER than the chart itself."""
+        self_ref_prefix = f"urn:li:schemaField:({chart_urn},"
+        return sum(
+            1
+            for f in fields
+            if f.schemaFieldUrn and not f.schemaFieldUrn.startswith(self_ref_prefix)
+        )
+
+    def _note_chart_column_outcome(
+        self,
+        *,
+        element: Element,
+        workbook: Workbook,
+        chart_urn: str,
+        fields: List[InputFieldClass],
+        causes: Dict[str, int],
+        workbook_formulas_incomplete: bool,
+    ) -> None:
+        """Record this chart's column-lineage outcome and what produced it.
+
+        Extracted from _gen_elements_workunit purely to keep that method under
+        the complexity limit; it is one coherent story -- how this chart turned
+        out, and which per-column cause dominated it.
+        """
+        # An element with no formulas inside a workbook whose /columns call
+        # SUCCEEDED is a per-element gap, not the known per-workbook one, and
+        # nothing distinguished the two before.
+        if not workbook_formulas_incomplete and not any(
+            element.column_formulas.values()
+        ):
+            self.reporter.chart_elements_without_formulas_in_a_fetched_workbook += 1
+            # Only the "described, all null" half is Sigma genuinely having
+            # nothing to give; the other half means the payload never covered
+            # the element, which is a different problem with a different owner.
+            if element.columns_payload_present is False:
+                self.reporter.chart_elements_absent_from_columns_payload += 1
+
+        # A self-referential InputField points at the chart itself, which is
+        # exactly what renders as "chart-level lineage only".
+        # A schemaField URN WRAPS its parent: "urn:li:schemaField:(<parent>,col)".
+        # The obvious ``startswith(chart_urn)`` is therefore always False, which
+        # made self_ref_columns permanently 0 -- every chart counted as fully
+        # resolved and the no-lineage path could never fire. It read as a clean
+        # "19 of 19 charts have column lineage" on the dev tenant, which is the
+        # failure mode where a counter is right for the wrong reason.
+        self_ref_prefix = f"urn:li:schemaField:({chart_urn},"
+        self_ref_columns = sum(
+            1
+            for f in fields
+            if f.schemaFieldUrn and f.schemaFieldUrn.startswith(self_ref_prefix)
+        )
+        self.reporter.note_chart_column_lineage_outcome(
+            chart_urn=chart_urn,
+            chart_element_id=element.elementId,
+            workbook_id=workbook.workbookId,
+            workbook_name=workbook.name,
+            total_columns=len(fields),
+            self_ref_columns=self_ref_columns,
+            causes=causes,
+        )
+        if not fields:
+            logger.debug(
+                "chart element %s (%s in workbook %s %r) emitted NO columns at all; "
+                "columns_payload_present=%s element_columns=%d type=%r has_query=%s "
+                "declared_upstreams=%r",
+                element.elementId,
+                chart_urn,
+                workbook.workbookId,
+                workbook.name,
+                element.columns_payload_present,
+                len(element.columns),
+                element.type,
+                element.query is not None,
+                sorted({type(u).__name__ for u in element.upstream_sources.values()}),
+            )
+        if fields and self_ref_columns:
+            # Deliberately UNCAPPED and emitted for the partial case too. The
+            # sample lists above are LossyList (10 elements), so a specific
+            # chart named in a ticket has almost no chance of appearing in one
+            # -- on a tenant with ~942 no-formula columns the expected yield for
+            # any given chart rounds to zero. This line is the instrument that
+            # actually answers "why did THIS chart get no column lineage",
+            # because it can be grepped by element id. Restricting it to the
+            # all-missing case would have hidden every partially resolved chart,
+            # which is counted and otherwise invisible.
+            logger.debug(
+                "chart element %s (%s in workbook %s %r): %d of %d column(s) have "
+                "NO upstream; causes=%r columns_payload_present=%s "
+                "element_columns_with_formulas=%d/%d type=%r has_query=%s "
+                "declared_upstreams=%r",
+                element.elementId,
+                chart_urn,
+                workbook.workbookId,
+                workbook.name,
+                self_ref_columns,
+                len(fields),
+                causes,
+                element.columns_payload_present,
+                sum(1 for f in element.column_formulas.values() if f),
+                len(element.columns),
+                element.type,
+                element.query is not None,
+                sorted({type(u).__name__ for u in element.upstream_sources.values()}),
+            )
 
     def _gen_elements_workunit(
         self,
@@ -3723,6 +7886,31 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         Map Sigma page element to Datahub Chart
         """
+        # Workbook element ids are the other 10-char space a /schema ref head
+        # can belong to, and the dominant unresolved head on the customer
+        # tenant is 10 chars. Accumulated as workbooks are walked rather than
+        # pre-fetched, so coverage grows through the run: a match names the
+        # space, a miss on an early workbook does not rule it out. The space is
+        # reported under a name that says so.
+        self._known_id_spaces.setdefault(
+            "workbook_element_id_seen_so_far", set()
+        ).update(element.elementId for element in elements)
+        # Data Models any element of this workbook loads. The last-resort
+        # name lookup is confined to these rather than searching every model in
+        # the run: a formula in this workbook referring to a model the workbook
+        # never loads is a name coincidence, not a reference, and there is no
+        # confidenceScore on an InputField to hedge such a guess with.
+        workbook_dm_url_ids: FrozenSet[str] = frozenset(
+            upstream.data_model_url_id
+            for element in elements
+            for upstream in element.upstream_sources.values()
+            if isinstance(upstream, DataModelElementUpstream)
+            and upstream.data_model_url_id
+        )
+        # Retained for the /schema recovery pass below.
+        fields_by_chart_urn: Dict[str, List[InputFieldClass]] = {}
+        pending_chart_outcomes: List[_PendingChartOutcome] = []
+        chart_urn_by_element_id: Dict[str, str] = {}
         for element in elements:
             chart_urn = builder.make_chart_urn(
                 platform=self.platform,
@@ -3801,6 +7989,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 for upstream in element.upstream_sources.values()
                 if isinstance(upstream, SheetUpstream)
             }
+            # Widen with the element->element edges Sigma states in the workbook
+            # lineage graph. These were parsed and thrown away: the customSQL
+            # registry kept only sourceIds naming a customSQL node. On one
+            # tenant that discarded 7,808 stated chart-to-chart dependencies,
+            # while 6,715 chart refs were being refused for naming an element
+            # that "is not a lineage upstream" -- the connector was declining to
+            # use a fact it had already fetched.
+            # MEASURED ONLY. Sigma states these element->element edges and the
+            # connector discarded them, which looked like free lineage: 7,808
+            # dropped on one tenant while 6,715 refs were refused for naming an
+            # element that "is not a lineage upstream". Consuming them recovered
+            # exactly ZERO novel upstreams at full customer scale -- every one
+            # was already a SheetUpstream, as the dev tenant had predicted. The
+            # counter stays so the conclusion is re-checkable; the behaviour
+            # does not, because widening the resolution surface for no gain is
+            # pure risk.
+            self._stated_upstreams_for(element, chart_upstream_eids)
             # DataModelElementUpstream: map DM element workbook-page name -> Dataset URN.
             # Look up directly from the name maps without re-incrementing element_dm_edge
             # counters (those were already bumped inside _get_element_input_details).
@@ -3880,6 +8085,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             else:
                                 element.column_native_names[display_name] = native
 
+            self._current_workbook = workbook
+            # Counter deltas across this ONE element's build are the only way
+            # to attribute a chart-level outcome to a per-column cause without
+            # rewriting the column loop to return causes it does not currently
+            # track.
+            causes_before = self._chart_column_cause_tally()
+            workbook_formulas_incomplete = (
+                workbook.workbookId
+                in self.sigma_api.column_formulas_incomplete_workbooks
+            )
             element_input_fields = self._build_element_input_fields(
                 element=element,
                 chart_urn=chart_urn,
@@ -3888,7 +8103,27 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 wb_element_index=wb_element_index,
                 element_warehouse_table_index=merged_warehouse_table_index,
                 elementId_to_chart_urn=elementId_to_chart_urn,
+                workbook_dm_url_ids=workbook_dm_url_ids,
                 wb_only_warehouse_keys=wb_only_warehouse_keys,
+                formulas_incomplete=workbook_formulas_incomplete,
+                warehouse_urn_by_url_id=(
+                    wb_warehouse_table_index.by_url_id
+                    if wb_warehouse_table_index
+                    else {}
+                ),
+            )
+            causes_after = self._chart_column_cause_tally()
+            pending_chart_outcomes.append(
+                _PendingChartOutcome(
+                    element=element,
+                    chart_urn=chart_urn,
+                    causes={
+                        cause: causes_after[cause] - before
+                        for cause, before in causes_before.items()
+                        if causes_after[cause] != before
+                    },
+                    workbook_formulas_incomplete=workbook_formulas_incomplete,
+                )
             )
 
             # Stash formula-derived fields for customSQL charts so we can merge at
@@ -3903,12 +8138,50 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # by _build_workbook_chart_input_fields_mcp; the drain MCP supersedes this
             # one (later in the workunit stream).  The formula-derived fields stashed
             # above are merged into the drain MCP so nothing is silently dropped.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=InputFieldsClass(fields=element_input_fields),
-            ).as_workunit()
+            yield from self._chart_input_fields_workunits(
+                chart_urn, element_input_fields
+            )
 
             all_input_fields.extend(element_input_fields)
+            # InputFields is full-replace, so a corrected re-emit has to carry
+            # EVERY field for the chart, not just the ones that changed.
+            fields_by_chart_urn[chart_urn] = element_input_fields
+            chart_urn_by_element_id[element.elementId] = chart_urn
+
+        pending = self._pending_schema_probe
+        self._pending_schema_probe = []
+        # Fetched once and shared by the resolution and measurement passes.
+        # Unconditional now, where it used to be skipped unless something had
+        # failed: /schema states upstreams by ID and gets first refusal, so it
+        # has to see every column, not only the ones names could not resolve.
+        # One extra call per workbook against a run costing ~2 calls per
+        # ELEMENT, so a few percent.
+        schema = (
+            self.sigma_api.get_workbook_schema(workbook.workbookId)
+            if chart_urn_by_element_id
+            else None
+        )
+        yield from self._apply_schema_resolution(
+            workbook,
+            schema=schema,
+            fields_by_chart_urn=fields_by_chart_urn,
+            chart_urn_by_element_id=chart_urn_by_element_id,
+        )
+        # Now that _apply_schema_resolution has had its say, the fields are
+        # final and the per-chart outcome can be decided on what will actually
+        # be stored rather than on an intermediate state.
+        for outcome in pending_chart_outcomes:
+            self._note_chart_column_outcome(
+                element=outcome.element,
+                workbook=workbook,
+                chart_urn=outcome.chart_urn,
+                fields=fields_by_chart_urn.get(outcome.chart_urn) or [],
+                causes=outcome.causes,
+                workbook_formulas_incomplete=outcome.workbook_formulas_incomplete,
+            )
+
+        self._measure_schema_resolvable_refs(workbook, pending, schema=schema)
+        self._measure_workbook_sources(workbook, pending, workbook_dm_url_ids)
 
     def _gen_pages_workunit(
         self,
@@ -3922,7 +8195,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Both maps are built once at workbook scope — intra-workbook lineage can
         # cross pages, so all elements must be indexed before processing any page.
         # Keys mirror the chart-emission allow-list in get_page_elements
-        # (type in {"table","visualization"}); filtered types are absent from both.
+        # (SigmaAPI.ingested_element_types); filtered types are absent from both.
         elementId_to_chart_urn: Dict[str, str] = {
             element.elementId: builder.make_chart_urn(
                 platform=self.platform,
@@ -4383,6 +8656,50 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._gen_data_model_workunit(
                     data_model, elementId_maps_by_dm[data_model.dataModelId]
                 )
+            # Snapshot the id spaces this run has seen, for naming the head of
+            # a /schema ref that resolves to none of a workbook's own sheets or
+            # elements. Datasets and Data Models are both fully walked by now,
+            # and their id shapes match what those refs carry (a DM urlId is a
+            # 22-char slug, a DM element id is 10 chars), so the check is worth
+            # making before concluding an id is unidentifiable. Built once, and
+            # only from data already in memory.
+            self._known_id_spaces = {
+                "sigma_dataset_url_id": set(self.sigma_dataset_urn_by_url_id),
+                "data_model_id": set(elementId_maps_by_dm),
+                "data_model_url_id": {
+                    dm.urlId for dm in all_data_models if dm.urlId is not None
+                },
+                "data_model_element_id": {
+                    element_id
+                    for id_map in elementId_maps_by_dm.values()
+                    for element_id in id_map
+                },
+            }
+            # columnId -> the Data Model element that owns it. The head of an
+            # unresolvable ref is opaque, but its SECOND segment is a column
+            # id (never a display name, on every ref observed), and a column
+            # id is something this run has the full universe of. If path[1] is
+            # a known column, its owning element identifies what the head must
+            # be -- and whether the head EQUALS that owner is the test of
+            # whether heads are element ids at all.
+            self._dm_column_owner = {
+                column.columnId: element.elementId
+                for data_model in all_data_models
+                for element in data_model.elements
+                for column in element.columns
+            }
+            # /sources identifies a Data Model by dataModelId; per-element
+            # /lineage identifies it by urlId. Comparing what sources declares
+            # against what lineage already reached needs both.
+            self._dm_url_id_by_id = {
+                dm.dataModelId: dm.urlId
+                for dm in all_data_models
+                if dm.urlId is not None
+            }
+            # The inverse: a /schema dm_element head names the model by urlId.
+            self._dm_id_by_url_id = {
+                url_id: dm_id for dm_id, url_id in self._dm_url_id_by_id.items()
+            }
         for workbook in self.sigma_api.get_sigma_workbooks():
             yield from self._gen_workbook_workunit(workbook)
 
@@ -4404,4 +8721,811 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         yield from self._drain_sql_aggregators()
 
     def get_report(self) -> SourceReport:
+        self._check_chart_column_accounting()
+        self._recheck_unknown_heads()
         return self.reporter
+
+    @staticmethod
+    def _schema_name_refs(formula: Any) -> List[List[str]]:
+        """Every ``nameRef`` path in a /schema formula tree, however nested.
+
+        A reference can sit under a binOp, a callOp's args, or a path
+        projection, so this walks the whole tree rather than reading the top
+        level. Returning the raw paths keeps the caller free to classify them.
+        """
+        found: List[List[str]] = []
+        stack: List[Any] = [formula]
+        while stack:
+            node = stack.pop()
+            if isinstance(node, dict):
+                if node.get("type") == "nameRef" and isinstance(node.get("path"), list):
+                    found.append([str(p) for p in node["path"]])
+                stack.extend(node.values())
+            elif isinstance(node, list):
+                stack.extend(node)
+        return found
+
+    def _apply_schema_resolution(
+        self,
+        workbook: Workbook,
+        *,
+        schema: Optional[Dict[str, Any]],
+        fields_by_chart_urn: Dict[str, List[InputFieldClass]],
+        chart_urn_by_element_id: Dict[str, str],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Prefer the upstream /schema states by ID over the name-matched one.
+
+        ``/columns`` gives a formula as the string a user typed, so the original
+        resolver has to match a DISPLAY NAME -- and names repeat across
+        elements, which is why name matching was tried and deleted once already
+        as unattributable. ``/schema`` states the same dependency as ids, which
+        cannot collide. So the ID answer wins wherever it exists, and the
+        name-based one stays as the fallback for everything /schema is silent
+        about. It is NOT a superset: some columns have no nameRef at all.
+
+        Cross-validated on 609 real dev columns before being given precedence:
+        byte-identical URNs, zero disagreements. Every comparison is still
+        counted, because that was 609 columns on a 7-workbook tenant and this
+        now governs ~437,000 on the customer's -- a disagreement has to surface
+        in the run that causes it, not in a support ticket.
+
+        Re-emitted as a second InputFields aspect for the charts that changed,
+        the pattern the customSQL drain already uses. The aspect is
+        FULL-REPLACE, so the re-emit carries every field the chart had; a
+        partial one would delete the rest.
+        """
+        if schema is None:
+            return
+        sheets = schema.get("sheets") or {}
+        elements = schema.get("elements") or {}
+        if not sheets:
+            return
+
+        # (elementId, columnId) -> display name, and the inverse. THIS
+        # direction is a function; columnId -> owner is not, because /columns
+        # lists one columnId under every element that surfaces it. Resolving
+        # "the owner" disagreed with the name path 39% of the time.
+        column_name_by_element_column: Dict[Tuple[str, str], str] = {}
+        column_id_by_element_name: Dict[Tuple[str, str], str] = {}
+        for page in workbook.pages:
+            for element in page.elements:
+                for name, column_id in element.column_id_by_name.items():
+                    if column_id:
+                        column_name_by_element_column[
+                            (element.elementId, column_id)
+                        ] = name
+                        column_id_by_element_name[(element.elementId, name)] = column_id
+
+        column_formula: Dict[str, Any] = {}
+        for sheet in sheets.values():
+            for column_id, column in (sheet.get("columns") or {}).items():
+                column_formula.setdefault(column_id, column.get("formula"))
+
+        changed: Set[str] = set()
+        for element_id, chart_urn in chart_urn_by_element_id.items():
+            for index, field in enumerate(fields_by_chart_urn.get(chart_urn) or []):
+                outcome = self._schema_resolved_field(
+                    element_id=element_id,
+                    chart_urn=chart_urn,
+                    field=field,
+                    sheets=sheets,
+                    elements=elements,
+                    column_formula=column_formula,
+                    column_name_by_element_column=column_name_by_element_column,
+                    column_id_by_element_name=column_id_by_element_name,
+                    chart_urn_by_element_id=chart_urn_by_element_id,
+                )
+                if outcome is None:
+                    continue
+                fields_by_chart_urn[chart_urn][index] = outcome
+                changed.add(chart_urn)
+
+        for chart_urn in sorted(changed):
+            yield from self._chart_input_fields_workunits(
+                chart_urn, fields_by_chart_urn[chart_urn]
+            )
+
+    def _schema_resolved_field(
+        self,
+        *,
+        element_id: str,
+        chart_urn: str,
+        field: InputFieldClass,
+        sheets: Dict[str, Any],
+        elements: Dict[str, Any],
+        column_formula: Dict[str, Any],
+        column_name_by_element_column: Dict[Tuple[str, str], str],
+        column_id_by_element_name: Dict[Tuple[str, str], str],
+        chart_urn_by_element_id: Dict[str, str],
+    ) -> Optional[InputFieldClass]:
+        """The replacement for one field, or None to keep the name-based one.
+
+        Split out so the outer loop stays legible and the three comparison
+        outcomes -- agrees / recovered / disagrees -- are counted in one place.
+        """
+        column = field.schemaField.fieldPath if field.schemaField else None
+        if not column:
+            return None
+        column_id = column_id_by_element_name.get((element_id, column))
+        if column_id is None:
+            return None
+        paths = self._schema_name_refs(column_formula.get(column_id))
+        if not paths:
+            # /schema does not describe this column at all -- a constant, an
+            # aggregate, or a column the document simply omits. Distinct from
+            # "described, but no path resolved": conflating them would repeat
+            # the catch-all else-branch that once reported unrecognised shapes
+            # as "the column is local", the opposite of what they meant.
+            self.reporter.chart_ref_schema_column_not_described += 1
+            return None
+        resolved: Optional[Tuple[str, str]] = None
+        for path in paths:
+            resolved = self._resolve_schema_cross_sheet_ref(
+                path,
+                sheets=sheets,
+                elements=elements,
+                column_name_by_element_column=column_name_by_element_column,
+                elementId_to_chart_urn=chart_urn_by_element_id,
+            )
+            if resolved is not None:
+                break
+        if resolved is None:
+            # Described, but no path resolved, so the name-based answer stands.
+            # Sizes how much the fallback still carries.
+            self.reporter.chart_ref_schema_no_id_path += 1
+            return None
+        new_urn = builder.make_schema_field_urn(*resolved)
+        current = field.schemaFieldUrn
+        if current == new_urn:
+            self.reporter.chart_ref_schema_agrees_with_name_path += 1
+            return None
+        self_urn = builder.make_schema_field_urn(chart_urn, column)
+        if current == self_urn:
+            self.reporter.chart_input_fields_recovered_from_schema += 1
+        else:
+            # Both paths resolved and disagree. The ID answer wins, and the
+            # pair is sampled so the decision stays auditable.
+            self.reporter.chart_ref_schema_disagrees_with_name_path += 1
+            self.reporter.chart_ref_schema_disagreement_samples.append(
+                f"{element_id}.{column}: name_path={current} id_path={new_urn}"
+            )
+        logger.debug(
+            "chart element %s column %r: /schema resolved by id to %s, replacing %s",
+            element_id,
+            column,
+            new_urn,
+            "the name path's self-reference"
+            if current == self_urn
+            else f"the name path's {current}",
+        )
+        return InputFieldClass(schemaFieldUrn=new_urn, schemaField=field.schemaField)
+
+    def _measure_schema_resolvable_refs(
+        self,
+        workbook: Workbook,
+        unresolved: List["_UnresolvedChartColumn"],
+        *,
+        schema: Optional[Dict[str, Any]],
+    ) -> None:
+        """How many unresolved chart columns does /schema explain? Measure only.
+
+        Nothing here changes what is emitted. The question it answers is worth
+        one API call per workbook: the name-based resolver was removed because
+        an inferred edge is indistinguishable from a stated one, and this
+        endpoint states the same dependency by ID. Before building a resolver
+        on it, size the win on real data -- the last name-based path measured
+        1,106 edges and was deleted, and that number was only knowable after
+        the fact.
+
+        ``unresolved`` is (elementId, column name, columnId) for the columns
+        that fell back to a self-reference with refs that failed.
+        """
+        if not unresolved:
+            return
+        if schema is None:
+            self.reporter.chart_ref_schema_unavailable += len(unresolved)
+            return
+        sheets = schema.get("sheets") or {}
+        # /schema returns an element map of its own, keyed by the SAME 10-char
+        # ids as /workbooks/{id}/elements (verified 52/52 on a dev tenant). The
+        # sheet keys are a different id space, so consulting only "sheets" made
+        # every cross-element ref unresolvable. This is the sheet-to-element
+        # mapping whose absence previously blocked building a resolver here.
+        elements = schema.get("elements") or {}
+        # A column id is unique within a sheet, so index it across all of them.
+        column_formula: Dict[str, Any] = {}
+        column_sheet_type: Dict[str, str] = {}
+        # head -> the column ids that cite it. A head cited by many columns is a
+        # shared upstream object; one cited once could be anything.
+        head_users: Dict[str, Set[str]] = {}
+        for sheet in sheets.values():
+            sheet_type = str(sheet.get("type") or "")
+            for column_id, column in (sheet.get("columns") or {}).items():
+                column_formula.setdefault(column_id, column.get("formula"))
+                column_sheet_type.setdefault(column_id, sheet_type)
+                for path in self._schema_name_refs(column.get("formula")):
+                    if len(path) == 2:
+                        head_users.setdefault(path[0], set()).add(column_id)
+        # columnId -> the element of THIS workbook that owns it. The run
+        # already has this (``/workbooks/{id}/columns`` populates
+        # ``column_id_by_name`` per element); nothing was looking in it.
+        # _dm_column_owner holds Data Model columns ONLY, so a path[1] that is a
+        # workbook column id was reported as "unknown_column" without ever being
+        # looked up -- 7,663 of 8,370 unknown heads on the last customer run.
+        # Built per workbook rather than accumulated across the run, so it is
+        # complete at the moment it is consulted.
+        wb_column_owner: Dict[str, str] = {}
+        for page in workbook.pages:
+            for element in page.elements:
+                for column_id in element.column_id_by_name.values():
+                    if column_id:
+                        wb_column_owner.setdefault(column_id, element.elementId)
+
+        self._measure_sheet_element_fanout(sheets, elements)
+
+        for item in unresolved:
+            formula = column_formula.get(item.column_id)
+            if formula is None:
+                self.reporter.chart_ref_schema_column_absent += 1
+                self._record_schema_outcome(item, "column_absent", formula=None)
+                continue
+            refs = self._schema_name_refs(formula)
+            outcome, detail = self._classify_schema_refs(refs, sheets, elements)
+            counter = {
+                "cross_sheet": "chart_ref_schema_cross_sheet_resolvable",
+                "element": "chart_ref_schema_element_resolvable",
+                "warehouse": "chart_ref_schema_warehouse_resolvable",
+                "dm_element": "chart_ref_schema_dm_element",
+                "join_chain": "chart_ref_schema_join_chain",
+                "unknown_head": "chart_ref_schema_unknown_head",
+                "local_only": "chart_ref_schema_local_only",
+                "no_refs": "chart_ref_schema_no_refs",
+            }[outcome]
+            setattr(self.reporter, counter, getattr(self.reporter, counter) + 1)
+            if outcome == "dm_element":
+                self._describe_dm_element_head(detail, refs)
+            if outcome == "unknown_head":
+                # The head itself is the only thing that can identify the id
+                # space, and it is an opaque id, not a name.
+                self.reporter.chart_ref_schema_unknown_head_samples.append(detail)
+                self._describe_unknown_head(
+                    head=detail,
+                    refs=refs,
+                    column_id=item.column_id,
+                    sheet_type=column_sheet_type.get(item.column_id, ""),
+                    head_users=head_users,
+                    defined_in_doc=detail in sheets or detail in elements,
+                    wb_column_owner=wb_column_owner,
+                )
+            self._record_schema_outcome(item, outcome, formula=formula, detail=detail)
+
+    def _measure_workbook_sources(
+        self,
+        workbook: Workbook,
+        unresolved: List["_UnresolvedChartColumn"],
+        lineage_dm_url_ids: AbstractSet[str],
+    ) -> None:
+        """What would GET /workbooks/{id}/sources explain? Measure only.
+
+        Sigma states the Data Model elements and warehouse tables a workbook
+        consumes. The connector reconstructs that from per-element ``/lineage``
+        plus display-name matching, and the name matcher was deleted as
+        unattributable -- so a DECLARED dependency is worth sizing.
+
+        Three things are recorded, and the second and third matter most when
+        the hypothesis is WRONG. The type vocabulary, because it is
+        undocumented and a resolver must handle every form. The elements
+        sources declares that ``/lineage`` never mentioned, because if that is
+        near zero then sources adds nothing and the idea dies here. And the
+        unresolved columns whose referenced column belongs to a declared
+        element, because that -- not the size of the source list -- is what a
+        resolver would actually fix.
+        """
+        # Measured for EVERY workbook, not only ones with unresolved columns.
+        # The type vocabulary and the "declared but absent from /lineage"
+        # delta are properties of the tenant, and sampling them only where the
+        # connector already fails would understate both -- the question is what
+        # this endpoint adds overall, not what it adds where we happen to
+        # struggle. 273 workbooks against ~17,000 calls in a run, so under 2%.
+        entries = self.sigma_api.get_workbook_sources(workbook.workbookId)
+        if entries is None:
+            return
+        self.reporter.workbook_sources_workbooks_read += 1
+        declared_elements: Set[str] = set()
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            entry_type = str(entry.get("type") or "unknown")
+            self.reporter.workbook_sources_entry_types[entry_type] = (
+                self.reporter.workbook_sources_entry_types.get(entry_type, 0) + 1
+            )
+            data_model_id = entry.get("dataModelId")
+            if data_model_id:
+                self.reporter.workbook_sources_data_model_entries += 1
+                element_ids = entry.get("elementIds")
+                if isinstance(element_ids, list):
+                    declared_elements.update(str(e) for e in element_ids)
+                    self.reporter.workbook_sources_dm_elements_declared += len(
+                        element_ids
+                    )
+                    # A DM this workbook's own lineage never reached: the
+                    # whole case for this endpoint rests on this being > 0.
+                    url_id = self._dm_url_id_by_id.get(str(data_model_id))
+                    if url_id is not None and url_id not in lineage_dm_url_ids:
+                        self.reporter.workbook_sources_dm_elements_new_vs_lineage += (
+                            len(element_ids)
+                        )
+            elif entry.get("inodeId"):
+                self.reporter.workbook_sources_warehouse_entries += 1
+        for item in unresolved:
+            owner = self._dm_column_owner.get(item.column_id)
+            if owner is None:
+                outcome = "column_owner_unknown"
+                self.reporter.chart_ref_sources_column_owner_unknown += 1
+            elif owner in declared_elements:
+                outcome = "explains"
+                self.reporter.chart_ref_sources_explains += 1
+                for reason in item.reasons or {"none_recorded"}:
+                    self.reporter.chart_ref_sources_explains_by_reason[reason] = (
+                        self.reporter.chart_ref_sources_explains_by_reason.get(
+                            reason, 0
+                        )
+                        + 1
+                    )
+                self.reporter.chart_ref_sources_samples.append(
+                    f"{item.element_id}.{item.column}: columnId={item.column_id} "
+                    f"owner={owner} reasons={sorted(item.reasons)}"
+                )
+            else:
+                outcome = "owner_not_declared"
+                self.reporter.chart_ref_sources_owner_not_declared += 1
+            for reason in item.reasons or {"none_recorded"}:
+                key = f"{outcome}::{reason}"
+                self.reporter.chart_ref_sources_outcomes_by_reason[key] = (
+                    self.reporter.chart_ref_sources_outcomes_by_reason.get(key, 0) + 1
+                )
+
+    def _describe_dm_element_head(self, detail: str, refs: List[List[str]]) -> None:
+        """Can a ``<dmUrlId>/<elementId>`` head be resolved, and via which half?
+
+        This is the largest resolvable-looking outcome (4,163 columns on the
+        customer tenant) and the least understood, because its two halves
+        disagree between tenants: ``path[1]`` is a DISPLAY NAME in the customer
+        samples (``Account Type Name``) and an opaque COLUMN ID on our dev
+        tenant (``-huDtVJMTb``). A handler must try both, and writing one before
+        the mix is known is how the union reader ended up emitting 0 edges.
+
+        It also cannot be cross-validated on dev the way the cross-sheet rule
+        was: both dev heads name an element absent from that Data Model's
+        ``/elements``. So measure it where the volume is.
+        """
+        url_id, _, element_id = detail.partition("/")
+        dm_id = self._dm_id_by_url_id.get(url_id)
+        if dm_id is None:
+            self._bump_dm_element_shape("dm_url_id_unknown")
+            return
+        element_urn = builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=f"{dm_id}.{element_id}",
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+        columns = self.dm_element_urn_to_cols.get(element_urn)
+        if columns is None:
+            self._bump_dm_element_shape("dm_element_not_in_run")
+            return
+        second = next((p[1] for p in refs if len(p) == 2 and p[0] == detail), "")
+        if second in columns or second.lower() in columns:
+            self._bump_dm_element_shape("path1_is_a_column_name")
+        elif self._dm_column_owner.get(second) == element_id:
+            self._bump_dm_element_shape("path1_is_a_column_id_of_this_element")
+        elif second in self._dm_column_owner:
+            self._bump_dm_element_shape("path1_is_a_column_id_of_another_element")
+        else:
+            self._bump_dm_element_shape("path1_unrecognised")
+
+    def _bump_dm_element_shape(self, key: str) -> None:
+        self.reporter.chart_ref_schema_dm_element_shape[key] = (
+            self.reporter.chart_ref_schema_dm_element_shape.get(key, 0) + 1
+        )
+
+    @staticmethod
+    def _elements_by_sheet(elements: Dict[str, Any]) -> Dict[str, List[str]]:
+        """sheet id -> the element ids rendering it, from ``viz.sheetId``.
+
+        Shared by the fan-out measurement and the cross-sheet resolver so the
+        two cannot disagree about what "one element renders this sheet" means.
+        """
+        out: Dict[str, List[str]] = {}
+        for element_id, meta in elements.items():
+            if not isinstance(meta, dict):
+                continue
+            viz = meta.get("viz")
+            sheet_id = viz.get("sheetId") if isinstance(viz, dict) else None
+            if sheet_id:
+                out.setdefault(str(sheet_id), []).append(str(element_id))
+        return out
+
+    def _resolve_schema_cross_sheet_ref(
+        self,
+        path: List[str],
+        *,
+        sheets: Dict[str, Any],
+        elements: Dict[str, Any],
+        column_name_by_element_column: Dict[Tuple[str, str], str],
+        elementId_to_chart_urn: Dict[str, str],
+    ) -> Optional[Tuple[str, str]]:
+        """Resolve a ``[sheetId, columnId]`` /schema ref to (chart urn, field).
+
+        ``/columns`` gives a formula as the display name a user typed, so the
+        existing resolver has to match names; ``/schema`` states the same
+        dependency by ID, which cannot collide the way a name can.
+
+        Cross-validated against the name-based resolver on 609 real dev columns:
+        byte-identical URNs, zero disagreements. An earlier version resolved
+        ``path[1]`` to "the element that owns that columnId" and disagreed 39% of
+        the time -- ``/columns`` lists one columnId under EVERY element that
+        surfaces it (``inode-<urlId>/NATIVE`` under every reader of that
+        warehouse column, and opaque ids under several elements), so
+        columnId -> owner is not a function. ``(elementId, columnId) -> name``
+        is, which is why the head is resolved through the sheet instead.
+
+        Refuses rather than guesses whenever the chain is not exact, because a
+        wrong pick attaches correct lineage to the WRONG chart -- worse than
+        emitting nothing.
+        """
+        if len(path) != 2 or path[0] not in sheets:
+            return None
+        owners = self._elements_by_sheet(elements).get(path[0], [])
+        if len(owners) != 1:
+            # Several elements render this sheet, so there is no single correct
+            # target. Never observed on our dev tenant (1:1 on all 19 sheets);
+            # chart_ref_schema_sheet_element_fanout measures it per tenant.
+            self.reporter.chart_ref_schema_cross_sheet_sheet_ambiguous += 1
+            return None
+        upstream_element_id = owners[0]
+        field = column_name_by_element_column.get((upstream_element_id, path[1]))
+        if field is None:
+            self.reporter.chart_ref_schema_cross_sheet_column_unknown += 1
+            return None
+        upstream_urn = elementId_to_chart_urn.get(upstream_element_id)
+        if upstream_urn is None:
+            # The element exists but was filtered from chart emission.
+            self.reporter.chart_ref_schema_cross_sheet_no_chart_urn += 1
+            return None
+        return (upstream_urn, field)
+
+    def _measure_sheet_element_fanout(
+        self, sheets: Dict[str, Any], elements: Dict[str, Any]
+    ) -> None:
+        """How many elements render each sheet? Decides the cross_sheet design.
+
+        A /schema cross-sheet ref names the SHEET, but a lineage edge has to
+        point at a chart, which this connector emits per ELEMENT. If a sheet can
+        be rendered by several elements there is no single correct target and a
+        guess attaches real lineage to the wrong chart; if it is 1:1 the ref
+        resolves outright.
+
+        The mapping is already in the document at ``elements[<id>].viz.sheetId``
+        -- it was missed once by looking for ``sheetId`` at the top of the
+        element instead of under ``viz``, which reported 0 sheets and made the
+        ambiguity look unmeasurable. Measured here on real tenant data rather
+        than assumed: our dev tenant is 1:1 across all 19 sheets, which is too
+        small a sample to design on.
+        """
+        per_sheet: Dict[str, int] = {
+            sheet_id: len(eids)
+            for sheet_id, eids in self._elements_by_sheet(elements).items()
+        }
+        for sheet_id in sheets:
+            count = per_sheet.get(sheet_id, 0)
+            # Bucketed, not summed: "how many sheets are ambiguous" is the
+            # question, and a mean would hide a small number of bad ones.
+            key = "0" if count == 0 else "1" if count == 1 else "2+"
+            self.reporter.chart_ref_schema_sheet_element_fanout[key] = (
+                self.reporter.chart_ref_schema_sheet_element_fanout.get(key, 0) + 1
+            )
+
+    def _describe_unknown_head(
+        self,
+        *,
+        head: str,
+        refs: List[List[str]],
+        column_id: str,
+        sheet_type: str,
+        head_users: Dict[str, Set[str]],
+        defined_in_doc: bool,
+        wb_column_owner: Dict[str, str],
+    ) -> None:
+        """Record the readable properties of an id whose space we cannot name.
+
+        Counting unidentified refs says how many there are and nothing about
+        what they are, and the id is opaque so a sample does not help either.
+        These five properties can all be read off the response without knowing
+        the space, and together they separate the candidate explanations: a
+        pass-through of a source column points back at the column's own id, a
+        shared upstream object is cited by many columns, and a head the
+        document never defines came from outside it.
+        """
+        shared_by = len(head_users.get(head, ()))
+        self_ref = any(len(p) == 2 and p[0] == head and p[1] == column_id for p in refs)
+        # The decisive test, and the one a standalone probe cannot make: this
+        # run has already walked every dataset and Data Model, so if the head
+        # belongs to one of those spaces it can be named outright rather than
+        # described. "not_checked" and "none" are different answers and must
+        # not collapse -- the spaces are empty when ingest_data_models is off.
+        space = "none"
+        for name, ids in self._known_id_spaces.items():
+            if head in ids:
+                space = name
+                break
+        if space == "none" and "data_model_id" not in self._known_id_spaces:
+            # The Data Model pass is where most of the id universe comes from.
+            # Without it "none" would assert that the head is in no known
+            # space, when most spaces were never built. Those are different
+            # findings and pooling them would misreport the smaller one.
+            space = "none_dm_pass_skipped"
+        # What the SECOND segment is. Observed to be an id on every ref and
+        # never a display name, so if this run knows the column, the element
+        # owning it says what the head denotes -- independently of whether the
+        # head itself is in any space above. "owner_is_head" confirms heads are
+        # element ids; "owner_differs" says they are something else and names
+        # what the ref actually points at.
+        second = next((p[1] for p in refs if len(p) == 2 and p[0] == head), "")
+        dm_owner = self._dm_column_owner.get(second)
+        wb_owner = wb_column_owner.get(second)
+        if _is_warehouse_column_id(second) or (
+            second and second == second.upper() and not second.isdigit()
+        ):
+            # Decided by SHAPE, so it is checked before the map guards below:
+            # Sigma writes a warehouse column here as a bare native name
+            # (ORDER_NUMBER, SKU_NUMBER), and that is identifiable whether or
+            # not any column map was built. Filing those as "unknown_column"
+            # overstated how much is unidentifiable -- the column is perfectly
+            # well named, it is simply not a Sigma id.
+            p1 = "warehouse_native_name"
+        elif not self._dm_column_owner and not wb_column_owner:
+            # No map was built, so "unknown" would assert a lookup that never
+            # happened. Distinct answers must not pool.
+            p1 = "not_checked"
+        elif dm_owner == head or wb_owner == head:
+            p1 = "column_owner_is_head"
+        elif wb_owner is not None:
+            # The decisive new answer. path[1] is a column of THIS workbook, so
+            # the ref is resolvable without ever identifying the head: the
+            # owning element is the upstream. This is the population a resolver
+            # would recover.
+            p1 = "workbook_column_owner_differs"
+        elif dm_owner is not None:
+            p1 = "dm_column_owner_differs"
+        else:
+            p1 = "unknown_column"
+        self._unknown_head_ids[head] = self._unknown_head_ids.get(head, 0) + 1
+        self.reporter.chart_ref_schema_unknown_head_distinct = len(
+            self._unknown_head_ids
+        )
+        key = (
+            f"space={space} p1={p1} len={len(head)} "
+            f"sheet={sheet_type or 'unknown'} "
+            f"self_ref={self_ref} defined_in_doc={defined_in_doc} "
+            f"shared_by={'1' if shared_by <= 1 else '2-5' if shared_by <= 5 else '6+'}"
+        )
+        self.reporter.chart_ref_schema_unknown_head_kinds[key] = (
+            self.reporter.chart_ref_schema_unknown_head_kinds.get(key, 0) + 1
+        )
+
+    @staticmethod
+    def _classify_schema_refs(
+        refs: List[List[str]],
+        sheets: Dict[str, Any],
+        elements: Dict[str, Any],
+    ) -> Tuple[str, str]:
+        """Classify a column's nameRef paths into exactly one outcome.
+
+        Ordered most-resolvable first, so a column with several refs is filed
+        under the best one available. Every branch is named: the previous
+        version ended in an ``else`` that reported unrecognised shapes as
+        "sibling_only", which reads as "Sigma says this column is local" when
+        it actually meant "this reader did not recognise the path". Those are
+        opposite conclusions and the wrong one was being reported.
+        """
+        if not refs:
+            return "no_refs", ""
+        # Ranked best-first; a column with several refs is filed under its best.
+        # Length does NOT gate the inode test: Sigma also writes a warehouse
+        # column as a SINGLE segment, "inode-<urlId>/<NATIVE_COLUMN>", and
+        # keying on len==2 filed 23 of 83 one-segment refs on a dev tenant as
+        # local columns when they name a warehouse column outright.
+        ranked: List[Tuple[int, str, str]] = []
+        for path in refs:
+            head = path[0]
+            if len(path) == 2 and head in sheets:
+                ranked.append((0, "cross_sheet", str([path])))
+            elif len(path) == 2 and head in elements:
+                ranked.append((1, "element", str([path])))
+            elif head.startswith("inode-"):
+                ranked.append((2, "warehouse", str(path)))
+            elif len(path) == 2 and "/" in head:
+                ranked.append((3, "dm_element", str([path])))
+            elif len(path) >= 3:
+                ranked.append((4, "join_chain", str([path])))
+            elif len(path) == 1 and "/" not in head:
+                ranked.append((6, "local_only", ""))
+            else:
+                ranked.append((5, "unknown_head", head))
+        rank, outcome, detail = min(ranked, key=lambda r: r[0])
+        return outcome, detail
+
+    def _record_schema_outcome(
+        self,
+        item: "_UnresolvedChartColumn",
+        outcome: str,
+        *,
+        formula: Any,
+        detail: str = "",
+    ) -> None:
+        """File one /schema outcome under (outcome, original cause), with evidence.
+
+        Every outcome is bucketed and sampled, not just the successful one.
+        Sampling only the successes would answer "how many would this fix" and
+        nothing else -- and the likely result is that it fixes less than hoped,
+        at which point the useful question becomes what /schema actually holds
+        for those columns instead. Without the failing shapes on hand that costs
+        another full run to answer.
+        """
+        for reason in item.reasons or {"none_recorded"}:
+            key = f"{outcome}::{reason}"
+            self.reporter.chart_ref_schema_outcomes_by_reason[key] = (
+                self.reporter.chart_ref_schema_outcomes_by_reason.get(key, 0) + 1
+            )
+        if outcome == "cross_sheet":
+            self.reporter.chart_ref_schema_resolvable_by_reason.update(
+                {
+                    reason: self.reporter.chart_ref_schema_resolvable_by_reason.get(
+                        reason, 0
+                    )
+                    + 1
+                    for reason in item.reasons or {"none_recorded"}
+                }
+            )
+        # Sample EVERY outcome into its own budget. A single shared reservoir
+        # samples in proportion to each outcome's share, which guarantees that
+        # the rarest -- usually the most interesting -- gets nothing: join_chain
+        # was 1.6% of the population and drew 0 of 10 slots on a full run.
+        #
+        # The paths, not the whole tree: a formula can be large and the shape is
+        # what says why this column resolved the way it did.
+        paths = self._schema_name_refs(formula) if formula is not None else []
+        self.reporter.chart_ref_schema_samples_by_outcome.setdefault(
+            outcome, LossyList()
+        ).append(
+            f"{item.element_id}.{item.column}: columnId={item.column_id} "
+            f"reasons={sorted(item.reasons)} detail={detail!r} "
+            f"nameRef_paths={paths[:6]}"
+        )
+
+    def _recheck_unknown_heads(self) -> None:
+        """Re-test retained unknown heads once every id space is complete.
+
+        ``space=`` is decided the moment a head is met, and one of the spaces it
+        tests against -- ``workbook_element_id_seen_so_far`` -- is accumulated
+        AS WORKBOOKS ARE WALKED. So a head owned by a workbook processed later
+        is a guaranteed miss, and the report prints "none" as though it were
+        final. That reading put 8,370 columns in the unidentifiable bucket on
+        the last customer run; how many were merely early is unknown.
+
+        Costs nothing: every set is already in memory. Built fresh and assigned
+        once, because get_report() runs repeatedly during a run and a check that
+        reads back its own previous output reports nonsense on the second call.
+        """
+        if not self._unknown_head_ids:
+            return
+        by_space: Dict[str, int] = {}
+        columns_by_space: Dict[str, int] = {}
+        for head, occurrences in self._unknown_head_ids.items():
+            space = "still_unidentified"
+            for name, ids in self._known_id_spaces.items():
+                if head in ids:
+                    space = name
+                    break
+            by_space[space] = by_space.get(space, 0) + 1
+            columns_by_space[space] = columns_by_space.get(space, 0) + occurrences
+        self.reporter.chart_ref_schema_unknown_head_recheck_heads = by_space
+        self.reporter.chart_ref_schema_unknown_head_recheck_columns = columns_by_space
+
+    def _check_chart_column_accounting(self) -> None:
+        """Reconcile the chart-column counters against each other, in-run.
+
+        Every chart column ends in exactly one of five buckets, and the
+        fallback bucket then splits three ways. Both identities are supposed to
+        hold exactly, and both were derived by hand from two 100MB logs before
+        being written down here -- which is the wrong way round. If a future
+        change breaks one, the report should say so on the line where it
+        happens rather than wait for someone to do the arithmetic again.
+
+        Recorded, never raised: a bookkeeping discrepancy must not fail an
+        ingestion that is otherwise emitting correct metadata.
+        """
+        r = self.reporter
+        # Build fresh and assign once. get_report() is called repeatedly during
+        # a run -- the periodic report -- so reading the previous result back in
+        # made the check depend on its own output: the first call wrote
+        # reconciles=1, and every call after that saw a non-empty dict and
+        # reported a failure with no residual to justify it. Caught on a dev
+        # tenant that reconciles perfectly.
+        check: Dict[str, int] = {}
+        fallback_parts = (
+            r.chart_input_fields_formulas_not_fetched
+            + r.chart_input_fields_self_ref_no_formula
+            + r.chart_input_fields_self_ref_unresolved_refs
+        )
+        if fallback_parts != r.chart_input_fields_self_ref_fallback:
+            check["fallback_split_residual"] = (
+                r.chart_input_fields_self_ref_fallback - fallback_parts
+            )
+
+        # The two synthetic keys sub-divide the "unknown source" reason, so
+        # they are excluded to avoid counting those refs twice.
+        distinct_reasons = sum(
+            count
+            for reason, count in r.chart_ref_miss_reasons.items()
+            if reason
+            not in (
+                _CHART_REF_MISS_UNKNOWN_SOURCE_ABSENT,
+                _CHART_REF_MISS_UNKNOWN_SOURCE_ELSEWHERE,
+            )
+        )
+        # Reasons count REFS and the bucket counts COLUMNS, and a column may
+        # carry several refs -- so reasons should be >= columns. Fewer means
+        # some column recorded nothing at all.
+        if distinct_reasons < r.chart_input_fields_self_ref_unresolved_refs:
+            check["unattributed_columns"] = (
+                r.chart_input_fields_self_ref_unresolved_refs - distinct_reasons
+            )
+        # Every chart must land in exactly one chart-level bucket. Checked here
+        # rather than re-derived by hand, because the last two defects on this
+        # path both looked healthy until someone did the arithmetic across a
+        # 100MB log -- and one of them (a dead self-ref predicate) produced a
+        # perfect-looking "19 of 19 charts have column lineage".
+        # Tally per-URN outcomes before the identity below reads them.
+        r.finalize_chart_outcomes()
+
+        chart_buckets = (
+            r.charts_with_column_lineage
+            + r.charts_with_partial_column_lineage
+            + r.charts_with_no_column_lineage
+            + r.charts_with_no_columns
+        )
+        # Against DISTINCT charts, not classification passes: one chart URN is
+        # classified once per workbook that contains its element id, and only
+        # the winning pass is stored.
+        distinct_charts = len(r._chart_outcome_by_urn)
+        if chart_buckets != distinct_charts:
+            check["chart_bucket_residual"] = distinct_charts - chart_buckets
+
+        check["reconciles"] = 0 if check else 1
+        r.chart_column_accounting_check = check
+
+        # The DM side's own identity. Two clauses: every column lands in exactly
+        # one outcome, and every column that produced nothing named a reason.
+        dm_check: Dict[str, int] = {}
+        if (
+            r.dm_columns_with_lineage + r.dm_columns_without_lineage
+            != r.dm_columns_total
+        ):
+            dm_check["column_bucket_residual"] = r.dm_columns_total - (
+                r.dm_columns_with_lineage + r.dm_columns_without_lineage
+            )
+        if r.dm_columns_without_lineage_unattributed:
+            dm_check["unattributed_columns"] = r.dm_columns_without_lineage_unattributed
+        dm_check["reconciles"] = 0 if dm_check else 1
+        r.dm_column_accounting_check = dm_check
+
+        # Rebuilt from scratch on every call: get_report() runs repeatedly
+        # during a run, and a version that accumulated would multiply its own
+        # counts each time the periodic report fired.
+        r.edge_audit_verified = 0
+        r.edge_audit_field_absent_from_upstream = 0
+        r.edge_audit_upstream_schema_unknown = 0
+        r.edge_audit_absent_samples = LossyList()
+        self._audit_emitted_edges()

@@ -112,6 +112,30 @@ Sigma connection record omits `database`/`schema`, set `default_database` in
 | `chart_warehouse_table_node_skipped`   | Lineage node missing `name` field or has unexpected ID format; skipped                                            |
 | `chart_warehouse_table_name_ambiguous` | Table name matched multiple warehouse URNs; edge skipped — set `default_database` in `connection_to_platform_map` |
 
+#### Chart formula refs that reach through a join
+
+Sigma writes a column reached through a join as `[JoinElement/SourceElement/Column]`. Read
+at the first slash that names a column `SourceElement/Column`, which the upstream does not
+have, so the `InputField` produced pointed at a field that does not exist. The connector
+now tries every split of such a ref and accepts only one whose upstream actually has the
+column, including the case where the middle segment is a table joined in inside a Data
+Model (resolved among that model's own elements).
+
+> **Some `InputFields` that previously named an upstream now self-reference.** When no
+> split validates, the ref is dropped rather than emitted at the first slash, because the
+> old reading produced a dangling `schemaFieldUrn`. The column still appears in the chart's
+> column list, pointing at itself. `chart_join_chain_dangling_suppressed` counts these, and
+> `chart_input_fields_self_ref_unresolved_refs` rises by the same amount that
+> `chart_input_fields_resolved` falls.
+
+| Counter                                | Meaning                                                                 |
+| -------------------------------------- | ----------------------------------------------------------------------- |
+| `chart_join_chain_resolved`            | Multi-segment refs resolved and schema-validated                        |
+| `chart_join_chain_sibling_resolved`    | Subset resolved via a sibling element of the first segment's Data Model |
+| `chart_join_chain_unresolved`          | No split validated; the column self-references                          |
+| `chart_join_chain_dangling_suppressed` | Refs dropped rather than emitted as a dangling field                    |
+| `chart_join_chain_sibling_ambiguous`   | Two sibling elements share the middle segment's name; refused           |
+
 #### Workbook chart inputFields warehouse column-level qualification
 
 When `extract_lineage: true` (default), the connector qualifies chart column `InputFields` to
@@ -143,6 +167,30 @@ Snowflake is the only platform that requires a case bridge (Snowflake's catalog 
 `platform_instance=None` by default. For multi-environment or multi-instance setups, or for
 Redshift connections where the Sigma connection record omits `database`/`schema`, see
 [Connection record overrides](#connection-record-overrides-connection_to_platform_map) above.
+
+**Warehouse column names are confirmed against DataHub where possible.** Sigma reports a
+warehouse column by its display name (`Order Ref Id`), and where the `columnId` does not carry the
+native name the connector has to derive it (`ORDER_REF_ID`) — a convention, not a fact, and this
+connector holds no warehouse schema of its own to check it against. So when the DataHub graph is
+reachable it reads that table's `schemaMetadata` (once per table, cached for the run) and emits the
+field name the warehouse connector itself recorded, scoring it as high as a `columnId`-derived
+name. `warehouse_column_verified_against_graph` counts those.
+
+Where DataHub holds no schema for the table — no graph, or the warehouse connector has not ingested
+it yet — the derived name stands and is counted under `warehouse_column_unverifiable_no_schema`.
+That is a different risk, not the same one: the dataset is an un-ingested stub, so there is no
+schema for a wrong name to contradict, and the derived name is the only signal available. The case
+worth watching is `warehouse_column_absent_from_graph_schema` — DataHub **has** the schema and
+neither the display name nor the derived name matches any field in it, which is the one situation
+where the derived name is provably a dangling field reference. The edge is still emitted at the
+reduced confidence so the information is not lost, but a large value there means the convention
+does not hold on your warehouse.
+
+A read that **fails** — an expired token, GMS unreachable — is counted separately, under
+`warehouse_column_schema_unreadable`, and never as a missing table: the read got no answer, so it
+says nothing about what DataHub holds. If that counter is large, check the credential and GMS
+reachability rather than the warehouse connector; `warehouse_schema_lookup_failed` carries the
+underlying cause.
 
 **Counters to monitor** (visible in the ingestion report):
 
@@ -221,6 +269,162 @@ chart_sources_platform_mapping:
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+#### Column-level lineage coverage for Data Model elements
+
+Column-level lineage for Data Model elements is derived from the column formulas returned by
+Sigma's `/v2/dataModels/{id}/columns` endpoint. A column gets one upstream edge per source
+its formula names, so coverage follows the formula rather than the element's table-level
+upstreams.
+
+The practical consequence shows up on joins. A join's output column carries a formula
+naming only one side, so `/columns` alone can only ever produce an edge to that side. The
+predicate itself is exposed on `/v2/dataModels/{id}/spec`, which the connector now reads
+once per Data Model: where a predicate equates a column an edge already reaches with a
+column on the other side, the other side is emitted as an additional upstream. Because a
+predicate is an equality rather than a value copy, those edges carry a lower
+`confidenceScore` than formula-derived ones (0.7 for an inner join, 0.6 for an outer join,
+where the equality holds only on the rows the join matched), so consumers wanting only
+value-propagation lineage can filter them out.
+
+A predicate is applied only to elements that read **through** its join — the join element
+must be in the element's own upstream chain. Two elements can reference the same key column
+while only one of them flows through the join that constrains it, and expanding the other
+would assert an equality its data path never applies.
+`data_model_join_key_out_of_join_path` counts predicates skipped for this reason.
+
+> **Confidence filtering does not remove the table-level edge.** When a join partner is a
+> Data Model element the chart or dataset did not already depend on, that element is also
+> added to `upstreamLineage.upstreams`. `Upstream` has no `confidenceScore`, so a consumer
+> filtering the 0.6/0.7 column edges still keeps the table-level edge those column edges
+> introduced. Set `extract_data_model_spec_lineage: false` to suppress both.
+
+A join's two inputs may both live in **other** Data Models — a shared mapping element joined
+into a model that owns neither side. Sigma sends a `dataModelId` on each such side, which is
+what pins the element (element ids are not unique across models); a side that resolves to
+more than one candidate model is refused rather than guessed at, and counted under
+`data_model_join_key_foreign_ambiguous`.
+
+Unions have the same blind spot as joins and the same fix. A `union` element's output column
+carries a formula naming at most one branch, so every other branch is invisible from
+`/columns`. `/spec` states the branch pairing explicitly, and those edges score **1.0** — a
+union stacks rows, so the output column _is_ each branch's column rather than a value derived
+from one. `data_model_element_fgl_union_resolved` counts them; if
+`data_model_union_branch_index_out_of_range` is non-zero, Sigma changed the shape of the
+descriptor and the pairing should not be trusted.
+
+The `/spec` call needs the API token's data model read scope. Without it the call fails,
+one warning is reported for the run, `data_model_spec_fetch_failed` counts the affected
+models, and join keys are simply absent — everything else still ingests. If
+`data_model_join_elements_unreadable` is non-zero, Sigma's join descriptor did not match
+the shape the parser reads; run with `--debug` and look for `DM SPEC JOIN` lines, which log
+the descriptor's structure (key names and types only, never values).
+
+#### Failed API calls
+
+`api_call_failures_by_status` counts every Sigma API call that failed, keyed by HTTP status
+(or by exception class when there was no response). Each one also appears as a
+`Sigma API call failed` warning naming the resource. Read this first when lineage looks thin:
+a run with hundreds of 404s or 409s is missing input, not mis-resolving it. Failures that the
+calling code already reports in more detail — a pagination abort, for instance — are counted
+here but not warned about twice.
+
+`api_call_failures_by_sigma_code` counts the same failures by Sigma's own `code`, which is what
+you can act on — the HTTP status is too coarse. On one tenant a single `400: 9` turned out to be
+three unrelated problems needing three different fixes. The codes seen in practice, none of which
+a retry or a connector change can recover:
+
+| `code`                              | What it means                                                        | Who fixes it                             |
+| ----------------------------------- | -------------------------------------------------------------------- | ---------------------------------------- |
+| `inode_archived`                    | the object reads a warehouse table or dataset that has been archived | repoint or archive the workbook in Sigma |
+| `inode_not_exists`                  | the referenced object was deleted                                    | same                                     |
+| `unable_to_produce_query`           | Sigma cannot compile the object (e.g. "Missing source")              | repair the model in Sigma                |
+| `invalid_request`                   | the object is malformed, e.g. a dependency cycle                     | repair the model in Sigma                |
+| `warehouse_query_failed_user_error` | the model's own SQL fails against the warehouse                      | fix the SQL                              |
+
+Sigma cannot return columns for any of these, so the affected columns fall back to
+self-references and are counted under `chart_input_fields_formulas_not_fetched`. **A large value
+there is a content problem in Sigma, not a connector defect** — pair the two counters before
+raising a bug.
+
+#### Reading the chart InputFields counters
+
+Every chart column lands in exactly one bucket, and the fallback bucket is split by cause —
+these are not interchangeable:
+
+| Counter                                       | Meaning                                                                             |
+| --------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `chart_input_fields_resolved`                 | a formula ref resolved to an upstream column                                        |
+| `chart_input_fields_self_ref_unresolved_refs` | a formula existed and none of its refs resolved — see `chart_ref_miss_reasons`      |
+| `chart_input_fields_formulas_not_fetched`     | **our** `/columns` call for that workbook aborted, so no formula was ever retrieved |
+| `chart_input_fields_self_ref_no_formula`      | Sigma genuinely reported no formula for the column                                  |
+
+Sigma's per-element `/lineage` does not declare every element a formula reaches, so some refs
+name an element that is never offered as a candidate. **These are left unresolved on purpose.**
+Matching them by _name_ against the rest of the workbook was implemented and then removed: it
+recovered 1,106 of 440,069 chart links on one tenant, and since `InputFields` carry no
+`confidenceScore`, a wrongly-matched edge is indistinguishable from one Sigma actually declared,
+leaving nothing downstream able to audit or filter it. Warehouse column names are guessed
+elsewhere in this connector, but there the DataHub graph can check the guess against a real
+schema; here there is no such check available.
+
+`chart_ref_miss_reasons` breaks the unresolved bucket down by the resolution step that gave
+up. Two of its keys matter most when judging whether a gap is fixable:
+`unknown_source_but_name_exists_in_another_data_model` means the name exists in the run but
+was not among the upstreams offered for that chart — a scope problem, addressable here;
+`unknown_source_absent_from_entire_run` means the run never saw that element at all, because
+it was filtered, its `/lineage` returned an error, or it lives outside the ingested
+workspaces.
+
+#### Pivot tables and input tables
+
+`pivot-table` and `input-table` workbook elements are ingested as Charts alongside `table`
+and `visualization`. They hold real columns that other elements' formulas reference, so
+excluding them left those references permanently unresolvable.
+
+> **This emits chart entities that earlier versions did not.** On one tenant (2026-09) it added
+> roughly 1,200 charts. It also costs two extra API calls per newly-admitted element. Set
+> `ingest_pivot_and_input_tables: false` to keep the previous entity set.
+
+Similarly, `extract_data_model_spec_lineage` (default `true`) controls the one extra
+`/dataModels/{id}/spec` call per Data Model. It governs **both** lineages that document
+provides — join keys (0.7/0.6) and union branches (1.0) — so turning it off drops both, not
+just the join-key edges its name might suggest.
+
+A Data Model can reference a warehouse table that `/v2/files/{urlId}` cannot resolve for
+the ingestion credential. Those columns receive no warehouse column lineage and are counted
+under `dm_element_warehouse_url_id_unresolvable`; the API does not say whether the file was
+deleted or is simply outside what the token can see, so check the credential's access
+before assuming the reference is stale.
+
+Note that a table absent from `/v2/files?typeFilters=table` may still resolve through a
+direct `/v2/files/{urlId}` call — on one tenant (2026-09) the listing omitted 52 tables that the
+direct lookup returned in full. The connector uses the direct call for this reason.
+
+Two report counters mark data that never arrived, and should be read before treating a
+model's missing lineage as a resolution failure: `data_model_columns_fetch_partial` counts
+Data Models whose `/columns` pagination aborted (that endpoint is the only source of
+formulas and column ids), and `column_formulas_fetch_partial` counts workbooks whose
+`/columns` call aborted, leaving their chart columns with self-referential input fields.
+`pagination_aborted` gives the run-wide total.
+
+Columns no formula reference resolves for — a plain pass-through, which Sigma returns with
+an empty formula, a constant, or a formula using only parameters — still get column-level
+lineage to a warehouse table when their `columnId` identifies the warehouse column. Where
+it does not, the ingestion report separates the two outcomes:
+`data_model_element_fgl_no_ref_warehouse_unresolved` counts columns that named a warehouse
+column but could not be resolved to one, which is worth investigating, while
+`data_model_element_fgl_no_ref_unresolved` counts pass-throughs from another Data Model
+element or Sigma Dataset, which carry no warehouse identity to resolve and are expected.
+
+When a formula does name an upstream element but that element's column list came back
+empty, the edge is dropped under `data_model_element_fgl_upstream_schema_unavailable` (a
+sibling in the same Data Model) or
+`data_model_element_fgl_cross_dm_upstream_schema_unavailable` (an element in another Data
+Model), rather than under `data_model_element_fgl_dropped_unknown_upstream_column`, which
+means the column genuinely is not in the upstream's schema. A `Sigma paginated endpoint
+aborted` warning naming that Data Model confirms a failed fetch; its absence means the
+upstream element really has no columns.
 
 ### Troubleshooting
 

@@ -468,6 +468,22 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         },
     }
 
+    # Default /v2/dataModels mock (empty listing). ingest_data_models defaults
+    # to True, so every test lists Data Models whether or not it cares about
+    # them. Before entity-listing failures were escalated to report.failure(),
+    # a missing mock here surfaced only as a warning -- so these tests passed
+    # while silently exercising a FAILED listing. An empty listing makes them
+    # exercise "this tenant has no Data Models" instead, which is what they
+    # actually mean. Tests about Data Models override this with real entries.
+    api_vs_response.setdefault(
+        "https://aws-api.sigmacomputing.com/v2/dataModels",
+        {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+    )
+
     api_vs_response.update(override_data)
 
     for url in api_vs_response:
@@ -618,8 +634,10 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
                         "vizualizationType": "bar",
                     },
                     {
-                        # Filtered by get_page_elements (not in allowlist) — never
-                        # enters the elementId-to-chart_urn map.
+                        # In the allowlist since INGESTED_ELEMENT_TYPES gained
+                        # pivot-table: it holds real columns other elements'
+                        # formulas reference, so filtering it made those refs
+                        # permanently unresolvable.
                         "elementId": "pivotElem01",
                         "type": "pivot-table",
                         "name": "Pivot Table Element",
@@ -627,8 +645,16 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
                         "vizualizationType": "pivot",
                     },
                     {
-                        # References pivotElem01 as upstream — chart_urn lookup returns
-                        # None, so no inputEdges should be emitted for this element.
+                        # Still filtered by get_page_elements — never enters the
+                        # elementId-to-chart_urn map.
+                        "elementId": "controlElem01",
+                        "type": "control",
+                        "name": "Control Element",
+                        "columns": [],
+                    },
+                    {
+                        # References controlElem01 as upstream — chart_urn lookup
+                        # returns None, so no inputEdges are emitted here.
                         "elementId": "filteredUpstreamElem",
                         "type": "visualization",
                         "name": "Downstream Of Filtered Element",
@@ -647,7 +673,7 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
                         "vizualizationType": "bar",
                     },
                 ],
-                "total": 6,
+                "total": 7,
                 "nextPage": None,
             },
         },
@@ -782,9 +808,20 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
             "status_code": 404,
             "json": {},
         },
-        # filteredUpstreamElem: sheet upstream points to pivotElem01, which was
-        # filtered by get_page_elements and is absent from the chart map.
-        # The chart should be emitted with no inputEdges.
+        # pivotElem01 is now ingested, so its per-element calls must be mocked.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/pivotElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"dependencies": {}, "edges": []},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/pivotElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # filteredUpstreamElem: sheet upstream points to controlElem01, a type
+        # that is still filtered by get_page_elements and so absent from the
+        # chart map. The chart should be emitted with no inputEdges.
         "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/filteredUpstreamElem": {
             "method": "GET",
             "status_code": 200,
@@ -798,8 +835,8 @@ def test_sigma_ingest_intra_workbook_lineage(pytestconfig, tmp_path, requests_mo
                     },
                     "src_node_pivot": {
                         "nodeId": "src_node_pivot",
-                        "elementId": "pivotElem01",
-                        "name": "Pivot Table Element",
+                        "elementId": "controlElem01",
+                        "name": "Control Element",
                         "type": "sheet",
                     },
                 },
@@ -1308,6 +1345,76 @@ def test_sigma_ingest_data_models(pytestconfig, tmp_path, requests_mock):
         pytestconfig,
         output_path=output_path,
         golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@pytest.mark.integration
+def _get_join_chain_dm_overrides() -> Dict[str, Dict]:
+    """Rewrite element 3's formula as a join-chain ref.
+
+    Sigma encodes a column reached through a join as
+    ``[JoinElement/SourceElement/Column]``. The base fixture's element 3 uses the
+    plain ``[random data model/team1]`` form; here it references the same column
+    through element 2, whose name ("random data model" as well) also matches the
+    first segment -- reproducing the production trap where the first segment
+    resolves to a real but wrong sibling.
+    """
+    overrides = get_mock_data_model_api()
+    columns_url = (
+        "https://aws-api.sigmacomputing.com/v2/dataModels/"
+        "147a4d09-a686-4eea-b183-9b82aa0f7beb/columns"
+    )
+    entries = overrides[columns_url]["json"]["entries"]
+    for entry in entries:
+        if entry["columnId"] == "col-4pl-team1":
+            entry["formula"] = "[2313213123.test.231/random data model/team1]"
+    return overrides
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_join_chain_ref(pytestconfig, tmp_path, requests_mock):
+    """A join-chain ref resolves to the element that owns the column.
+
+    Regression test: the legacy first-slash split reads the source as the join
+    element and the column as "random data model/team1", which cannot exist, so
+    the edge was dropped as dropped_unknown_upstream_column.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_join_chain_dm_overrides()
+    _apply_dm_bridge_workbook_overrides(override_data)
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_join_chain_mces.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "ingest_data_models": True,
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": output_path}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_element_fgl_join_chain_resolved == 1, (
+        "expected the join-chain ref to resolve; got "
+        f"{report.data_model_element_fgl_join_chain_resolved}"
+    )
+    assert report.data_model_element_fgl_join_chain_unresolved == 0
+    assert report.data_model_element_fgl_dropped_unknown_upstream_column == 0
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_dm_join_chain_ref.json",
     )
 
 
@@ -4881,8 +4988,14 @@ def test_sigma_ingest_data_models_elements_http_error(
     pytestconfig, tmp_path, requests_mock
 ):
     """Partial-failure regression: ``/dataModels/{id}/elements`` returning 500
-    leaves the rest of the run healthy. The DM Container should still be
-    emitted with zero elements, and the pipeline must not raise.
+    degrades gracefully -- the DM Container is still emitted, with zero
+    elements, and the run completes.
+
+    It DOES report a failure, and must: the elements that call would have
+    returned are entities, so losing them has to suppress stale-entity removal
+    rather than let the next run soft-delete objects that still exist. This
+    test previously asserted the opposite (``raise_from_status()`` clean),
+    which was only true while the connector had no failure sites at all.
     """
 
     override_data = get_mock_data_model_api()
@@ -4895,8 +5008,13 @@ def test_sigma_ingest_data_models_elements_http_error(
     output_path = f"{tmp_path}/sigma_dm_elements_5xx_mces.json"
     pipeline = Pipeline.create(_minimal_sigma_pipeline_config(output_path))
     pipeline.run()
-    # Must not raise — _paginated_entries swallows and returns [].
-    pipeline.raise_from_status()
+    # The run completes -- _paginated_entries swallows and returns [] -- but the
+    # lost listing is reported as a failure so stale removal is suppressed.
+    failures = pipeline.source.get_report().failures
+    assert any("entity listing failed" in str(f).lower() for f in failures), (
+        f"a 5xx on an entity listing must be reported as a failure so "
+        f"stale-entity removal is suppressed; got {list(failures)}"
+    )
 
     with open(output_path) as f:
         mces = json.load(f)
@@ -7550,6 +7668,111 @@ def test_sigma_ingest_data_models_dm_element_warehouse_fgl(
         pytestconfig,
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_dm_element_warehouse_fgl.json",
+    )
+
+
+def _get_warehouse_dm_no_formula_overrides() -> Dict[str, Dict]:
+    """Same warehouse DM fixture, but with pass-through columns carrying no formula.
+
+    Sigma returns ``formula: ""`` (or omits it) for a plain pass-through column.
+    The warehouse column identity lives in ``columnId``
+    (``inode-<url_id>/<WAREHOUSE_COL>``), which needs no formula to resolve, so
+    these columns must still produce column-level lineage.
+    """
+    overrides = _get_warehouse_dm_overrides()
+    overrides[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/columns"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "columnId": f"inode-{_WH_URL_ID}/CUSTOMER_ID",
+                    "name": "Customer Id",
+                    "elementId": _WH_ELEMENT_ID,
+                    "label": "Customer Id",
+                    "formula": "",
+                    "type": {"type": "text"},
+                },
+                {
+                    "columnId": f"inode-{_WH_URL_ID}/EMAIL",
+                    "name": "Email",
+                    "elementId": _WH_ELEMENT_ID,
+                    "label": "Email",
+                    "type": {"type": "text"},
+                },
+            ],
+            "total": 2,
+            "nextPage": None,
+        },
+    }
+    return overrides
+
+
+@pytest.mark.integration
+def test_sigma_ingest_dm_element_warehouse_fgl_without_formula(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Pass-through columns with no formula still emit warehouse FineGrainedLineage.
+
+    Regression test for column-level lineage being dropped whenever Sigma returned
+    an empty (or absent) formula, even though the element already had table-level
+    lineage to the warehouse table and ``columnId`` identified the column.
+
+    Assertions:
+      - 2 FineGrainedLineage entries on the DM-element child Dataset
+      - warehouse_resolved == 2; neither no_ref_* counter fires
+      - warehouse_passthrough_deferred stays 0 (it remains a formula-bearing signal)
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_warehouse_dm_no_formula_overrides()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_element_warehouse_fgl_no_formula_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_element_fgl_warehouse_resolved == 2, (
+        f"expected 2 warehouse FGL resolved; got {report.data_model_element_fgl_warehouse_resolved}"
+    )
+    assert report.data_model_element_fgl_no_ref_warehouse_unresolved == 0
+    assert report.data_model_element_fgl_no_ref_unresolved == 0
+    assert report.data_model_element_fgl_warehouse_passthrough_deferred == 0
+
+    expected_warehouse_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "warehouse_coffee_company.public.customers,PROD)"
+    )
+    element_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,{_WH_DM_ID}.{_WH_ELEMENT_ID},PROD)"
+    )
+    with open(output_path) as f:
+        mces = json.load(f)
+    ul_aspects = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == element_urn
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(ul_aspects) == 1
+    fgls = ul_aspects[0]["aspect"]["json"].get("fineGrainedLineages", [])
+    assert len(fgls) == 2, f"expected 2 FGL entries; got {len(fgls)}: {fgls}"
+    for fgl in fgls:
+        for upstream in fgl.get("upstreams", []):
+            assert upstream.startswith(
+                f"urn:li:schemaField:({expected_warehouse_urn},"
+            ), f"unexpected upstream: {upstream}"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_dm_element_warehouse_fgl_no_formula.json",
     )
 
 
