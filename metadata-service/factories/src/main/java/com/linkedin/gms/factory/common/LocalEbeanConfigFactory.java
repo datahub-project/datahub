@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.common;
 
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.config.DatabaseConfig;
 import io.ebean.datasource.DataSourceConfig;
@@ -11,9 +12,12 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Import;
 
 @Slf4j
 @Configuration
+@Import(AwsClientFactory.class)
 public class LocalEbeanConfigFactory {
 
   @Value("${ebean.username}")
@@ -100,6 +104,7 @@ public class LocalEbeanConfigFactory {
   }
 
   @Bean("ebeanDataSourceConfig")
+  @DependsOn("defaultAwsCredentialsProvider")
   public DataSourceConfig buildDataSourceConfig(MetricUtils metricUtils) {
     return buildDataSourceConfig(ebeanDatasourceUrl, metricUtils);
   }

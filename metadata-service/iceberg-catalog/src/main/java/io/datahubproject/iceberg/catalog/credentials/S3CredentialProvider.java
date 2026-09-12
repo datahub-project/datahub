@@ -3,9 +3,17 @@ package io.datahubproject.iceberg.catalog.credentials;
 import static com.linkedin.metadata.authorization.PoliciesConfig.*;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
 import lombok.EqualsAndHashCode;
 import org.apache.iceberg.exceptions.BadRequestException;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -19,8 +27,21 @@ import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
 
-public class S3CredentialProvider implements CredentialProvider {
+public class S3CredentialProvider implements CredentialProvider, AutoCloseable {
   private static final int DEFAULT_CREDS_DURATION_SECS = 60 * 60;
+
+  @Nullable private final StsClient injectedStsClient;
+  private final ConcurrentHashMap<String, StsClient> ownedClients = new ConcurrentHashMap<>();
+  private final Object lifecycle = new Object();
+  private volatile boolean closed;
+
+  public S3CredentialProvider() {
+    this(null);
+  }
+
+  public S3CredentialProvider(@Nullable StsClient stsClient) {
+    this.injectedStsClient = stsClient;
+  }
 
   public Map<String, String> getCredentials(
       CredentialsCacheKey key, StorageProviderCredentials storageProviderCredentials) {
@@ -29,37 +50,98 @@ public class S3CredentialProvider implements CredentialProvider {
         storageProviderCredentials.tempCredentialExpirationSeconds == null
             ? DEFAULT_CREDS_DURATION_SECS
             : storageProviderCredentials.tempCredentialExpirationSeconds;
-    try (StsClient stsClient = stsClient(storageProviderCredentials)) {
-      String sessionPolicy = policyString(key);
-      AssumeRoleResponse response =
-          stsClient.assumeRole(
-              AssumeRoleRequest.builder()
-                  .roleArn(storageProviderCredentials.role)
-                  .roleSessionName("DataHubIcebergSession")
-                  .durationSeconds(expiration)
-                  .policy(sessionPolicy)
-                  .build());
+    String sessionPolicy = policyString(key);
+    AssumeRoleResponse response =
+        stsClient(storageProviderCredentials)
+            .assumeRole(
+                AssumeRoleRequest.builder()
+                    .roleArn(storageProviderCredentials.role)
+                    .roleSessionName("DataHubIcebergSession")
+                    .durationSeconds(expiration)
+                    .policy(sessionPolicy)
+                    .build());
 
-      return Map.of(
-          "client.region",
-          storageProviderCredentials.region,
-          "s3.access-key-id",
-          response.credentials().accessKeyId(),
-          "s3.secret-access-key",
-          response.credentials().secretAccessKey(),
-          "s3.session-token",
-          response.credentials().sessionToken());
-    }
+    return Map.of(
+        "client.region",
+        storageProviderCredentials.region,
+        "s3.access-key-id",
+        response.credentials().accessKeyId(),
+        "s3.secret-access-key",
+        response.credentials().secretAccessKey(),
+        "s3.session-token",
+        response.credentials().sessionToken());
   }
 
   private StsClient stsClient(StorageProviderCredentials storageProviderCredentials) {
+    synchronized (lifecycle) {
+      if (closed) {
+        throw new IllegalStateException("S3CredentialProvider is closed");
+      }
+      if (hasStaticKeys(storageProviderCredentials)) {
+        String cacheKey = warehouseClientCacheKey(storageProviderCredentials);
+        StsClient client =
+            ownedClients.computeIfAbsent(
+                cacheKey, ignored -> buildWarehouseStsClient(storageProviderCredentials));
+        evictSupersededWarehouseClients(storageProviderCredentials, cacheKey);
+        return client;
+      }
+      if (injectedStsClient != null) {
+        return injectedStsClient;
+      }
+      throw new IllegalStateException(
+          "Iceberg S3 credential vending requires warehouse client keys or a shared StsClient");
+    }
+  }
+
+  private void evictSupersededWarehouseClients(
+      StorageProviderCredentials storageProviderCredentials, String keepKey) {
+    String prefix =
+        storageProviderCredentials.region + "|" + storageProviderCredentials.clientId + "|";
+    List<String> superseded = new ArrayList<>();
+    for (String key : ownedClients.keySet()) {
+      if (key.startsWith(prefix) && !key.equals(keepKey)) {
+        superseded.add(key);
+      }
+    }
+    for (String key : superseded) {
+      StsClient old = ownedClients.remove(key);
+      closeQuietly(old);
+    }
+  }
+
+  private static boolean hasStaticKeys(StorageProviderCredentials storageProviderCredentials) {
+    return storageProviderCredentials.clientId != null
+        && !storageProviderCredentials.clientId.isEmpty()
+        && storageProviderCredentials.clientSecret != null
+        && !storageProviderCredentials.clientSecret.isEmpty();
+  }
+
+  private static String warehouseClientCacheKey(
+      StorageProviderCredentials storageProviderCredentials) {
+    return storageProviderCredentials.region
+        + "|"
+        + storageProviderCredentials.clientId
+        + "|"
+        + sha256Hex(storageProviderCredentials.clientSecret);
+  }
+
+  private static String sha256Hex(String secret) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      return HexFormat.of().formatHex(digest.digest(secret.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 is required to key warehouse STS clients", e);
+    }
+  }
+
+  private static StsClient buildWarehouseStsClient(
+      StorageProviderCredentials storageProviderCredentials) {
     AwsBasicCredentials credentials =
         AwsBasicCredentials.create(
             storageProviderCredentials.clientId, storageProviderCredentials.clientSecret);
     return StsClient.builder()
         .region(Region.of(storageProviderCredentials.region))
         .credentialsProvider(StaticCredentialsProvider.create(credentials))
-        .region(Region.of(storageProviderCredentials.region))
         .build();
   }
 
@@ -114,6 +196,28 @@ public class S3CredentialProvider implements CredentialProvider {
               .build());
     }
     return sessionPolicyBuilder.build().toJson();
+  }
+
+  @Override
+  public void close() {
+    synchronized (lifecycle) {
+      closed = true;
+      for (StsClient client : ownedClients.values()) {
+        closeQuietly(client);
+      }
+      ownedClients.clear();
+    }
+  }
+
+  private static void closeQuietly(@Nullable StsClient client) {
+    if (client == null) {
+      return;
+    }
+    try {
+      client.close();
+    } catch (Exception ignored) {
+      // Best-effort shutdown of warehouse-scoped STS clients.
+    }
   }
 
   @EqualsAndHashCode
