@@ -471,18 +471,11 @@ public class OpenLineageToDataHub {
     log.debug("Emitting lineage: {}", OpenLineageClientUtils.toJson(event));
     DataFlowInfo dfi = convertRunEventToDataFlowInfo(event, datahubConf.getPipelineName());
 
-    String processingEngine = null;
-
-    if (event.getRun().getFacets() != null
-        && event.getRun().getFacets().getProcessing_engine() != null) {
-      processingEngine = event.getRun().getFacets().getProcessing_engine().getName();
-    }
-
     DataFlowUrn dataFlowUrn =
         getFlowUrn(
             event.getJob().getNamespace(),
             event.getJob().getName(),
-            processingEngine,
+            runProcessingEngine(event),
             event.getProducer(),
             datahubConf);
     jobBuilder.flowUrn(dataFlowUrn);
@@ -1082,17 +1075,11 @@ public class OpenLineageToDataHub {
     // Set the display name
     dji.setName(jobNames.displayName);
 
-    String jobProcessingEngine = null;
-    if ((event.getRun().getFacets() != null)
-        && (event.getRun().getFacets().getProcessing_engine() != null)) {
-      jobProcessingEngine = event.getRun().getFacets().getProcessing_engine().getName();
-    }
-
     DataFlowUrn flowUrn =
         getFlowUrn(
             event.getJob().getNamespace(),
             job.getName(), // Use original job name for flow URN
-            jobProcessingEngine,
+            runProcessingEngine(event),
             event.getProducer(),
             datahubConf);
 
@@ -2359,6 +2346,25 @@ public class OpenLineageToDataHub {
    * the producer-URI heuristics, and a JobEvent and a RunEvent describing the same job land under
    * different DataFlow URNs; a producer the heuristics do not recognise is rejected outright.
    */
+  /**
+   * Names the orchestrator for a RunEvent: the {@code processing_engine} run facet when the
+   * producer sends one, and otherwise {@code jobType.integration}, which dbt, Flink and other
+   * producers send instead. Without the fallback those producers reach getOrchestrator with nothing
+   * but a producer URI it does not recognise, and the whole event is rejected.
+   *
+   * <p>Both places that build a DataFlow URN for a run go through this, because they have to agree:
+   * if they disagreed, a job's DataJobInfo would point at a different DataFlow than the job itself.
+   */
+  private static String runProcessingEngine(OpenLineage.RunEvent event) {
+    if (event.getRun() != null
+        && event.getRun().getFacets() != null
+        && event.getRun().getFacets().getProcessing_engine() != null
+        && event.getRun().getFacets().getProcessing_engine().getName() != null) {
+      return event.getRun().getFacets().getProcessing_engine().getName();
+    }
+    return jobIntegration(event.getJob());
+  }
+
   private static String jobIntegration(OpenLineage.Job job) {
     if (job == null || job.getFacets() == null || job.getFacets().getJobType() == null) {
       return null;
