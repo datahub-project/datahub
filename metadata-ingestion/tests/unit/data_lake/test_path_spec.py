@@ -274,6 +274,7 @@ def test_allowed_with_compressed_file_extension_filter(compression: str) -> None
     assert path_spec.allowed(f"s3://bucket/table/file.csv.{compression}")
     assert path_spec.allowed(f"s3://bucket/table/file.jsonl.{compression}")
     assert not path_spec.allowed(f"s3://bucket/table/file.htm.{compression}")
+    assert not path_spec.allowed(f"s3://bucket/table/archive.{compression}")
 
     compression_disabled_path_spec = PathSpec(
         include="s3://bucket/{table}/*",
