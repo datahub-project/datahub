@@ -12,6 +12,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionResultClass,
+    AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
@@ -42,6 +43,20 @@ COMPLETENESS_ASSERTION_DESCRIPTION = "Null count for column {column} is {thresho
 
 # Lakeflow Declarative Pipelines (formerly Delta Live Tables) expectations.
 EXPECTATION_ASSERTION_TYPE = "Databricks Pipeline Expectation"
+
+# Assertion name shown in the list (same rationale as COMPLETENESS_ASSERTION_DESCRIPTION):
+# carries the expectation name so each pipeline expectation is distinguishable.
+EXPECTATION_ASSERTION_DESCRIPTION = "Rows meet expectation {expectation}"
+
+# A DLT expectation's action determines how bad a violation is: `expect_or_fail`
+# aborts the update and `expect_or_drop` discards the offending rows (both hard
+# failures), while a plain `expect` keeps the rows and only warns. Severity is only
+# meaningful on a FAILURE result.
+EXPECTATION_ACTION_SEVERITY = {
+    "FAIL": AssertionResultSeverityClass.HIGH,
+    "DROP": AssertionResultSeverityClass.HIGH,
+    "ALLOW": AssertionResultSeverityClass.LOW,
+}
 
 DATABRICKS_PLATFORM = "databricks"
 
@@ -146,6 +161,8 @@ class PipelineExpectationAssertion(BaseModel):
     pipeline_id: str
     failed_records: int
     passed_records: Optional[int]
+    # DLT expectation action (ALLOW / DROP / FAIL); drives failure severity.
+    action: Optional[str] = None
     timestamp_millis: int
     run_id: str
     native_results: Dict[str, str] = {}
@@ -153,6 +170,13 @@ class PipelineExpectationAssertion(BaseModel):
     @property
     def passed(self) -> bool:
         return self.failed_records == 0
+
+    @property
+    def failure_severity(self) -> Optional[str]:
+        # Only meaningful on a FAILURE result; None when the action is unknown.
+        if self.passed or not self.action:
+            return None
+        return EXPECTATION_ACTION_SEVERITY.get(self.action.upper())
 
     @property
     def logic(self) -> str:
@@ -180,18 +204,24 @@ def build_expectation_info_mcp(
     dataset_urn: str,
 ) -> MetadataChangeProposalWrapper:
     # Structured custom assertion (matching the dbt connector's row-level native
-    # test): the scope/operator/aggregation/nativeType drive DataHub's rendering
-    # ("Dataset rows are passing assertion <expectation>"), rather than a
-    # hand-written description that omits the expectation name.
+    # test). The scope/operator/aggregation/nativeType are populated for
+    # future-proofing, but the assertions list renders a custom assertion's name
+    # from `description` and never fetches those structured fields — so we set an
+    # explicit `description` carrying the expectation name. The DLT action is
+    # surfaced as a custom property.
+    custom_properties = {
+        "expectation": result.name,
+        "pipeline_id": result.pipeline_id,
+    }
+    if result.action:
+        custom_properties["action"] = result.action
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
-        customProperties={
-            "expectation": result.name,
-            "pipeline_id": result.pipeline_id,
-        },
+        description=EXPECTATION_ASSERTION_DESCRIPTION.format(expectation=result.name),
+        customProperties=custom_properties,
         source=make_assertion_source(),
         customAssertion=CustomAssertionInfoClass(
-            type=DATABRICKS_ASSERTION_PROVIDER,
+            type=EXPECTATION_ASSERTION_TYPE,
             entity=dataset_urn,
             scope=DatasetAssertionScopeClass.DATASET_ROWS,
             aggregation=AssertionStdAggregationClass._NATIVE_,
@@ -220,6 +250,7 @@ def build_expectation_run_event_mcp(
                 if result.passed
                 else AssertionResultTypeClass.FAILURE
             ),
+            severity=result.failure_severity,
             actualAggValue=float(result.failed_records),
             nativeResults=result.native_results or None,
         ),

@@ -388,11 +388,12 @@
         "json": {
             "customProperties": {
                 "expectation": "valid_id",
-                "pipeline_id": "pipeline-1"
+                "pipeline_id": "pipeline-1",
+                "action": "ALLOW"
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Databricks",
+                "type": "Databricks Pipeline Expectation",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
                 "scope": "DATASET_ROWS",
                 "aggregation": "_NATIVE_",
@@ -406,7 +407,8 @@
                     "time": 1638860400000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "Rows meet expectation valid_id"
         }
     },
     "systemMetadata": {
@@ -458,11 +460,12 @@
         "json": {
             "customProperties": {
                 "expectation": "non_null_amount",
-                "pipeline_id": "pipeline-1"
+                "pipeline_id": "pipeline-1",
+                "action": "FAIL"
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Databricks",
+                "type": "Databricks Pipeline Expectation",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
                 "scope": "DATASET_ROWS",
                 "aggregation": "_NATIVE_",
@@ -476,7 +479,8 @@
                     "time": 1638860400000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "Rows meet expectation non_null_amount"
         }
     },
     "systemMetadata": {
@@ -499,6 +503,7 @@
             "status": "COMPLETE",
             "result": {
                 "type": "FAILURE",
+                "severity": "HIGH",
                 "actualAggValue": 2.0,
                 "nativeResults": {
                     "passed_records": "8",

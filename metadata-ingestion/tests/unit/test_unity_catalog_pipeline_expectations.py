@@ -2,10 +2,13 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Dict, List, Optional, Set, cast
 
+import pytest
+
 from datahub.emitter.mce_builder import make_dataset_urn, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.assertion import (
+    EXPECTATION_ASSERTION_TYPE,
     make_expectation_assertion_urn,
 )
 from datahub.ingestion.source.unity.config import (
@@ -18,6 +21,7 @@ from datahub.ingestion.source.unity.proxy_types import TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
     DatasetAssertionScopeClass,
@@ -34,13 +38,14 @@ def _dataset_urn(ref: TableReference) -> str:
 
 
 def _expectation(
-    name: str, dataset: str, passed: int, failed: int
+    name: str, dataset: str, passed: int, failed: int, action: str = "ALLOW"
 ) -> Dict[str, object]:
     return {
         "name": name,
         "dataset": dataset,
         "passed_records": passed,
         "failed_records": failed,
+        "action": action,
     }
 
 
@@ -188,6 +193,48 @@ def test_info_mcp_is_dataset_row_scope_and_resolves_dataset_urn() -> None:
         TableReference(metastore=None, catalog=CATALOG, schema=SCHEMA, table="orders")
     )
     assert info.customAssertion.entity == expected_urn
+
+
+def _info(workunits: List[MetadataWorkUnit]) -> AssertionInfoClass:
+    info = next(
+        wu.metadata.aspect
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, AssertionInfoClass)
+    )
+    assert isinstance(info, AssertionInfoClass)
+    return info
+
+
+def test_expectation_name_and_action_surface_in_assertion() -> None:
+    events = [_event("u1", [_expectation("valid_id", "orders", 100, 5, action="DROP")])]
+    info = _info(list(_extractor(_FakeProxy(events=events)).get_workunits()))
+    # The list renders the name from `description`, so it must carry the expectation.
+    assert info.description is not None and "valid_id" in info.description
+    assert info.customAssertion is not None
+    assert info.customAssertion.type == EXPECTATION_ASSERTION_TYPE
+    assert info.customProperties.get("action") == "DROP"
+
+
+@pytest.mark.parametrize(
+    "action,failed,expected_severity",
+    [
+        ("FAIL", 5, AssertionResultSeverityClass.HIGH),
+        ("DROP", 5, AssertionResultSeverityClass.HIGH),
+        ("ALLOW", 5, AssertionResultSeverityClass.LOW),
+        ("FAIL", 0, None),
+    ],
+)
+def test_failure_severity_reflects_action(
+    action: str, failed: int, expected_severity: Optional[str]
+) -> None:
+    events = [_event("u1", [_expectation("chk", "orders", 10, failed, action=action)])]
+    run_events = _run_events(
+        list(_extractor(_FakeProxy(events=events)).get_workunits())
+    )
+    assert len(run_events) == 1
+    assert run_events[0].result is not None
+    assert run_events[0].result.severity == expected_severity
 
 
 def test_fully_qualified_dataset_is_not_reprefixed() -> None:
