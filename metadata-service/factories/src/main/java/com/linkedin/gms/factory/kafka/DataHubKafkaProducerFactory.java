@@ -74,7 +74,7 @@ public class DataHubKafkaProducerFactory {
     props.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, producerConfiguration.getMaxRequestSize());
     props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, producerConfiguration.getCompressionType());
 
-    KafkaMskIamAuth.disableDebugCallerIdentity(props);
+    KafkaMskIamAuth.configure(props);
     return createProducerWithRetry(props, producerConfiguration);
   }
 
@@ -172,7 +172,7 @@ public class DataHubKafkaProducerFactory {
       props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
     }
 
-    KafkaMskIamAuth.disableDebugCallerIdentity(props);
+    KafkaMskIamAuth.configure(props);
     return props;
   }
 }

@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.aws;
 
 import com.linkedin.gms.factory.common.CrossCloudIamUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.kafka.DataHubMskIamClientCallbackHandler;
 import com.linkedin.metadata.config.ObjectStorageConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
@@ -72,21 +73,22 @@ public class AwsClientFactory {
    *
    * <p>Uses {@code builder().build()} once (not deprecated {@code create()}) and stores the result
    * for {@link PreDestroy} {@code close()}. Callers must inject this bean and must not {@code
-   * close()} it. Created when AWS region/endpoint, OpenSearch IAM auth, Bedrock embedding, Ebean
-   * JDBC IAM, or object-storage role assumption is configured. Also bound into the AWS JDBC wrapper
-   * IAM plugin so token minting reuses this provider.
+   * close()} it. Created when AWS region/endpoint, web identity, OpenSearch IAM auth, Bedrock
+   * embedding, Ebean JDBC IAM, or object-storage role assumption is configured. Also bound into
+   * JDBC and MSK IAM so they reuse this provider.
    */
   @Bean(name = "defaultAwsCredentialsProvider")
   @Nullable
   protected AwsCredentialsProvider defaultAwsCredentialsProvider() {
     if (!isAwsCredentialsRequired()) {
       log.debug(
-          "Skipping DefaultCredentialsProvider (no AWS region/endpoint, OpenSearch IAM, Bedrock, Ebean IAM, or object-storage roleArn)");
+          "Skipping DefaultCredentialsProvider (no AWS region/endpoint, web identity, OpenSearch IAM, Bedrock, Ebean IAM, or object-storage roleArn)");
       return null;
     }
     log.info("Creating shared DefaultCredentialsProvider bean");
     defaultCredentialsProvider = DefaultCredentialsProvider.builder().build();
     AwsJdbcIamAuth.installSharedCredentials(defaultCredentialsProvider);
+    DataHubMskIamClientCallbackHandler.installSharedCredentials(defaultCredentialsProvider);
     return defaultCredentialsProvider;
   }
 
@@ -210,6 +212,7 @@ public class AwsClientFactory {
     objectStorageRoleCredentialsProvider = null;
     if (defaultCredentialsProvider != null) {
       AwsJdbcIamAuth.resetIfInstalled(defaultCredentialsProvider);
+      DataHubMskIamClientCallbackHandler.resetIfInstalled(defaultCredentialsProvider);
       closeQuietly(defaultCredentialsProvider);
       defaultCredentialsProvider = null;
     }
@@ -278,7 +281,12 @@ public class AwsClientFactory {
   }
 
   static boolean isAwsConfigured() {
-    return hasAwsEndpoint() || hasAwsRegion();
+    return hasAwsEndpoint() || hasAwsRegion() || hasWebIdentityConfiguration();
+  }
+
+  private static boolean hasWebIdentityConfiguration() {
+    return hasText(envOrProperty("AWS_ROLE_ARN"))
+        && hasText(envOrProperty("AWS_WEB_IDENTITY_TOKEN_FILE"));
   }
 
   /** True when semantic search uses aws-bedrock and a target region is configured. */
@@ -389,6 +397,10 @@ public class AwsClientFactory {
     }
     String awsRegionProp = System.getProperty("aws.region");
     return awsRegionProp != null && !awsRegionProp.trim().isEmpty();
+  }
+
+  private static boolean hasText(@Nullable String value) {
+    return value != null && !value.trim().isEmpty();
   }
 
   static boolean isExpectedNonAwsFailure(@Nonnull Throwable error) {
