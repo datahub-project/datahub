@@ -1275,7 +1275,7 @@ def test_partition_datetime_override_pins_configured_partition():
     table = create_test_table(partitioned=True)
 
     result = discovery._get_partition_datetime_override_filters(
-        table, {"event_date"}, {"event_date": "DATE"}
+        table, ["event_date"], {"event_date": "DATE"}
     )
 
     assert result == ["`event_date` >= '2025-06-15' AND `event_date` < '2025-06-16'"]
@@ -1290,7 +1290,7 @@ def test_partition_datetime_override_ignored_for_composite_key():
     table = create_test_table(partitioned=True)
 
     result = discovery._get_partition_datetime_override_filters(
-        table, {"event_date", "region"}, {"event_date": "DATE", "region": "STRING"}
+        table, ["event_date", "region"], {"event_date": "DATE", "region": "STRING"}
     )
 
     assert result is None
@@ -1303,7 +1303,7 @@ def test_partition_datetime_override_ignored_for_non_temporal_column():
     table = create_test_table(partitioned=True)
 
     result = discovery._get_partition_datetime_override_filters(
-        table, {"bucket"}, {"bucket": "INT64"}
+        table, ["bucket"], {"bucket": "INT64"}
     )
 
     assert result is None
@@ -1315,7 +1315,7 @@ def test_partition_datetime_override_absent_when_not_configured():
     table = create_test_table(partitioned=True)
 
     result = discovery._get_partition_datetime_override_filters(
-        table, {"event_date"}, {"event_date": "DATE"}
+        table, ["event_date"], {"event_date": "DATE"}
     )
 
     assert result is None
