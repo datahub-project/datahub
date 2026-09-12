@@ -188,6 +188,8 @@ _CHART_REF_MISS_SELF_OR_AMBIGUOUS_CANDIDATES = "self_ref_or_ambiguous_candidates
 _CHART_REF_MISS_AMBIGUOUS_SIBLING = "ambiguous_sibling_element_name"
 _CHART_REF_MISS_UPSTREAM_FILTERED = "named_element_filtered_from_emission"
 _CHART_REF_MISS_NAMED_BUT_NOT_AN_UPSTREAM = "element_named_but_not_a_lineage_upstream"
+# The upstream element resolved, but it has no column of that name or id.
+_CHART_REF_MISS_COLUMN_ABSENT_FROM_UPSTREAM = "column_absent_from_resolved_upstream"
 _CHART_REF_MISS_AMBIGUOUS_WAREHOUSE = "ambiguous_warehouse_table_name"
 _CHART_REF_MISS_UNKNOWN_SOURCE = "source_name_unknown_to_this_workbook"
 # A join-chain ref (>2 segments) whose every candidate split failed schema
@@ -6432,7 +6434,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if len(sheet_matches) == 1:
                 elem_urn = elementId_to_chart_urn.get(sheet_matches[0].elementId)
                 if elem_urn:
-                    return (elem_urn, ref.column)
+                    field = self._upstream_field_for_ref(ref, sheet_matches[0])
+                    if field is None:
+                        # Record WHY, or this column lands in the unresolved
+                        # bucket with nothing in chart_ref_miss_reasons -- which
+                        # the accounting check correctly rejects, and did.
+                        self._note_chart_ref_miss(
+                            _CHART_REF_MISS_COLUMN_ABSENT_FROM_UPSTREAM,
+                            ref=ref,
+                            chart_element_id=chart_element_id,
+                            workbook_dm_url_ids=workbook_dm_url_ids,
+                            count=count,
+                        )
+                        return None
+                    return (elem_urn, field)
                 # Element exists in the workbook but was filtered from chart emission
                 # (e.g. pivot-table or control). Fall through to DM check.
             elif len(sheet_matches) > 1:
@@ -7450,6 +7465,56 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if warehouse_urn is None:
             return None
         return builder.make_schema_field_urn(warehouse_urn, native)
+
+    def _upstream_field_for_ref(
+        self, ref: BracketRef, upstream: Element
+    ) -> Optional[str]:
+        """The upstream column this ref names -- as a NAME the upstream has.
+
+        Sigma does not always write the column part of a ref as a display name.
+        Observed on our own dev tenant:
+
+            formula='[<Source Element Name>/CDZQGH9FD2]'
+
+        where ``CDZQGH9FD2`` is a column ID. Emitting it verbatim produced a
+        schemaField URN for a column the upstream does not have -- a dangling
+        edge, counted as ``resolved`` and byte-identical to a correct one. It
+        was invisible until the edge audit caught it, because every counter on
+        this path measures production rather than correctness.
+
+        Three outcomes, and the middle one is a genuine recovery rather than
+        only a refusal: the ref names a column the upstream HAS; the ref names
+        one of the upstream's column IDs, which translates to its display name;
+        or the upstream has no such column at all, in which case emitting
+        anything would be a guess at a name nobody has.
+        """
+        if ref.column is None:
+            return None
+        if not upstream.columns:
+            # We do not KNOW this element's columns -- /columns may never have
+            # been fetched for its workbook. Refusing here would attribute an
+            # unknown to a negative and destroy real lineage, the same mistake
+            # as reading a failed schema lookup as "the table has no such
+            # column". Emit the ref as written and let the edge audit judge it.
+            return ref.column
+        # Case-insensitive, returning the UPSTREAM's spelling: Sigma formulas
+        # differ from the stored column name by case alone often enough that
+        # this path already normalised it, and a schemaField URN must carry the
+        # upstream's casing to match its schema.
+        folded = {c.casefold(): c for c in upstream.columns}
+        exact = folded.get(ref.column.casefold())
+        if exact is not None:
+            return exact
+        for name, column_id in upstream.column_id_by_name.items():
+            if column_id == ref.column:
+                self.reporter.chart_ref_column_id_translated_to_name += 1
+                return name
+        self.reporter.chart_ref_column_absent_from_upstream += 1
+        self.reporter.chart_ref_column_absent_samples.append(
+            f"ref={ref.raw!r} upstream={upstream.elementId} "
+            f"upstream_has={sorted(upstream.columns)[:6]}"
+        )
+        return None
 
     def _stated_upstreams_for(
         self, element: Element, already_known: Set[str]

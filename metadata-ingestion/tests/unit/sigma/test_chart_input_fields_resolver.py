@@ -3230,3 +3230,65 @@ class TestTheEdgeAuditAnswersIsItTheRightEdge:
             0,
             0,
         )
+
+
+class TestARefsColumnIsValidatedAgainstTheUpstream:
+    """Sigma does not always write a ref's column part as a display name.
+
+    Observed on our own dev tenant:
+        formula='[<Source Element Name>/CDZQGH9FD2]'
+    where CDZQGH9FD2 is a column ID. Emitting it verbatim produced a
+    schemaField URN for a column the upstream does not have -- a dangling edge,
+    counted as ``resolved`` and byte-identical to a correct one. No counter
+    could see it; the edge audit caught it.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+
+    def test_a_name_the_upstream_has_passes_through(self) -> None:
+        upstream = _make_element("up", "Up", ["Revenue"])
+        assert (
+            self.src._upstream_field_for_ref(_make_ref("Up", "Revenue"), upstream)
+            == "Revenue"
+        )
+
+    def test_a_column_ID_is_TRANSLATED_to_its_display_name(self) -> None:
+        """A recovery, not just a refusal: the edge is real, the name was not."""
+        upstream = _make_element("up", "Up", ["Revenue"])
+        upstream.column_id_by_name = {"Revenue": "CDZQGH9FD2"}
+        assert (
+            self.src._upstream_field_for_ref(_make_ref("Up", "CDZQGH9FD2"), upstream)
+            == "Revenue"
+        )
+        assert self.src.reporter.chart_ref_column_id_translated_to_name == 1
+
+    def test_a_column_the_upstream_does_not_have_is_refused(self) -> None:
+        upstream = _make_element("up", "Up", ["Revenue"])
+        assert (
+            self.src._upstream_field_for_ref(_make_ref("Up", "CDZQGH9FD2"), upstream)
+            is None
+        )
+        assert self.src.reporter.chart_ref_column_absent_from_upstream == 1
+
+    def test_casing_is_normalised_to_the_upstreams_spelling(self) -> None:
+        """A schemaField URN must carry the upstream's casing to match its
+        schema, and Sigma formulas differ by case alone often enough to matter."""
+        upstream = _make_element("up", "Up", ["Col K"])
+        assert (
+            self.src._upstream_field_for_ref(_make_ref("Up", "col k"), upstream)
+            == "Col K"
+        )
+
+    def test_an_upstream_with_UNKNOWN_columns_is_not_refused(self) -> None:
+        """An empty column list means /columns was never fetched for that
+        workbook, not that the column is absent. Refusing there would attribute
+        an unknown to a negative and destroy real lineage -- the same mistake as
+        reading a failed schema lookup as 'the table has no such column'."""
+        upstream = _make_element("up", "Up", [])
+        assert (
+            self.src._upstream_field_for_ref(_make_ref("Up", "Revenue"), upstream)
+            == "Revenue"
+        )
+        assert self.src.reporter.chart_ref_column_absent_from_upstream == 0
