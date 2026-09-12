@@ -610,10 +610,17 @@ def test_get_partitions_with_sampling_date_branch():
             return [SimpleNamespace(exists_check=1)]
         return [SimpleNamespace(event_date="2023-12-25")]
 
-    with patch.object(
-        discovery,
-        "get_partition_columns_from_info_schema",
-        return_value={"event_date": "DATE"},
+    with (
+        patch.object(
+            discovery.info_schema,
+            "get_partition_column_names",
+            return_value=(["event_date"], True),
+        ),
+        patch.object(
+            discovery.info_schema,
+            "get_partition_column_types",
+            return_value={"event_date": "DATE"},
+        ),
     ):
         result = discovery._get_partitions_with_sampling(
             table, "test-project-123456", "test_dataset", execute
@@ -638,10 +645,17 @@ def test_get_partitions_with_sampling_non_date_branch():
             seen_tablesample = True
         return [SimpleNamespace(region="US")]
 
-    with patch.object(
-        discovery,
-        "get_partition_columns_from_info_schema",
-        return_value={"region": "STRING"},
+    with (
+        patch.object(
+            discovery.info_schema,
+            "get_partition_column_names",
+            return_value=(["region"], True),
+        ),
+        patch.object(
+            discovery.info_schema,
+            "get_partition_column_types",
+            return_value={"region": "STRING"},
+        ),
     ):
         result = discovery._get_partitions_with_sampling(
             table, "test-project-123456", "test_dataset", execute
@@ -1174,7 +1188,9 @@ def test_full_profiling_workflow():
     assert "created_at" in date_columns
 
 
-def test_partition_discovery_get_partition_columns_from_info_schema():
+def test_partition_discovery_get_partition_column_names():
+    # INFORMATION_SCHEMA.COLUMNS access is consolidated in InfoSchemaQueries; the names
+    # are returned in ordinal_position order with authoritative=True on a clean lookup.
     config = create_test_config()
     discovery = PartitionDiscovery(config)
     table = create_test_table(partitioned=True)
@@ -1182,20 +1198,18 @@ def test_partition_discovery_get_partition_columns_from_info_schema():
     def mock_execute_query(query, config, context):
         if "INFORMATION_SCHEMA.COLUMNS" in query:
             return [
-                SimpleNamespace(column_name="event_date", data_type="DATE"),
-                SimpleNamespace(column_name="region", data_type="STRING"),
-                SimpleNamespace(column_name="user_id", data_type="INT64"),
+                SimpleNamespace(column_name="event_date"),
+                SimpleNamespace(column_name="region"),
+                SimpleNamespace(column_name="user_id"),
             ]
         return []
 
-    result = discovery.get_partition_columns_from_info_schema(
+    columns, authoritative = discovery.info_schema.get_partition_column_names(
         table, "test-project", "test_dataset", mock_execute_query
     )
 
-    assert "event_date" in result
-    assert result["event_date"] == "DATE"
-    assert "region" in result
-    assert result["region"] == "STRING"
+    assert columns == ["event_date", "region", "user_id"]
+    assert authoritative is True
 
 
 def test_partition_discovery_get_partition_columns_from_ddl():

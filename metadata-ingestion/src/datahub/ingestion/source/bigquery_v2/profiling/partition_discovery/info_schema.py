@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 from google.cloud.bigquery import QueryJobConfig, Row, ScalarQueryParameter
 
@@ -15,6 +15,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
 )
 from datahub.ingestion.source.bigquery_v2.profiling import queries
 from datahub.ingestion.source.bigquery_v2.profiling.constants import (
+    MAX_PARTITIONS_TO_FETCH,
     PARTITIONING_COLUMN_FLAG,
     PSEUDO_PARTITION_COLUMN_TYPES,
 )
@@ -29,24 +30,46 @@ from datahub.ingestion.source.bigquery_v2.profiling.security import (
 
 logger = logging.getLogger(__name__)
 
+# Signature of the executor callback threaded through discovery: it runs a SQL string
+# with an optional job config and a human-readable purpose label, returning the rows.
+ExecuteQueryFunc = Callable[[str, Optional[QueryJobConfig], str], List[Row]]
+
+# Signature of the callback that confirms a candidate filter set matches rows:
+# (table, project, schema, filters, execute_query_func) -> has_data.
+VerifyPartitionHasData = Callable[
+    [BigqueryTable, str, str, List[str], ExecuteQueryFunc], bool
+]
+
 
 class InfoSchemaQueries:
     def __init__(self, report: Optional[BigQueryV2Report] = None) -> None:
         self.report = report
 
-    def get_partition_columns_from_info_schema(
+    def get_partition_column_names(
         self,
         table: BigqueryTable,
         project: str,
         schema: str,
-        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-    ) -> Dict[str, str]:
+        execute_query_func: ExecuteQueryFunc,
+    ) -> Tuple[List[str], bool]:
+        """Return (partition column names, authoritative).
+
+        Names are in INFORMATION_SCHEMA.COLUMNS ``ordinal_position`` order (the query
+        orders by it) and de-duplicated preserving that order, because a composite
+        partition key is positional — the caller maps partition-id components to columns
+        by position, so the order must not be lost.
+
+        ``authoritative`` is True only when the query executed successfully; an empty list
+        with authoritative=True means the table is genuinely unpartitioned, whereas
+        authoritative=False means the lookup failed and the state is unknown (the caller
+        should fall back to a probe rather than treat the table as unpartitioned).
+        """
         try:
             safe_info_schema_ref = build_safe_table_reference(
                 project, schema, "INFORMATION_SCHEMA.COLUMNS"
             )
 
-            query = queries.PARTITION_COLUMN_TYPES.format(
+            query = queries.PARTITION_COLUMN_NAMES.format(
                 info_schema_ref=safe_info_schema_ref, flag=PARTITIONING_COLUMN_FLAG
             )
 
@@ -56,24 +79,18 @@ class InfoSchemaQueries:
                 ]
             )
 
-            partition_column_rows = execute_query_func(
-                query, job_config, "partition columns from info schema"
+            rows = execute_query_func(
+                query, job_config, "partition columns from schema"
             )
-
-            # PARTITION_COLUMN_TYPES already selects data_type, so build the
-            # {column -> type} map directly rather than issuing a second
-            # INFORMATION_SCHEMA.COLUMNS round trip (and extra failure point).
-            return {row.column_name: row.data_type for row in partition_column_rows}
+            # dict.fromkeys de-duplicates while keeping the ordinal_position order.
+            columns = list(dict.fromkeys(row.column_name for row in rows))
+            logger.debug(f"Found partition columns from schema: {columns}")
+            return columns, True
         except Exception as e:
-            warn(
-                self.report,
-                logger,
-                title="Partition column discovery failed",
-                message="Failed to read partition columns from INFORMATION_SCHEMA; "
-                "the table will be treated as unpartitioned and may be full-scanned or skipped",
-                context=f"{table.name}: {e}",
-            )
-            return {}
+            # Signal non-authoritative so the caller's single probe surfaces the error
+            # state instead of treating the table as unpartitioned.
+            logger.debug(f"Error querying partition columns from schema: {e}")
+            return [], False
 
     def get_partition_column_types(
         self,
@@ -81,7 +98,7 @@ class InfoSchemaQueries:
         project: str,
         schema: str,
         partition_columns: List[str],
-        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+        execute_query_func: ExecuteQueryFunc,
     ) -> Dict[str, str]:
         if not partition_columns:
             return {}
@@ -145,8 +162,8 @@ class InfoSchemaQueries:
         project: str,
         schema: str,
         required_columns: List[str],
-        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        verify_partition_has_data: Callable,
+        execute_query_func: ExecuteQueryFunc,
+        verify_partition_has_data: VerifyPartitionHasData,
         column_types: Dict[str, str],
     ) -> Optional[List[str]]:
         if not required_columns:
@@ -175,7 +192,9 @@ class InfoSchemaQueries:
 
             parameters = [
                 ScalarQueryParameter("table_name", "STRING", table.name),
-                ScalarQueryParameter("max_partitions", "INT64", 10),
+                ScalarQueryParameter(
+                    "max_partitions", "INT64", MAX_PARTITIONS_TO_FETCH
+                ),
             ]
 
             job_config = QueryJobConfig(query_parameters=parameters)
@@ -196,10 +215,13 @@ class InfoSchemaQueries:
                 # A RANGE bucket id is only its inclusive integer floor; the bucket width
                 # is not exposed in INFORMATION_SCHEMA.PARTITIONS, so `col >= floor` cannot
                 # be bounded to a single bucket by width. Selecting the *maximum* populated
-                # bucket makes the lower-bound scan exact: nothing exists above the top
-                # bucket, so `col >= max_floor` reads that bucket alone and cannot spill
-                # into higher buckets (the bug that picking a mid-range, most-recently
-                # modified bucket would cause).
+                # bucket keeps the lower-bound scan as tight as possible: no *defined*
+                # bucket sits above the top one, so `col >= max_floor` won't sweep in other
+                # buckets (the bug that picking a mid-range, most-recently modified bucket
+                # would cause). It still also matches any out-of-range values above the
+                # partitioning range end (BigQuery keeps those in __UNPARTITIONED__), so
+                # the scan is the top bucket plus any such overflow rows, not the top
+                # bucket in isolation.
                 range_filters = self._range_partition_lower_bound_filters(
                     table,
                     project,
@@ -286,8 +308,8 @@ class InfoSchemaQueries:
         partition_rows: List[Row],
         required_columns: List[str],
         column_types: Dict[str, str],
-        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-        verify_partition_has_data: Callable,
+        execute_query_func: ExecuteQueryFunc,
+        verify_partition_has_data: VerifyPartitionHasData,
     ) -> Optional[List[str]]:
         # Resolve the *global* maximum bucket floor so the `col >= floor` scan reads exactly
         # the top bucket and cannot spill into higher buckets. The fetched partition_rows are
@@ -335,7 +357,7 @@ class InfoSchemaQueries:
         table: BigqueryTable,
         project: str,
         schema: str,
-        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+        execute_query_func: ExecuteQueryFunc,
     ) -> Optional[int]:
         # Fetch the true numeric max RANGE bucket directly, independent of last-modified
         # ordering. Best-effort: any failure returns None so the caller falls back to the
