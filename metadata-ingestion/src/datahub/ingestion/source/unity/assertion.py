@@ -34,14 +34,9 @@ _OPERATOR_SYMBOL = "=="
 
 
 class DataQualityAssertion(BaseModel):
-    """A normalized column completeness result, independent of its Databricks source.
-
-    This is the seam between where the result came from (a monitor metric table
-    today; a DLT event log or governed result table tomorrow) and how DataHub
-    represents it. Identity fields drive the assertion URN and exclude the run
-    window, so re-ingesting the same check is idempotent: same assertion, new run.
-    """
-
+    # Identity (table, column, metric) drives the assertion URN and excludes the
+    # run window, so re-ingesting the same check is idempotent: same assertion,
+    # new run event.
     table_qualified_name: str
     column: str
     metric: str

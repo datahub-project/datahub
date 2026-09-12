@@ -37,13 +37,6 @@ WHERE log_type = 'INPUT' AND slice_key IS NULL AND column_name <> ':table'
 
 
 class UnityCatalogDataQualityExtractor:
-    """Publishes Databricks data-quality monitor results as DataHub assertions.
-
-    For each ingested table that has a monitor, reads the profile-metrics table over
-    SQL (windowed on the ingestion end_time) and emits one idempotent completeness
-    assertion per monitored column, plus a per-window run result.
-    """
-
     def __init__(
         self,
         config: UnityCatalogDataQualityConfig,
