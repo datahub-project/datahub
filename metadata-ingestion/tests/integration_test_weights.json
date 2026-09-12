@@ -3868,10 +3868,6 @@
     "duration": "0.007s"
   },
   {
-    "testId": "tests.integration.snowplow.test_snowplow_performance::test_event_schema_urn_caching",
-    "duration": "1.512s"
-  },
-  {
     "testId": "tests.integration.snowplow.test_snowplow_performance::test_large_dataset_performance",
     "duration": "2.596s"
   },
