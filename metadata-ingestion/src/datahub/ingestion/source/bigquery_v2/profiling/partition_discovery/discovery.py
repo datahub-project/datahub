@@ -27,6 +27,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DATE_COMPONENT_COLUMNS,
     DEFAULT_MAX_PARTITION_VALUES,
     DEFAULT_PARTITION_STATS_LIMIT,
+    HIVE_PARTITIONING_DDL_RE,
     MAX_PARTITION_VALUES,
     PARTITION_FILTER_PATTERN,
     PSEUDO_PARTITION_COLUMN_TYPES,
@@ -115,6 +116,35 @@ class PartitionDiscovery:
             )
         upper_bound_partition_datetime = partition_datetime + duration
         return partition_datetime, upper_bound_partition_datetime
+
+    def _discover_partition_columns_with_types(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
+    ) -> Dict[str, str]:
+        # Shared partition-column discovery policy: prefer INFORMATION_SCHEMA, then fall
+        # back to parsing the table DDL. Used by both the sampling path and the external
+        # table path so their source order can't diverge. All INFORMATION_SCHEMA.COLUMNS
+        # access lives in InfoSchemaQueries: resolve the partition column names, then their
+        # types, as a {col: type} map (empty when the lookup finds nothing or fails, so the
+        # DDL fallback then takes over).
+        partition_columns, _authoritative = self.info_schema.get_partition_column_names(
+            table, project, schema, execute_query_func
+        )
+        partition_cols_with_types = (
+            self.info_schema.get_partition_column_types(
+                table, project, schema, partition_columns, execute_query_func
+            )
+            if partition_columns
+            else {}
+        )
+        if not partition_cols_with_types:
+            partition_cols_with_types = self.get_partition_columns_from_ddl(
+                table, project, schema, execute_query_func
+            )
+        return partition_cols_with_types
 
     def get_partition_columns_from_ddl(
         self,
@@ -1053,27 +1083,9 @@ class PartitionDiscovery:
         # Last resort when INFORMATION_SCHEMA and direct date queries both fail. Date
         # columns use ORDER BY date DESC (cheap); non-date tables use TABLESAMPLE SYSTEM.
         try:
-            # INFORMATION_SCHEMA.COLUMNS access lives in InfoSchemaQueries: resolve the
-            # partition column names, then their types, as a {col: type} map (empty when
-            # the lookup finds nothing or fails — the DDL / known-columns fallbacks below
-            # then take over).
-            partition_columns, _authoritative = (
-                self.info_schema.get_partition_column_names(
-                    table, project, schema, execute_query_func
-                )
+            partition_cols_with_types = self._discover_partition_columns_with_types(
+                table, project, schema, execute_query_func
             )
-            partition_cols_with_types = (
-                self.info_schema.get_partition_column_types(
-                    table, project, schema, partition_columns, execute_query_func
-                )
-                if partition_columns
-                else {}
-            )
-
-            if not partition_cols_with_types:
-                partition_cols_with_types = self.get_partition_columns_from_ddl(
-                    table, project, schema, execute_query_func
-                )
 
             if not partition_cols_with_types and known_columns:
                 # INFORMATION_SCHEMA.COLUMNS and DDL are both unavailable, but the caller
@@ -1225,7 +1237,73 @@ class PartitionDiscovery:
         schema: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Optional[List[str]]:
-        return None
+        try:
+            sample_filters = self._get_partitions_with_sampling(
+                table, project, schema, execute_query_func
+            )
+            if sample_filters:
+                return sample_filters
+
+            partition_cols_with_types = self._discover_partition_columns_with_types(
+                table, project, schema, execute_query_func
+            )
+
+            if not partition_cols_with_types:
+                if not table.ddl:
+                    # With no DDL and nothing from INFORMATION_SCHEMA we can't tell if an
+                    # external table is partitioned. Return None (unknown) so the profiler
+                    # skips it rather than [], which it treats as confirmed-unpartitioned
+                    # and would full-scan.
+                    warn(
+                        self.report,
+                        logger,
+                        title="External table partition status undetermined",
+                        message="No DDL was available and INFORMATION_SCHEMA returned no "
+                        "partition columns for this external table; profiling was skipped "
+                        "to avoid a full scan.",
+                        context=f"{project}.{schema}.{table.name}",
+                    )
+                    return None
+                if HIVE_PARTITIONING_DDL_RE.search(table.ddl):
+                    # The DDL declares hive partitioning (hive_partitioning_options /
+                    # WITH PARTITION COLUMNS), which the PARTITION BY parse doesn't see, so
+                    # the table IS partitioned but we couldn't extract a usable column.
+                    # Skip (None) rather than full-scanning a partitioned table.
+                    warn(
+                        self.report,
+                        logger,
+                        title="External table partition status undetermined",
+                        message="DDL declares hive partitioning but no partition column "
+                        "could be extracted for this external table; profiling was skipped "
+                        "to avoid a full scan.",
+                        context=f"{project}.{schema}.{table.name}",
+                    )
+                    return None
+                # DDL is present, has no hive-partitioning options, and no PARTITION BY
+                # columns: this is a genuinely unpartitioned external table.
+                logger.debug(
+                    f"No partition columns found for external table {table.name}"
+                )
+                return []
+
+            return self._get_fallback_partition_filters(
+                table,
+                project,
+                schema,
+                list(partition_cols_with_types.keys()),
+                partition_cols_with_types,
+            )
+
+        except Exception as e:
+            warn(
+                self.report,
+                logger,
+                title="External table partition discovery failed",
+                message="Could not determine partition filters for this external table; "
+                "profiling may fall back to a full scan or skip the table.",
+                context=f"{table.name}: {e}",
+            )
+            return None
 
     def _test_date_candidate(
         self,
