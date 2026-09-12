@@ -615,18 +615,44 @@ class UnityCatalogUsageExtractor:
                     log=False,
                 )
 
+    @staticmethod
+    def _make_allowed_table_predicate(
+        locally_discovered: Set[str],
+        resolver: SchemaResolver,
+    ) -> Optional[Callable[[str], bool]]:
+        """Build the is_allowed_table predicate for the usage aggregator.
+
+        Locally-discovered tables pass via fast set membership. When the schema
+        resolver has a graph, tables that exist in DataHub but were not discovered
+        by this recipe are also allowed — so queries referencing tables from other
+        catalogs produce query entities instead of being silently dropped.
+        """
+        if not locally_discovered:
+            return None
+
+        def _is_allowed_table(name: str) -> bool:
+            if name.lower() in locally_discovered:
+                return True
+            if resolver.graph is not None:
+                urn, schema_info = resolver.resolve_table_parts(
+                    database=None, db_schema=None, table=name
+                )
+                return schema_info is not None
+            return False
+
+        return _is_allowed_table
+
     def get_usage_workunits(
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
-        # Restrict emission to tables this recipe ingested, matching the old behavior.
-        # The aggregator's _name_from_urn strips the platform_instance prefix from the URN,
-        # yielding a bare "catalog.schema.table" name that it passes to the predicate.
-        # TableReference.qualified_table_name returns the same 3-part bare form, so we use
-        # it directly — using DatasetUrn.name here would include the platform_instance prefix
-        # when one is configured, causing a mismatch that filters out all usage.
-        allowed_names = {ref.qualified_table_name.lower() for ref in table_refs}
-        is_allowed_table: Optional[Callable[[str], bool]] = (
-            (lambda name: name.lower() in allowed_names) if allowed_names else None
+        # The aggregator's _name_from_urn strips the platform_instance prefix from
+        # the URN, yielding a bare "catalog.schema.table" name that it passes to the
+        # predicate. TableReference.qualified_table_name returns the same 3-part bare
+        # form, so we use it directly — using DatasetUrn.name here would include the
+        # platform_instance prefix when one is configured, causing a mismatch.
+        locally_discovered = {ref.qualified_table_name.lower() for ref in table_refs}
+        is_allowed_table = self._make_allowed_table_predicate(
+            locally_discovered, self.schema_resolver
         )
 
         # Databricks query history has no per-query session catalog/schema (unlike
