@@ -150,3 +150,6 @@ src/datahub/metadata/
 
 # Build artifact — copied from constraints.txt by buildWheel task
 src/datahub/constraints.txt
+
+# Dev-tenant ingestion output from local verification runs; never commit.
+dev_mces*.json
