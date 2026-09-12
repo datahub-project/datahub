@@ -826,7 +826,8 @@ def test_pipeline_expectations_ingestion(pytestconfig, tmp_path, requests_mock):
     output_file_name = "unity_catalog_pipeline_expectations_mcps.json"
 
     # One passing expectation (0 failed) and one failing (2 failed) on the same
-    # pipeline dataset, resolved to quickstart_catalog.quickstart_schema.quickstart_table.
+    # dataset. Lakeflow reports the dataset fully-qualified on Unity Catalog
+    # pipelines, so the extractor must parse it rather than re-prefix the target.
     events_response = {
         "events": [
             {
@@ -839,13 +840,13 @@ def test_pipeline_expectations_ingestion(pytestconfig, tmp_path, requests_mock):
                             "expectations": [
                                 {
                                     "name": "valid_id",
-                                    "dataset": "quickstart_table",
+                                    "dataset": "quickstart_catalog.quickstart_schema.quickstart_table",
                                     "passed_records": 10,
                                     "failed_records": 0,
                                 },
                                 {
                                     "name": "non_null_amount",
-                                    "dataset": "quickstart_table",
+                                    "dataset": "quickstart_catalog.quickstart_schema.quickstart_table",
                                     "passed_records": 8,
                                     "failed_records": 2,
                                 },
