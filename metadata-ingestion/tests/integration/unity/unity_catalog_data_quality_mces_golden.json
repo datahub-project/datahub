@@ -432,8 +432,8 @@
     "aspectName": "assertionRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1638748800000,
-            "runId": "1:1638748800000",
+            "timestampMillis": 1638777600000,
+            "runId": "1:1638777600000",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
             "status": "COMPLETE",
             "result": {
@@ -512,8 +512,8 @@
     "aspectName": "assertionRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1638748800000,
-            "runId": "1:1638748800000",
+            "timestampMillis": 1638777600000,
+            "runId": "1:1638777600000",
             "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
             "status": "COMPLETE",
             "result": {

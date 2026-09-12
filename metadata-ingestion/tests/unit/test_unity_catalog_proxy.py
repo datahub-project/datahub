@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+from databricks.sdk import WorkspaceClient
 from databricks.sdk.errors import NotFound
 
 from datahub.ingestion.source.unity.proxy import (
@@ -17,23 +18,20 @@ from datahub.ingestion.source.unity.proxy_patch import _basic_proxy_auth_header
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 
 
+@pytest.fixture
+def mock_proxy():
+    """A UnityCatalogApiProxy backed by a mocked WorkspaceClient."""
+    mock_workspace_client = MagicMock(spec=WorkspaceClient)
+    mock_workspace_client.config.host = "https://test.databricks.com"
+    mock_workspace_client.config.token = "test_token"
+    mock_workspace_client.config.warehouse_id = "test_warehouse"
+    return UnityCatalogApiProxy(
+        workspace_client=mock_workspace_client,
+        report=UnityCatalogReport(),
+    )
+
+
 class TestUnityCatalogProxy:
-    @pytest.fixture
-    def mock_proxy(self):
-        """Create a mock UnityCatalogApiProxy for testing."""
-        from databricks.sdk import WorkspaceClient
-
-        mock_workspace_client = MagicMock(spec=WorkspaceClient)
-        mock_workspace_client.config.host = "https://test.databricks.com"
-        mock_workspace_client.config.token = "test_token"
-        mock_workspace_client.config.warehouse_id = "test_warehouse"
-
-        proxy = UnityCatalogApiProxy(
-            workspace_client=mock_workspace_client,
-            report=UnityCatalogReport(),
-        )
-        return proxy
-
     def test_build_datetime_where_conditions_empty(self, mock_proxy):
         """Test datetime conditions with no start/end time."""
         result = mock_proxy._build_datetime_where_conditions()
@@ -1659,22 +1657,6 @@ class TestUnityCatalogProxyAuthentication:
 class TestUnityCatalogProxyUsageSystemTables:
     """Test suite for system tables query history functionality."""
 
-    @pytest.fixture
-    def mock_proxy(self):
-        """Create a mock UnityCatalogApiProxy for testing."""
-        from databricks.sdk import WorkspaceClient
-
-        mock_workspace_client = MagicMock(spec=WorkspaceClient)
-        mock_workspace_client.config.host = "https://test.databricks.com"
-        mock_workspace_client.config.token = "test_token"
-        mock_workspace_client.config.warehouse_id = "test_warehouse"
-
-        proxy = UnityCatalogApiProxy(
-            workspace_client=mock_workspace_client,
-            report=UnityCatalogReport(),
-        )
-        return proxy
-
     @patch(
         "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query_streaming"
     )
@@ -2023,19 +2005,6 @@ class TestQueryFilterWithStatementTypesSerialisation:
 class TestUnityCatalogDataQualityProxy:
     """Direct tests for the data-quality proxy seams: only NotFound degrades to
     None, and run_sql_query raises (rather than returning []) on failure."""
-
-    @pytest.fixture
-    def mock_proxy(self):
-        from databricks.sdk import WorkspaceClient
-
-        mock_workspace_client = MagicMock(spec=WorkspaceClient)
-        mock_workspace_client.config.host = "https://test.databricks.com"
-        mock_workspace_client.config.token = "test_token"
-        mock_workspace_client.config.warehouse_id = "test_warehouse"
-        return UnityCatalogApiProxy(
-            workspace_client=mock_workspace_client,
-            report=UnityCatalogReport(),
-        )
 
     def test_get_quality_monitor_returns_monitor(self, mock_proxy):
         monitor = object()

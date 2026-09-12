@@ -731,7 +731,9 @@ def test_data_quality_ingestion(pytestconfig, tmp_path, requests_mock):
     output_file_name = "unity_catalog_data_quality_mcps.json"
 
     # A monitored column with no nulls passes completeness; one with nulls fails.
-    window_end = datetime(2021, 12, 6, tzinfo=timezone.utc)
+    # window_end must fall inside the extractor's query window
+    # [FROZEN_TIME - max_window_days, FROZEN_TIME] so it mirrors a real row.
+    window_end = datetime(2021, 12, 6, 8, tzinfo=timezone.utc)
     metric_rows = [
         _MetricRow(
             {

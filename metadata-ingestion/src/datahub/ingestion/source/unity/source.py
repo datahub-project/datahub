@@ -588,20 +588,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage("Ingestion Setup"):
-            wait_on_warehouse = None
             if self.config.include_hive_metastore:
-                with self.report.new_stage("Start warehouse"):
-                    # Can take several minutes, so start now and wait later
-                    wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
-                    if wait_on_warehouse is None:
-                        self.report.failure(
-                            message="SQL warehouse not found",
-                            context=f"SQL warehouse {self.config.profiling.warehouse_id} not found",
-                        )
-                        return
-                    else:
-                        # wait until warehouse is started
-                        wait_on_warehouse.result()
+                # Hive metastore extraction needs a running warehouse.
+                if not self._start_warehouse_or_report(
+                    f"SQL warehouse {self.config.profiling.warehouse_id} not found"
+                ):
+                    return
 
         if self.config.include_ownership:
             with self.report.new_stage("Ingest service principals"):
@@ -637,20 +629,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         if self.config.is_profiling_enabled():
-            with self.report.new_stage("Start warehouse"):
-                # Need to start the warehouse again for profiling,
-                # as it may have been stopped after ingestion might take
-                # longer time to complete
-                wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
-                if wait_on_warehouse is None:
-                    self.report.failure(
-                        message="SQL warehouse not found",
-                        context=f"SQL warehouse {self.config.profiling.warehouse_id} not found",
-                    )
-                    return
-                else:
-                    # wait until warehouse is started
-                    wait_on_warehouse.result()
+            # Start the warehouse again for profiling; it may have been stopped after
+            # ingestion if that took a while.
+            if not self._start_warehouse_or_report(
+                f"SQL warehouse {self.config.profiling.warehouse_id} not found"
+            ):
+                return
 
             with self.report.new_stage("Profiling"):
                 if isinstance(self.config.profiling, UnityCatalogAnalyzeProfilerConfig):
@@ -681,16 +665,26 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.data_quality.enabled:
             yield from self._gen_data_quality_workunits()
 
-    def _gen_data_quality_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def _start_warehouse_or_report(self, failure_context: str) -> bool:
+        # Starting the SQL warehouse can take minutes; every warehouse-gated stage
+        # shares this start / not-found-failure / wait sequence. Returns False after
+        # reporting a failure when no warehouse is available, so the caller bails out.
         with self.report.new_stage("Start warehouse"):
             wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
             if wait_on_warehouse is None:
                 self.report.failure(
                     message="SQL warehouse not found",
-                    context="Data quality assertions require a SQL warehouse",
+                    context=failure_context,
                 )
-                return
+                return False
             wait_on_warehouse.result()
+            return True
+
+    def _gen_data_quality_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if not self._start_warehouse_or_report(
+            "Data quality assertions require a SQL warehouse"
+        ):
+            return
 
         with self.report.new_stage("Ingest data quality"):
             dq_extractor = UnityCatalogDataQualityExtractor(
