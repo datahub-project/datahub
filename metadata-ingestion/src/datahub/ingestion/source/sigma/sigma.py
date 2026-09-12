@@ -14,6 +14,7 @@ from typing import (
     Set,
     Tuple,
 )
+from urllib.parse import unquote
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
@@ -7562,7 +7563,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
             if match is None:
                 continue
-            parent, upstream_field = match.group("parent"), match.group("field")
+            # A schemaField URN PERCENT-ENCODES its field path, so the raw
+            # capture is "Logo Id %28X%29" where the upstream's schema holds
+            # "Logo Id (X)". Comparing without decoding reported 8,439 correct
+            # edges as dangling on one run -- the audit accusing the pipeline of
+            # its own bug. Decode before comparing.
+            parent = match.group("parent")
+            upstream_field = unquote(match.group("field"))
             if parent == chart_urn:
                 continue
             # Keyed by (upstream, field) but carrying the DOWNSTREAM chart, so a
