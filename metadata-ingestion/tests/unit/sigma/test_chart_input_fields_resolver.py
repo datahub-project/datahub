@@ -80,6 +80,8 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     # __new__ skips __init__, so attributes a real instance always
     # has must be set here or diagnostics reading them raise.
     source._current_workbook = None
+    source._chart_best_resolved = {}
+    source._chart_best_workbook = {}
     source.reporter = MagicMock()
     source.reporter.chart_input_fields_resolved = 0
     source.reporter.chart_input_fields_self_ref_fallback = 0
@@ -2907,3 +2909,174 @@ class TestEveryWayAChartCanLoseLineageIsVisible:
         ]
         assert self._run(element, fields, caplog) == []
         assert self.src.reporter.charts_with_column_lineage == 1
+
+
+class TestARicherAspectIsNeverOverwrittenByAPoorerDuplicate:
+    """Sigma element ids are NOT unique across workbooks.
+
+    A duplicated workbook reuses them, and the chart URN is the element id
+    alone, so several workbooks' charts collide on one URN. InputFields is
+    full-replace, so the last workbook processed wins outright. Observed on a
+    real tenant: element 26QX9Orvz- resolved 59 of 66 columns in one workbook,
+    then a broken duplicate -- whose /columns call aborted, so no column
+    carried a formula -- overwrote it with an empty aspect eleven minutes
+    later. 23% of that tenant's chart ids were claimed by more than one
+    workbook; 303 had a copy in an aborted workbook.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+        self.src._chart_best_resolved = {}
+        self.src._chart_best_workbook = {}
+        self.urn = builder.make_chart_urn("sigma", "eDup")
+
+    def _fields(self, resolved: int, total: int) -> List[InputFieldClass]:
+        out = []
+        for i in range(total):
+            parent = "urn:li:dataset:(x,y,PROD)" if i < resolved else self.urn
+            out.append(
+                InputFieldClass(
+                    schemaFieldUrn=builder.make_schema_field_urn(parent, f"c{i}"),
+                    schemaField=None,
+                )
+            )
+        return out
+
+    def _emit(self, resolved: int, total: int) -> int:
+        return len(
+            list(
+                self.src._chart_input_fields_workunits(
+                    self.urn, self._fields(resolved, total)
+                )
+            )
+        )
+
+    def test_the_empty_duplicate_is_refused(self) -> None:
+        assert self._emit(59, 66) == 1
+        assert self._emit(0, 62) == 0, "the broken duplicate must not overwrite"
+        r = self.src.reporter
+        assert r.chart_input_fields_regressive_emission_skipped == 1
+        sample = list(r.chart_regressive_emission_samples)[0]
+        assert "kept=59" in sample and "refused=0" in sample
+
+    def test_a_richer_duplicate_still_wins(self) -> None:
+        """Order is an accident of workbook iteration, so the guard must work
+        in both directions -- refusing everything after the first would be a
+        different bug with the same shape."""
+        assert self._emit(0, 62) == 1
+        assert self._emit(59, 66) == 1
+        assert self.src.reporter.chart_input_fields_regressive_emission_skipped == 0
+
+    def test_an_equal_aspect_is_allowed_through(self) -> None:
+        """The schema-resolution pass re-emits the same chart for the same
+        workbook; refusing that would suppress a legitimate correction."""
+        assert self._emit(59, 66) == 1
+        assert self._emit(59, 66) == 1
+
+    def test_collisions_are_counted_even_when_nothing_is_refused(self) -> None:
+        """The skip prevents DATA LOSS; it does not make the URN correct. The
+        count is what says how many entities are actually two charts."""
+        self._emit(10, 10)
+        self._emit(10, 10)
+        assert self.src.reporter.chart_urns_claimed_by_multiple_workbooks == 1
+
+
+class TestDerivedColumnsInheritTheirSiblingsUpstreams:
+    """The largest chart-side gap measured: 27,037 columns on one tenant.
+
+    A formula like ``Sum([Revenue (1)])`` references another column of the SAME
+    chart, so it resolves to no external upstream and was dropped as "sibling".
+    But the sibling usually resolves, and the derived column is genuinely
+    downstream of whatever the sibling came from. The reported symptom was a
+    dashboard whose headline measures showed no column lineage while the raw
+    columns beside them did.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+
+    def _build(self, col_formulas: Dict[str, Optional[str]]) -> List[InputFieldClass]:
+        element = _make_element_with_formula("e1", "Chart", col_formulas)
+        element.column_id_by_name = {c: f"id-{c}" for c in col_formulas}
+        upstream = _make_element("src", "SRC", ["Revenue (1)"])
+        return self.src._build_element_input_fields(
+            element=element,
+            chart_urn=builder.make_chart_urn("sigma", "e1"),
+            chart_upstream_eids={"src"},
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={"SRC": [upstream]},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={"src": builder.make_chart_urn("sigma", "src")},
+        )
+
+    def test_a_sum_over_a_sibling_inherits_that_siblings_upstream(self) -> None:
+        fields = self._build(
+            {
+                "Revenue (1)": "[SRC/Revenue (1)]",
+                "Revenue": "Sum([Revenue (1)])",
+            }
+        )
+        by_col = {
+            f.schemaField.fieldPath: f.schemaFieldUrn
+            for f in fields
+            if f.schemaField is not None
+        }
+        # Both columns now point at the same real upstream.
+        assert by_col["Revenue"] == by_col["Revenue (1)"]
+        assert "urn:li:chart:(sigma,e1)" not in by_col["Revenue"]
+        assert self.src.reporter.chart_input_fields_sibling_inherited == 1
+
+    def test_it_follows_a_CHAIN_of_derived_columns(self) -> None:
+        """LY Revenue -> Revenue -> Revenue (1) -> the real upstream. One pass
+        would resolve only the middle hop, which is why this iterates."""
+        fields = self._build(
+            {
+                "Revenue (1)": "[SRC/Revenue (1)]",
+                "Revenue": "Sum([Revenue (1)])",
+                "LY Revenue": 'DateLookback([Revenue], 1, "year")',
+            }
+        )
+        by_col = {
+            f.schemaField.fieldPath: f.schemaFieldUrn
+            for f in fields
+            if f.schemaField is not None
+        }
+        assert by_col["LY Revenue"] == by_col["Revenue (1)"]
+        assert self.src.reporter.chart_input_fields_sibling_inherited == 2
+
+    def test_a_sibling_that_resolves_to_nothing_yields_nothing(self) -> None:
+        """A chart whose raw columns have no lineage cannot give its derived
+        columns any -- and must not invent one."""
+        fields = self._build({"Raw": None, "Derived": "Sum([Raw])"})
+        derived = [
+            f for f in fields if f.schemaField and f.schemaField.fieldPath == "Derived"
+        ]
+        assert derived[0].schemaFieldUrn.startswith(
+            "urn:li:schemaField:(urn:li:chart:(sigma,e1),"
+        )
+        assert self.src.reporter.chart_input_fields_sibling_inherited == 0
+        assert self.src.reporter.chart_input_fields_sibling_not_inheritable == 1
+
+    def test_a_reference_cycle_terminates(self) -> None:
+        """Bounded passes, so a cycle cannot loop; both columns simply keep
+        their self-referential fields."""
+        fields = self._build({"A": "Sum([B])", "B": "Sum([A])"})
+        assert len(fields) == 2
+        assert self.src.reporter.chart_input_fields_sibling_inherited == 0
+
+    def test_the_counter_identity_still_holds(self) -> None:
+        """An inherited column moves from skipped_sibling to resolved; if it
+        were counted in both or neither, the per-element invariant breaks."""
+        self._build(
+            {"Revenue (1)": "[SRC/Revenue (1)]", "Revenue": "Sum([Revenue (1)])"}
+        )
+        r = self.src.reporter
+        total = (
+            r.chart_input_fields_resolved
+            + r.chart_input_fields_self_ref_fallback
+            + r.chart_input_fields_skipped_parameter
+            + r.chart_input_fields_skipped_sibling
+        )
+        assert total == 2, f"expected 2 columns accounted, got {total}"
