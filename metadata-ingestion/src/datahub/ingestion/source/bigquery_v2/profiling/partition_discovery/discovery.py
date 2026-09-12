@@ -1050,8 +1050,21 @@ class PartitionDiscovery:
         # Last resort when INFORMATION_SCHEMA and direct date queries both fail. Date
         # columns use ORDER BY date DESC (cheap); non-date tables use TABLESAMPLE SYSTEM.
         try:
-            partition_cols_with_types = self.get_partition_columns_from_info_schema(
-                table, project, schema, execute_query_func
+            # INFORMATION_SCHEMA.COLUMNS access lives in InfoSchemaQueries: resolve the
+            # partition column names, then their types, as a {col: type} map (empty when
+            # the lookup finds nothing or fails — the DDL / known-columns fallbacks below
+            # then take over).
+            partition_columns, _authoritative = (
+                self.info_schema.get_partition_column_names(
+                    table, project, schema, execute_query_func
+                )
+            )
+            partition_cols_with_types = (
+                self.info_schema.get_partition_column_types(
+                    table, project, schema, partition_columns, execute_query_func
+                )
+                if partition_columns
+                else {}
             )
 
             if not partition_cols_with_types:
