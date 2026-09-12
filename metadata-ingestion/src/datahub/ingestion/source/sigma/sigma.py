@@ -6466,7 +6466,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # element's workbook-page name; resolve to its Dataset URN.
             dm_urn = dm_upstream_urn_by_element_name.get(ref.source)
             if dm_urn:
-                return (dm_urn, ref.column)
+                dm_field = self._dm_field_for_ref(
+                    ref,
+                    dm_urn,
+                    chart_element_id=chart_element_id,
+                    workbook_dm_url_ids=workbook_dm_url_ids,
+                    count=count,
+                )
+                return (dm_urn, dm_field) if dm_field is not None else None
 
             # If the element IS a registered upstream (sheet_matches==1) but was
             # filtered from chart emission and has no DM match, stop here — do not
@@ -6502,7 +6509,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # to the warehouse-table short-name index.
             dm_urn = dm_upstream_urn_by_element_name.get(ref.source)
             if dm_urn:
-                return (dm_urn, ref.column)
+                dm_field = self._dm_field_for_ref(
+                    ref,
+                    dm_urn,
+                    chart_element_id=chart_element_id,
+                    workbook_dm_url_ids=workbook_dm_url_ids,
+                    count=count,
+                )
+                return (dm_urn, dm_field) if dm_field is not None else None
 
         # Step 4: warehouse-table short-name fallback.
         wh_candidates = element_warehouse_table_index.get(ref.source.upper(), [])
@@ -7508,6 +7522,48 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if urn is not None:
             self.reporter.chart_warehouse_files_lookup_resolved += 1
         return urn
+
+    def _dm_field_for_ref(
+        self,
+        ref: BracketRef,
+        dm_urn: str,
+        *,
+        chart_element_id: str,
+        workbook_dm_url_ids: AbstractSet[str],
+        count: bool,
+    ) -> Optional[str]:
+        """Same validation as the element path, against a Data Model element.
+
+        Safe here because Data Models are emitted BEFORE workbooks, so this run
+        has already produced that element's schema and ``_known_field_paths``
+        holds it. An element whose schema was never emitted (filtered out) is
+        UNKNOWN, not empty, and the ref passes through -- refusing on
+        absence-of-knowledge is how you delete real lineage.
+
+        The warehouse path deliberately gets no equivalent: this run never emits
+        a warehouse table's schema, so there is nothing to check against in
+        process. Those edges are covered by the ctx.graph column check and,
+        after the fact, by the edge audit.
+        """
+        known = self._known_field_paths.get(dm_urn)
+        if ref.column is None or not known:
+            return ref.column
+        folded = {c.casefold(): c for c in known}
+        exact = folded.get(ref.column.casefold())
+        if exact is not None:
+            return exact
+        self.reporter.chart_ref_column_absent_from_upstream += 1
+        self.reporter.chart_ref_column_absent_samples.append(
+            f"ref={ref.raw!r} upstream={dm_urn} upstream_has={sorted(known)[:6]}"
+        )
+        self._note_chart_ref_miss(
+            _CHART_REF_MISS_COLUMN_ABSENT_FROM_UPSTREAM,
+            ref=ref,
+            chart_element_id=chart_element_id,
+            workbook_dm_url_ids=workbook_dm_url_ids,
+            count=count,
+        )
+        return None
 
     def _upstream_field_for_ref(
         self, ref: BracketRef, upstream: Element

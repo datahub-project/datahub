@@ -3444,3 +3444,46 @@ class TestOneChartIsCountedOnceNoMatterHowManyWorkbooksHoldIt:
         self.r.finalize_chart_outcomes()
         self.r.finalize_chart_outcomes()
         assert self.r.charts_with_column_lineage == 1
+
+
+class TestTheDataModelPathValidatesRefColumnsToo:
+    """Only the SheetUpstream path validated a ref's column, so a dangling edge
+    could still ship from the Data Model path.
+
+    Safe to check here because Data Models are emitted BEFORE workbooks, so the
+    element's schema is already in _known_field_paths when a chart ref resolves.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+        self.src._init_diagnostic_state()
+        self.dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.el,PROD)"
+
+    def _field(self, column: str) -> Optional[str]:
+        return self.src._dm_field_for_ref(
+            _make_ref("Some DM Element", column),
+            self.dm_urn,
+            chart_element_id="e1",
+            workbook_dm_url_ids=frozenset(),
+            count=True,
+        )
+
+    def test_a_known_column_passes_with_the_upstreams_casing(self) -> None:
+        self.src._known_field_paths[self.dm_urn] = {"Account Id"}
+        assert self._field("account id") == "Account Id"
+
+    def test_a_column_the_model_lacks_is_refused_and_attributed(self) -> None:
+        self.src._known_field_paths[self.dm_urn] = {"Account Id"}
+        assert self._field("CDZQGH9FD2") is None
+        r = self.src.reporter
+        assert r.chart_ref_column_absent_from_upstream == 1
+        # A refusal with no recorded reason is what the accounting check exists
+        # to reject; it caught exactly that on the element path.
+        assert r.chart_ref_miss_reasons.get("column_absent_from_resolved_upstream") == 1
+
+    def test_an_UNEMITTED_model_schema_is_unknown_not_empty(self) -> None:
+        """A Data Model element filtered from emission has no schema here.
+        Refusing on absence-of-knowledge would delete real lineage."""
+        assert self._field("Anything") == "Anything"
+        assert self.src.reporter.chart_ref_column_absent_from_upstream == 0
