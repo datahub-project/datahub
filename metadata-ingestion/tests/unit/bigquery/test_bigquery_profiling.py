@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Any, Optional, Set, Tuple
+from typing import Any, List, Optional, Set, Tuple
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -217,10 +217,17 @@ def test_strategic_candidate_path_emits_half_open_range_for_timestamp():
             return True
 
         def _enhance_partition_filters_with_actual_values(
-            self, table, project, schema, required_columns, filters, *args, **kwargs
-        ):
+            self,
+            table: BigqueryTable,
+            project: str,
+            schema: str,
+            required_columns: List[str],
+            initial_filters: List[str],
+            *args: Any,
+            **kwargs: Any,
+        ) -> Optional[List[str]]:
             # Isolate the candidate-filter construction from the co-occurrence enhancement.
-            return filters
+            return initial_filters
 
     discovery = NoEnhanceDiscovery(make_config())
     table = make_table(partition_info=PartitionInfo(fields=("event_ts",), type="DAY"))
@@ -257,7 +264,7 @@ def test_ingestion_time_partition_datetime_override_applies():
     )
 
     filters = discovery._get_partition_datetime_override_filters(
-        table, {"_PARTITIONTIME"}, {}
+        table, ["_PARTITIONTIME"], {}
     )
 
     assert filters is not None
