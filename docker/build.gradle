@@ -291,6 +291,8 @@ ext {
                         ':metadata-jobs:mae-consumer-job',
                         ':datahub-actions',
                         ':docker:datahub-ingestion',
+                        ':docker:datahub-gms-onnx',
+                        ':docker:datahub-upgrade-onnx',
                     ]
             ]
     ]
@@ -661,8 +663,13 @@ quickstart_configs.each { taskName, config ->
     }
 }
 
-// quickstartDebugBuiltinEmbedding auto-downloads the ONNX model if not present
-tasks.getByName("quickstartDebugBuiltinEmbeddingComposeUp").dependsOn(tasks.getByName("prepareOnnxModel"))
+// quickstartDebugBuiltinEmbedding auto-downloads the ONNX model if not present, and builds the
+// onnx boot archives that docker-compose.onnx-override.yml mounts over the default war/jar so the
+// debug stack exercises the real ONNX-variant artifacts.
+tasks.getByName("quickstartDebugBuiltinEmbeddingComposeUp").dependsOn(
+    tasks.getByName("prepareOnnxModel"),
+    ':metadata-service:war:onnxBootJar',
+    ':datahub-upgrade:onnxBootJar')
 
 
 tasks.register('minDockerCompose2.20', Exec) {
