@@ -1,0 +1,1 @@
+{"eventTime": "2024-06-01T10:00:00.000Z", "job": {"namespace": "e2e_ns", "name": "e2e_noschemaurl"}, "inputs": [{"namespace": "postgres://my-host:5432", "name": "my_db.my_schema.src"}], "producer": "https://github.com/apache/airflow/tree/1.0.0"}

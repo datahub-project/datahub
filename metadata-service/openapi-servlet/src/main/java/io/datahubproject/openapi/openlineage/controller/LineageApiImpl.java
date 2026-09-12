@@ -3,6 +3,8 @@ package io.datahubproject.openapi.openlineage.controller;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
@@ -24,7 +26,9 @@ import io.openlineage.client.OpenLineageClientUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -56,23 +60,117 @@ public class LineageApiImpl implements LineageApi {
 
   @Autowired private HttpServletRequest request;
 
+  /**
+   * OpenLineage 2.0 defines three top-level events. {@code RunEvent} reports an execution; {@code
+   * JobEvent} and {@code DatasetEvent} carry metadata with no run attached, which is how producers
+   * describe a job or a table they did not just execute or write.
+   */
+  private enum EventKind {
+    RUN,
+    JOB,
+    DATASET
+  }
+
   @Override
   public ResponseEntity<Void> postRunEventRaw(String body) {
     // Event payloads carry table names, column names and SQL text, so they stay at DEBUG rather
     // than being written to shipped logs on every request.
     log.debug("Received lineage event: {}", body);
-    OpenLineage.RunEvent openlineageRunEvent;
+
+    JsonNode parsed;
     try {
-      openlineageRunEvent = OpenLineageClientUtils.runEventFromJson(body);
+      parsed = OBJECT_MAPPER.readTree(body);
     } catch (Exception e) {
       log.warn("Rejecting malformed OpenLineage payload: {}", e.getMessage());
       throw new IllegalArgumentException("Malformed OpenLineage event: " + e.getMessage());
     }
-    log.debug("Deserialized to lineage event: {}", openlineageRunEvent);
-    return postRunEventRaw(openlineageRunEvent);
+    // An empty or whitespace-only body parses to null rather than throwing.
+    if (parsed == null || parsed.isNull() || !parsed.isObject()) {
+      log.warn("Rejecting OpenLineage payload that is not a JSON object");
+      throw new IllegalArgumentException("Malformed OpenLineage event: expected a JSON object");
+    }
+
+    EventKind kind = classify(parsed);
+    // Deserialization is the only step whose failure means "the caller sent us nonsense". It is
+    // scoped tightly on purpose: wrapping the ingest call too would report a GMS write failure,
+    // including a transaction conflict, as a 400.
+    switch (kind) {
+      case DATASET:
+        OpenLineage.DatasetEvent datasetEvent =
+            deserialize(body, kind, new TypeReference<OpenLineage.DatasetEvent>() {});
+        return ingest(mapper -> mapper.map(datasetEvent, this._mappingConfig));
+      case JOB:
+        OpenLineage.JobEvent jobEvent =
+            deserialize(body, kind, new TypeReference<OpenLineage.JobEvent>() {});
+        return ingest(mapper -> mapper.map(jobEvent, this._mappingConfig));
+      case RUN:
+      default:
+        OpenLineage.RunEvent runEvent;
+        try {
+          runEvent = OpenLineageClientUtils.runEventFromJson(body);
+        } catch (Exception e) {
+          log.warn("Rejecting malformed OpenLineage {} payload: {}", kind, e.getMessage());
+          throw new IllegalArgumentException("Malformed OpenLineage event: " + e.getMessage());
+        }
+        return postRunEventRaw(runEvent);
+    }
+  }
+
+  private static <T> T deserialize(String body, EventKind kind, TypeReference<T> type) {
+    try {
+      return OpenLineageClientUtils.fromJson(body, type);
+    } catch (Exception e) {
+      log.warn("Rejecting malformed OpenLineage {} payload: {}", kind, e.getMessage());
+      throw new IllegalArgumentException("Malformed OpenLineage event: " + e.getMessage());
+    }
+  }
+
+  /**
+   * The {@code schemaURL} is the spec's own discriminator, so it decides when present. Producers do
+   * omit it, though, so fall back to the event's shape: only a RunEvent has a {@code run}, and only
+   * a DatasetEvent has a top-level {@code dataset}.
+   */
+  private static EventKind classify(JsonNode event) {
+    JsonNode schemaUrl = event.get("schemaURL");
+    if (schemaUrl != null && schemaUrl.isTextual()) {
+      String url = schemaUrl.asText();
+      if (url.endsWith("DatasetEvent")) {
+        return EventKind.DATASET;
+      }
+      if (url.endsWith("JobEvent")) {
+        return EventKind.JOB;
+      }
+      if (url.endsWith("RunEvent")) {
+        return EventKind.RUN;
+      }
+    }
+    // isObject rather than has: a JSON null is still "present", and clients that serialize
+    // optional fields emit "run": null on a JobEvent. Treating that as a RunEvent reproduces
+    // exactly the null-run failure this dispatch exists to prevent.
+    if (event.path("run").isObject()) {
+      return EventKind.RUN;
+    }
+    if (event.path("dataset").isObject()) {
+      return EventKind.DATASET;
+    }
+    if (event.path("job").isObject()) {
+      return EventKind.JOB;
+    }
+    // Unrecognised shape: let the RunEvent path produce the error, as it did before dispatch.
+    return EventKind.RUN;
   }
 
   public ResponseEntity<Void> postRunEventRaw(OpenLineage.RunEvent openlineageRunEvent) {
+    return ingest(mapper -> mapper.map(openlineageRunEvent, this._mappingConfig));
+  }
+
+  /**
+   * Shared tail for all three event kinds: convert, authorize, then ingest as one batch. Conversion
+   * failures are a 422 — the caller sent something we understood but cannot store — while a genuine
+   * GMS failure during ingest still surfaces as a 500.
+   */
+  private ResponseEntity<Void> ingest(
+      Function<RunEventMapper, Stream<MetadataChangeProposal>> conversion) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     OperationContext opContext =
         OperationContext.asSession(
@@ -95,10 +193,7 @@ public class LineageApiImpl implements LineageApi {
     // during ingest still surfaces as a 500.
     List<MetadataChangeProposal> proposals;
     try {
-      proposals =
-          new RunEventMapper()
-              .map(openlineageRunEvent, this._mappingConfig)
-              .collect(Collectors.toList());
+      proposals = conversion.apply(new RunEventMapper()).collect(Collectors.toList());
     } catch (Exception e) {
       log.warn("OpenLineage event could not be converted: {}", e.getMessage());
       throw new UnprocessableEntityException(

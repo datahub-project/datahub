@@ -57,6 +57,31 @@ public class LineageApiImplTest {
           + "\"producer\":\"https://github.com/apache/airflow/tree/providers-openlineage/1.0.0\""
           + "}";
 
+  /** A JobEvent: job metadata and dataset edges with no run attached. */
+  private static final String SAMPLE_JOB_EVENT =
+      "{"
+          + "\"eventTime\":\"2024-01-01T10:00:00.000Z\","
+          + "\"schemaURL\":\"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent\","
+          + "\"job\":{\"namespace\":\"my_namespace\",\"name\":\"my_job\"},"
+          + "\"inputs\":[{\"namespace\":\"postgres://my-host:5432\",\"name\":\"my_db.my_schema.source\"}],"
+          + "\"producer\":\"https://github.com/apache/airflow/tree/1.0.0\""
+          + "}";
+
+  /** A DatasetEvent: dataset metadata with neither a run nor a job. */
+  private static final String SAMPLE_DATASET_EVENT =
+      "{"
+          + "\"eventTime\":\"2024-01-01T10:00:00.000Z\","
+          + "\"schemaURL\":\"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/DatasetEvent\","
+          + "\"dataset\":{\"namespace\":\"postgres://my-host:5432\",\"name\":\"my_db.my_schema.events\"},"
+          + "\"producer\":\"https://github.com/apache/airflow/tree/1.0.0\""
+          + "}";
+
+  /** Same JobEvent with no schemaURL, so classification has to fall back to the event's shape. */
+  private static final String JOB_EVENT_WITHOUT_SCHEMA_URL =
+      SAMPLE_JOB_EVENT.replace(
+          "\"schemaURL\":\"https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/JobEvent\",",
+          "");
+
   /**
    * Deserializes cleanly but cannot be converted: an empty job name yields an empty DataFlow key,
    * which URN construction rejects.
@@ -158,6 +183,51 @@ public class LineageApiImplTest {
         Mockito.mockStatic(AuthenticationContext.class)) {
       authContext.when(AuthenticationContext::getAuthentication).thenReturn(authentication);
       controller.postRunEventRaw(EVENT_WITH_EMPTY_JOB_NAME);
+    }
+  }
+
+  @Test
+  public void testJobEventIsDispatchedAndIngested() {
+    assertDispatched(SAMPLE_JOB_EVENT);
+  }
+
+  @Test
+  public void testDatasetEventIsDispatchedAndIngested() {
+    assertDispatched(SAMPLE_DATASET_EVENT);
+  }
+
+  /**
+   * A client that serializes optional fields emits "run": null on a JobEvent. JsonNode.has() is
+   * true for an explicit null, so shape classification used to send it down the RunEvent path and
+   * reproduce the very null-run failure this dispatch exists to prevent.
+   */
+  @Test
+  public void testExplicitNullRunIsNotClassifiedAsARunEvent() {
+    assertDispatched("{\"run\":null," + JOB_EVENT_WITHOUT_SCHEMA_URL.substring(1));
+  }
+
+  @Test
+  public void testEventWithoutSchemaUrlIsClassifiedByShape() {
+    // A JobEvent with no schemaURL has a job but no run; before dispatch this deserialized as a
+    // RunEvent with a null run and produced a 500.
+    assertDispatched(JOB_EVENT_WITHOUT_SCHEMA_URL);
+  }
+
+  private void assertDispatched(String body) {
+    try (MockedStatic<AuthenticationContext> authContext =
+            Mockito.mockStatic(AuthenticationContext.class);
+        MockedStatic<EntityAuthorizationUtils> authUtil =
+            Mockito.mockStatic(EntityAuthorizationUtils.class)) {
+
+      authContext.when(AuthenticationContext::getAuthentication).thenReturn(authentication);
+      authUtil
+          .when(() -> EntityAuthorizationUtils.isAPIAuthorizedIngest(any(), any(), any()))
+          .thenAnswer(inv -> allow(inv.getArgument(2)));
+
+      ResponseEntity<Void> response = controller.postRunEventRaw(body);
+
+      assertEquals(response.getStatusCode(), HttpStatus.CREATED);
+      verify(entityService, times(1)).ingestProposal(any(), any(AspectsBatch.class), anyBoolean());
     }
   }
 
