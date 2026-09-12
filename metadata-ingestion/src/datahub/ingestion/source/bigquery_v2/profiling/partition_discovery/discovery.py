@@ -1110,7 +1110,11 @@ class PartitionDiscovery:
         for col, val in actual_partition_values.items():
             try:
                 col_type = column_types.get(col, "")
-                actual_filters.append(self._create_safe_filter(col, val, col_type))
+                # A DATE/DATETIME/TIMESTAMP value discovered from the latest row is a
+                # single instant; _value_filter widens it to the granularity-aware
+                # half-open range covering the whole partition (equality would match only
+                # that instant and drop the rest of the hour/day/month).
+                actual_filters.append(self._value_filter(table, col, val, col_type))
             except ValueError as e:
                 # Dropping a column here widens the scan on that dimension, so surface it.
                 warn(
