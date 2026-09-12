@@ -40,6 +40,9 @@ COMPLETENESS_NATIVE_TYPE = "completeness"
 # the column would never appear in the name unless we put it here.
 COMPLETENESS_ASSERTION_DESCRIPTION = "Null count for column {column} is {threshold}"
 
+# Lakeflow Declarative Pipelines (formerly Delta Live Tables) expectations.
+EXPECTATION_ASSERTION_TYPE = "Databricks Pipeline Expectation"
+
 DATABRICKS_PLATFORM = "databricks"
 
 
@@ -129,6 +132,90 @@ def build_assertion_run_event_mcp(
                 else AssertionResultTypeClass.FAILURE
             ),
             actualAggValue=result.observed,
+            nativeResults=result.native_results or None,
+        ),
+    )
+    return MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=run_event)
+
+
+class PipelineExpectationAssertion(BaseModel):
+    # (dataset, pipeline, expectation) drives the assertion URN and excludes the
+    # update, so re-ingesting the same expectation is idempotent: same assertion,
+    # new run event. An expectation passes when no records failed it.
+    name: str
+    pipeline_id: str
+    failed_records: int
+    passed_records: Optional[int]
+    timestamp_millis: int
+    run_id: str
+    native_results: Dict[str, str] = {}
+
+    @property
+    def passed(self) -> bool:
+        return self.failed_records == 0
+
+    @property
+    def logic(self) -> str:
+        return f"{self.name}: failed_records == 0"
+
+
+def make_expectation_assertion_urn(
+    dataset_urn: str, pipeline_id: str, expectation: str
+) -> str:
+    # Key off the dataset URN (not the qualified name) for the same reason as
+    # data-quality assertions: inherit the dataset's platform instance / env and
+    # avoid cross-workspace collisions.
+    key = {
+        "platform": DATABRICKS_PLATFORM,
+        "dataset": dataset_urn,
+        "pipeline": pipeline_id,
+        "expectation": expectation,
+    }
+    return make_assertion_urn(datahub_guid(key))
+
+
+def build_expectation_info_mcp(
+    result: PipelineExpectationAssertion,
+    assertion_urn: str,
+    dataset_urn: str,
+) -> MetadataChangeProposalWrapper:
+    assertion_info = AssertionInfoClass(
+        type=AssertionTypeClass.CUSTOM,
+        customProperties={
+            "expectation": result.name,
+            "pipeline_id": result.pipeline_id,
+        },
+        source=make_assertion_source(),
+        description="Pipeline expectation",
+        customAssertion=CustomAssertionInfoClass(
+            type=EXPECTATION_ASSERTION_TYPE,
+            entity=dataset_urn,
+            scope=DatasetAssertionScopeClass.DATASET_ROWS,
+            operator=AssertionStdOperatorClass.EQUAL_TO,
+            logic=result.logic,
+        ),
+    )
+    return MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=assertion_info)
+
+
+def build_expectation_run_event_mcp(
+    result: PipelineExpectationAssertion,
+    assertion_urn: str,
+    dataset_urn: str,
+) -> MetadataChangeProposalWrapper:
+    run_event = AssertionRunEventClass(
+        timestampMillis=result.timestamp_millis,
+        assertionUrn=assertion_urn,
+        asserteeUrn=dataset_urn,
+        runId=result.run_id,
+        status=AssertionRunStatusClass.COMPLETE,
+        result=AssertionResultClass(
+            type=(
+                AssertionResultTypeClass.SUCCESS
+                if result.passed
+                else AssertionResultTypeClass.FAILURE
+            ),
+            actualAggValue=float(result.failed_records),
             nativeResults=result.native_results or None,
         ),
     )
