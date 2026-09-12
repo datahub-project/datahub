@@ -2,11 +2,12 @@ package com.linkedin.gms.factory.kafka;
 
 import java.util.Map;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /** Applies resource-safe configuration for the aws-msk-iam-auth library. */
 @Slf4j
-final class KafkaMskIamAuth {
+public final class KafkaMskIamAuth {
 
   private static final String AWS_MSK_CALLBACK_HANDLER =
       "software.amazon.msk.auth.iam.IAMClientCallbackHandler";
@@ -74,7 +75,10 @@ final class KafkaMskIamAuth {
         "Disabled awsDebugCreds on MSK IAM JAAS config (GetCallerIdentity StsClient is never closed)");
   }
 
-  private static boolean isMskIam(Map<String, Object> kafkaProperties) {
+  public static boolean isMskIam(@Nullable Map<String, Object> kafkaProperties) {
+    if (kafkaProperties == null) {
+      return false;
+    }
     Object mechanism = kafkaProperties.get(SASL_MECHANISM);
     if (mechanism != null && AWS_MSK_IAM.equalsIgnoreCase(mechanism.toString().trim())) {
       return true;
