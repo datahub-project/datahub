@@ -392,12 +392,22 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Databricks Data Quality",
+                "type": "Databricks",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
                 "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD),columnA)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD),columnA)"
+                ],
                 "scope": "DATASET_COLUMN",
+                "aggregation": "NULL_COUNT",
                 "operator": "EQUAL_TO",
-                "logic": "num_nulls == 0.0 on columnA"
+                "parameters": {
+                    "value": {
+                        "value": "0",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "completeness"
             },
             "source": {
                 "type": "EXTERNAL",
@@ -405,8 +415,7 @@
                     "time": 1638860400000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            },
-            "description": "Completeness"
+            }
         }
     },
     "systemMetadata": {
@@ -463,12 +472,22 @@
             },
             "type": "CUSTOM",
             "customAssertion": {
-                "type": "Databricks Data Quality",
+                "type": "Databricks",
                 "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD)",
                 "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD),columnB)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.quickstart_table,PROD),columnB)"
+                ],
                 "scope": "DATASET_COLUMN",
+                "aggregation": "NULL_COUNT",
                 "operator": "EQUAL_TO",
-                "logic": "num_nulls == 0.0 on columnB"
+                "parameters": {
+                    "value": {
+                        "value": "0",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "completeness"
             },
             "source": {
                 "type": "EXTERNAL",
@@ -476,8 +495,7 @@
                     "time": 1638860400000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            },
-            "description": "Completeness"
+            }
         }
     },
     "systemMetadata": {

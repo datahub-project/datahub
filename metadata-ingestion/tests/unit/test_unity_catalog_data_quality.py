@@ -6,6 +6,8 @@ from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.assertion import (
+    COMPLETENESS_NATIVE_TYPE,
+    DATABRICKS_ASSERTION_PROVIDER,
     DataQualityAssertion,
     build_assertion_info_mcp,
     build_assertion_run_event_mcp,
@@ -146,10 +148,20 @@ def test_build_info_mcp_sets_column_field_urn() -> None:
     info = build_assertion_info_mcp(result, urn, dataset_urn).aspect
     assert isinstance(info, AssertionInfoClass)
     assert info.customAssertion is not None
-    assert info.customAssertion.scope == DatasetAssertionScopeClass.DATASET_COLUMN
-    assert info.customAssertion.field is not None
-    assert "c1" in info.customAssertion.field
+    ca = info.customAssertion
+    assert ca.scope == DatasetAssertionScopeClass.DATASET_COLUMN
+    assert ca.field is not None
+    assert "c1" in ca.field
     assert info.source is not None and info.source.type == "EXTERNAL"
+    # Structured shape (mirrors the dbt connector) drives DataHub's column-aware
+    # rendering rather than a hand-written description.
+    assert info.description is None
+    assert ca.type == DATABRICKS_ASSERTION_PROVIDER
+    assert ca.nativeType == COMPLETENESS_NATIVE_TYPE
+    assert ca.aggregation == "NULL_COUNT"
+    assert ca.operator == "EQUAL_TO"
+    assert ca.parameters is not None and ca.parameters.value is not None
+    assert ca.parameters.value.value == "0"
 
 
 def _run_event_type(result: DataQualityAssertion) -> str:

@@ -15,22 +15,25 @@ from datahub.metadata.schema_classes import (
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
+    AssertionStdAggregationClass,
     AssertionStdOperatorClass,
+    AssertionStdParameterClass,
+    AssertionStdParametersClass,
+    AssertionStdParameterTypeClass,
     AssertionTypeClass,
     CustomAssertionInfoClass,
     DatasetAssertionScopeClass,
 )
 
-# Shown in DataHub as the assertion's origin/type. Databricks data-quality
-# monitors were formerly branded "Lakehouse Monitoring".
-CUSTOM_ASSERTION_TYPE = "Databricks Data Quality"
+# The provider shown as the assertion's category in DataHub. Mirrors how other
+# native integrations tag their source (dbt -> "dbt", Great Expectations ->
+# "GREAT_EXPECTATIONS"); the specific check is carried in `nativeType` instead.
+DATABRICKS_ASSERTION_PROVIDER = "Databricks"
+
+# Native check name shown in the assertion details (analogous to a dbt test name).
+COMPLETENESS_NATIVE_TYPE = "completeness"
 
 DATABRICKS_PLATFORM = "databricks"
-
-# Completeness is expressed as "null count == 0"; kept as symbols so the model
-# owns the DataHub-facing representation of its single operator.
-_OPERATOR = AssertionStdOperatorClass.EQUAL_TO
-_OPERATOR_SYMBOL = "=="
 
 
 class DataQualityAssertion(BaseModel):
@@ -46,9 +49,9 @@ class DataQualityAssertion(BaseModel):
     run_id: str
     native_results: Dict[str, str] = {}
 
-    @property
-    def logic(self) -> str:
-        return f"{self.metric} {_OPERATOR_SYMBOL} {self.threshold} on {self.column}"
+
+def _format_threshold(threshold: float) -> str:
+    return str(int(threshold)) if threshold == int(threshold) else str(threshold)
 
 
 def make_dq_assertion_urn(dataset_urn: str, column: str, metric: str) -> str:
@@ -70,18 +73,29 @@ def build_assertion_info_mcp(
     dataset_urn: str,
 ) -> MetadataChangeProposalWrapper:
     field_urn = make_schema_field_urn(dataset_urn, result.column)
+    # Structured custom assertion (matching the dbt connector's shape): the
+    # scope/aggregation/operator/parameters/field drive DataHub's column-aware
+    # rendering ("Null count for column X is equal to 0"), rather than a
+    # hand-written description that omits the column.
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
         customProperties={"metric": result.metric, "threshold": str(result.threshold)},
         source=make_assertion_source(),
-        description="Completeness",
         customAssertion=CustomAssertionInfoClass(
-            type=CUSTOM_ASSERTION_TYPE,
+            type=DATABRICKS_ASSERTION_PROVIDER,
             entity=dataset_urn,
             field=field_urn,
+            fields=[field_urn],
             scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            operator=_OPERATOR,
-            logic=result.logic,
+            aggregation=AssertionStdAggregationClass.NULL_COUNT,
+            operator=AssertionStdOperatorClass.EQUAL_TO,
+            parameters=AssertionStdParametersClass(
+                value=AssertionStdParameterClass(
+                    value=_format_threshold(result.threshold),
+                    type=AssertionStdParameterTypeClass.NUMBER,
+                )
+            ),
+            nativeType=COMPLETENESS_NATIVE_TYPE,
         ),
     )
     return MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=assertion_info)
