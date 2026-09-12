@@ -679,24 +679,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     raise ValueError("Unknown profiling config method")
 
         if self.config.data_quality.enabled:
-            with self.report.new_stage("Start warehouse"):
-                wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
-                if wait_on_warehouse is None:
-                    self.report.failure(
-                        message="SQL warehouse not found",
-                        context="Data quality assertions require a SQL warehouse",
-                    )
-                else:
-                    wait_on_warehouse.result()
-                    with self.report.new_stage("Ingest data quality"):
-                        dq_extractor = UnityCatalogDataQualityExtractor(
-                            config=self.config.data_quality,
-                            report=self.report,
-                            proxy=self.unity_catalog_api_proxy,
-                            dataset_urn_builder=self.gen_dataset_urn,
-                            end_time=self.config.end_time,
-                        )
-                        yield from dq_extractor.get_workunits(self.dq_tables.values())
+            yield from self._gen_data_quality_workunits()
+
+    def _gen_data_quality_workunits(self) -> Iterable[MetadataWorkUnit]:
+        with self.report.new_stage("Start warehouse"):
+            wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
+            if wait_on_warehouse is None:
+                self.report.failure(
+                    message="SQL warehouse not found",
+                    context="Data quality assertions require a SQL warehouse",
+                )
+                return
+            wait_on_warehouse.result()
+
+        with self.report.new_stage("Ingest data quality"):
+            dq_extractor = UnityCatalogDataQualityExtractor(
+                config=self.config.data_quality,
+                report=self.report,
+                proxy=self.unity_catalog_api_proxy,
+                dataset_urn_builder=self.gen_dataset_urn,
+                end_time=self.config.end_time,
+            )
+            yield from dq_extractor.get_workunits(self.dq_tables.values())
 
     def build_service_principal_map(self) -> None:
         try:
