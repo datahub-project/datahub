@@ -44,7 +44,10 @@ class LookerQueryResponseFormat(Enum):
 
 class TransportOptionsConfig(ConfigModel):
     timeout: int
-    headers: MutableMapping[str, str]
+    # Previously required-without-default, so a recipe setting only
+    # transport_options.timeout failed validation ("transport_options.headers
+    # Field required") and aborted the ingestion run before any dashboard was fetched.
+    headers: MutableMapping[str, str] = Field(default_factory=dict)
 
     def get_transport_options(self) -> TransportOptions:
         return TransportOptions(timeout=self.timeout, headers=self.headers)
