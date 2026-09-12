@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Dict, FrozenSet, List, Optional, Tuple
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -2504,8 +2504,19 @@ class TestChartGranularityOutcome:
     def setup_method(self) -> None:
         self.reporter = SigmaSourceReport()
 
-    def _note(self, *, total: int, self_ref: int, causes: Dict[str, int]) -> None:
+    def _note(
+        self,
+        *,
+        total: int,
+        self_ref: int,
+        causes: Dict[str, int],
+        urn: str = "urn:li:chart:(sigma,e1)",
+    ) -> None:
+        """Record one pass, then tally -- buckets are filled at report time now,
+        because a chart is classified once per workbook holding its element id
+        and only the winning pass may count."""
         self.reporter.note_chart_column_lineage_outcome(
+            chart_urn=urn,
             chart_element_id="e1",
             workbook_id="wb-1",
             workbook_name="A Workbook",
@@ -2513,6 +2524,7 @@ class TestChartGranularityOutcome:
             self_ref_columns=self_ref,
             causes=causes,
         )
+        self.reporter.finalize_chart_outcomes()
 
     def test_a_fully_resolved_chart_is_not_filed_as_a_problem(self) -> None:
         self._note(total=3, self_ref=0, causes={})
@@ -2547,8 +2559,15 @@ class TestChartGranularityOutcome:
         """One shared reservoir is proportional BY DESIGN, so the rare cause --
         always the interesting one -- can never be evidenced. That exact bug
         returned 0 samples for a 263-column population on a previous run."""
-        self._note(total=1, self_ref=1, causes={"no_formula": 1})
-        self._note(total=1, self_ref=1, causes={"unresolved_refs": 1})
+        self._note(
+            total=1, self_ref=1, causes={"no_formula": 1}, urn="urn:li:chart:(sigma,a)"
+        )
+        self._note(
+            total=1,
+            self_ref=1,
+            causes={"unresolved_refs": 1},
+            urn="urn:li:chart:(sigma,b)",
+        )
         assert set(self.reporter.charts_with_no_column_lineage_samples) == {
             "no_formula",
             "unresolved_refs",
@@ -2794,6 +2813,7 @@ class TestOutcomeIsDecidedOnTheFieldsThatWillBeSTORED:
             causes={"unresolved_refs": 1},
             workbook_formulas_incomplete=False,
         )
+        self.src.reporter.finalize_chart_outcomes()
 
     def test_a_chart_recovered_by_schema_resolution_is_not_reported_as_broken(
         self,
@@ -2838,6 +2858,8 @@ class TestEveryWayAChartCanLoseLineageIsVisible:
                 causes={},
                 workbook_formulas_incomplete=False,
             )
+        # Buckets are tallied at report time now, per distinct chart URN.
+        self.src.reporter.finalize_chart_outcomes()
         return [
             r.getMessage()
             for r in caplog.records
@@ -3091,16 +3113,40 @@ class TestAChartColumnThatIsItselfAWarehouseColumn:
     also covers columns whose formula never parsed at all.
     """
 
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+        self.src._init_diagnostic_state()
+
     def test_the_column_id_alone_resolves_it(self) -> None:
-        assert SigmaSource._warehouse_field_from_column_id(
+        assert self.src._warehouse_field_from_column_id(
             "inode-abc123/ACCOUNT_ID", {"abc123": "urn:li:dataset:(x,db.s.t,PROD)"}
         ) == builder.make_schema_field_urn(
             "urn:li:dataset:(x,db.s.t,PROD)", "ACCOUNT_ID"
         )
 
+    def test_the_files_lookup_is_consulted_when_the_index_misses(self) -> None:
+        """The workbook index lists only tables reached through workbook
+        LINEAGE, so a column naming a table outside that graph needs the same
+        /v2/files/{urlId} fallback the Data Model path has. Without it the
+        resolver fired 2 times against 1,208 candidates on a real run."""
+        with patch.object(
+            SigmaSource,
+            "_warehouse_urn_via_files_lookup",
+            return_value="urn:li:dataset:(x,db.s.t,PROD)",
+        ):
+            assert self.src._warehouse_field_from_column_id(
+                "inode-outside/COL", {}
+            ) == builder.make_schema_field_urn("urn:li:dataset:(x,db.s.t,PROD)", "COL")
+
     def test_an_unknown_table_resolves_to_nothing(self) -> None:
-        """A url_id this workbook never declared must not invent an edge."""
-        assert SigmaSource._warehouse_field_from_column_id("inode-nope/COL", {}) is None
+        """A url_id nothing can resolve must not invent an edge."""
+        with patch.object(
+            SigmaSource, "_warehouse_urn_via_files_lookup", return_value=None
+        ):
+            assert (
+                self.src._warehouse_field_from_column_id("inode-nope/COL", {}) is None
+            )
 
     @pytest.mark.parametrize(
         "column_id",
@@ -3116,7 +3162,7 @@ class TestAChartColumnThatIsItselfAWarehouseColumn:
     )
     def test_shapes_that_are_not_a_warehouse_column(self, column_id: Any) -> None:
         assert (
-            SigmaSource._warehouse_field_from_column_id(
+            self.src._warehouse_field_from_column_id(
                 column_id, {"abc123": "urn:li:dataset:(x,db.s.t,PROD)"}
             )
             is None
@@ -3340,3 +3386,61 @@ class TestTheAuditDecodesTheFieldPathBeforeComparing:
         )
         self.src._audit_emitted_edges()
         assert self.src.reporter.edge_audit_field_absent_from_upstream == 1
+
+
+class TestOneChartIsCountedOnceNoMatterHowManyWorkbooksHoldIt:
+    """A chart element id repeats across workbooks, so one URN is classified
+    once per workbook -- 8,221 passes over 5,878 charts on one tenant.
+
+    Tallying every pass made charts_with_no_column_lineage count duplicate
+    copies whose emission was REFUSED: it read exactly 1,150 on two consecutive
+    runs while the stored result improved underneath it, because it was
+    measuring work the run threw away rather than what DataHub ends up holding.
+    """
+
+    def setup_method(self) -> None:
+        self.r = SigmaSourceReport()
+        self.urn = "urn:li:chart:(sigma,dup)"
+
+    def _pass(self, *, total: int, self_ref: int, workbook: str) -> None:
+        self.r.note_chart_column_lineage_outcome(
+            chart_urn=self.urn,
+            chart_element_id="dup",
+            workbook_id=workbook,
+            workbook_name=workbook,
+            total_columns=total,
+            self_ref_columns=self_ref,
+            causes={"formulas_not_fetched": self_ref},
+        )
+
+    def test_the_winning_pass_decides_and_the_chart_counts_once(self) -> None:
+        self._pass(total=66, self_ref=7, workbook="good")  # 59 resolved
+        self._pass(total=62, self_ref=62, workbook="blocked")  # 0 resolved
+        self.r.finalize_chart_outcomes()
+        assert self.r.charts_with_partial_column_lineage == 1
+        assert self.r.charts_with_no_column_lineage == 0, (
+            "the refused copy must not be reported as a dark chart"
+        )
+        assert self.r.charts_classified_total == 2, "both passes still happened"
+
+    def test_order_does_not_matter(self) -> None:
+        """Which copy is processed first is an accident of iteration order."""
+        self._pass(total=62, self_ref=62, workbook="blocked")
+        self._pass(total=66, self_ref=7, workbook="good")
+        self.r.finalize_chart_outcomes()
+        assert self.r.charts_with_partial_column_lineage == 1
+        assert self.r.charts_with_no_column_lineage == 0
+
+    def test_a_chart_dark_in_EVERY_workbook_is_still_reported(self) -> None:
+        self._pass(total=62, self_ref=62, workbook="blocked-a")
+        self._pass(total=62, self_ref=62, workbook="blocked-b")
+        self.r.finalize_chart_outcomes()
+        assert self.r.charts_with_no_column_lineage == 1
+
+    def test_finalize_is_idempotent(self) -> None:
+        """get_report() runs repeatedly during a run; a version that accumulated
+        would multiply its own counts each time the periodic report fired."""
+        self._pass(total=10, self_ref=0, workbook="good")
+        self.r.finalize_chart_outcomes()
+        self.r.finalize_chart_outcomes()
+        assert self.r.charts_with_column_lineage == 1

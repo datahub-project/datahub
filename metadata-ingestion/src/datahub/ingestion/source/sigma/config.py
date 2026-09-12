@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pydantic
 from pydantic import BaseModel, Field
@@ -579,6 +579,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Independent total for the identity check below: every chart classified
     # must land in exactly one of the four buckets.
     charts_classified_total: int = 0
+    # chart URN -> (resolved, total, self_ref, causes, element, workbook, name)
+    # for the pass that WINS the aspect. See note_chart_column_lineage_outcome.
+    _chart_outcome_by_urn: Dict[
+        str, Tuple[int, int, int, Dict[str, int], str, str, str]
+    ] = field(default_factory=dict)
     charts_with_column_lineage: int = 0
     charts_with_partial_column_lineage: int = 0
     charts_with_no_column_lineage: int = 0
@@ -612,6 +617,18 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # leaving 2,167 columns on one tenant falling back to a self-reference
     # while carrying their own answer.
     chart_input_fields_warehouse_by_column_id: int = 0
+    # The chart path asking /v2/files/{urlId} for a table the workbook lineage
+    # graph never listed -- the same fallback the Data Model path has had for
+    # weeks, where it recovered 1,305 columns. Without it the direct columnId
+    # resolver fired 2 times against 1,208 candidates.
+    chart_warehouse_files_lookup_resolved: int = 0
+    chart_warehouse_files_lookup_miss: int = 0
+    chart_warehouse_files_lookup_no_connection: int = 0
+    # Sibling columns whose siblings resolved to nothing either, sampled so the
+    # next run can say WHETHER anything is left to win here.
+    chart_sibling_not_inheritable_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
     # Edges produced by the opt-in name-matching guess
     # (resolve_chart_refs_by_element_name). Counted separately and never folded
     # into the resolved total's sub-counts, because these are the only chart
@@ -1301,6 +1318,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     def note_chart_column_lineage_outcome(
         self,
         *,
+        chart_urn: str,
         chart_element_id: str,
         workbook_id: str,
         workbook_name: str,
@@ -1308,42 +1326,80 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
         self_ref_columns: int,
         causes: Dict[str, int],
     ) -> None:
-        """File one chart under its column-lineage outcome.
+        """Record this chart's outcome, keyed by URN and keeping the BEST pass.
 
-        ``causes`` is the per-column cause tally for THIS chart, as counter
-        deltas measured across the element's build.
+        A chart element id is not unique across workbooks, so one chart URN is
+        classified once per workbook that contains it -- 8,221 passes over 5,878
+        charts on one tenant. Tallying each pass made
+        ``charts_with_no_column_lineage`` count duplicate copies whose emission
+        was REFUSED, so it described work the run threw away rather than what
+        DataHub ends up holding: it read 1,150 across two runs while the stored
+        result improved underneath it.
+
+        Only the pass that wins the aspect counts, which is the one with the
+        most resolved columns -- the same rule the emission guard applies.
+        Tallied into buckets at report time by ``finalize_chart_outcomes``.
         """
         self.charts_classified_total += 1
-        if total_columns == 0:
-            # A chart with no columns emits an EMPTY InputFields aspect, which
-            # renders exactly like a chart whose columns all failed: lineage at
-            # the chart level and nothing below it. It used to satisfy
-            # "self_ref_columns == 0" and be counted as HAVING column lineage,
-            # so the one shape that is indistinguishable from the reported
-            # symptom was the one the report called healthy.
-            self.charts_with_no_columns += 1
-            self.charts_with_no_columns_samples.append(
-                f"element={chart_element_id} workbook={workbook_id} "
-                f"workbook_name={workbook_name!r}"
+        resolved = total_columns - self_ref_columns
+        previous = self._chart_outcome_by_urn.get(chart_urn)
+        if previous is not None and previous[0] >= resolved:
+            return
+        self._chart_outcome_by_urn[chart_urn] = (
+            resolved,
+            total_columns,
+            self_ref_columns,
+            causes,
+            chart_element_id,
+            workbook_id,
+            workbook_name,
+        )
+
+    def finalize_chart_outcomes(self) -> None:
+        """Tally the per-URN outcomes into buckets. Idempotent.
+
+        Rebuilt from scratch every call: get_report() runs repeatedly during a
+        run, and a version that accumulated would multiply its own counts.
+        """
+        self.charts_with_column_lineage = 0
+        self.charts_with_partial_column_lineage = 0
+        self.charts_with_no_column_lineage = 0
+        self.charts_with_no_columns = 0
+        self.charts_with_no_column_lineage_by_cause = {}
+        self.charts_with_no_column_lineage_samples = {}
+        for (
+            _resolved,
+            total_columns,
+            self_ref_columns,
+            causes,
+            chart_element_id,
+            workbook_id,
+            workbook_name,
+        ) in self._chart_outcome_by_urn.values():
+            if total_columns == 0:
+                self.charts_with_no_columns += 1
+                self.charts_with_no_columns_samples.append(
+                    f"element={chart_element_id} workbook={workbook_id} "
+                    f"workbook_name={workbook_name!r}"
+                )
+                continue
+            if self_ref_columns == 0:
+                self.charts_with_column_lineage += 1
+                continue
+            if self_ref_columns < total_columns:
+                self.charts_with_partial_column_lineage += 1
+                continue
+            self.charts_with_no_column_lineage += 1
+            cause = max(causes, key=lambda k: causes[k]) if causes else "unattributed"
+            self.charts_with_no_column_lineage_by_cause[cause] = (
+                self.charts_with_no_column_lineage_by_cause.get(cause, 0) + 1
             )
-            return
-        if self_ref_columns == 0:
-            self.charts_with_column_lineage += 1
-            return
-        if self_ref_columns < total_columns:
-            self.charts_with_partial_column_lineage += 1
-            return
-        self.charts_with_no_column_lineage += 1
-        cause = max(causes, key=lambda k: causes[k]) if causes else "unattributed"
-        self.charts_with_no_column_lineage_by_cause[cause] = (
-            self.charts_with_no_column_lineage_by_cause.get(cause, 0) + 1
-        )
-        self.charts_with_no_column_lineage_samples.setdefault(
-            cause, LossyList()
-        ).append(
-            f"element={chart_element_id} workbook={workbook_id} "
-            f"workbook_name={workbook_name!r} columns={total_columns}"
-        )
+            self.charts_with_no_column_lineage_samples.setdefault(
+                cause, LossyList()
+            ).append(
+                f"element={chart_element_id} workbook={workbook_id} "
+                f"workbook_name={workbook_name!r} columns={total_columns}"
+            )
 
 
 class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):

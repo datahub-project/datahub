@@ -7366,6 +7366,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if not progressed:
                 break
         self.reporter.chart_input_fields_sibling_not_inheritable += len(sibling_pending)
+        for column, (_index, sibling_names) in sibling_pending.items():
+            # WHICH siblings failed is the whole question: if they are columns
+            # a blocked workbook never described, there is nothing to win here;
+            # if they are columns that should have resolved, there is.
+            self.reporter.chart_sibling_not_inheritable_samples.append(
+                f"element={element.elementId} column={column!r} "
+                f"needed={sibling_names} "
+                f"element_has={sorted(element.columns)[:6]}"
+            )
 
     def _emit_resolved_ref_fields(
         self,
@@ -7442,9 +7451,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
         return True
 
-    @staticmethod
     def _warehouse_field_from_column_id(
-        column_id: Optional[str], warehouse_urn_by_url_id: Dict[str, str]
+        self, column_id: Optional[str], warehouse_urn_by_url_id: Dict[str, str]
     ) -> Optional[str]:
         """A chart column whose columnId IS a warehouse column needs no formula.
 
@@ -7464,8 +7472,42 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None
         warehouse_urn = warehouse_urn_by_url_id.get(url_id)
         if warehouse_urn is None:
+            warehouse_urn = self._warehouse_urn_via_files_lookup(
+                url_id, warehouse_urn_by_url_id
+            )
+        if warehouse_urn is None:
             return None
         return builder.make_schema_field_urn(warehouse_urn, native)
+
+    def _warehouse_urn_via_files_lookup(
+        self, url_id: str, warehouse_urn_by_url_id: Dict[str, str]
+    ) -> Optional[str]:
+        """Ask /v2/files/{urlId} for a table the workbook index does not list.
+
+        The Data Model path has done this for weeks and it recovered 1,305
+        columns there. The chart path had only the workbook index, which lists
+        tables reached through workbook LINEAGE -- so a column whose columnId
+        names a table Sigma never put in that graph could not resolve, and the
+        direct resolver fired 2 times against 1,208 candidates on one run.
+        Cached per url_id, so repeats across columns are free.
+        """
+        # No per-workbook warehouse refs to infer from, so this uses the same
+        # last resort the Data Model path does: the tenant's sole mappable
+        # connection. Ambiguity is refused rather than guessed -- attributing a
+        # table to the wrong connection emits a URN pointing at the wrong
+        # platform or instance, which is worse than no edge.
+        connection_id = self._infer_connection_id({})
+        if connection_id is None:
+            self.reporter.chart_warehouse_files_lookup_no_connection += 1
+            return None
+        wh_ref = self._lookup_global_warehouse_table(url_id, connection_id)
+        if wh_ref is None:
+            self.reporter.chart_warehouse_files_lookup_miss += 1
+            return None
+        urn = self._warehouse_urn_from_ref(wh_ref, context=f"chart url_id {url_id!r}")
+        if urn is not None:
+            self.reporter.chart_warehouse_files_lookup_resolved += 1
+        return urn
 
     def _upstream_field_for_ref(
         self, ref: BracketRef, upstream: Element
@@ -7709,6 +7751,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if f.schemaFieldUrn and f.schemaFieldUrn.startswith(self_ref_prefix)
         )
         self.reporter.note_chart_column_lineage_outcome(
+            chart_urn=chart_urn,
             chart_element_id=element.elementId,
             workbook_id=workbook.workbookId,
             workbook_name=workbook.name,
@@ -7885,9 +7928,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # while 6,715 chart refs were being refused for naming an element
             # that "is not a lineage upstream" -- the connector was declining to
             # use a fact it had already fetched.
-            chart_upstream_eids |= self._stated_upstreams_for(
-                element, chart_upstream_eids
-            )
+            # MEASURED ONLY. Sigma states these element->element edges and the
+            # connector discarded them, which looked like free lineage: 7,808
+            # dropped on one tenant while 6,715 refs were refused for naming an
+            # element that "is not a lineage upstream". Consuming them recovered
+            # exactly ZERO novel upstreams at full customer scale -- every one
+            # was already a SheetUpstream, as the dev tenant had predicted. The
+            # counter stays so the conclusion is re-checkable; the behaviour
+            # does not, because widening the resolution surface for no gain is
+            # pure risk.
+            self._stated_upstreams_for(element, chart_upstream_eids)
             # DataModelElementUpstream: map DM element workbook-page name -> Dataset URN.
             # Look up directly from the name maps without re-incrementing element_dm_edge
             # counters (those were already bumped inside _get_element_input_details).
@@ -9369,14 +9419,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # path both looked healthy until someone did the arithmetic across a
         # 100MB log -- and one of them (a dead self-ref predicate) produced a
         # perfect-looking "19 of 19 charts have column lineage".
+        # Tally per-URN outcomes before the identity below reads them.
+        r.finalize_chart_outcomes()
+
         chart_buckets = (
             r.charts_with_column_lineage
             + r.charts_with_partial_column_lineage
             + r.charts_with_no_column_lineage
             + r.charts_with_no_columns
         )
-        if chart_buckets != r.charts_classified_total:
-            check["chart_bucket_residual"] = r.charts_classified_total - chart_buckets
+        # Against DISTINCT charts, not classification passes: one chart URN is
+        # classified once per workbook that contains its element id, and only
+        # the winning pass is stored.
+        distinct_charts = len(r._chart_outcome_by_urn)
+        if chart_buckets != distinct_charts:
+            check["chart_bucket_residual"] = distinct_charts - chart_buckets
 
         check["reconciles"] = 0 if check else 1
         r.chart_column_accounting_check = check
