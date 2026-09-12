@@ -49,6 +49,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuil
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
@@ -129,7 +130,8 @@ public class UpdateIndicesHookTest {
     mockEntitySearchService = mock(ElasticSearchService.class);
     mockTimeseriesAspectService = mock(TimeseriesAspectService.class);
     mockSystemMetadataService = mock(SystemMetadataService.class);
-    searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 1000);
+    searchDocumentTransformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
     mockDataHubUpgradeKafkaListener = mock(DataHubUpgradeKafkaListener.class);
     mockConfigurationProvider = mock(ConfigurationProvider.class);
 
@@ -987,8 +989,6 @@ public class UpdateIndicesHookTest {
               mockEntitySearchService,
               searchDocumentTransformer,
               mockTimeseriesAspectService,
-              "MD5",
-              v2Enabled, // v2Enabled parameter
               null);
       strategies.add(v3Strategy);
     }

@@ -48,8 +48,15 @@ describe('useDocumentNavigation', () => {
             const onSelectDocument = vi.fn();
             const { result } = renderHook(() => useDocumentNavigation(onSelectDocument));
             result.current.handleDocumentClick('urn:li:document:y');
-            expect(onSelectDocument).toHaveBeenCalledWith('urn:li:document:y');
+            expect(onSelectDocument).toHaveBeenCalledWith('urn:li:document:y', undefined);
             expect(mockPush).not.toHaveBeenCalled();
+        });
+
+        it('forwards the title to onSelectDocument when provided', () => {
+            const onSelectDocument = vi.fn();
+            const { result } = renderHook(() => useDocumentNavigation(onSelectDocument));
+            result.current.handleDocumentClick('urn:li:document:z', 'My Document');
+            expect(onSelectDocument).toHaveBeenCalledWith('urn:li:document:z', 'My Document');
         });
     });
 });

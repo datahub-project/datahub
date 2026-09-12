@@ -7,6 +7,7 @@ import static org.opensearch.index.reindex.AbstractBulkByScrollRequest.AUTO_SLIC
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexDeletionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
@@ -63,6 +64,15 @@ public class ESWriteDAO {
 
   public void setWritable(boolean writable) {
     canWrite = writable;
+  }
+
+  /**
+   * V3 search-group indices only exist when the V3 entity index is enabled. Writing to them
+   * otherwise would auto-create an unmapped index.
+   */
+  private boolean isV3Enabled() {
+    EntityIndexConfiguration entityIndex = config.getEntityIndex();
+    return entityIndex != null && entityIndex.getV3() != null && entityIndex.getV3().isEnabled();
   }
 
   /** Result of a delete by query operation */
@@ -196,6 +206,10 @@ public class ESWriteDAO {
       @Nonnull String searchGroup,
       @Nonnull String document,
       @Nonnull String docId) {
+    if (!isV3Enabled()) {
+      log.debug("V3 entity index disabled, skipping upsert for searchGroup {}", searchGroup);
+      return;
+    }
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;
@@ -207,8 +221,7 @@ public class ESWriteDAO {
             .doc(document, XContentType.JSON)
             .retryOnConflict(config.getBulkProcessor().getNumRetries());
 
-    // URN-aware routing — docId is the URL-encoded entity URN, stable per entity, so
-    // using it as the routing key serializes concurrent aspect writes for the same URN
+    // using it as the routing key serializes concurrent aspect writes for the same entity
     // on one bulk processor thread (preventing version_conflict_engine_exception).
     bulkProcessor.add(opContext, docId, updateRequest);
   }
@@ -223,11 +236,15 @@ public class ESWriteDAO {
    */
   public void deleteDocumentBySearchGroup(
       @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {
+    if (!isV3Enabled()) {
+      log.debug("V3 entity index disabled, skipping delete for searchGroup {}", searchGroup);
+      return;
+    }
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    // URN-aware routing — see upsertDocumentBySearchGroup above.
+    // Stable-id routing — see upsertDocumentBySearchGroup above.
     bulkProcessor.add(
         opContext, docId, new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
   }
@@ -280,7 +297,7 @@ public class ESWriteDAO {
             .retryOnConflict(config.getBulkProcessor().getNumRetries())
             .script(script)
             .upsert(upsert);
-    // URN-aware routing via docId — see upsertDocumentBySearchGroup above.
+    // Stable-id routing via docId — see upsertDocumentBySearchGroup above.
     bulkProcessor.add(opContext, docId, updateRequest);
   }
 
@@ -301,6 +318,10 @@ public class ESWriteDAO {
       @Nonnull String scriptSource,
       @Nonnull Map<String, Object> scriptParams,
       Map<String, Object> upsert) {
+    if (!isV3Enabled()) {
+      log.debug("V3 entity index disabled, skipping script update for searchGroup {}", searchGroup);
+      return;
+    }
     applyScriptUpdateByIndexName(
         opContext,
         toIndexNameV3(opContext, searchGroup),

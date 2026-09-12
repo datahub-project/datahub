@@ -106,13 +106,17 @@ authorization:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
       peerGroupEnabled: ${VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
     # Entity types that bypass view authorization when enabled. All other types are restricted by
-    # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`). Empty `value`
-    # keeps that registry baseline; a non-empty `value` replaces it. `add` / `remove` always overlay.
-    # Default `add` is the previous unrestricted CSV minus (1) types already flagged in the
-    # registry and (2) non-OSS entity names (Cloud-only; soft-dropped here anyway). Document,
-    # schemaField, and container are intentionally absent from stock unrestricted overlays when
-    # view authorization is on (container is no longer viewUnrestricted in the registry). Re-add
-    # via VIEW_UNRESTRICTED_ENTITY_TYPES_ADD if needed (not recommended).
+    # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`) plus `value`.
+    # Operator `add` / `remove` always mutate that list.
+    # Stock `value` is the previous unrestricted CSV minus types already flagged in the registry
+    # (OSS entity names only; Cloud-only types are omitted and would be soft-dropped here anyway).
+    # Override with VIEW_UNRESTRICTED_ENTITY_TYPES (replaces this CSV, not the registry baseline).
+    # An explicitly empty VIEW_UNRESTRICTED_ENTITY_TYPES keeps only the registry baseline.
+    # Document, schemaField, and container are intentionally absent from the effective defaults:
+    # they are view-restricted when view authorization is on (container is no longer
+    # viewUnrestricted in the registry). Unrestricted overlays only bypass view gates and do not
+    # disable DocumentService or REST API authorization.
+    # Re-add via VIEW_UNRESTRICTED_ENTITY_TYPES_ADD if needed (not recommended).
     #
     # Registry baseline (entity-registry.yml viewUnrestricted: true):
     #   identity: corpuser, corpGroup
@@ -121,8 +125,8 @@ authorization:
     #   UI chrome: dataHubPageTemplate, dataHubPageModule, dataHubFile, dataHubPersona, post
     #   settings / internal: globalSettings, dataHubRetention, dataHubOpenAPISchema, telemetry, dataHubUpgrade, dataHubStepState
     unrestrictedEntityTypes:
-      value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:}
-      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
+      value: ${VIEW_UNRESTRICTED_ENTITY_TYPES:dataHubPolicy,dataProcess,dataHubIngestionSource,dataHubSecret,service,dataHubExecutionRequest,assertion,mlModelDeployment,dataHubAccessToken,test,inviteToken,versionSet,incident,erModelRelationship,application,semanticModel,metric,businessAttribute,dataContract,dataHubAction,dataHubConnection,platformResource,aiAgent,api,repository,agentSkill}
+      add: ${VIEW_UNRESTRICTED_ENTITY_TYPES_ADD:}
       remove: ${VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE:}
 
 ingestion:
@@ -705,8 +709,7 @@ postgres:
       leakTimeMinutes: ${DATAHUB_PGQUEUE_LEAK_TIME_MINUTES:15}
       waitTimeoutMillis: ${DATAHUB_PGQUEUE_WAIT_TIMEOUT_MILLIS:1000}
     consumerPoll:
-      emptyPollSleepMillis: ${DATAHUB_PGQUEUE_EMPTY_POLL_SLEEP_MS:100}
-      mclEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MCL_EMPTY_POLL_SLEEP_MS:25}
+      emptyPollSleepMinMillis: ${DATAHUB_PGQUEUE_EMPTY_POLL_SLEEP_MIN_MS:1000}
       missingTopicSleepMillis: ${DATAHUB_PGQUEUE_MISSING_TOPIC_SLEEP_MS:500}
       errorRecoverySleepMillis: ${DATAHUB_PGQUEUE_ERROR_RECOVERY_SLEEP_MS:1000}
 
@@ -718,18 +721,22 @@ maeConsumer:
     connectionRequestTimeoutMs: ${MAE_ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:10000}
   pgQueue:
     usageEventsMaxBatch: ${DATAHUB_PGQUEUE_MAE_USAGE_POLL_MAX_BATCH:200}
+    usageEventsEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MAE_USAGE_EMPTY_POLL_SLEEP_MS:5000}
     metadataChangeLogMaxBatch: ${DATAHUB_PGQUEUE_MAE_MCL_POLL_MAX_BATCH:50}
+    metadataChangeLogEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MAE_MCL_EMPTY_POLL_SLEEP_MS:5000}
 
 # MCE consumer (standalone or embedded in GMS): pgQueue poll tuning when transport=pgqueue.
 mceConsumer:
   pgQueue:
     metadataChangeProposalMaxBatch: ${DATAHUB_PGQUEUE_MCE_MCP_POLL_MAX_BATCH:50}
+    metadataChangeProposalEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_MCE_MCP_EMPTY_POLL_SLEEP_MS:5000}
     batchMetadataChangeProposalMaxBatch: ${DATAHUB_PGQUEUE_MCE_BATCH_MCP_POLL_MAX_BATCH:100}
 
 # PE consumer (standalone or embedded in GMS): pgQueue poll tuning when transport=pgqueue.
 peConsumer:
   pgQueue:
     platformEventMaxBatch: ${DATAHUB_PGQUEUE_PE_POLL_MAX_BATCH:50}
+    platformEventEmptyPollSleepMillis: ${DATAHUB_PGQUEUE_PE_EMPTY_POLL_SLEEP_MS:5000}
 
 elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}
@@ -753,6 +760,7 @@ elasticsearch:
     v3:
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:false}
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}
+      keywordReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED:false}
       analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
       mappingConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAPPING_CONFIG:search_entity_mapping_config.yaml}
       maxFieldsLimit: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAX_FIELDS_LIMIT:5000}
@@ -795,10 +803,31 @@ elasticsearch:
           spaceType: cosinesimil
           efConstruction: 128
           m: 16
+        # Snowflake Arctic-embed-s (ONNX in-process default, 384 dimensions)
+        snowflake_arctic_embed_s:
+          vectorDimension: ${ELASTICSEARCH_ENTITY_INDEX_SEMANTIC_SEARCH_MODELS_SNOWFLAKE_ARCTIC_EMBED_S_VECTORDIMENSION:384}
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
+        # Snowflake Arctic-embed-l (ONNX in-process, 1024 dimensions)
+        snowflake_arctic_embed_l:
+          vectorDimension: ${ELASTICSEARCH_ENTITY_INDEX_SEMANTIC_SEARCH_MODELS_SNOWFLAKE_ARCTIC_EMBED_L_VECTORDIMENSION:1024}
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
+        # BGE-base-en-v1.5 (ONNX in-process, 768 dimensions)
+        bge_base_en_v1_5:
+          vectorDimension: ${ELASTICSEARCH_ENTITY_INDEX_SEMANTIC_SEARCH_MODELS_BGE_BASE_EN_V1_5_VECTORDIMENSION:768}
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
       # Embedding provider configuration for generating query embeddings
-      # Supports: "aws-bedrock", "openai", "cohere", "local", or "vertex_ai"
+      # Supports: "aws-bedrock", "openai", "cohere", "local", "vertex_ai", or "onnx"
       embeddingProvider:
-        # Provider type: "aws-bedrock", "openai", "cohere", "local", or "vertex_ai"
+        # Provider type: "aws-bedrock", "openai", "cohere", "local", "vertex_ai", or "onnx"
         type: ${EMBEDDING_PROVIDER_TYPE:openai}
 
         # Maximum text length before truncation (Cohere enforces 2048 character limit)
@@ -830,6 +859,21 @@ elasticsearch:
         local:
           endpoint: ${LOCAL_EMBEDDING_ENDPOINT:http://localhost:11434/v1/embeddings}
           model: ${LOCAL_EMBEDDING_MODEL:nomic-embed-text}
+
+        # In-process ONNX Runtime configuration (used when type is "onnx")
+        # No external server needed — runs inference in the GMS JVM.
+        # Mount a model directory into the container and set env vars to enable.
+        # WARNING: Switching models requires recreating semantic indices and re-embedding all documents.
+        onnx:
+          modelName: ${ONNX_EMBEDDING_MODEL_NAME:}
+          modelDir: ${ONNX_EMBEDDING_MODEL_DIR:}
+          intraOpThreads: ${ONNX_EMBEDDING_INTRA_OP_THREADS:4}
+          # Pooling for token-level output: "cls" (Arctic-embed, BGE) or "mean". Must match the
+          # model's training and the document-side pooling, or kNN recall collapses.
+          pooling: ${ONNX_EMBEDDING_POOLING:cls}
+          # Query-only instruction prefix for asymmetric models (documents are not prefixed).
+          # Arctic-embed/BGE expect "Represent this sentence for searching relevant passages: ".
+          queryInstruction: ${ONNX_EMBEDDING_QUERY_INSTRUCTION:}
 
         # Google Vertex AI configuration (used when type is "vertex_ai")
         vertexai:
@@ -908,6 +952,7 @@ elasticsearch:
     reindexBatchSize: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE:5000} # documents per scroll batch during reindex
     reindexMaxSlices: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES:256} # max parallel slices (capped from target shard count)
     reindexNoProgressRetryMinutes: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES:5} # minutes without doc-count progress before re-triggering reindex
+    waitForUnresolvedReindexTask: ${ELASTICSEARCH_BUILD_INDICES_WAIT_FOR_UNRESOLVED_REINDEX_TASK:true} # skip stall resubmit while the ES reindex task is still running or status lookup failed
     # Parallel reindexing configuration
     enableParallelReindex: ${ELASTICSEARCH_BUILD_INDICES_ENABLE_PARALLEL_REINDEX:false}
     taskCheckIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_TASK_CHECK_INTERVAL_SECONDS:60}
@@ -1628,8 +1673,13 @@ structuredProperties:
   # Requires systemUpdateEnabled as well; both must be true for type-mismatch reindex.
   typeMismatchReindexEnabled: ${ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX:true}
   dropMissingPropertyValuesWithWarning: ${STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING:true} # drop assignments for hard-deleted/missing definitions with WARN; fail if none remain
-  # Lucene keyword term limit (Elasticsearch/OpenSearch default). Used for ignore_above on structured
-  # property keyword mappings and for rejecting oversized string-backed structured property values.
+  # When true, persist oversized string-backed SP values in SQL but omit them from search documents.
+  # Default false: StructuredPropertiesValidator rejects those writes (HTTP 422).
+  dropOversizedKeywordValuesFromIndex: ${STRUCTURED_PROPERTIES_DROP_OVERSIZED_KEYWORD_VALUES_FROM_INDEX:false}
+  # Lucene keyword term limit (Elasticsearch/OpenSearch default, ESUtils.KEYWORD_MAXLENGTH). Used
+  # for ignore_above on structured property keyword mappings and as the write-validation / search-
+  # document threshold. Not a hard cap on primary-store size when dropOversizedKeywordValuesFromIndex
+  # is true.
   keywordMaxLength: ${STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH:32766}
 
 # Consistency check configuration (shared by upgrade job and API endpoints)

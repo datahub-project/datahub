@@ -15,10 +15,14 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -30,6 +34,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -46,26 +51,69 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final ElasticSearchService elasticSearchService;
   private final SearchDocumentTransformer searchDocumentTransformer;
   private final TimeseriesAspectService timeseriesAspectService;
-  private final String idHashAlgo;
   private final MultiEntityMappingsBuilder mappingsBuilder;
-  private final boolean v2Enabled;
   @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
+  private static final Set<String> STRATEGY_OWNED_DOCUMENT_FIELDS =
+      MappingConstants.STRATEGY_OWNED_ROOT_FIELDS;
+
+  private final EntityDocumentIdHasher entityDocumentIdHasher;
+  private final List<V3SearchDocumentContributor> documentContributors;
+  private final boolean v2Enabled;
 
   public UpdateIndicesV3Strategy(
       @Nonnull EntityIndexVersionConfiguration v3Config,
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
-      @Nonnull String idHashAlgo,
-      boolean v2Enabled,
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache) {
+    this(
+        v3Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        timeseriesThrottleCache,
+        new Sha256UrnEntityDocumentIdHasher(),
+        List.of(),
+        false);
+  }
+
+  public UpdateIndicesV3Strategy(
+      @Nonnull EntityIndexVersionConfiguration v3Config,
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
+      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
+      @Nonnull List<V3SearchDocumentContributor> documentContributors) {
+    this(
+        v3Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        timeseriesThrottleCache,
+        entityDocumentIdHasher,
+        documentContributors,
+        false);
+  }
+
+  public UpdateIndicesV3Strategy(
+      @Nonnull EntityIndexVersionConfiguration v3Config,
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
+      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
+      @Nonnull List<V3SearchDocumentContributor> documentContributors,
+      boolean v2Enabled) {
     this.v3Config = v3Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
     this.timeseriesAspectService = timeseriesAspectService;
-    this.idHashAlgo = idHashAlgo;
-    this.v2Enabled = v2Enabled;
     this.timeseriesThrottleCache = timeseriesThrottleCache;
+    this.entityDocumentIdHasher = entityDocumentIdHasher;
+    this.documentContributors =
+        documentContributors == null ? List.of() : List.copyOf(documentContributors);
+    this.v2Enabled = v2Enabled;
     try {
       this.mappingsBuilder =
           new MultiEntityMappingsBuilder(
@@ -202,6 +250,28 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       boolean structuredPropertiesHookEnabled,
       @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
 
+    try {
+      processUrnBatchUnchecked(
+          opContext, urn, events, structuredPropertiesHookEnabled, throttleSummary);
+    } catch (RuntimeException e) {
+      if (v2Enabled) {
+        log.error(
+            "V3 search write failed for URN {} while V2 dual-write is enabled; skipping V3 document",
+            urn,
+            e);
+        return;
+      }
+      throw e;
+    }
+  }
+
+  private void processUrnBatchUnchecked(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull List<MCLItem> events,
+      boolean structuredPropertiesHookEnabled,
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
+
     log.debug("V3 unified batch processing for URN: {} with {} events", urn, events.size());
 
     // Check if any event is a key aspect deletion - if so, delete the entire document
@@ -227,21 +297,14 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
                   }
                 });
 
+    String docId = entityDocumentIdHasher.documentId(opContext, urn);
     if (hasKeyAspectDeletion) {
-      // Delete the entire document for key aspect deletion
-
-      String searchGroup = events.get(0).getEntitySpec().getSearchGroup();
-      if (searchGroup == null) {
-        log.error("V3 key aspect deletion detected but search group is null for URN: {}", urn);
-        return;
-      }
-
-      String docId = opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
-      elasticSearchService.deleteDocumentBySearchGroup(opContext, searchGroup, docId);
+      String indexKey = v3IndexKey(events.get(0).getEntitySpec());
+      elasticSearchService.deleteDocumentBySearchGroup(opContext, indexKey, docId);
       log.debug(
-          "V3 deleted entire document for URN: {} from search group: {} due to key aspect deletion",
+          "V3 deleted entire document for URN: {} from index key: {} due to key aspect deletion",
           urn,
-          searchGroup);
+          indexKey);
       return;
     }
 
@@ -259,13 +322,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       return;
     }
 
-    String searchGroup = events.get(0).getEntitySpec().getSearchGroup();
-    if (searchGroup == null) {
-      log.error("V3 upsert attempted but search group is null for URN: {}", urn);
-      return;
-    }
+    String indexKey = v3IndexKey(events.get(0).getEntitySpec());
 
-    String docId = opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
     String finalDocument = combinedDocument.toString();
 
     if (structuredPropertiesHookEnabled) {
@@ -281,11 +339,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             event.getPreviousRecordTemplate());
       }
     }
-    elasticSearchService.upsertDocumentBySearchGroup(opContext, searchGroup, finalDocument, docId);
+    elasticSearchService.upsertDocumentBySearchGroup(opContext, indexKey, finalDocument, docId);
     log.debug(
-        "V3 upserted combined document for URN: {} to search group: {} with {} aspects",
+        "V3 upserted combined document for URN: {} to index key: {} with {} aspects",
         urn,
-        searchGroup,
+        indexKey,
         events.size());
 
     // Append runIds to search document so rollback/list runs can find touched URNs (MAE path)
@@ -296,7 +354,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             .distinct()
             .collect(Collectors.toList());
     for (String runId : distinctRunIds) {
-      elasticSearchService.appendRunIdBySearchGroup(opContext, searchGroup, docId, urn, runId);
+      elasticSearchService.appendRunIdBySearchGroup(opContext, indexKey, docId, urn, runId);
     }
   }
 
@@ -400,7 +458,34 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       combinedDocument.set(MappingConstants.ASPECTS_FIELD_NAME, aspectsNode);
     }
 
-    return hasAnyAspects ? combinedDocument : null;
+    if (!hasAnyAspects) {
+      return null;
+    }
+
+    applyDocumentContributors(opContext, urn, combinedDocument);
+    return combinedDocument;
+  }
+
+  private void applyDocumentContributors(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull ObjectNode document) {
+    for (V3SearchDocumentContributor contributor : documentContributors) {
+      ObjectNode extras = JsonNodeFactory.instance.objectNode();
+      contributor.contribute(opContext, urn, extras);
+      extras
+          .fields()
+          .forEachRemaining(
+              entry -> {
+                String fieldName = entry.getKey();
+                if (STRATEGY_OWNED_DOCUMENT_FIELDS.contains(fieldName) || document.has(fieldName)) {
+                  throw new IllegalStateException(
+                      "V3 search document contributor attempted to overwrite field '"
+                          + fieldName
+                          + "' for "
+                          + urn);
+                }
+                document.set(fieldName, entry.getValue());
+              });
+    }
   }
 
   /**
@@ -506,5 +591,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     } catch (Exception e) {
       log.error("Error processing structured properties for URN {}: {}", urn, e.getMessage(), e);
     }
+  }
+
+  @Nonnull
+  private String v3IndexKey(@Nonnull EntitySpec entitySpec) {
+    return V3IndexKeys.resolve(entitySpec);
   }
 }

@@ -86,10 +86,11 @@ export const mapResourceTypeToPrivileges = (
 const createCriterion = (
     resourceFieldType: string,
     fieldValues: Array<PolicyMatchCriterionValue>,
+    condition: PolicyMatchCondition = PolicyMatchCondition.Equals,
 ): PolicyMatchCriterion => ({
     field: resourceFieldType,
     values: fieldValues,
-    condition: PolicyMatchCondition.Equals,
+    condition,
 });
 
 export const createCriterionValue = (value: string): PolicyMatchCriterionValue => ({ value });
@@ -143,16 +144,44 @@ export const getFieldValuesOfTags = (filter: Maybe<PolicyMatchFilter> | undefine
     return filter?.criteria?.find((criterion) => criterion.field === resourceFieldType)?.values || [];
 };
 
+/** A cleared input must yield [] — setFieldValues only drops a criterion when the list is empty. */
+export const toStartsWithValues = (value: string): string[] => (value ? [value] : []);
+
 export const setFieldValues = (
     filter: PolicyMatchFilter,
     resourceFieldType: string,
     fieldValues: Array<PolicyMatchCriterionValue>,
+    condition?: PolicyMatchCondition,
 ): PolicyMatchFilter => {
     const restCriteria = filter.criteria?.filter((criterion) => criterion.field !== resourceFieldType) || [];
     if (fieldValues.length === 0) {
         return { ...filter, criteria: restCriteria };
     }
-    return { ...filter, criteria: [...restCriteria, createCriterion(resourceFieldType, fieldValues)] };
+
+    // Preserve existing condition if not explicitly provided
+    const existingCondition = filter.criteria?.find((c) => c.field === resourceFieldType)?.condition;
+    const finalCondition = condition !== undefined ? condition : existingCondition;
+
+    const filterWithValues = {
+        ...filter,
+        criteria: [...restCriteria, createCriterion(resourceFieldType, fieldValues, finalCondition)],
+    };
+    return filterWithValues;
+};
+
+export const setFieldCondition = (
+    filter: PolicyMatchFilter,
+    resourceFieldType: string,
+    condition: PolicyMatchCondition,
+): PolicyMatchFilter => {
+    const criteria =
+        filter.criteria?.map((criterion) => {
+            if (criterion.field === resourceFieldType) {
+                return { ...criterion, condition };
+            }
+            return criterion;
+        }) || [];
+    return { ...filter, criteria };
 };
 
 export const addOrUpdatePoliciesInList = (existingPolicies, newPolicies) => {
