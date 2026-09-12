@@ -1,7 +1,7 @@
 import time
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -14,6 +14,9 @@ from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discover
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.info_schema import (
     InfoSchemaQueries,
+)
+from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.types import (
+    PartitionValue,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_and_filter_expressions,
@@ -292,16 +295,24 @@ def test_date_named_string_column_reaches_strategic_dates():
     """
 
     class StrategicOnlyDiscovery(PartitionDiscovery):
-        def _get_partition_column_types(self, *args: Any, **kwargs: Any):
+        def _get_partition_column_types(
+            self, *args: Any, **kwargs: Any
+        ) -> Dict[str, str]:
             return {"event_date": "STRING"}
 
-        def _get_partition_info_from_table_query(self, *args: Any, **kwargs: Any):
-            return None
+        def _get_partition_info_from_table_query(
+            self, *args: Any, **kwargs: Any
+        ) -> Dict[str, PartitionValue]:
+            return {}
 
-        def _test_date_candidate(self, *args: Any, **kwargs: Any):
+        def _test_date_candidate(
+            self, *args: Any, **kwargs: Any
+        ) -> Optional[List[str]]:
             return ["`event_date` = '2025-01-15'"]
 
-        def _get_partitions_with_sampling(self, *args: Any, **kwargs: Any):
+        def _get_partitions_with_sampling(
+            self, *args: Any, **kwargs: Any
+        ) -> Optional[List[str]]:
             return None
 
     discovery = StrategicOnlyDiscovery(make_config())
@@ -322,13 +333,19 @@ def test_strategic_candidates_prefer_latest_over_completion_order():
     # results must be consumed in candidate preference order (today first), so today
     # wins. Completion-order (as_completed) selection would wrongly return yesterday.
     class OrderingDiscovery(PartitionDiscovery):
-        def _get_partition_column_types(self, *args: Any, **kwargs: Any):
+        def _get_partition_column_types(
+            self, *args: Any, **kwargs: Any
+        ) -> Dict[str, str]:
             return {"event_date": "DATE"}
 
-        def _get_partition_info_from_table_query(self, *args: Any, **kwargs: Any):
-            return None
+        def _get_partition_info_from_table_query(
+            self, *args: Any, **kwargs: Any
+        ) -> Dict[str, PartitionValue]:
+            return {}
 
-        def _test_date_candidate(self, *args: Any, **kwargs: Any):
+        def _test_date_candidate(
+            self, *args: Any, **kwargs: Any
+        ) -> Optional[List[str]]:
             description = args[4]
             if description == "today":
                 # Make today deliberately finish *after* yesterday.
@@ -336,7 +353,9 @@ def test_strategic_candidates_prefer_latest_over_completion_order():
                 return ["`event_date` = '2025-01-16'"]
             return ["`event_date` = '2025-01-15'"]
 
-        def _get_partitions_with_sampling(self, *args: Any, **kwargs: Any):
+        def _get_partitions_with_sampling(
+            self, *args: Any, **kwargs: Any
+        ) -> Optional[List[str]]:
             return None
 
     discovery = OrderingDiscovery(make_config())
@@ -518,7 +537,9 @@ def test_inconclusive_detection_skips_partitioned_table():
         raise RuntimeError("INFORMATION_SCHEMA unavailable")
 
     class ProbeErrorDiscovery(PartitionDiscovery):
-        def _probe_required_partition_columns(self, *args: Any, **kwargs: Any):
+        def _probe_required_partition_columns(
+            self, *args: Any, **kwargs: Any
+        ) -> Tuple[Set[str], Optional[str]]:
             return set(), "query timed out"
 
     discovery = ProbeErrorDiscovery(make_config())
@@ -539,7 +560,9 @@ def test_authoritative_empty_columns_skips_probe():
         return []
 
     class ProbeGuardDiscovery(PartitionDiscovery):
-        def _probe_required_partition_columns(self, *args: Any, **kwargs: Any):
+        def _probe_required_partition_columns(
+            self, *args: Any, **kwargs: Any
+        ) -> Tuple[Set[str], Optional[str]]:
             raise AssertionError(
                 "probe must not run after an authoritative COLUMNS result"
             )
@@ -617,7 +640,7 @@ def test_ingestion_time_partition_datetime_override_applies():
     )
 
     filters = discovery._get_partition_datetime_override_filters(
-        table, {"_PARTITIONTIME"}, {}
+        table, ["_PARTITIONTIME"], {}
     )
 
     assert filters is not None
@@ -630,7 +653,7 @@ def test_first_complete_row_requires_coexisting_tuple():
     """A composite partition filter must come from a single co-occurring row, not the
     first non-null value of each column picked across different rows (which could
     fabricate a tuple that never exists together)."""
-    rows = [
+    rows: List[Any] = [
         SimpleNamespace(a=1, b=None),
         SimpleNamespace(a=None, b=2),
     ]
@@ -705,10 +728,17 @@ def test_strategic_candidate_path_emits_half_open_range_for_timestamp():
             return True
 
         def _enhance_partition_filters_with_actual_values(
-            self, table, project, schema, required_columns, filters, *args, **kwargs
-        ):
+            self,
+            table: BigqueryTable,
+            project: str,
+            schema: str,
+            required_columns: List[str],
+            initial_filters: List[str],
+            *args: Any,
+            **kwargs: Any,
+        ) -> Optional[List[str]]:
             # Isolate the candidate-filter construction from the co-occurrence enhancement.
-            return filters
+            return initial_filters
 
     discovery = NoEnhanceDiscovery(make_config())
     table = make_table(partition_info=PartitionInfo(fields=("event_ts",), type="DAY"))
@@ -774,6 +804,27 @@ def test_partition_column_types_backfills_pseudo_columns():
     )
 
     assert types == {"region": "STRING", "_PARTITIONTIME": "TIMESTAMP"}
+
+
+def test_partition_column_types_keeps_pseudo_columns_on_lookup_failure():
+    """The pseudo-column types are fixed and query-independent, so a failed
+    INFORMATION_SCHEMA.COLUMNS lookup must still return them — only the real column's
+    type is lost, not _PARTITIONTIME/_PARTITIONDATE.
+    """
+    info_schema = InfoSchemaQueries()
+
+    def failing_execute(query: str, job_config: Any, context: str) -> list:
+        raise RuntimeError("COLUMNS query timed out")
+
+    types = info_schema.get_partition_column_types(
+        make_table(name="ingestion_time"),
+        "test-project-123456",
+        "ds",
+        ["region", "_PARTITIONTIME"],
+        failing_execute,
+    )
+
+    assert types == {"_PARTITIONTIME": "TIMESTAMP"}
 
 
 def test_range_partition_uses_max_bucket_not_most_recently_modified():
