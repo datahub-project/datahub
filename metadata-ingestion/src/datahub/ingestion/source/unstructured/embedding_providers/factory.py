@@ -17,6 +17,7 @@ SUPPORTED_PROVIDERS: tuple[str, ...] = (
     "openai",
     "local",
     "vertex_ai",
+    "onnx",
 )
 
 
@@ -121,6 +122,27 @@ def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
             project_id=project_id,
             location=config.vertex_location,
             timeout=timeout,
+        )
+
+    if provider == "onnx":
+        from datahub.ingestion.source.unstructured.embedding_providers.onnx import (
+            OnnxEmbeddingProvider,
+        )
+
+        # The server config names the model but not where its files live; the
+        # executor resolves that from the same env var GMS uses, so both sides
+        # load the identical model.onnx + tokenizer.json.
+        model_dir = config.onnx_model_dir or os.environ.get("ONNX_EMBEDDING_MODEL_DIR")
+        if not model_dir:
+            raise ValueError(
+                "onnx provider requires a model directory. Set embedding.onnx_model_dir "
+                "or the ONNX_EMBEDDING_MODEL_DIR environment variable to the directory "
+                "containing model.onnx and tokenizer.json."
+            )
+        return OnnxEmbeddingProvider(
+            model=model,
+            model_dir=model_dir,
+            pooling=config.onnx_pooling,
         )
 
     raise ValueError(f"Unsupported embedding provider: {provider}")
