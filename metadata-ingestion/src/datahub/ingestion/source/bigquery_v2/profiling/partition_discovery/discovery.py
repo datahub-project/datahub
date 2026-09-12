@@ -9,8 +9,6 @@ from dateutil.relativedelta import relativedelta
 from google.cloud.bigquery import QueryJobConfig, Row, ScalarQueryParameter
 from sqlglot.expressions import (
     Anonymous,
-    Date,
-    DatetimeTrunc,
     Expression,
     Identifier,
     PartitionedByProperty,
@@ -31,7 +29,6 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DEFAULT_PARTITION_STATS_LIMIT,
     MAX_PARTITION_VALUES,
     PARTITION_FILTER_PATTERN,
-    PARTITIONING_COLUMN_FLAG,
     PSEUDO_PARTITION_COLUMN_TYPES,
     SAMPLING_LIMIT_ROWS,
     SAMPLING_PERCENT,
@@ -87,6 +84,10 @@ class PartitionDiscovery:
         self.report = report
         self.info_schema = InfoSchemaQueries(report)
 
+    # TODO: This is a copy of BigqueryProfiler.get_partition_range_from_partition_id in
+    # profiling/profiler.py, which is still the live one. The copies must stay in sync
+    # until the profiler is migrated onto PartitionDiscovery (later PR in this stack), at
+    # which point the profiler.py copy is deleted and this becomes the single home.
     @staticmethod
     def get_partition_range_from_partition_id(
         partition_id: str, partition_datetime: Optional[datetime]
@@ -114,17 +115,6 @@ class PartitionDiscovery:
             )
         upper_bound_partition_datetime = partition_datetime + duration
         return partition_datetime, upper_bound_partition_datetime
-
-    def get_partition_columns_from_info_schema(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
-    ) -> Dict[str, str]:
-        return self.info_schema.get_partition_columns_from_info_schema(
-            table, project, schema, execute_query_func
-        )
 
     def get_partition_columns_from_ddl(
         self,
@@ -930,13 +920,10 @@ class PartitionDiscovery:
             for expr in expressions:
                 column_name = None
 
-                if isinstance(expr, (Date, DatetimeTrunc)):
-                    if hasattr(expr, "this") and expr.this:
-                        column_name = str(expr.this)
-
-                elif isinstance(expr, Anonymous):
-                    # Try to extract the first argument (usually the column)
-                    if hasattr(expr, "expressions") and expr.expressions:
+                if isinstance(expr, Anonymous):
+                    # A generic function call (e.g. RANGE_BUCKET): its `.this` is the
+                    # function name, so pull the column from the first argument instead.
+                    if expr.expressions:
                         first_arg = expr.expressions[0]
                         if isinstance(first_arg, Identifier):
                             column_name = str(first_arg)
@@ -947,11 +934,10 @@ class PartitionDiscovery:
                     column_name = str(expr)
 
                 elif hasattr(expr, "this") and expr.this:
-                    if isinstance(expr.this, Identifier):
-                        column_name = str(expr.this)
-                    else:
-                        # Try to extract column from nested expression
-                        column_name = str(expr.this)
+                    # Everything else that wraps a single column in `.this`: bare DATE(),
+                    # DATETIME_TRUNC/TIMESTAMP_TRUNC/DATE_TRUNC, etc. sqlglot gives each its
+                    # own node type, but they all expose the column as `.this`.
+                    column_name = str(expr.this)
 
                 if column_name:
                     column_name = column_name.strip().strip("`").strip('"').strip("'")
@@ -1025,54 +1011,12 @@ class PartitionDiscovery:
         schema: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
     ) -> Tuple[List[str], bool]:
-        """Return (partition columns, authoritative).
-
-        The columns are returned in INFORMATION_SCHEMA.COLUMNS ``ordinal_position`` order
-        (the query orders by it) and de-duplicated preserving that order, because a
-        composite partition key is positional — the caller maps partition-id components
-        to columns by position, so the order must not be lost.
-
-        ``authoritative`` is True only when the INFORMATION_SCHEMA.COLUMNS query executed
-        successfully; an empty list with authoritative=True means the table is genuinely
-        unpartitioned, whereas authoritative=False means the lookup failed and the state
-        is unknown (the caller should fall back to a probe).
-        """
-        required_partition_columns: List[str] = []
-
-        try:
-            safe_info_schema_ref = build_safe_table_reference(
-                project, schema, "INFORMATION_SCHEMA.COLUMNS"
-            )
-
-            query = queries.PARTITION_COLUMN_NAMES.format(
-                info_schema_ref=safe_info_schema_ref, flag=PARTITIONING_COLUMN_FLAG
-            )
-
-            job_config = QueryJobConfig(
-                query_parameters=[
-                    ScalarQueryParameter("table_name", "STRING", table.name)
-                ]
-            )
-
-            query_results = execute_query_func(
-                query, job_config, "partition columns from schema"
-            )
-            # dict.fromkeys de-duplicates while keeping the ordinal_position order.
-            required_partition_columns = list(
-                dict.fromkeys(row.column_name for row in query_results)
-            )
-            logger.debug(
-                f"Found partition columns from schema: {required_partition_columns}"
-            )
-        except Exception as e:
-            # Don't probe here: the coordinator runs the probe fallback exactly once when
-            # this returns empty, so probing internally would double-probe on a COLUMNS
-            # failure. Signal non-authoritative so the coordinator's single probe surfaces
-            # the error state instead of treating the table as unpartitioned.
-            logger.debug(f"Error querying partition columns from schema: {e}")
-            return required_partition_columns, False
-
-        return required_partition_columns, True
+        # All INFORMATION_SCHEMA.COLUMNS access lives in InfoSchemaQueries so there is a
+        # single owner of that query; this just adapts the (columns, authoritative) result
+        # into the coordinator's fallback flow.
+        return self.info_schema.get_partition_column_names(
+            table, project, schema, execute_query_func
+        )
 
     @staticmethod
     def _first_complete_row(
@@ -1109,8 +1053,21 @@ class PartitionDiscovery:
         # Last resort when INFORMATION_SCHEMA and direct date queries both fail. Date
         # columns use ORDER BY date DESC (cheap); non-date tables use TABLESAMPLE SYSTEM.
         try:
-            partition_cols_with_types = self.get_partition_columns_from_info_schema(
-                table, project, schema, execute_query_func
+            # INFORMATION_SCHEMA.COLUMNS access lives in InfoSchemaQueries: resolve the
+            # partition column names, then their types, as a {col: type} map (empty when
+            # the lookup finds nothing or fails — the DDL / known-columns fallbacks below
+            # then take over).
+            partition_columns, _authoritative = (
+                self.info_schema.get_partition_column_names(
+                    table, project, schema, execute_query_func
+                )
+            )
+            partition_cols_with_types = (
+                self.info_schema.get_partition_column_types(
+                    table, project, schema, partition_columns, execute_query_func
+                )
+                if partition_columns
+                else {}
             )
 
             if not partition_cols_with_types:

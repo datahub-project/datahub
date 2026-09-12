@@ -50,9 +50,13 @@ ORDER BY last_modified_time DESC
 LIMIT @max_partitions"""
 
 # The single highest populated RANGE bucket, ordered by the numeric bucket value (not by
-# last-modified). A `col >= floor` lower-bound scan is only exact at the *global* max
-# bucket; PARTITIONS_BY_MODIFIED can omit it (a rarely-modified top bucket falls outside
-# its modified-ordered LIMIT), so the range path resolves the floor with this instead.
+# last-modified). The range path scans it with `col >= floor`; selecting the *global* max
+# bucket keeps that scan as tight as the bucket value allows (a mid-range floor would also
+# sweep in every higher defined bucket). PARTITIONS_BY_MODIFIED can omit the top bucket (a
+# rarely-modified one falls outside its modified-ordered LIMIT), so the range path resolves
+# the floor with this instead. Note `col >= floor` still also matches any values above the
+# partitioning range end, which BigQuery stores in the __UNPARTITIONED__ bucket — those
+# overflow rows are included alongside the top bucket, not excluded by this filter.
 MAX_RANGE_PARTITION_ID = """SELECT partition_id
 FROM {info_schema_ref}
 WHERE table_name = @table_name
