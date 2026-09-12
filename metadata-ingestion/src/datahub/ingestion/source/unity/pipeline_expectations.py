@@ -155,9 +155,7 @@ class UnityCatalogPipelineExpectationsExtractor:
         expectation: str,
         totals: _ExpectationTotals,
     ) -> Iterable[MetadataWorkUnit]:
-        ref = TableReference(
-            metastore=None, catalog=catalog, schema=schema, table=dataset_name
-        )
+        ref = _resolve_table_ref(dataset_name, catalog, schema)
         dataset_urn = self.dataset_urn_builder(ref)
         assertion_urn = make_expectation_assertion_urn(
             dataset_urn, pipeline_id, expectation
@@ -185,6 +183,25 @@ class UnityCatalogPipelineExpectationsExtractor:
         yield build_expectation_run_event_mcp(
             result, assertion_urn, dataset_urn
         ).as_workunit()
+
+
+def _resolve_table_ref(dataset_name: str, catalog: str, schema: str) -> TableReference:
+    # Lakeflow reports the expectation's dataset fully-qualified (catalog.schema.table)
+    # on Unity Catalog pipelines, but can report a bare or schema-qualified name on
+    # older pipelines. Prefer the qualified parts and fall back to the pipeline target
+    # for any missing component.
+    parts = dataset_name.split(".")
+    if len(parts) >= 3:
+        return TableReference(
+            metastore=None, catalog=parts[-3], schema=parts[-2], table=parts[-1]
+        )
+    if len(parts) == 2:
+        return TableReference(
+            metastore=None, catalog=catalog, schema=parts[0], table=parts[1]
+        )
+    return TableReference(
+        metastore=None, catalog=catalog, schema=schema, table=dataset_name
+    )
 
 
 def _extract_expectations(event: Dict[str, object]) -> List[Dict[str, object]]:
