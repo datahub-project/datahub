@@ -35,6 +35,10 @@ export class SiblingsPage extends BasePage {
     return this.entityHeader.getByTestId(`platform-icon-${platform.toLowerCase()}`);
   }
 
+  private getSearchResultPlatformIcon(platform: string): Locator {
+    return this.page.getByTestId(`platform-icon-${platform.toLowerCase()}`);
+  }
+
   private getTermOption(termName: string): Locator {
     return this.page.getByTestId(`tag-term-option-${termName}`);
   }
@@ -110,15 +114,11 @@ export class SiblingsPage extends BasePage {
   }
 
   async verifySingleSearchResult(datasetName: string, platforms: string[]): Promise<void> {
-    // Assert combining on the target card rather than a global result count, so
-    // unrelated hits for a short query cannot fail the siblings assertion.
-    const result = this.searchResults.filter({ hasText: datasetName });
-    await expect(result).toHaveCount(1, { timeout: TIMEOUTS.LONG });
+    await expect(this.searchResults).toHaveCount(1);
+    await expect(this.searchResults.getByText(datasetName)).toBeVisible();
 
     for (const platform of platforms) {
-      await expect(result.getByTestId(`platform-icon-${platform.toLowerCase()}`)).toBeVisible({
-        timeout: TIMEOUTS.MEDIUM,
-      });
+      await expect(this.getSearchResultPlatformIcon(platform)).toBeVisible();
     }
   }
 
