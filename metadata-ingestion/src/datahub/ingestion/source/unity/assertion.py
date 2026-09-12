@@ -2,7 +2,12 @@ from typing import Dict, Optional
 
 from pydantic import BaseModel
 
-from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import (
+    datahub_guid,
+    make_assertion_source,
+    make_assertion_urn,
+    make_schema_field_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -67,7 +72,7 @@ def make_dq_assertion_urn(
         key["instance"] = platform_instance
     if env:
         key["env"] = env
-    return mce_builder.make_assertion_urn(mce_builder.datahub_guid(key))
+    return make_assertion_urn(datahub_guid(key))
 
 
 def build_assertion_info_mcp(
@@ -75,11 +80,11 @@ def build_assertion_info_mcp(
     assertion_urn: str,
     dataset_urn: str,
 ) -> MetadataChangeProposalWrapper:
-    field_urn = mce_builder.make_schema_field_urn(dataset_urn, result.column)
+    field_urn = make_schema_field_urn(dataset_urn, result.column)
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
         customProperties={"metric": result.metric, "threshold": str(result.threshold)},
-        source=mce_builder.make_assertion_source(),
+        source=make_assertion_source(),
         description="Completeness",
         customAssertion=CustomAssertionInfoClass(
             type=CUSTOM_ASSERTION_TYPE,
