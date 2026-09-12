@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Any, Optional
+from typing import Any, Optional, Set, Tuple
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -115,7 +115,9 @@ def test_inconclusive_detection_skips_partitioned_table():
         raise RuntimeError("INFORMATION_SCHEMA unavailable")
 
     class ProbeErrorDiscovery(PartitionDiscovery):
-        def _probe_required_partition_columns(self, *args: Any, **kwargs: Any):
+        def _probe_required_partition_columns(
+            self, *args: Any, **kwargs: Any
+        ) -> Tuple[Set[str], Optional[str]]:
             return set(), "query timed out"
 
     discovery = ProbeErrorDiscovery(make_config())
@@ -136,7 +138,9 @@ def test_authoritative_empty_columns_skips_probe():
         return []
 
     class ProbeGuardDiscovery(PartitionDiscovery):
-        def _probe_required_partition_columns(self, *args: Any, **kwargs: Any):
+        def _probe_required_partition_columns(
+            self, *args: Any, **kwargs: Any
+        ) -> Tuple[Set[str], Optional[str]]:
             raise AssertionError(
                 "probe must not run after an authoritative COLUMNS result"
             )
@@ -194,6 +198,27 @@ def test_partition_column_types_backfills_pseudo_columns():
     )
 
     assert types == {"region": "STRING", "_PARTITIONTIME": "TIMESTAMP"}
+
+
+def test_partition_column_types_keeps_pseudo_columns_on_lookup_failure():
+    """The pseudo-column types are fixed and query-independent, so a failed
+    INFORMATION_SCHEMA.COLUMNS lookup must still return them — only the real column's
+    type is lost, not _PARTITIONTIME/_PARTITIONDATE.
+    """
+    info_schema = InfoSchemaQueries()
+
+    def failing_execute(query: str, job_config: Any, context: str) -> list:
+        raise RuntimeError("COLUMNS query timed out")
+
+    types = info_schema.get_partition_column_types(
+        make_table(name="ingestion_time"),
+        "test-project-123456",
+        "ds",
+        ["region", "_PARTITIONTIME"],
+        failing_execute,
+    )
+
+    assert types == {"_PARTITIONTIME": "TIMESTAMP"}
 
 
 def test_partition_filter_validation_rejects_injection():

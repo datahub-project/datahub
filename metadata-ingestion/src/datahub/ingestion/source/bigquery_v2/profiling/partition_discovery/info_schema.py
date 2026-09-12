@@ -103,6 +103,17 @@ class InfoSchemaQueries:
         if not partition_columns:
             return {}
 
+        # INFORMATION_SCHEMA.COLUMNS never lists the ingestion-time pseudo-columns
+        # (_PARTITIONTIME/_PARTITIONDATE), and their BigQuery types are fixed, so resolve
+        # them here up front — independent of the query. This must survive a failed or
+        # empty COLUMNS lookup: otherwise convert_partition_id_to_filters would emit a
+        # string point-equality instead of a typed half-open range on the pseudo-column.
+        type_map: Dict[str, str] = {
+            col: PSEUDO_PARTITION_COLUMN_TYPES[col]
+            for col in partition_columns
+            if col in PSEUDO_PARTITION_COLUMN_TYPES
+        }
+
         try:
             safe_columns = validate_column_names(
                 partition_columns, "column type lookup"
@@ -110,7 +121,7 @@ class InfoSchemaQueries:
 
             if not safe_columns:
                 logger.warning(f"No valid column names provided for table {table.name}")
-                return {}
+                return type_map
 
             safe_info_schema_ref = build_safe_table_reference(
                 project, schema, "INFORMATION_SCHEMA.COLUMNS"
@@ -136,14 +147,10 @@ class InfoSchemaQueries:
             query_results = execute_query_func(
                 query, job_config, "partition column types"
             )
-            type_map = {row.column_name: row.data_type for row in query_results}
-            # INFORMATION_SCHEMA.COLUMNS never lists the ingestion-time pseudo-columns
-            # (_PARTITIONTIME/_PARTITIONDATE), so backfill their fixed BigQuery types for
-            # any requested here; otherwise convert_partition_id_to_filters would emit a
-            # string point-equality instead of a typed half-open range on the pseudo-column.
-            for col in partition_columns:
-                if col not in type_map and col in PSEUDO_PARTITION_COLUMN_TYPES:
-                    type_map[col] = PSEUDO_PARTITION_COLUMN_TYPES[col]
+            # Real columns from the query take precedence; pseudo-columns keep their
+            # pre-seeded fixed types (they never appear in the result set).
+            for row in query_results:
+                type_map[row.column_name] = row.data_type
             return type_map
         except Exception as e:
             warn(
@@ -154,7 +161,7 @@ class InfoSchemaQueries:
                 "partition filters may be built with incorrect quoting",
                 context=f"{table.name}: {e}",
             )
-            return {}
+            return type_map
 
     def get_partition_filters_from_information_schema(
         self,
