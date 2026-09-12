@@ -96,6 +96,9 @@ from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HiveMetastoreProxy,
 )
 from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
+from datahub.ingestion.source.unity.pipeline_expectations import (
+    UnityCatalogPipelineExpectationsExtractor,
+)
 from datahub.ingestion.source.unity.platform_resource_repository import (
     UnityCatalogPlatformResourceRepository,
 )
@@ -664,6 +667,19 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.data_quality.enabled:
             yield from self._gen_data_quality_workunits()
+
+        if self.config.pipeline_expectations.enabled:
+            yield from self._gen_pipeline_expectation_workunits()
+
+    def _gen_pipeline_expectation_workunits(self) -> Iterable[MetadataWorkUnit]:
+        with self.report.new_stage("Ingest pipeline expectations"):
+            extractor = UnityCatalogPipelineExpectationsExtractor(
+                config=self.config.pipeline_expectations,
+                report=self.report,
+                proxy=self.unity_catalog_api_proxy,
+                dataset_urn_builder=self.gen_dataset_urn,
+            )
+            yield from extractor.get_workunits()
 
     def _start_warehouse_or_report(self, failure_context: str) -> bool:
         # Starting the SQL warehouse can take minutes; every warehouse-gated stage

@@ -1,6 +1,7 @@
 import uuid
 from collections import namedtuple
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Dict, Iterable
 from unittest import mock
 from unittest.mock import patch
@@ -812,6 +813,104 @@ def test_data_quality_ingestion(pytestconfig, tmp_path, requests_mock):
         pytestconfig,
         output_path=f"{tmp_path}/{output_file_name}",
         golden_path=f"{test_resources_dir}/unity_catalog_data_quality_mces_golden.json",
+    )
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_pipeline_expectations_ingestion(pytestconfig, tmp_path, requests_mock):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+    register_mock_api(request_mock=requests_mock)
+
+    output_file_name = "unity_catalog_pipeline_expectations_mcps.json"
+
+    # One passing expectation (0 failed) and one failing (2 failed) on the same
+    # pipeline dataset, resolved to quickstart_catalog.quickstart_schema.quickstart_table.
+    events_response = {
+        "events": [
+            {
+                "event_type": "flow_progress",
+                "timestamp": "2021-12-06T00:00:00.000Z",
+                "origin": {"update_id": "update-1"},
+                "details": {
+                    "flow_progress": {
+                        "data_quality": {
+                            "expectations": [
+                                {
+                                    "name": "valid_id",
+                                    "dataset": "quickstart_table",
+                                    "passed_records": 10,
+                                    "failed_records": 0,
+                                },
+                                {
+                                    "name": "non_null_amount",
+                                    "dataset": "quickstart_table",
+                                    "passed_records": 8,
+                                    "failed_records": 2,
+                                },
+                            ]
+                        }
+                    }
+                },
+            }
+        ]
+    }
+
+    with patch(
+        "datahub.ingestion.source.unity.connection.WorkspaceClient"
+    ) as mock_client:
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data(workspace_client)
+        workspace_client.pipelines.list_pipelines.return_value = [
+            SimpleNamespace(pipeline_id="pipeline-1", name="quickstart_pipeline")
+        ]
+        workspace_client.pipelines.get.return_value = SimpleNamespace(
+            spec=SimpleNamespace(
+                catalog="quickstart_catalog", schema="quickstart_schema", target=None
+            )
+        )
+        workspace_client.api_client.do.return_value = events_response
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-expectations-test",
+            "pipeline_name": "unity-catalog-expectations-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_hive_metastore": False,
+                    "include_ownership": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_usage_statistics": False,
+                    "include_ml_models": False,
+                    "include_notebooks": False,
+                    "profiling": {"enabled": False},
+                    "catalog_pattern": {"allow": ["quickstart_catalog"]},
+                    "table_pattern": {
+                        "allow": [
+                            r"quickstart_catalog\.quickstart_schema\.quickstart_table$"
+                        ]
+                    },
+                    "pipeline_expectations": {"enabled": True},
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": f"{tmp_path}/{output_file_name}"},
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/{output_file_name}",
+        golden_path=f"{test_resources_dir}/unity_catalog_pipeline_expectations_mces_golden.json",
     )
 
 
