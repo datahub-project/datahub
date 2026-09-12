@@ -86,14 +86,14 @@ source:
       # Optional: restrict which columns get assertions, or widen the window.
       column_pattern:
         allow: [".*"]
-      max_window_days: 1
+      max_window_days: 7
 ```
 
 Behavior:
 
 - One completeness assertion is published per monitored column (subject to `column_pattern`); the whole-table summary row is not published.
 - Assertion identity is deterministic (derived from the dataset, column and metric — not the run window), so re-ingesting is idempotent: the same assertion accrues new run events rather than creating duplicates.
-- `max_window_days` bounds how far back monitor windows are evaluated relative to the ingestion `end_time` (default: the most recent day), so each run publishes the latest windows rather than replaying all history.
+- `max_window_days` bounds how far back monitor windows are evaluated relative to the ingestion `end_time` (default: the most recent 7 days), so each run publishes the latest windows rather than replaying all history.
 - Requires a `databricks-sdk` recent enough to expose the data quality API (>= 0.68.0); on older SDKs data-quality extraction is skipped with a warning.
 
 Permissions: the metric tables are read over SQL, so a running SQL warehouse (`warehouse_id`) is required, and the ingesting principal needs `SELECT` on each monitor's `*_profile_metrics` table. If a monitor writes its metrics to a schema that is not otherwise ingested, grant `USE SCHEMA` on that schema as well.

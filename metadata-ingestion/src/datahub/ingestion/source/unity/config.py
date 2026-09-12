@@ -205,11 +205,12 @@ class UnityCatalogDataQualityConfig(ConfigModel):
         "the column name.",
     )
     max_window_days: int = Field(
-        default=1,
+        default=7,
         ge=1,
         description="Only evaluate monitor windows ending within this many days before "
         "the ingestion end_time, so each run publishes the most recent windows rather "
-        "than replaying all monitor history.",
+        "than replaying all monitor history. Defaults to 7 so a daily monitor that "
+        "last refreshed a day or two ago still surfaces its latest results.",
     )
 
 
