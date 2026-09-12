@@ -3487,3 +3487,51 @@ class TestTheDataModelPathValidatesRefColumnsToo:
         Refusing on absence-of-knowledge would delete real lineage."""
         assert self._field("Anything") == "Anything"
         assert self.src.reporter.chart_ref_column_absent_from_upstream == 0
+
+
+class TestEachMissReasonCarriesItsSourceNames:
+    """A bare count cannot say what to build next.
+
+    These misses concentrate -- 17,944 in 87 distinct source names on one
+    tenant -- so the NAME DISTRIBUTION is the evidence, and a 10-element
+    reservoir over 11,028 refs would answer nothing. That exact starvation
+    returned zero samples for a 263-ref population on an earlier run.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+        self.src._init_diagnostic_state()
+
+    def _miss(self, source: str, *, count: bool = True) -> None:
+        self.src._note_chart_ref_miss(
+            "element_named_but_not_a_lineage_upstream",
+            ref=_make_ref(source, "col"),
+            chart_element_id="e1",
+            workbook_dm_url_ids=frozenset(),
+            count=count,
+        )
+
+    def test_repeated_names_are_tallied_not_sampled_away(self) -> None:
+        for _ in range(50):
+            self._miss("Invoices")
+        self._miss("Accounts")
+        names = self.src.reporter.chart_ref_miss_source_names[
+            "element_named_but_not_a_lineage_upstream"
+        ]
+        assert names == {"Invoices": 50, "Accounts": 1}
+
+    def test_speculative_splits_are_still_not_counted(self) -> None:
+        """Join-chain refs probe several splits; counting each would report
+        many misses for one ref, which is what made the aggregate unreadable."""
+        self._miss("Invoices", count=False)
+        assert self.src.reporter.chart_ref_miss_source_names == {}
+
+    def test_the_name_map_is_bounded(self) -> None:
+        """A pathological tenant must not grow this without limit."""
+        for i in range(250):
+            self._miss(f"Source {i}")
+        names = self.src.reporter.chart_ref_miss_source_names[
+            "element_named_but_not_a_lineage_upstream"
+        ]
+        assert len(names) == 200

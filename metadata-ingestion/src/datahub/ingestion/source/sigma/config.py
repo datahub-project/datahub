@@ -691,6 +691,15 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # the run: it does => our lookup scope is too narrow; it does not => the run
     # never saw that element (filtered, 409-ing, or outside the ingest).
     chart_ref_miss_reasons: Dict[str, int] = field(default_factory=dict)
+    # Per reason: the DISTINCT ref source names, with how often each appears.
+    # The misses concentrate -- 17,944 in 87 names on one tenant -- so the name
+    # distribution is what decides the next resolver, and a fixed-size sample of
+    # individual refs over 11,028 of them would decide nothing. Capped at 200
+    # names per reason so a pathological tenant cannot grow it without bound.
+    chart_ref_miss_source_names: Dict[str, Dict[str, int]] = field(default_factory=dict)
+    # A few whole refs per reason, for shape (segment counts, bracket form) that
+    # a bare name does not carry.
+    chart_ref_miss_samples: Dict[str, LossyList[str]] = field(default_factory=dict)
     # Columns counted as "a real ref failed" that contributed NOTHING to the
     # breakdown above. This is the breakdown auditing itself: while it reads 0,
     # chart_ref_miss_reasons accounts for every unresolved column and can be
