@@ -1719,6 +1719,38 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             self._report_sql_query_failure(e, query, params)
             return []
 
+    def run_sql_query(self, query: str) -> List[Row]:
+        """Public entry point for feature extractors to run a small metadata query.
+
+        Thin passthrough to `_execute_sql_query` so modules outside this class (e.g.
+        the data-quality extractor) don't reach into a private method.
+        """
+        return self._execute_sql_query(query)
+
+    def data_quality_available(self) -> bool:
+        """Whether the installed databricks-sdk exposes the data-quality API.
+
+        The `data_quality` client was added in databricks-sdk 0.68.0; the Unity
+        connector supports older SDKs, so callers must feature-detect.
+        """
+        return getattr(self._workspace_client, "data_quality", None) is not None
+
+    def get_quality_monitor(self, table_id: str) -> Optional[Any]:
+        """Return the data-quality monitor for a table, or None if it has none.
+
+        A missing monitor is the common case (most tables are unmonitored) and is
+        surfaced by the SDK as a NotFound error, so we degrade to None rather than
+        raising.
+        """
+        dq = getattr(self._workspace_client, "data_quality", None)
+        if dq is None:
+            return None
+        try:
+            return dq.get_monitor(object_type="table", object_id=table_id)
+        except Exception as e:
+            logger.debug(f"No data quality monitor for table_id={table_id}: {e}")
+            return None
+
     def _execute_sql_query_streaming(
         self,
         query: str,

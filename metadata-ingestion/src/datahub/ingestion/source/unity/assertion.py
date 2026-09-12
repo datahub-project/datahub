@@ -1,0 +1,117 @@
+from typing import Dict, Optional
+
+from pydantic import BaseModel
+
+from datahub.emitter import mce_builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionResultClass,
+    AssertionResultTypeClass,
+    AssertionRunEventClass,
+    AssertionRunStatusClass,
+    AssertionStdOperatorClass,
+    AssertionTypeClass,
+    CustomAssertionInfoClass,
+    DatasetAssertionScopeClass,
+)
+
+# Shown in DataHub as the assertion's origin/type. Databricks data-quality
+# monitors were formerly branded "Lakehouse Monitoring".
+CUSTOM_ASSERTION_TYPE = "Databricks Data Quality"
+
+DATABRICKS_PLATFORM = "databricks"
+
+# Completeness is expressed as "null count == 0"; kept as symbols so the model
+# owns the DataHub-facing representation of its single operator.
+_OPERATOR = AssertionStdOperatorClass.EQUAL_TO
+_OPERATOR_SYMBOL = "=="
+
+
+class DataQualityAssertion(BaseModel):
+    """A normalized column completeness result, independent of its Databricks source.
+
+    This is the seam between where the result came from (a monitor metric table
+    today; a DLT event log or governed result table tomorrow) and how DataHub
+    represents it. Identity fields drive the assertion URN and exclude the run
+    window, so re-ingesting the same check is idempotent: same assertion, new run.
+    """
+
+    table_qualified_name: str
+    column: str
+    metric: str
+    threshold: float
+    observed: Optional[float]
+    passed: bool
+    timestamp_millis: int
+    run_id: str
+    native_results: Dict[str, str] = {}
+
+    @property
+    def logic(self) -> str:
+        return f"{self.metric} {_OPERATOR_SYMBOL} {self.threshold} on {self.column}"
+
+
+def make_dq_assertion_urn(
+    result: DataQualityAssertion,
+    platform_instance: Optional[str],
+    env: Optional[str],
+) -> str:
+    key = {
+        "platform": DATABRICKS_PLATFORM,
+        "table": result.table_qualified_name,
+        "column": result.column,
+        "metric": result.metric,
+    }
+    if platform_instance:
+        key["instance"] = platform_instance
+    if env:
+        key["env"] = env
+    return mce_builder.make_assertion_urn(mce_builder.datahub_guid(key))
+
+
+def build_assertion_info_mcp(
+    result: DataQualityAssertion,
+    assertion_urn: str,
+    dataset_urn: str,
+) -> MetadataChangeProposalWrapper:
+    field_urn = mce_builder.make_schema_field_urn(dataset_urn, result.column)
+    assertion_info = AssertionInfoClass(
+        type=AssertionTypeClass.CUSTOM,
+        customProperties={"metric": result.metric, "threshold": str(result.threshold)},
+        source=mce_builder.make_assertion_source(),
+        description="Completeness",
+        customAssertion=CustomAssertionInfoClass(
+            type=CUSTOM_ASSERTION_TYPE,
+            entity=dataset_urn,
+            field=field_urn,
+            scope=DatasetAssertionScopeClass.DATASET_COLUMN,
+            operator=_OPERATOR,
+            logic=result.logic,
+        ),
+    )
+    return MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=assertion_info)
+
+
+def build_assertion_run_event_mcp(
+    result: DataQualityAssertion,
+    assertion_urn: str,
+    dataset_urn: str,
+) -> MetadataChangeProposalWrapper:
+    run_event = AssertionRunEventClass(
+        timestampMillis=result.timestamp_millis,
+        assertionUrn=assertion_urn,
+        asserteeUrn=dataset_urn,
+        runId=result.run_id,
+        status=AssertionRunStatusClass.COMPLETE,
+        result=AssertionResultClass(
+            type=(
+                AssertionResultTypeClass.SUCCESS
+                if result.passed
+                else AssertionResultTypeClass.FAILURE
+            ),
+            actualAggValue=result.observed,
+            nativeResults=result.native_results or None,
+        ),
+    )
+    return MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=run_event)

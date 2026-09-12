@@ -67,6 +67,13 @@ class UnityCatalogReport(SQLSourceReport):
     num_profile_failed_unsupported_column_type: int = 0
     num_profile_failed_int_casts: int = 0
 
+    num_quality_monitors_found: int = 0
+    num_quality_tables_without_monitor: int = 0
+    num_quality_assertions_emitted: int = 0
+    num_quality_run_events_emitted: int = 0
+    num_quality_metric_query_failures: int = 0
+    quality_monitors_missing_metrics: LossyList[str] = field(default_factory=LossyList)
+
     num_catalogs_missing_name: int = 0
     num_schemas_missing_name: int = 0
     num_tables_missing_name: int = 0

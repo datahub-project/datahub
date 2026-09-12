@@ -192,6 +192,27 @@ class FederationConnectionDetail(ConfigModel):
         return v.upper() if v is not None else v
 
 
+class UnityCatalogDataQualityConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="Publish Databricks data-quality monitor results as DataHub "
+        "column completeness assertions. Requires warehouse_id, since the monitor's "
+        "metric tables are read over SQL. Disabled by default.",
+    )
+    column_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Which columns to publish completeness assertions for, matched on "
+        "the column name.",
+    )
+    max_window_days: int = Field(
+        default=1,
+        ge=1,
+        description="Only evaluate monitor windows ending within this many days before "
+        "the ingestion end_time, so each run publishes the most recent windows rather "
+        "than replaying all monitor history.",
+    )
+
+
 class UnityCatalogSourceConfig(
     UnityCatalogConnectionConfig,
     SQLCommonConfig,
@@ -385,6 +406,15 @@ class UnityCatalogSourceConfig(
             "for columns that are part of the table's partition key. "
             "Partition key information is already present in the tables.list() response "
             "so no additional API calls are made."
+        ),
+    )
+
+    data_quality: UnityCatalogDataQualityConfig = pydantic.Field(
+        default_factory=UnityCatalogDataQualityConfig,
+        description=(
+            "Publish Databricks data-quality monitor results as DataHub assertions. "
+            "Disabled by default; requires warehouse_id since the monitor metric "
+            "tables are queried over SQL."
         ),
     )
 
@@ -593,6 +623,15 @@ class UnityCatalogSourceConfig(
                 "warehouse_id is not set but include_hive_metastore=True. "
                 "Automatically disabling hive metastore extraction since it requires SQL queries. "
                 "Set warehouse_id to enable hive metastore extraction."
+            )
+
+        if self.data_quality.enabled and not self.warehouse_id:
+            self.data_quality.enabled = False
+            logger.warning(
+                "warehouse_id is not set but data_quality.enabled=True. "
+                "Automatically disabling data-quality assertion extraction since it "
+                "requires SQL queries against the monitor metric tables. "
+                "Set warehouse_id to enable it."
             )
 
         # Set private attributes

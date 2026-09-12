@@ -87,6 +87,9 @@ from datahub.ingestion.source.unity.config import (
 )
 from datahub.ingestion.source.unity.connection import create_workspace_client
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
+from datahub.ingestion.source.unity.data_quality import (
+    UnityCatalogDataQualityExtractor,
+)
 from datahub.ingestion.source.unity.ge_profiler import UnityCatalogGEProfiler
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
@@ -671,6 +674,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 else:
                     raise ValueError("Unknown profiling config method")
 
+        if self.config.data_quality.enabled:
+            with self.report.new_stage("Start warehouse"):
+                wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
+                if wait_on_warehouse is None:
+                    self.report.failure(
+                        message="SQL warehouse not found",
+                        context="Data quality assertions require a SQL warehouse",
+                    )
+                else:
+                    wait_on_warehouse.result()
+                    with self.report.new_stage("Ingest data quality"):
+                        dq_extractor = UnityCatalogDataQualityExtractor(
+                            config=self.config.data_quality,
+                            report=self.report,
+                            proxy=self.unity_catalog_api_proxy,
+                            dataset_urn_builder=self.gen_dataset_urn,
+                            end_time=self.config.end_time,
+                            platform_instance=self.config.platform_instance,
+                            env=self.config.env,
+                        )
+                        yield from dq_extractor.get_workunits(self.tables.values())
+
     def build_service_principal_map(self) -> None:
         try:
             for sp in self.unity_catalog_api_proxy.service_principals():
@@ -859,14 +884,19 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 continue
 
-            if (
+            # Data quality also needs the resolved Table objects (for table_id) at a
+            # later stage, so retain non-view tables when either profiling (table
+            # level) or data-quality extraction is enabled.
+            profiled_here = (
                 self.config.is_profiling_enabled()
                 and self.config.uses_table_level_profiler()
                 and self.config.profiling.pattern.allowed(
                     table.ref.qualified_table_name
                 )
-                and not table.is_view
-            ):
+            )
+            if (
+                profiled_here or self.config.data_quality.enabled
+            ) and not table.is_view:
                 self.tables[table.ref.qualified_table_name] = table
 
             if table.is_view:
