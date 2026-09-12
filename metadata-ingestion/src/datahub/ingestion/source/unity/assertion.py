@@ -34,10 +34,9 @@ _OPERATOR_SYMBOL = "=="
 
 
 class DataQualityAssertion(BaseModel):
-    # Identity (table, column, metric) drives the assertion URN and excludes the
-    # run window, so re-ingesting the same check is idempotent: same assertion,
-    # new run event.
-    table_qualified_name: str
+    # (dataset, column, metric) drives the assertion URN and excludes the run
+    # window, so re-ingesting the same check is idempotent: same assertion, new
+    # run event.
     column: str
     metric: str
     threshold: float
@@ -52,21 +51,16 @@ class DataQualityAssertion(BaseModel):
         return f"{self.metric} {_OPERATOR_SYMBOL} {self.threshold} on {self.column}"
 
 
-def make_dq_assertion_urn(
-    result: DataQualityAssertion,
-    platform_instance: Optional[str],
-    env: Optional[str],
-) -> str:
+def make_dq_assertion_urn(dataset_urn: str, column: str, metric: str) -> str:
+    # Key off the dataset URN (not the qualified name), so the assertion inherits
+    # the same platform instance, metastore, and env the dataset URN already
+    # encodes — otherwise assertions from different workspaces could collide.
     key = {
         "platform": DATABRICKS_PLATFORM,
-        "table": result.table_qualified_name,
-        "column": result.column,
-        "metric": result.metric,
+        "dataset": dataset_urn,
+        "column": column,
+        "metric": metric,
     }
-    if platform_instance:
-        key["instance"] = platform_instance
-    if env:
-        key["env"] = env
     return make_assertion_urn(datahub_guid(key))
 
 

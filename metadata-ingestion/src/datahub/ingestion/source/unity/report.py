@@ -72,6 +72,7 @@ class UnityCatalogReport(SQLSourceReport):
     num_quality_assertions_emitted: int = 0
     num_quality_run_events_emitted: int = 0
     num_quality_metric_query_failures: int = 0
+    num_quality_monitor_errors: int = 0
     quality_monitors_missing_metrics: LossyList[str] = field(default_factory=LossyList)
 
     num_catalogs_missing_name: int = 0

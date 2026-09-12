@@ -460,6 +460,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
+        # Separate map for data-quality extraction so enabling it never widens the
+        # set of tables the profiler consumes (the profiler doesn't re-apply
+        # profiling.pattern to this map).
+        self.dq_tables: FileBackedDict[Table] = FileBackedDict()
         if self.ctx.graph:
             self.platform_resource_repository = UnityCatalogPlatformResourceRepository(
                 self.ctx.graph, platform_instance=self.platform_instance_name
@@ -691,10 +695,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                             proxy=self.unity_catalog_api_proxy,
                             dataset_urn_builder=self.gen_dataset_urn,
                             end_time=self.config.end_time,
-                            platform_instance=self.config.platform_instance,
-                            env=self.config.env,
                         )
-                        yield from dq_extractor.get_workunits(self.tables.values())
+                        yield from dq_extractor.get_workunits(self.dq_tables.values())
 
     def build_service_principal_map(self) -> None:
         try:
@@ -884,9 +886,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 continue
 
-            # Data quality also needs the resolved Table objects (for table_id) at a
-            # later stage, so retain non-view tables when either profiling (table
-            # level) or data-quality extraction is enabled.
             profiled_here = (
                 self.config.is_profiling_enabled()
                 and self.config.uses_table_level_profiler()
@@ -894,10 +893,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     table.ref.qualified_table_name
                 )
             )
-            if (
-                profiled_here or self.config.data_quality.enabled
-            ) and not table.is_view:
+            if profiled_here and not table.is_view:
                 self.tables[table.ref.qualified_table_name] = table
+            # Data quality needs the resolved Table objects (for table_id) at a later
+            # stage; keep it separate from the profiler's table set above.
+            if self.config.data_quality.enabled and not table.is_view:
+                self.dq_tables[table.ref.qualified_table_name] = table
 
             if table.is_view:
                 self.view_refs.add(table.ref)

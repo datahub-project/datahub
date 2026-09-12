@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Dict, Iterable, Optional, Set
+from typing import Callable, Dict, Iterable, Set
 
 from datahub.emitter.mce_builder import make_ts_millis
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 COMPLETENESS_METRIC = "num_nulls"
 COMPLETENESS_THRESHOLD = 0.0
 
-_TS_FORMAT = "%Y-%m-%d %H:%M:%S"
+# Keep fractional seconds so a window ending mid-second is not truncated below the
+# query's upper bound (which would drop that window).
+_TS_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
 
 # `count` is a reserved word and collides with Row.count on the client, so it is
 # backtick-quoted and aliased. `log_type = 'INPUT'` selects the monitored table
@@ -44,16 +46,12 @@ class UnityCatalogDataQualityExtractor:
         proxy: UnityCatalogApiProxy,
         dataset_urn_builder: Callable[[TableReference], str],
         end_time: datetime,
-        platform_instance: Optional[str],
-        env: str,
     ) -> None:
         self.config = config
         self.report = report
         self.proxy = proxy
         self.dataset_urn_builder = dataset_urn_builder
         self.end_time = end_time
-        self.platform_instance = platform_instance
-        self.env = env
         # Assertion definitions are emitted once; run events are emitted per window.
         self._emitted_assertion_urns: Set[str] = set()
 
@@ -74,15 +72,29 @@ class UnityCatalogDataQualityExtractor:
         if not table.table_id:
             return
 
-        monitor = self.proxy.get_quality_monitor(table.table_id)
-        profiling = getattr(monitor, "data_profiling_config", None) if monitor else None
-        metrics_table = (
-            getattr(profiling, "profile_metrics_table_name", None)
-            if profiling
-            else None
-        )
-        if not metrics_table:
+        try:
+            monitor = self.proxy.get_quality_monitor(table.table_id)
+        except Exception as e:
+            # NotFound (no monitor) is already degraded to None inside the proxy; an
+            # exception here is a real API error (auth, rate limit, transient) and
+            # must not be mistaken for an unmonitored table.
+            self.report.num_quality_monitor_errors += 1
+            self.report.warning(
+                title="Failed to fetch data quality monitor",
+                message="Could not determine whether the table has a data quality "
+                "monitor.",
+                context=table.ref.qualified_table_name,
+                exc=e,
+            )
+            return
+
+        if monitor is None:
             self.report.num_quality_tables_without_monitor += 1
+            return
+
+        profiling = monitor.data_profiling_config
+        metrics_table = profiling.profile_metrics_table_name if profiling else None
+        if not metrics_table:
             self.report.quality_monitors_missing_metrics.append(
                 table.ref.qualified_table_name
             )
@@ -104,10 +116,10 @@ class UnityCatalogDataQualityExtractor:
             return
 
         for row in rows:
-            yield from self._process_column(table.ref, dataset_urn, row.asDict())
+            yield from self._process_column(dataset_urn, row.asDict())
 
     def _process_column(
-        self, ref: TableReference, dataset_urn: str, record: Dict[str, object]
+        self, dataset_urn: str, record: Dict[str, object]
     ) -> Iterable[MetadataWorkUnit]:
         column = str(record.get("column_name") or "")
         num_nulls = record.get(COMPLETENESS_METRIC)
@@ -116,8 +128,8 @@ class UnityCatalogDataQualityExtractor:
         if not self.config.column_pattern.allowed(column):
             return
 
-        result = self._build_result(ref, column, record, float(num_nulls))  # type: ignore[arg-type]
-        assertion_urn = make_dq_assertion_urn(result, self.platform_instance, self.env)
+        result = self._build_result(column, record, float(num_nulls))  # type: ignore[arg-type]
+        assertion_urn = make_dq_assertion_urn(dataset_urn, result.column, result.metric)
 
         if assertion_urn not in self._emitted_assertion_urns:
             self._emitted_assertion_urns.add(assertion_urn)
@@ -133,7 +145,6 @@ class UnityCatalogDataQualityExtractor:
 
     def _build_result(
         self,
-        ref: TableReference,
         column: str,
         record: Dict[str, object],
         num_nulls: float,
@@ -148,7 +159,6 @@ class UnityCatalogDataQualityExtractor:
                 native[key] = str(value)
 
         return DataQualityAssertion(
-            table_qualified_name=ref.qualified_table_name,
             column=column,
             metric=COMPLETENESS_METRIC,
             threshold=COMPLETENESS_THRESHOLD,

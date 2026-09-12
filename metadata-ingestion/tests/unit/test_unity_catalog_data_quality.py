@@ -24,6 +24,8 @@ from datahub.metadata.schema_classes import (
 
 PROFILE_TABLE = "cat.sch.tbl_profile_metrics"
 
+_UNSET = object()
+
 
 def _ref() -> TableReference:
     return TableReference(metastore=None, catalog="cat", schema="sch", table="tbl")
@@ -35,7 +37,6 @@ def _dataset_urn(ref: TableReference) -> str:
 
 def _result(column: str = "c1", num_nulls: float = 0.0) -> DataQualityAssertion:
     return DataQualityAssertion(
-        table_qualified_name=_ref().qualified_table_name,
         column=column,
         metric="num_nulls",
         threshold=0.0,
@@ -44,6 +45,15 @@ def _result(column: str = "c1", num_nulls: float = 0.0) -> DataQualityAssertion:
         timestamp_millis=1,
         run_id="0:1",
     )
+
+
+def _monitor(metrics_table: Optional[str] = PROFILE_TABLE) -> object:
+    profiling = (
+        SimpleNamespace(profile_metrics_table_name=metrics_table)
+        if metrics_table is not None
+        else None
+    )
+    return SimpleNamespace(data_profiling_config=profiling)
 
 
 class _FakeRow:
@@ -55,23 +65,33 @@ class _FakeRow:
 
 
 class _FakeProxy:
-    def __init__(self, rows: List[Dict[str, object]], available: bool = True) -> None:
-        self._rows = rows
+    def __init__(
+        self,
+        rows: Optional[List[Dict[str, object]]] = None,
+        available: bool = True,
+        monitor: object = _UNSET,
+        monitor_error: Optional[Exception] = None,
+        query_error: Optional[Exception] = None,
+    ) -> None:
+        self._rows = rows or []
         self._available = available
+        self._monitor = _monitor() if monitor is _UNSET else monitor
+        self._monitor_error = monitor_error
+        self._query_error = query_error
         self.queries: List[str] = []
 
     def data_quality_available(self) -> bool:
         return self._available
 
-    def get_quality_monitor(self, table_id: str) -> Optional[object]:
-        return SimpleNamespace(
-            data_profiling_config=SimpleNamespace(
-                profile_metrics_table_name=PROFILE_TABLE
-            )
-        )
+    def get_quality_monitor(self, table_id: str) -> object:
+        if self._monitor_error is not None:
+            raise self._monitor_error
+        return self._monitor
 
     def run_sql_query(self, query: str) -> List[_FakeRow]:
         self.queries.append(query)
+        if self._query_error is not None:
+            raise self._query_error
         return [_FakeRow(r) for r in self._rows]
 
 
@@ -88,8 +108,6 @@ def _extractor(
         proxy=proxy,  # type: ignore[arg-type]
         dataset_urn_builder=_dataset_urn,
         end_time=datetime(2026, 9, 12, tzinfo=timezone.utc),
-        platform_instance=None,
-        env="PROD",
     )
 
 
@@ -104,25 +122,27 @@ def _row(column: str, num_nulls: float) -> Dict[str, object]:
     }
 
 
-def test_assertion_urn_is_deterministic_and_stable_across_windows() -> None:
-    # Same identity fields -> same URN even though the run window differs, so
-    # re-ingesting a check is idempotent.
-    a = _result(num_nulls=0.0)
-    b = _result(num_nulls=0.0)
-    b.timestamp_millis = 999
-    assert make_dq_assertion_urn(a, None, "PROD") == make_dq_assertion_urn(
-        b, None, "PROD"
-    )
-    assert make_dq_assertion_urn(a, None, "PROD") != make_dq_assertion_urn(
-        _result(column="c2"), None, "PROD"
-    )
+def test_assertion_urn_is_deterministic_and_namespaced_by_dataset() -> None:
+    dataset_urn = _dataset_urn(_ref())
+    other_dataset_urn = make_dataset_urn("databricks", "cat.sch.other", "PROD")
+    # Same identity -> same URN; column, metric, and dataset each change it, so
+    # assertions from different datasets/workspaces cannot collide.
+    assert make_dq_assertion_urn(
+        dataset_urn, "c1", "num_nulls"
+    ) == make_dq_assertion_urn(dataset_urn, "c1", "num_nulls")
+    assert make_dq_assertion_urn(
+        dataset_urn, "c1", "num_nulls"
+    ) != make_dq_assertion_urn(dataset_urn, "c2", "num_nulls")
+    assert make_dq_assertion_urn(
+        dataset_urn, "c1", "num_nulls"
+    ) != make_dq_assertion_urn(other_dataset_urn, "c1", "num_nulls")
 
 
 def test_build_info_mcp_sets_column_field_urn() -> None:
     ref = _ref()
     dataset_urn = _dataset_urn(ref)
     result = _result()
-    urn = make_dq_assertion_urn(result, None, "PROD")
+    urn = make_dq_assertion_urn(dataset_urn, result.column, result.metric)
     info = build_assertion_info_mcp(result, urn, dataset_urn).aspect
     assert isinstance(info, AssertionInfoClass)
     assert info.customAssertion is not None
@@ -207,3 +227,39 @@ def test_extractor_skips_when_api_unavailable() -> None:
 def test_extractor_skips_table_without_id() -> None:
     proxy = _FakeProxy(rows=[_row("c1", 0.0)])
     assert list(_extractor(proxy).get_workunits([_table(table_id=None)])) == []
+
+
+def test_extractor_counts_table_without_monitor() -> None:
+    proxy = _FakeProxy(monitor=None)
+    extractor = _extractor(proxy)
+    assert list(extractor.get_workunits([_table()])) == []
+    assert extractor.report.num_quality_tables_without_monitor == 1
+    assert extractor.report.num_quality_monitors_found == 0
+
+
+def test_extractor_reports_monitor_without_metrics_table() -> None:
+    proxy = _FakeProxy(monitor=_monitor(metrics_table=None))
+    extractor = _extractor(proxy)
+    assert list(extractor.get_workunits([_table()])) == []
+    assert list(extractor.report.quality_monitors_missing_metrics) == [
+        _ref().qualified_table_name
+    ]
+    assert extractor.report.num_quality_monitors_found == 0
+
+
+def test_extractor_reports_monitor_api_error() -> None:
+    # A real API error must not be mistaken for an unmonitored table.
+    proxy = _FakeProxy(monitor_error=RuntimeError("boom"))
+    extractor = _extractor(proxy)
+    assert list(extractor.get_workunits([_table()])) == []
+    assert extractor.report.num_quality_monitor_errors == 1
+    assert extractor.report.num_quality_tables_without_monitor == 0
+
+
+def test_extractor_reports_metric_query_failure() -> None:
+    # run_sql_query raises on failure, so a broken query is reported rather than
+    # silently looking like a monitor with no rows.
+    proxy = _FakeProxy(rows=[_row("c1", 0.0)], query_error=RuntimeError("no SELECT"))
+    extractor = _extractor(proxy)
+    assert list(extractor.get_workunits([_table()])) == []
+    assert extractor.report.num_quality_metric_query_failures == 1
