@@ -14,6 +14,9 @@ from datahub.ingestion.source.unity.assertion import (
 from datahub.ingestion.source.unity.config import (
     UnityCatalogPipelineExpectationsConfig,
 )
+from datahub.ingestion.source.unity.identifier_helper import (
+    split_databricks_identifier,
+)
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
@@ -46,11 +49,15 @@ class UnityCatalogPipelineExpectationsExtractor:
         report: UnityCatalogReport,
         proxy: UnityCatalogApiProxy,
         dataset_urn_builder: Callable[[TableReference], str],
+        metastore: Optional[str] = None,
     ) -> None:
         self.config = config
         self.report = report
         self.proxy = proxy
         self.dataset_urn_builder = dataset_urn_builder
+        # Metastore id embedded in dataset URNs when `include_metastore` is on; the
+        # assertion URN must resolve to the same dataset the connector published.
+        self.metastore = metastore
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         try:
@@ -75,14 +82,31 @@ class UnityCatalogPipelineExpectationsExtractor:
     def _process_pipeline(
         self, pipeline_id: str, name: str
     ) -> Iterable[MetadataWorkUnit]:
-        target = self.proxy.get_pipeline_target(pipeline_id)
+        try:
+            target = self.proxy.get_pipeline_target(pipeline_id)
+        except Exception as e:
+            # Resolving the target reads the pipeline spec; a permission error,
+            # deletion, or an older SDK without `spec.schema` must skip this
+            # pipeline, not abort extraction for the rest.
+            self.report.warning(
+                title="Failed to read pipeline target",
+                message="Could not resolve the pipeline's Unity Catalog target for "
+                "expectation assertion extraction.",
+                context=name or pipeline_id,
+                exc=e,
+            )
+            return
         if target is None:
             self.report.pipelines_without_uc_target.append(name or pipeline_id)
             return
         catalog, schema = target
 
         try:
-            events = self.proxy.get_pipeline_events(pipeline_id)
+            # get_pipeline_events pages lazily; aggregation consumes only up to the
+            # newest update, so the try must wrap the iteration, not just the call.
+            aggregated = self._aggregate_latest_update(
+                self.proxy.get_pipeline_events(pipeline_id)
+            )
         except Exception as e:
             # The event log is owner-only over SQL, but the REST events endpoint only
             # needs pipeline read access; a failure here is usually a permission or
@@ -97,7 +121,6 @@ class UnityCatalogPipelineExpectationsExtractor:
             )
             return
 
-        aggregated = self._aggregate_latest_update(events)
         if aggregated.update_id is None:
             return
 
@@ -114,10 +137,12 @@ class UnityCatalogPipelineExpectationsExtractor:
             )
 
     def _aggregate_latest_update(
-        self, events: List[Dict[str, object]]
+        self, events: Iterable[Dict[str, object]]
     ) -> _PipelineExpectations:
         # Events come back newest-first; the first expectation-bearing event fixes the
-        # update we report, and we ignore expectations from earlier updates.
+        # update we report, and expectations from earlier updates are ignored. Because
+        # a single update's events are contiguous, the first event from an older update
+        # means we're done — stop, which also halts event-log pagination.
         result = _PipelineExpectations()
         for event in events:
             if event.get("event_type") != _FLOW_PROGRESS:
@@ -129,7 +154,7 @@ class UnityCatalogPipelineExpectationsExtractor:
             if result.update_id is None:
                 result.update_id = update_id
             if update_id != result.update_id:
-                continue
+                break
 
             ts_millis = _parse_ts_millis(event.get("timestamp"))
             for item in expectations:
@@ -155,7 +180,7 @@ class UnityCatalogPipelineExpectationsExtractor:
         expectation: str,
         totals: _ExpectationTotals,
     ) -> Iterable[MetadataWorkUnit]:
-        ref = _resolve_table_ref(dataset_name, catalog, schema)
+        ref = _resolve_table_ref(dataset_name, catalog, schema, self.metastore)
         dataset_urn = self.dataset_urn_builder(ref)
         assertion_urn = make_expectation_assertion_urn(
             dataset_urn, pipeline_id, expectation
@@ -185,22 +210,25 @@ class UnityCatalogPipelineExpectationsExtractor:
         ).as_workunit()
 
 
-def _resolve_table_ref(dataset_name: str, catalog: str, schema: str) -> TableReference:
+def _resolve_table_ref(
+    dataset_name: str, catalog: str, schema: str, metastore: Optional[str] = None
+) -> TableReference:
     # Lakeflow reports the expectation's dataset fully-qualified (catalog.schema.table)
     # on Unity Catalog pipelines, but can report a bare or schema-qualified name on
-    # older pipelines. Prefer the qualified parts and fall back to the pipeline target
-    # for any missing component.
-    parts = dataset_name.split(".")
+    # older pipelines. Split on unquoted dots (identifiers may embed backtick-quoted
+    # dots) and fall back to the pipeline target for any missing component; an
+    # unbalanced-quote result degrades to treating the whole string as a table name.
+    parts = split_databricks_identifier(dataset_name) or [dataset_name]
     if len(parts) >= 3:
         return TableReference(
-            metastore=None, catalog=parts[-3], schema=parts[-2], table=parts[-1]
+            metastore=metastore, catalog=parts[-3], schema=parts[-2], table=parts[-1]
         )
     if len(parts) == 2:
         return TableReference(
-            metastore=None, catalog=catalog, schema=parts[0], table=parts[1]
+            metastore=metastore, catalog=catalog, schema=parts[0], table=parts[1]
         )
     return TableReference(
-        metastore=None, catalog=catalog, schema=schema, table=dataset_name
+        metastore=metastore, catalog=catalog, schema=schema, table=parts[0]
     )
 
 

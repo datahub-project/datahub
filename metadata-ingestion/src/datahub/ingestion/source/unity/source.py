@@ -631,6 +631,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     self.table_refs | self.view_refs
                 )
 
+        # Pipeline expectations are REST-only and independent of the SQL warehouse, so
+        # extract them before the warehouse-gated profiling block (which returns early
+        # if the warehouse can't start).
+        if self.config.pipeline_expectations.enabled:
+            yield from self._gen_pipeline_expectation_workunits()
+
         if self.config.is_profiling_enabled():
             # Start the warehouse again for profiling; it may have been stopped after
             # ingestion if that took a while.
@@ -668,16 +674,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.data_quality.enabled:
             yield from self._gen_data_quality_workunits()
 
-        if self.config.pipeline_expectations.enabled:
-            yield from self._gen_pipeline_expectation_workunits()
-
     def _gen_pipeline_expectation_workunits(self) -> Iterable[MetadataWorkUnit]:
+        # Dataset URNs embed the metastore id only when include_metastore is on; pass
+        # it through so expectation assertions resolve to the same dataset.
+        metastore_id: Optional[str] = None
+        if self.config.include_metastore:
+            metastore = self.unity_catalog_api_proxy.assigned_metastore()
+            if metastore is not None:
+                metastore_id = metastore.id
+
         with self.report.new_stage("Ingest pipeline expectations"):
             extractor = UnityCatalogPipelineExpectationsExtractor(
                 config=self.config.pipeline_expectations,
                 report=self.report,
                 proxy=self.unity_catalog_api_proxy,
                 dataset_urn_builder=self.gen_dataset_urn,
+                metastore=metastore_id,
             )
             yield from extractor.get_workunits()
 

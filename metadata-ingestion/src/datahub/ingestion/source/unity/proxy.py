@@ -99,11 +99,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 # We need to change this if we want to support parallel processing of multiple catalogs
 _MAX_CONCURRENT_CATALOGS = 1
 
-# Bound pagination when reading a pipeline's event log so a very chatty pipeline
-# can't stall ingestion; the newest update (which holds current expectations) is on
-# the first page(s).
-_MAX_PIPELINE_EVENT_PAGES = 20
-
 
 # Import and apply the proxy patch from separate module
 try:
@@ -1796,13 +1791,15 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             return None
         return catalog, schema
 
-    def get_pipeline_events(self, pipeline_id: str) -> List[Dict[str, Any]]:
+    def get_pipeline_events(self, pipeline_id: str) -> Iterable[Dict[str, Any]]:
         # Uses the raw REST endpoint rather than pipelines.list_pipeline_events()
         # because the typed SDK model drops the `details` payload that carries the
-        # data-quality expectation metrics. Events come back newest-first.
-        events: List[Dict[str, Any]] = []
+        # data-quality expectation metrics. Events come back newest-first and are
+        # yielded lazily so the caller can stop once it has consumed the newest
+        # update (which holds the current expectations) instead of draining the
+        # whole log — while never silently truncating it with a fixed page cap.
         page_token: Optional[str] = None
-        for _ in range(_MAX_PIPELINE_EVENT_PAGES):
+        while True:
             query: Dict[str, Any] = {"max_results": 250}
             if page_token:
                 query["page_token"] = page_token
@@ -1812,11 +1809,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     "GET", f"/api/2.0/pipelines/{pipeline_id}/events", query=query
                 ),
             )
-            events.extend(resp.get("events") or [])
+            yield from resp.get("events") or []
             page_token = resp.get("next_page_token")
             if not page_token:
                 break
-        return events
 
     def _execute_sql_query_streaming(
         self,
