@@ -20,7 +20,8 @@ final class KafkaMskIamAuth {
           "aws(?:ProfileName|RoleArn|RoleAccessKeyId|RoleSecretAccessKey|RoleSessionToken|RoleExternalId)\\s*=",
           Pattern.CASE_INSENSITIVE);
   private static final Pattern AWS_DEBUG_CREDS_TRUE =
-      Pattern.compile("awsDebugCreds\\s*=\\s*\"?true\"?", Pattern.CASE_INSENSITIVE);
+      Pattern.compile(
+          "(?<!\\S)awsDebugCreds\\s*=\\s*\"?true\"?(?=\\s|;|$)", Pattern.CASE_INSENSITIVE);
 
   private KafkaMskIamAuth() {}
 
@@ -43,9 +44,8 @@ final class KafkaMskIamAuth {
       return;
     }
     if (!DataHubMskIamClientCallbackHandler.isSharedCredentialsInstalled()) {
-      log.warn(
-          "Shared AWS credentials are unavailable; retaining the default MSK IAM callback handler");
-      return;
+      throw new IllegalStateException(
+          "MSK IAM is configured but shared AWS credentials are unavailable");
     }
 
     kafkaProperties.put(

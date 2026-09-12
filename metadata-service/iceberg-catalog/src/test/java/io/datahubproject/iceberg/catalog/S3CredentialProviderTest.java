@@ -75,6 +75,7 @@ public class S3CredentialProviderTest {
     assertEquals(creds.get("s3.access-key-id"), "testAccessId-temp");
     assertEquals(creds.get("s3.secret-access-key"), "testSecretKey-temp");
     assertEquals(creds.get("s3.session-token"), "testSessionToken-temp");
+    credentialProvider.close();
     verify(stsClient, never()).close();
   }
 
@@ -83,6 +84,7 @@ public class S3CredentialProviderTest {
     stubAssumeRole();
     credentialProvider.getCredentials(cacheKey, storageProviderCreds);
     credentialProvider.getCredentials(cacheKey, storageProviderCreds);
+    credentialProvider.close();
     verify(stsClient, times(2)).assumeRole(any(AssumeRoleRequest.class));
     verify(stsClient, never()).close();
   }
@@ -136,11 +138,11 @@ public class S3CredentialProviderTest {
       try (S3CredentialProvider provider = new S3CredentialProvider()) {
         provider.getCredentials(cacheKey, firstKeys);
         provider.getCredentials(cacheKey, rotatedKeys);
+        verify(firstClient).close();
       }
     }
 
     verify(builder, times(2)).build();
-    verify(firstClient).close();
     verify(secondClient).close();
   }
 

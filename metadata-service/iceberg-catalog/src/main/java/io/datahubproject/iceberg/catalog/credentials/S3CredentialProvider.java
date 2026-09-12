@@ -6,8 +6,10 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,6 +32,8 @@ public class S3CredentialProvider implements CredentialProvider, AutoCloseable {
 
   @Nullable private final StsClient injectedStsClient;
   private final ConcurrentHashMap<String, StsClient> ownedClients = new ConcurrentHashMap<>();
+  private final Object lifecycle = new Object();
+  private volatile boolean closed;
 
   public S3CredentialProvider() {
     this(null);
@@ -69,16 +73,40 @@ public class S3CredentialProvider implements CredentialProvider, AutoCloseable {
   }
 
   private StsClient stsClient(StorageProviderCredentials storageProviderCredentials) {
-    if (hasStaticKeys(storageProviderCredentials)) {
-      return ownedClients.computeIfAbsent(
-          warehouseClientCacheKey(storageProviderCredentials),
-          ignored -> buildWarehouseStsClient(storageProviderCredentials));
+    synchronized (lifecycle) {
+      if (closed) {
+        throw new IllegalStateException("S3CredentialProvider is closed");
+      }
+      if (hasStaticKeys(storageProviderCredentials)) {
+        String cacheKey = warehouseClientCacheKey(storageProviderCredentials);
+        StsClient client =
+            ownedClients.computeIfAbsent(
+                cacheKey, ignored -> buildWarehouseStsClient(storageProviderCredentials));
+        evictSupersededWarehouseClients(storageProviderCredentials, cacheKey);
+        return client;
+      }
+      if (injectedStsClient != null) {
+        return injectedStsClient;
+      }
+      throw new IllegalStateException(
+          "Iceberg S3 credential vending requires warehouse client keys or a shared StsClient");
     }
-    if (injectedStsClient != null) {
-      return injectedStsClient;
+  }
+
+  private void evictSupersededWarehouseClients(
+      StorageProviderCredentials storageProviderCredentials, String keepKey) {
+    String prefix =
+        storageProviderCredentials.region + "|" + storageProviderCredentials.clientId + "|";
+    List<String> superseded = new ArrayList<>();
+    for (String key : ownedClients.keySet()) {
+      if (key.startsWith(prefix) && !key.equals(keepKey)) {
+        superseded.add(key);
+      }
     }
-    throw new IllegalStateException(
-        "Iceberg S3 credential vending requires warehouse client keys or a shared StsClient");
+    for (String key : superseded) {
+      StsClient old = ownedClients.remove(key);
+      closeQuietly(old);
+    }
   }
 
   private static boolean hasStaticKeys(StorageProviderCredentials storageProviderCredentials) {
@@ -172,14 +200,24 @@ public class S3CredentialProvider implements CredentialProvider, AutoCloseable {
 
   @Override
   public void close() {
-    for (StsClient client : ownedClients.values()) {
-      try {
-        client.close();
-      } catch (Exception ignored) {
-        // Best-effort shutdown of warehouse-scoped STS clients.
+    synchronized (lifecycle) {
+      closed = true;
+      for (StsClient client : ownedClients.values()) {
+        closeQuietly(client);
       }
+      ownedClients.clear();
     }
-    ownedClients.clear();
+  }
+
+  private static void closeQuietly(@Nullable StsClient client) {
+    if (client == null) {
+      return;
+    }
+    try {
+      client.close();
+    } catch (Exception ignored) {
+      // Best-effort shutdown of warehouse-scoped STS clients.
+    }
   }
 
   @EqualsAndHashCode

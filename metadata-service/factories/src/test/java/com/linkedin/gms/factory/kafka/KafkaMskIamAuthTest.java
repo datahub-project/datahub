@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.kafka;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertThrows;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -125,5 +126,30 @@ public class KafkaMskIamAuthTest {
     KafkaMskIamAuth.configure(props);
 
     assertEquals(props.get("sasl.client.callback.handler.class"), "example.CustomCallbackHandler");
+  }
+
+  @Test
+  public void failsFastWhenMskIamLacksSharedCredentials() {
+    DataHubMskIamClientCallbackHandler.reset();
+    Map<String, Object> props = new HashMap<>();
+    props.put("sasl.mechanism", "AWS_MSK_IAM");
+    props.put("sasl.jaas.config", "software.amazon.msk.auth.iam.IAMLoginModule required;");
+    props.put(
+        "sasl.client.callback.handler.class",
+        "software.amazon.msk.auth.iam.IAMClientCallbackHandler");
+
+    assertThrows(IllegalStateException.class, () -> KafkaMskIamAuth.configure(props));
+  }
+
+  @Test
+  public void doesNotRewriteAwsDebugCredsEmbeddedInAnotherValue() {
+    Map<String, Object> props = new HashMap<>();
+    props.put(
+        "sasl.jaas.config",
+        "software.amazon.msk.auth.iam.IAMLoginModule required awsRoleArn=\"xawsDebugCreds=true\";");
+    KafkaMskIamAuth.configure(props);
+    assertEquals(
+        props.get("sasl.jaas.config"),
+        "software.amazon.msk.auth.iam.IAMLoginModule required awsRoleArn=\"xawsDebugCreds=true\";");
   }
 }

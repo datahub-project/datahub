@@ -138,14 +138,7 @@ public class RestoreStorageStep implements UpgradeStep {
         context.report().addLine(String.format("Added %d rows to the aspect v2 table", numRows));
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } finally {
-        // Wait for remaining file-reader tasks before closing wrappers they still hold.
-        for (Future<?> future : futureList) {
-          try {
-            future.get();
-          } catch (Exception ignored) {
-            // First failure already reported; drain so close is not concurrent with next().
-          }
-        }
+        drainUninterruptibly(futureList);
         if (iterator != null) {
           try {
             iterator.close();
@@ -162,6 +155,29 @@ public class RestoreStorageStep implements UpgradeStep {
         }
       }
     };
+  }
+
+  /**
+   * Wait for every submitted reader so {@code iterator.close()} cannot race remaining {@code
+   * next()} calls. Preserve interrupt status after waiting.
+   */
+  private static void drainUninterruptibly(List<Future<?>> futures) {
+    boolean interrupted = false;
+    for (Future<?> future : futures) {
+      while (true) {
+        try {
+          future.get();
+          break;
+        } catch (InterruptedException e) {
+          interrupted = true;
+        } catch (Exception ignored) {
+          break;
+        }
+      }
+    }
+    if (interrupted) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   private void readerExecutable(ReaderWrapper reader, UpgradeContext context) {
