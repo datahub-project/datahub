@@ -170,6 +170,29 @@ def test_info_mcp_is_dataset_row_scope_and_resolves_dataset_urn() -> None:
     assert info.customAssertion.entity == expected_urn
 
 
+def test_fully_qualified_dataset_is_not_reprefixed() -> None:
+    # Lakeflow reports the dataset as catalog.schema.table on UC pipelines; the
+    # extractor must parse it, not prepend the pipeline target again.
+    events = [
+        _event("u1", [_expectation("valid_id", "other_cat.other_sch.orders", 100, 0)])
+    ]
+    wus = list(_extractor(_FakeProxy(events=events)).get_workunits())
+    info = next(
+        wu.metadata.aspect
+        for wu in wus
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, AssertionInfoClass)
+    )
+    assert isinstance(info, AssertionInfoClass)
+    assert info.customAssertion is not None
+    expected_urn = _dataset_urn(
+        TableReference(
+            metastore=None, catalog="other_cat", schema="other_sch", table="orders"
+        )
+    )
+    assert info.customAssertion.entity == expected_urn
+
+
 def test_only_latest_update_is_aggregated() -> None:
     # Events come back newest-first; expectations from an older update are ignored.
     events = [
