@@ -7,7 +7,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.assertion import (
     COMPLETENESS_NATIVE_TYPE,
-    DATABRICKS_ASSERTION_PROVIDER,
+    LAKEHOUSE_MONITOR_ASSERTION_TYPE,
     DataQualityAssertion,
     build_assertion_info_mcp,
     build_assertion_run_event_mcp,
@@ -153,10 +153,11 @@ def test_build_info_mcp_sets_column_field_urn() -> None:
     assert ca.field is not None
     assert "c1" in ca.field
     assert info.source is not None and info.source.type == "EXTERNAL"
-    # Structured shape (mirrors the dbt connector) drives DataHub's column-aware
-    # rendering rather than a hand-written description.
-    assert info.description is None
-    assert ca.type == DATABRICKS_ASSERTION_PROVIDER
+    # The assertions list renders the name from `description`, so it must carry the
+    # column (the frontend doesn't fetch the structured scope/aggregation fields).
+    assert info.description is not None
+    assert "c1" in info.description
+    assert ca.type == LAKEHOUSE_MONITOR_ASSERTION_TYPE
     assert ca.nativeType == COMPLETENESS_NATIVE_TYPE
     assert ca.aggregation == "NULL_COUNT"
     assert ca.operator == "EQUAL_TO"

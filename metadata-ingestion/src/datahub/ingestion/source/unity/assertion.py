@@ -25,13 +25,20 @@ from datahub.metadata.schema_classes import (
     DatasetAssertionScopeClass,
 )
 
-# The provider shown as the assertion's category in DataHub. Mirrors how other
-# native integrations tag their source (dbt -> "dbt", Great Expectations ->
-# "GREAT_EXPECTATIONS"); the specific check is carried in `nativeType` instead.
-DATABRICKS_ASSERTION_PROVIDER = "Databricks"
+# The assertion "type" shown as its category in DataHub. dbt tags each kind of
+# assertion distinctly (regular tests -> "dbt", freshness -> "dbt Freshness")
+# rather than a single flat label, so we name the Databricks source instead of a
+# generic "Databricks"; the specific check is carried in `nativeType`.
+LAKEHOUSE_MONITOR_ASSERTION_TYPE = "Databricks Lakehouse Monitor"
 
 # Native check name shown in the assertion details (analogous to a dbt test name).
 COMPLETENESS_NATIVE_TYPE = "completeness"
+
+# The assertion "name" shown in the DataHub assertions list. The list renders a
+# custom assertion's name from `description` when set, otherwise it falls back to
+# the `type` label; it does not fetch the structured scope/aggregation fields, so
+# the column would never appear in the name unless we put it here.
+COMPLETENESS_ASSERTION_DESCRIPTION = "Null count for column {column} is {threshold}"
 
 DATABRICKS_PLATFORM = "databricks"
 
@@ -73,16 +80,20 @@ def build_assertion_info_mcp(
     dataset_urn: str,
 ) -> MetadataChangeProposalWrapper:
     field_urn = make_schema_field_urn(dataset_urn, result.column)
-    # Structured custom assertion (matching the dbt connector's shape): the
-    # scope/aggregation/operator/parameters/field drive DataHub's column-aware
-    # rendering ("Null count for column X is equal to 0"), rather than a
-    # hand-written description that omits the column.
+    # Structured custom assertion (matching the dbt connector's shape). The
+    # scope/aggregation/operator/parameters/field are still populated for
+    # future-proofing, but the assertions list renders a custom assertion's name
+    # from `description` and never fetches those structured fields — so we also
+    # set an explicit column-aware `description` to surface the column in the name.
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
+        description=COMPLETENESS_ASSERTION_DESCRIPTION.format(
+            column=result.column, threshold=_format_threshold(result.threshold)
+        ),
         customProperties={"metric": result.metric, "threshold": str(result.threshold)},
         source=make_assertion_source(),
         customAssertion=CustomAssertionInfoClass(
-            type=DATABRICKS_ASSERTION_PROVIDER,
+            type=LAKEHOUSE_MONITOR_ASSERTION_TYPE,
             entity=dataset_urn,
             field=field_urn,
             fields=[field_urn],
