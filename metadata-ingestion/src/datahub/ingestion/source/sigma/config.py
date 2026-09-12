@@ -535,6 +535,16 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # to tell "chart sourced from another chart" (worth consuming) from a node
     # type we genuinely have no use for.
     workbook_lineage_element_source_ids_dropped: int = 0
+    # Upstream elements recovered from the workbook lineage graph that the
+    # element's own upstream_sources did not already declare. These widen what
+    # a chart formula ref is allowed to resolve against, and they are STATED by
+    # Sigma rather than guessed -- the distinction that got name-based matching
+    # removed. Watch against chart_ref_miss_reasons
+    # ["element_named_but_not_a_lineage_upstream"], which is what they attack.
+    chart_upstreams_added_from_lineage_graph: int = 0
+    chart_lineage_graph_upstream_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
     workbook_lineage_dropped_source_id_kinds: Dict[str, int] = field(
         default_factory=dict
     )
@@ -1049,6 +1059,21 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Throughout: "DM" / "dm" = data model.
     # Intra-DM FGL only; total FGL = fgl_emitted + fgl_cross_dm_resolved.
     data_model_element_fgl_emitted: int = 0
+    # The DM side checking itself, mirroring chart_column_accounting_check.
+    # fgl_emitted counts FGL OBJECTS while the path counters count resolutions,
+    # so those two can never be reconciled directly -- the identity that IS
+    # checkable is per COLUMN: every Data Model column either produced lineage
+    # or recorded a reason it did not.
+    dm_columns_total: int = 0
+    dm_columns_with_lineage: int = 0
+    dm_columns_without_lineage: int = 0
+    dm_columns_without_lineage_by_reason: Dict[str, int] = field(default_factory=dict)
+    # The number that matters: columns that produced nothing AND explained
+    # nothing. While it reads 0, the breakdown accounts for every silent column
+    # and can be used as evidence about where DM lineage is lost.
+    dm_columns_without_lineage_unattributed: int = 0
+    dm_unattributed_column_samples: LossyList[str] = field(default_factory=LossyList)
+    dm_column_accounting_check: Dict[str, int] = field(default_factory=dict)
     # Refs where multiple sibling candidates passed the /lineage filter;
     # sorted-first URN was chosen (matches collision precedent).
     data_model_element_fgl_collision_pick_first: int = 0

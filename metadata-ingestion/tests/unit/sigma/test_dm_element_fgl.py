@@ -25,9 +25,13 @@ def _source() -> SigmaSource:
     source = SigmaSource.__new__(SigmaSource)
     # __new__ skips __init__, so attributes a real instance always
     # has must be set here or diagnostics reading them raise.
+    # These mirror attributes set in SigmaSource.__init__, which __new__
+    # skips. Three separate commits have been broken by this drifting;
+    # the assertion below fails loudly instead of at the first use.
     source._current_workbook = None
     source._chart_best_resolved = {}
     source._chart_best_workbook = {}
+    source._stated_element_sources = {}
     source.reporter = SigmaSourceReport()
     source.dm_element_urn_by_name = {}
     source.dm_element_urn_to_cols = {}
@@ -2309,3 +2313,61 @@ def test_a_ref_naming_a_declared_warehouse_table_beats_a_same_named_sibling() ->
         f"the referent -- not a sibling that shares its name. got {lineages}"
     )
     assert source.reporter.data_model_element_fgl_self_named_siblings_skipped == 1
+
+
+class TestTheDataModelSideChecksItself:
+    """fgl_emitted is the headline lineage number and had no identity test.
+
+    It counts FGL OBJECTS while the path counters count resolutions, so those
+    two can never be reconciled directly. The identity that IS checkable is per
+    COLUMN: every Data Model column either produced lineage or recorded a
+    reason it did not. Without it, an unexplained shift in fgl_emitted means
+    arithmetic across a 100MB log -- which is exactly what the chart-side check
+    was built to stop, and the next run is the one where DM numbers move.
+    """
+
+    def _source(self) -> SigmaSource:
+        src = _source()
+        src.reporter = SigmaSourceReport()
+        return src
+
+    def test_a_column_that_produced_lineage_is_filed_as_such(self) -> None:
+        src = self._source()
+        src._note_dm_column_outcome(
+            element=_element("e1", "E", []),
+            column=_column("id-c", "c", None),
+            produced=True,
+            reasons_before=src._dm_column_reason_tally(),
+        )
+        r = src.reporter
+        assert (r.dm_columns_total, r.dm_columns_with_lineage) == (1, 1)
+        assert r.dm_columns_without_lineage_unattributed == 0
+
+    def test_a_silent_column_with_a_reason_is_attributed(self) -> None:
+        src = self._source()
+        before = src._dm_column_reason_tally()
+        src.reporter.data_model_element_fgl_no_ref_unresolved += 1
+        src._note_dm_column_outcome(
+            element=_element("e1", "E", []),
+            column=_column("id-c", "c", None),
+            produced=False,
+            reasons_before=before,
+        )
+        r = src.reporter
+        assert r.dm_columns_without_lineage == 1
+        assert r.dm_columns_without_lineage_by_reason == {"no_ref_unresolved": 1}
+        assert r.dm_columns_without_lineage_unattributed == 0
+
+    def test_a_silent_column_with_NO_reason_is_flagged_and_sampled(self) -> None:
+        """The whole point: a drop path added without a counter shows up here
+        instead of being invisible until someone does arithmetic."""
+        src = self._source()
+        src._note_dm_column_outcome(
+            element=_element("e1", "E", []),
+            column=_column("id-c", "orphan", None),
+            produced=False,
+            reasons_before=src._dm_column_reason_tally(),
+        )
+        r = src.reporter
+        assert r.dm_columns_without_lineage_unattributed == 1
+        assert "column='orphan'" in list(r.dm_unattributed_column_samples)[0]
