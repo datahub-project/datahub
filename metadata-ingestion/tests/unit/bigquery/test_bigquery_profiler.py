@@ -996,8 +996,13 @@ def test_external_table_discovery_fallback_warns():
     with (
         patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
         patch.object(
-            discovery,
-            "get_partition_columns_from_info_schema",
+            discovery.info_schema,
+            "get_partition_column_names",
+            return_value=(["region"], True),
+        ),
+        patch.object(
+            discovery.info_schema,
+            "get_partition_column_types",
             return_value={"region": "STRING"},
         ),
     ):
@@ -1025,15 +1030,15 @@ def test_external_discovery_short_circuits_on_sampling_success():
             return_value=["`event_date` = '2023-01-01'"],
         ),
         patch.object(
-            discovery, "get_partition_columns_from_info_schema"
-        ) as mock_info_schema,
+            discovery, "_discover_partition_columns_with_types"
+        ) as mock_discover,
     ):
         filters = discovery._get_external_table_partition_filters(
             table, "test-project", "dataset", lambda q, jc, ctx: []
         )
 
     assert filters == ["`event_date` = '2023-01-01'"]
-    mock_info_schema.assert_not_called()
+    mock_discover.assert_not_called()
 
 
 def test_external_discovery_unknown_without_ddl_returns_none():
@@ -1048,7 +1053,9 @@ def test_external_discovery_unknown_without_ddl_returns_none():
     with (
         patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
         patch.object(
-            discovery, "get_partition_columns_from_info_schema", return_value={}
+            discovery.info_schema,
+            "get_partition_column_names",
+            return_value=([], True),
         ),
     ):
         filters = discovery._get_external_table_partition_filters(
@@ -1073,7 +1080,9 @@ def test_external_discovery_hive_ddl_without_columns_returns_none():
     with (
         patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
         patch.object(
-            discovery, "get_partition_columns_from_info_schema", return_value={}
+            discovery.info_schema,
+            "get_partition_column_names",
+            return_value=([], True),
         ),
         patch.object(discovery, "get_partition_columns_from_ddl", return_value={}),
     ):
@@ -1099,7 +1108,9 @@ def test_external_discovery_hive_mode_option_without_columns_returns_none():
     with (
         patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
         patch.object(
-            discovery, "get_partition_columns_from_info_schema", return_value={}
+            discovery.info_schema,
+            "get_partition_column_names",
+            return_value=([], True),
         ),
         patch.object(discovery, "get_partition_columns_from_ddl", return_value={}),
     ):
@@ -1124,7 +1135,9 @@ def test_external_discovery_hive_marker_in_uri_is_not_hive():
     with (
         patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
         patch.object(
-            discovery, "get_partition_columns_from_info_schema", return_value={}
+            discovery.info_schema,
+            "get_partition_column_names",
+            return_value=([], True),
         ),
         patch.object(discovery, "get_partition_columns_from_ddl", return_value={}),
     ):
@@ -1145,7 +1158,9 @@ def test_external_discovery_plain_ddl_no_partition_returns_empty():
     with (
         patch.object(discovery, "_get_partitions_with_sampling", return_value=None),
         patch.object(
-            discovery, "get_partition_columns_from_info_schema", return_value={}
+            discovery.info_schema,
+            "get_partition_column_names",
+            return_value=([], True),
         ),
         patch.object(discovery, "get_partition_columns_from_ddl", return_value={}),
     ):
