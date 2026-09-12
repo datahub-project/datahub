@@ -76,6 +76,13 @@ public class DatahubOpenlineageProperties {
   private boolean enhancedMergeIntoExtraction = false;
 
   /**
+   * Caps the number of events accepted by {@code /lineage/batch}. The whole batch is converted and
+   * ingested in one transaction, so an unbounded array is an unbounded amount of heap and one very
+   * long-running write.
+   */
+  private int maxBatchSize = 1000;
+
+  /**
    * Binding-friendly mirror of {@code io.datahubproject.openlineage.dataset.PathSpec}, which uses
    * final fields and {@code Optional} and so cannot be bound by {@code @ConfigurationProperties}
    * directly. Translated in {@link OpenLineageServletConfig}.

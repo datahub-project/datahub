@@ -46,6 +46,48 @@
           }
         }
       }
+    },
+    "/lineage/batch": {
+      "post": {
+        "summary": "Send a batch of OpenLineage events",
+        "description": "Accepts a JSON array of RunEvent, JobEvent or DatasetEvent objects, each classified the same way as on /lineage. Events are converted individually so one bad event does not reject the rest, then ingested together. The response reports per-event outcomes. The body is declared as a string for the same reason as on /lineage: the event types are distinguished by a schemaURL discriminator that this generator cannot express as a typed union.",
+        "operationId": "postEventBatchRaw",
+        "tags": [
+          "OpenLineage"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string",
+                "description": "A JSON-encoded array of OpenLineage RunEvent, JobEvent or DatasetEvent objects."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch received - the body reports which events were ingested",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LineageBatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - the payload is not a JSON array, or exceeds the configured batch size"
+          },
+          "403": {
+            "description": "Forbidden - the actor lacks privileges on one or more affected entities"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -420,6 +462,74 @@
             }
           }
         ]
+      },
+      "LineageBatchResult": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "partial_success"
+            ],
+            "description": "success when every event was ingested."
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "received": {
+                "type": "integer",
+                "description": "Events in the request array."
+              },
+              "successful": {
+                "type": "integer",
+                "description": "Events whose metadata was ingested."
+              },
+              "failed": {
+                "type": "integer",
+                "description": "Events that were not ingested."
+              },
+              "retriable": {
+                "type": "integer",
+                "description": "Failures a producer may usefully resend."
+              },
+              "non_retriable": {
+                "type": "integer",
+                "description": "Failures that resending cannot fix."
+              }
+            },
+            "required": [
+              "received",
+              "successful",
+              "failed"
+            ]
+          },
+          "failed_events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index": {
+                  "type": "integer",
+                  "description": "Position of the event in the request array."
+                },
+                "reason": {
+                  "type": "string",
+                  "description": "Why the event was not ingested."
+                },
+                "retriable": {
+                  "type": "boolean",
+                  "description": "Whether resending the event unchanged may succeed."
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "status",
+          "summary"
+        ],
+        "description": "Per-event outcome of a batch. Implemented by hand in the generator's model package rather than generated, because this spec generates apis only."
       }
     }
   }
