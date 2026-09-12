@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.aws;
 import com.linkedin.gms.factory.common.CrossCloudIamUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.DataHubMskIamClientCallbackHandler;
+import com.linkedin.gms.factory.kafka.KafkaMskIamAuth;
 import com.linkedin.metadata.config.ObjectStorageConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
@@ -11,11 +12,14 @@ import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.utils.aws.AwsClientCredentials;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PreDestroy;
+import java.util.HashMap;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -38,8 +42,8 @@ import software.amazon.awssdk.utils.SdkAutoCloseable;
  * credential-chain construction. Callers should inject these beans rather than creating their own
  * credential providers or S3 clients.
  *
- * <p>Non-AWS environments (no region/endpoint, no IAM auth, no Bedrock, no object-storage role)
- * skip bean creation and do not fail startup.
+ * <p>Non-AWS environments (no region/endpoint, no IAM auth, no Bedrock, no MSK IAM, no
+ * object-storage role) skip bean creation and do not fail startup.
  */
 @Slf4j
 @Configuration
@@ -49,6 +53,9 @@ public class AwsClientFactory {
 
   @Autowired(required = false)
   private ConfigurationProvider configurationProvider;
+
+  @Autowired(required = false)
+  private KafkaProperties kafkaProperties;
 
   @Value("${ebean.useIamAuth:false}")
   private boolean ebeanUseIamAuth;
@@ -74,15 +81,15 @@ public class AwsClientFactory {
    * <p>Uses {@code builder().build()} once (not deprecated {@code create()}) and stores the result
    * for {@link PreDestroy} {@code close()}. Callers must inject this bean and must not {@code
    * close()} it. Created when AWS region/endpoint, web identity, OpenSearch IAM auth, Bedrock
-   * embedding, Ebean JDBC IAM, or object-storage role assumption is configured. Also bound into
-   * JDBC and MSK IAM so they reuse this provider.
+   * embedding, Ebean JDBC IAM, MSK IAM, or object-storage role assumption is configured. Also bound
+   * into JDBC and MSK IAM so they reuse this provider.
    */
   @Bean(name = "defaultAwsCredentialsProvider")
   @Nullable
   protected AwsCredentialsProvider defaultAwsCredentialsProvider() {
     if (!isAwsCredentialsRequired()) {
       log.debug(
-          "Skipping DefaultCredentialsProvider (no AWS region/endpoint, web identity, OpenSearch IAM, Bedrock, Ebean IAM, or object-storage roleArn)");
+          "Skipping DefaultCredentialsProvider (no AWS region/endpoint, web identity, OpenSearch IAM, Bedrock, Ebean IAM, MSK IAM, or object-storage roleArn)");
       return null;
     }
     log.info("Creating shared DefaultCredentialsProvider bean");
@@ -381,7 +388,55 @@ public class AwsClientFactory {
         || isBedrockEmbeddingConfigured()
         || isOpenSearchIamAuthConfigured()
         || isObjectStorageRoleArnConfigured()
-        || isEbeanIamAuthConfigured();
+        || isEbeanIamAuthConfigured()
+        || isMskIamAuthConfigured();
+  }
+
+  /**
+   * True when Kafka clients use AWS MSK IAM (documented {@code AWS_MSK_IAM} / {@code
+   * IAMLoginModule} setup), including Pod Identity and instance-profile credentials without an
+   * explicit region.
+   */
+  boolean isMskIamAuthConfigured() {
+    Map<String, Object> kafkaClientProperties = new HashMap<>();
+    if (kafkaProperties != null) {
+      putStringProperties(kafkaClientProperties, kafkaProperties.getProperties());
+      putStringProperties(kafkaClientProperties, kafkaProperties.getConsumer().getProperties());
+      putStringProperties(kafkaClientProperties, kafkaProperties.getProducer().getProperties());
+      putStringProperties(kafkaClientProperties, kafkaProperties.getAdmin().getProperties());
+    }
+    if (!hasText(stringValue(kafkaClientProperties.get("sasl.mechanism")))) {
+      putIfHasText(
+          kafkaClientProperties,
+          "sasl.mechanism",
+          envOrProperty("SPRING_KAFKA_PROPERTIES_SASL_MECHANISM"));
+    }
+    if (!hasText(stringValue(kafkaClientProperties.get("sasl.jaas.config")))) {
+      putIfHasText(
+          kafkaClientProperties,
+          "sasl.jaas.config",
+          envOrProperty("SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG"));
+    }
+    return KafkaMskIamAuth.isMskIam(kafkaClientProperties);
+  }
+
+  private static void putStringProperties(
+      Map<String, Object> dest, @Nullable Map<String, String> source) {
+    if (source == null || source.isEmpty()) {
+      return;
+    }
+    dest.putAll(source);
+  }
+
+  private static void putIfHasText(Map<String, Object> dest, String key, @Nullable String value) {
+    if (hasText(value)) {
+      dest.put(key, value);
+    }
+  }
+
+  @Nullable
+  private static String stringValue(@Nullable Object value) {
+    return value == null ? null : value.toString();
   }
 
   private static boolean hasAwsEndpoint() {
