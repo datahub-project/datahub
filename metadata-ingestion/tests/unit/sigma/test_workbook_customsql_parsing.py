@@ -537,7 +537,7 @@ class TestStatedElementEdgesWidenRefResolution:
     def _run(self, entries: list) -> SigmaSource:
         source = _make_source()
         source.reporter = SigmaSourceReport()
-        source._stated_element_sources = {}
+        source._init_diagnostic_state()
         with patch.object(
             source.sigma_api, "get_workbook_lineage_entries", return_value=entries
         ):

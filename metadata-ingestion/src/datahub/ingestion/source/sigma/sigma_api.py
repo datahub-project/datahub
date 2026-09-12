@@ -1,5 +1,6 @@
 import functools
 import logging
+import re
 import sys
 from collections import deque
 from collections.abc import Hashable
@@ -155,6 +156,7 @@ class SigmaAPI:
         # bucket. Public because SigmaSource, not the API client, is what
         # attributes a column to a cause.
         self.column_formulas_incomplete_workbooks: Set[str] = set()
+        self._last_sigma_code_by_workbook: Dict[str, str] = {}
         # /spec fails identically for every model when the token lacks the
         # scope; warn once and let the counter carry the magnitude.
         self._spec_unavailable_warned: bool = False
@@ -262,6 +264,13 @@ class SigmaAPI:
         )
         sigma_code = _error_code(response)
         if sigma_code:
+            # Remember it per workbook so an aborted /columns fetch can name the
+            # reason rather than only the fact.
+            match = re.search(
+                r"/workbooks/([0-9a-fA-F-]{36})/", getattr(response, "url", "") or ""
+            )
+            if match:
+                self._last_sigma_code_by_workbook[match.group(1)] = sigma_code
             self.report.api_call_failures_by_sigma_code[sigma_code] = (
                 self.report.api_call_failures_by_sigma_code.get(sigma_code, 0) + 1
             )
@@ -1126,6 +1135,14 @@ class SigmaAPI:
             # successfully. On one tenant (2026-09) 12 workbooks aborted with
             # ZERO entries retrieved.
             self.column_formulas_incomplete_workbooks.add(workbook_id)
+            # Attribute the blockage to Sigma's OWN error for this workbook.
+            # "37,655 columns have no formula" is a number the customer cannot
+            # act on; "this workbook is blocked because Sigma says the dataset
+            # behind it is archived" is. The code is whatever Sigma returned
+            # last for this workbook's /columns call.
+            self.report.workbooks_blocked_by_sigma[workbook_id] = (
+                self._last_sigma_code_by_workbook.get(workbook_id, "unknown")
+            )
             logger.debug(
                 "COLUMNS PARTIAL workbook %s: pagination aborted; %d element(s) "
                 "carry formulas. Every chart column absent from this response "
