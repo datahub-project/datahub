@@ -99,6 +99,33 @@ bootJar {
   mainClass = 'com.linkedin.gms.GMSApplication'
 }
 
+// ONNX image variant (R3): a second boot archive that re-adds the ONNX/DJL native libs
+// (compileOnlyApi in metadata-io, so absent from the default war) into BOOT-INF/lib. The
+// datahub-gms-onnx image is built from this; the default war.war stays slim.
+configurations {
+  onnxRuntimeVariant {
+    canBeConsumed = false
+    canBeResolved = true
+    // Superset of the default runtimeClasspath (same version management) plus the onnx closure,
+    // so shared transitives (slf4j/gson/jna) stay aligned and don't produce split-version dupes.
+    extendsFrom configurations.implementation, configurations.runtimeOnly
+  }
+}
+dependencies {
+  onnxRuntimeVariant externalDependency.onnxRuntime
+  onnxRuntimeVariant externalDependency.djlApi
+  onnxRuntimeVariant externalDependency.djlHuggingFaceTokenizers
+}
+tasks.register('onnxBootJar', org.springframework.boot.gradle.tasks.bundling.BootJar) {
+  mainClass = 'com.linkedin.gms.GMSApplication'
+  archiveFileName = 'war-onnx.war'
+  classpath = sourceSets.main.output + configurations.onnxRuntimeVariant
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+  // The Spring Boot plugin only auto-populates this on the primary bootJar; a second BootJar
+  // must set it or the task fails with "property 'targetJavaVersion' has no value available".
+  targetJavaVersion = java.targetCompatibility
+}
+
 bootRun {
   environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
   environment "KAFKA_SCHEMAREGISTRY_URL", "http://localhost:8080/schema-registry/api"
