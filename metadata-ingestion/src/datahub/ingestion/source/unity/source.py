@@ -690,8 +690,24 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 proxy=self.unity_catalog_api_proxy,
                 dataset_urn_builder=self.gen_dataset_urn,
                 metastore=metastore_id,
+                is_dataset_allowed=self._pipeline_dataset_allowed,
             )
             yield from extractor.get_workunits()
+
+    def _pipeline_dataset_allowed(self, ref: TableReference) -> bool:
+        # Reuse the catalog/schema/table filters applied during table ingestion so a
+        # pipeline expectation on an excluded dataset is skipped. catalog.id and
+        # schema.id are metastore-prefixed and space-escaped the same way the proxy
+        # builds them; table_pattern matches the raw qualified name.
+        catalog_id = ref.catalog.replace(" ", "_")
+        if ref.metastore:
+            catalog_id = f"{ref.metastore}.{catalog_id}"
+        schema_id = f"{catalog_id}.{ref.schema.replace(' ', '_')}"
+        return (
+            self.config.catalog_pattern.allowed(catalog_id)
+            and self.config.schema_pattern.allowed(schema_id)
+            and self.config.table_pattern.allowed(ref.qualified_table_name)
+        )
 
     def _start_warehouse_or_report(self, failure_context: str) -> bool:
         # Starting the SQL warehouse can take minutes; every warehouse-gated stage

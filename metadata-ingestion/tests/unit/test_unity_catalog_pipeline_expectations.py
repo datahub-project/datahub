@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from typing import Dict, List, Optional, Set, cast
+from typing import Callable, Dict, List, Optional, Set, cast
 
 import pytest
 
@@ -34,7 +34,9 @@ TS_MILLIS = make_ts_millis(datetime(2026, 9, 11, tzinfo=timezone.utc))
 
 
 def _dataset_urn(ref: TableReference) -> str:
-    return make_dataset_urn("databricks", ref.qualified_table_name, "PROD")
+    # Mirror production gen_dataset_urn, which builds the name from str(ref) so the
+    # metastore is part of the URN when include_metastore is enabled.
+    return make_dataset_urn("databricks", str(ref), "PROD")
 
 
 def _expectation(
@@ -100,6 +102,7 @@ def _extractor(
     proxy: _FakeProxy,
     config: Optional[UnityCatalogPipelineExpectationsConfig] = None,
     metastore: Optional[str] = None,
+    is_dataset_allowed: Optional[Callable[[TableReference], bool]] = None,
 ) -> UnityCatalogPipelineExpectationsExtractor:
     return UnityCatalogPipelineExpectationsExtractor(
         config=config or UnityCatalogPipelineExpectationsConfig(enabled=True),
@@ -107,6 +110,7 @@ def _extractor(
         proxy=cast(object, proxy),  # type: ignore[arg-type]
         dataset_urn_builder=_dataset_urn,
         metastore=metastore,
+        is_dataset_allowed=is_dataset_allowed,
     )
 
 
@@ -296,6 +300,32 @@ def test_metastore_is_included_in_entity_urn() -> None:
         TableReference(metastore="ms-1", catalog=CATALOG, schema=SCHEMA, table="orders")
     )
     assert _entity_urn(wus) == expected
+
+
+def test_disallowed_dataset_is_skipped() -> None:
+    # Expectations on a dataset the connector's filters excluded must not produce an
+    # assertion (no orphan on an entity that was never ingested).
+    events = [
+        _event(
+            "u1",
+            [
+                _expectation("valid_id", "orders", 100, 0),
+                _expectation("chk", "staging_tmp", 5, 0),
+            ],
+        )
+    ]
+    extractor = _extractor(
+        _FakeProxy(events=events),
+        is_dataset_allowed=lambda ref: ref.table != "staging_tmp",
+    )
+    wus = list(extractor.get_workunits())
+    names = _aspect_names(wus)
+    assert names.count("assertionInfo") == 1
+    assert _entity_urn(wus) == _dataset_urn(
+        TableReference(metastore=None, catalog=CATALOG, schema=SCHEMA, table="orders")
+    )
+    assert extractor.report.num_pipeline_expectation_datasets_filtered == 1
+    assert extractor.report.num_expectation_assertions_emitted == 1
 
 
 def test_pipeline_target_error_is_reported_and_skips() -> None:

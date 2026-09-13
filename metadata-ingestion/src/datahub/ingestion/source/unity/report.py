@@ -77,6 +77,7 @@ class UnityCatalogReport(SQLSourceReport):
 
     num_pipelines_scanned: int = 0
     num_pipeline_expectations_found: int = 0
+    num_pipeline_expectation_datasets_filtered: int = 0
     num_expectation_assertions_emitted: int = 0
     num_expectation_run_events_emitted: int = 0
     num_pipeline_event_errors: int = 0
