@@ -382,6 +382,10 @@ class VertexAISource(StatefulIngestionSourceBase):
             )
             self._current_region = region
 
+            # Vertex resources are regional; reset before this region's fetch.
+            self.training_extractor.reset_regional_caches()
+            self.model_extractor.reset_regional_caches()
+
             if (
                 self.config.use_ml_metadata_for_lineage
                 or self.config.extract_execution_metrics

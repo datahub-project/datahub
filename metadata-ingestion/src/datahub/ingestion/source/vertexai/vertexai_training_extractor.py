@@ -120,6 +120,10 @@ class VertexAITrainingExtractor:
 
         self.datasets: Optional[Dict[str, VertexAiResourceNoun]] = None
 
+    def reset_regional_caches(self) -> None:
+        """Clear the cached datasets, which are region-specific."""
+        self.datasets = None
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Main entry point for training job extraction."""
         for class_name in TrainingJobTypes.all():
