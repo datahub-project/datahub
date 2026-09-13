@@ -4023,18 +4023,12 @@ public class GmsGraphQLEngine {
                           : null;
                     })));
 
-    // Add incidents attribute to all entities that support it
-    final List<String> entitiesWithIncidents =
-        ImmutableList.of(
-            "Dataset",
-            "DataJob",
-            "DataFlow",
-            "Dashboard",
-            "Chart",
-            "MLModel",
-            "MLFeature",
-            "MLFeatureTable",
-            "SchemaFieldEntity");
+    // Generated from incident.graphql at compile time (generateIncidentEntityTypes).
+    final List<String> entitiesWithIncidents = IncidentEntityTypes.ENTITY_TYPES;
+    if (entitiesWithIncidents.isEmpty()) {
+      throw new IllegalStateException(
+          "IncidentEntityTypes.ENTITY_TYPES is empty; refusing to start with zero resolvers");
+    }
     for (String entity : entitiesWithIncidents) {
       builder.type(
           entity,
