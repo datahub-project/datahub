@@ -78,6 +78,10 @@ ML Models can document their training and evaluation datasets in two complementa
 
 Each dataset reference includes the dataset URN, motivation for using that dataset, and any preprocessing steps applied. This creates direct lineage relationships between models and their training data.
 
+:::note
+`upstreamLineage` — the lineage aspect used by **datasets** — does not apply to `mlModel`. Emitting it on a model is rejected by GMS with `422 Unknown aspect upstreamLineage for entity mlModel`. Use `mlModelTrainingData` (above) for model→training-dataset lineage, or training runs (`trainingJobs`) for full lineage.
+:::
+
 #### Lineage via Training Runs
 
 Training runs (`dataProcessInstance` entities) provide an alternative and often more detailed way to capture training lineage:
