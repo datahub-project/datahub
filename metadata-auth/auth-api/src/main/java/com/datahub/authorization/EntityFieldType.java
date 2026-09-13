@@ -35,4 +35,6 @@ public enum EntityFieldType {
   CONTAINER,
   /** Glossary terms/nodes associated with the entity */
   GLOSSARY,
+  /** Structured properties of the entity */
+  STRUCTURED_PROPERTY,
 }

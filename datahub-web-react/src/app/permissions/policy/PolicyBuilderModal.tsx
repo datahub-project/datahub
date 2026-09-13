@@ -3,9 +3,13 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
+import { toast } from '@components/components/Toast/Toast';
+
 import PolicyActorForm from '@app/permissions/policy/PolicyActorForm';
 import PolicyPrivilegeForm from '@app/permissions/policy/PolicyPrivilegeForm';
+import { hasIncompleteStructuredProperties } from '@app/permissions/policy/PolicyPrivilegeForm/StructuredPropertyResourceSelect';
 import PolicyTypeForm from '@app/permissions/policy/PolicyTypeForm';
+import { FIELD_TYPES } from '@app/permissions/policy/constants';
 import { EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
@@ -71,6 +75,17 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
 
     // Go to next step
     const next = () => {
+        // If on privilege step with incomplete structured properties, show error and don't proceed
+        if (activeStepIndex === 1) {
+            const structuredProps = policy.resources?.filter?.criteria?.find(
+                (c) => c.field === FIELD_TYPES.STRUCTURED_PROPERTY,
+            )?.structuredPropertyValues;
+
+            if (structuredProps && hasIncompleteStructuredProperties(structuredProps)) {
+                toast.error(t('privilegeForm.incompleteStructuredPropertiesMessage'));
+                return;
+            }
+        }
         setActiveStepIndex(activeStepIndex + 1);
     };
 
@@ -79,9 +94,36 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
         setActiveStepIndex(activeStepIndex - 1);
     };
 
+    // Filter out empty structured property rows
+    const filterEmptyStructuredProperties = () => {
+        const cleanedPolicy = {
+            ...policy,
+            resources: policy.resources
+                ? {
+                      ...policy.resources,
+                      filter: policy.resources.filter
+                          ? {
+                                ...policy.resources.filter,
+                                criteria: policy.resources.filter.criteria?.map((c) => ({
+                                    ...c,
+                                    structuredPropertyValues: (c as any).structuredPropertyValues?.filter(
+                                        (prop) =>
+                                            prop.propertyUrn?.trim() &&
+                                            Array.isArray(prop.values) &&
+                                            prop.values.length > 0,
+                                    ),
+                                })),
+                            }
+                          : policy.resources.filter,
+                  }
+                : policy.resources,
+        };
+        return cleanedPolicy;
+    };
+
     // Save or create a policy
     const onSavePolicy = () => {
-        onSave(policy);
+        onSave(filterEmptyStructuredProperties());
     };
 
     // Change the type of policy, either Metadata or Platform
@@ -178,9 +220,9 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                 wrapClassName="PolicyBuilderModal"
                 title={isEditing ? t('editPolicyModalTitle') : t('createPolicyModalTitle')}
                 open={open}
-                onCancel={() => setShowConfirmationModal(true)}
+                onCancel={onClose}
                 closable
-                width={950}
+                width={1000}
                 buttons={[]}
                 bodyStyle={MODAL_BODY_STYLE}
             >

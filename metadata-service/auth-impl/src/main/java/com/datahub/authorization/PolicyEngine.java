@@ -20,6 +20,7 @@ import com.linkedin.policy.PolicyMatchCondition;
 import com.linkedin.policy.PolicyMatchCriterion;
 import com.linkedin.policy.PolicyMatchCriterionArray;
 import com.linkedin.policy.PolicyMatchFilter;
+import com.linkedin.policy.StructuredPropertyCriterionValueArray;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import java.util.ArrayList;
@@ -386,6 +387,12 @@ public class PolicyEngine {
       return false;
     }
 
+    // Handle structured property matching separately
+    if (entityFieldType == EntityFieldType.STRUCTURED_PROPERTY) {
+      return checkStructuredProperty(
+          criterion.getStructuredPropertyValues(), resource, criterion.getCondition());
+    }
+
     Set<String> fieldValues = resource.getFieldValues(entityFieldType);
     return checkCondition(fieldValues, criterion.getValues(), criterion.getCondition());
   }
@@ -404,6 +411,43 @@ public class PolicyEngine {
         log.error("Unsupported condition {}", condition);
         return false;
     }
+  }
+
+  /**
+   * Checks if structured property criteria match the resource's structured properties.
+   *
+   * @param structuredPropertyValues array of property URNs and values to match
+   * @param resource the resource to match against
+   * @param condition the condition to apply (EQUALS, STARTS_WITH, NOT_EQUALS)
+   * @return true if all structured properties match the condition
+   */
+  private boolean checkStructuredProperty(
+      StructuredPropertyCriterionValueArray structuredPropertyValues,
+      final ResolvedEntitySpec resource,
+      PolicyMatchCondition condition) {
+
+    if (structuredPropertyValues == null || structuredPropertyValues.isEmpty()) {
+      return condition == PolicyMatchCondition.NOT_EQUALS;
+    }
+
+    // Get all structured property values from the resource as a map: propertyUrn -> Set<value>
+    java.util.Map<String, java.util.Set<String>> resourceProperties =
+        resource.getStructuredPropertyValues();
+
+    // ALL properties in the criterion must match (AND logic across properties)
+    return structuredPropertyValues.stream()
+        .allMatch(
+            propertyValue -> {
+              String propertyUrn = propertyValue.getPropertyUrn();
+              List<String> criterionValues = propertyValue.getValues();
+
+              // Get values for this specific property from the resource
+              java.util.Set<String> resourcePropertyValues =
+                  resourceProperties.getOrDefault(propertyUrn, java.util.Collections.emptySet());
+
+              // Check if the condition is satisfied for this property
+              return checkCondition(resourcePropertyValues, criterionValues, condition);
+            });
   }
 
   /**

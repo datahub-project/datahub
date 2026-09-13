@@ -106,6 +106,7 @@ export const DEFAULT_APP_CONFIG = {
         hideLineageInSearchCards: false,
         dataProductLineageEnabled: false,
         glossaryBasedPoliciesEnabled: false,
+        structuredPropertiesInPoliciesEnabled: false,
         multipleDataProductsPerAsset: false,
         showTestsInHealthIcon: false,
         i18nEnabled: true,

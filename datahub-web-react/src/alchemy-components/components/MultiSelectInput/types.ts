@@ -10,4 +10,5 @@ export interface MultiSelectInputProps {
     id?: string;
     className?: string;
     width?: string | number;
+    inputType?: string;
 }
