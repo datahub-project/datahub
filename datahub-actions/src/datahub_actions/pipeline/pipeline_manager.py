@@ -62,9 +62,16 @@ class PipelineManager:
         logger.debug(f"Attempting to start pipeline with name {name}...")
         if name not in self.pipeline_registry:
             thread = Thread(target=run_pipeline, args=([pipeline]))
-            thread.start()
+            # Register before starting: a shutdown signal arriving between these two
+            # statements must still find the pipeline, or its worker runs on unstopped
+            # (and, being non-daemon, blocks interpreter exit until SIGKILL).
             spec = PipelineSpec(name, pipeline, thread)
             self.pipeline_registry[name] = spec
+            try:
+                thread.start()
+            except Exception:
+                del self.pipeline_registry[name]
+                raise
             logger.debug(f"Started pipeline with name {name}.")
         else:
             raise Exception(f"Pipeline with name {name} is already running.")
@@ -77,11 +84,22 @@ class PipelineManager:
             try:
                 pipeline_spec = self.pipeline_registry[name]
                 pipeline_spec.pipeline.stop()
-                pipeline_spec.thread.join()  # Wait for the pipeline thread to terminate.
+                if pipeline_spec.thread.ident is not None:
+                    # Skipped when the pipeline was registered but its thread had not
+                    # started yet: join() on an unstarted thread raises RuntimeError.
+                    pipeline_spec.thread.join()  # Wait for the pipeline thread to terminate.
                 logger.info(f"Actions Pipeline with name '{name}' has been stopped.")
-                pipeline_spec.pipeline.stats().pretty_print_summary(
-                    name
-                )  # Print the pipeline's statistics.
+                try:
+                    pipeline_spec.pipeline.stats().pretty_print_summary(
+                        name
+                    )  # Print the pipeline's statistics.
+                except Exception:
+                    # Reporting is best-effort; a pipeline that never reached mark_start()
+                    # has no stats to print, and that must not look like a stop failure.
+                    logger.warning(
+                        f"Could not print run summary for pipeline {name}",
+                        exc_info=True,
+                    )
                 del self.pipeline_registry[name]
             except Exception as e:
                 # Failed to stop a pipeline - this is a critical issue, we should avoid starting another action of the same type
