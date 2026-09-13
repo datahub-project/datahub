@@ -1,0 +1,10 @@
+{
+    "appearance.subTitle": "管理你的外觀設定。",
+    "appearance.title": "外觀",
+    "language.description": "選擇你偏好的顯示語言",
+    "language.title": "使用者介面語言",
+    "noSettings": "找不到任何外觀設定。",
+    "showApplications.description": "應用程式是另一種組織資料的方式，與資料域類似。預設為隱藏。",
+    "showApplications.successMessage": "設定已更新！",
+    "showApplications.title": "顯示應用程式"
+}

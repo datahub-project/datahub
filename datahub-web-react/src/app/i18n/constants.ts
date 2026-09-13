@@ -11,6 +11,7 @@ import nbNO from 'antd/lib/locale/nb_NO';
 import ptBR from 'antd/lib/locale/pt_BR';
 import svSE from 'antd/lib/locale/sv_SE';
 import zhCN from 'antd/lib/locale/zh_CN';
+import zhTW from 'antd/lib/locale/zh_TW';
 
 import { LocaleConfig, SupportedLanguage } from '@app/i18n/types';
 
@@ -98,6 +99,13 @@ export const ZH_CN_LOCALE_CONFIG: LocaleConfig = {
     label: '简体中文',
 };
 
+export const ZH_TW_LOCALE_CONFIG: LocaleConfig = {
+    lang: 'zh-TW',
+    antd: zhTW,
+    dayjs: 'zh-tw',
+    label: '繁體中文 (Beta)',
+};
+
 export const LOCALE_MAP: Record<SupportedLanguage, LocaleConfig> = {
     en: EN_LOCALE_CONFIG,
     de: DE_LOCALE_CONFIG,
@@ -111,6 +119,7 @@ export const LOCALE_MAP: Record<SupportedLanguage, LocaleConfig> = {
     fi: FI_LOCALE_CONFIG,
     ja: JA_LOCALE_CONFIG,
     'zh-CN': ZH_CN_LOCALE_CONFIG,
+    'zh-TW': ZH_TW_LOCALE_CONFIG,
 };
 
 export const LANGUAGE_OPTIONS: SelectOption[] = [
@@ -126,6 +135,7 @@ export const LANGUAGE_OPTIONS: SelectOption[] = [
     FI_LOCALE_CONFIG,
     JA_LOCALE_CONFIG,
     ZH_CN_LOCALE_CONFIG,
+    ZH_TW_LOCALE_CONFIG,
 ].map((localeConfig) => ({
     value: localeConfig.lang,
     label: localeConfig.label,
