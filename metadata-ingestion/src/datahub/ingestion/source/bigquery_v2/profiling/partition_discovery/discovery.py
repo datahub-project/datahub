@@ -663,6 +663,18 @@ class PartitionDiscovery:
                 # partition), as are compact partition IDs (all-digit, e.g. "20240115") and
                 # unparseable strings, which return None from _parse_iso_temporal.
                 moment = self._parse_iso_temporal(val)
+                if (
+                    moment is not None
+                    and col_type.upper() == "DATETIME"
+                    and moment.tzinfo is not None
+                ):
+                    # BigQuery DATETIME is timezone-naive; only TIMESTAMP is UTC-normalized
+                    # in create_partition_datetime_filter, so an offset-bearing DATETIME
+                    # literal would have its offset silently dropped and floor the wrong
+                    # wall clock (possibly the wrong partition). Reject it here (as
+                    # create_safe_filter's _format_date_value does) so it defers to
+                    # create_safe_filter rather than widening a mis-floored instant.
+                    moment = None
             else:
                 moment = None
             if moment is not None:
