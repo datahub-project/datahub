@@ -32,6 +32,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     PSEUDO_PARTITION_COLUMN_TYPES,
     SAMPLING_LIMIT_ROWS,
     SAMPLING_PERCENT,
+    SUBDAY_TEMPORAL_PARTITION_TYPES,
     TEMPORAL_PARTITION_TYPES,
     TEST_QUERY_LIMIT_ROWS,
     VALID_COLUMN_NAME_PATTERN,
@@ -621,12 +622,16 @@ class PartitionDiscovery:
                 moment = val
             elif isinstance(val, date):
                 moment = datetime(val.year, val.month, val.day)
-            elif isinstance(val, str):
+            elif (
+                isinstance(val, str)
+                and col_type.upper() in SUBDAY_TEMPORAL_PARTITION_TYPES
+            ):
                 # A user-configured fallback for a DATETIME/TIMESTAMP partition arrives as
                 # an ISO string; normalize it to a datetime so it is widened to the whole
-                # partition instead of matching a single instant. Compact partition IDs
-                # (all-digit, e.g. "20240115") and unparseable strings return None and fall
-                # through to create_safe_filter, which owns compact-id range handling.
+                # partition instead of matching a single instant. DATE strings are left to
+                # create_safe_filter (a DATE equality already covers the whole-day
+                # partition), as are compact partition IDs (all-digit, e.g. "20240115") and
+                # unparseable strings, which return None from _parse_iso_temporal.
                 moment = self._parse_iso_temporal(val)
             else:
                 moment = None
