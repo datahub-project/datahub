@@ -1,46 +1,21 @@
+import { Button, CodeBlock } from '@components';
 import React, { useContext, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import styled, { useTheme } from 'styled-components/macro';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import { ViewTab } from '@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
+import { useIsEmbeddedProfile } from '@app/shared/useEmbeddedProfileLinkProps';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
-import { Button, Modal } from '@src/alchemy-components';
-import CopyQuery from '@src/app/entity/shared/tabs/Dataset/Queries/CopyQuery';
-import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { GetDataJobQuery } from '@src/graphql/dataJob.generated';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { EntityType, QueryEntity } from '@types';
 
-/* eslint-disable i18next/no-literal-string -- syntax highlighting language identifier and CSS value, not UI text */
 const DEFAULT_LANGUAGE = 'sql';
-const HIDDEN_STYLE = { display: 'none' };
-/* eslint-enable i18next/no-literal-string */
-
-const PreviewSyntax = styled(SyntaxHighlighter)`
-    max-width: 100%;
-    max-height: 600px;
-    overflow: hidden;
-    background: ${(props) => props.theme.colors.bgSurface} !important;
-    border-radius: 8px !important;
-    span {
-        font-family: 'Roboto Mono', monospace;
-    }
-`;
-
-const ModalSyntaxContainer = styled.div``;
-
-export const ViewHeader = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 10px;
-`;
+const SOURCE_OPTION = 'source';
+const FORMATTED_OPTION = 'formatted';
 
 export function SidebarDatasetViewDefinitionSection() {
     const { t } = useTranslation('entity.shared.containers');
@@ -106,20 +81,10 @@ interface HelperProps {
 // exported for testing only
 function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl }: HelperProps) {
     const { t } = useTranslation('entity.shared.containers');
-    const { t: tc } = useTranslation('common.actions');
-    const theme = useTheme();
-    const [showFullContentModal, setShowFullContentModal] = useState(false);
+    const { t: tv } = useTranslation('entity.profile.view');
     const isEmbeddedProfile = useIsEmbeddedProfile();
 
     const highlightedLineNumbers = new Set(highlightedStrings?.map((s) => findLineNumberToHighlight(statement, s)));
-
-    function lineProps(lineNumber: number): React.HTMLProps<HTMLElement> {
-        const style: React.CSSProperties = { display: 'block', width: 'fit-content' };
-        if (highlightedLineNumbers.has(lineNumber)) {
-            style.backgroundColor = theme.colors.bgSelectedSubtle;
-        }
-        return { style };
-    }
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const formattedLogic = baseEntity?.dataset?.viewProperties?.formattedLogic;
     const language = baseEntity?.dataset?.viewProperties?.language;
@@ -127,76 +92,51 @@ function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl
     const canShowFormatted = !!formattedLogic;
 
     const isDbt = baseEntity?.dataset?.platform?.urn === DBT_URN;
-    const formatOptions = isDbt ? ['Source', 'Compiled'] : ['Raw', 'Formatted'];
     const [showFormatted, setShowFormatted] = useState(false);
+    const languageOptions = canShowFormatted
+        ? [
+              {
+                  label: isDbt ? tv('viewDefinitionTab.formatSource') : tv('viewDefinitionTab.formatRaw'),
+                  value: SOURCE_OPTION,
+              },
+              {
+                  label: isDbt ? tv('viewDefinitionTab.formatCompiled') : tv('viewDefinitionTab.formatFormatted'),
+                  value: FORMATTED_OPTION,
+              },
+          ]
+        : undefined;
+    const selectedLanguage = showFormatted ? FORMATTED_OPTION : SOURCE_OPTION;
+    const code = showFormatted ? formattedLogic || statement : statement;
+    const codeLanguage = language?.toLowerCase() ?? DEFAULT_LANGUAGE;
+    const onLanguageChange = (value: string) => setShowFormatted(value === FORMATTED_OPTION);
+    const openFullProfile = () => window.open(`${externalUrl}/View Definition`, '_blank', 'noopener,noreferrer');
 
     return (
         <SidebarSection
             title={title}
             content={
                 <>
-                    <Modal
-                        title={title}
-                        width="1000px"
-                        buttons={[
-                            {
-                                text: tc('close'),
-                                variant: 'filled',
-                                onClick: () => setShowFullContentModal(false),
-                            },
-                        ]}
-                        open={showFullContentModal}
-                        onCancel={() => setShowFullContentModal(false)}
-                    >
-                        <ModalSyntaxContainer>
-                            <ViewHeader>
-                                {canShowFormatted && (
-                                    <ViewTab
-                                        formatOptions={formatOptions}
-                                        setShowFormatted={setShowFormatted}
-                                        showFormatted={showFormatted}
-                                    />
-                                )}
-                                <CopyQuery query={showFormatted ? formattedLogic || '' : statement} showCopyText />
-                            </ViewHeader>
-                            <SyntaxHighlighter
-                                language={language?.toLowerCase() ?? DEFAULT_LANGUAGE}
-                                showLineNumbers
-                                lineProps={lineProps}
-                            >
-                                {showFormatted ? formattedLogic : statement}
-                            </SyntaxHighlighter>
-                        </ModalSyntaxContainer>
-                    </Modal>
-                    {canShowFormatted && (
-                        <ViewTab
-                            formatOptions={formatOptions}
-                            setShowFormatted={setShowFormatted}
-                            showFormatted={showFormatted}
-                        />
-                    )}
-                    <PreviewSyntax
-                        language={language?.toLowerCase() ?? DEFAULT_LANGUAGE}
+                    <CodeBlock
+                        code={code}
+                        language={codeLanguage}
+                        languageLabel={false}
+                        languageOptions={languageOptions}
+                        selectedLanguage={selectedLanguage}
+                        onLanguageChange={onLanguageChange}
                         showLineNumbers
-                        wrapLines
-                        lineNumberStyle={HIDDEN_STYLE}
-                        lineProps={lineProps}
-                    >
-                        {showFormatted ? formattedLogic : statement}
-                    </PreviewSyntax>
-                    <Button
-                        style={{ paddingTop: 0 }}
-                        variant="text"
-                        onClick={() => {
-                            if (isEmbeddedProfile) {
-                                window.open(`${externalUrl}/View Definition`, '_blank');
-                            } else {
-                                setShowFullContentModal(true);
-                            }
-                        }}
-                    >
-                        {t('sidebar.logic.seeFullButton')}
-                    </Button>
+                        hideLineNumbers
+                        wrap
+                        highlightedLines={highlightedLineNumbers}
+                        maxHeight={320}
+                        overflow="auto"
+                        showCopy
+                        showHeader
+                    />
+                    {isEmbeddedProfile && (
+                        <Button variant="text" onClick={openFullProfile}>
+                            {t('sidebar.logic.seeFullButton')}
+                        </Button>
+                    )}
                 </>
             }
         />

@@ -16,7 +16,7 @@ import {
 import { useScrollSemanticModelsQuery } from '@graphql/metricsBrowse.generated';
 import { EntityType } from '@types';
 
-export const SEMANTIC_MODEL_COUNT = 50;
+const SEMANTIC_MODEL_COUNT = 50;
 
 function buildScrollInput(scrollId: string | null, sort: MetricsSidebarSortValue) {
     return {
