@@ -1612,6 +1612,44 @@ def test_deferred_external_unreliable_row_count_cleared_with_partition_filter():
     assert result.table.rows_count is None
 
 
+def test_deferred_external_discovery_skips_when_partition_profiling_disabled():
+    # An external table the crawl didn't mark partitioned passes get_profile_request's
+    # up-front skip, but deferred discovery can still find partition filters. With
+    # partition_profiling_enabled=False the table must be skipped rather than emitted with
+    # partition-filtered SQL, mirroring the inline get_batch_kwargs path.
+    config = create_test_config(partition_profiling_enabled=False)
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    external_table = create_test_table(name="ext_events", external=True)
+    with patch.object(
+        PartitionDiscovery, "get_required_partition_filters", return_value=[]
+    ):
+        request = profiler.get_profile_request(
+            external_table, "test_dataset", "test-project"
+        )
+    assert request is not None
+    deferred = DeferredExternalTable(
+        request=request,
+        bq_table=external_table,
+        db_name="test-project",
+        schema_name="test_dataset",
+    )
+
+    with patch.object(
+        PartitionDiscovery,
+        "get_required_partition_filters",
+        return_value=["`event_date` = '2023-01-01'"],
+    ):
+        result = profiler._discover_external_partition_filter(deferred)
+
+    assert result is None
+    assert (
+        "test-project.test_dataset.ext_events"
+        in report.profiling_skipped_partition_profiling_disabled
+    )
+
+
 def test_profiler_external_table_integration():
     config = create_test_config()
     report = BigQueryV2Report()
