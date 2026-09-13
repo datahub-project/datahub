@@ -10,6 +10,7 @@ from google.cloud.bigquery.table import TableListItem
 from datahub.api.entities.platformresource.platform_resource import PlatformResource
 from datahub.configuration.pattern_utils import is_schema_allowed, is_tag_allowed
 from datahub.emitter.mce_builder import (
+    get_sys_time,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
     make_tag_urn,
@@ -66,6 +67,7 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
+    check_table_with_profile_pattern,
     gen_database_container,
     gen_schema_container,
     get_domain_wu,
@@ -101,7 +103,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
+    DatasetProfileClass,
     GlobalTagsClass,
+    PartitionSpecClass,
+    PartitionTypeClass,
     TagAssociationClass,
 )
 from datahub.metadata.urns import TagUrn
@@ -124,6 +129,19 @@ logger: logging.Logger = logging.getLogger(__name__)
 # See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
 SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
 CLUSTERING_COLUMN_TAG = "CLUSTERING_COLUMN"
+
+# Upper bound on the number of materialized views for which we fetch stats via
+# tables.get within a single (project, dataset). Materialized views are
+# structurally rare, but this caps the serial metadata fetch on the schema
+# critical path for estates with an unusually large number of MVs. Beyond this
+# limit the fetch is skipped and a warning is emitted; the views are still
+# ingested, just without row count / size stats.
+_MAX_MV_STATS_PER_DATASET = 1000
+# After this many consecutive tables.get failures in one (project, dataset),
+# skip stats fetches for the rest of that dataset: a systematic error
+# (permissions, quota) fails every call, and retry=None only bounds each
+# failure's duration, not how many we attempt.
+_MV_STATS_MAX_CONSECUTIVE_FAILURES = 5
 
 # Dynamic batch sizing constants for sharded table optimization
 # For datasets with many tables, we increase batch size to reduce API calls
@@ -247,6 +265,17 @@ class BigQuerySchemaGenerator:
             self.data_reader = BigQueryDataReader.create(
                 self.config.get_bigquery_client()
             )
+
+        # Per-(project, dataset) bookkeeping for materialized-view stats fetches.
+        # The rate limiter is NOT built here: it is the per-dataset limiter
+        # `_process_schema` builds for `get_columns_for_dataset`, threaded
+        # through to the fetch so `requests_per_min` means per-dataset on both
+        # paths (a second, __init__-scoped limiter would add its bucket to this
+        # one and make the config mean two different things at once).
+        self._mv_stats_fetch_count: Dict[str, int] = defaultdict(int)
+        self._mv_stats_cap_warned: Set[str] = set()
+        self._mv_stats_consecutive_failures: Dict[str, int] = defaultdict(int)
+        self._mv_stats_consecutive_warned: Set[str] = set()
 
         # Global store of table identifiers for lineage filtering
         self.table_refs: Set[str] = set()
@@ -734,15 +763,13 @@ class BigQuerySchemaGenerator:
                     self.report,
                 )
             )
-
-            for view in db_views[dataset_name]:
-                view_columns = columns.get(view.name, []) if columns else []
-                yield from self._process_view(
-                    view=view,
-                    columns=view_columns,
-                    project_id=project_id,
-                    dataset_name=dataset_name,
-                )
+            yield from self._process_views_for_dataset(
+                project_id=project_id,
+                dataset_name=dataset_name,
+                views=db_views[dataset_name],
+                columns=columns,
+                rate_limiter=rate_limiter,
+            )
 
         if self.config.include_table_snapshots:
             db_snapshots[dataset_name] = list(
@@ -833,6 +860,162 @@ class BigQuerySchemaGenerator:
         yield from self.gen_table_dataset_workunits(
             table, columns, project_id, dataset_name
         )
+
+    def _mv_stats_in_profile_pattern(
+        self, project_id: str, dataset_name: str, table_name: str
+    ) -> bool:
+        """Single predicate for both the fetch and the emit side.
+
+        These two must agree: gating only the emit side means an excluded view
+        still costs a tables.get whose result is then discarded. `view_pattern`
+        is checked here (not just in `_process_view`) because the fetch runs
+        before `_process_view` applies it, so an excluded materialized view
+        would otherwise consume a tables.get call and count toward the
+        per-dataset cap before being dropped.
+        """
+        table_name_fqn = f"{project_id}.{dataset_name}.{table_name}"
+        return self.config.view_pattern.allowed(table_name_fqn) and (
+            check_table_with_profile_pattern(
+                self.config.profile_pattern,
+                table_name_fqn,
+            )
+        )
+
+    def _enrich_materialized_view_stats(
+        self,
+        view: BigqueryView,
+        project_id: str,
+        dataset_name: str,
+        rate_limiter: Optional[RateLimiter] = None,
+    ) -> None:
+        """Populate row count / size / last-altered for a materialized view via tables.get.
+
+        No-op when the legacy `__TABLES__` path already supplied stats (so the two
+        configs never duplicate work). Bounded per (project, dataset) to avoid a
+        serial fetch dominating the schema critical path on estates with many MVs.
+
+        `rate_limiter` is the per-dataset limiter from `_process_schema` (shared
+        with `get_columns_for_dataset`); None when `rate_limit` is off.
+
+        Note this also fills `last_altered`, which flows into
+        `DatasetProperties.lastModified` — so enabling MV stats changes that field
+        too, not just the emitted `datasetProfile`.
+        """
+        if not self.config.include_materialized_view_stats:
+            return
+        if not self._mv_stats_in_profile_pattern(project_id, dataset_name, view.name):
+            return
+        if view.rows_count is not None:
+            self.report.num_mv_stats_skipped_legacy += 1
+            return
+
+        cap_key = f"{project_id}.{dataset_name}"
+        # A systematic error (permissions, quota) fails every call; after K in a
+        # row, skip the rest of this dataset so the schema path isn't dominated
+        # by per-call timeouts on a broken estate.
+        if (
+            self._mv_stats_consecutive_failures[cap_key]
+            >= _MV_STATS_MAX_CONSECUTIVE_FAILURES
+        ):
+            self.report.num_mv_stats_skipped_consecutive += 1
+            if cap_key not in self._mv_stats_consecutive_warned:
+                self._mv_stats_consecutive_warned.add(cap_key)
+                self.report.warning(
+                    title="Materialized view stats skipped",
+                    message=(
+                        f"Skipped materialized view stats for the rest of {cap_key} "
+                        f"after {_MV_STATS_MAX_CONSECUTIVE_FAILURES} consecutive "
+                        f"tables.get failures; remaining MVs in this dataset will "
+                        f"be ingested without row count / size stats. Fix the "
+                        f"failure (see prior warnings) rather than raising this "
+                        f"threshold."
+                    ),
+                    context=cap_key,
+                )
+            return
+        if self._mv_stats_fetch_count[cap_key] >= _MAX_MV_STATS_PER_DATASET:
+            self.report.num_mv_stats_skipped_cap += 1
+            if cap_key not in self._mv_stats_cap_warned:
+                self._mv_stats_cap_warned.add(cap_key)
+                # The cap counts attempts, not successes — a failed call still
+                # costs up to the request timeout, so it is work the cap exists
+                # to bound. But an operator who hits the cap purely because every
+                # call failed needs pointing at the failure, not at the cap, so
+                # say which it was.
+                failed = self.report.num_mv_stats_failed
+                self.report.warning(
+                    title="Materialized view stats skipped",
+                    message=(
+                        "Reached the per-dataset materialized view stats cap; "
+                        "remaining materialized views in this dataset will be "
+                        "ingested without row count / size stats."
+                        + (
+                            f" Note {failed} fetch(es) failed — if that accounts "
+                            "for most of the cap, fix the failure rather than "
+                            "raising the cap."
+                            if failed
+                            else ""
+                        )
+                    ),
+                    context=cap_key,
+                )
+            return
+
+        self._mv_stats_fetch_count[cap_key] += 1
+
+        table = self.schema_api.get_materialized_views_metadata(
+            project_id,
+            dataset_name,
+            view.name,
+            self.report,
+            rate_limiter=rate_limiter,
+        )
+        if table is None:
+            self._mv_stats_consecutive_failures[cap_key] += 1
+            return
+        # A successful call resets the streak; a no-stats result is not a failure.
+        self._mv_stats_consecutive_failures[cap_key] = 0
+
+        # Use is-not-None checks so a zero-row / zero-byte MV still records 0.
+        if view.rows_count is None and table.num_rows is not None:
+            view.rows_count = table.num_rows
+        if view.size_in_bytes is None and table.num_bytes is not None:
+            view.size_in_bytes = table.num_bytes
+        # Count the fetch only if it actually yielded stats. Counting every
+        # non-None table resource reported "1000 fetched, 0 emitted" with no
+        # counter explaining the gap and num_mv_stats_failed sitting at 0.
+        if view.rows_count is not None or view.size_in_bytes is not None:
+            self.report.num_mv_stats_fetched += 1
+        else:
+            self.report.num_mv_stats_no_data += 1
+        # `Table.modified` is the table-resource last-modified time (same clock the
+        # legacy __TABLES__ path reports); keep parity, do not use lastRefreshTime.
+        if view.last_altered is None and table.modified is not None:
+            view.last_altered = table.modified
+
+    def _process_views_for_dataset(
+        self,
+        project_id: str,
+        dataset_name: str,
+        views: List[BigqueryView],
+        columns: Optional[Dict[str, List[BigqueryColumn]]],
+        rate_limiter: Optional[RateLimiter] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        for view in views:
+            if view.materialized and self.config.include_materialized_view_stats:
+                self._enrich_materialized_view_stats(
+                    view=view,
+                    project_id=project_id,
+                    dataset_name=dataset_name,
+                    rate_limiter=rate_limiter,
+                )
+            view_columns = columns.get(view.name, []) if columns else []
+            yield from self._process_view(
+                view=view,
+                columns=view_columns,
+                project_id=project_id,
+                dataset_name=dataset_name,
+            )
 
     def _process_view(
         self,
@@ -1126,6 +1309,36 @@ class BigQuerySchemaGenerator:
             ),
             aspect=view_properties_aspect,
         ).as_workunit()
+
+        if (
+            view.materialized
+            and self.config.include_materialized_view_stats
+            and (view.rows_count is not None or view.size_in_bytes is not None)
+            and self._mv_stats_in_profile_pattern(project_id, dataset_name, table.name)
+        ):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=self.identifiers.gen_dataset_urn(
+                    project_id, dataset_name, table.name
+                ),
+                aspect=DatasetProfileClass(
+                    # Stamped at emission, matching every other source that emits
+                    # datasetProfile (sql_generic_profiler, unity, salesforce, …).
+                    timestampMillis=get_sys_time(),
+                    rowCount=view.rows_count,
+                    sizeInBytes=view.size_in_bytes,
+                    # Set explicitly for readability; DatasetProfileClass
+                    # already defaults to exactly this. It matters because the
+                    # UI's latestFullTableProfile alias filters on
+                    # partitionSpec.partition START_WITH
+                    # ["FULL_TABLE_SNAPSHOT","SAMPLE"] — so the value is load
+                    # bearing even though setting it here is redundant.
+                    partitionSpec=PartitionSpecClass(
+                        partition="FULL_TABLE_SNAPSHOT",
+                        type=PartitionTypeClass.FULL_TABLE,
+                    ),
+                ),
+            ).as_workunit()
+            self.report.num_mv_stats_emitted += 1
 
     def gen_snapshot_dataset_workunits(
         self,
