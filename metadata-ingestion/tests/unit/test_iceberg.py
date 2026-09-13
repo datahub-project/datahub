@@ -39,6 +39,8 @@ from pyiceberg.types import (
     DoubleType,
     FixedType,
     FloatType,
+    GeographyType,
+    GeometryType,
     IcebergType,
     IntegerType,
     ListType,
@@ -2220,3 +2222,52 @@ class TestDomainAssignment:
 
         # domain adds 1 MCP per table + 1 MCP per namespace
         assert len(wus_with) == len(wus_without) + 2
+
+
+def test_visit_geometry() -> None:
+    """
+    Test the visit_geometry method for handling Iceberg V3 geospatial types.
+    """
+    visitor = ToAvroSchemaIcebergVisitor()
+
+    result = visitor.visit_geometry(GeometryType())
+
+    # WKB geometries have no Avro equivalent, so they are treated as opaque strings
+    assert result["type"] == "string"
+    assert result["native_data_type"] == "geometry"
+
+
+def test_visit_geometry_with_crs() -> None:
+    """
+    Test that a geometry type's CRS is preserved in the native data type.
+    """
+    visitor = ToAvroSchemaIcebergVisitor()
+
+    result = visitor.visit_geometry(GeometryType("EPSG:4326"))
+
+    assert result["type"] == "string"
+    assert result["native_data_type"] == "geometry('EPSG:4326')"
+
+
+def test_visit_geography() -> None:
+    """
+    Test the visit_geography method for handling Iceberg V3 geospatial types.
+    """
+    visitor = ToAvroSchemaIcebergVisitor()
+
+    result = visitor.visit_geography(GeographyType())
+
+    assert result["type"] == "string"
+    assert result["native_data_type"] == "geography"
+
+
+def test_visit_geography_with_crs_and_algorithm() -> None:
+    """
+    Test that a geography type's CRS and edge interpolation algorithm are preserved in the native data type.
+    """
+    visitor = ToAvroSchemaIcebergVisitor()
+
+    result = visitor.visit_geography(GeographyType("EPSG:4326", "planar"))
+
+    assert result["type"] == "string"
+    assert result["native_data_type"] == "geography('EPSG:4326', 'planar')"
