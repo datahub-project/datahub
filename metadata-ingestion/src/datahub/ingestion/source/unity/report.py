@@ -75,6 +75,14 @@ class UnityCatalogReport(SQLSourceReport):
     num_quality_monitor_errors: int = 0
     quality_monitors_missing_metrics: LossyList[str] = field(default_factory=LossyList)
 
+    num_pipelines_scanned: int = 0
+    num_pipeline_expectations_found: int = 0
+    num_pipeline_expectation_datasets_filtered: int = 0
+    num_expectation_assertions_emitted: int = 0
+    num_expectation_run_events_emitted: int = 0
+    num_pipeline_event_errors: int = 0
+    pipelines_without_uc_target: LossyList[str] = field(default_factory=LossyList)
+
     num_catalogs_missing_name: int = 0
     num_schemas_missing_name: int = 0
     num_tables_missing_name: int = 0
