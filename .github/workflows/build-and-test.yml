@@ -114,7 +114,7 @@ jobs:
         uses: ./.github/actions/free-disk-space
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       # Restore-only: this job barely populates the uv cache (~20MB observed), and its
       # save used to race the dependency-heavy jobs for the shared key and poison it.
       # GitHub-hosted master copies are written by documentation.yml /
@@ -274,7 +274,7 @@ jobs:
         uses: ./.github/actions/free-disk-space
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       # Restore-only: this job barely populates the uv cache (~20MB observed), and its
       # save used to race the dependency-heavy jobs for the shared key and poison it.
       # GitHub-hosted master copies are written by documentation.yml /
@@ -349,7 +349,7 @@ jobs:
         uses: ./.github/actions/free-disk-space
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       # No python deps here: :datahub-web-react:yarnTest depends only on yarnInstall/yarnGenerate/
       # generateLazyIconStubs (no :metadata-ingestion:connectorRegistry, which is frontend-build's
       # concern). install_deps.sh + the ~/.cache/uv cache were dead weight — removed. setup-python
@@ -494,7 +494,7 @@ jobs:
         uses: ./.github/actions/free-disk-space
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: Guard — shard discovery is non-empty
         # Fail loudly if the globs/excludes discover far too few backend test modules, instead
         # of silently sharding a near-empty suite (green CI that tested nothing). Keep the
@@ -602,7 +602,7 @@ jobs:
         uses: ./.github/actions/free-disk-space
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: Configure fast APT mirror
         if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror
@@ -734,7 +734,7 @@ jobs:
         uses: ./.github/actions/free-disk-space
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: Configure fast APT mirror
         if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
         uses: ./.github/actions/configure-fast-apt-mirror

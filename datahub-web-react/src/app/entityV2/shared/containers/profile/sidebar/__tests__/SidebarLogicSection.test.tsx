@@ -161,8 +161,8 @@ describe('Sidebar Logic Components', () => {
             expect(getByText('Logic')).toBeInTheDocument();
         });
 
-        it('handles modal interaction', () => {
-            const { getByText, queryByRole } = render(
+        it('shows copy inline without a modal affordance', () => {
+            const { getByTestId, queryByText } = render(
                 <MockedProvider mocks={mocks} addTypename={false}>
                     <TestPageContainer initialEntries={['/query/urn:li:query:1']}>
                         <EntityContext.Provider
@@ -189,14 +189,47 @@ describe('Sidebar Logic Components', () => {
                 </MockedProvider>,
             );
 
-            const seeFullButton = getByText('See Full');
-            fireEvent.click(seeFullButton);
-            expect(queryByRole('dialog')).toBeInTheDocument();
+            expect(getByTestId('code-block-copy')).toBeInTheDocument();
+            expect(queryByText('See Full')).not.toBeInTheDocument();
+        });
 
-            const closeButton = getByText('Close');
-            fireEvent.click(closeButton);
-            expect(queryByRole('dialog')).not.toBeInTheDocument();
-        }, 30_000);
+        it('preserves navigation to the full profile when embedded', () => {
+            const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+            const { getByText } = render(
+                <MockedProvider mocks={mocks} addTypename={false}>
+                    <TestPageContainer initialEntries={['/embed/query/urn:li:query:1']}>
+                        <EntityContext.Provider
+                            value={{
+                                urn: 'urn:li:query:1',
+                                entityType: EntityType.Query,
+                                entityData: getDataForEntityType({
+                                    data: queryWithProperties,
+                                    entityType: EntityType.Query,
+                                    getOverrideProperties: () => ({}),
+                                }),
+                                baseEntity: { entity: queryWithProperties },
+                                updateEntity: vi.fn(),
+                                routeToTab: vi.fn(),
+                                refetch: vi.fn(),
+                                lineage: undefined,
+                                loading: false,
+                                dataNotCombinedWithSiblings: null,
+                            }}
+                        >
+                            <SidebarQueryLogicSection />
+                        </EntityContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+
+            fireEvent.click(getByText('See Full'));
+            expect(openSpy).toHaveBeenCalledWith(
+                expect.stringContaining('/View Definition'),
+                '_blank',
+                'noopener,noreferrer',
+            );
+            openSpy.mockRestore();
+        });
 
         it('does not render when no query properties are present', () => {
             const queryWithoutProperties = {

@@ -22,15 +22,21 @@ const RowWrapper = styled.div`
     overflow: hidden;
 `;
 
-const NameWrapper = styled(Typography.Text)<{ isSelected: boolean; addLeftPadding: boolean }>`
+const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadding: boolean }>`
+    && {
+        display: flex;
+        align-items: center;
+        vertical-align: middle;
+    }
+
     flex: 1;
     overflow: hidden;
     padding: 2px;
-    ${(props) => props.isSelected && `background-color: ${props.theme.colors.bgSelected};`}
-    ${(props) => props.addLeftPadding && 'padding-left: 22px;'}
+    ${(props) => props.$isSelected && `background-color: ${props.theme.colors.bgSelected};`}
+    ${(props) => props.$addLeftPadding && 'padding-left: 22px;'}
 
     &:hover {
-        ${(props) => !props.isSelected && `background-color: ${props.theme.colors.bgSurface};`}
+        ${(props) => !props.$isSelected && `background-color: ${props.theme.colors.bgSurface};`}
         cursor: pointer;
     }
 
@@ -123,8 +129,8 @@ export default function DomainNode({
                 <NameWrapper
                     ellipsis={{ tooltip: displayName }}
                     onClick={handleSelectDomain}
-                    isSelected={!!isOnEntityPage && !isInSelectMode}
-                    addLeftPadding={!hasDomainChildren}
+                    $isSelected={!!isOnEntityPage && !isInSelectMode}
+                    $addLeftPadding={!hasDomainChildren}
                     data-testid={`domain-option-${displayName}`}
                 >
                     {!isInSelectMode && !displayDomainColoredIcon && <DomainIcon />}
