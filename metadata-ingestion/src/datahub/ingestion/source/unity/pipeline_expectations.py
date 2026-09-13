@@ -53,7 +53,9 @@ class UnityCatalogPipelineExpectationsExtractor:
         proxy: UnityCatalogApiProxy,
         dataset_urn_builder: Callable[[TableReference], str],
         metastore: Optional[str] = None,
-        is_dataset_allowed: Optional[Callable[[TableReference], bool]] = None,
+        resolve_ingested_ref: Optional[
+            Callable[[TableReference], Optional[TableReference]]
+        ] = None,
     ) -> None:
         self.config = config
         self.report = report
@@ -64,10 +66,11 @@ class UnityCatalogPipelineExpectationsExtractor:
         self.metastore = metastore
         # Pipeline expectations are discovered from the event log independently of
         # table ingestion, so a pipeline can reference datasets the recipe excluded
-        # (or intermediate pipeline views). The source supplies a predicate that keeps
-        # only datasets actually ingested this run, so we don't emit assertions on
-        # entities that were never published.
-        self.is_dataset_allowed = is_dataset_allowed
+        # (or intermediate pipeline views). The source resolves an event-log dataset
+        # to the canonical ingested TableReference (or None if it was never
+        # published), which both filters out excluded datasets and gives us the
+        # catalog's exact casing for the URN — Lakeflow can report a different case.
+        self.resolve_ingested_ref = resolve_ingested_ref
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         try:
@@ -194,9 +197,15 @@ class UnityCatalogPipelineExpectationsExtractor:
         totals: _ExpectationTotals,
     ) -> Iterable[MetadataWorkUnit]:
         ref = _resolve_table_ref(dataset_name, catalog, schema, self.metastore)
-        if self.is_dataset_allowed is not None and not self.is_dataset_allowed(ref):
-            self.report.num_pipeline_expectation_datasets_filtered += 1
-            return
+        if self.resolve_ingested_ref is not None:
+            # Build the URN from the ingested ref, not the event-log ref, so a casing
+            # difference between Lakeflow and the Unity Catalog API can't attach the
+            # assertion to a dataset that was never published.
+            ingested_ref = self.resolve_ingested_ref(ref)
+            if ingested_ref is None:
+                self.report.num_pipeline_expectation_datasets_filtered += 1
+                return
+            ref = ingested_ref
         dataset_urn = self.dataset_urn_builder(ref)
         assertion_urn = make_expectation_assertion_urn(
             dataset_urn, pipeline_id, expectation
