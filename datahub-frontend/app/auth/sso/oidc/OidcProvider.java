@@ -54,7 +54,10 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
   private Client createPac4jClient() {
     final OidcConfiguration oidcConfiguration = new OidcConfiguration();
     oidcConfiguration.setClientId(oidcConfigs.getClientId());
-    oidcConfiguration.setSecret(oidcConfigs.getClientSecret());
+    // private_key_jwt does not use a client secret; pac4j rejects a null secret if set.
+    if (oidcConfigs.getClientSecret() != null) {
+      oidcConfiguration.setSecret(oidcConfigs.getClientSecret());
+    }
     oidcConfiguration.setDiscoveryURI(oidcConfigs.getDiscoveryUri());
     oidcConfiguration.setClientAuthenticationMethodAsString(
         oidcConfigs.getClientAuthenticationMethod());
