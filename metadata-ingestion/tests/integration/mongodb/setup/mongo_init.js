@@ -102,6 +102,21 @@ db.secondCollection.insertMany([
   },
 ]);
 
+db.nativeTypesCollection.insertMany([
+  {
+    name: "everyBsonType",
+    binaryData: BinData(0, "SGVsbG8gV29ybGQ="),
+    uuidField: UUID("12345678-1234-5678-1234-567812345678"),
+    regexField: /^mongo.*types$/i,
+    jsField: Code("function () { return 1; }"),
+    minKeyField: MinKey(),
+    maxKeyField: MaxKey(),
+    // BSON Date beyond Python's datetime range (year 10000) — decoded by
+    // pymongo as DatetimeMS under datetime_conversion=DATETIME_AUTO.
+    farFutureDate: new Date(253402300800000),
+  },
+]);
+
 var large_field_value = (new Array(250001)).join('x');
 db.emptyCollection.createIndex({ stringField: 1 }, { unique: true });
 db.largeCollection.insertMany([

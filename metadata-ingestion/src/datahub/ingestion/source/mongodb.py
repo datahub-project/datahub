@@ -1,4 +1,5 @@
 import logging
+import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
@@ -13,6 +14,12 @@ from typing import (
     ValuesView,
 )
 
+import bson.binary
+import bson.code
+import bson.datetime_ms
+import bson.max_key
+import bson.min_key
+import bson.regex
 import bson.timestamp
 import pymongo.collection
 from packaging import version
@@ -214,7 +221,17 @@ PYMONGO_TYPE_TO_MONGO_TYPE = {
     bson.dbref.DBRef: "dbref",
     bson.objectid.ObjectId: "oid",
     bson.Decimal128: "numberDecimal",
+    # pymongo decodes binData subtype 0 to plain bytes, other subtypes to Binary;
+    # both share the existing "binary" native type string.
     bytes: "binary",
+    bson.binary.Binary: "binary",
+    # Native type strings below follow the official BSON `$type` aliases:
+    # https://www.mongodb.com/docs/manual/reference/bson-types/
+    uuid.UUID: "uuid",
+    bson.regex.Regex: "regex",
+    bson.code.Code: "javascript",
+    bson.min_key.MinKey: "minKey",
+    bson.max_key.MaxKey: "maxKey",
     bson.datetime_ms.DatetimeMS: "date",
     "mixed": "mixed",
 }
@@ -234,6 +251,12 @@ _field_type_mapping: Dict[Union[Type, str], Type] = {
     bson.objectid.ObjectId: BytesTypeClass,
     bson.Decimal128: NumberTypeClass,
     bytes: BytesTypeClass,
+    bson.binary.Binary: BytesTypeClass,
+    uuid.UUID: StringTypeClass,
+    bson.regex.Regex: StringTypeClass,
+    bson.code.Code: StringTypeClass,
+    bson.min_key.MinKey: StringTypeClass,
+    bson.max_key.MaxKey: StringTypeClass,
     bson.datetime_ms.DatetimeMS: TimeTypeClass,
     dict: RecordTypeClass,
     "mixed": UnionTypeClass,
