@@ -457,3 +457,72 @@ def make_assertion_result_from_freshness(
         entityUrn=assertion_urn,
         aspect=assertion_result,
     )
+
+
+_CONTRACT_PREFLIGHT_MARKERS = (
+    "enforced contract that failed",
+    "assert_columns_equivalent",
+)
+
+
+def is_contract_preflight_failure(message: Optional[str]) -> bool:
+    """True when a model error message is dbt's schema-contract preflight."""
+    if not message:
+        return False
+    lower = message.lower()
+    return any(marker in lower for marker in _CONTRACT_PREFLIGHT_MARKERS)
+
+
+def classify_contract_model_run(status: str, message: Optional[str]) -> Optional[str]:
+    """Classify a model build for contract AssertionRunEvents.
+
+    Returns ``success``, ``preflight_failure``, or ``None`` when the run
+    must not be attributed to the contract (unrelated SQL / warehouse error).
+    """
+    if status == "success":
+        return "success"
+    if status == "error" and is_contract_preflight_failure(message):
+        return "preflight_failure"
+    return None
+
+
+def make_contract_assertion_info(
+    *,
+    description: str,
+    custom_properties: Dict[str, str],
+    custom_assertion: CustomAssertionInfoClass,
+) -> AssertionInfoClass:
+    return AssertionInfoClass(
+        type=AssertionTypeClass.CUSTOM,
+        customProperties=custom_properties,
+        source=mce_builder.make_assertion_source(),
+        description=description,
+        customAssertion=custom_assertion,
+    )
+
+
+def make_assertion_result_from_model(
+    *,
+    assertion_urn: str,
+    assertee_urn: str,
+    run_id: str,
+    timestamp: datetime,
+    result_type: str,
+    native_results: Optional[Dict[str, str]] = None,
+    external_url: Optional[str] = None,
+) -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(
+        entityUrn=assertion_urn,
+        aspect=AssertionRunEventClass(
+            timestampMillis=int(timestamp.timestamp() * 1000.0),
+            assertionUrn=assertion_urn,
+            asserteeUrn=assertee_urn,
+            runId=run_id,
+            result=AssertionResultClass(
+                type=result_type,
+                nativeResults=native_results or None,
+                externalUrl=external_url,
+            ),
+            status=AssertionRunStatusClass.COMPLETE,
+        ),
+    )

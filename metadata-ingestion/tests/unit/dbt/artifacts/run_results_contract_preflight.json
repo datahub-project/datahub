@@ -1,0 +1,33 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v6.json",
+    "dbt_version": "1.9.3",
+    "generated_at": "2025-05-08T15:51:03.466215Z",
+    "invocation_id": "contract-preflight-invocation"
+  },
+  "args": { "which": "build" },
+  "elapsed_time": 0.25,
+  "results": [
+    {
+      "status": "error",
+      "timing": [
+        {
+          "name": "compile",
+          "started_at": "2025-05-08T15:51:03.107204Z",
+          "completed_at": "2025-05-08T15:51:03.184930Z"
+        },
+        {
+          "name": "execute",
+          "started_at": "2025-05-08T15:51:03.185453Z",
+          "completed_at": "2025-05-08T15:51:03.353298Z"
+        }
+      ],
+      "thread_id": "Thread-1",
+      "execution_time": 0.25,
+      "adapter_response": {},
+      "message": "Compilation Error in model orders (models/orders.sql)\n  This model has an enforced contract that failed.\n  Please ensure the name, data_type, and number of columns in your contract match the columns in your model's definition.\n\n  | column_name | definition_type | contract_type | mismatch_reason       |\n  | ----------- | --------------- | ------------- | --------------------- |\n  | email       |                 | TEXT          | missing in definition |\n\n  > in macro assert_columns_equivalent (macros/relations/column/columns_spec_ddl.sql)\n",
+      "failures": null,
+      "unique_id": "model.test_pkg.orders"
+    }
+  ]
+}
