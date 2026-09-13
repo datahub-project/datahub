@@ -9,6 +9,7 @@
 - **Capture asset lineage** — automatically extract upstream/downstream relationships between Dagster assets and external datasets
 - **Track run history** — record job execution status and task-level outcomes in DataHub
 - **Map Dagster assets to DataHub entities** — assets appear as datasets in your DataHub catalog
+- **Link assets to warehouse tables** — with `emit_siblings`, merge each Dagster asset with the underlying warehouse table (Snowflake/BigQuery/Databricks/…) into a single entity
 - **Works with any DataHub deployment** — self-hosted or DataHub Cloud
 
 ## Installation
@@ -48,6 +49,10 @@ defs = Definitions(
 ```
 
 Once the sensor is running, every job run will emit lineage and status metadata to DataHub automatically.
+
+## Sibling links to warehouse tables
+
+Set `emit_siblings=True` in `DatahubDagsterSourceConfig` to link each Dagster asset to the warehouse table it materializes via a `siblings` relationship. The Dagster asset and the warehouse dataset then render as a single merged entity in DataHub. Use `dagster_is_primary_sibling` to choose which side is primary (defaults to the warehouse table). See `examples/basic_setup.py`.
 
 ## Links
 

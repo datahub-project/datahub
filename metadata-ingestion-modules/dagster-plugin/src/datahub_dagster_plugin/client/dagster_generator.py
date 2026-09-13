@@ -248,6 +248,26 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
         description="Whether to emit assets aspects. Default is True.",
     )
 
+    emit_siblings: Optional[bool] = pydantic.Field(
+        default=False,
+        description=(
+            "Whether to link each asset to the warehouse table it materializes via a "
+            "`siblings` relationship, so DataHub merges the Dagster asset and the "
+            "warehouse dataset into a single entity. Uses the asset's resolved table "
+            "URN (from the `datahub_urn` materialization metadata or the asset-key "
+            "converter). Default is False."
+        ),
+    )
+
+    dagster_is_primary_sibling: Optional[bool] = pydantic.Field(
+        default=False,
+        description=(
+            "Which side of the sibling pair is primary (drives the merged entity's "
+            "metadata in the UI). Defaults to False so the warehouse table is primary, "
+            "since it owns the authoritative schema."
+        ),
+    )
+
     debug_mode: Optional[bool] = pydantic.Field(
         default=False,
         description="Whether to enable debug mode",

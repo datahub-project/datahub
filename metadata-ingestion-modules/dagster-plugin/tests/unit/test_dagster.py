@@ -28,8 +28,9 @@ from freezegun import freeze_time
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig
-from datahub.metadata.schema_classes import StatusClass
+from datahub.metadata.schema_classes import SiblingsClass, StatusClass
 from datahub.testing.compare_metadata_json import assert_metadata_files_equal
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub_dagster_plugin.client.dagster_generator import (
     DagsterEnvironment,
     DagsterGenerator,
@@ -607,3 +608,46 @@ def test_emit_asset_emits_status_aspect() -> None:
     status_aspect = status_mcps[0].aspect
     assert isinstance(status_aspect, StatusClass)
     assert status_aspect.removed is False
+
+
+def test_emit_siblings_bidirectional() -> None:
+    """emit_siblings links the Dagster asset and its warehouse table both ways."""
+    config = DatahubDagsterSourceConfig(
+        datahub_client_config=DatahubClientConfig(server="http://localhost:8081"),
+        emit_siblings=True,
+        dagster_is_primary_sibling=False,
+    )
+    sensor = object.__new__(DatahubSensors)
+    sensor.config = config
+    sensor.graph = Mock()
+
+    dagster_urn = DatasetUrn(
+        platform="dagster", name="my_db.my_schema.events", env="PROD"
+    )
+    table_urn = DatasetUrn(
+        platform="databricks", name="my_db.my_schema.events", env="PROD"
+    )
+    sensor._emit_siblings(Mock(), dagster_urn, table_urn)
+
+    emitted = [c.args[0] for c in sensor.graph.emit_mcp.call_args_list]
+    siblings = [m for m in emitted if isinstance(m.aspect, SiblingsClass)]
+    assert len(siblings) == 2
+    by_entity = {m.entityUrn: m.aspect for m in siblings}
+    assert by_entity[dagster_urn.urn()].siblings == [table_urn.urn()]
+    assert by_entity[dagster_urn.urn()].primary is False  # warehouse is primary
+    assert by_entity[table_urn.urn()].siblings == [dagster_urn.urn()]
+    assert by_entity[table_urn.urn()].primary is True
+
+
+def test_emit_siblings_skips_when_same_urn() -> None:
+    config = DatahubDagsterSourceConfig(
+        datahub_client_config=DatahubClientConfig(server="http://localhost:8081"),
+        emit_siblings=True,
+    )
+    sensor = object.__new__(DatahubSensors)
+    sensor.config = config
+    sensor.graph = Mock()
+
+    urn = DatasetUrn(platform="dagster", name="x.y", env="PROD")
+    sensor._emit_siblings(Mock(), urn, urn)
+    assert sensor.graph.emit_mcp.call_count == 0
