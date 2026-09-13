@@ -1,0 +1,35 @@
+# Standalone DataHub MCP server. The orchestrator runs on the host and reaches it
+# via DATAHUB_MCP_URL, so it never spawns `uvx mcp-server-datahub` itself.
+#
+#   docker compose -f docker-compose.mcp.yml up -d --build
+services:
+  datahub-mcp-server:
+    build:
+      context: ./mcp-server
+    env_file:
+      - .env # DATAHUB_GMS_TOKEN — GMS runs with METADATA_SERVICE_AUTH_ENABLED=true
+    environment:
+      # GMS lives in the separate datahub-dev compose project, published on the host.
+      DATAHUB_GMS_URL: "http://host.docker.internal:8080"
+      # TOOLS_IS_MUTATION_ENABLED: "true"   # opt in to write tools (tags/owners/...)
+      DATAHUB_TELEMETRY_ENABLED: "false"
+    ports:
+      # Loopback only: this endpoint carries a DataHub token and the OSS server does
+      # not authenticate callers itself.
+      - "127.0.0.1:8001:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # reach host ports on Linux
+    restart: unless-stopped
+    healthcheck:
+      # The server retries GMS on startup, so treat "accepting connections" as healthy.
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import socket; socket.create_connection(('127.0.0.1', 8000), 2).close()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s

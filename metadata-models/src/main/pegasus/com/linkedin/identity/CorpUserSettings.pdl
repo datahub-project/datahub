@@ -7,7 +7,7 @@ import com.linkedin.event.notification.settings.NotificationSettings
  */
 @Aspect = {
   "name": "corpUserSettings",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record CorpUserSettings {
   /**
@@ -34,4 +34,9 @@ record CorpUserSettings {
    * Locale and language preferences for a user
    */
   locale: optional CorpUserLocaleSettings
+
+  /**
+   * Settings related to the AI assistant for a user.
+   */
+  aiAssistant: optional CorpUserAIAssistantSettings
 }
