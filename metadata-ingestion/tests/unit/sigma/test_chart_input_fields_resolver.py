@@ -3599,3 +3599,52 @@ class TestSpeculativeSplitsDoNotInflateTheRefusalCount:
             is None
         )
         assert self.src.reporter.chart_ref_column_absent_from_upstream == 1
+
+
+class TestUnresolvedSourceNamesAreLocated:
+    """"Unknown to this workbook" left 11,028 refs undecidable.
+
+    Three possibilities need completely different fixes -- the run holds the
+    element and the lookup scope was too narrow, another workbook holds it, or
+    Sigma never exposes it -- and nothing in the report distinguished them.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+        self.src._init_diagnostic_state()
+        self.src.dm_element_urn_by_name = {}
+        self.reason = "source_name_unknown_to_this_workbook"
+        self.src.reporter.chart_ref_miss_source_names = {
+            self.reason: {"Union of 2 Sources": 3868, "Some Chart": 5, "Ghost": 1}
+        }
+
+    def test_names_are_located_and_WEIGHTED_by_ref_count(self) -> None:
+        """Weighted, because one name accounting for 3,868 refs and one
+        accounting for 1 are not equally worth building for."""
+        self.src.dm_element_urn_by_name = {
+            "dm-1": {"union of 2 sources": ["urn:li:dataset:(x,a,PROD)"]}
+        }
+        self.src._all_workbook_element_names = {"some chart"}
+        self.src._locate_unresolved_source_names()
+        assert self.src.reporter.chart_ref_miss_source_located[self.reason] == {
+            "in_a_data_model_this_run_walked": 3868,
+            "in_another_workbooks_elements": 5,
+            "nowhere_in_this_run": 1,
+        }
+
+    def test_a_name_nothing_holds_is_reported_as_not_ours(self) -> None:
+        self.src._locate_unresolved_source_names()
+        assert self.src.reporter.chart_ref_miss_source_located[self.reason] == {
+            "nowhere_in_this_run": 3874
+        }
+
+    def test_matching_ignores_case_and_surrounding_space(self) -> None:
+        """Sigma element names differ from formula refs by case and stray
+        whitespace often enough that the connector already normalises both."""
+        self.src.dm_element_urn_by_name = {
+            "dm-1": {"  UNION OF 2 SOURCES ": ["urn:li:dataset:(x,a,PROD)"]}
+        }
+        self.src._locate_unresolved_source_names()
+        located = self.src.reporter.chart_ref_miss_source_located[self.reason]
+        assert located.get("in_a_data_model_this_run_walked") == 3868

@@ -6975,6 +6975,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # hand once required bisecting emission-order dashboard URNs.
         self._current_workbook: Optional[Workbook] = None
         self._current_workbook_connection_ids: Set[str] = set()
+        self._all_workbook_element_names: Set[str] = set()
         # chart URN -> resolved-field count of the best aspect already emitted,
         # and the workbook that produced it. Guards against a poorer duplicate
         # overwriting a richer one; see _chart_input_fields_workunits.
@@ -7733,6 +7734,41 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self._edge_source_chart.setdefault((parent, upstream_field), chart_urn)
         self._known_field_paths[chart_urn] = own
 
+    def _locate_unresolved_source_names(self) -> None:
+        """Where, if anywhere, does each unresolved ref source name exist?
+
+        The miss breakdown says a name is unknown TO THIS WORKBOOK. It never
+        said whether the run had that element somewhere else, and the three
+        possibilities need completely different fixes: we hold it and did not
+        look, another workbook's model holds it, or Sigma never exposes it.
+        Only the first two are buildable, and 11,028 refs -- 4,508 of them to
+        `Union of N Sources` -- were undecidable without this.
+
+        Run at the END. Data Models are walked before workbooks so their index
+        is complete throughout, but the workbook element set fills as the run
+        proceeds, and checking it at miss time would report every name owned by
+        a later workbook as absent.
+        """
+        dm_names = {
+            name.strip().lower()
+            for by_name in self.dm_element_urn_by_name.values()
+            for name in by_name
+        }
+        located: Dict[str, Dict[str, int]] = {}
+        for reason, names in self.reporter.chart_ref_miss_source_names.items():
+            buckets: Dict[str, int] = {}
+            for name, hits in names.items():
+                key = name.strip().lower()
+                if key in dm_names:
+                    where = "in_a_data_model_this_run_walked"
+                elif key in self._all_workbook_element_names:
+                    where = "in_another_workbooks_elements"
+                else:
+                    where = "nowhere_in_this_run"
+                buckets[where] = buckets.get(where, 0) + hits
+            located[reason] = buckets
+        self.reporter.chart_ref_miss_source_located = located
+
     def _audit_emitted_edges(self) -> None:
         """Check every edge whose upstream schema THIS RUN emitted.
 
@@ -8252,6 +8288,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             for element in page.elements
         }
         wb_element_index = self._build_workbook_element_index(workbook)
+        # Accumulated for the end-of-run locate pass below. Tested at the END,
+        # never at miss time: this set fills as workbooks are walked, and a
+        # lookup against a growing set reports a false negative as a finding --
+        # the same mistake that made `space=none` read as "this id is in no
+        # space the run knows" on 100% of 8,370 unknown heads.
+        self._all_workbook_element_names.update(
+            name.strip().lower() for name in wb_element_index
+        )
         # Build the workbook-level warehouse-table index once per workbook.
         # Gated on extract_lineage + workbook_lineage_pattern to match the
         # analogous gates for formula fetch and element upstream resolution.
@@ -9575,3 +9619,4 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         r.edge_audit_upstream_schema_unknown = 0
         r.edge_audit_absent_samples = LossyList()
         self._audit_emitted_edges()
+        self._locate_unresolved_source_names()

@@ -700,6 +700,19 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # A few whole refs per reason, for shape (segment counts, bracket form) that
     # a bare name does not carry.
     chart_ref_miss_samples: Dict[str, LossyList[str]] = field(default_factory=dict)
+    # Per reason: WHERE the unresolved source names actually exist, weighted by
+    # how many refs each name accounts for. The miss breakdown only said a name
+    # was unknown TO THIS WORKBOOK, which left 11,028 refs undecidable -- 4,508
+    # of them naming `Union of N Sources`. Buckets:
+    #   in_a_data_model_this_run_walked -- we HOLD it and the lookup scope was
+    #       too narrow. Buildable, and the cheapest kind of fix.
+    #   in_another_workbooks_elements   -- it exists but belongs elsewhere;
+    #       buildable only if that cross-workbook edge is meaningful.
+    #   nowhere_in_this_run             -- Sigma never exposes it. Not ours, and
+    #       worth saying so rather than carrying it as a backlog item.
+    chart_ref_miss_source_located: Dict[str, Dict[str, int]] = field(
+        default_factory=dict
+    )
     # Columns counted as "a real ref failed" that contributed NOTHING to the
     # breakdown above. This is the breakdown auditing itself: while it reads 0,
     # chart_ref_miss_reasons accounts for every unresolved column and can be
