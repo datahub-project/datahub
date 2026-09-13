@@ -618,6 +618,13 @@ class PartitionDiscovery:
                 moment = val
             elif isinstance(val, date):
                 moment = datetime(val.year, val.month, val.day)
+            elif isinstance(val, str):
+                # A user-configured fallback for a DATETIME/TIMESTAMP partition arrives as
+                # an ISO string; normalize it to a datetime so it is widened to the whole
+                # partition instead of matching a single instant. Compact partition IDs
+                # (all-digit, e.g. "20240115") and unparseable strings return None and fall
+                # through to create_safe_filter, which owns compact-id range handling.
+                moment = self._parse_iso_temporal(val)
             else:
                 moment = None
             if moment is not None:
@@ -627,6 +634,19 @@ class PartitionDiscovery:
         # A string value still carries compact-partition-id range handling inside
         # create_safe_filter, so defer to it.
         return self._create_safe_filter(col_name, val, col_type)
+
+    @staticmethod
+    def _parse_iso_temporal(val: str) -> Optional[datetime]:
+        # Only ISO date/datetime strings carry '-' separators; requiring one avoids
+        # misreading a compact partition id like "20240115" (which fromisoformat accepts
+        # on 3.11+) as a date and widening it, which would break compact-id handling.
+        text = val.strip()
+        if "-" not in text:
+            return None
+        try:
+            return datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            return None
 
     def _process_date_components_hierarchically(
         self,
