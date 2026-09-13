@@ -8,6 +8,7 @@ import pytest
 
 from datahub.ingestion.source.kafka_connect.transform_plugins import (
     ComplexTransformPlugin,
+    DebeziumLogicalTopicRouterPlugin,
     RegexRouterPlugin,
     ReplaceFieldPlugin,
     TransformConfig,
@@ -155,6 +156,32 @@ class TestRegexRouterPlugin:
 
         # Should return unchanged (replaceFirst doesn't modify if no match)
         assert result == ["order-events"]
+
+    def test_apply_forward_replaces_partial_match(self) -> None:
+        """Test generic RegexRouter preserves replaceFirst semantics."""
+        plugin = RegexRouterPlugin()
+        config = TransformConfig(
+            name="Router",
+            type="org.apache.kafka.connect.transforms.RegexRouter",
+            config={"regex": "events", "replacement": "orders"},
+        )
+
+        result = plugin.apply_forward(["customer-events"], config)
+
+        assert result == ["customer-orders"]
+
+    def test_debezium_logical_router_requires_full_match(self) -> None:
+        """Test Debezium routers do not reroute partial topic matches."""
+        plugin = DebeziumLogicalTopicRouterPlugin()
+        config = TransformConfig(
+            name="Router",
+            type="io.debezium.transforms.ByLogicalTableRouter",
+            config={"topic.regex": "events", "topic.replacement": "orders"},
+        )
+
+        result = plugin.apply_forward(["customer-events"], config)
+
+        assert result == ["customer-events"]
 
     def test_apply_reverse(self) -> None:
         """Test reverse transformation (limited support)."""
@@ -480,6 +507,32 @@ class TestTransformPipeline:
         assert result.topics == ["customer_events"]
         assert result.successful is True
         assert result.fallback_used is False
+
+    @pytest.mark.parametrize(
+        "transform_type",
+        [
+            "io.debezium.transforms.ByLogicalTableRouter",
+            "io.debezium.transforms.ToLogicalTopicRouter",
+        ],
+    )
+    def test_apply_forward_debezium_logical_topic_routers(
+        self, transform_type: str
+    ) -> None:
+        """Test routing sharded Debezium topics to one logical topic."""
+        pipeline = TransformPipeline()
+        config = {
+            "transforms": "Router",
+            "transforms.Router.type": transform_type,
+            "transforms.Router.topic.regex": r"^(.*)\.customers_shard\d+$",
+            "transforms.Router.topic.replacement": "$1.customers",
+        }
+
+        result = pipeline.apply_forward(["server.inventory.customers_shard1"], config)
+
+        assert result.topics == ["server.inventory.customers"]
+        assert result.successful
+        assert not result.fallback_used
+        assert result.warnings == []
 
     def test_apply_forward_multiple_transforms(self) -> None:
         """Test applying multiple transforms in sequence."""
