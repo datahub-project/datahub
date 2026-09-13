@@ -247,7 +247,7 @@ class JdbcParserFactory:
 
 @dataclass
 class ConfluentJDBCSourceConnector(BaseConnector):
-    # Traditional io.confluent.connect.jdbc.JdbcSourceConnector only — Cloud
+    # Traditional io.confluent.connect.jdbc.JdbcSourceConnector only - Cloud
     # Postgres/MySQL CDC classes dispatch to DebeziumSourceConnector instead.
     needs_cluster_topics: ClassVar[bool] = True
 

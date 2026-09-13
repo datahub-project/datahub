@@ -117,19 +117,19 @@ source:
       include_lineage: false
 ```
 
-**Requirements**: Confluent Cloud with the **Stream Governance Advanced** package on the environment — tags and business metadata are an Advanced feature, and the catalog API returns `403` even for reads on Essentials. The Schema Registry API key also needs a role that grants Stream Catalog read access — in practice **DataSteward** on the environment; `EnvironmentAdmin` alone is not enough, as it administers the environment but does not carry the catalog read permission. This has no equivalent on self-hosted Kafka Connect — the block is ignored (with a warning) when `confluent_catalog.schema_registry_url` is not a Confluent Cloud endpoint.
+**Requirements**: Confluent Cloud with the **Stream Governance Advanced** package on the environment - tags and business metadata are an Advanced feature, and the catalog API returns `403` even for reads on Essentials. The Schema Registry API key also needs a role that grants Stream Catalog read access - in practice **DataSteward** on the environment; `EnvironmentAdmin` alone is not enough, as it administers the environment but does not carry the catalog read permission. This has no equivalent on self-hosted Kafka Connect - the block is ignored (with a warning) when `confluent_catalog.schema_registry_url` is not a Confluent Cloud endpoint.
 
 **What each option changes:**
 
-- `include_tags` — catalog tags on a connector are written to its DataHub pipeline (`dataFlow`).
-- `include_business_metadata` — catalog business metadata attributes on a connector become custom properties on the same pipeline.
-- `include_lineage` — for **source** connectors, lineage is taken from the catalog's topic list instead of being predicted by the transform pipeline. Off by default; see the trade-off below.
+- `include_tags` - catalog tags on a connector are written to its DataHub pipeline (`dataFlow`).
+- `include_business_metadata` - catalog business metadata attributes on a connector become custom properties on the same pipeline.
+- `include_lineage` - for **source** connectors, lineage is taken from the catalog's topic list instead of being predicted by the transform pipeline. Off by default; see the trade-off below.
 
-This source only writes the Kafka Connect pipelines it owns. Catalog tags and business metadata on the **topics** are ingested by the [`kafka`](/docs/generated/ingestion/sources/kafka) source, which owns those datasets — enable `confluent_catalog` there to pick them up.
+This source only writes the Kafka Connect pipelines it owns. Catalog tags and business metadata on the **topics** are ingested by the [`kafka`](/docs/generated/ingestion/sources/kafka) source, which owns those datasets - enable `confluent_catalog` there to pick them up.
 
 ##### The `include_lineage` trade-off
 
-Catalog lineage is `connector -> topic` only. The catalog reports topic names _after_ topic-routing SMTs have been applied, so that one edge is exact rather than inferred — but the catalog has no view of the source system, so it cannot say which table a row came from.
+Catalog lineage is `connector -> topic` only. The catalog reports topic names _after_ topic-routing SMTs have been applied, so that one edge is exact rather than inferred, but the catalog has no view of the source system, so it cannot say which table a row came from.
 
 Enabling `include_lineage` therefore changes source connectors from:
 
