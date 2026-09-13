@@ -58,6 +58,14 @@ mutation batchRemoveOwners($input: BatchRemoveOwnersInput!) {
     batchRemoveOwners(input: $input)
 }
 
+mutation batchAddStructuredProperties($input: BatchAddStructuredPropertiesInput!) {
+    batchAddStructuredProperties(input: $input)
+}
+
+mutation batchRemoveStructuredProperties($input: BatchRemoveStructuredPropertiesInput!) {
+    batchRemoveStructuredProperties(input: $input)
+}
+
 mutation updateDescription($input: DescriptionUpdateInput!) {
     updateDescription(input: $input)
 }
