@@ -65,6 +65,17 @@ from datahub.ingestion.source.state.profiling_state_handler import ProfilingHand
 logger = logging.getLogger(__name__)
 
 
+class _PartitionProfilingDisabledSkip(Exception):
+    # Raised from get_batch_kwargs when discovery finds a table is partitioned but
+    # partition_profiling_enabled is False. get_profile_request's up-front skip only sees
+    # crawl metadata (max_partition_id/max_shard_id/partition_info); a table the crawl
+    # didn't mark still reaches discovery, so this lets get_profile_request skip it
+    # quietly (matching the up-front skip) instead of emitting partition-filtered SQL.
+    def __init__(self, table_ref: str) -> None:
+        super().__init__(table_ref)
+        self.table_ref = table_ref
+
+
 @dataclass
 class DeferredExternalTable:
     # Carries an external table's context with its request for deferred partition
@@ -453,6 +464,13 @@ class BigqueryProfiler(GenericProfiler):
                 f"Could not construct required partition filters for {table_ref}"
             )
 
+        if partition_filters and not self.config.profiling.partition_profiling_enabled:
+            # Discovery found this table is partitioned even though the crawl metadata
+            # didn't mark it (so get_profile_request's up-front check let it through).
+            # Honor partition_profiling_enabled=False by skipping it rather than emitting
+            # partition-filtered SQL.
+            raise _PartitionProfilingDisabledSkip(table_ref)
+
         validated_filters: List[str] = []
         partition_where = ""
 
@@ -623,6 +641,15 @@ class BigqueryProfiler(GenericProfiler):
 
         try:
             profile_request = super().get_profile_request(table, schema_name, db_name)
+        except _PartitionProfilingDisabledSkip as skip:
+            # Quiet skip matching the up-front partition_profiling_enabled check above:
+            # info log + report counter, no warning (disabling partition profiling is an
+            # intentional operator choice, not an error).
+            logger.info(f"Skipping partition profiling (disabled): {skip.table_ref}")
+            self.report.profiling_skipped_partition_profiling_disabled.append(
+                skip.table_ref
+            )
+            return None
         except Exception as e:
             # super().get_profile_request runs partition discovery (BigQuery queries), which
             # can fail for one table in many ways — bad identifiers / unbuildable filters

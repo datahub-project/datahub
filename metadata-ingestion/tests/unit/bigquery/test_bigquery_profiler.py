@@ -33,6 +33,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.info_sch
 from datahub.ingestion.source.bigquery_v2.profiling.profiler import (
     BigqueryProfiler,
     DeferredExternalTable,
+    _PartitionProfilingDisabledSkip,
     _widen_client_connection_pool,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.query_executor import QueryExecutor
@@ -472,6 +473,46 @@ def test_get_profile_request_partition_profiling_disabled_skips_partitioned_tabl
         profile_request.pretty_name
         in report.profiling_skipped_partition_profiling_disabled
     )
+
+
+@patch.object(PartitionDiscovery, "get_required_partition_filters")
+def test_get_batch_kwargs_disabled_skips_table_partitioned_only_by_discovery(
+    mock_get_filters,
+):
+    # The up-front check in get_profile_request only sees crawl metadata, so a table the
+    # crawl didn't mark as partitioned reaches get_batch_kwargs. If discovery then finds
+    # partition filters while partition_profiling_enabled is False, get_batch_kwargs must
+    # raise the quiet-skip signal rather than emit partition-filtered SQL.
+    config = create_test_config(partition_profiling_enabled=False)
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+
+    mock_get_filters.return_value = ["`date_col` = '2023-12-25'"]
+    table = create_test_table(rows_count=10000)
+
+    with pytest.raises(_PartitionProfilingDisabledSkip):
+        profiler.get_batch_kwargs(table, "test_dataset", "test-project")
+
+
+def test_get_profile_request_quietly_skips_discovery_partitioned_when_disabled():
+    # get_profile_request catches the discovery-time skip and reports it the same quiet way
+    # as the up-front skip: report counter, no warning (disabling partition profiling is an
+    # intentional operator choice, not an error).
+    config = create_test_config(partition_profiling_enabled=False)
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    table = create_test_table()
+    table_ref = "test-project.test_dataset.test_table"
+
+    with patch(
+        "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.get_profile_request",
+        side_effect=_PartitionProfilingDisabledSkip(table_ref),
+    ):
+        result = profiler.get_profile_request(table, "test_dataset", "test-project")
+
+    assert result is None
+    assert table_ref in report.profiling_skipped_partition_profiling_disabled
+    assert not report.warnings
 
 
 def test_get_profile_request_transient_error_reported_not_aborting():
