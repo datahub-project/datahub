@@ -508,9 +508,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter = SigmaSourceReport()
         self._init_diagnostic_state()
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
-        # Sigma Dataset url_id -> dataset URN. Used to resolve DM element
-        # ``inode-<urlId>`` upstreams.
-        self.sigma_dataset_urn_by_url_id: Dict[str, str] = {}
         # DM urlId -> {lowercased element name: [element Dataset URN]}.
         # Bridges workbook ``data-model`` lineage nodes to the specific
         # element Dataset URN. A name may map to multiple URNs when a DM
@@ -566,12 +563,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # correlate ``data-model`` lineage entries (keyed by dataModelId) with
         # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
         self.data_model_id_by_url_id: Dict[str, str] = {}
-        # Global: element Dataset URN → {lowercased column name: canonical column name}.
-        # Same dedup logic as the per-element urn_to_cols in the FGL builder so
-        # cross-DM column validation uses the winner set rather than raw columns.
-        self.dm_element_urn_to_cols: Dict[
-            str, Dict[str, str]
-        ] = {}  # {lowercase_col: canonical_col}
         # Global: element Dataset URN → the bridge key of its Data Model.
         # Lets a chart-side join-chain ref walk from a resolved DM element back
         # to its siblings via ``dm_element_urn_by_name``. The URN itself
@@ -6271,6 +6262,68 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._known_dm_element_index = (key, index)
         return index
 
+    def _loaded_dm_upstream_for_ref(
+        self,
+        ref: BracketRef,
+        *,
+        chart_element_id: str,
+        workbook_dm_url_ids: AbstractSet[str],
+        count: bool,
+    ) -> Optional[Tuple[str, str]]:
+        """Resolve a ref naming no workbook element against the loaded models.
+
+        Step 3b/3c only search the DM upstreams Sigma declared for THIS CHART.
+        A workbook routinely loads a model whose element a chart references
+        without the declaration reaching that chart's upstream list, and those
+        refs were recorded as "source name unknown to this workbook" and
+        dropped. Measured before building it: of 1,065 such refs on one tenant
+        (2026-09), 1,011 had exactly ONE element in the workbook's own models
+        owning the named column, 54 had none, and ZERO were ambiguous.
+
+        Scoped to the workbook's models, never the run. Sigma generates names
+        like 'Union of N Sources', so a run-wide match is a name coincidence --
+        the locator found 6,481 refs whose name exists in some model this run
+        walked, but only 1,065 in a model the referencing workbook loads.
+
+        Requiring a single OWNER of the column, not a single name match, is what
+        makes this a lookup rather than a guess: an element that does not carry
+        the column cannot be the source of it.
+        """
+        if not ref.column:
+            return None
+        candidates = (
+            self._dm_element_index_for(workbook_dm_url_ids).get(
+                ref.source.strip().lower()
+            )
+            or []
+        )
+        wanted = ref.column.strip().lower()
+        owners = [
+            urn
+            for urn in candidates
+            if wanted in (self.dm_element_urn_to_cols.get(urn) or {})
+        ]
+        if len(owners) != 1:
+            if count and len(owners) > 1:
+                self.reporter.chart_ref_loaded_dm_ambiguous += 1
+            return None
+        urn = owners[0]
+        # Emit the model's own spelling, not the formula's: the audit compares
+        # the emitted field path against the upstream schema we published.
+        canonical = (self.dm_element_urn_to_cols.get(urn) or {})[wanted]
+        if count:
+            self.reporter.chart_ref_resolved_in_loaded_data_model += 1
+        logger.debug(
+            "CHART REF loaded-DM hit element %s ref=%r -> %s field %r (name "
+            "matched %d element(s) in the workbook's models, 1 owns the column)",
+            chart_element_id,
+            ref.raw,
+            urn,
+            canonical,
+            len(candidates),
+        )
+        return (urn, canonical)
+
     def _note_chart_ref_miss(
         self,
         reason: str,
@@ -6582,6 +6635,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if count:
                     self.reporter.chart_ref_resolved_by_element_name_guess += 1
                 return (chart_urn_for_named, ref.column)
+
+        # Nothing this workbook's own elements or the chart's declared model
+        # upstreams could answer. Before giving up, ask the models the WORKBOOK
+        # loads -- a strictly wider question than step 3b/3c asked, and still a
+        # bounded one.
+        if not candidates:
+            loaded = self._loaded_dm_upstream_for_ref(
+                ref,
+                chart_element_id=chart_element_id,
+                workbook_dm_url_ids=workbook_dm_url_ids,
+                count=count,
+            )
+            if loaded is not None:
+                return loaded
 
         # Nothing matched at any step. ``candidates`` distinguishes the two
         # shapes of this: a workbook element WAS named ref.source but is neither
@@ -6975,6 +7042,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # hand once required bisecting emission-order dashboard URNs.
         self._current_workbook: Optional[Workbook] = None
         self._current_workbook_connection_ids: Set[str] = set()
+        # Sigma Dataset url_id -> dataset URN. Resolves the ``inode-<urlId>``
+        # upstreams of a DM element AND -- since the chart path learned that
+        # its columnIds name Sigma Datasets far more often than warehouse
+        # tables -- a chart column's own columnId.
+        self.sigma_dataset_urn_by_url_id: Dict[str, str] = {}
+        # Global: element Dataset URN -> {lowercased column name: canonical
+        # column name}. Same dedup logic as the per-element urn_to_cols in the
+        # FGL builder, so column validation uses the winner set rather than raw
+        # columns. Read by the chart path too, to check that a candidate
+        # element actually OWNS the column a ref names.
+        self.dm_element_urn_to_cols: Dict[str, Dict[str, str]] = {}
         self._all_workbook_element_names: Set[str] = set()
         # chart URN -> resolved-field count of the best aspect already emitted,
         # and the workbook that produced it. Guards against a poorer duplicate
@@ -7482,7 +7560,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if direct is None:
             return False
         self.reporter.chart_input_fields_resolved += 1
-        self.reporter.chart_input_fields_warehouse_by_column_id += 1
         emitted_urns_by_column.setdefault(column, []).append(direct)
         fields.append(
             InputFieldClass(
@@ -7513,11 +7590,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None
         warehouse_urn = warehouse_urn_by_url_id.get(url_id)
         if warehouse_urn is None:
+            # The inode is not always a warehouse table. On one tenant
+            # (2026-09) every one of the 1,216 /files lookups this path made
+            # returned a file whose path root is '**Data Models**', and the
+            # native segment was a Sigma display name (a Sigma display name),
+            # not a warehouse column -- so the whole population was Sigma
+            # entities being asked a warehouse question. 1,112 of them named a
+            # Sigma Dataset this run had already emitted. Checked before the
+            # /files call because it is free and authoritative.
+            sigma_dataset_urn = self.sigma_dataset_urn_by_url_id.get(url_id)
+            if sigma_dataset_urn is not None:
+                self.reporter.chart_input_fields_sigma_dataset_by_column_id += 1
+                return builder.make_schema_field_urn(sigma_dataset_urn, native)
             warehouse_urn = self._warehouse_urn_via_files_lookup(
                 url_id, warehouse_urn_by_url_id
             )
         if warehouse_urn is None:
             return None
+        self.reporter.chart_input_fields_warehouse_by_column_id += 1
         return builder.make_schema_field_urn(warehouse_urn, native)
 
     def _infer_connection_id_for_chart_path(self) -> Optional[str]:

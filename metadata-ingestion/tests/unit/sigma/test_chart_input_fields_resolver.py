@@ -915,28 +915,33 @@ class TestBridgeWarehouseColumnName:
 # ---------------------------------------------------------------------------
 
 
-class TestNameInLoadedDataModelOutcomes:
-    """Split "the name exists in a model this workbook loads" by ownership.
+class TestARefIsResolvedAgainstTheModelsItsWorkbookLoads:
+    """A ref naming no workbook element is still answerable by the workbook.
 
-    That bucket held 1,065 refs on one tenant and the number alone cannot be
-    acted on: it is consistent with a candidate list that is too narrow, with
-    names that are genuinely ambiguous, and with pure coincidence -- which need
-    three different responses. The dev tenant has no instance of this case at
-    all, so these paths are unreachable there and only a test can show they
-    fire.
+    Steps 3b/3c search only the model upstreams Sigma declared for THIS CHART,
+    so a ref to an element of a model the workbook loads -- without that
+    declaration reaching the chart -- was recorded as "source name unknown to
+    this workbook" and dropped. The ownership split measured the population
+    first: of 1,065 such refs on one tenant (2026-09), 1,011 had exactly ONE
+    element owning the named column, 54 had none, and ZERO were ambiguous.
+
+    The dev tenant has no instance of this case, so these paths are unreachable
+    there and only a test can show they fire.
     """
 
     _URN = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm1.a,PROD)"
     _OTHER = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm1.b,PROD)"
 
-    def _resolve(self, *, urns: List[str], cols: List[str]) -> SigmaSource:
+    def _resolve(
+        self, *, urns: List[str], cols: List[str], column: str = "Col A"
+    ) -> Tuple[SigmaSource, Optional[Tuple[str, str]]]:
         src = _make_source()
         src.reporter = SigmaSourceReport()
         src.dm_element_urn_by_name = {"dm1": {"DIM_A": list(urns)}}
         src.dm_element_urn_to_cols = {u: {c.lower(): c for c in cols} for u in urns}
         src.dm_key_by_element_urn = {}
-        src._resolve_chart_formula_upstream(
-            _make_ref("DIM_A", "Col A"),
+        got = src._resolve_chart_formula_upstream(
+            _make_ref("DIM_A", column),
             chart_element_id="e1",
             chart_upstream_element_ids=set(),
             dm_upstream_urn_by_element_name={},
@@ -945,36 +950,75 @@ class TestNameInLoadedDataModelOutcomes:
             elementId_to_chart_urn={},
             workbook_dm_url_ids=frozenset({"dm1"}),
         )
-        return src
+        return src, got
 
-    def test_one_owner_means_the_candidate_list_was_too_narrow(self) -> None:
-        src = self._resolve(urns=[self._URN], cols=["Col A"])
-        assert src.reporter.chart_ref_name_in_loaded_dm_outcomes == {"unique_owner": 1}
+    def test_a_single_owning_element_resolves_the_ref(self) -> None:
+        src, got = self._resolve(urns=[self._URN], cols=["Col A"])
+        assert got == (self._URN, "Col A")
+        assert src.reporter.chart_ref_resolved_in_loaded_data_model == 1
 
-    def test_several_owners_cannot_be_resolved_by_name_at_all(self) -> None:
-        src = self._resolve(urns=[self._URN, self._OTHER], cols=["Col A"])
+    def test_the_models_own_spelling_is_emitted_not_the_formulas(self) -> None:
+        """The edge audit compares the emitted field path against the schema we
+        published for the upstream, so a ref that differs only in case must
+        carry the upstream's spelling or it audits as dangling."""
+        src, got = self._resolve(urns=[self._URN], cols=["Col A"], column="COL a")
+        assert got == (self._URN, "Col A")
+
+    def test_several_owners_are_refused_rather_than_guessed(self) -> None:
+        src, got = self._resolve(urns=[self._URN, self._OTHER], cols=["Col A"])
+        assert got is None
+        assert src.reporter.chart_ref_loaded_dm_ambiguous == 1
         assert src.reporter.chart_ref_name_in_loaded_dm_outcomes == {
             "several_owners": 1
         }
 
-    def test_no_owner_means_the_name_match_is_a_coincidence(self) -> None:
-        src = self._resolve(urns=[self._URN], cols=["Unrelated"])
+    def test_a_name_match_whose_element_lacks_the_column_is_not_a_reference(
+        self,
+    ) -> None:
+        """Requiring an OWNER, not a name, is what separates this from a guess."""
+        src, got = self._resolve(urns=[self._URN], cols=["Unrelated"])
+        assert got is None
+        assert src.reporter.chart_ref_resolved_in_loaded_data_model == 0
         assert src.reporter.chart_ref_name_in_loaded_dm_outcomes == {
             "no_candidate_owns_the_column": 1
         }
 
-    def test_the_outcome_is_counted_without_debug_logging(self) -> None:
-        """The counter must not depend on the log level.
+    def test_a_model_the_workbook_does_not_load_is_a_name_coincidence(self) -> None:
+        """Sigma generates names like 'Union of N Sources'. The run-wide locator
+        found 6,481 refs whose name exists in SOME model this run walked but
+        only 1,065 in a model the referencing workbook loads -- so the scope
+        must stay the workbook's, not the run's."""
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        src.dm_element_urn_by_name = {"other_dm": {"DIM_A": [self._URN]}}
+        src.dm_element_urn_to_cols = {self._URN: {"col a": "Col A"}}
+        src.dm_key_by_element_urn = {}
+        assert (
+            src._resolve_chart_formula_upstream(
+                _make_ref("DIM_A", "Col A"),
+                chart_element_id="e1",
+                chart_upstream_element_ids=set(),
+                dm_upstream_urn_by_element_name={},
+                wb_element_index={},
+                element_warehouse_table_index={},
+                elementId_to_chart_urn={},
+                workbook_dm_url_ids=frozenset({"dm1"}),
+            )
+            is None
+        )
+        assert src.reporter.chart_ref_resolved_in_loaded_data_model == 0
 
-        The detail line is DEBUG-gated; an earlier draft gated the counter with
-        it, which would have reported 0 on any run without --debug.
-        """
+    def test_the_resolution_does_not_depend_on_debug_logging(self) -> None:
+        """An earlier draft of the ownership split gated its counter behind the
+        DEBUG check beside it, which would have reported 0 on any run without
+        --debug. The same trap applies to a resolver with a debug line."""
         logging.disable(logging.CRITICAL)
         try:
-            src = self._resolve(urns=[self._URN], cols=["Col A"])
+            src, got = self._resolve(urns=[self._URN], cols=["Col A"])
         finally:
             logging.disable(logging.NOTSET)
-        assert src.reporter.chart_ref_name_in_loaded_dm_outcomes == {"unique_owner": 1}
+        assert got == (self._URN, "Col A")
+        assert src.reporter.chart_ref_resolved_in_loaded_data_model == 1
 
 
 class TestSchemaMeasurementRecordsFailures:
@@ -3003,6 +3047,91 @@ class TestARicherAspectIsNeverOverwrittenByAPoorerDuplicate:
         assert self.src.reporter.chart_urns_claimed_by_multiple_workbooks == 1
 
 
+class TestTheFixesReachTheEmittedAspectNotJustTheResolver:
+    """Both fixes are unreachable on the dev tenant, so wire them end to end.
+
+    Dev holds exactly one Sigma Dataset and NO chart column carries an
+    ``inode-`` columnId at all, and no chart ref resolves through a loaded Data
+    Model there -- a full dev run exercises neither path zero times. Sigma's
+    API cannot author workbook content, so the shapes cannot be created; the
+    resolver unit tests plus this builder-level test are the whole of the
+    evidence until a customer run.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+
+    def _by_column(self, fields: List[InputFieldClass]) -> Dict[str, str]:
+        return {
+            f.schemaField.fieldPath: f.schemaFieldUrn
+            for f in fields
+            if f.schemaField is not None
+        }
+
+    def test_a_sigma_dataset_column_id_reaches_the_emitted_input_field(self) -> None:
+        self.src.sigma_dataset_urn_by_url_id = {
+            "ds1": "urn:li:dataset:(urn:li:dataPlatform:sigma,ds1,PROD)"
+        }
+        element = _make_element_with_formula("e1", "Chart", {"Signup Date": None})
+        element.column_id_by_name = {"Signup Date": "inode-ds1/Signup Date"}
+        fields = self.src._build_element_input_fields(
+            element=element,
+            chart_urn=builder.make_chart_urn("sigma", "e1"),
+            chart_upstream_eids=set(),
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={},
+        )
+        assert self._by_column(fields)["Signup Date"] == builder.make_schema_field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:sigma,ds1,PROD)", "Signup Date"
+        )
+        assert self.src.reporter.chart_input_fields_sigma_dataset_by_column_id == 1
+
+    def test_without_it_the_column_falls_back_to_referencing_itself(self) -> None:
+        """The regression this replaces: a self-reference renders as lineage in
+        the UI while carrying no information, which is why the population sat
+        unnoticed for two runs."""
+        element = _make_element_with_formula("e1", "Chart", {"Signup Date": None})
+        element.column_id_by_name = {"Signup Date": "inode-ds1/Signup Date"}
+        with patch.object(
+            SigmaSource, "_warehouse_urn_via_files_lookup", return_value=None
+        ):
+            fields = self.src._build_element_input_fields(
+                element=element,
+                chart_urn=builder.make_chart_urn("sigma", "e1"),
+                chart_upstream_eids=set(),
+                dm_upstream_urn_by_element_name={},
+                wb_element_index={},
+                element_warehouse_table_index={},
+                elementId_to_chart_urn={},
+            )
+        assert "urn:li:chart:(sigma,e1)" in self._by_column(fields)["Signup Date"]
+
+    def test_a_loaded_model_ref_reaches_the_emitted_input_field(self) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm1.a,PROD)"
+        self.src.dm_element_urn_by_name = {"dm1": {"dim_a": [dm_urn]}}
+        self.src.dm_element_urn_to_cols = {dm_urn: {"col a": "Col A"}}
+        self.src.dm_key_by_element_urn = {}
+        element = _make_element_with_formula("e1", "Chart", {"Col A": "[DIM_A/Col A]"})
+        element.column_id_by_name = {"Col A": "opaque"}
+        fields = self.src._build_element_input_fields(
+            element=element,
+            chart_urn=builder.make_chart_urn("sigma", "e1"),
+            chart_upstream_eids=set(),
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={},
+            workbook_dm_url_ids=frozenset({"dm1"}),
+        )
+        assert self._by_column(fields)["Col A"] == builder.make_schema_field_urn(
+            dm_urn, "Col A"
+        )
+        assert self.src.reporter.chart_ref_resolved_in_loaded_data_model == 1
+
+
 class TestDerivedColumnsInheritTheirSiblingsUpstreams:
     """The largest chart-side gap measured: 27,037 columns on one tenant.
 
@@ -3147,6 +3276,55 @@ class TestAChartColumnThatIsItselfAWarehouseColumn:
             assert (
                 self.src._warehouse_field_from_column_id("inode-nope/COL", {}) is None
             )
+
+    def test_an_inode_naming_a_sigma_dataset_is_not_a_warehouse_table(self) -> None:
+        """The inode is not always a warehouse table, and assuming it was cost
+        two full runs.
+
+        Every one of the 1,216 /files lookups this path made on one tenant
+        (2026-09) returned a file whose path root is '**Data Models**', and the
+        native segment was a Sigma display name (a Sigma display name), not a
+        warehouse column -- so the resolver was asking a warehouse question
+        about a Sigma entity while reporting 0 resolved. 1,112 of them named a
+        Sigma Dataset the same run had already emitted.
+        """
+        self.src.sigma_dataset_urn_by_url_id = {
+            "ds1": "urn:li:dataset:(urn:li:dataPlatform:sigma,ds1,PROD)"
+        }
+        assert self.src._warehouse_field_from_column_id(
+            "inode-ds1/Signup Date", {}
+        ) == builder.make_schema_field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:sigma,ds1,PROD)",
+            "Signup Date",
+        )
+        assert self.src.reporter.chart_input_fields_sigma_dataset_by_column_id == 1
+        assert self.src.reporter.chart_input_fields_warehouse_by_column_id == 0
+
+    def test_the_sigma_dataset_check_costs_no_api_call(self) -> None:
+        """It is free and authoritative, so it must run BEFORE /files -- which
+        is a network call per distinct url_id and, on the population that
+        actually reaches it, misses every time."""
+        self.src.sigma_dataset_urn_by_url_id = {
+            "ds1": "urn:li:dataset:(urn:li:dataPlatform:sigma,ds1,PROD)"
+        }
+        with patch.object(
+            SigmaSource, "_warehouse_urn_via_files_lookup"
+        ) as files_lookup:
+            self.src._warehouse_field_from_column_id("inode-ds1/Col", {})
+        files_lookup.assert_not_called()
+
+    def test_a_warehouse_table_still_wins_over_a_same_named_url_id(self) -> None:
+        """The workbook's own warehouse index is the more specific answer."""
+        self.src.sigma_dataset_urn_by_url_id = {
+            "abc123": "urn:li:dataset:(urn:li:dataPlatform:sigma,abc123,PROD)"
+        }
+        assert self.src._warehouse_field_from_column_id(
+            "inode-abc123/ACCOUNT_ID", {"abc123": "urn:li:dataset:(x,db.s.t,PROD)"}
+        ) == builder.make_schema_field_urn(
+            "urn:li:dataset:(x,db.s.t,PROD)", "ACCOUNT_ID"
+        )
+        assert self.src.reporter.chart_input_fields_sigma_dataset_by_column_id == 0
+        assert self.src.reporter.chart_input_fields_warehouse_by_column_id == 1
 
     @pytest.mark.parametrize(
         "column_id",
@@ -3616,14 +3794,14 @@ class TestUnresolvedSourceNamesAreLocated:
         self.src.dm_element_urn_by_name = {}
         self.reason = "source_name_unknown_to_this_workbook"
         self.src.reporter.chart_ref_miss_source_names = {
-            self.reason: {"Union of 2 Sources": 3868, "Some Chart": 5, "Ghost": 1}
+            self.reason: {"Union of N Sources": 3868, "Some Chart": 5, "Ghost": 1}
         }
 
     def test_names_are_located_and_WEIGHTED_by_ref_count(self) -> None:
         """Weighted, because one name accounting for 3,868 refs and one
         accounting for 1 are not equally worth building for."""
         self.src.dm_element_urn_by_name = {
-            "dm-1": {"union of 2 sources": ["urn:li:dataset:(x,a,PROD)"]}
+            "dm-1": {"union of n sources": ["urn:li:dataset:(x,a,PROD)"]}
         }
         self.src._all_workbook_element_names = {"some chart"}
         self.src._locate_unresolved_source_names()
@@ -3643,7 +3821,7 @@ class TestUnresolvedSourceNamesAreLocated:
         """Sigma element names differ from formula refs by case and stray
         whitespace often enough that the connector already normalises both."""
         self.src.dm_element_urn_by_name = {
-            "dm-1": {"  UNION OF 2 SOURCES ": ["urn:li:dataset:(x,a,PROD)"]}
+            "dm-1": {"  UNION OF N SOURCES ": ["urn:li:dataset:(x,a,PROD)"]}
         }
         self.src._locate_unresolved_source_names()
         located = self.src.reporter.chart_ref_miss_source_located[self.reason]

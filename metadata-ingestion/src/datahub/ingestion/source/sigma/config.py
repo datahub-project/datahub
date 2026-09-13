@@ -624,6 +624,22 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     chart_warehouse_files_lookup_resolved: int = 0
     chart_warehouse_files_lookup_miss: int = 0
     chart_warehouse_files_lookup_no_connection: int = 0
+    # The same columnId shape (inode-<urlId>/<NAME>) where the inode is NOT a
+    # warehouse table but a Sigma Dataset this run already emitted. Measured on
+    # one tenant (2026-09): every one of 1,216 /files lookups the chart path
+    # made came back with path root '**Data Models**', and 1,112 of them named
+    # a url_id that was emitted as a Sigma Dataset in the same run -- so the
+    # resolver had been asking the warehouse question about a Sigma entity for
+    # two full runs while reporting 0 resolved.
+    chart_input_fields_sigma_dataset_by_column_id: int = 0
+    # A ref whose source name no workbook element carries, resolved against the
+    # Data Models this WORKBOOK loads (not the run: an unrelated model sharing a
+    # generated name like 'Union of N Sources' is a coincidence, not a
+    # reference). Only a single owning element counts; see
+    # chart_ref_name_in_loaded_dm_outcomes, which measured 1,011 unique owners,
+    # 54 with no owner and ZERO ambiguous on one tenant.
+    chart_ref_resolved_in_loaded_data_model: int = 0
+    chart_ref_loaded_dm_ambiguous: int = 0
     # Sibling columns whose siblings resolved to nothing either, sampled so the
     # next run can say WHETHER anything is left to win here.
     chart_sibling_not_inheritable_samples: LossyList[str] = field(
