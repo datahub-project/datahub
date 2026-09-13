@@ -36,6 +36,9 @@ CATALOG_TOPICS = [
         "name": "key_value_topic",
         "qualifiedName": "lkc-stub:key_value_topic",
         "logical_cluster_id": "lkc-stub",
+        "owner": "Ada Lovelace",
+        "ownerEmail": "ada@example.com",
+        "description": "Curated in the Stream Catalog",
         "tags": ["PII", "Tier1"],
         "business_metadata": [
             {"name": "owning_team", "value": "payments"},
@@ -43,9 +46,26 @@ CATALOG_TOPICS = [
         ],
     },
     {
+        # No schema doc of its own, so the catalog description is the one that
+        # lands. key_value_topic is the converse: its Avro doc keeps precedence.
+        "name": "numeric_topic",
+        "qualifiedName": "lkc-stub:numeric_topic",
+        "logical_cluster_id": "lkc-stub",
+        "owner": None,
+        "ownerEmail": None,
+        "description": "Curated in the Stream Catalog",
+        "tags": None,
+        "business_metadata": None,
+    },
+    {
+        # Owned by name only: no email means no resolvable user, so no owner is
+        # emitted and the topic is counted in catalog_owners_without_email.
         "name": "value_topic",
         "qualifiedName": "lkc-stub:value_topic",
         "logical_cluster_id": "lkc-stub",
+        "owner": "Grace Hopper",
+        "ownerEmail": None,
+        "description": None,
         "tags": None,
         "business_metadata": [{"name": "owning_team", "value": "analytics"}],
     },
@@ -53,6 +73,9 @@ CATALOG_TOPICS = [
         "name": "topic_not_on_this_broker",
         "qualifiedName": "lkc-stub:topic_not_on_this_broker",
         "logical_cluster_id": "lkc-stub",
+        "owner": None,
+        "ownerEmail": None,
+        "description": None,
         "tags": ["Deprecated"],
         "business_metadata": None,
     },
@@ -71,6 +94,9 @@ TOPIC_QUERY_KNOWN_FIELDS = frozenset(
         "name",
         "qualifiedName",
         "logical_cluster_id",
+        "owner",
+        "ownerEmail",
+        "description",
         "tags",
         "business_metadata",
         "value",

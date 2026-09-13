@@ -121,11 +121,12 @@
                 "Schema Name": "numeric_topic-value"
             },
             "name": "numeric_topic",
+            "description": "Curated in the Stream Catalog",
             "tags": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586844000000,
+        "lastObserved": 1586847600000,
         "runId": "kafka-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -369,6 +370,32 @@
     },
     "systemMetadata": {
         "lastObserved": 1586844000000,
+        "runId": "kafka-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_value_topic,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:ada@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
         "runId": "kafka-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
