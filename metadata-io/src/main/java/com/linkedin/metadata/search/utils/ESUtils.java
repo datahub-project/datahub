@@ -48,6 +48,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -154,6 +155,18 @@ public class ESUtils {
    * structuredProperties.keywordMaxLength} / {@code STRUCTURED_PROPERTIES_KEYWORD_MAX_LENGTH}.
    */
   public static final int KEYWORD_MAXLENGTH = 32766;
+
+  /**
+   * True when {@code value}'s UTF-8 encoding exceeds the configured keyword max length (Lucene term
+   * limit). Empty or null values never exceed.
+   */
+  public static boolean exceedsKeywordMaxBytes(@Nullable String value, int keywordMaxBytes) {
+    if (value == null || value.isEmpty()) {
+      return false;
+    }
+    int maxBytes = keywordMaxBytes > 0 ? keywordMaxBytes : KEYWORD_MAXLENGTH;
+    return value.getBytes(StandardCharsets.UTF_8).length > maxBytes;
+  }
 
   /** Mapping parameter name for the keyword length guard described above. */
   public static final String IGNORE_ABOVE = "ignore_above";
