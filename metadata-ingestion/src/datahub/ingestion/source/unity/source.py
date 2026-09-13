@@ -683,6 +683,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if metastore is not None:
                 metastore_id = metastore.id
 
+        # Restrict expectations to datasets actually ingested this run. Table
+        # ingestion (process_metastores) has already populated table_refs/view_refs by
+        # this point, applying every filter that gates a dataset — the catalogs
+        # allowlist, catalog/schema/table patterns, include_views/view_pattern, and
+        # include_tables. Matching against that set (keyed case-insensitively on the
+        # qualified name, ignoring TableReference.last_updated) keeps us from emitting
+        # assertions on excluded datasets or intermediate pipeline views.
+        ingested_keys = {str(ref).lower() for ref in (self.table_refs | self.view_refs)}
+
+        def is_dataset_allowed(ref: TableReference) -> bool:
+            return str(ref).lower() in ingested_keys
+
         with self.report.new_stage("Ingest pipeline expectations"):
             extractor = UnityCatalogPipelineExpectationsExtractor(
                 config=self.config.pipeline_expectations,
@@ -690,24 +702,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 proxy=self.unity_catalog_api_proxy,
                 dataset_urn_builder=self.gen_dataset_urn,
                 metastore=metastore_id,
-                is_dataset_allowed=self._pipeline_dataset_allowed,
+                is_dataset_allowed=is_dataset_allowed,
             )
             yield from extractor.get_workunits()
-
-    def _pipeline_dataset_allowed(self, ref: TableReference) -> bool:
-        # Reuse the catalog/schema/table filters applied during table ingestion so a
-        # pipeline expectation on an excluded dataset is skipped. catalog.id and
-        # schema.id are metastore-prefixed and space-escaped the same way the proxy
-        # builds them; table_pattern matches the raw qualified name.
-        catalog_id = ref.catalog.replace(" ", "_")
-        if ref.metastore:
-            catalog_id = f"{ref.metastore}.{catalog_id}"
-        schema_id = f"{catalog_id}.{ref.schema.replace(' ', '_')}"
-        return (
-            self.config.catalog_pattern.allowed(catalog_id)
-            and self.config.schema_pattern.allowed(schema_id)
-            and self.config.table_pattern.allowed(ref.qualified_table_name)
-        )
 
     def _start_warehouse_or_report(self, failure_context: str) -> bool:
         # Starting the SQL warehouse can take minutes; every warehouse-gated stage
