@@ -1520,7 +1520,7 @@ class PartitionDiscovery:
         for col_name in required_columns:
             col_type = column_types.get(col_name, "")
             filter_str = self._create_fallback_filter_for_column(
-                col_name, fallback_date, col_type
+                table, col_name, fallback_date, col_type
             )
             if filter_str:
                 fallback_filters.append(filter_str)
@@ -1549,30 +1549,48 @@ class PartitionDiscovery:
         return fallback_filters
 
     def _create_fallback_filter_for_column(
-        self, col_name: str, fallback_date: datetime, col_type: str = ""
+        self,
+        table: BigqueryTable,
+        col_name: str,
+        fallback_date: datetime,
+        col_type: str = "",
     ) -> str:
-        # Prefer a user-configured override, then a date-derived value for date-like
-        # columns, then IS NOT NULL so profiling still runs (with a less targeted scan).
+        # Prefer a user-configured override, then a date-derived value for temporal /
+        # date-component columns, then IS NOT NULL so profiling still runs (with a less
+        # targeted scan).
         if col_name in self.config.profiling.fallback_partition_values:
             fallback_value = self.config.profiling.fallback_partition_values[col_name]
             try:
-                return self._create_safe_filter(col_name, fallback_value, col_type)
+                # _value_filter builds a granularity-aware half-open range for temporal
+                # columns; an equality would match only a single instant of the partition.
+                return self._value_filter(table, col_name, fallback_value, col_type)
             except ValueError as e:
                 logger.warning(f"Invalid fallback value for {col_name}: {e}")
                 return FilterBuilder.is_not_null(col_name)
 
         try:
-            if self._is_date_like_column(col_name) or self._is_date_type_column(
-                col_type
-            ):
-                logger.warning(
-                    f"Specific date values failed for column {col_name}, using IS NOT NULL"
-                )
-                return FilterBuilder.is_not_null(col_name)
+            if col_type.upper() in TEMPORAL_PARTITION_TYPES:
+                # A genuine DATE/DATETIME/TIMESTAMP partition (the most common type):
+                # prune to fallback_date's partition with a granularity-aware range rather
+                # than full-scanning via IS NOT NULL. This mirrors how the date-component
+                # (year/month/day) columns below also derive their fallback value from
+                # fallback_date.
+                return self._value_filter(table, col_name, fallback_date, col_type)
 
             component_value = self._date_component_value(col_name, fallback_date)
             if component_value is not None:
                 return self._create_safe_filter(col_name, component_value, col_type)
+
+            if self._is_date_like_column(col_name) or self._is_date_type_column(
+                col_type
+            ):
+                # Date-like by name (or a TIME column) but with no temporal type to build a
+                # range from and no date component: a specific value can't be guessed
+                # safely, so scan all partitions.
+                logger.warning(
+                    f"No usable fallback range for date column {col_name}, using IS NOT NULL"
+                )
+                return FilterBuilder.is_not_null(col_name)
 
             logger.warning(
                 f"No fallback value for partition column {col_name}, using IS NOT NULL"
