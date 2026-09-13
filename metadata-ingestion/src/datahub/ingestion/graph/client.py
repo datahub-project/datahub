@@ -194,6 +194,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
             server_config_refresh_interval=config.server_config_refresh_interval,
+            server_config_retry_max_times=config.server_config_retry_max_times,
             tcp_keepalive=self.config.tcp_keepalive,
         )
         self.server_id: str = _MISSING_SERVER_ID
@@ -309,6 +310,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 client_mode=session_config.client_mode,
                 datahub_component=session_config.datahub_component,
                 server_config_refresh_interval=emitter._server_config_refresh_interval,
+                server_config_retry_max_times=emitter._server_config_retry_max_times,
                 tcp_keepalive=session_config.tcp_keepalive,
                 # Preserve the source emitter's default emit mode so converting an
                 # emitter to a graph (e.g. emitter.to_graph()) doesn't silently
@@ -330,6 +332,11 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             # TODO(oauth): retain the declarative AuthConfig alongside the
             # resolved auth so derived configs keep it.
             graph._session.auth = emitter._session.auth
+            # A dedicated config-probe session is created when
+            # server_config_retry_max_times is set; it needs the same auth or
+            # /config calls from to_graph() would be unauthenticated.
+            if graph._config_session is not None:
+                graph._config_session.auth = emitter._session.auth
         return graph
 
     def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:
@@ -2438,10 +2445,13 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
 def get_default_graph(
     client_mode: Optional[ClientMode] = None,
     datahub_component: Optional[str] = None,
+    server_config_retry_max_times: Optional[int] = None,
 ) -> DataHubGraph:
     graph_config = config_utils.load_client_config()
     graph_config.client_mode = client_mode
     graph_config.datahub_component = datahub_component
+    if server_config_retry_max_times is not None:
+        graph_config.server_config_retry_max_times = server_config_retry_max_times
     graph = DataHubGraph(graph_config)
     graph.test_connection()
     telemetry_instance.set_context(server=graph)
