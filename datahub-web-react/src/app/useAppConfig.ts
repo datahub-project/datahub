@@ -51,6 +51,16 @@ export function useIsContextDocumentsEnabled(): boolean {
     return appConfig.config.featureFlags.contextDocumentsEnabled;
 }
 
+export function getSearchSummarySourceUrn(): string | null | undefined {
+    const appConfig = useAppConfig();
+    return appConfig.config.searchCardConfig.summarySourceUrn;
+}
+
+export function getSearchSummaryLabel(): string {
+    const appConfig = useAppConfig();
+    return appConfig.config.searchCardConfig.summaryLabel;
+}
+
 function useFlagWithLocalStorageSync(key: string, f: (appConfig: AppConfig) => boolean) {
     const { config, loaded } = useAppConfig();
     const flagValue = f(config);
