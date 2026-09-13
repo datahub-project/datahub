@@ -102,7 +102,9 @@ def _extractor(
     proxy: _FakeProxy,
     config: Optional[UnityCatalogPipelineExpectationsConfig] = None,
     metastore: Optional[str] = None,
-    is_dataset_allowed: Optional[Callable[[TableReference], bool]] = None,
+    resolve_ingested_ref: Optional[
+        Callable[[TableReference], Optional[TableReference]]
+    ] = None,
 ) -> UnityCatalogPipelineExpectationsExtractor:
     return UnityCatalogPipelineExpectationsExtractor(
         config=config or UnityCatalogPipelineExpectationsConfig(enabled=True),
@@ -110,7 +112,7 @@ def _extractor(
         proxy=cast(object, proxy),  # type: ignore[arg-type]
         dataset_urn_builder=_dataset_urn,
         metastore=metastore,
-        is_dataset_allowed=is_dataset_allowed,
+        resolve_ingested_ref=resolve_ingested_ref,
     )
 
 
@@ -316,7 +318,7 @@ def test_disallowed_dataset_is_skipped() -> None:
     ]
     extractor = _extractor(
         _FakeProxy(events=events),
-        is_dataset_allowed=lambda ref: ref.table != "staging_tmp",
+        resolve_ingested_ref=lambda ref: None if ref.table == "staging_tmp" else ref,
     )
     wus = list(extractor.get_workunits())
     names = _aspect_names(wus)
@@ -326,6 +328,22 @@ def test_disallowed_dataset_is_skipped() -> None:
     )
     assert extractor.report.num_pipeline_expectation_datasets_filtered == 1
     assert extractor.report.num_expectation_assertions_emitted == 1
+
+
+def test_urn_uses_canonical_ingested_ref_casing() -> None:
+    # Lakeflow can report a different case than the Unity Catalog API. The URN must be
+    # built from the canonical ingested ref, not the event-log casing, so it resolves
+    # to the dataset the connector actually published.
+    events = [_event("u1", [_expectation("valid_id", "Orders", 100, 0)])]
+    canonical = TableReference(
+        metastore=None, catalog=CATALOG, schema=SCHEMA, table="orders"
+    )
+    extractor = _extractor(
+        _FakeProxy(events=events),
+        resolve_ingested_ref=lambda ref: canonical,
+    )
+    wus = list(extractor.get_workunits())
+    assert _entity_urn(wus) == _dataset_urn(canonical)
 
 
 def test_pipeline_target_error_is_reported_and_skips() -> None:

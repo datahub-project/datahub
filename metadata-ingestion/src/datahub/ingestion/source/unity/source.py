@@ -687,13 +687,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # ingestion (process_metastores) has already populated table_refs/view_refs by
         # this point, applying every filter that gates a dataset — the catalogs
         # allowlist, catalog/schema/table patterns, include_views/view_pattern, and
-        # include_tables. Matching against that set (keyed case-insensitively on the
-        # qualified name, ignoring TableReference.last_updated) keeps us from emitting
-        # assertions on excluded datasets or intermediate pipeline views.
-        ingested_keys = {str(ref).lower() for ref in (self.table_refs | self.view_refs)}
+        # include_tables. Key the ingested refs case-insensitively (ignoring
+        # TableReference.last_updated) so a Lakeflow/Unity Catalog casing difference
+        # still matches, and resolve to the canonical ingested ref so the URN uses the
+        # catalog's casing rather than the event log's.
+        ingested_by_key = {
+            str(ref).lower(): ref for ref in (self.table_refs | self.view_refs)
+        }
 
-        def is_dataset_allowed(ref: TableReference) -> bool:
-            return str(ref).lower() in ingested_keys
+        def resolve_ingested_ref(ref: TableReference) -> Optional[TableReference]:
+            return ingested_by_key.get(str(ref).lower())
 
         with self.report.new_stage("Ingest pipeline expectations"):
             extractor = UnityCatalogPipelineExpectationsExtractor(
@@ -702,7 +705,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 proxy=self.unity_catalog_api_proxy,
                 dataset_urn_builder=self.gen_dataset_urn,
                 metastore=metastore_id,
-                is_dataset_allowed=is_dataset_allowed,
+                resolve_ingested_ref=resolve_ingested_ref,
             )
             yield from extractor.get_workunits()
 
