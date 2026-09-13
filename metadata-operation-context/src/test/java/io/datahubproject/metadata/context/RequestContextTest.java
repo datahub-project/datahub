@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -570,6 +571,26 @@ public class RequestContextTest {
 
     assertEquals(context.getAgentClass(), AgentClass.ROBOT);
     assertEquals(context.getAgentName(), "DH/Automation-Client");
+  }
+
+  @Test
+  public void testRequestContextPreservesAgentSkillComponent() {
+    // `datahub -C skill=datahub-search ...` reports the skill as the component
+    // half of the User-Agent, which is what makes per-skill usage attribution
+    // possible. Compared case-insensitively because UsageDimensions lowercases
+    // the agent name before it becomes a rollup dimension.
+    when(mockHttpRequest.getHeader(HttpHeaders.USER_AGENT))
+        .thenReturn("DataHub-Client/1.0 (cli; skill-datahub-search/claude-code; 1.7.0)");
+
+    RequestContext context =
+        RequestContext.builder()
+            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null)
+            .metricUtils(mockMetricUtils)
+            .build();
+
+    assertEquals(context.getAgentClass(), AgentClass.CLI);
+    assertEquals(
+        context.getAgentName().toLowerCase(Locale.ROOT), "skill-datahub-search/claude-code");
   }
 
   @Test
