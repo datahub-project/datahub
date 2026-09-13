@@ -9,10 +9,7 @@ import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
-import com.linkedin.common.OwnerArray;
-import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -23,7 +20,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.identity.RoleMembership;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
@@ -32,6 +28,8 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -70,7 +68,7 @@ public class PolicyEngineTest {
             Mockito.mock(GraphClient.class),
             Mockito.mock(GraphService.class));
     systemOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    _policyEngine = new PolicyEngine(_entityClient, _groupService);
+    _policyEngine = new PolicyEngine(_groupService);
 
     authorizedUserUrn = Urn.createFromString(AUTHORIZED_PRINCIPAL);
     resolvedAuthorizedUserSpec =
@@ -117,23 +115,6 @@ public class PolicyEngineTest {
                     GROUP_MEMBERSHIP_ASPECT_NAME,
                     NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))))
         .thenReturn(unauthorizedEntityResponseMap);
-
-    // Init ownership type mocks.
-    EntityResponse entityResponse = new EntityResponse();
-    EnvelopedAspectMap envelopedAspectMap = new EnvelopedAspectMap();
-    envelopedAspectMap.put(
-        OWNERSHIP_ASPECT_NAME,
-        new EnvelopedAspect()
-            .setValue(new com.linkedin.entity.Aspect(createOwnershipAspect(true, true).data())));
-    entityResponse.setAspects(envelopedAspectMap);
-    Map<Urn, EntityResponse> mockMap = mock(Map.class);
-    when(_entityClient.batchGetV2(
-            eq(systemOperationContext),
-            any(),
-            eq(Collections.singleton(resourceUrn)),
-            eq(Collections.singleton(OWNERSHIP_ASPECT_NAME))))
-        .thenReturn(mockMap);
-    when(mockMap.get(eq(resourceUrn))).thenReturn(entityResponse);
   }
 
   @Test
@@ -530,7 +511,8 @@ public class PolicyEngineTest {
   }
 
   @Test
-  public void testSharedContextFetchesResourceOwnersOnceAcrossPolicies() throws Exception {
+  public void testResourceOwnersFetchedOnceAcrossPoliciesViaFieldResolverMemoization()
+      throws Exception {
     // An ownership-based policy: the actor matches ONLY via resource ownership (no user/group/role
     // match), so each evaluation reaches the ownership lookup.
     final DataHubPolicyInfo ownerPolicy = new DataHubPolicyInfo();
@@ -552,22 +534,30 @@ public class PolicyEngineTest {
     resourceFilter.setType("dataset");
     ownerPolicy.setResources(resourceFilter);
 
-    final EntityResponse ownershipResponse = new EntityResponse();
-    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    aspectMap.put(
-        OWNERSHIP_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, false).data())));
-    ownershipResponse.setAspects(aspectMap);
-    when(_entityClient.getV2(
-            eq(systemOperationContext),
-            eq(resourceUrn.getEntityType()),
-            eq(resourceUrn),
-            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME))))
-        .thenReturn(ownershipResponse);
+    // Count how many times the ownership aspect is actually fetched. A single ResolvedEntitySpec
+    // owns a single OWNER FieldResolver; its fieldValuesFuture (Lombok @Getter(lazy=true)) memoizes
+    // the supplier, so the supplier must run at most once regardless of how many policies query it.
+    final Set<Owner> owners = createOwnersSet(true, false);
+    final AtomicInteger ownerFetchCount = new AtomicInteger(0);
+    final EntitySpec spec = new EntitySpec("dataset", RESOURCE_URN);
+    final ResolvedEntitySpec resourceSpec =
+        new ResolvedEntitySpec(
+            spec,
+            ImmutableMap.of(
+                EntityFieldType.TYPE,
+                FieldResolver.getResolverFromValues(Collections.singleton("dataset")),
+                EntityFieldType.URN,
+                FieldResolver.getResolverFromValues(Collections.singleton(RESOURCE_URN)),
+                EntityFieldType.OWNER,
+                FieldResolver.getResolverFromFunction(
+                    spec,
+                    entitySpec -> {
+                      ownerFetchCount.incrementAndGet();
+                      return ownerFieldValue(owners);
+                    })));
 
-    final ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
-
-    // Shared per-request context: the resource-owner cache lives here.
+    // Shared per-request context, mirroring how DataHubAuthorizer reuses one context across the
+    // full policy list for a single authorize() call.
     final PolicyEngine.PolicyEvaluationContext sharedContext =
         _policyEngine.createSeededEvaluationContext(
             Collections.emptyList(), Collections.emptySet());
@@ -596,13 +586,10 @@ public class PolicyEngineTest {
                 sharedContext)
             .isGranted());
 
-    // Ownership fetched exactly once across both evaluations, thanks to the per-context cache.
-    verify(_entityClient, times(1))
-        .getV2(
-            eq(systemOperationContext),
-            eq(resourceUrn.getEntityType()),
-            eq(resourceUrn),
-            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)));
+    // Ownership fetched exactly once across both evaluations, proving
+    // FieldResolver.fieldValuesFuture
+    // memoization makes the removed PolicyEvaluationContext.resourceOwnersByUrn cache redundant.
+    assertEquals(ownerFetchCount.get(), 1);
   }
 
   @Test
@@ -820,24 +807,11 @@ public class PolicyEngineTest {
     resourceFilter.setType("dataset");
     dataHubPolicyInfo.setResources(resourceFilter);
 
-    final EntityResponse entityResponse = new EntityResponse();
-    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    aspectMap.put(
-        OWNERSHIP_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, false).data())));
-    entityResponse.setAspects(aspectMap);
-    when(_entityClient.getV2(
-            eq(systemOperationContext),
-            eq(resourceUrn.getEntityType()),
-            eq(resourceUrn),
-            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME))))
-        .thenReturn(entityResponse);
-
     ResolvedEntitySpec resourceSpec =
         buildEntityResolvers(
             "dataset",
             RESOURCE_URN,
-            ImmutableSet.of(AUTHORIZED_PRINCIPAL),
+            createOwnersSet(true, false),
             Collections.emptySet(),
             Collections.emptySet(),
             Collections.emptySet(),
@@ -881,25 +855,11 @@ public class PolicyEngineTest {
     resourceFilter.setType("dataset");
     dataHubPolicyInfo.setResources(resourceFilter);
 
-    final EntityResponse entityResponse = new EntityResponse();
-    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    aspectMap.put(
-        OWNERSHIP_ASPECT_NAME,
-        new EnvelopedAspect()
-            .setValue(new Aspect(createOwnershipAspectWithTypeUrn(OWNERSHIP_TYPE_URN).data())));
-    entityResponse.setAspects(aspectMap);
-    when(_entityClient.getV2(
-            eq(systemOperationContext),
-            eq(resourceUrn.getEntityType()),
-            eq(resourceUrn),
-            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME))))
-        .thenReturn(entityResponse);
-
     ResolvedEntitySpec resourceSpec =
         buildEntityResolvers(
             "dataset",
             RESOURCE_URN,
-            ImmutableSet.of(AUTHORIZED_PRINCIPAL),
+            createOwnersSetWithTypeUrn(OWNERSHIP_TYPE_URN),
             Collections.emptySet(),
             Collections.emptySet(),
             Collections.emptySet(),
@@ -943,26 +903,11 @@ public class PolicyEngineTest {
     resourceFilter.setType("dataset");
     dataHubPolicyInfo.setResources(resourceFilter);
 
-    final EntityResponse entityResponse = new EntityResponse();
-    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    aspectMap.put(
-        OWNERSHIP_ASPECT_NAME,
-        new EnvelopedAspect()
-            .setValue(
-                new Aspect(createOwnershipAspectWithTypeUrn(OTHER_OWNERSHIP_TYPE_URN).data())));
-    entityResponse.setAspects(aspectMap);
-    when(_entityClient.getV2(
-            eq(systemOperationContext),
-            eq(resourceUrn.getEntityType()),
-            eq(resourceUrn),
-            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME))))
-        .thenReturn(entityResponse);
-
     ResolvedEntitySpec resourceSpec =
         buildEntityResolvers(
             "dataset",
             RESOURCE_URN,
-            ImmutableSet.of(AUTHORIZED_PRINCIPAL),
+            createOwnersSetWithTypeUrn(OTHER_OWNERSHIP_TYPE_URN),
             Collections.emptySet(),
             Collections.emptySet(),
             Collections.emptySet(),
@@ -1004,24 +949,11 @@ public class PolicyEngineTest {
     resourceFilter.setType("dataset");
     dataHubPolicyInfo.setResources(resourceFilter);
 
-    final EntityResponse entityResponse = new EntityResponse();
-    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    aspectMap.put(
-        OWNERSHIP_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(false, true).data())));
-    entityResponse.setAspects(aspectMap);
-    when(_entityClient.getV2(
-            eq(systemOperationContext),
-            eq(resourceUrn.getEntityType()),
-            eq(resourceUrn),
-            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME))))
-        .thenReturn(entityResponse);
-
     ResolvedEntitySpec resourceSpec =
         buildEntityResolvers(
             "dataset",
             RESOURCE_URN,
-            ImmutableSet.of(AUTHORIZED_GROUP),
+            createOwnersSet(false, true),
             Collections.emptySet(),
             Collections.emptySet(),
             Collections.emptySet(),
@@ -2019,23 +1951,11 @@ public class PolicyEngineTest {
             Collections.emptyList());
     assertEquals(grantedPrivileges.getPrivileges(), ImmutableList.of("PRIVILEGE_1"));
 
-    final EntityResponse entityResponse = new EntityResponse();
-    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    aspectMap.put(
-        OWNERSHIP_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, false).data())));
-    entityResponse.setAspects(aspectMap);
-    when(_entityClient.getV2(
-            eq(systemOperationContext),
-            eq(resourceUrn.getEntityType()),
-            eq(resourceUrn),
-            eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME))))
-        .thenReturn(entityResponse);
     resourceSpec =
         buildEntityResolvers(
             "dataset",
             RESOURCE_URN,
-            Collections.singleton(AUTHORIZED_PRINCIPAL),
+            createOwnersSet(true, false),
             Collections.singleton(DOMAIN_URN),
             Collections.emptySet(),
             Collections.emptySet(),
@@ -2056,7 +1976,7 @@ public class PolicyEngineTest {
         buildEntityResolvers(
             "chart",
             RESOURCE_URN,
-            Collections.singleton(AUTHORIZED_PRINCIPAL),
+            createOwnersSet(true, false),
             Collections.singleton(DOMAIN_URN),
             Collections.emptySet(),
             Collections.emptySet(),
@@ -2111,7 +2031,7 @@ public class PolicyEngineTest {
         buildEntityResolvers(
             "dataset",
             RESOURCE_URN,
-            ImmutableSet.of(AUTHORIZED_PRINCIPAL, AUTHORIZED_GROUP),
+            createOwnersSet(true, true),
             Collections.emptySet(),
             Collections.emptySet(),
             Collections.emptySet(),
@@ -2720,10 +2640,9 @@ public class PolicyEngineTest {
     return Collections.singletonMap(groupUrn, entityResponse);
   }
 
-  private Ownership createOwnershipAspect(final Boolean addUserOwner, final Boolean addGroupOwner)
+  private Set<Owner> createOwnersSet(final Boolean addUserOwner, final Boolean addGroupOwner)
       throws Exception {
-    final Ownership ownershipAspect = new Ownership();
-    final OwnerArray owners = new OwnerArray();
+    final Set<Owner> owners = new HashSet<>();
 
     if (addUserOwner) {
       final Owner userOwner = new Owner();
@@ -2739,25 +2658,14 @@ public class PolicyEngineTest {
       owners.add(groupOwner);
     }
 
-    ownershipAspect.setOwners(owners);
-    ownershipAspect.setLastModified(
-        new AuditStamp().setTime(0).setActor(Urn.createFromString("urn:li:corpuser:foo")));
-    return ownershipAspect;
+    return owners;
   }
 
-  private Ownership createOwnershipAspectWithTypeUrn(final String typeUrn) throws Exception {
-    final Ownership ownershipAspect = new Ownership();
-    final OwnerArray owners = new OwnerArray();
-
+  private Set<Owner> createOwnersSetWithTypeUrn(final String typeUrn) throws Exception {
     final Owner userOwner = new Owner();
     userOwner.setOwner(Urn.createFromString(AUTHORIZED_PRINCIPAL));
     userOwner.setTypeUrn(Urn.createFromString(typeUrn));
-    owners.add(userOwner);
-
-    ownershipAspect.setOwners(owners);
-    ownershipAspect.setLastModified(
-        new AuditStamp().setTime(0).setActor(Urn.createFromString("urn:li:corpuser:foo")));
-    return ownershipAspect;
+    return Set.of(userOwner);
   }
 
   private EntityResponse createAuthorizedEntityResponse() throws URISyntaxException {
@@ -2792,6 +2700,18 @@ public class PolicyEngineTest {
     return entityResponse;
   }
 
+  /** Builds the OWNER field value the same way OwnerFieldResolverProvider does in production. */
+  private static FieldResolver.FieldValue ownerFieldValue(Set<Owner> owners) {
+    return FieldResolver.FieldValue.builder()
+        .values(
+            owners.stream()
+                .map(Owner::getOwner)
+                .map(Urn::toString)
+                .collect(Collectors.toUnmodifiableSet()))
+        .typedValues(Set.copyOf(owners))
+        .build();
+  }
+
   public static ResolvedEntitySpec buildEntityResolvers(String entityType, String entityUrn) {
     return buildEntityResolvers(
         entityType,
@@ -2806,20 +2726,21 @@ public class PolicyEngineTest {
   public static ResolvedEntitySpec buildEntityResolvers(
       String entityType,
       String entityUrn,
-      Set<String> owners,
+      Set<Owner> owners,
       Set<String> domains,
       Set<String> containers,
       Set<String> groups,
       Set<String> tags) {
+    final EntitySpec spec = new EntitySpec(entityType, entityUrn);
     return new ResolvedEntitySpec(
-        new EntitySpec(entityType, entityUrn),
+        spec,
         ImmutableMap.of(
             EntityFieldType.TYPE,
             FieldResolver.getResolverFromValues(Collections.singleton(entityType)),
             EntityFieldType.URN,
             FieldResolver.getResolverFromValues(Collections.singleton(entityUrn)),
             EntityFieldType.OWNER,
-            FieldResolver.getResolverFromValues(owners),
+            FieldResolver.getResolverFromFunction(spec, entitySpec -> ownerFieldValue(owners)),
             EntityFieldType.DOMAIN,
             FieldResolver.getResolverFromValues(domains),
             EntityFieldType.CONTAINER,
