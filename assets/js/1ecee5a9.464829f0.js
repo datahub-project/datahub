@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkdocs_website=globalThis.webpackChunkdocs_website||[]).push([[59369],{75525(a){a.exports=JSON.parse('{"label":"For Data Engineers","permalink":"/learn/tags/for-data-engineers","allTagsPath":"/learn/tags","count":2}')}}]);
