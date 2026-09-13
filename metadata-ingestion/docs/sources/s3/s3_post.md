@@ -254,6 +254,20 @@ Schemas for schemaless formats (CSV, TSV, JSONL, JSON) are inferred. For CSV, TS
 JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
 We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
 
+##### File type detection
+
+The format of a file is detected from its name. The connector first checks the apparent extension (everything after the last dot) and accepts it only if it matches one of the supported file types listed above. For files compressed with `.gz` or `.bz2`, the compression suffix is stripped and the inner extension is checked the same way (so `data.json.gz` is treated as JSON).
+
+This means file names whose stem contains dots — for example `events.account.update-2026-05-27-<hash>.gz` — are **not** misinterpreted as having an extension of `.update-2026-05-27-<hash>`. Such files fall back to `path_spec.default_extension` if it is set, and are skipped otherwise.
+
+If your files have no real format extension (or have only a compression extension like `.gz`), set `default_extension` on the path_spec to tell the connector how to parse them:
+
+```yaml
+path_specs:
+  - include: s3://my-bucket/{table}/
+    default_extension: json
+```
+
 #### S3-specific mapping details
 
 This ingestion source maps the following source system concepts to DataHub concepts:
