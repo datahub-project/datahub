@@ -22,7 +22,11 @@ Want a fully managed DataHub? **[Try DataHub Cloud free](https://datahub.com/fre
   | Linux    | [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/) and [Docker Compose](https://docs.docker.com/compose/install/linux/) |
 
 - **Launch the Docker engine** from command line or the desktop app.
-- Ensure you have **Python 3.10+** installed & configured. (Check using `python3 --version`).
+- Ensure you have **Python 3.10–3.12** installed & configured. (Check using `python3 --version`).
+
+  :::note Python 3.13/3.14
+  `acryl-datahub` currently fails to install on Python 3.13/3.14 because `pydantic-core` (a transitive dependency) does not yet publish wheels for these versions, and the sdist build fails on most systems. Use Python 3.12 or earlier until upstream ships wheels — track [pydantic/pydantic](https://github.com/pydantic/pydantic/releases) for wheel availability.
+  :::
 
 :::note Docker Resource Allocation
 
