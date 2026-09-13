@@ -14,6 +14,7 @@ from moto import mock_aws
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.data_lake_common.profiling.profiler import FileProfiler
 from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
@@ -237,6 +238,23 @@ def test_profiles_local_tsv_and_json_files(tmp_path: Path) -> None:
         assert get_profile(work_units[0]).rowCount == 2
 
 
+def test_extension_map_resolves_custom_extension_for_profiling(tmp_path: Path) -> None:
+    # A `.js` file that actually contains JSON is profiled when the PathSpec maps
+    # the extension, instead of being skipped as unsupported.
+    path = tmp_path / "events.js"
+    path.write_text('{"id": 1, "name": "a"}\n{"id": 2, "name": "b"}\n')
+    path_spec = PathSpec(include=f"{tmp_path}/*.js", extension_map={"js": "json"})
+
+    profiler = make_profiler()
+    work_units = list(
+        profiler.get_table_profile(
+            make_table_data(str(path)), "urn:li:dataset:test", path_spec
+        )
+    )
+
+    assert get_profile(work_units[0]).rowCount == 2
+
+
 def test_corrupt_file_with_valid_extension_reports_warning(tmp_path: Path) -> None:
     # Valid extension but unreadable bytes exercises the read-exception path
     # (distinct from an unsupported extension).
@@ -348,6 +366,54 @@ def test_profiles_partitioned_local_directory(tmp_path: Path) -> None:
     work_units = list(profiler.get_table_profile(table_data, "urn:li:dataset:test"))
 
     assert get_profile(work_units[0]).rowCount == 400
+
+
+def test_iter_table_paths_keeps_underscore_named_data_files(tmp_path: Path) -> None:
+    # An explicit extension makes a leading-underscore basename a real data file
+    # (e.g. `_events.parquet`), not a Spark side-car; it must not be dropped.
+    table_dir = tmp_path / "events"
+    table_dir.mkdir()
+    for name in ("part.parquet", "_events.parquet", "_SUCCESS", ".crc"):
+        (table_dir / name).write_bytes(b"x")
+
+    table_data = StubTableData(
+        display_name="events",
+        full_path=str(table_dir / "part.parquet"),
+        table_path=str(table_dir),
+        partitions=["year=2023"],
+    )
+    names = sorted(Path(p).name for p in make_profiler()._iter_table_paths(table_data))
+    assert names == ["_events.parquet", "part.parquet"]
+
+
+def test_iter_table_paths_sidecar_handling_honors_include_hidden(
+    tmp_path: Path,
+) -> None:
+    # With default_extension (no suffix) the sidecar exclusion still applies, but
+    # include_hidden_folders=True opts back into every listed file.
+    table_dir = tmp_path / "events"
+    table_dir.mkdir()
+    for name in ("part", "_SUCCESS", ".crc"):
+        (table_dir / name).write_bytes(b"x")
+
+    table_data = StubTableData(
+        display_name="events",
+        full_path=str(table_dir / "part"),
+        table_path=str(table_dir),
+        partitions=["year=2023"],
+    )
+    default = sorted(
+        Path(p).name for p in make_profiler()._iter_table_paths(table_data)
+    )
+    assert default == ["part"]
+
+    hidden_spec = PathSpec(
+        include="s3://bucket/{table}/*.parquet", include_hidden_folders=True
+    )
+    with_hidden = sorted(
+        Path(p).name for p in make_profiler()._iter_table_paths(table_data, hidden_spec)
+    )
+    assert with_hidden == [".crc", "_SUCCESS", "part"]
 
 
 @pytest.mark.parametrize(
