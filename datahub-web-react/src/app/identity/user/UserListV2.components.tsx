@@ -3,6 +3,7 @@ import { Key } from '@phosphor-icons/react/dist/csr/Key';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
@@ -154,8 +155,8 @@ export const UserNameCell = ({ user }: UserCellProps) => {
         <UserInfo>
             <Avatar name={displayName || user.username} size="lg" imageUrl={avatarUrl} />
             <UserDetails>
-                <a
-                    href={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user.urn}`}
+                <Link
+                    to={entityRegistry.getEntityUrl(EntityType.CorpUser, user.urn)}
                     target="_blank"
                     rel="noreferrer"
                     style={{ textDecoration: 'none' }}
@@ -163,7 +164,7 @@ export const UserNameCell = ({ user }: UserCellProps) => {
                     <Text weight="medium" size="md" color="gray">
                         {primaryText}
                     </Text>
-                </a>
+                </Link>
                 {secondaryText && (
                     <Text size="sm" color="gray">
                         {secondaryText}
