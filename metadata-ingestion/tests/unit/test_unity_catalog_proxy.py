@@ -112,6 +112,28 @@ class TestUnityCatalogProxy:
                 "target_type": "TABLE",
                 "last_updated": datetime(2023, 1, 1),
             },
+            # Streaming table upstream
+            {
+                "entity_type": "TABLE",
+                "entity_id": "entity_2",
+                "source_table_full_name": "other_catalog.schema.source_streaming_table",
+                "source_path": None,
+                "source_type": "STREAMING_TABLE",
+                "target_table_full_name": "test_catalog.schema.target_table",
+                "target_type": "TABLE",
+                "last_updated": datetime(2023, 1, 1),
+            },
+            # Materialized view upstream
+            {
+                "entity_type": "TABLE",
+                "entity_id": "entity_3",
+                "source_table_full_name": "other_catalog.schema.source_materialized_view",
+                "source_path": None,
+                "source_type": "MATERIALIZED_VIEW",
+                "target_table_full_name": "test_catalog.schema.target_table",
+                "target_type": "TABLE",
+                "last_updated": datetime(2023, 1, 1),
+            },
             # External PATH upstream
             {
                 "entity_type": "TABLE",
@@ -158,13 +180,26 @@ class TestUnityCatalogProxy:
 
         # Check table upstream
         target_lineage = result["test_catalog.schema.target_table"]
-        assert len(target_lineage.upstreams) == 1
+        assert len(target_lineage.upstreams) == 3
         assert (
             target_lineage.upstreams[0].table_name
             == "other_catalog.schema.source_table"
         )
         assert target_lineage.upstreams[0].source_type == "TABLE"
 
+        # Check streaming table upstream
+        assert (
+            target_lineage.upstreams[1].table_name
+            == "other_catalog.schema.source_streaming_table"
+        )
+        assert target_lineage.upstreams[1].source_type == "STREAMING_TABLE"
+
+        # Check materialized view
+        assert (
+            target_lineage.upstreams[2].table_name
+            == "other_catalog.schema.source_materialized_view"
+        )
+        assert target_lineage.upstreams[2].source_type == "MATERIALIZED_VIEW"
         # Check external upstream
         external_lineage = result["test_catalog.schema.external_target"]
         assert len(external_lineage.external_upstreams) == 1
