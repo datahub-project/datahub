@@ -1,4 +1,4 @@
-import { Button, PageTitle, Pagination, SearchBar, StructuredPopover } from '@components';
+import { Button, PageTitle, Pagination, SearchBar, StructuredPopover, Text } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -53,32 +53,41 @@ const LoadingBar = styled.div`
     }
 `;
 
-const PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 10;
+const MIN_SEARCH_LENGTH = 3;
 
 const ManageApplications = () => {
     const { t } = useTranslation('misc');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('*');
+    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
     const [showCreateApplicationModal, setShowCreateApplicationModal] = useState(false);
 
     const userContext = useUserContext();
     const canManageApplications = userContext?.platformPrivileges?.manageApplications;
 
-    useDebounce(() => setDebouncedSearchQuery(searchQuery), DEBOUNCE_SEARCH_MS, [searchQuery]);
+    useDebounce(
+        () => {
+            setDebouncedSearchQuery(searchQuery);
+            setCurrentPage(1);
+        },
+        DEBOUNCE_SEARCH_MS,
+        [searchQuery],
+    );
 
     // Search query configuration
     const searchInputs = useMemo(
         () => ({
             types: [EntityType.Application],
-            query: debouncedSearchQuery,
-            start: (currentPage - 1) * PAGE_SIZE,
-            count: PAGE_SIZE,
+            query: debouncedSearchQuery.length >= MIN_SEARCH_LENGTH ? debouncedSearchQuery : '',
+            start: (currentPage - 1) * pageSize,
+            count: pageSize,
             filters: [],
             searchFlags: { skipCache: true },
         }),
-        [currentPage, debouncedSearchQuery],
+        [currentPage, pageSize, debouncedSearchQuery],
     );
 
     const {
@@ -148,10 +157,15 @@ const ManageApplications = () => {
                     data-testid="application-search-input"
                     width="280px"
                 />
+                {searchQuery.length > 0 && searchQuery.length < MIN_SEARCH_LENGTH && (
+                    <Text size="xs" color="gray" style={{ marginTop: '4px' }}>
+                        {t('applications.searchMinCharsHint', { minLength: MIN_SEARCH_LENGTH })}
+                    </Text>
+                )}
             </SearchContainer>
 
             {!searchLoading && totalApplications === 0 ? (
-                <EmptyApplications isEmptySearch={debouncedSearchQuery.length > 0} />
+                <EmptyApplications isEmptySearch={searchQuery.length > 0} />
             ) : (
                 <>
                     <ApplicationsTable
@@ -163,10 +177,18 @@ const ManageApplications = () => {
                     />
                     <Pagination
                         currentPage={currentPage}
-                        itemsPerPage={PAGE_SIZE}
+                        itemsPerPage={pageSize}
                         total={totalApplications}
                         loading={searchLoading}
-                        onPageChange={(page) => setCurrentPage(page)}
+                        onPageChange={(page, newPageSize) => {
+                            setCurrentPage(page);
+                            if (newPageSize && newPageSize !== pageSize) {
+                                setPageSize(newPageSize);
+                                setCurrentPage(1);
+                            }
+                        }}
+                        showSizeChanger
+                        pageSizeOptions={[10, 20, 50, 100]}
                     />
                 </>
             )}

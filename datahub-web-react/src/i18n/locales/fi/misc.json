@@ -22,6 +22,7 @@
     "applications.noCreatePermissionTooltip": "Sinulla ei ole käyttöoikeutta luoda sovelluksia",
     "applications.pageSubtitle": "Luo ja muokkaa sovelluksia",
     "applications.pageTitle": "Hallitse sovelluksia",
+    "applications.searchMinCharsHint": "Anna vähintään {{minLength}} merkkiä hakeaksesi",
     "applications.searchPlaceholder": "Hae sovelluksia...",
     "authorization.unauthorizedSubtitle": "Valitettavasti sinulla ei ole oikeutta käyttää tätä sivua.",
     "authorization.unauthorizedTitle": "Ei käyttöoikeutta",
