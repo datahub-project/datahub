@@ -1,0 +1,15 @@
+id: marketing
+display_name: Marketing
+description: |-
+  Top-level Marketing domain — owns brand, campaign and CRM assets.
+
+owners:
+  - id: urn:li:corpuser:jdoe
+    type: BUSINESS_OWNER
+  - urn:li:corpuser:asmith
+
+tags:
+  - urn:li:tag:gold-tier
+
+terms:
+  - urn:li:glossaryTerm:ClientsAndAccounts.AccountBalance
