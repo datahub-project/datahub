@@ -599,6 +599,7 @@ class PartitionDiscovery:
         # value's partition for temporal columns; other columns keep the equality.
         if col_type.upper() in TEMPORAL_PARTITION_TYPES:
             granularity = getattr(table.partition_info, "type", None)
+            moment: Optional[datetime]
             if isinstance(val, datetime):
                 moment = val
             elif isinstance(val, date):
