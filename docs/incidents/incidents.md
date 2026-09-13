@@ -171,7 +171,7 @@ res_data = response.json() # Get result as JSON
 
 ## Retrieving Active Incidents
 
-To fetch the the ongoing incidents for a data asset, we can use the `incidents` GraphQL field on the entity of interest.
+To fetch the ongoing incidents for a data asset, we can use the `incidents` GraphQL field on the entity of interest.
 
 To retrieve all incidents for a Dataset with a particular [URN](docs/what/urn.md), you can reference the 'incidents' field of the Dataset type:
 
