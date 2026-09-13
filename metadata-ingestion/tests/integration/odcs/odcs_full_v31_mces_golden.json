@@ -281,7 +281,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "rowCount"
         }
     },
     "systemMetadata": {
@@ -332,7 +333,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "rowCount"
         }
     },
     "systemMetadata": {
@@ -384,7 +386,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "rowCount"
         }
     },
     "systemMetadata": {
@@ -436,7 +439,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "duplicateValues"
         }
     },
     "systemMetadata": {
@@ -494,7 +498,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "sql"
         }
     },
     "systemMetadata": {
@@ -678,7 +683,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "missingValues on `email`"
         }
     },
     "systemMetadata": {
@@ -748,7 +754,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "invalidValues on `status`"
         }
     },
     "systemMetadata": {
@@ -814,7 +821,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "nullValues on `status`"
         }
     },
     "systemMetadata": {
@@ -884,7 +892,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "invalidValues on `iban`"
         }
     },
     "systemMetadata": {
@@ -955,7 +964,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "invalidValues on `profile.country`"
         }
     },
     "systemMetadata": {
@@ -1198,6 +1208,101 @@
     }
 },
 {
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:05a70c4b4de4f469a8161ad3668e50e0",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractProperties",
+    "aspect": {
+        "json": {
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.customers,PROD)",
+            "schema": [
+                {
+                    "assertion": "urn:li:assertion:13ed5d53a30879d58318d2d2a9c85f39"
+                }
+            ],
+            "dataQuality": [
+                {
+                    "assertion": "urn:li:assertion:82373e9ea19580a77e8c1095c4a5fed5"
+                },
+                {
+                    "assertion": "urn:li:assertion:c96a68f4ae7a2ed88544df93c7d8bab5"
+                },
+                {
+                    "assertion": "urn:li:assertion:5fa4786faefa8382331389a28105d9e1"
+                },
+                {
+                    "assertion": "urn:li:assertion:90ac2d5a59ea330a765247992ffe05f8"
+                },
+                {
+                    "assertion": "urn:li:assertion:5f9bcc2107f41774a0fad8ea3e62da2f"
+                },
+                {
+                    "assertion": "urn:li:assertion:af398dcfcbdb6fc7cc6c71a7b941982f"
+                },
+                {
+                    "assertion": "urn:li:assertion:d03798354c8b758f52278aeef467c44a"
+                },
+                {
+                    "assertion": "urn:li:assertion:9549f465e9e7f186a4c3752d258937ad"
+                },
+                {
+                    "assertion": "urn:li:assertion:7d0539674f4772a28c46d25d0e8ac783"
+                },
+                {
+                    "assertion": "urn:li:assertion:613a75e65f2e7bc98aa0bd1b75716fd9"
+                },
+                {
+                    "assertion": "urn:li:assertion:6083f158c8cf443bc2c90ae71e60a630"
+                },
+                {
+                    "assertion": "urn:li:assertion:89b5af800f6dd9e4d41015d0ed58cf86"
+                },
+                {
+                    "assertion": "urn:li:assertion:9e573b3f810f776af84e67efef1502fc"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:05a70c4b4de4f469a8161ad3668e50e0",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:05a70c4b4de4f469a8161ad3668e50e0",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractStatus",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "state": "ACTIVE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,customers_db.public.customers,PROD)",
     "changeType": "UPSERT",
@@ -1424,7 +1529,8 @@
                     "time": 1705320000000,
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
-            }
+            },
+            "description": "rowCount"
         }
     },
     "systemMetadata": {
@@ -1569,6 +1675,65 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:7cc495869a413116a9bf6ac22d0b4db8",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractProperties",
+    "aspect": {
+        "json": {
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000002.orders,PROD)",
+            "schema": [
+                {
+                    "assertion": "urn:li:assertion:2c8a7f6a2474fae36273b25f4b3ae285"
+                }
+            ],
+            "dataQuality": [
+                {
+                    "assertion": "urn:li:assertion:116f7d99f61dcf9105f375072a577de2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:7cc495869a413116a9bf6ac22d0b4db8",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_full_v31_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:7cc495869a413116a9bf6ac22d0b4db8",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractStatus",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "state": "ACTIVE"
         }
     },
     "systemMetadata": {

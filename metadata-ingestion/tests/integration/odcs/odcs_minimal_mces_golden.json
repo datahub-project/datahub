@@ -155,6 +155,60 @@
     }
 },
 {
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:370bd0bbdf131db837940fc1a8be5e61",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractProperties",
+    "aspect": {
+        "json": {
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:odcs,00000000-0000-0000-0000-000000000001.my_table,PROD)",
+            "schema": [
+                {
+                    "assertion": "urn:li:assertion:53b71a05677e16c08638615d8fced2f3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_minimal_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:370bd0bbdf131db837940fc1a8be5e61",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_minimal_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:370bd0bbdf131db837940fc1a8be5e61",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractStatus",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "state": "ACTIVE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "test-odcs-odcs_minimal_mces.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.my_table,PROD)",
     "changeType": "UPSERT",
