@@ -64,8 +64,9 @@ class UnityCatalogPipelineExpectationsExtractor:
         self.metastore = metastore
         # Pipeline expectations are discovered from the event log independently of
         # table ingestion, so a pipeline can reference datasets the recipe excluded
-        # (or intermediate pipeline views). Apply the connector's catalog/schema/table
-        # filters so we don't emit assertions on entities that were never ingested.
+        # (or intermediate pipeline views). The source supplies a predicate that keeps
+        # only datasets actually ingested this run, so we don't emit assertions on
+        # entities that were never published.
         self.is_dataset_allowed = is_dataset_allowed
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
