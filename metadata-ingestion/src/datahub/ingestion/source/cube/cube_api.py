@@ -306,7 +306,7 @@ class CubeAPIClient:
                 bearer=True,
             )
             response = CloudEntitiesResponse.model_validate(raw)
-            page = response.data.entities
+            page = response.data
             entities.extend(CubeEntity.from_cloud_entity(entity) for entity in page)
 
             pagination = response.pagination

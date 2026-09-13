@@ -179,7 +179,7 @@ def test_from_cloud_entity_captures_references() -> None:
             "type": "cube",
             "name": "orders",
             "table_references": [{"schema": "public", "table": "orders"}],
-            "cube_references": ["users"],
+            "cube_references": [{"cube": "users"}],
             "measures": [
                 {
                     "name": "count",
@@ -190,7 +190,11 @@ def test_from_cloud_entity_captures_references() -> None:
                 }
             ],
             "dimensions": [
-                {"name": "status", "type": "string", "member_references": ["base.s"]}
+                {
+                    "name": "status",
+                    "type": "string",
+                    "member_references": [{"member": "base.s"}],
+                }
             ],
         }
     )
@@ -203,6 +207,56 @@ def test_from_cloud_entity_captures_references() -> None:
     assert normalized.measures[0].is_measure is True
     assert normalized.measures[0].column_references[0].column == "id"
     assert normalized.dimensions[0].member_references == ["base.s"]
+
+
+def test_cloud_entities_response_data_is_flat_list() -> None:
+    # /v1/entities/all returns {"data": [...]} — a flat list, not a wrapper object.
+    response = CloudEntitiesResponse.model_validate(
+        {
+            "data": [
+                {"type": "cube", "name": "orders"},
+                {"type": "view", "name": "orders_view"},
+            ],
+            "pagination": {"offset": 0, "limit": 2, "total": 2},
+        }
+    )
+    assert len(response.data) == 2
+    assert response.data[0].name == "orders"
+    assert response.data[1].type == "view"
+    assert response.pagination is not None
+    assert response.pagination.total == 2
+
+
+def test_cloud_entity_cube_references_are_objects() -> None:
+    # cube_references come back as [{"cube": "<name>"}] objects, not bare strings.
+    entity = CloudEntity.model_validate(
+        {
+            "type": "view",
+            "name": "orders_view",
+            "cube_references": [{"cube": "orders"}, {"cube": "users"}],
+        }
+    )
+    normalized = CubeEntity.from_cloud_entity(entity)
+    assert normalized.cube_references == ["orders", "users"]
+
+
+def test_cloud_member_member_references_are_objects() -> None:
+    # member_references come back as [{"member": "<name>"}] objects, not bare strings.
+    entity = CloudEntity.model_validate(
+        {
+            "type": "view",
+            "name": "orders_view",
+            "dimensions": [
+                {
+                    "name": "status",
+                    "type": "string",
+                    "member_references": [{"member": "base_orders.status"}],
+                }
+            ],
+        }
+    )
+    normalized = CubeEntity.from_cloud_entity(entity)
+    assert normalized.dimensions[0].member_references == ["base_orders.status"]
 
 
 def test_core_cube_sql_backticks_are_stripped() -> None:
@@ -353,40 +407,36 @@ def test_merge_entities_overlays_cloud_lineage_onto_core_structural() -> None:
         CubeEntity.from_cloud_entity(e)
         for e in CloudEntitiesResponse.model_validate(
             {
-                "data": {
-                    "entities": [
-                        {
-                            "type": "cube",
-                            "name": "orders",
-                            "table_references": [
-                                {"schema": "public", "table": "orders"}
-                            ],
-                            "cube_references": ["users"],
-                            "measures": [
-                                {
-                                    "name": "count",
-                                    "type": "count",
-                                    "column_references": [
-                                        {
-                                            "schema": "public",
-                                            "table": "orders",
-                                            "column": "id",
-                                        }
-                                    ],
-                                }
-                            ],
-                            "dimensions": [{"name": "status", "type": "string"}],
-                        },
-                        {
-                            "type": "cube",
-                            "name": "hidden_only_in_cloud",
-                            "measures": [],
-                            "dimensions": [],
-                        },
-                    ]
-                }
+                "data": [
+                    {
+                        "type": "cube",
+                        "name": "orders",
+                        "table_references": [{"schema": "public", "table": "orders"}],
+                        "cube_references": [{"cube": "users"}],
+                        "measures": [
+                            {
+                                "name": "count",
+                                "type": "count",
+                                "column_references": [
+                                    {
+                                        "schema": "public",
+                                        "table": "orders",
+                                        "column": "id",
+                                    }
+                                ],
+                            }
+                        ],
+                        "dimensions": [{"name": "status", "type": "string"}],
+                    },
+                    {
+                        "type": "cube",
+                        "name": "hidden_only_in_cloud",
+                        "measures": [],
+                        "dimensions": [],
+                    },
+                ]
             }
-        ).data.entities
+        ).data
     ]
 
     merged = {e.name: e for e in merge_entities(core, cloud)}
