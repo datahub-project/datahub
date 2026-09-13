@@ -921,10 +921,16 @@ def test_extract_dbt_entities() -> None:
         target_platform="dummy",
     )
     source = DBTCoreSource(config, ctx)
-    assert all(node.database is not None for node in source.loadManifestAndCatalog()[0])
+    nodes = source.loadManifestAndCatalog(
+        config.manifest_path, config.catalog_path, config.sources_path
+    )[0]
+    assert all(node.database is not None for node in nodes)
     config.include_database_name = False
     source = DBTCoreSource(config, ctx)
-    assert all(node.database is None for node in source.loadManifestAndCatalog()[0])
+    nodes = source.loadManifestAndCatalog(
+        config.manifest_path, config.catalog_path, config.sources_path
+    )[0]
+    assert all(node.database is None for node in nodes)
 
 
 def test_drop_duplicate_sources() -> None:
@@ -2899,7 +2905,7 @@ def test_create_test_entity_mcps_emits_assertion_ownership_from_test_owner():
 
     mcps = list(
         source.create_test_entity_mcps(
-            [test_node], {}, {"model.project.my_model": model_node}
+            [test_node], {"model.project.my_model": model_node}
         )
     )
 
@@ -2932,7 +2938,7 @@ def test_create_freshness_assertion_mcps_does_not_copy_source_owner():
         error_after=None,
     )
 
-    mcps = list(source.create_freshness_assertion_mcps([source_node], {}))
+    mcps = list(source.create_freshness_assertion_mcps([source_node]))
 
     assert not any(isinstance(mcp.aspect, OwnershipClass) for mcp in mcps)
 
@@ -2950,8 +2956,7 @@ def test_load_run_results_skips_generate():
     }
     nodes = [_make_dbt_node("model.project.my_model")]
     config = mock.MagicMock()
-    result = load_run_results(config, run_results_json, nodes)
-    assert result is nodes
+    load_run_results(config, run_results_json, {n.dbt_name: n for n in nodes})
     assert len(nodes[0].test_results) == 0
     assert len(nodes[0].model_performances) == 0
 
@@ -2996,7 +3001,11 @@ def test_load_run_results_with_test_and_model():
     model_node = _make_dbt_node("model.project.my_model")
 
     config = mock.MagicMock()
-    load_run_results(config, run_results_json, [test_node, model_node])
+    load_run_results(
+        config,
+        run_results_json,
+        {test_node.dbt_name: test_node, model_node.dbt_name: model_node},
+    )
 
     assert len(test_node.test_results) == 1
     assert test_node.test_results[0].status == "pass"
@@ -3031,7 +3040,7 @@ def test_load_run_results_failed_test():
     )
 
     config = mock.MagicMock()
-    load_run_results(config, run_results_json, [test_node])
+    load_run_results(config, run_results_json, {test_node.dbt_name: test_node})
 
     assert len(test_node.test_results) == 1
     tr = test_node.test_results[0]
@@ -3063,8 +3072,8 @@ def test_load_run_results_unknown_node_skipped():
         ],
     }
     config = mock.MagicMock()
-    result = load_run_results(config, run_results_json, [])
-    assert result == []
+    # No matching node: the result is dropped rather than raising.
+    load_run_results(config, run_results_json, {})
 
 
 def test_load_file_as_json_s3():
@@ -4030,7 +4039,6 @@ def test_dbt_meta_mapping_add_structured_property_model_level():
 
     aspects = source._generate_base_dbt_aspects(
         node,
-        additional_custom_props_filtered={},
         mce_platform="dbt",
         meta_aspects=meta_aspects,
     )
@@ -4075,7 +4083,6 @@ def test_dbt_meta_mapping_add_structured_property_disabled_when_meta_mapping_off
     )
     aspects = source._generate_base_dbt_aspects(
         node,
-        additional_custom_props_filtered={},
         mce_platform="dbt",
         meta_aspects={
             Constants.ADD_STRUCTURED_PROPERTY_OPERATION: pre_computed_sp_aspect,
@@ -4294,7 +4301,6 @@ def test_dbt_column_meta_processed_once_per_column_across_schema_and_sp():
     ):
         source._generate_base_dbt_aspects(
             node,
-            additional_custom_props_filtered={},
             mce_platform="dbt",
             meta_aspects={},
             column_meta_aspects=column_meta_aspects,

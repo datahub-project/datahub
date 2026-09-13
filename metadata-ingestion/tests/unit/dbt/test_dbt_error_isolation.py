@@ -305,7 +305,6 @@ def test_create_dbt_platform_mces_isolates_node_emission_failure(monkeypatch):
     workunits = list(
         source.create_dbt_platform_mces(
             dbt_nodes=[good, bad],
-            additional_custom_props_filtered={},
             all_nodes_map=all_nodes_map,
         )
     )
@@ -345,7 +344,6 @@ def test_create_dbt_platform_mces_partial_emission_before_failure(monkeypatch):
     workunits = list(
         source.create_dbt_platform_mces(
             dbt_nodes=[bad],
-            additional_custom_props_filtered={},
             all_nodes_map={bad.dbt_name: bad},
         )
     )
@@ -435,7 +433,6 @@ def test_create_test_entity_mcps_isolates_node_emission_failure(monkeypatch):
     mcps = list(
         source.create_test_entity_mcps(
             test_nodes=[good, bad],
-            extra_custom_props={},
             all_nodes_map=all_nodes_map,
         )
     )
@@ -476,9 +473,7 @@ def test_create_freshness_assertion_mcps_isolates_node_emission_failure(monkeypa
         fake_make_assertion_from_freshness,
     )
 
-    mcps = list(
-        source.create_freshness_assertion_mcps([good, bad], extra_custom_props={})
-    )
+    mcps = list(source.create_freshness_assertion_mcps([good, bad]))
 
     assert mcps, "good source's freshness assertion MCPs should still be produced"
     assert source.report.node_emission_failures == 1

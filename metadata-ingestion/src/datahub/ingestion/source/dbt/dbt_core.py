@@ -1,7 +1,10 @@
 import dataclasses
 import json
 import logging
-from typing import Any, Dict, List, Literal, Optional, Tuple, cast
+import os
+from datetime import datetime
+from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple, Union, cast
+from urllib.parse import urlparse
 
 from packaging import version
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -52,8 +55,35 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     parse_freshness_criteria,
 )
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
+from datahub.utilities.backpressure_aware_executor import BackpressureAwareExecutor
 
 logger = logging.getLogger(__name__)
+
+
+def _is_glob_pattern(path: str) -> bool:
+    """Whether a configured artifact path should be glob-expanded rather than read as-is.
+
+    Deliberately narrower than has_glob_characters, because two shapes carry those
+    characters without being patterns, and expanding either one matches nothing -
+    which would turn a previously working recipe into a run that quietly ingests
+    no assets.
+
+    An HTTP(S) URL's `?` opens its query string, which is where a presigned URL
+    carries its signature, so only the URL's path component can make it a pattern.
+    And a local file or directory may simply be named with them: `dbt[prod]` is a
+    legitimate directory name that fnmatch reads as a character class matching
+    nothing, so a path that already resolves literally is read literally.
+
+    The literal-path check does not extend to object stores: os.path.exists is
+    always False for an s3:// or gs:// URI, so those keep expanding. Recognising an
+    object key that literally contains glob characters would need an existence
+    probe against the store per path.
+    """
+    if is_http_uri(path):
+        return has_glob_characters(urlparse(path).path)
+    if not has_glob_characters(path):
+        return False
+    return not os.path.exists(path)
 
 
 @dataclasses.dataclass
@@ -61,24 +91,36 @@ class DBTCoreReport(DBTSourceReport):
     catalog_info: Optional[dict] = None
     manifest_info: Optional[dict] = None
     run_results_paths_expanded: Optional[List[str]] = None
+    manifests_loaded: int = 0
+    manifests_failed: int = 0
+    manifest_paths_expanded: Optional[List[str]] = None
 
 
 class DBTCoreConfig(DBTCommonConfig):
     manifest_path: str = Field(
         description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json. "
-        "This can be a local file or a URI."
+        "This can be a local file or a URI. "
+        "Glob patterns are supported for S3, GCS, and local paths "
+        "(e.g. 's3://bucket/dbt-artifacts/*/manifest.json', 'gs://bucket/dbt-artifacts/*/manifest.json', "
+        "or '/path/to/dbt-artifacts/*/manifest.json'), in which case every matched manifest is ingested as an "
+        "independent dbt project in a single run, and catalog.json and sources.json are resolved automatically "
+        "from each matched manifest's own directory.",
     )
     catalog_path: Optional[str] = Field(
         None,
         description="Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json. "
         "This file is optional, but highly recommended. Without it, some metadata like column info will be incomplete or missing. "
-        "This can be a local file or a URI.",
+        "This can be a local file or a URI. "
+        "Rejected when manifest_path is a glob pattern, since one catalog cannot be paired with many manifests; "
+        "the catalog is then read from each matched manifest's own directory instead.",
     )
     sources_path: Optional[str] = Field(
         default=None,
         description="Path to dbt sources JSON. See https://docs.getdbt.com/reference/artifacts/sources-json. "
         "If not specified, last-modified fields will not be populated. "
-        "This can be a local file or a URI.",
+        "This can be a local file or a URI. "
+        "Rejected when manifest_path is a glob pattern, since one sources file cannot be paired with many "
+        "manifests; it is then read from each matched manifest's own directory instead.",
     )
     run_results_paths: List[str] = Field(
         default=[],
@@ -95,6 +137,16 @@ class DBTCoreConfig(DBTCommonConfig):
         default=False,
         description="[experimental] If true, only include nodes that are also present in the catalog file. "
         "This is useful if you only want to include models that have been built by the associated run.",
+    )
+
+    artifact_read_concurrency: int = Field(
+        default=8,
+        ge=1,
+        description="Number of parallel reads used to fetch dbt artifact files when manifest_path "
+        "is a glob pattern. Peak memory grows with concurrency (roughly concurrency x the largest "
+        "project's raw artifact bytes), so lower this for estates with very large manifest or "
+        "catalog files. Set to 1 to read artifacts sequentially. Has no effect when manifest_path "
+        "is a single file.",
     )
 
     # Because we now also collect model performance metadata, the "test_results" field was renamed to "run_results".
@@ -143,6 +195,29 @@ class DBTCoreConfig(DBTCommonConfig):
         if gcs_uris and self.gcs_connection is None:
             raise ValueError(
                 f"Please provide gcs_connection configuration, since gs:// uris have been provided {gcs_uris}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def artifact_paths_must_not_be_set_with_globbed_manifest(self) -> "DBTCoreConfig":
+        if not _is_glob_pattern(self.manifest_path):
+            return self
+
+        conflicting = [
+            name
+            for name, value in (
+                ("catalog_path", self.catalog_path),
+                ("sources_path", self.sources_path),
+            )
+            if value is not None
+        ]
+        if conflicting:
+            raise ValueError(
+                f"{' and '.join(conflicting)} cannot be set when manifest_path is a glob "
+                f"pattern ({self.manifest_path}), because a single artifact path cannot be "
+                "paired with multiple manifests. When manifest_path is a glob, catalog.json "
+                "and sources.json are resolved automatically from each matched manifest's "
+                "own directory."
             )
         return self
 
@@ -229,6 +304,30 @@ def _extract_catalog_stats(
             logger.debug(f"Failed to parse num_bytes stat for {node_name}: {e}")
 
     return row_count, size_in_bytes
+
+
+_NOT_FOUND_ERROR_CODES = {"NoSuchKey", "NoSuchBucket", "NotFound", "404"}
+
+
+def _is_missing_file_error(err: Optional[BaseException]) -> bool:
+    """Whether a failed artifact read definitely means the file is not there.
+
+    A local read raises FileNotFoundError. Object-store reads all surface as the
+    same generic ValueError from read_file_as_bytes, but that wrapper preserves the
+    original botocore ClientError as __cause__, whose error code separates a
+    missing key from a genuinely ambiguous failure (permissions, throttling,
+    network). Without this split, an estate where many projects never run
+    `dbt docs generate` reports a benign absence as an alarming infrastructure
+    fault, once per project, on every run.
+    """
+    if isinstance(err, FileNotFoundError):
+        return True
+    response = getattr(getattr(err, "__cause__", None), "response", None)
+    if not isinstance(response, dict):
+        return False
+    code = str(response.get("Error", {}).get("Code", ""))
+    status = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+    return code in _NOT_FOUND_ERROR_CODES or status == 404
 
 
 def extract_dbt_entities(
@@ -448,6 +547,7 @@ def extract_dbt_entities(
 def extract_dbt_exposures(
     manifest_exposures: Dict[str, Dict[str, Any]],
     tag_prefix: str,
+    manifest_path: Optional[str] = None,
 ) -> List[DBTExposure]:
     """Extract dbt exposures from the manifest.json exposures section."""
     exposures = []
@@ -487,6 +587,7 @@ def extract_dbt_exposures(
                 meta=exposure_node.get("meta", {}),
                 dbt_package_name=exposure_node.get("package_name"),
                 dbt_file_path=exposure_node.get("original_file_path"),
+                manifest_path=manifest_path,
             )
         )
     return exposures
@@ -669,18 +770,23 @@ def _parse_model_run(
 def load_run_results(
     config: DBTCommonConfig,
     test_results_json: Dict[str, Any],
-    all_nodes: List[DBTNode],
-) -> List[DBTNode]:
+    all_nodes_map: Dict[str, DBTNode],
+) -> None:
+    """Attach one run_results file's test results and model performances to their nodes.
+
+    Takes the dbt_name -> node lookup rather than the node list, because the caller
+    loops this over every matched run_results file. Rebuilding the map per file cost
+    O(files x total_nodes) over the whole multi-project node union, and all but the
+    first build was wasted - the nodes are mutated in place.
+    """
     if test_results_json.get("args", {}).get("which") == "generate":
         logger.warning(
             "The run results file is from a `dbt docs generate` command, "
             "instead of a build/run/test command. Skipping this file."
         )
-        return all_nodes
+        return
 
     dbt_metadata = DBTRunMetadata.model_validate(test_results_json.get("metadata", {}))
-
-    all_nodes_map: Dict[str, DBTNode] = {x.dbt_name: x for x in all_nodes}
 
     results = test_results_json.get("results", [])
     for result in results:
@@ -712,8 +818,6 @@ def load_run_results(
 
             model_node.model_performances.append(model_performance)
 
-    return all_nodes
-
 
 @platform_name("dbt")
 @config_class(DBTCoreConfig)
@@ -726,6 +830,10 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
     def __init__(self, config: DBTCommonConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.report = DBTCoreReport()
+        # Artifact bytes (or the exception their read raised) prefetched for the
+        # project currently being processed, keyed by URI. Filled and consumed on
+        # the main thread only; see _load_artifact_json / _prefetch_in_order.
+        self._prefetched_artifacts: Dict[str, Union[bytes, Exception]] = {}
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -737,8 +845,36 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         test_report = TestConnectionReport()
         try:
             source_config = DBTCoreConfig.parse_obj_allow_extras(config_dict)
+            # A globbed manifest_path has to be expanded before anything can read
+            # it - the pattern itself is neither a file nor an object key. One
+            # matched manifest is enough: this validates credentials and
+            # reachability, not every project the glob will pick up.
+            expansion_report = DBTCoreReport()
+            manifest_paths = DBTCoreSource._expand_glob_path_with(
+                source_config.manifest_path, source_config, expansion_report
+            )
+            if not manifest_paths:
+                # Expansion yields nothing both when the object store refused the
+                # request - bad credentials, a missing bucket, a throttled listing -
+                # and when it succeeded over a prefix that holds no manifests. Those
+                # are different things to go fix, so the recorded failure detail is
+                # surfaced rather than flattened into "matched no files", which
+                # sends an operator looking in the wrong place.
+                expansion_failures = [
+                    f"{failure.message}: {'; '.join(failure.context)}"
+                    for failure in expansion_report.failures
+                ]
+                if expansion_failures:
+                    raise ValueError(
+                        f"Could not expand manifest_path glob "
+                        f"{source_config.manifest_path}: "
+                        + " | ".join(expansion_failures)
+                    )
+                raise ValueError(
+                    f"manifest_path matched no files: {source_config.manifest_path}"
+                )
             DBTCoreSource.load_file_as_json(
-                source_config.manifest_path,
+                manifest_paths[0],
                 source_config.aws_connection,
                 source_config.gcs_connection,
             )
@@ -767,8 +903,9 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         # forced decode("utf-8") had regressed on BOM-prefixed manifests.
         return json.loads(raw)
 
+    @staticmethod
     def _expand_cloud_glob(
-        self,
+        report: DBTCoreReport,
         path: str,
         connection: Optional[AwsConnectionConfig],
         scheme: str,
@@ -779,7 +916,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         # store_label is the user-facing storage name ("S3"/"GCS"); connection_field
         # is the recipe key that supplies credentials ("aws_connection"/"gcs_connection").
         if not connection:
-            self.report.failure(
+            report.failure(
                 title="Missing cloud connection for glob expansion",
                 message="Cloud connection is required for glob pattern",
                 context=f"{connection_field}: {path}",
@@ -788,7 +925,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         try:
             matched_paths = expand_object_store_glob(path, connection, scheme)
         except Exception as e:
-            self.report.failure(
+            report.failure(
                 title="Cloud glob expansion failed",
                 message="Failed to expand cloud glob pattern",
                 context=f"{store_label}: {path}",
@@ -796,7 +933,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             )
             return []
         if not matched_paths:
-            self.report.warning(
+            report.warning(
                 title="Cloud glob pattern matched no objects",
                 message="Glob pattern did not match any objects",
                 context=f"{store_label}: {path}",
@@ -808,124 +945,283 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             )
         return matched_paths
 
-    def _expand_run_results_paths(self) -> List[str]:
-        expanded_paths: List[str] = []
+    def _expand_glob_path(self, path: str) -> List[str]:
+        """Expand a single path that may contain glob characters.
 
-        for path in self.config.run_results_paths:
-            if not has_glob_characters(path):
-                expanded_paths.append(path)
-                continue
+        Returns [path] unchanged when there are no glob characters, so callers can
+        use this unconditionally. Results are sorted by the caller.
+        """
+        return self._expand_glob_path_with(path, self.config, self.report)
 
-            if is_s3_uri(path):
-                expanded_paths.extend(
-                    self._expand_cloud_glob(
-                        path,
-                        self.config.aws_connection,
-                        "s3",
-                        store_label="S3",
-                        connection_field="aws_connection",
-                    )
-                )
-            elif is_gcs_uri(path):
-                gcs_connection = self.config.gcs_connection
-                expanded_paths.extend(
-                    self._expand_cloud_glob(
-                        path,
-                        gcs_connection.s3_compatible_connection
-                        if gcs_connection
-                        else None,
-                        "gs",
-                        store_label="GCS",
-                        connection_field="gcs_connection",
-                    )
-                )
-            elif is_http_uri(path):
-                self.report.warning(
-                    title="Glob patterns not supported for HTTP(S) URIs",
-                    message="Glob patterns are not supported for HTTP(S) URIs, please provide explicit file paths",
+    @staticmethod
+    def _expand_glob_path_with(
+        path: str, config: DBTCoreConfig, report: DBTCoreReport
+    ) -> List[str]:
+        """Glob expansion with config and report passed in rather than taken off self.
+
+        test_connection is a staticmethod - it has a config but no source instance -
+        and must expand a globbed manifest_path the same way ingestion does, or it
+        reports a failure for a recipe that would ingest fine. Passing a throwaway
+        report keeps every diagnostic here intact for the ingestion path.
+        """
+        if not _is_glob_pattern(path):
+            return [path]
+
+        if is_s3_uri(path):
+            return DBTCoreSource._expand_cloud_glob(
+                report,
+                path,
+                config.aws_connection,
+                "s3",
+                store_label="S3",
+                connection_field="aws_connection",
+            )
+        elif is_gcs_uri(path):
+            gcs_connection = config.gcs_connection
+            return DBTCoreSource._expand_cloud_glob(
+                report,
+                path,
+                gcs_connection.s3_compatible_connection if gcs_connection else None,
+                "gs",
+                store_label="GCS",
+                connection_field="gcs_connection",
+            )
+        elif is_http_uri(path):
+            report.warning(
+                title="Glob patterns not supported for HTTP(S) URIs",
+                message="Glob patterns are not supported for HTTP(S) URIs, please provide explicit file paths",
+                context=path,
+            )
+            return []
+        else:
+            local_paths = expand_local_glob(path)
+            if not local_paths:
+                report.warning(
+                    title="Local glob pattern matched no files",
+                    message="Glob pattern did not match any local files",
                     context=path,
                 )
             else:
-                local_paths = expand_local_glob(path)
-                if not local_paths:
-                    self.report.warning(
-                        title="Local glob pattern matched no files",
-                        message="Glob pattern did not match any local files",
-                        context=path,
-                    )
-                else:
-                    logger.info(
-                        f"Local glob pattern '{path}' expanded to {len(local_paths)} file(s)"
-                    )
-                expanded_paths.extend(local_paths)
+                logger.info(
+                    f"Local glob pattern '{path}' expanded to {len(local_paths)} file(s)"
+                )
+            return local_paths
 
+    def _expand_run_results_paths(self) -> List[str]:
+        expanded_paths: List[str] = []
+        for path in self.config.run_results_paths:
+            # Config order is preserved: each glob is already sorted internally, and
+            # run_results files are appended per node, so the user's declared order
+            # (typically successive dbt invocations) is meaningful.
+            expanded_paths.extend(self._expand_glob_path(path))
         return expanded_paths
+
+    def _load_artifact_json(self, uri: str) -> Dict:
+        """Load one artifact, preferring bytes prefetched by _prefetch_in_order.
+
+        A prefetched Exception is the exact exception the inline read would have
+        raised (workers only capture, they never classify), so re-raising it here
+        keeps _is_missing_file_error and per-project failure isolation unchanged.
+        """
+        prefetched = self._prefetched_artifacts.pop(uri, None)
+        if prefetched is None:
+            return self.load_file_as_json(
+                uri, self.config.aws_connection, self.config.gcs_connection
+            )
+        if isinstance(prefetched, Exception):
+            raise prefetched
+        # json.loads on raw bytes sniffs the BOM, matching load_file_as_json.
+        return json.loads(prefetched)
+
+    def _fetch_artifact_group(
+        self, index: int, uris: List[str]
+    ) -> Tuple[int, Dict[str, Union[bytes, Exception]]]:
+        # Runs on a worker thread: fetch only - never parse, classify, or touch
+        # self.report. A failed read hands its exception back for the main thread
+        # to re-raise at the original call site.
+        fetched: Dict[str, Union[bytes, Exception]] = {}
+        for uri in uris:
+            try:
+                fetched[uri] = read_file_as_bytes(
+                    uri, self.config.aws_connection, self.config.gcs_connection
+                )
+            except Exception as e:
+                fetched[uri] = e
+        return index, fetched
+
+    def _prefetch_in_order(
+        self, uri_groups: List[List[str]], concurrency: int
+    ) -> Iterator[Dict[str, Union[bytes, Exception]]]:
+        """Fetch each group's files on a bounded pool, yielding groups in input order.
+
+        BackpressureAwareExecutor completes out of order, so a small reorder
+        buffer (bounded by its max_pending) restores input order; in-flight raw
+        bytes stay bounded at roughly 2 x concurrency groups.
+        """
+        buffered: Dict[int, Dict[str, Union[bytes, Exception]]] = {}
+        next_index = 0
+        for future in BackpressureAwareExecutor.map(
+            self._fetch_artifact_group,
+            [(index, uris) for index, uris in enumerate(uri_groups)],
+            max_workers=concurrency,
+            max_pending=concurrency,
+        ):
+            index, fetched = future.result()
+            buffered[index] = fetched
+            while next_index in buffered:
+                yield buffered.pop(next_index)
+                next_index += 1
+
+    def _maybe_prefetch(
+        self, uri_groups: List[List[str]], *, enabled: bool
+    ) -> Optional[Iterator[Dict[str, Union[bytes, Exception]]]]:
+        concurrency = min(self.config.artifact_read_concurrency, len(uri_groups))
+        if not enabled or concurrency <= 1:
+            return None
+        return self._prefetch_in_order(uri_groups, concurrency)
+
+    def _load_optional_artifact_json(
+        self, path: Optional[str], *, optional_artifacts: bool
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[Exception]]:
+        """Load catalog.json or sources.json, tolerating absence when optional.
+
+        Returns (json, None) if path is None or the load succeeded. If the load
+        fails, returns (None, exception) when optional_artifacts is True (a
+        glob-derived sibling guess) and re-raises when False (an
+        explicitly-configured path is a real misconfiguration). A file that
+        exists but cannot be decoded or parsed always raises either way - only
+        "not found" is ever treated as absence. The caught exception is handed back so the
+        caller can classify it with _is_missing_file_error.
+        """
+        if path is None:
+            return None, None
+        try:
+            return self._load_artifact_json(path), None
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            # A file that exists but cannot be decoded is corrupt, never missing.
+            # UnicodeDecodeError is a ValueError subclass but not a JSONDecodeError,
+            # so without naming it here invalid UTF-8 was caught below and reported
+            # as "no catalog file found" - silently ingesting the project with no
+            # column metadata.
+            raise
+        except (OSError, ValueError) as e:
+            # OSError, not just FileNotFoundError: a local read also raises
+            # PermissionError or IsADirectoryError, and on an object store the
+            # identical fault arrives as a ValueError from read_file_as_bytes. Both
+            # must reach the caller's warn-and-continue path, or the same fault
+            # fails the whole project locally while only warning on S3/GCS.
+            if not optional_artifacts:
+                raise
+            return None, e
 
     def loadManifestAndCatalog(
         self,
-    ) -> Tuple[
-        List[DBTNode],
-        Optional[str],
-        Optional[str],
-        Optional[str],
-        Optional[str],
-        Optional[str],
-    ]:
-        dbt_manifest_json = self.load_file_as_json(
-            self.config.manifest_path,
-            self.config.aws_connection,
-            self.config.gcs_connection,
-        )
-        dbt_manifest_metadata = dbt_manifest_json["metadata"]
-        self.report.manifest_info = dict(
-            generated_at=dbt_manifest_metadata.get("generated_at", "unknown"),
-            dbt_version=dbt_manifest_metadata.get("dbt_version", "unknown"),
-            project_name=dbt_manifest_metadata.get("project_name", "unknown"),
-        )
+        manifest_path: str,
+        catalog_path: Optional[str],
+        sources_path: Optional[str],
+        *,
+        optional_artifacts: bool = False,
+    ) -> Tuple[List[DBTNode], Optional[str]]:
+        """Load one project's manifest/catalog/sources.
 
-        dbt_catalog_json = None
+        optional_artifacts distinguishes two callers: a single, explicitly-configured
+        project (default, False) where a missing catalog_path/sources_path is a real
+        misconfiguration and must fail loudly, versus a glob-derived sibling guess
+        (True) where the file simply not existing beside this particular manifest is
+        expected and must warn rather than fail.
+        """
+        dbt_manifest_json = self._load_artifact_json(manifest_path)
+        dbt_manifest_metadata = dbt_manifest_json["metadata"]
+        if not optional_artifacts:
+            # manifest_info/catalog_info are single report-level fields, so in glob
+            # mode "last project wins" would misrepresent the whole run as one
+            # project's data. manifest_paths_expanded already lists every project.
+            self.report.manifest_info = dict(
+                generated_at=dbt_manifest_metadata.get("generated_at", "unknown"),
+                dbt_version=dbt_manifest_metadata.get("dbt_version", "unknown"),
+                project_name=dbt_manifest_metadata.get("project_name", "unknown"),
+            )
+
+        dbt_catalog_json, catalog_load_error = self._load_optional_artifact_json(
+            catalog_path, optional_artifacts=optional_artifacts
+        )
         dbt_catalog_metadata = None
-        if self.config.catalog_path is not None:
-            dbt_catalog_json = self.load_file_as_json(
-                self.config.catalog_path,
-                self.config.aws_connection,
-                self.config.gcs_connection,
-            )
+        # This project's catalog generated_at, stamped onto each node below
+        # (per-project, like artifact_props) rather than kept on the report, since
+        # the report has only one slot and a multi-project run has one catalog per
+        # project.
+        catalog_generated_at: Optional[datetime] = None
+        if dbt_catalog_json is not None:
             dbt_catalog_metadata = dbt_catalog_json.get("metadata", {})
-            self.report.catalog_info = dict(
-                generated_at=dbt_catalog_metadata.get("generated_at", "unknown"),
-                dbt_version=dbt_catalog_metadata.get("dbt_version", "unknown"),
-                project_name=dbt_catalog_metadata.get("project_name", "unknown"),
-            )
+            if not optional_artifacts:
+                self.report.catalog_info = dict(
+                    generated_at=dbt_catalog_metadata.get("generated_at", "unknown"),
+                    dbt_version=dbt_catalog_metadata.get("dbt_version", "unknown"),
+                    project_name=dbt_catalog_metadata.get("project_name", "unknown"),
+                )
             # Parse and store catalog's generated_at for use in DatasetProfile timestamps
             if generated_at_str := dbt_catalog_metadata.get("generated_at"):
                 try:
-                    self.report.catalog_generated_at = parse_dbt_timestamp(
-                        generated_at_str
-                    )
+                    catalog_generated_at = parse_dbt_timestamp(generated_at_str)
                 except Exception:
                     logger.debug(
                         f"Failed to parse catalog generated_at: {generated_at_str}"
                     )
-        else:
+        elif catalog_path is None:
             self.report.warning(
                 title="No catalog file configured",
                 message="Some metadata, particularly schema information, will be missing.",
             )
-
-        sources_invocation_id = None
-        if self.config.sources_path is not None:
-            dbt_sources_json = self.load_file_as_json(
-                self.config.sources_path,
-                self.config.aws_connection,
-                self.config.gcs_connection,
+        elif _is_missing_file_error(catalog_load_error):
+            # catalog_path was a glob-derived sibling guess, and the file is
+            # definitely not there - a project that never ran `dbt docs generate`.
+            self.report.warning(
+                title="No catalog file found for project",
+                message="This dbt project has no catalog.json beside its manifest; "
+                "some metadata, particularly schema information, will be missing.",
+                context=manifest_path,
             )
+        else:
+            # catalog_path was a glob-derived sibling guess, and the read failed
+            # for a reason that does not establish absence - permissions,
+            # throttling, a transient network error - so don't claim the file is
+            # missing.
+            self.report.warning(
+                title="Could not read catalog file for project",
+                message="Failed to read this project's catalog.json, and the failure "
+                "does not indicate the file is absent (e.g. permissions, throttling, "
+                "network). Some metadata, particularly schema information, will be "
+                "missing.",
+                context=f"{manifest_path}: {catalog_load_error}",
+            )
+
+        dbt_sources_json, sources_load_error = self._load_optional_artifact_json(
+            sources_path, optional_artifacts=optional_artifacts
+        )
+        sources_invocation_id = None
+        sources_results: List[Dict[str, Any]] = []
+        if dbt_sources_json is not None:
             sources_results = dbt_sources_json["results"]
             sources_invocation_id = dbt_sources_json.get("metadata", {}).get(
                 "invocation_id"
             )
-        else:
-            sources_results = {}
+        elif sources_path is not None and _is_missing_file_error(sources_load_error):
+            # sources_path was a glob-derived sibling guess, and the file is
+            # definitely not there - see the catalog.json warning above.
+            self.report.warning(
+                title="No sources file found for project",
+                message="This dbt project has no sources.json beside its manifest; "
+                "last-modified fields will not be populated.",
+                context=manifest_path,
+            )
+        elif sources_path is not None and sources_load_error is not None:
+            self.report.warning(
+                title="Could not read sources file for project",
+                message="Failed to read this project's sources.json, and the failure "
+                "does not indicate the file is absent (e.g. permissions, throttling, "
+                "network). Last-modified fields will not be populated.",
+                context=f"{manifest_path}: {sources_load_error}",
+            )
 
         manifest_schema = dbt_manifest_json["metadata"].get("dbt_schema_version")
         manifest_version = dbt_manifest_json["metadata"].get("dbt_version")
@@ -951,6 +1247,18 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
             all_catalog_entities = {**catalog_nodes, **catalog_sources}
 
+        artifact_props: Dict[str, str] = {
+            key: value
+            for key, value in {
+                "manifest_schema": manifest_schema,
+                "manifest_version": manifest_version,
+                "manifest_adapter": manifest_adapter,
+                "catalog_schema": catalog_schema,
+                "catalog_version": catalog_version,
+            }.items()
+            if value is not None
+        }
+
         nodes = extract_dbt_entities(
             all_manifest_entities=all_manifest_entities,
             all_catalog_entities=all_catalog_entities,
@@ -964,10 +1272,12 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             sources_invocation_id=sources_invocation_id,
         )
 
-        # Extract exposures from manifest
-        self._exposures = extract_dbt_exposures(
+        # Held locally until this project's extraction has fully succeeded - see the
+        # extend below.
+        project_exposures = extract_dbt_exposures(
             manifest_exposures=manifest_exposures,
             tag_prefix=self.config.tag_prefix,
+            manifest_path=manifest_path,
         )
 
         # Extract semantic models from manifest (dbt 1.6+)
@@ -982,32 +1292,72 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 tag_prefix=self.config.tag_prefix,
             )
             nodes.extend(semantic_model_nodes)
-            self.report.num_semantic_models_emitted = len(semantic_model_nodes)
+            self.report.num_semantic_models_emitted += len(semantic_model_nodes)
             if semantic_model_nodes:
                 logger.info(
                     f"Extracted {len(semantic_model_nodes)} semantic models from manifest"
                 )
 
-        return (
-            nodes,
-            manifest_schema,
-            manifest_version,
-            manifest_adapter,
-            catalog_schema,
-            catalog_version,
+        # Stamp every node - regardless of which extractor produced it - with this
+        # project's artifact provenance, manifest path, and catalog timestamp in one
+        # place. This is the single authoritative site, so a future extractor can't
+        # silently ship provenance-less nodes the way extract_semantic_models once did.
+        manifest_generated_at = dbt_manifest_metadata.get("generated_at")
+        for node in nodes:
+            node.artifact_props = artifact_props
+            node.manifest_path = manifest_path
+            node.catalog_generated_at = catalog_generated_at
+            node.manifest_generated_at = manifest_generated_at
+
+        # Only now, once every extractor for this project has succeeded. Accumulate
+        # rather than overwrite: this method runs once per project under fan-out and
+        # self._exposures is read once at emit time (load_exposures), so overwriting
+        # would drop every project's exposures but the last. Extending earlier would
+        # break the other half of the guarantee - a project skipped by the
+        # per-project failure handler would still have its exposures emitted, since
+        # they were already on self.
+        self._exposures.extend(project_exposures)
+
+        return nodes, catalog_version
+
+    @staticmethod
+    def _sibling_artifact_path(manifest_path: str, filename: str) -> str:
+        """Resolve an artifact that sits beside the manifest.
+
+        dbt writes manifest.json, catalog.json, and sources.json into a single
+        target/ directory, so co-location is dbt's own layout rather than a
+        convention we impose. os.path.dirname is used to strip the filename because
+        it recognises both separators, so a backslash path from glob.glob on Windows
+        resolves as correctly as a POSIX path. The result is always rejoined with a
+        forward slash, which every OS accepts and which object-store URIs require.
+        """
+        prefix = os.path.dirname(manifest_path)
+        return f"{prefix}/{filename}" if prefix else filename
+
+    def _load_project_nodes(
+        self,
+        manifest_path: str,
+        catalog_path: Optional[str],
+        sources_path: Optional[str],
+        *,
+        optional_artifacts: bool,
+    ) -> List[DBTNode]:
+        """Load one project's manifest/catalog/sources and return its nodes.
+
+        The raw JSON for this project goes out of scope on return, so fanning out
+        over many projects keeps peak memory at one project's artifacts rather
+        than the whole estate's.
+        """
+        nodes, catalog_version = self.loadManifestAndCatalog(
+            manifest_path,
+            catalog_path,
+            sources_path,
+            optional_artifacts=optional_artifacts,
         )
+        self.report.manifests_loaded += 1
 
-    def load_nodes(self) -> Tuple[List[DBTNode], Dict[str, Optional[str]]]:
-        (
-            all_nodes,
-            manifest_schema,
-            manifest_version,
-            manifest_adapter,
-            catalog_schema,
-            catalog_version,
-        ) = self.loadManifestAndCatalog()
-
-        # If catalog_version is between 1.7.0 and 1.7.2, report a warning.
+        # If catalog_version is between 1.7.0 and 1.7.2, report a warning. This is
+        # per-project because a multi-project run can mix dbt versions across projects.
         try:
             if (
                 catalog_version
@@ -1031,29 +1381,114 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 exc=e,
             )
 
-        additional_custom_props = {
-            "manifest_schema": manifest_schema,
-            "manifest_version": manifest_version,
-            "manifest_adapter": manifest_adapter,
-            "catalog_schema": catalog_schema,
-            "catalog_version": catalog_version,
-        }
+        return nodes
+
+    def load_nodes(self) -> List[DBTNode]:
+        manifest_paths = sorted(self._expand_glob_path(self.config.manifest_path))
+        is_multi_project = _is_glob_pattern(self.config.manifest_path)
+        if is_multi_project:
+            self.report.manifest_paths_expanded = manifest_paths
+            if not manifest_paths:
+                # The manifest is the one mandatory dbt artifact - a missing literal
+                # manifest_path already raises - so a pattern that matches none of
+                # them is a failure, matching test_connection on the same recipe. As
+                # a warning this produced a green run with zero assets, and left mass
+                # soft-deletion to the stale-entity handler's generic fail-safe, whose
+                # error never names the glob. A failure suppresses soft-deletion here.
+                self.report.failure(
+                    title="manifest_path glob matched no files",
+                    message="The globbed manifest_path matched no manifests, so no "
+                    "dbt project could be ingested. Check the pattern and that the "
+                    "artifacts it points at exist.",
+                    context=self.config.manifest_path,
+                )
+                return []
+
+        project_paths: List[Tuple[str, Optional[str], Optional[str]]] = []
+        for manifest_path in manifest_paths:
+            catalog_path: Optional[str]
+            sources_path: Optional[str]
+            if is_multi_project:
+                # No existence probe: pass the sibling guess straight through and let
+                # loadManifestAndCatalog's single load site handle absence. Probing
+                # first would read and parse catalog.json/sources.json twice per
+                # project - for wide schemas catalog.json is the largest dbt artifact,
+                # and at this feature's scale (many projects, often on S3) that
+                # doubles the dominant cost of the run.
+                catalog_path = self._sibling_artifact_path(
+                    manifest_path, "catalog.json"
+                )
+                sources_path = self._sibling_artifact_path(
+                    manifest_path, "sources.json"
+                )
+            else:
+                catalog_path = self.config.catalog_path
+                sources_path = self.config.sources_path
+            project_paths.append((manifest_path, catalog_path, sources_path))
+
+        # Overlap the per-project artifact reads (the dominant cost on object
+        # stores) while keeping processing order, reporting, and error
+        # classification identical to the sequential path.
+        prefetched_projects = self._maybe_prefetch(
+            [[path for path in paths if path is not None] for paths in project_paths],
+            enabled=is_multi_project,
+        )
+
+        all_nodes: List[DBTNode] = []
+        for manifest_path, catalog_path, sources_path in project_paths:
+            if prefetched_projects is not None:
+                self._prefetched_artifacts = next(prefetched_projects)
+
+            try:
+                project_nodes = self._load_project_nodes(
+                    manifest_path,
+                    catalog_path,
+                    sources_path,
+                    optional_artifacts=is_multi_project,
+                )
+            except MemoryError:
+                # Per-project isolation exists to contain one project's bad artifacts.
+                # Exhausted memory is not contained by it: every remaining project
+                # would be fetched and parsed into the same exhausted process, so
+                # continuing produces a run that is slower and no more complete.
+                raise
+            except Exception as e:
+                # In single-project mode, a bad manifest fails the run exactly as it
+                # always has. In glob mode, one broken project shouldn't take down
+                # ingestion of every other matched project.
+                if not is_multi_project:
+                    raise
+                self.report.manifests_failed += 1
+                self.report.failure(
+                    title="Failed to load dbt project",
+                    message="Failed to load one dbt project matched by the globbed manifest_path; skipping it",
+                    context=manifest_path,
+                    exc=e,
+                )
+                continue
+
+            all_nodes.extend(project_nodes)
 
         expanded_run_results_paths = self._expand_run_results_paths()
         if expanded_run_results_paths:
             self.report.run_results_paths_expanded = expanded_run_results_paths
-        for run_results_path in expanded_run_results_paths:
-            all_nodes = load_run_results(
-                self.config,
-                self.load_file_as_json(
-                    run_results_path,
-                    self.config.aws_connection,
-                    self.config.gcs_connection,
-                ),
-                all_nodes,
+            prefetched_run_results = self._maybe_prefetch(
+                [[path] for path in expanded_run_results_paths],
+                enabled=is_multi_project,
             )
+            # Built once, not per file: load_run_results mutates nodes in place, so a
+            # per-file rebuild over the whole node union was pure waste.
+            nodes_by_name = {node.dbt_name: node for node in all_nodes}
+            for run_results_path in expanded_run_results_paths:
+                if prefetched_run_results is not None:
+                    self._prefetched_artifacts = next(prefetched_run_results)
+                load_run_results(
+                    self.config,
+                    self._load_artifact_json(run_results_path),
+                    nodes_by_name,
+                )
 
-        return all_nodes, additional_custom_props
+        return all_nodes
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
         nodes = super()._filter_nodes(all_nodes)
