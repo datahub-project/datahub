@@ -184,6 +184,22 @@ def test_warehouse_id_auto_disables_tags_when_missing():
     assert config.warehouse_id is None
 
 
+def test_data_quality_auto_disabled_without_warehouse():
+    """data_quality requires a SQL warehouse, so it is auto-disabled when missing."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_tags": False,
+            "data_quality": {"enabled": True},
+            # warehouse_id is missing
+        }
+    )
+    assert config.data_quality.enabled is False
+    assert config.warehouse_id is None
+
+
 def test_warehouse_id_not_required_when_tags_disabled():
     """Test that warehouse_id is not required when include_tags=False."""
     config = UnityCatalogSourceConfig.model_validate(

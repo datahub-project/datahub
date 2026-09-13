@@ -1,4 +1,4 @@
-from unittest.mock import ANY, patch
+from unittest.mock import ANY, Mock, patch
 
 import pytest
 from databricks.sdk.service.catalog import TableType
@@ -164,6 +164,56 @@ class TestUnityCatalogSource:
             usage_data_source=config.usage_data_source,
             databricks_api_page_size=200,
         )
+
+    @staticmethod
+    def _dq_source(mock_unity_proxy):
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                "data_quality": {"enabled": True},
+            }
+        )
+        source = UnityCatalogSource.create(config, PipelineContext(run_id="test_run"))
+        source.dq_tables = {"my_catalog.my_schema.my_table": object()}  # type: ignore[assignment]
+        return source
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogDataQualityExtractor")
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_data_quality_stage_runs_extractor_when_warehouse_starts(
+        self, mock_hive_proxy, mock_unity_proxy, mock_extractor
+    ):
+        source = self._dq_source(mock_unity_proxy)
+        source.unity_catalog_api_proxy.start_warehouse.return_value = Mock()
+        sentinel = Mock()
+        mock_extractor.return_value.get_workunits.return_value = [sentinel]
+
+        workunits = list(source._gen_data_quality_workunits())
+
+        assert workunits == [sentinel]
+        source.unity_catalog_api_proxy.start_warehouse.return_value.result.assert_called_once()
+        mock_extractor.return_value.get_workunits.assert_called_once()
+        (passed_tables,) = mock_extractor.return_value.get_workunits.call_args.args
+        assert list(passed_tables) == list(source.dq_tables.values())
+        assert not source.report.failures
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogDataQualityExtractor")
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_data_quality_stage_reports_failure_when_no_warehouse(
+        self, mock_hive_proxy, mock_unity_proxy, mock_extractor
+    ):
+        source = self._dq_source(mock_unity_proxy)
+        source.unity_catalog_api_proxy.start_warehouse.return_value = None
+
+        workunits = list(source._gen_data_quality_workunits())
+
+        assert workunits == []
+        mock_extractor.assert_not_called()
+        assert len(list(source.report.failures)) == 1
 
     def test_test_connection_with_page_size_config(self):
         """Test that test_connection properly handles databricks_api_page_size."""

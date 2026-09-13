@@ -87,6 +87,9 @@ from datahub.ingestion.source.unity.config import (
 )
 from datahub.ingestion.source.unity.connection import create_workspace_client
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
+from datahub.ingestion.source.unity.data_quality import (
+    UnityCatalogDataQualityExtractor,
+)
 from datahub.ingestion.source.unity.ge_profiler import UnityCatalogGEProfiler
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
@@ -457,6 +460,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
+        # Separate map for data-quality extraction so enabling it never widens the
+        # set of tables the profiler consumes (the profiler doesn't re-apply
+        # profiling.pattern to this map).
+        self.dq_tables: FileBackedDict[Table] = FileBackedDict()
         if self.ctx.graph:
             self.platform_resource_repository = UnityCatalogPlatformResourceRepository(
                 self.ctx.graph, platform_instance=self.platform_instance_name
@@ -581,20 +588,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage("Ingestion Setup"):
-            wait_on_warehouse = None
             if self.config.include_hive_metastore:
-                with self.report.new_stage("Start warehouse"):
-                    # Can take several minutes, so start now and wait later
-                    wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
-                    if wait_on_warehouse is None:
-                        self.report.failure(
-                            message="SQL warehouse not found",
-                            context=f"SQL warehouse {self.config.profiling.warehouse_id} not found",
-                        )
-                        return
-                    else:
-                        # wait until warehouse is started
-                        wait_on_warehouse.result()
+                # Hive metastore extraction needs a running warehouse.
+                if not self._start_warehouse_or_report(
+                    f"SQL warehouse {self.config.profiling.warehouse_id} not found"
+                ):
+                    return
 
         if self.config.include_ownership:
             with self.report.new_stage("Ingest service principals"):
@@ -630,20 +629,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         if self.config.is_profiling_enabled():
-            with self.report.new_stage("Start warehouse"):
-                # Need to start the warehouse again for profiling,
-                # as it may have been stopped after ingestion might take
-                # longer time to complete
-                wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
-                if wait_on_warehouse is None:
-                    self.report.failure(
-                        message="SQL warehouse not found",
-                        context=f"SQL warehouse {self.config.profiling.warehouse_id} not found",
-                    )
-                    return
-                else:
-                    # wait until warehouse is started
-                    wait_on_warehouse.result()
+            # Start the warehouse again for profiling; it may have been stopped after
+            # ingestion if that took a while.
+            if not self._start_warehouse_or_report(
+                f"SQL warehouse {self.config.profiling.warehouse_id} not found"
+            ):
+                return
 
             with self.report.new_stage("Profiling"):
                 if isinstance(self.config.profiling, UnityCatalogAnalyzeProfilerConfig):
@@ -670,6 +661,40 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     ).get_workunits(list(self.tables.values()))
                 else:
                     raise ValueError("Unknown profiling config method")
+
+        if self.config.data_quality.enabled:
+            yield from self._gen_data_quality_workunits()
+
+    def _start_warehouse_or_report(self, failure_context: str) -> bool:
+        # Starting the SQL warehouse can take minutes; every warehouse-gated stage
+        # shares this start / not-found-failure / wait sequence. Returns False after
+        # reporting a failure when no warehouse is available, so the caller bails out.
+        with self.report.new_stage("Start warehouse"):
+            wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
+            if wait_on_warehouse is None:
+                self.report.failure(
+                    message="SQL warehouse not found",
+                    context=failure_context,
+                )
+                return False
+            wait_on_warehouse.result()
+            return True
+
+    def _gen_data_quality_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if not self._start_warehouse_or_report(
+            "Data quality assertions require a SQL warehouse"
+        ):
+            return
+
+        with self.report.new_stage("Ingest data quality"):
+            dq_extractor = UnityCatalogDataQualityExtractor(
+                config=self.config.data_quality,
+                report=self.report,
+                proxy=self.unity_catalog_api_proxy,
+                dataset_urn_builder=self.gen_dataset_urn,
+                end_time=self.config.end_time,
+            )
+            yield from dq_extractor.get_workunits(self.dq_tables.values())
 
     def build_service_principal_map(self) -> None:
         try:
@@ -859,15 +884,19 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 continue
 
-            if (
+            profiled_here = (
                 self.config.is_profiling_enabled()
                 and self.config.uses_table_level_profiler()
                 and self.config.profiling.pattern.allowed(
                     table.ref.qualified_table_name
                 )
-                and not table.is_view
-            ):
+            )
+            if profiled_here and not table.is_view:
                 self.tables[table.ref.qualified_table_name] = table
+            # Data quality needs the resolved Table objects (for table_id) at a later
+            # stage; keep it separate from the profiler's table set above.
+            if self.config.data_quality.enabled and not table.is_view:
+                self.dq_tables[table.ref.qualified_table_name] = table
 
             if table.is_view:
                 self.view_refs.add(table.ref)
