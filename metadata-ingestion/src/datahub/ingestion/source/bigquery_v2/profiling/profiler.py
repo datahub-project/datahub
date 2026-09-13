@@ -812,6 +812,21 @@ class BigqueryProfiler(GenericProfiler):
                 )
                 return None
 
+            if (
+                partition_filters
+                and not self.config.profiling.partition_profiling_enabled
+            ):
+                # Mirror get_batch_kwargs: crawl metadata didn't mark this external table
+                # partitioned (so it passed get_profile_request's up-front skip), but
+                # deferred discovery found partition filters. Honor
+                # partition_profiling_enabled=False by skipping it rather than emitting
+                # partition-filtered SQL.
+                logger.info(f"Skipping partition profiling (disabled): {table_ref}")
+                self.report.profiling_skipped_partition_profiling_disabled.append(
+                    table_ref
+                )
+                return None
+
             partition_where = ""
             if partition_filters:
                 validated_filters = validate_and_filter_expressions(
