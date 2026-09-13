@@ -71,6 +71,16 @@ describe('MFEBaseConfigurablePage', () => {
         vi.clearAllMocks();
     });
 
+    const renderPage = (yaml: any, loadTimeoutMs?: number) => {
+        render(
+            <MemoryRouter>
+                <ThemeProvider theme={sampleTheme as any}>
+                    <MFEBaseConfigurablePage config={yaml} loadTimeoutMs={loadTimeoutMs} />
+                </ThemeProvider>
+            </MemoryRouter>,
+        );
+    };
+
     it('renders the container div', () => {
         const yaml = validParsedYaml.microFrontends[0];
         render(
@@ -92,13 +102,7 @@ describe('MFEBaseConfigurablePage', () => {
         unwrapModuleMock.mockResolvedValue({ mount: mountFn });
 
         await act(async () => {
-            render(
-                <MemoryRouter>
-                    <ThemeProvider theme={sampleTheme as any}>
-                        <MFEBaseConfigurablePage config={yaml} />
-                    </ThemeProvider>
-                </MemoryRouter>,
-            );
+            renderPage(yaml);
         });
         const container = screen.getByTestId('mfe-configurable-container');
         expect(container).toBeInTheDocument();
@@ -111,13 +115,7 @@ describe('MFEBaseConfigurablePage', () => {
         unwrapModuleMock.mockResolvedValue({ mount: mountFn });
 
         await act(async () => {
-            render(
-                <MemoryRouter>
-                    <ThemeProvider theme={sampleTheme as any}>
-                        <MFEBaseConfigurablePage config={yaml} />
-                    </ThemeProvider>
-                </MemoryRouter>,
-            );
+            renderPage(yaml);
         });
 
         const container = screen.getByTestId('mfe-configurable-container');
@@ -133,17 +131,11 @@ describe('MFEBaseConfigurablePage', () => {
 
         vi.useFakeTimers();
 
-        render(
-            <MemoryRouter>
-                <ThemeProvider theme={sampleTheme as any}>
-                    <MFEBaseConfigurablePage config={yaml} />
-                </ThemeProvider>
-            </MemoryRouter>,
-        );
+        renderPage(yaml);
 
         // Advance timers to trigger timeout
         act(() => {
-            vi.advanceTimersByTime(5000);
+            vi.advanceTimersByTime(10000);
         });
 
         // Wait for the error message to appear with a timeout
@@ -156,6 +148,64 @@ describe('MFEBaseConfigurablePage', () => {
 
         vi.useRealTimers();
     }, 10000); // Increase test timeout
+
+    it('uses the loadTimeoutMs resolved from the MFE config yaml as the remote load timeout', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        // Mock getRemote to never resolve so only the timeout can settle the race
+        getRemoteMock.mockImplementation(() => new Promise(() => {}));
+        unwrapModuleMock.mockResolvedValue({});
+
+        vi.useFakeTimers();
+
+        renderPage(yaml, 1000);
+
+        // Just under the configured timeout: no error yet
+        await act(async () => {
+            vi.advanceTimersByTime(999);
+        });
+        expect(screen.queryByText(`${yaml.label} is not available at this time`)).toBeNull();
+
+        // Crossing the configured timeout triggers the error state well before the 10000ms default
+        act(() => {
+            vi.advanceTimersByTime(1);
+        });
+        await vi.waitFor(
+            () => {
+                expect(screen.getByText(`${yaml.label} is not available at this time`)).toBeInTheDocument();
+            },
+            { timeout: 1000 },
+        );
+
+        vi.useRealTimers();
+    }, 10000);
+
+    it('falls back to a 10000ms load timeout when the yaml specifies no loadTimeoutMs', async () => {
+        const yaml = validParsedYaml.microFrontends[0];
+        getRemoteMock.mockImplementation(() => new Promise(() => {}));
+        unwrapModuleMock.mockResolvedValue({});
+
+        vi.useFakeTimers();
+
+        renderPage(yaml, undefined);
+
+        // Just under the default timeout: no error yet
+        await act(async () => {
+            vi.advanceTimersByTime(9999);
+        });
+        expect(screen.queryByText(`${yaml.label} is not available at this time`)).toBeNull();
+
+        act(() => {
+            vi.advanceTimersByTime(1);
+        });
+        await vi.waitFor(
+            () => {
+                expect(screen.getByText(`${yaml.label} is not available at this time`)).toBeInTheDocument();
+            },
+            { timeout: 1000 },
+        );
+
+        vi.useRealTimers();
+    }, 10000);
 
     it('shows error UI when enabled flag is false', async () => {
         const yaml = {
