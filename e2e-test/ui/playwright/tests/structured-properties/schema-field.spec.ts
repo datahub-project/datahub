@@ -123,8 +123,11 @@ test.describe('Schema Field Structured Properties', () => {
     await structuredPropertiesPage.confirmModalAction();
 
     await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_REMOVED);
-    // Check that the specific property is gone by verifying its name is not in the drawer
-    await structuredPropertiesPage.expectDrawerNotContains(propertyName);
+    // Check that the specific property is gone by verifying its name is not in the drawer.
+    // The two-phase schema load now issues two sequential awaited refetches on removal
+    // (structural + full metadata) instead of one, so give the default 5s assert timeout
+    // 50% more headroom to let both round-trips settle before asserting.
+    await structuredPropertiesPage.expectDrawerNotContains(propertyName, 7500);
 
     cleanup.track(propertyUrn);
   });
