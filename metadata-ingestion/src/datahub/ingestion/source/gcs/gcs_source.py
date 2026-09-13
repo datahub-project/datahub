@@ -167,6 +167,17 @@ class GCSSourceConfig(
         default=DataLakeProfilerConfig(), description="Data profiling configuration"
     )
 
+    infer_schema: bool = Field(
+        default=True,
+        description=(
+            "Whether to infer schema from sampled files and emit a `schemaMetadata` aspect. "
+            "When set to `False`, the source will skip schema inference entirely and not emit "
+            "a `schemaMetadata` aspect for any dataset, leaving any existing schema (e.g. "
+            "written by a separate, schema-aware pipeline) untouched. All other aspects "
+            "(properties, partitions, containers, lineage, profiling, tags) are still emitted."
+        ),
+    )
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @model_validator(mode="before")
@@ -305,6 +316,7 @@ class GCSSource(StatefulIngestionSourceBase):
             convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
             max_rows=self.config.max_rows,
             number_of_files_to_sample=self.config.number_of_files_to_sample,
+            infer_schema=self.config.infer_schema,
             platform=PLATFORM_GCS,
             platform_instance=self.config.platform_instance,
             profile_patterns=self.config.profile_patterns,
