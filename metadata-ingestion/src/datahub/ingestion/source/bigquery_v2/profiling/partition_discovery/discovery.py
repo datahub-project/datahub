@@ -1149,10 +1149,21 @@ class PartitionDiscovery:
 
             safe_table_ref = build_safe_table_reference(project, schema, table.name)
 
+            # BigQuery omits ingestion-time pseudo-columns (_PARTITIONTIME/_PARTITIONDATE)
+            # from SELECT *, so project any that are partition columns explicitly; otherwise
+            # the sampled rows never carry them and _first_complete_row misses their value.
+            select_extra = "".join(
+                f", `{col}`"
+                for col in partition_cols_with_types
+                if col in PSEUDO_PARTITION_COLUMN_TYPES
+            )
+
             if date_columns:
                 primary_date_col = date_columns[0]
                 sample_query = queries.LATEST_BY_DATE_SAMPLE.format(
-                    table_ref=safe_table_ref, date_col=primary_date_col
+                    table_ref=safe_table_ref,
+                    date_col=primary_date_col,
+                    select_extra=select_extra,
                 )
 
                 job_config = QueryJobConfig(
@@ -1164,7 +1175,9 @@ class PartitionDiscovery:
                 )
             else:
                 sample_query = queries.TABLESAMPLE_SAMPLE.format(
-                    table_ref=safe_table_ref, sample_percent=SAMPLING_PERCENT
+                    table_ref=safe_table_ref,
+                    sample_percent=SAMPLING_PERCENT,
+                    select_extra=select_extra,
                 )
 
                 job_config = QueryJobConfig(

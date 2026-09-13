@@ -717,6 +717,44 @@ def test_sampling_uses_known_columns_when_info_schema_unavailable():
     assert "2024-11-20" in filters[0]
 
 
+def test_sampling_projects_ingestion_time_pseudo_column():
+    """Ingestion-time partition columns (_PARTITIONTIME/_PARTITIONDATE) are omitted from
+    SELECT *, so the sample query must project them explicitly; otherwise the sampled row
+    never carries the value and sampling silently recovers nothing for ingestion-time
+    tables (falling back to a yesterday guess instead of the real latest partition).
+    """
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(name="ingestion_time")
+    seen_queries = []
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        seen_queries.append(query)
+        if "INFORMATION_SCHEMA" in query or "DDL" in query:
+            raise Exception("metadata unavailable")
+        if "ORDER BY" in query:  # LATEST_BY_DATE_SAMPLE
+            return [SimpleNamespace(_PARTITIONTIME=datetime(2024, 11, 20, 8, 0, 0))]
+        if "SELECT 1" in query:  # _verify_partition_has_data
+            return [SimpleNamespace(cnt=1)]
+        return []
+
+    filters = discovery._get_partitions_with_sampling(
+        table,
+        "my-project",
+        "ds",
+        execute,
+        known_columns=["_PARTITIONTIME"],
+        known_column_types={"_PARTITIONTIME": "TIMESTAMP"},
+    )
+
+    sample_query = next(q for q in seen_queries if "DESC" in q)  # LATEST_BY_DATE_SAMPLE
+    assert "`_PARTITIONTIME`" in sample_query.split("FROM")[0], (
+        "pseudo-column must be explicitly projected, not relied on via SELECT *"
+    )
+    # And the sampled value is actually consumed into a filter (not silently missed).
+    assert filters is not None and len(filters) == 1
+    assert "_PARTITIONTIME" in filters[0] and "2024-11-20" in filters[0]
+
+
 def test_strategic_candidate_path_emits_half_open_range_for_timestamp():
     """The strategic-candidate discovery path (_test_date_candidate) must delegate a
     TIMESTAMP partition column to the same half-open range logic as direct discovery, so
