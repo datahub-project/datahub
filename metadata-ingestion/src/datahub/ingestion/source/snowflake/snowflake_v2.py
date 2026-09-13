@@ -39,6 +39,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Confi
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnection,
     SnowflakeConnectionConfig,
+    get_password_auth_deprecation_warning,
 )
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
@@ -161,6 +162,11 @@ class SnowflakeV2Source(
         super().__init__(config, ctx)
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = SnowflakeV2Report()
+
+        # Mirror the deprecation in the structured report so it surfaces in the
+        # DataHub UI, not just CLI stdout.
+        if self.config.is_using_password_auth():
+            self.report.warning(get_password_auth_deprecation_warning())
 
         self.filters = SnowflakeFilter(
             filter_config=self.config, structured_reporter=self.report
