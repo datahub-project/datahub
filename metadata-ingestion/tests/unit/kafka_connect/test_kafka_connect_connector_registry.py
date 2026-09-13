@@ -600,6 +600,29 @@ class TestConnectorRegistrySchemaResolver:
             env="PROD",
         )
 
+    def test_sink_connector_receives_provider_graph(self) -> None:
+        """Sink connectors use the provider graph to resolve Kafka schemas."""
+        manifest = create_manifest(SINK, CONFLUENT_JDBC_SINK_CONNECTOR_CLASS)
+        config = create_mock_config()
+        config.use_schema_resolver = True
+        report = create_mock_report()
+
+        graph = Mock()
+        mock_schema_resolver = Mock()
+        mock_schema_resolver.graph = None
+        mock_provider = Mock(spec=SchemaResolverProvider)
+        mock_provider.graph = graph
+        mock_provider.get.return_value = mock_schema_resolver
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report, schema_resolver_provider=mock_provider
+        )
+
+        assert connector is not None
+        assert connector.graph is graph
+        assert connector.schema_resolver is mock_schema_resolver
+        assert connector.schema_resolver.graph is None
+
     def test_schema_resolver_with_platform_instance(self) -> None:
         """Test schema resolver created with platform instance."""
         manifest = create_manifest(

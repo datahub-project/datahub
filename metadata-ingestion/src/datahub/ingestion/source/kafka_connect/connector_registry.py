@@ -150,6 +150,8 @@ class ConnectorRegistry:
             )
             if schema_resolver:
                 connector.schema_resolver = schema_resolver
+                if manifest.type == SINK and schema_resolver_provider is not None:
+                    connector.graph = schema_resolver_provider.graph
         else:
             logger.debug(
                 f"No handler found for connector '{manifest.name}' with class '{connector_class_value}'"
