@@ -68,3 +68,5 @@ bootstrap:
       mcps_location: "bootstrap_mcps/ingestion-datahub-documents.yaml"
       values_env: "DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_DOCUMENTS_REVISION"
+      # Only produces embeddings for semantic search, so don't create it when off.
+      enabledEnvVar: "ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED"
