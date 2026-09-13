@@ -1,0 +1,32 @@
+{
+  "eventTime": "2024-01-01T00:00:00.000Z",
+  "producer": "https://github.com/apache/airflow/tree/providers/openlineage",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+  "eventType": "COMPLETE",
+  "run": {
+    "runId": "01234567-89ab-cdef-0123-456789abcdef",
+    "facets": {
+      "airflow": {
+        "_producer": "https://github.com/apache/airflow/tree/providers/openlineage",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/AirflowRunFacet.json",
+        "dag": {
+          "dag_id": "my_dag",
+          "description": "DAG-level description from Airflow"
+        }
+      }
+    }
+  },
+  "job": {
+    "namespace": "default",
+    "name": "my_dag.my_task",
+    "facets": {
+      "documentation": {
+        "_producer": "https://github.com/apache/airflow/tree/providers/openlineage",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json",
+        "description": "Task-level description from the operator"
+      }
+    }
+  },
+  "inputs": [],
+  "outputs": []
+}
