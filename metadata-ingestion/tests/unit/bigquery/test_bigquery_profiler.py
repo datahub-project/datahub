@@ -1021,7 +1021,7 @@ def test_fallback_partition_values_override_used():
     discovery = PartitionDiscovery(config)
 
     result = discovery._create_fallback_filter_for_column(
-        "region", datetime.now(timezone.utc), "STRING"
+        create_test_table(), "region", datetime.now(timezone.utc), "STRING"
     )
 
     assert result == "`region` = 'us-east-1'"
@@ -2947,15 +2947,19 @@ def test_fallback_filter_with_column_types():
     discovery = PartitionDiscovery(config)
 
     fallback_date = datetime(2025, 1, 15, tzinfo=timezone.utc)
+    table = create_test_table()
 
     filter_ts = discovery._create_fallback_filter_for_column(
-        "run_timestamp", fallback_date, "TIMESTAMP"
+        table, "run_timestamp", fallback_date, "TIMESTAMP"
     )
     assert "`run_timestamp`" in filter_ts
-    assert "2025-01-15" in filter_ts or "IS NOT NULL" in filter_ts
+    # A TIMESTAMP column now prunes to fallback_date's partition with a half-open range
+    # rather than full-scanning via IS NOT NULL.
+    assert "2025-01-15" in filter_ts
+    assert "IS NOT NULL" not in filter_ts
 
     filter_year = discovery._create_fallback_filter_for_column(
-        "year", fallback_date, "INT64"
+        table, "year", fallback_date, "INT64"
     )
     assert filter_year == "`year` = 2025"  # No quotes for INT64
 
