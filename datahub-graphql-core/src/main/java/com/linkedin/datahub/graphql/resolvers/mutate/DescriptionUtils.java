@@ -38,6 +38,7 @@ import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.tag.TagProperties;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
+import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,6 +49,15 @@ public class DescriptionUtils {
           ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
 
   private DescriptionUtils() {}
+
+  private static void setOrRemoveDescription(
+      String newDescription, Runnable removeFn, Consumer<String> setFn) {
+    if (newDescription == null || newDescription.trim().isEmpty()) {
+      removeFn.run();
+    } else {
+      setFn.accept(newDescription);
+    }
+  }
 
   public static void updateDatasetDescription(
       @Nonnull OperationContext opContext,
@@ -65,7 +75,7 @@ public class DescriptionUtils {
                 entityService,
                 new EditableDatasetProperties());
 
-    editableDatasetProperties.setDescription(newDescription);
+    setOrRemoveDescription(newDescription, editableDatasetProperties::removeDescription, editableDatasetProperties::setDescription);
 
     persistAspect(
         opContext,
@@ -94,7 +104,7 @@ public class DescriptionUtils {
     EditableSchemaFieldInfo editableFieldInfo =
         getFieldInfoFromSchema(editableSchemaMetadata, fieldPath);
 
-    editableFieldInfo.setDescription(newDescription);
+    setOrRemoveDescription(newDescription, editableFieldInfo::removeDescription, editableFieldInfo::setDescription);
 
     persistAspect(
         opContext,
@@ -119,7 +129,7 @@ public class DescriptionUtils {
                 Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
                 entityService,
                 new EditableContainerProperties());
-    containerProperties.setDescription(newDescription);
+    setOrRemoveDescription(newDescription, containerProperties::removeDescription, containerProperties::setDescription);
     persistAspect(
         opContext,
         resourceUrn,
@@ -148,7 +158,7 @@ public class DescriptionUtils {
       // properties model also requires a name.
       throw new IllegalArgumentException("Properties for this Domain do not yet exist!");
     }
-    domainProperties.setDescription(newDescription);
+    setOrRemoveDescription(newDescription, domainProperties::removeDescription, domainProperties::setDescription);
     persistAspect(
         opContext,
         resourceUrn,
@@ -173,10 +183,12 @@ public class DescriptionUtils {
                 entityService,
                 null);
     if (tagProperties == null) {
-      tagProperties =
-          new TagProperties().setName(resourceUrn.getId()).setDescription(newDescription);
+      tagProperties = new TagProperties().setName(resourceUrn.getId());
+      if (newDescription != null && !newDescription.trim().isEmpty()) {
+        tagProperties.setDescription(newDescription);
+      }
     } else {
-      tagProperties.setDescription(newDescription);
+      setOrRemoveDescription(newDescription, tagProperties::removeDescription, tagProperties::setDescription);
     }
     persistAspect(
         opContext,
@@ -202,7 +214,7 @@ public class DescriptionUtils {
                 entityService,
                 new CorpGroupEditableInfo());
     if (corpGroupEditableInfo != null) {
-      corpGroupEditableInfo.setDescription(newDescription);
+      setOrRemoveDescription(newDescription, corpGroupEditableInfo::removeDescription, corpGroupEditableInfo::setDescription);
     }
     persistAspect(
         opContext,
@@ -232,8 +244,7 @@ public class DescriptionUtils {
       // model also requires a name.
       throw new IllegalArgumentException("Properties for this Glossary Term do not yet exist!");
     }
-    glossaryTermInfo.setDefinition(
-        newDescription); // We call description 'definition' for glossary terms. Not great, we know.
+    setOrRemoveDescription(newDescription, glossaryTermInfo::removeDefinition, glossaryTermInfo::setDefinition); // We call description 'definition' for glossary terms. Not great, we know.
     // :(
     persistAspect(
         opContext,
@@ -261,7 +272,7 @@ public class DescriptionUtils {
     if (glossaryNodeInfo == null) {
       throw new IllegalArgumentException("Glossary Node does not exist");
     }
-    glossaryNodeInfo.setDefinition(newDescription);
+    setOrRemoveDescription(newDescription, glossaryNodeInfo::removeDefinition, glossaryNodeInfo::setDefinition);
     persistAspect(
         opContext,
         resourceUrn,
@@ -286,7 +297,7 @@ public class DescriptionUtils {
                 entityService,
                 null);
     if (notebookProperties != null) {
-      notebookProperties.setDescription(newDescription);
+      setOrRemoveDescription(newDescription, notebookProperties::removeDescription, notebookProperties::setDescription);
     }
     persistAspect(
         opContext,
@@ -427,7 +438,7 @@ public class DescriptionUtils {
                 entityService,
                 new EditableMLModelProperties());
     if (editableProperties != null) {
-      editableProperties.setDescription(newDescription);
+      setOrRemoveDescription(newDescription, editableProperties::removeDescription, editableProperties::setDescription);
     }
     persistAspect(
         opContext,
@@ -453,7 +464,7 @@ public class DescriptionUtils {
                 entityService,
                 new EditableMLModelGroupProperties());
     if (editableProperties != null) {
-      editableProperties.setDescription(newDescription);
+      setOrRemoveDescription(newDescription, editableProperties::removeDescription, editableProperties::setDescription);
     }
     persistAspect(
         opContext,
@@ -479,7 +490,7 @@ public class DescriptionUtils {
                 entityService,
                 new EditableMLFeatureProperties());
     if (editableProperties != null) {
-      editableProperties.setDescription(newDescription);
+      setOrRemoveDescription(newDescription, editableProperties::removeDescription, editableProperties::setDescription);
     }
     persistAspect(
         opContext,
@@ -505,7 +516,7 @@ public class DescriptionUtils {
                 entityService,
                 new EditableMLFeatureTableProperties());
     if (editableProperties != null) {
-      editableProperties.setDescription(newDescription);
+      setOrRemoveDescription(newDescription, editableProperties::removeDescription, editableProperties::setDescription);
     }
     persistAspect(
         opContext,
@@ -531,7 +542,7 @@ public class DescriptionUtils {
                 entityService,
                 new EditableMLPrimaryKeyProperties());
     if (editableProperties != null) {
-      editableProperties.setDescription(newDescription);
+      setOrRemoveDescription(newDescription, editableProperties::removeDescription, editableProperties::setDescription);
     }
     persistAspect(
         opContext,
@@ -557,7 +568,7 @@ public class DescriptionUtils {
                 entityService,
                 new DataProductProperties());
     if (properties != null) {
-      properties.setDescription(newDescription);
+      setOrRemoveDescription(newDescription, properties::removeDescription, properties::setDescription);
     }
     persistAspect(
         opContext,
@@ -583,7 +594,7 @@ public class DescriptionUtils {
                 entityService,
                 new ApplicationProperties());
     if (applicationProperties != null) {
-      applicationProperties.setDescription(newDescription);
+      setOrRemoveDescription(newDescription, applicationProperties::removeDescription, applicationProperties::setDescription);
     }
     persistAspect(
         opContext,
@@ -609,7 +620,7 @@ public class DescriptionUtils {
                 entityService,
                 new BusinessAttributeInfo());
     if (businessAttributeInfo != null) {
-      businessAttributeInfo.setDescription(newDescription);
+      setOrRemoveDescription(newDescription, businessAttributeInfo::removeDescription, businessAttributeInfo::setDescription);
     }
     persistAspect(
         opContext,
@@ -699,7 +710,9 @@ public class DescriptionUtils {
             : new DocumentationAssociationArray();
 
     // Add the new UI-authored documentation
-    associations.add(newDocAssociation);
+    if (newDescription != null && !newDescription.trim().isEmpty()) {
+      associations.add(newDocAssociation);
+    }
     documentation.setDocumentations(associations);
 
     persistAspect(
