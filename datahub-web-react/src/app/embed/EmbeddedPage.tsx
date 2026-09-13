@@ -17,7 +17,6 @@ import { EntityType } from '@types';
 const EmbeddedPageWrapper = styled.div`
     max-height: 100%;
     overflow: auto;
-    padding: 16px;
 `;
 
 interface RouteParams {
