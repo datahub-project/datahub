@@ -117,6 +117,7 @@ Behavior:
 
 - The event log is read over the pipelines REST API, so **no SQL warehouse is required** for this feature.
 - One assertion is published per expectation per dataset, scoped to the dataset's rows; `passed_records` and `failed_records` from the latest update are reported as the run result.
+- The expectation's action is captured on the assertion: a failure from `expect_or_fail` or `expect_or_drop` is recorded at **high** severity, and a plain `expect` (warn-only) at **low** severity.
 - Each expectation's dataset is resolved to a Unity Catalog dataset using the pipeline's target `catalog` and `schema`; pipelines without a Unity Catalog target are skipped.
 - Assertion identity is deterministic (derived from the dataset, pipeline and expectation name — not the update), so re-ingesting is idempotent: the same assertion accrues new run events rather than creating duplicates.
 
