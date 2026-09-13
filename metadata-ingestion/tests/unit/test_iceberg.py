@@ -12,12 +12,13 @@ from typing import (
     Tuple,
 )
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from botocore.exceptions import ClientError
 from pydantic import ValidationError
 from pyiceberg.catalog import Catalog
+from pyiceberg.catalog.rest import RestCatalog
 from pyiceberg.exceptions import (
     NoSuchIcebergTableError,
     NoSuchNamespaceError,
@@ -64,6 +65,10 @@ from datahub.ingestion.source.iceberg.iceberg import (
     IcebergSource,
     IcebergSourceConfig,
     ToAvroSchemaIcebergVisitor,
+)
+from datahub.ingestion.source.iceberg.iceberg_common import (
+    DEFAULT_REST_RETRY_POLICY,
+    DEFAULT_REST_TIMEOUT,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
@@ -2220,3 +2225,196 @@ class TestDomainAssignment:
 
         # domain adds 1 MCP per table + 1 MCP per namespace
         assert len(wus_with) == len(wus_without) + 2
+
+
+class TestRestCatalogConnectionConfig:
+    """
+    Tests that the DataHub-specific `connection` block (headers/retry/timeout) is
+    handled by get_catalog() and never leaks into pyiceberg's load_catalog().
+    """
+
+    def test_connection_block_is_not_passed_to_load_catalog(self):
+        config = IcebergSourceConfig(
+            catalog={
+                "test_rest": {
+                    "type": "rest",
+                    "uri": "https://catalog.example.com/api/catalog",
+                    "connection": {"retry": {"total": 5}, "timeout": 60},
+                }
+            }
+        )
+        with patch(
+            "datahub.ingestion.source.iceberg.iceberg_common.load_catalog"
+        ) as mock_load_catalog:
+            config.get_catalog()
+            _, kwargs = mock_load_catalog.call_args
+            assert "connection" not in kwargs
+            assert kwargs["uri"] == "https://catalog.example.com/api/catalog"
+
+    def test_connection_headers_are_mapped_to_pyiceberg_header_properties(self):
+        config = IcebergSourceConfig(
+            catalog={
+                "test_rest": {
+                    "type": "rest",
+                    "uri": "https://catalog.example.com/api/catalog",
+                    "connection": {
+                        "headers": {"Polaris-Realm": "my-realm", "X-Custom": "abc"}
+                    },
+                }
+            }
+        )
+        with patch(
+            "datahub.ingestion.source.iceberg.iceberg_common.load_catalog"
+        ) as mock_load_catalog:
+            config.get_catalog()
+            _, kwargs = mock_load_catalog.call_args
+            assert kwargs["header.Polaris-Realm"] == "my-realm"
+            assert kwargs["header.X-Custom"] == "abc"
+            assert "connection" not in kwargs
+
+    def test_explicit_header_properties_take_precedence(self):
+        config = IcebergSourceConfig(
+            catalog={
+                "test_rest": {
+                    "type": "rest",
+                    "uri": "https://catalog.example.com/api/catalog",
+                    "header.Polaris-Realm": "explicit-realm",
+                    "connection": {"headers": {"Polaris-Realm": "from-connection"}},
+                }
+            }
+        )
+        with patch(
+            "datahub.ingestion.source.iceberg.iceberg_common.load_catalog"
+        ) as mock_load_catalog:
+            config.get_catalog()
+            _, kwargs = mock_load_catalog.call_args
+            assert kwargs["header.Polaris-Realm"] == "explicit-realm"
+
+    def test_explicit_header_precedence_is_case_insensitive(self):
+        # HTTP header names are case-insensitive and pyiceberg puts them into
+        # requests' CaseInsensitiveDict where the last write wins, so a
+        # connection.header differing only in case must not be emitted next to
+        # the explicit property.
+        config = IcebergSourceConfig(
+            catalog={
+                "test_rest": {
+                    "type": "rest",
+                    "uri": "https://catalog.example.com/api/catalog",
+                    "header.polaris-realm": "explicit-realm",
+                    "connection": {"headers": {"Polaris-Realm": "from-connection"}},
+                }
+            }
+        )
+        with patch(
+            "datahub.ingestion.source.iceberg.iceberg_common.load_catalog"
+        ) as mock_load_catalog:
+            config.get_catalog()
+            _, kwargs = mock_load_catalog.call_args
+            assert kwargs["header.polaris-realm"] == "explicit-realm"
+            assert "header.Polaris-Realm" not in kwargs
+
+    def test_connection_header_values_are_coerced_to_str(self):
+        # YAML parses unquoted values like `100` and `true` as int/bool;
+        # requests only accepts str header values, and bools should keep the
+        # lowercase form the user wrote in YAML.
+        config = IcebergSourceConfig(
+            catalog={
+                "test_rest": {
+                    "type": "rest",
+                    "uri": "https://catalog.example.com/api/catalog",
+                    "connection": {
+                        "headers": {"X-Rate-Limit": 100, "X-Enable-Feature": True}
+                    },
+                }
+            }
+        )
+        with patch(
+            "datahub.ingestion.source.iceberg.iceberg_common.load_catalog"
+        ) as mock_load_catalog:
+            config.get_catalog()
+            _, kwargs = mock_load_catalog.call_args
+            assert kwargs["header.X-Rate-Limit"] == "100"
+            assert kwargs["header.X-Enable-Feature"] == "true"
+
+    @pytest.mark.parametrize(
+        "connection",
+        [
+            # connection block itself is not a mapping
+            "timeout=60",
+            # headers is not a mapping (truthy and falsy variants)
+            {"headers": "Polaris-Realm=my-realm"},
+            {"headers": []},
+            # null header value (YAML `X-Foo:`)
+            {"headers": {"Polaris-Realm": None}},
+            # duplicate header names differing only in case
+            {"headers": {"X-Realm": "a", "x-realm": "b"}},
+        ],
+    )
+    def test_invalid_connection_config_rejected(self, connection):
+        config = IcebergSourceConfig(
+            catalog={
+                "test_rest": {
+                    "type": "rest",
+                    "uri": "https://catalog.example.com/api/catalog",
+                    "connection": connection,
+                }
+            }
+        )
+        with (
+            patch("datahub.ingestion.source.iceberg.iceberg_common.load_catalog"),
+            pytest.raises(ValueError, match="connection"),
+        ):
+            config.get_catalog()
+
+    def test_connection_retry_and_timeout_still_configure_rest_session(self):
+        config = IcebergSourceConfig(
+            catalog={
+                "test_rest": {
+                    "type": "rest",
+                    "uri": "https://catalog.example.com/api/catalog",
+                    "connection": {"retry": {"total": 7}, "timeout": 99},
+                }
+            }
+        )
+        mock_catalog = MagicMock()
+        # Make isinstance(catalog, RestCatalog) checks pass for the mock.
+        mock_catalog.__class__ = RestCatalog  # type: ignore[assignment]
+        with patch(
+            "datahub.ingestion.source.iceberg.iceberg_common.load_catalog",
+            return_value=mock_catalog,
+        ):
+            catalog = config.get_catalog()
+            assert catalog is mock_catalog
+            assert mock_catalog._session.mount.call_count == 2
+            adapter = mock_catalog._session.mount.call_args[0][1]
+            assert adapter.timeout == 99
+            assert adapter.max_retries.total == 7
+
+    def test_no_connection_block_passes_config_through_with_defaults(self):
+        """The common case — no `connection` block — must keep working: the
+        config reaches load_catalog() unchanged and the REST session gets the
+        default retry/timeout."""
+        config = IcebergSourceConfig(
+            catalog={
+                "test_rest": {
+                    "type": "rest",
+                    "uri": "https://catalog.example.com/api/catalog",
+                }
+            }
+        )
+        mock_catalog = MagicMock()
+        mock_catalog.__class__ = RestCatalog  # type: ignore[assignment]
+        with patch(
+            "datahub.ingestion.source.iceberg.iceberg_common.load_catalog",
+            return_value=mock_catalog,
+        ) as mock_load_catalog:
+            config.get_catalog()
+            _, kwargs = mock_load_catalog.call_args
+            assert kwargs == {
+                "name": "test_rest",
+                "type": "rest",
+                "uri": "https://catalog.example.com/api/catalog",
+            }
+            adapter = mock_catalog._session.mount.call_args[0][1]
+            assert adapter.timeout == DEFAULT_REST_TIMEOUT
+            assert adapter.max_retries.total == DEFAULT_REST_RETRY_POLICY["total"]
