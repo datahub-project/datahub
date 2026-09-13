@@ -27,6 +27,7 @@ from looker_sdk.sdk.api40.models import (
 )
 from pydantic import BaseModel, Field
 from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError, TransparentSecretStr
@@ -135,8 +136,17 @@ class LookerAPI:
             self.client.transport, looker_requests_transport.RequestsTransport
         ):
             pool_size = self.config.max_threads + 10
+            # A plain int for max_retries only retries connection-level
+            # errors (urllib3), not HTTP responses like 429/5xx that the
+            # Looker SDK turns into SDKError - those need status_forcelist.
+            retries = Retry(
+                total=self.config.max_retries,
+                backoff_factor=1,
+                status_forcelist=[429, 500, 502, 503, 504],
+                allowed_methods=["GET", "POST"],
+            )
             adapter = HTTPAdapter(
-                max_retries=self.config.max_retries,
+                max_retries=retries,
                 pool_connections=pool_size,
                 pool_maxsize=pool_size,
             )

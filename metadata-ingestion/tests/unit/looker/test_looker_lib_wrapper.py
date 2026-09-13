@@ -108,9 +108,12 @@ def test_http_adapter_pool_size_matches_max_threads():
     ):
         LookerAPI(config=config)
 
-    mock_adapter_cls.assert_called_once_with(
-        max_retries=config.max_retries,
-        pool_connections=30,
-        pool_maxsize=30,
-    )
+    assert mock_adapter_cls.call_count == 1
+    _, kwargs = mock_adapter_cls.call_args
+    assert kwargs["pool_connections"] == 30
+    assert kwargs["pool_maxsize"] == 30
+    retries = kwargs["max_retries"]
+    assert retries.total == config.max_retries
+    assert retries.status_forcelist == [429, 500, 502, 503, 504]
+    assert "POST" in retries.allowed_methods
     assert mock_session.mount.call_count == 2
