@@ -107,6 +107,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
     ChangeAuditStampsClass,
+    ContainerClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
     DatasetProfileClass,
@@ -580,6 +581,15 @@ class DBTCommonConfig(
         "browsePathsV2 aspects for target-platform sibling entities so they are correctly "
         "grouped under their platform instance in browse and filters. Browse paths written "
         "by the warehouse connector are never overwritten.",
+    )
+    emit_target_platform_display_name: bool = Field(
+        default=False,
+        description="Set a display name on target-platform entities that the warehouse "
+        "connector has not ingested. Those entities have no datasetProperties, so the UI "
+        "falls back to the urn and shows the full dotted path (instance.database.schema.table) "
+        "rather than just the table name. Enabling this patches datasetProperties.name with "
+        "the table name, matching how the warehouse connector's own entities are labelled. "
+        "Off by default because it changes how existing entities are displayed.",
     )
     use_identifiers: bool = Field(
         default=False,
@@ -1491,6 +1501,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._exposures: List[DBTExposure] = []
         # Cache for upstream existence checks (skip_missing_upstreams_in_lineage)
         self._upstream_exists_cache: Dict[str, bool] = {}
+        # Cache of container urn -> parent container urn, for target-platform
+        # browse paths. Sibling tables share ancestors, so without this every
+        # table in a schema re-reads that schema's and database's container.
+        self._container_parent_cache: Dict[str, Optional[str]] = {}
 
     def _node_context(self, node: DBTNode) -> str:
         return f"{node.dbt_name} ({node.dbt_file_path})"
@@ -3018,10 +3032,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 # lineage emission below also auto-creates target entities, so
                 # these aspects are needed whenever the target URN is referenced,
                 # not only when this source emits the sibling patch itself.
-                for mcp in self._create_target_platform_instance_mcps(
+                yield from self._create_target_platform_instance_workunits(
                     node, node_datahub_urn
-                ):
-                    yield mcp.as_workunit(is_primary_source=False)
+                )
 
                 # This code block is run when we are generating entities of platform type.
                 # We will not link the platform not to the dbt node for type "source" because
@@ -3064,17 +3077,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     kind="emission",
                 )
 
-    def _create_target_platform_instance_mcps(
+    def _create_target_platform_instance_workunits(
         self,
         node: DBTNode,
         node_datahub_urn: str,
-    ) -> Iterable[MetadataChangeProposalWrapper]:
+    ) -> Iterable[MetadataWorkUnit]:
         """Emit dataPlatformInstance (and, when safe, browsePathsV2) for a target entity.
 
         Only active when target_platform_instance is configured. The
         dataPlatformInstance value is identical to what the warehouse connector
         writes for the same entity, so the upsert is a no-op for entities the
         warehouse connector owns and a fix for sibling-only "stub" entities.
+        Stubs also get a display name, which nothing else sets for them.
         """
         if not self.config.target_platform_instance:
             return
@@ -3091,44 +3105,148 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 platform=platform_urn,
                 instance=instance_urn,
             ),
-        )
+        ).as_workunit(is_primary_source=False)
 
-        # With neither database nor schema we would emit a single-entry path,
-        # flattening the entity directly under the instance folder; the
-        # server's name-derived default is at least as good, so skip.
-        if node.database is None and node.schema is None:
+        existing_entries = self._read_target_browse_path_entries(node_datahub_urn)
+        if existing_entries is None:
+            return
+        if self._is_container_based_path(existing_entries):
+            # The warehouse connector owns this entity's browse path, which means
+            # it ingested the entity and owns its properties too. Nothing to add,
+            # and no need to walk the container chain to find that out.
             return
 
-        if self._should_write_target_browse_path(node_datahub_urn):
-            path = [BrowsePathEntryClass(id=instance_urn, urn=instance_urn)]
-            for segment in (node.database, node.schema):
-                if segment:
-                    path.append(BrowsePathEntryClass(id=segment))
+        container_entries = self._resolve_container_browse_path_entries(
+            node_datahub_urn
+        )
+        if container_entries is None:
+            return
+
+        path = [
+            BrowsePathEntryClass(id=instance_urn, urn=instance_urn)
+        ] + container_entries
+        if path != existing_entries:
             yield MetadataChangeProposalWrapper(
                 entityUrn=node_datahub_urn,
                 aspect=BrowsePathsV2Class(path=path),
+            ).as_workunit(is_primary_source=False)
+
+        if not container_entries and self.config.emit_target_platform_display_name:
+            # No container means the warehouse connector has not ingested this
+            # entity, so nothing has written datasetProperties for it either and
+            # the UI falls back to the urn's name - the full dotted path rather
+            # than the table name.
+            yield from self._create_target_display_name_workunits(
+                node, node_datahub_urn
             )
 
-    def _should_write_target_browse_path(self, node_datahub_urn: str) -> bool:
-        """Whether it is safe to write a browsePathsV2 aspect for a target entity.
+    def _create_target_display_name_workunits(
+        self,
+        node: DBTNode,
+        node_datahub_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Set datasetProperties.name on a target entity the warehouse has not ingested.
 
-        The warehouse connector is authoritative for browse paths of entities it
-        ingests (container-based, entries are URNs). Overwrite only when the
-        entity has no browse path yet or carries a plain name-derived default
-        (server-generated for auto-created stub entities). Without a graph
-        connection we cannot distinguish the two, so we skip the write.
+        node.name is the warehouse-side table name (identifier and alias already
+        applied) and is the last segment of the entity's urn, so it matches what
+        the warehouse connector would write for the same table.
 
-        The first-entry discriminator works because every non-default writer
-        produces a URN first entry: the warehouse connectors' auto_browse_path_v2
-        emits a platform-instance or container URN, and the server's default
-        generation post datahub-project/datahub#17263 resolves the first segment
-        to a dataPlatformInstance URN when one exists. Only pre-#17263
-        server-generated defaults have a plain-name first entry, and those are
-        exactly the paths this method is meant to replace.
+        An existing name is never replaced: the patch only fills a gap. That also
+        keeps re-runs quiet, since the name written by an earlier run is read back
+        here rather than proposed again.
         """
         graph = self.ctx.graph
         if graph is None:
-            return False
+            return
+        try:
+            existing = graph.get_aspect(node_datahub_urn, DatasetPropertiesClass)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to read existing dataset properties",
+                message="Could not determine whether the target-platform entity "
+                "already has a display name; skipping the datasetProperties patch.",
+                context=node_datahub_urn,
+                exc=e,
+            )
+            return
+        if existing is not None and existing.name:
+            return
+
+        patch = DatasetPatchBuilder(node_datahub_urn)
+        patch.set_display_name(node.name)
+        for mcp in patch.build():
+            yield MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(mcp),
+                mcp_raw=mcp,
+                is_primary_source=False,
+            )
+
+    def _resolve_container_browse_path_entries(
+        self, node_datahub_urn: str
+    ) -> Optional[List[BrowsePathEntryClass]]:
+        """Rebuild the container portion of a target entity's browse path, root first.
+
+        Mirrors the server-side walk in BrowsePathV2Utils.aggregateParentContainers
+        so the path we write is identical to the one the warehouse connector
+        produces for the same entity. The container URNs cannot be derived from the
+        dbt manifest: each target platform has its own container key scheme and
+        identifier casing rules, and a guessed plain-name segment lands in a second
+        Browse folder next to the real container-backed one.
+
+        Returns None when the graph is unavailable or unreadable (the caller then
+        skips the write), and an empty list when the entity has no container yet -
+        the warehouse connector has not ingested it, so there is no real folder to
+        nest it under and it stays directly beneath the platform instance.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            return None
+
+        container_urns: List[str] = []
+        seen = {node_datahub_urn}
+        current = node_datahub_urn
+        try:
+            while True:
+                if current in self._container_parent_cache:
+                    parent = self._container_parent_cache[current]
+                else:
+                    container = graph.get_aspect(current, ContainerClass)
+                    parent = container.container if container is not None else None
+                    if current != node_datahub_urn:
+                        # Only ancestors are shared between nodes; each entity is
+                        # visited once, so caching it would only grow the dict.
+                        self._container_parent_cache[current] = parent
+                if parent is None:
+                    break
+                if parent in seen:
+                    # Defensive: a corrupt cyclic chain would otherwise never end.
+                    break
+                seen.add(parent)
+                container_urns.insert(0, parent)
+                current = parent
+        except Exception as e:
+            self.report.warning(
+                title="Failed to resolve target container path",
+                message="Could not read the container hierarchy of the target-platform "
+                "entity; skipping browsePathsV2 emission for this entity.",
+                context=node_datahub_urn,
+                exc=e,
+            )
+            return None
+
+        return [BrowsePathEntryClass(id=urn, urn=urn) for urn in container_urns]
+
+    def _read_target_browse_path_entries(
+        self, node_datahub_urn: str
+    ) -> Optional[List[BrowsePathEntryClass]]:
+        """The target entity's current browsePathsV2 entries.
+
+        Returns None when the graph is unavailable or unreadable, and an empty
+        list when the entity has no browse path yet.
+        """
+        graph = self.ctx.graph
+        if graph is None:
+            return None
         try:
             existing = graph.get_aspect(node_datahub_urn, BrowsePathsV2Class)
         except Exception as e:
@@ -3139,11 +3257,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 context=node_datahub_urn,
                 exc=e,
             )
-            return False
+            return None
         if existing is None or not existing.path:
-            return True
-        first_entry_id = existing.path[0].id
-        return not first_entry_id.startswith("urn:")
+            return []
+        return list(existing.path)
+
+    @staticmethod
+    def _is_container_based_path(entries: List[BrowsePathEntryClass]) -> bool:
+        """Whether a browse path was written by the connector that owns the entity.
+
+        Container-based paths carry a container urn on every entry below the root,
+        and only the warehouse connector produces them. Everything else is built
+        from plain names - a server-generated default, or the database/schema guess
+        this source wrote before it resolved real containers
+        (datahub-project/datahub#18539) - and is ours to replace.
+        """
+        return len(entries) > 1 and all(entry.urn is not None for entry in entries[1:])
 
     def extract_query_tag_aspects(
         self,
