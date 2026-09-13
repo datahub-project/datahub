@@ -376,22 +376,30 @@ export const DocumentTreeProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
     }, []);
 
-    // Batch initialization (page 0 / sort remount). Merge instead of wipe so
-    // optimistic creates and local renames survive search-index lag.
+    // Batch initialization (page 0 / sort remount).
+    // If nodes is empty, clear the tree completely (used for view/sort changes).
+    // If nodes is non-empty, merge with existing to preserve optimistic creates.
     const initializeTree = useCallback((rootNodes: DocumentTreeNode[]) => {
-        setRootUrns((prev) => {
-            const serverUrns = rootNodes.map((n) => n.urn);
-            const serverSet = new Set(serverUrns);
-            const localOnly = prev.filter((urn) => !serverSet.has(urn));
-            return [...serverUrns, ...localOnly];
-        });
-        setNodes((prev) => {
-            const updated = new Map(prev);
-            rootNodes.forEach((serverNode) => {
-                updated.set(serverNode.urn, mergeServerChildNode(updated.get(serverNode.urn), serverNode));
+        if (rootNodes.length === 0) {
+            // Clear: used when switching views/sorts to start fresh
+            setRootUrns([]);
+            setNodes(new Map());
+        } else {
+            // Merge: preserve optimistic creates and local renames
+            setRootUrns((prev) => {
+                const serverUrns = rootNodes.map((n) => n.urn);
+                const serverSet = new Set(serverUrns);
+                const localOnly = prev.filter((urn) => !serverSet.has(urn));
+                return [...serverUrns, ...localOnly];
             });
-            return updated;
-        });
+            setNodes((prev) => {
+                const updated = new Map(prev);
+                rootNodes.forEach((serverNode) => {
+                    updated.set(serverNode.urn, mergeServerChildNode(updated.get(serverNode.urn), serverNode));
+                });
+                return updated;
+            });
+        }
     }, []);
 
     // Expansion state helpers
