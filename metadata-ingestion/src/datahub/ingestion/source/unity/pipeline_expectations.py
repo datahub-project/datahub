@@ -53,6 +53,7 @@ class UnityCatalogPipelineExpectationsExtractor:
         proxy: UnityCatalogApiProxy,
         dataset_urn_builder: Callable[[TableReference], str],
         metastore: Optional[str] = None,
+        is_dataset_allowed: Optional[Callable[[TableReference], bool]] = None,
     ) -> None:
         self.config = config
         self.report = report
@@ -61,6 +62,11 @@ class UnityCatalogPipelineExpectationsExtractor:
         # Metastore id embedded in dataset URNs when `include_metastore` is on; the
         # assertion URN must resolve to the same dataset the connector published.
         self.metastore = metastore
+        # Pipeline expectations are discovered from the event log independently of
+        # table ingestion, so a pipeline can reference datasets the recipe excluded
+        # (or intermediate pipeline views). Apply the connector's catalog/schema/table
+        # filters so we don't emit assertions on entities that were never ingested.
+        self.is_dataset_allowed = is_dataset_allowed
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         try:
@@ -187,6 +193,9 @@ class UnityCatalogPipelineExpectationsExtractor:
         totals: _ExpectationTotals,
     ) -> Iterable[MetadataWorkUnit]:
         ref = _resolve_table_ref(dataset_name, catalog, schema, self.metastore)
+        if self.is_dataset_allowed is not None and not self.is_dataset_allowed(ref):
+            self.report.num_pipeline_expectation_datasets_filtered += 1
+            return
         dataset_urn = self.dataset_urn_builder(ref)
         assertion_urn = make_expectation_assertion_urn(
             dataset_urn, pipeline_id, expectation
