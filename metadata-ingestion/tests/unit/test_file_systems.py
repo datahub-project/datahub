@@ -226,3 +226,7 @@ def test_get_path_schema():
     assert get_path_schema("https://example.com/file.txt") == "https"
     assert get_path_schema("/local/path/file.txt") == "file"
     assert get_path_schema("relative/path/file.txt") == "file"
+    # Windows paths: the drive letter must not be read as a URI scheme.
+    assert get_path_schema("C:\\data\\file.json") == "file"
+    assert get_path_schema("c:/data/file.json") == "file"
+    assert get_path_schema("D:\\Users\\me\\datahub\\out.json") == "file"
