@@ -14,7 +14,6 @@ import com.linkedin.usage.UsageQueryResult;
 import com.linkedin.usage.UsageTimeRange;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
-import java.time.Instant;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -72,7 +71,9 @@ public class UsageStatsJavaClient implements UsageClient {
       throws RemoteInvocationException, URISyntaxException {
 
     if (startTimeMillis != null) {
-      final long now = Instant.now().toEpochMilli();
+      // startTimeMillis is caller-supplied and must be preserved exactly; only the "now" end of the
+      // window is application-generated and therefore eligible to be canonicalized.
+      final long now = opContext.canonicalNow().upperBound();
 
       return UsageServiceUtil.query(
           opContext,

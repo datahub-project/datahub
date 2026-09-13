@@ -17,12 +17,23 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.config.search.QueryCanonicalizationConfiguration;
+import com.linkedin.metadata.config.search.TimeCanonicalizationConfiguration;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer.CanonicalNow;
 import com.linkedin.timeseries.GenericTable;
+import io.datahubproject.metadata.context.OperationContext;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -32,6 +43,7 @@ public class DashboardStatsSummaryBatchLoaderTest {
   private static final Urn URN_1 = UrnUtils.getUrn("urn:li:dashboard:(airflow,dash1)");
   private static final Urn URN_2 = UrnUtils.getUrn("urn:li:dashboard:(airflow,dash2)");
   private static final String USER_URN = "urn:li:corpuser:alice";
+  private static final long FIVE_MINUTES_MILLIS = 5 * 60 * 1000L;
 
   // ---------------------------------------------------------------------------
   // Helpers
@@ -219,5 +231,116 @@ public class DashboardStatsSummaryBatchLoaderTest {
     Mockito.verify(svc, Mockito.times(2))
         .batchGetAggregatedStats(any(), any(), any(), any(), any(), any(), any());
     Mockito.verifyNoMoreInteractions(svc);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Canonicalization
+  // ---------------------------------------------------------------------------
+
+  /** A QueryContext whose canonical clock is pinned to a fixed, off-boundary instant. */
+  private static QueryContext canonicalContext(String isoInstant) {
+    QueryTimeCanonicalizer canonicalizer =
+        QueryTimeCanonicalizer.fromConfig(
+            QueryCanonicalizationConfiguration.builder()
+                .enabled(true)
+                .time(
+                    TimeCanonicalizationConfiguration.builder()
+                        .enabled(true)
+                        .bucketSize(5)
+                        .bucketSizeUnit("MINUTES")
+                        .timezone("UTC")
+                        .rounding("EXPAND")
+                        .build())
+                .build(),
+            null,
+            Clock.fixed(Instant.parse(isoInstant), ZoneOffset.UTC));
+
+    QueryContext context = Mockito.mock(QueryContext.class);
+    OperationContext opContext = Mockito.mock(OperationContext.class);
+    Mockito.when(opContext.canonicalNow()).thenReturn(canonicalizer.now());
+    Mockito.when(context.getOperationContext()).thenReturn(opContext);
+    return context;
+  }
+
+  /** Every timestampMillis bound in the captured stats filter, in criterion order. */
+  private static List<Long> timeBounds(TimeseriesAspectService svc) {
+    ArgumentCaptor<Filter> captor = ArgumentCaptor.forClass(Filter.class);
+    Mockito.verify(svc, Mockito.atLeastOnce())
+        .batchGetAggregatedStats(any(), any(), any(), any(), any(), captor.capture(), any());
+    return captor.getAllValues().get(0).getOr().stream()
+        .flatMap(cc -> cc.getAnd().stream())
+        .filter(c -> ES_FIELD_TIMESTAMP.equals(c.getField()))
+        .map(c -> Long.parseLong(c.getValues().get(0)))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * The batched path must round its window exactly like DashboardStatsSummaryResolver, otherwise
+   * the two paths issue different queries for the same GraphQL field and neither can reuse the
+   * other's cached result.
+   *
+   * <p>Only the end bound lands on a bucket boundary. The start comes from {@code
+   * timeMinusOneMonth}, which subtracts a constant {@code 31d + 1ms} because both bounds are
+   * inclusive. That offset is fixed, so the start is still identical for every request in a bucket.
+   */
+  @Test
+  public void testWindowEndIsCanonicalizedAndStartIsOffsetConsistently() {
+    TimeseriesAspectService svc =
+        mockService(Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+
+    new DashboardStatsSummaryBatchLoader(svc)
+        .batchLoad(ImmutableList.of(URN_1), canonicalContext("2026-08-16T19:03:42.123Z"));
+
+    List<Long> bounds = timeBounds(svc);
+    Assert.assertEquals(bounds.size(), 2);
+    long start = bounds.get(0);
+    long end = bounds.get(1);
+
+    // 19:03:42.123 with a 5m EXPAND bucket ceils the upper bound to 19:05:00.
+    Assert.assertEquals(end, Instant.parse("2026-08-16T19:05:00Z").toEpochMilli());
+    Assert.assertEquals(end % FIVE_MINUTES_MILLIS, 0L, "end bound must be on a 5m boundary");
+
+    // The start is measured from the floored reference (19:00:00), minus the fixed 31d + 1ms.
+    long flooredReference = Instant.parse("2026-08-16T19:00:00Z").toEpochMilli();
+    Assert.assertEquals(start, flooredReference - (31L * 24 * 60 * 60 * 1000) - 1);
+  }
+
+  /**
+   * Two loads inside one bucket must request an identical window. Both instants are strictly inside
+   * the bucket: a request landing exactly on 19:00:00 ceils to itself, so it belongs to the window
+   * that ends there, not to the one that ends at 19:05:00.
+   */
+  @Test
+  public void testSameBucketProducesSameWindow() {
+    TimeseriesAspectService first =
+        mockService(Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+    new DashboardStatsSummaryBatchLoader(first)
+        .batchLoad(ImmutableList.of(URN_1), canonicalContext("2026-08-16T19:00:00.001Z"));
+
+    TimeseriesAspectService second =
+        mockService(Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+    new DashboardStatsSummaryBatchLoader(second)
+        .batchLoad(ImmutableList.of(URN_1), canonicalContext("2026-08-16T19:04:59.999Z"));
+
+    Assert.assertEquals(timeBounds(second), timeBounds(first));
+  }
+
+  /** With canonicalization off the window must stay the exact clock reading. */
+  @Test
+  public void testDisabledCanonicalizerLeavesWindowExact() {
+    TimeseriesAspectService svc =
+        mockService(Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+
+    QueryContext context = Mockito.mock(QueryContext.class);
+    OperationContext opContext = Mockito.mock(OperationContext.class);
+    CanonicalNow now = QueryTimeCanonicalizer.DISABLED.now();
+    Mockito.when(opContext.canonicalNow()).thenReturn(now);
+    Mockito.when(context.getOperationContext()).thenReturn(opContext);
+
+    new DashboardStatsSummaryBatchLoader(svc).batchLoad(ImmutableList.of(URN_1), context);
+
+    List<Long> bounds = timeBounds(svc);
+    Assert.assertEquals((long) bounds.get(1), now.raw());
+    Assert.assertEquals((long) bounds.get(0), now.raw() - (31L * 24 * 60 * 60 * 1000) - 1);
   }
 }

@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.resolvers.load.DashboardStatsSummaryBatchLoader;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer.CanonicalNow;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -113,9 +114,12 @@ public class DashboardStatsSummaryResolver
 
   private List<DashboardUserUsageCounts> getDashboardUsagePerUser(
       @Nonnull OperationContext opContext, final Urn resourceUrn) {
-    long now = System.currentTimeMillis();
-    long nowMinusOneMonth = timeMinusOneMonth(now);
-    Filter bucketStatsFilter =
+    // One canonical reference for both ends so repeated dashboard loads inside a bucket issue an
+    // identical query.
+    final CanonicalNow canonicalNow = opContext.canonicalNow();
+    final long now = canonicalNow.upperBound();
+    final long nowMinusOneMonth = timeMinusOneMonth(canonicalNow);
+    final Filter bucketStatsFilter =
         createUsageFilter(resourceUrn.toString(), nowMinusOneMonth, now, true);
     return getUserUsageCounts(opContext, bucketStatsFilter, this.timeseriesAspectService);
   }

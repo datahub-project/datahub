@@ -21,6 +21,7 @@ import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.telemetry.EnrichingSpanProcessor;
@@ -317,6 +318,14 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     return enrichmentBundle == null ? EnrichmentBundle.EMPTY : enrichmentBundle;
   }
 
+  /**
+   * Canonicalizes wall-clock derived query time windows so that requests asking the same logical
+   * question produce an identical Elasticsearch/OpenSearch query. Nullable so that the ~50 places
+   * that construct an OperationContext (tests included) need no change; {@link
+   * #getQueryTimeCanonicalizer()} substitutes a pass-through instance when unset.
+   */
+  @Nullable private final QueryTimeCanonicalizer queryTimeCanonicalizer;
+
   // Mutable collection for pending aspect deletions during validation
   // This is per-operation and not shared across threads, so ArrayList is safe
   @Builder.Default @Nonnull
@@ -334,6 +343,45 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
 
   public OperationContext withReadPreference(@Nonnull ReadPreference readPreference) {
     return OperationContext.withReadPreference(this, readPreference);
+  }
+
+  /**
+   * Attach the query time canonicalizer. Applied once when the system context is built; derived
+   * session contexts inherit it through {@code toBuilder()}.
+   */
+  public OperationContext withQueryTimeCanonicalizer(
+      @Nonnull QueryTimeCanonicalizer queryTimeCanonicalizer) {
+    try {
+      return toBuilder()
+          .queryTimeCanonicalizer(queryTimeCanonicalizer)
+          .build(getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Never null: falls back to a pass-through canonicalizer when none was configured, so call sites
+   * need no null handling and an unconfigured context behaves exactly as before the feature
+   * existed.
+   */
+  @Nonnull
+  public QueryTimeCanonicalizer getQueryTimeCanonicalizer() {
+    return queryTimeCanonicalizer != null
+        ? queryTimeCanonicalizer
+        : QueryTimeCanonicalizer.DISABLED;
+  }
+
+  /**
+   * The canonical view of "now" for this operation, read from the clock once.
+   *
+   * <p>Derive every wall-clock-based bound of a query from a single call so the bounds stay
+   * consistent with each other, and only for values the application derives itself - a timestamp
+   * the caller supplied explicitly must be passed through untouched.
+   */
+  @Nonnull
+  public QueryTimeCanonicalizer.CanonicalNow canonicalNow() {
+    return getQueryTimeCanonicalizer().now();
   }
 
   public OperationContext asSession(
@@ -839,6 +887,7 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
                   ? this.primaryStorageContext
                   : PrimaryStorageContext.EMPTY,
               this.enrichmentBundle,
+              this.queryTimeCanonicalizer,
               new java.util.ArrayList<>());
 
       if (!sessionActor.isActive(authContext, retriever)) {
