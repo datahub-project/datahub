@@ -1,8 +1,4 @@
-import logging
-
 from datahub.sdk import DataHubClient
-
-log = logging.getLogger(__name__)
 
 # Initialize the client
 client = DataHubClient.from_env()
@@ -13,7 +9,7 @@ client.subscriptions.subscribe(
     subscriber_urn="urn:li:corpuser:john.doe",
     # entity_change_types defaults to all available change types for datasets
 )
-log.info("Successfully subscribed to dataset notifications")
+print("Successfully subscribed to dataset notifications")
 
 # Subscribe to specific assertion changes
 client.subscriptions.subscribe(
@@ -21,7 +17,7 @@ client.subscriptions.subscribe(
     subscriber_urn="urn:li:corpuser:john.doe",
     entity_change_types=["ASSERTION_PASSED", "ASSERTION_FAILED"],
 )
-log.info("Successfully subscribed to specific assertion changes")
+print("Successfully subscribed to specific assertion changes")
 
 # Subscribe a group to assertion changes
 client.subscriptions.subscribe(
@@ -29,4 +25,4 @@ client.subscriptions.subscribe(
     subscriber_urn="urn:li:corpGroup:data-team",
     entity_change_types=["ASSERTION_FAILED", "ASSERTION_ERROR"],
 )
-log.info("Successfully subscribed group to assertion failures and errors")
+print("Successfully subscribed group to assertion failures and errors")

@@ -1,5 +1,4 @@
 # metadata-ingestion/examples/library/incident_add_tag.py
-import logging
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
@@ -7,9 +6,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.urns import IncidentUrn
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 # Configuration
 gms_endpoint = "http://localhost:8080"
@@ -49,7 +45,7 @@ if current_tags:
         current_tags.tags.append(tag_association)
         updated_tags = current_tags
     else:
-        log.info(f"Tag {tag_urn} already exists on incident {incident_urn}")
+        print(f"Tag {tag_urn} already exists on incident {incident_urn}")
         updated_tags = current_tags
 else:
     # No existing tags, create new GlobalTags aspect
@@ -62,5 +58,5 @@ metadata_change_proposal = MetadataChangeProposalWrapper(
 )
 
 emitter.emit(metadata_change_proposal)
-log.info(f"Added tag {tag_urn} to incident {incident_urn}")
-log.info(f"Incident now has {len(updated_tags.tags)} tag(s)")
+print(f"Added tag {tag_urn} to incident {incident_urn}")
+print(f"Incident now has {len(updated_tags.tags)} tag(s)")

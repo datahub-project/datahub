@@ -142,10 +142,10 @@ You can update job properties like descriptions using the low-level APIs:
 
 ### Querying Data Job Information
 
-Retrieve data job information via the REST API:
+Retrieve data job information via the Python SDK:
 
 <details>
-<summary>REST API: Query a data job</summary>
+<summary>Python SDK: Query a data job</summary>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/datajob_query_rest.py show_path_as_comment }}

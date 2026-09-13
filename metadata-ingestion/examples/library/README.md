@@ -11,179 +11,96 @@ Each example is a standalone Python script that demonstrates a specific use case
 - **Query examples**: Show how to read and query metadata
 - **Delete examples**: Show how to remove metadata
 
-## Writing Testable Examples
+## Writing Examples
 
-To ensure examples are maintainable and correct, follow this pattern when writing new examples:
+Each example is a plain, standalone script. Keep them simple enough to copy, paste and run:
 
-### Pattern Overview
+- **No test-specific code.** Don't add injectable `client=` / `emitter=` parameters or other
+  hooks that exist only for tests. Examples ship verbatim into the docs site, so anything you
+  add is something every reader has to read past.
+- **Read connection details from the environment**, so the same script works locally and in CI:
 
-Examples should have two main components:
+  ```python
+  import os
 
-1. **Testable functions**: Pure functions that take dependencies as parameters and return values/metadata
-2. **Main function**: Entry point that creates dependencies and calls the testable functions
+  gms_server = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
+  token = os.getenv("DATAHUB_GMS_TOKEN")
+  ```
 
-### Example Structure
+  `DataHubClient.from_env()` and `get_default_graph()` both do this for you.
 
-```python
-from typing import Optional
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter
+- **Let failures raise.** Python exits non-zero on an unhandled exception, which is how the
+  integration tests detect breakage. Don't wrap the whole script in `try`/`except` that
+  swallows the error and exits 0 — a silent failure looks identical to success.
+- **Exit non-zero when a lookup finds nothing.** `graph.get_aspect()` returns `None` for a
+  missing entity or aspect rather than raising, so printing "not found" and falling off the
+  end of the script exits 0 and makes a broken example indistinguishable from a working one:
 
+  ```python
+  props = graph.get_aspect(entity_urn=str(urn), aspect_type=TagPropertiesClass)
+  if props is None:
+      raise SystemExit(f"Tag not found: {urn}")
 
-def create_entity_metadata(...) -> MetadataChangeProposalWrapper:
-    """
-    Create metadata for an entity.
+  print(f"Tag name: {props.name}")
+  ```
 
-    This function is pure and testable - it doesn't have side effects.
+  This is for the **primary** thing the example is about. Genuinely optional aspects —
+  ownership, tags, terms an entity may legitimately not have — keep a quiet
+  `if x is not None:` guard. (`client.entities.get()` already raises `ItemNotFoundError`,
+  so SDK-based examples get this for free.)
 
-    Args:
-        ... (all required parameters)
-
-    Returns:
-        MetadataChangeProposalWrapper containing the metadata
-    """
-    # Build and return the MCP
-    return MetadataChangeProposalWrapper(...)
-
-
-def main(emitter: Optional[DatahubRestEmitter] = None) -> None:
-    """
-    Main function demonstrating the example use case.
-
-    Args:
-        emitter: Optional emitter for testing. If not provided, creates a new one.
-    """
-    emitter = emitter or DatahubRestEmitter(gms_server="http://localhost:8080")
-
-    # Use the testable function
-    mcp = create_entity_metadata(...)
-
-    # Emit the metadata
-    emitter.emit(mcp)
-    print(f"Successfully created entity")
-
-
-if __name__ == "__main__":
-    main()
-```
-
-### For SDK-based Examples
-
-When using the DataHub SDK (`DataHubClient`):
-
-```python
-from typing import Optional
-from datahub.sdk import DataHubClient
-
-
-def perform_operation(client: DataHubClient, ...) -> ...:
-    """
-    Perform an operation using the DataHub client.
-
-    Args:
-        client: DataHub client to use
-        ...: Other parameters
-
-    Returns:
-        Result of the operation
-    """
-    # Perform the operation
-    return result
-
-
-def main(client: Optional[DataHubClient] = None) -> None:
-    """
-    Main function demonstrating the example use case.
-
-    Args:
-        client: Optional client for testing. If not provided, creates one from env.
-    """
-    client = client or DataHubClient.from_env()
-
-    result = perform_operation(client, ...)
-    print(f"Operation result: {result}")
-
-
-if __name__ == "__main__":
-    main()
-```
-
-### Benefits of This Pattern
-
-1. **Testability**: Core logic can be unit tested without needing a running DataHub instance
-2. **Reusability**: The testable functions can be imported and used in other code
-3. **Clarity**: Separates business logic from infrastructure setup
-4. **Flexibility**: Examples can still be run standalone while being testable
-
-### Running Examples
-
-**As standalone scripts:**
-
-```bash
-python examples/library/notebook_create.py
-```
-
-**In tests:**
-
-```python
-from examples.library.create_notebook import create_notebook_metadata
-
-# Unit test
-mcp = create_notebook_metadata(...)
-assert mcp.entityUrn == "..."
-
-# Integration test
-from examples.library.create_notebook import main
-main(emitter=test_emitter)  # Inject test emitter
-```
+- **Print what you looked up.** For read/query examples, print the values you fetched — it
+  is what makes the example worth reading.
+- **Use `print()`, not `logging`.** Every example in this directory prints. `import logging`
+  plus `getLogger` plus `basicConfig` is three lines of scaffolding that has nothing to do
+  with the DataHub API being demonstrated, and these files are inlined verbatim into the docs
+  site. (Smoke tests use `logger.info()` instead, because their output interleaves under
+  parallel execution — that rule is theirs, not ours.)
 
 ## Testing
 
-Examples are tested at two levels:
+Examples are covered by two layers.
 
-### Unit Tests
+### 1. Lint — every example, every PR
 
-Located in `tests/unit/test_library_examples.py`:
-
-- Test that examples compile and imports resolve
-- Test that core functions produce valid metadata structures
-- Use mocking to avoid needing a real DataHub instance
-- Fast and run on every commit
-
-### Integration Tests
-
-Located in `tests/integration/library_examples/`:
-
-- Test examples against a real DataHub instance
-- Verify end-to-end functionality including reads after writes
-- Test that metadata is correctly persisted and retrievable
-- Slower, may run less frequently
-
-### Running Tests
+`./gradlew :metadata-ingestion:lint` runs both ruff and mypy over `examples/`. mypy catches
+wrong constructor arity, misspelled imports, bad aspect field names, and `Optional` mistakes
+without needing a DataHub instance:
 
 ```bash
-# Run all example tests (unit only)
-pytest tests/unit/test_library_examples.py
-
-# Run specific unit tests
-pytest tests/unit/test_library_examples.py::test_create_notebook_metadata
-
-# Run integration tests (requires running DataHub)
-pytest tests/integration/library_examples/ -m integration
-
-# Run all tests
-pytest tests/unit/test_library_examples.py tests/integration/library_examples/
+./gradlew :metadata-ingestion:lint      # ruff + mypy
+./gradlew :metadata-ingestion:lintFix   # auto-fix ruff findings
 ```
+
+### 2. Integration — examples listed in the manifest
+
+`smoke-test/tests/library_examples/` executes examples as scripts against a running DataHub
+instance, in dependency order, and requires each to exit 0. See that directory's `README.md`
+for how to add an example to `EXAMPLE_MANIFEST`.
+
+```bash
+cd smoke-test && source venv/bin/activate
+pytest tests/library_examples/ -v
+```
+
+Lint is the safety net for all examples; the manifest is the safety net for the ones that
+matter most. If you add a read/query example, add it to the manifest — a wrong endpoint or a
+missing aspect is invisible to mypy and only shows up when the script actually runs, and
+only fails the build if the example exits non-zero as described above.
 
 ## Guidelines
 
-1. **Keep examples simple**: Focus on demonstrating one concept clearly
+1. **Keep examples simple**: focus on demonstrating one concept clearly
 2. **Use realistic data**: URNs, names, and values should look like real-world usage
-3. **Add comments**: Explain non-obvious choices or important details
-4. **Follow the pattern**: Use the testable function + main() pattern
-5. **Document parameters**: Use clear docstrings with type hints
-6. **Handle errors gracefully**: Show proper error handling where relevant
-7. **Test your examples**: Add unit tests for new examples
+3. **Add comments**: explain non-obvious choices or important details, not what the code
+   already says
+4. **Prefer a flat script**: top-to-bottom statements read better inlined into docs than a
+   function you then have to call. Only factor something out when the example is genuinely
+   about that function
+5. **Fail loudly**: see the exit-code rule above — a missing entity should end the script,
+   not print "not found" and exit 0
+6. **Add read/query examples to the manifest**: `smoke-test/tests/library_examples/example_manifest.py`,
+   after whichever CREATE example seeds the entity they read
 
 ## Example Categories
 

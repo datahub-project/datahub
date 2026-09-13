@@ -1,40 +1,22 @@
 # metadata-ingestion/examples/library/application_query_rest_api.py
 import json
-import os
-from urllib.parse import quote
 
-import requests
+from datahub.ingestion.graph.client import get_default_graph
+from datahub.metadata.schema_classes import ApplicationPropertiesClass
+from datahub.metadata.urns import ApplicationUrn
 
+graph = get_default_graph()
 
-def make_application_urn(application_id: str) -> str:
-    """Create a DataHub application URN."""
-    return f"urn:li:application:{application_id}"
+application_urn = ApplicationUrn("customer-analytics-service")
 
+props = graph.get_aspect(
+    entity_urn=str(application_urn), aspect_type=ApplicationPropertiesClass
+)
+if props is None:
+    raise SystemExit(f"Application not found: {application_urn}")
 
-gms_server = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
-token = os.getenv("DATAHUB_GMS_TOKEN")
-application_urn = make_application_urn("customer-analytics-service")
-
-encoded_urn = quote(application_urn, safe="")
-
-headers = {}
-if token:
-    headers["Authorization"] = f"Bearer {token}"
-
-response = requests.get(f"{gms_server}/entities/{encoded_urn}", headers=headers)
-
-if response.status_code == 200:
-    entity_data = response.json()
-    print(f"Application: {application_urn}")
-    print(json.dumps(entity_data, indent=2))
-
-    if "aspects" in entity_data and "applicationProperties" in entity_data["aspects"]:
-        props = entity_data["aspects"]["applicationProperties"]["value"]
-        print(f"\nApplication Name: {props.get('name')}")
-        print(f"Description: {props.get('description')}")
-        if "customProperties" in props:
-            print(
-                f"Custom Properties: {json.dumps(props['customProperties'], indent=2)}"
-            )
-else:
-    print(f"Failed to fetch application: {response.status_code} - {response.text}")
+print(f"Application: {application_urn}")
+print(f"Application Name: {props.name}")
+print(f"Description: {props.description}")
+if props.customProperties:
+    print(f"Custom Properties: {json.dumps(props.customProperties, indent=2)}")

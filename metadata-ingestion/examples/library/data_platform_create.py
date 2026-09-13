@@ -1,5 +1,4 @@
 # metadata-ingestion/examples/library/data_platform_create.py
-import logging
 import os
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -7,9 +6,6 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
     DataPlatformInfoClass,
 )
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 gms_server = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
 token = os.getenv("DATAHUB_GMS_TOKEN")
@@ -31,4 +27,4 @@ event = MetadataChangeProposalWrapper(
 )
 
 emitter.emit(event)
-log.info(f"Created data platform {platform_urn}")
+print(f"Created data platform {platform_urn}")
