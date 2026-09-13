@@ -122,6 +122,21 @@ class LookMLSourceConfig(
         "If a deploy key is not provided, the ingestion system will use the same deploy key as the main project. "
         "When providing a local directory path (string), the directory must exist at config validation time.",
     )
+    remote_dependency_domain_pattern: AllowDenyPattern = Field(
+        AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for the hosts permitted for `remote_dependency` URLs "
+            "in `manifest.lkml`. Patterns match from the start of the host string and "
+            "are case-insensitive; anchor with `^...$` for an exact match. "
+            "For example, to allow `github.com` and its subdomains use "
+            "`allow: ['^github\\.com$', '.*\\.github\\.com$']`. "
+            "Hosts matching a `deny` pattern are always skipped. "
+            "`manifest.lkml` lives in the LookML repo, so committers can change these "
+            "URLs; this field is the operator-controlled allowlist. "
+            "Loopback, link-local, and cloud-metadata hosts are always rejected "
+            "regardless of this pattern, as are schemes other than `https` and SSH."
+        ),
+    )
     connection_to_platform_map: Optional[Dict[str, LookerConnectionDefinition]] = Field(
         None,
         description="A mapping of [Looker connection names]("
