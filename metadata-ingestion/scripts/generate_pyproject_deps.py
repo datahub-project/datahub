@@ -358,16 +358,24 @@ def generate_pyproject_toml() -> str:
     output_lines.append("[tool.setuptools.packages.find]")
     output_lines.append('where = ["src"]')
     output_lines.append("")
-    package_data: Dict = ns["_setup_args"].get("package_data", {})
-    output_lines.append("[tool.setuptools.package-data]")
-    for pkg_name in sorted(package_data.keys()):
-        patterns = package_data[pkg_name]
-        patterns_toml = ", ".join(f'"{p}"' for p in patterns)
-        if "." in pkg_name:
-            output_lines.append(f'"{pkg_name}" = [{patterns_toml}]')
-        else:
-            output_lines.append(f"{pkg_name} = [{patterns_toml}]")
-    output_lines.append("")
+
+    def _emit_package_data_table(section: str, mapping: Dict) -> None:
+        # setup.py spells "all packages" as ""; pyproject.toml spells it "*".
+        output_lines.append(f"[tool.setuptools.{section}]")
+        for pkg_name in sorted(mapping.keys(), key=lambda k: (k != "", k)):
+            patterns_toml = ", ".join(f'"{p}"' for p in mapping[pkg_name])
+            key = (
+                '"*"'
+                if pkg_name == ""
+                else (f'"{pkg_name}"' if "." in pkg_name else pkg_name)
+            )
+            output_lines.append(f"{key} = [{patterns_toml}]")
+        output_lines.append("")
+
+    _emit_package_data_table("package-data", ns["_setup_args"].get("package_data", {}))
+    exclude_package_data: Dict = ns["_setup_args"].get("exclude_package_data", {})
+    if exclude_package_data:
+        _emit_package_data_table("exclude-package-data", exclude_package_data)
 
     # End of generated section marker
     output_lines.append("# ===== END OF GENERATED SECTION =====")

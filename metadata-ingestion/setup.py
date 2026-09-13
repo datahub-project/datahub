@@ -7,10 +7,14 @@
 #   python scripts/generate_pyproject_deps.py
 #   python scripts/verify_pyproject_equivalence.py
 
+import fnmatch
+import os
 import sysconfig
-from typing import Dict, Set
+from typing import Callable, Dict, Iterable, List, Set, cast
 
 import setuptools
+from setuptools.command.build_py import build_py as _build_py
+from setuptools.command.sdist import sdist as _sdist
 
 package_metadata: dict = {}
 with open("./src/datahub/_version.py") as fp:
@@ -1360,6 +1364,142 @@ entry_points = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Resource files (everything that is not Python inside src/datahub)
+#
+# Every non-Python file inside every package ships. The "" key applies to all
+# packages, so there is no per-package list to forget and the fact that
+# package_data keys do not recurse into subpackages cannot bite. The only
+# human-maintained input is what NOT to ship — and forgetting an entry there
+# ships an extra README; it cannot drop a runtime file.
+#
+# History: datapack resources, ODCS schemas and snowplow property definitions
+# were each silently missing from released wheels because their package had
+# no explicit key.
+_PACKAGE_DATA: Dict[str, List[str]] = {"": ["*"]}
+
+_EXCLUDE_PACKAGE_DATA: Dict[str, List[str]] = {
+    # "" = every package. Sources are copied by build_modules, not as data.
+    "": ["*.py", "*.pyc", "*.pyi", ".*", "README.md"],
+    # design / planning documents, not read at runtime
+    "datahub.ingestion.source.rdf.docs": ["*.md"],
+    "datahub.ingestion.source.rdf.entities.domain": ["SPEC.md"],
+    "datahub.ingestion.source.rdf.entities.glossary_term": ["SPEC.md"],
+    "datahub.ingestion.source.rdf.entities.relationship": ["SPEC.md"],
+    "datahub.ingestion.source.pinecone.skill_docs": ["*.md"],
+    # selective-CI input
+    "datahub.ingestion.source.powerbi": ["connector.yaml"],
+    # maintenance aid for scripts/refresh_odcs_schemas.sh
+    "datahub.ingestion.source.odcs.odcs_schema": ["CHECKSUMS.sha256"],
+    # TypeScript build inputs; bundle.js.gz is the shipped artifact
+    "datahub.ingestion.source.powerbi.m_query.mquery_bridge": [
+        "build.sh",
+        "index.ts",
+        "package.json",
+        "package-lock.json",
+        "tsconfig.json",
+    ],
+}
+
+
+_SOURCE_SUFFIXES = (".py", ".pyc", ".pyi")
+
+
+def _is_excluded(exclude: Dict[str, List[str]], package: str, name: str) -> bool:
+    """True if `name` in `package` is deliberately not shipped. "" applies to every package."""
+    for key in ("", package):
+        if any(fnmatch.fnmatch(name, pattern) for pattern in exclude.get(key, [])):
+            return True
+    return False
+
+
+def _missing_resource_files(
+    packages: Iterable[str],
+    package_dir: Callable[[str], str],
+    exclude: Dict[str, List[str]],
+    is_present: Callable[[str, str], bool],
+) -> List[str]:
+    """Every non-Python, non-excluded file in a source package for which
+    `is_present(package, name)` is False — i.e. a file the artifact lost."""
+    missing = []
+    for package in packages:
+        src_dir = package_dir(package)
+        for name in sorted(os.listdir(src_dir)):
+            if not os.path.isfile(os.path.join(src_dir, name)):
+                continue
+            if name.endswith(_SOURCE_SUFFIXES) or _is_excluded(exclude, package, name):
+                continue
+            if not is_present(package, name):
+                missing.append(f"{package}: {name}")
+    return missing
+
+
+def _refuse(artifact: str, missing: List[str]) -> None:
+    raise SystemExit(
+        f"refusing to build: resource files present in the source tree are "
+        f"missing from the {artifact}:\n  "
+        + "\n  ".join(missing)
+        + "\nEither package data is misconfigured (pyproject.toml overrides "
+        "setup.py — check [tool.setuptools.package-data]), or these files are "
+        "not payload and belong in _EXCLUDE_PACKAGE_DATA with a reason."
+    )
+
+
+class _verified_build_py(_build_py):
+    """Refuse to build a wheel that drops a resource file.
+
+    After the normal copy, compare each package directory in the source tree
+    with build_lib. Any non-Python file that is not deliberately excluded and
+    did not make it into the build aborts the build. This does not depend on a
+    unit test, a CI job, or a setuptools default: if a wheel comes out of this
+    build, it is complete.
+    """
+
+    def run(self) -> None:
+        super().run()
+        if getattr(self, "editable_mode", False):
+            # PEP 660 editable install: nothing is copied, the package is
+            # served from the source tree itself, so nothing can be dropped.
+            return
+        build_lib = self.build_lib
+        missing = _missing_resource_files(
+            self.packages or (),
+            self.get_package_dir,
+            self.distribution.exclude_package_data or {},
+            lambda package, name: os.path.exists(
+                os.path.join(build_lib, *package.split("."), name)
+            ),
+        )
+        if missing:
+            _refuse("build output", missing)
+
+
+class _verified_sdist(_sdist):
+    """Refuse to build an sdist that drops a resource file.
+
+    The release path is `python -m build`: sdist first, then the wheel from
+    that sdist. A file dropped here is already gone by the time build_py runs
+    on the unpacked sdist, so the wheel-side check alone cannot see it. The
+    sdist file list is compared with the source tree before anything is written.
+    """
+
+    def make_distribution(self) -> None:
+        build_py = cast(_build_py, self.get_finalized_command("build_py"))
+        listed = {os.path.normpath(f) for f in self.filelist.files}
+        missing = _missing_resource_files(
+            build_py.packages or (),
+            build_py.get_package_dir,
+            self.distribution.exclude_package_data or {},
+            lambda package, name: (
+                os.path.normpath(os.path.join(build_py.get_package_dir(package), name))
+                in listed
+            ),
+        )
+        if missing:
+            _refuse("sdist", missing)
+        super().make_distribution()
+
+
 setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
@@ -1395,16 +1535,9 @@ setuptools.setup(
     python_requires=">=3.10",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
-    package_data={
-        "datahub": ["py.typed", "constraints.txt"],
-        "datahub.metadata": ["schema.avsc"],
-        "datahub.metadata.schemas": ["*.avsc"],
-        "datahub.ingestion.source.powerbi.m_query.mquery_bridge": ["bundle.js.gz"],
-        "datahub.ingestion.autogenerated": ["*.json"],
-        "datahub.cli.gql": ["*.gql"],
-        "datahub.cli.resources": ["*.md"],
-        "datahub.cli.datapack.resources": ["*.md", "*.json"],
-    },
+    package_data=_PACKAGE_DATA,
+    exclude_package_data=_EXCLUDE_PACKAGE_DATA,
+    cmdclass={"build_py": _verified_build_py, "sdist": _verified_sdist},
     # Install .pth files that run at interpreter startup:
     # - setproctitle patch avoids a SIGSEGV when a multi-threaded process forks
     #   and something calls setproctitle (macOS).
