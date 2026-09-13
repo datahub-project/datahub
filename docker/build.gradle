@@ -5,6 +5,8 @@ plugins {
 import com.avast.gradle.dockercompose.tasks.ComposeUp
 import com.avast.gradle.dockercompose.tasks.ComposeDownForced
 import org.yaml.snakeyaml.Yaml
+import groovy.json.JsonSlurper
+import java.security.MessageDigest
 
 apply from: "../gradle/versioning/versioning.gradle"
 
@@ -555,6 +557,32 @@ ext.selectBuildModules = { modules ->
     requestedBuildModules == null ? modules : modules.findAll { requestedBuildModules.contains(it) }
 }
 
+def gitWorktreeFingerprint = providers.provider {
+    def digest = MessageDigest.getInstance("SHA-256")
+    def hashCommand = { List<String> command ->
+        def output = new ByteArrayOutputStream()
+        execOps.exec {
+            commandLine command
+            workingDir rootProject.projectDir
+            standardOutput = output
+        }
+        digest.update(output.toByteArray())
+        return output.toString().trim()
+    }
+
+    hashCommand(['git', 'rev-parse', 'HEAD'])
+    hashCommand(['git', 'diff', '--binary', 'HEAD'])
+    def untrackedFiles = hashCommand(
+            ['git', 'ls-files', '--others', '--exclude-standard', '-z']
+    ).split('\u0000').findAll { it }
+    untrackedFiles.sort().each { path ->
+        digest.update(path.getBytes('UTF-8'))
+        digest.update(rootProject.file(path).bytes)
+    }
+
+    return digest.digest().encodeHex().toString()
+}
+
 task prepareOnnxModel(type: Exec) {
     group = 'quickstart'
     description = 'Downloads the default ONNX embedding model for quickstartDebugBuiltinEmbedding'
@@ -585,20 +613,49 @@ quickstart_configs.each { taskName, config ->
 
 
 quickstart_configs.each { taskName, config ->
+    def taskSuffix = config.isDebug? 'debug' : ''
+    def buildModules = selectBuildModules(config.modules)
+    def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
+
+    tasks.register("generateBakeSpec${taskName}") {
+        dependsOn(buildModules.collect { it + ":generateBakeSnippet${taskSuffix}" })
+        outputs.file(jsonFile)
+        outputs.upToDateWhen { false }
+
+        doLast {
+            def bakeSnippets = [:]
+            def targets = []
+
+            buildModules.each { module ->
+                def moduleProject = project.project(module)
+                def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet${taskSuffix}")
+                bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
+                targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
+            }
+
+            def bakeSpec = [
+                    group: ["default": ["targets": targets]],
+                    target: bakeSnippets,
+            ]
+            jsonFile.parentFile.mkdirs()
+            jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(bakeSpec))
+        }
+    }
+
     tasks.register("buildImages${taskName}", Exec) {
         ext{
             bakeSpec = [:]
         }
         group = 'quickstart-ci'
-        def taskSuffix = config.isDebug? 'debug' : ''
-        def buildModules = selectBuildModules(config.modules)
-        dependsOn(buildModules.collect { it + ":generateBakeSnippet${taskSuffix}" })
+        dependsOn(tasks.named("generateBakeSpec${taskName}"))
         dependsOn(tasks.getByName("prepareAll${taskName}"))
-
-        def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
 
         def bakeCmdArgs = ["bake", "-f",  "${jsonFile.absolutePath}"]
         def buildCmd = []
+        def localDebugBuild = config.isDebug
+                && System.getenv("CI") != "true"
+                && System.getenv("DOCKER_CACHE") != "DEPOT"
+        def metadataFile = new File(rootProject.buildDir, "build-metadata-${taskName}.json")
         if (System.getenv("DOCKER_CACHE") == "DEPOT") {
             buildCmd << "depot"
             buildCmd += bakeCmdArgs
@@ -609,6 +666,13 @@ quickstart_configs.each { taskName, config ->
         } else {
             buildCmd += ["docker",  "buildx" ]
             buildCmd +=bakeCmdArgs
+            if (localDebugBuild) {
+                buildCmd += [
+                        '--metadata-file', metadataFile.absolutePath,
+                        '--provenance=false',
+                        '--sbom=false',
+                ]
+            }
             // buildx >= 0.17 refuses to read files referenced by the bake definition that
             // live outside the working directory (e.g. a netrc secret at $HOME/.netrc)
             // unless the fs entitlement is granted; non-interactive runs fail outright
@@ -620,6 +684,32 @@ quickstart_configs.each { taskName, config ->
         }
         commandLine buildCmd
         workingDir rootProject.projectDir
+
+        if (localDebugBuild) {
+            inputs.file(jsonFile)
+            inputs.property('gitWorktreeFingerprint', gitWorktreeFingerprint)
+            outputs.file(metadataFile)
+            outputs.upToDateWhen {
+                try {
+                    def spec = new JsonSlurper().parse(jsonFile)
+                    def expectedTags = spec.target.values()
+                            .collectMany { target -> target.tags ?: [] }
+                            .findAll { tag -> !tag.contains('$') }
+                            .unique()
+                    return expectedTags && expectedTags.every { tag ->
+                        def result = execOps.exec {
+                            commandLine 'docker', 'image', 'inspect', tag
+                            standardOutput = new ByteArrayOutputStream()
+                            errorOutput = new ByteArrayOutputStream()
+                            ignoreExitValue = true
+                        }
+                        result.exitValue == 0
+                    }
+                } catch (Exception ignored) {
+                    return false
+                }
+            }
+        }
 
         doFirst {
             // Validated here rather than at configuration time: the property is
@@ -633,21 +723,7 @@ quickstart_configs.each { taskName, config ->
                 logger.lifecycle("Building a subset of ${taskName} images: ${buildModules}")
             }
 
-            def bakeSnippets = [:]
-            def targets = []
-
-            buildModules.each { module ->
-                def moduleProject = project.project(module)
-                def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet${taskSuffix}")
-                bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
-                targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
-            }
-
-            ext.bakeSpec.group = [ "default": ["targets": targets] ]
-            ext.bakeSpec.target = bakeSnippets
-
-            jsonFile.parentFile.mkdirs()
-            jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ext.bakeSpec))
+            ext.bakeSpec = new JsonSlurper().parse(jsonFile)
         }
     }
 }
