@@ -313,4 +313,81 @@ public class ServiceAccountServiceTest {
     String result3 = serviceAccountService.buildServiceUserUrn(issuer3, subject);
     assertTrue(result3.contains("auth_server_example_com_443_oauth2"));
   }
+
+  // ==================== resolveCorpUser TESTS ====================
+
+  @Test
+  public void testResolveCorpUserWithExistingUser() {
+    String claimValue = "john@company.com";
+    String claimRegex = "(.*)";
+    CorpuserUrn expectedUrn = new CorpuserUrn(claimValue);
+
+    when(mockEntityService.exists(eq(operationContext), eq(expectedUrn), eq(false)))
+        .thenReturn(true);
+
+    String result =
+        serviceAccountService.resolveCorpUser(
+            claimValue, claimRegex, mockEntityService, operationContext);
+
+    assertEquals(result, "john@company.com");
+    verify(mockEntityService, times(1)).exists(eq(operationContext), eq(expectedUrn), eq(false));
+  }
+
+  @Test
+  public void testResolveCorpUserWithRegexExtraction() {
+    // Mirrors frontend OIDC behavior: extract username from email using regex
+    String claimValue = "john@company.com";
+    String claimRegex = "([^@]+)";
+    CorpuserUrn expectedUrn = new CorpuserUrn("john");
+
+    when(mockEntityService.exists(eq(operationContext), eq(expectedUrn), eq(false)))
+        .thenReturn(true);
+
+    String result =
+        serviceAccountService.resolveCorpUser(
+            claimValue, claimRegex, mockEntityService, operationContext);
+
+    // matcher.group() returns the full match (same as frontend), which is "john"
+    assertEquals(result, "john");
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testResolveCorpUserWithNonMatchingRegex() {
+    String claimValue = "john@company.com";
+    String claimRegex = "^\\d+$"; // Only matches digits
+
+    serviceAccountService.resolveCorpUser(
+        claimValue, claimRegex, mockEntityService, operationContext);
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testResolveCorpUserWithNonExistentUser() {
+    String claimValue = "unknown@company.com";
+    String claimRegex = "(.*)";
+    CorpuserUrn expectedUrn = new CorpuserUrn(claimValue);
+
+    when(mockEntityService.exists(eq(operationContext), eq(expectedUrn), eq(false)))
+        .thenReturn(false);
+
+    serviceAccountService.resolveCorpUser(
+        claimValue, claimRegex, mockEntityService, operationContext);
+  }
+
+  @Test
+  public void testResolveCorpUserRegexParityWithFrontend() {
+    // Verify that the regex behavior matches OidcCallbackLogic.extractRegexGroup exactly:
+    // Pattern.compile(regex).matcher(value).find() -> matcher.group()
+    String claimValue = "user.name+tag@company.com";
+    String claimRegex = "[^@]+"; // No capturing group - full match should still work
+
+    CorpuserUrn expectedUrn = new CorpuserUrn("user.name+tag");
+    when(mockEntityService.exists(eq(operationContext), eq(expectedUrn), eq(false)))
+        .thenReturn(true);
+
+    String result =
+        serviceAccountService.resolveCorpUser(
+            claimValue, claimRegex, mockEntityService, operationContext);
+
+    assertEquals(result, "user.name+tag");
+  }
 }
