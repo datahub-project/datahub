@@ -22,12 +22,14 @@ with open("./src/datahub_agent_context/_version.py") as fp:
 
 _version: str = package_metadata["__version__"]
 
-# Pin acryl-datahub to a known-good stable release (see __acryl_datahub_pin__ in
+# Require a known-good minimum acryl-datahub (see __acryl_datahub_pin__ in
 # _version.py) for published wheels instead of self-pinning to this package's own
-# server-derived version. During local/dev builds the pin is omitted so the
-# editable acryl-datahub from this monorepo resolves.
+# server-derived version. This is a lower bound rather than an exact pin, so the
+# published wheel can be installed alongside projects that pin a different
+# acryl-datahub. During local/dev builds the bound is omitted so the editable
+# acryl-datahub from this monorepo resolves.
 _datahub_pin = (
-    f"=={package_metadata['__acryl_datahub_pin__']}"
+    f">={package_metadata['__acryl_datahub_pin__']}"
     if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
     else ""
 )
