@@ -100,6 +100,16 @@ public class PrivateKeyJwtUtilsTest {
   }
 
   @Test
+  void rejectsRsaPrivateKeyBelowMinimumSize() {
+    IllegalArgumentException thrown =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                PrivateKeyJwtUtils.loadPrivateKey(TestKeyMaterial.WEAK_RSA_PRIVATE_KEY_PATH, null));
+    assertTrue(thrown.getMessage().contains("2048"));
+  }
+
+  @Test
   void rejectsMismatchedKeyAndCertificate() throws Exception {
     RSAPrivateKey key = PrivateKeyJwtUtils.loadPrivateKey(TestKeyMaterial.PRIVATE_KEY_PATH, null);
     X509Certificate otherCert =

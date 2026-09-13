@@ -36,6 +36,7 @@ public final class TestKeyMaterial {
   public static final String CERTIFICATE_PATH;
   public static final String OTHER_CERTIFICATE_PATH;
   public static final String EC_PRIVATE_KEY_PATH;
+  public static final String WEAK_RSA_PRIVATE_KEY_PATH;
 
   static {
     try {
@@ -70,11 +71,17 @@ public final class TestKeyMaterial {
       Path ecKeyPath = dir.resolve("ec-key.pem");
       writePem(ecKeyPath, ecKpg.generateKeyPair().getPrivate());
 
+      KeyPairGenerator weakRsaKpg = KeyPairGenerator.getInstance("RSA");
+      weakRsaKpg.initialize(1024);
+      Path weakRsaKeyPath = dir.resolve("weak-rsa-key.pem");
+      writePem(weakRsaKeyPath, weakRsaKpg.generateKeyPair().getPrivate());
+
       PRIVATE_KEY_PATH = keyPath.toString();
       ENCRYPTED_PRIVATE_KEY_PATH = encKeyPath.toString();
       CERTIFICATE_PATH = certPath.toString();
       OTHER_CERTIFICATE_PATH = otherCertPath.toString();
       EC_PRIVATE_KEY_PATH = ecKeyPath.toString();
+      WEAK_RSA_PRIVATE_KEY_PATH = weakRsaKeyPath.toString();
     } catch (Exception e) {
       throw new ExceptionInInitializerError(e);
     }

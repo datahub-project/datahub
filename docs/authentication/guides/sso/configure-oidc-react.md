@@ -112,7 +112,7 @@ AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=authentication-method
 
 DataHub supports [RFC 7523](https://datatracker.ietf.org/doc/html/rfc7523) `private_key_jwt` client authentication as an alternative to a shared client secret. Instead of sending `client_secret`, DataHub signs a short-lived JWT assertion with an RSA private key held on disk; the identity provider verifies it against the registered public certificate.
 
-This is vendor-agnostic and works with any OIDC-compliant IdP that supports `private_key_jwt` at its token endpoint — Keycloak, Okta, Auth0, Azure AD / Entra ID, Ping, ForgeRock, and others. DataHub populates the JWT header with `kid`, `x5t#S256` (RFC 7515 §4.1.8) and `x5c` (§4.1.6) so the assertion is accepted regardless of which key-identification field the IdP matches on.
+This is vendor-agnostic and works with OIDC providers that support `private_key_jwt` with the token endpoint URI as the client assertion audience. DataHub populates the JWT header with `kid`, `x5t#S256` (RFC 7515 §4.1.8), and `x5c` (§4.1.6) to support the common key-identification mechanisms used by providers.
 
 ```
 # Certificate-based authentication (alternative to client secret)
@@ -126,7 +126,7 @@ AUTH_OIDC_PRIVATE_KEY_JWT_KID=optional-explicit-kid
 
 | Configuration                       | Description                                                                                                                                                                                                                              | Default                 |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| AUTH_OIDC_PRIVATE_KEY_FILE_PATH     | Path to the PEM file containing the RSA private key. Required when using `private_key_jwt`. Accepts PKCS#8 (`BEGIN PRIVATE KEY` / `BEGIN ENCRYPTED PRIVATE KEY`) and traditional OpenSSL (`BEGIN RSA PRIVATE KEY`) variants.             |                         |
+| AUTH_OIDC_PRIVATE_KEY_FILE_PATH     | Path to the PEM file containing an RSA private key of at least 2048 bits. Required when using `private_key_jwt`. Accepts PKCS#8 (`BEGIN PRIVATE KEY` / `BEGIN ENCRYPTED PRIVATE KEY`) and traditional OpenSSL (`BEGIN RSA PRIVATE KEY`) variants. |                         |
 | AUTH_OIDC_CERTIFICATE_FILE_PATH     | Path to the PEM file containing the X.509 certificate (`BEGIN CERTIFICATE`). Required when using `private_key_jwt`. If the file contains multiple concatenated certificates, they are treated as a chain (leaf first) and sent as `x5c`. |                         |
 | AUTH_OIDC_PRIVATE_KEY_PASSWORD      | Password for the private key file, if it is encrypted. Leave empty for unencrypted keys.                                                                                                                                                 |                         |
 | AUTH_OIDC_PRIVATE_KEY_JWT_ALGORITHM | Signing algorithm for the client assertion JWT. Supported values: `RS256`, `RS384`, `RS512`.                                                                                                                                             | RS256                   |

@@ -48,7 +48,9 @@ public class OidcConfigsPrivateKeyJwtTest {
     Map<String, Object> values = jwtConfig();
     Config config = ConfigFactory.parseMap(values);
     OidcConfigs configs =
-        new OidcConfigs.Builder().from(config).from(config, new JSONObject().toString()).build();
+        new OidcConfigs.Builder().from(config, dynamicSsoJsonWithoutAuthMaterial()).build();
+    assertEquals(OidcConfigs.PRIVATE_KEY_JWT_METHOD, configs.getClientAuthenticationMethod());
+    assertNull(configs.getClientSecret());
     assertEquals(TestKeyMaterial.PRIVATE_KEY_PATH, configs.getPrivateKeyFilePath().orElseThrow());
     assertEquals("explicit-kid", configs.getPrivateKeyJwtKid().orElseThrow());
   }
@@ -84,6 +86,15 @@ public class OidcConfigsPrivateKeyJwtTest {
     values.put("auth.oidc.certificateFilePath", TestKeyMaterial.CERTIFICATE_PATH);
     values.put("auth.oidc.privateKeyJwtKid", "explicit-kid");
     return values;
+  }
+
+  private static String dynamicSsoJsonWithoutAuthMaterial() {
+    return new JSONObject()
+        .put("oidcEnabled", true)
+        .put("clientId", "test-client")
+        .put("discoveryUri", "https://example.com/.well-known/openid-configuration")
+        .put("baseUrl", "http://localhost:9002")
+        .toString();
   }
 
   private static Map<String, Object> baseConfig() {

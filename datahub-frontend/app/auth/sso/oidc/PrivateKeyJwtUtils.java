@@ -45,6 +45,8 @@ import org.bouncycastle.pkcs.PKCSException;
  */
 public final class PrivateKeyJwtUtils {
 
+  private static final int MINIMUM_RSA_KEY_SIZE_BITS = 2048;
+
   static {
     if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
       Security.addProvider(new BouncyCastleProvider());
@@ -101,6 +103,15 @@ public final class PrivateKeyJwtUtils {
               "Private key must be RSA for private_key_jwt, got "
                   + privateKey.getAlgorithm()
                   + " in file: "
+                  + filePath);
+        }
+        if (rsaPrivateKey.getModulus().bitLength() < MINIMUM_RSA_KEY_SIZE_BITS) {
+          throw new IllegalArgumentException(
+              "Private key must be at least "
+                  + MINIMUM_RSA_KEY_SIZE_BITS
+                  + " bits for private_key_jwt, got "
+                  + rsaPrivateKey.getModulus().bitLength()
+                  + " bits in file: "
                   + filePath);
         }
         return rsaPrivateKey;

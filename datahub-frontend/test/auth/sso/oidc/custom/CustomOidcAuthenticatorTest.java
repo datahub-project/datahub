@@ -4,15 +4,22 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import auth.sso.oidc.OidcConfigs;
+import auth.sso.oidc.PrivateKeyJwtUtils;
 import auth.sso.oidc.TestKeyMaterial;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jwt.SignedJWT;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
 import com.nimbusds.oauth2.sdk.TokenRequest;
 import com.nimbusds.oauth2.sdk.auth.ClientAuthenticationMethod;
+import com.nimbusds.oauth2.sdk.auth.ClientSecretBasic;
+import com.nimbusds.oauth2.sdk.auth.ClientSecretPost;
 import com.nimbusds.oauth2.sdk.auth.PrivateKeyJWT;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import java.net.URI;
+import java.security.cert.X509Certificate;
+import java.security.interfaces.RSAPublicKey;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -133,6 +140,62 @@ public class CustomOidcAuthenticatorTest {
   }
 
   @Test
+  void assertionContainsExpectedClaimsHeadersAndVerifiableSignature() throws Exception {
+    CustomOidcAuthenticator auth = newPkjAuthenticator(Optional.empty(), "RS256");
+    SignedJWT jwt = signedAssertion(auth.createTokenRequest(GRANT));
+    X509Certificate certificate =
+        PrivateKeyJwtUtils.loadCertificateChain(TestKeyMaterial.CERTIFICATE_PATH).get(0);
+    String thumbprint = PrivateKeyJwtUtils.computeSha256Thumbprint(certificate);
+
+    assertTrue(jwt.verify(new RSASSAVerifier((RSAPublicKey) certificate.getPublicKey())));
+    assertEquals(JWSAlgorithm.RS256, jwt.getHeader().getAlgorithm());
+    assertEquals(thumbprint, jwt.getHeader().getKeyID());
+    assertEquals(thumbprint, jwt.getHeader().getX509CertSHA256Thumbprint().toString());
+    assertEquals(1, jwt.getHeader().getX509CertChain().size());
+    assertArrayEquals(certificate.getEncoded(), jwt.getHeader().getX509CertChain().get(0).decode());
+    assertEquals("test-client-id", jwt.getJWTClaimsSet().getIssuer());
+    assertEquals("test-client-id", jwt.getJWTClaimsSet().getSubject());
+    assertEquals(List.of(TOKEN_ENDPOINT.toString()), jwt.getJWTClaimsSet().getAudience());
+    assertNotNull(jwt.getJWTClaimsSet().getJWTID());
+    assertNotNull(jwt.getJWTClaimsSet().getIssueTime());
+    assertTrue(
+        jwt.getJWTClaimsSet().getExpirationTime().after(jwt.getJWTClaimsSet().getIssueTime()));
+  }
+
+  @Test
+  void supportedAlgorithmsProduceVerifiableAssertions() throws Exception {
+    X509Certificate certificate =
+        PrivateKeyJwtUtils.loadCertificateChain(TestKeyMaterial.CERTIFICATE_PATH).get(0);
+    RSASSAVerifier verifier = new RSASSAVerifier((RSAPublicKey) certificate.getPublicKey());
+
+    for (String algorithm : List.of("RS256", "RS384", "RS512")) {
+      SignedJWT jwt =
+          signedAssertion(
+              newPkjAuthenticator(Optional.empty(), algorithm).createTokenRequest(GRANT));
+      assertEquals(JWSAlgorithm.parse(algorithm), jwt.getHeader().getAlgorithm());
+      assertTrue(jwt.verify(verifier));
+    }
+  }
+
+  @Test
+  void existingClientAuthenticationMethodsKeepTheirRequestShapes() {
+    assertTrue(
+        newAuthenticator(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                .createTokenRequest(GRANT)
+                .getClientAuthentication()
+            instanceof ClientSecretBasic);
+    assertTrue(
+        newAuthenticator(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+                .createTokenRequest(GRANT)
+                .getClientAuthentication()
+            instanceof ClientSecretPost);
+    assertNull(
+        newAuthenticator(ClientAuthenticationMethod.NONE)
+            .createTokenRequest(GRANT)
+            .getClientAuthentication());
+  }
+
+  @Test
   void kidOverrideFlowsIntoSignedJwtHeader() throws Exception {
     CustomOidcAuthenticator auth =
         newPkjAuthenticator(Optional.of("keycloak-client-kid-42"), "RS256");
@@ -196,6 +259,24 @@ public class CustomOidcAuthenticatorTest {
     when(configs.getPrivateKeyPassword()).thenReturn(Optional.empty());
     when(configs.getPrivateKeyJwtKid()).thenReturn(kidOverride);
     when(configs.getPrivateKeyJwtAlgorithm()).thenReturn(algorithm);
+    return new CustomOidcAuthenticator(client, configs);
+  }
+
+  private static CustomOidcAuthenticator newAuthenticator(ClientAuthenticationMethod method) {
+    OidcClient client = mock(OidcClient.class);
+    OidcConfigs configs = mock(OidcConfigs.class);
+    OidcConfiguration configuration = mock(OidcConfiguration.class);
+    OidcOpMetadataResolver resolver = mock(OidcOpMetadataResolver.class);
+    OIDCProviderMetadata metadata = mock(OIDCProviderMetadata.class);
+
+    when(client.getConfiguration()).thenReturn(configuration);
+    when(configuration.getClientId()).thenReturn("test-client-id");
+    when(configuration.getSecret()).thenReturn("test-secret");
+    when(configuration.getClientAuthenticationMethod()).thenReturn(method);
+    when(configuration.getOpMetadataResolver()).thenReturn(resolver);
+    when(resolver.load()).thenReturn(metadata);
+    when(metadata.getTokenEndpointAuthMethods()).thenReturn(List.of(method));
+    when(metadata.getTokenEndpointURI()).thenReturn(TOKEN_ENDPOINT);
     return new CustomOidcAuthenticator(client, configs);
   }
 

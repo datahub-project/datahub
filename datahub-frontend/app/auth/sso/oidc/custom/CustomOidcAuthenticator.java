@@ -7,6 +7,7 @@ import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.util.Base64URL;
+import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
@@ -38,6 +39,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateKey;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -207,7 +209,9 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
             .build();
     JWTAuthenticationClaimsSet claims =
         new JWTAuthenticationClaimsSet(clientID, new Audience(tokenEndpoint.toString()));
-    SignedJWT jwt = new SignedJWT(header, claims.toJWTClaimsSet());
+    JWTClaimsSet claimsWithIssueTime =
+        new JWTClaimsSet.Builder(claims.toJWTClaimsSet()).issueTime(new Date()).build();
+    SignedJWT jwt = new SignedJWT(header, claimsWithIssueTime);
     jwt.sign(new RSASSASigner(pkjMaterial.privateKey()));
     return new PrivateKeyJWT(jwt);
   }

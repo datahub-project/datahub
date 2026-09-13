@@ -338,6 +338,12 @@ public class OidcConfigs extends SsoConfigs {
       // Seed access-control fields from env/static config first so they survive dynamic SSO
       // refresh when the JSON omits them (see #18591).
       seedAccessControlFromConfig(configs);
+      clientAuthenticationMethod =
+          getOptional(
+              configs,
+              OIDC_CLIENT_AUTHENTICATION_METHOD_CONFIG_PATH,
+              DEFAULT_OIDC_CLIENT_AUTHENTICATION_METHOD);
+      clientSecret = getOptional(configs, OIDC_CLIENT_SECRET_CONFIG_PATH, null);
       if (jsonNode.has(CLIENT_ID)) {
         clientId = jsonNode.get(CLIENT_ID).asText();
       }
