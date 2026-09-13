@@ -704,25 +704,49 @@ class MockCatalog:
             namespace_properties if namespace_properties else defaultdict(dict)
         )
 
-    def list_namespaces(self) -> Iterable[Tuple[str]]:
-        return [*[(key,) for key in self.tables]]
+    def list_namespaces(
+        self, parent: Optional[Tuple[str, ...]] = None
+    ) -> Iterable[Tuple[str, ...]]:
+        parent_key = ".".join(parent) if parent is not None else None
+        namespace_keys: List[str] = []
 
-    def list_tables(self, namespace: str) -> Iterable[Tuple[str, str]]:
-        return [(namespace[0], table) for table in self.tables[namespace[0]]]
+        for key in self.tables:
+            if parent_key is None:
+                # Root-level namespaces are keys that do not contain dot.
+                if "." not in key:
+                    namespace_keys.append(key)
+                continue
 
-    def load_table(self, dataset_path: Tuple[str, str]) -> Table:
-        table_callable = self.tables[dataset_path[0]][dataset_path[1]]
+            child_prefix = f"{parent_key}."
+            if not key.startswith(child_prefix):
+                continue
+
+            # Only include direct child namespaces, not deeper nested descendants.
+            child_suffix = key[len(child_prefix) :]
+            if "." not in child_suffix:
+                namespace_keys.append(key)
+
+        return [tuple(key.split(".")) for key in namespace_keys]
+
+    def list_tables(self, namespace: Tuple[str, ...]) -> Iterable[Tuple[str, ...]]:
+        namespace_key = ".".join(namespace)
+        return [namespace + (table_name,) for table_name in self.tables[namespace_key]]
+
+    def load_table(self, dataset_path: Tuple[str, ...]) -> Table:
+        namespace_key = ".".join(dataset_path[:-1])
+        table_name = dataset_path[-1]
+        table_callable = self.tables[namespace_key][table_name]
 
         # Passing self as a mock catalog, despite it not being fully valid.
         # This makes the mocking setup simpler.
         return table_callable(self)  # type: ignore
 
     def load_namespace_properties(self, namespace: Tuple[str, ...]) -> Dict[str, str]:
-        return self.namespace_properties[namespace[0]]
+        return self.namespace_properties[".".join(namespace)]
 
 
 class MockCatalogExceptionListingTables(MockCatalog):
-    def list_tables(self, namespace: str) -> Iterable[Tuple[str, str]]:
+    def list_tables(self, namespace: Tuple[str, ...]) -> Iterable[Tuple[str, ...]]:
         if namespace == ("no_such_namespace",):
             raise NoSuchNamespaceError()
         if namespace == ("rest_error",):
@@ -733,7 +757,9 @@ class MockCatalogExceptionListingTables(MockCatalog):
 
 
 class MockCatalogExceptionListingNamespaces(MockCatalog):
-    def list_namespaces(self) -> Iterable[Tuple[str]]:
+    def list_namespaces(
+        self, parent: Optional[Tuple[str, ...]] = None
+    ) -> Iterable[Tuple[str, ...]]:
         raise Exception("Test exception")
 
 
@@ -1256,6 +1282,87 @@ def test_proper_run_with_multiple_namespaces() -> None:
             urns,
             expected_wu_urns,
         )
+
+
+def test_run_with_nested_namespaces() -> None:
+    source = with_iceberg_source(processing_threads=1)
+    mock_catalog = MockCatalog(
+        {
+            "testing": {
+                "root_table": lambda catalog: Table(
+                    identifier=("testing", "root_table"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/testing/root_table",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
+                    ),
+                    metadata_location="s3://abcdefg/testing/root_table",
+                    io=PyArrowFileIO(),
+                    catalog=catalog,
+                )
+            },
+            "testing.namespace1": {
+                "nested_table_level1": lambda catalog: Table(
+                    identifier=("testing", "namespace1", "nested_table_level1"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/testing/namespace1/nested_table_level1",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
+                    ),
+                    metadata_location="s3://abcdefg/testing/namespace1/nested_table_level1",
+                    io=PyArrowFileIO(),
+                    catalog=catalog,
+                )
+            },
+            "testing.namespace1.namespace2": {
+                "nested_table_level2": lambda catalog: Table(
+                    identifier=(
+                        "testing",
+                        "namespace1",
+                        "namespace2",
+                        "nested_table_level2",
+                    ),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/testing/namespace1/namespace2/nested_table_level2",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                        current_schema_id=0,
+                    ),
+                    metadata_location="s3://abcdefg/testing/namespace1/namespace2/nested_table_level2",
+                    io=PyArrowFileIO(),
+                    catalog=catalog,
+                )
+            },
+        }
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wus = [*source.get_workunits_internal()]
+
+    expected_wu_urns = [
+        "urn:li:dataset:(urn:li:dataPlatform:iceberg,testing.root_table,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:iceberg,testing.namespace1.nested_table_level1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:iceberg,testing.namespace1.namespace2.nested_table_level2,PROD)",
+    ] * MCPS_PER_TABLE + [
+        "urn:li:container:fb034a640f6b27739842dd30a16e7832",
+        "urn:li:container:d47e09f1706832650d2674b9dcc56c6d",
+        "urn:li:container:1ed3cffc0bea3f45926c04937ddac44c",
+    ] * MCPS_PER_NAMESPACE
+
+    urns = []
+    for unit in wus:
+        assert isinstance(unit.metadata, MetadataChangeProposalWrapper)
+        urns.append(unit.metadata.entityUrn)
+
+    TestCase().assertCountEqual(urns, expected_wu_urns)
+    assert source.report.warnings.total_elements == 0
 
 
 def test_filtering() -> None:
