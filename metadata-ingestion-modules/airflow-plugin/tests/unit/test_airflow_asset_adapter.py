@@ -117,43 +117,44 @@ class TestTranslateAirflowAssetToUrn:
             == "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/path/to/data,PROD)"
         )
 
-    def test_postgres_uri(self) -> None:
+    # Table-shaped schemes (postgres/mysql/bigquery/snowflake) used to fold the URI
+    # authority into the dataset name and keep the slashes, producing URNs like
+    # `myhost/mydb/mytable` that match nothing the platform's own connector emits. The
+    # authority is now dropped (kept only for bigquery, where it is the project) and
+    # segments joined with dots, per that connector's naming. See
+    # test_connection_mapping.py for the full rule set.
+
+    def test_postgres_uri_drops_the_host(self) -> None:
         class Asset:
             uri = "postgresql://myhost/mydb/mytable"
 
         urn = translate_airflow_asset_to_urn(Asset())
-        assert (
-            urn
-            == "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/mytable,PROD)"
-        )
+        assert urn == "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.mytable,PROD)"
 
-    def test_mysql_uri(self) -> None:
+    def test_mysql_uri_drops_the_host(self) -> None:
         class Asset:
             uri = "mysql://myhost/mydb/mytable"
 
         urn = translate_airflow_asset_to_urn(Asset())
-        assert (
-            urn == "urn:li:dataset:(urn:li:dataPlatform:mysql,myhost/mydb/mytable,PROD)"
-        )
+        assert urn == "urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.mytable,PROD)"
 
-    def test_bigquery_uri(self) -> None:
+    def test_bigquery_uri_keeps_the_project(self) -> None:
         class Asset:
             uri = "bigquery://project/dataset/table"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:bigquery,project/dataset/table,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,PROD)"
         )
 
-    def test_snowflake_uri(self) -> None:
+    def test_snowflake_uri_drops_the_account_and_lowercases(self) -> None:
         class Asset:
-            uri = "snowflake://account/db/schema/table"
+            uri = "snowflake://account/DB/SCHEMA/TABLE"
 
         urn = translate_airflow_asset_to_urn(Asset())
         assert (
-            urn
-            == "urn:li:dataset:(urn:li:dataPlatform:snowflake,account/db/schema/table,PROD)"
+            urn == "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
         )
 
     def test_hdfs_uri(self) -> None:
@@ -989,10 +990,12 @@ class TestRealAirflowDataset:
 
             pytest.skip("Could not create Airflow Dataset - ProvidersManager issue")
 
+        # Resolves to the naming the postgres connector emits, using a real Airflow
+        # Dataset so this covers the object the plugin actually receives.
         urn = translate_airflow_asset_to_urn(dataset)
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:postgres,myhost/mydb/schema/table,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.schema.table,PROD)"
         )
 
     def test_translate_real_airflow_dataset_custom_env(self) -> None:
@@ -1021,7 +1024,7 @@ class TestRealAirflowDataset:
 
         assert urns == [
             "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/input.parquet,PROD)",
-            "urn:li:dataset:(urn:li:dataPlatform:bigquery,project/dataset/table,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,PROD)",
         ]
 
     def test_mixed_datahub_entity_and_real_airflow_dataset(self) -> None:

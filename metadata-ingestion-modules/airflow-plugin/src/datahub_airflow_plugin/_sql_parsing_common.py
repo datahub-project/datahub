@@ -26,19 +26,26 @@ def parse_sql_with_datahub(
     default_schema: Optional[str],
     graph: Optional[DataHubGraph],
     enable_multi_statement: bool,
+    platform_instance: Optional[str] = None,
 ) -> SqlParsingResult:
     """Parse SQL using DataHub's SQL parser, with optional multi-statement support.
 
     When enable_multi_statement is True, uses create_lineage_from_sql_statements()
     which resolves temporary tables and merges lineage across all statements.
     When False, uses create_lineage_sql_parsed_result() on only the first statement.
+
+    `platform_instance` comes from the connection's `[datahub] asset_connections` entry,
+    so SQL-parsed lineage lands on the same URNs as the Asset and OpenLineage writers.
+    Graph-based schema resolution cannot substitute for it: SchemaResolver builds its
+    candidate URNs *from* the platform_instance, so an instanced URN is never among the
+    candidates it tries.
     """
     if enable_multi_statement:
         result = create_lineage_from_sql_statements(
             queries=sql,
             default_db=default_database,
             platform=platform,
-            platform_instance=None,
+            platform_instance=platform_instance,
             env=env,
             default_schema=default_schema,
             graph=graph,
@@ -52,7 +59,7 @@ def parse_sql_with_datahub(
             query=sql,
             default_db=default_database,
             platform=platform,
-            platform_instance=None,
+            platform_instance=platform_instance,
             env=env,
             default_schema=default_schema,
             graph=graph,
