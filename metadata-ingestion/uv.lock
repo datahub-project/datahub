@@ -27,6 +27,7 @@ constraints = [
     { name = "jaraco-context", specifier = ">=6.1.0,<7" },
     { name = "pyjwt", specifier = ">=2.13.0,<3.0.0" },
     { name = "pypdf", specifier = ">=6.10.2" },
+    { name = "setuptools", specifier = ">=83.0.0" },
     { name = "urllib3", specifier = ">=2.7.0,<3.0.0" },
 ]
 
@@ -63,7 +64,6 @@ dependencies = [
     { name = "requests-file" },
     { name = "ruamel-yaml" },
     { name = "sentry-sdk" },
-    { name = "setuptools" },
     { name = "tabulate" },
     { name = "toml" },
     { name = "typing-extensions" },
@@ -201,7 +201,6 @@ all = [
     { name = "requests-file" },
     { name = "requests-gssapi" },
     { name = "requests-ntlm" },
-    { name = "setuptools" },
     { name = "simple-salesforce" },
     { name = "slack-sdk" },
     { name = "smart-open", extra = ["azure", "gcs", "s3"] },
@@ -601,7 +600,6 @@ dev = [
     { name = "ruamel-yaml" },
     { name = "ruff" },
     { name = "sentry-sdk" },
-    { name = "setuptools" },
     { name = "simple-salesforce" },
     { name = "slack-sdk" },
     { name = "smart-open", extra = ["azure", "s3"] },
@@ -797,7 +795,6 @@ docs = [
     { name = "ruamel-yaml" },
     { name = "ruff" },
     { name = "sentry-sdk" },
-    { name = "setuptools" },
     { name = "simple-salesforce" },
     { name = "slack-sdk" },
     { name = "smart-open", extra = ["azure", "s3"] },
@@ -1292,7 +1289,6 @@ powerbi = [
     { name = "mini-racer" },
     { name = "more-itertools" },
     { name = "msal" },
-    { name = "setuptools" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "stopit" },
@@ -2493,11 +2489,6 @@ requires-dist = [
     { name = "sentry-sdk", specifier = ">=1.33.1,<3.0.0" },
     { name = "sentry-sdk", marker = "extra == 'dev'", specifier = ">=1.33.1,<3.0.0" },
     { name = "sentry-sdk", marker = "extra == 'docs'", specifier = ">=1.33.1,<3.0.0" },
-    { name = "setuptools", specifier = "<82.0.0" },
-    { name = "setuptools", marker = "extra == 'all'", specifier = "<82" },
-    { name = "setuptools", marker = "extra == 'dev'", specifier = "<82.0.0" },
-    { name = "setuptools", marker = "extra == 'docs'", specifier = "<82.0.0" },
-    { name = "setuptools", marker = "extra == 'powerbi'", specifier = "<82" },
     { name = "simple-salesforce", marker = "extra == 'all'", specifier = "<2.0.0" },
     { name = "simple-salesforce", marker = "extra == 'dev'", specifier = "<2.0.0" },
     { name = "simple-salesforce", marker = "extra == 'docs'", specifier = "<2.0.0" },
@@ -10473,11 +10464,11 @@ wheels = [
 
 [[package]]
 name = "setuptools"
-version = "81.0.0"
+version = "84.0.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/0d/1c/73e719955c59b8e424d015ab450f51c0af856ae46ea2da83eba51cc88de1/setuptools-81.0.0.tar.gz", hash = "sha256:487b53915f52501f0a79ccfd0c02c165ffe06631443a886740b91af4b7a5845a", size = 1198299, upload-time = "2026-02-06T21:10:39.601Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6d/44/f5da03a8ef95d369145c5bb53050e7877c9f3d312e128605fd9504829143/setuptools-84.0.0.tar.gz", hash = "sha256:f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73", size = 1168449, upload-time = "2026-08-08T18:27:58.365Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e1/e3/c164c88b2e5ce7b24d667b9bd83589cf4f3520d97cad01534cd3c4f55fdb/setuptools-81.0.0-py3-none-any.whl", hash = "sha256:fdd925d5c5d9f62e4b74b30d6dd7828ce236fd6ed998a08d81de62ce5a6310d6", size = 1062021, upload-time = "2026-02-06T21:10:37.175Z" },
+    { url = "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl", hash = "sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670", size = 818216, upload-time = "2026-08-08T18:27:56.719Z" },
 ]
 
 [[package]]

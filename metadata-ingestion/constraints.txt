@@ -1306,9 +1306,8 @@ semver==3.0.4
     # via dlt
 sentry-sdk==2.54.0
     # via acryl-datahub
-setuptools==81.0.0
+setuptools==84.0.0
     # via
-    #   acryl-datahub
     #   dlt
     #   grpcio-tools
     #   redshift-connector

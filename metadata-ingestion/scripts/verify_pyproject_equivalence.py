@@ -17,30 +17,13 @@ from typing import Dict, Set
 sys.path.insert(0, str(Path(__file__).parent))
 
 import toml
-from generate_pyproject_deps import merge_duplicate_deps
+from generate_pyproject_deps import load_setup_py_variables, merge_duplicate_deps
 
 SCRIPT_DIR = Path(__file__).parent
 METADATA_INGESTION_DIR = SCRIPT_DIR.parent
 
 CIRCULAR_EXTRAS = {"airflow", "great-expectations", "sqlmesh"}
 SELF_REF_PATTERN = re.compile(r"^acryl-datahub\[(.+)\]$")
-
-
-def load_setup_py_variables() -> Dict:
-    setup_py_path = METADATA_INGESTION_DIR / "setup.py"
-    namespace: Dict = {
-        "__name__": "__not_main__",
-        "__file__": str(setup_py_path),
-    }
-    with open(setup_py_path) as f:
-        code = f.read()
-    code = code.replace("setuptools.setup(", "_setup_args = dict(")
-    exec(code, namespace)
-    assert "_setup_args" in namespace, (
-        "setup.py did not produce _setup_args — the setuptools.setup() replacement failed. "
-        "Check if setup.py changed its calling convention."
-    )
-    return namespace
 
 
 def load_pyproject() -> Dict:

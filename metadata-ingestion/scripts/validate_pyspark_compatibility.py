@@ -24,14 +24,9 @@ from typing import Optional
 def get_installed_version(package_name: str) -> Optional[str]:
     """Get the installed version of a package."""
     try:
-        if sys.version_info >= (3, 8):
-            from importlib.metadata import version
+        from importlib.metadata import version
 
-            return version(package_name)
-        else:
-            import pkg_resources
-
-            return pkg_resources.get_distribution(package_name).version
+        return version(package_name)
     except Exception:
         return None
 

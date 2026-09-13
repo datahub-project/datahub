@@ -66,7 +66,6 @@ dependencies = [
     "requests_file<4.0.0",
     "ruamel.yaml<0.20.0",
     "sentry-sdk>=1.33.1,<3.0.0",
-    "setuptools<82.0.0",
     "tabulate<0.11.0",
     "toml>=0.10.0,<=0.10.2",
     "typing-inspect<0.10.0",
@@ -817,7 +816,6 @@ powerbi = [
     "mini-racer==0.14.1",
     "more-itertools<11.0.0",
     "msal>=1.31.1,<2.0.0",
-    "setuptools<82",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
     "stopit==1.1.2",
@@ -1259,7 +1257,6 @@ all = [
     "requests>=2.28.0,==2.32.5,<3.0.0",
     "requests_file==3.0.1",
     "requests_ntlm<2.0.0",
-    "setuptools<82",
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,gcs,s3]>=5.2.1,<8.0.0",
@@ -1432,7 +1429,6 @@ dev = [
     "ruamel.yaml<0.20.0",
     "ruff==0.15.22",
     "sentry-sdk>=1.33.1,<3.0.0",
-    "setuptools<82.0.0",
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
@@ -1626,7 +1622,6 @@ docs = [
     "ruamel.yaml<0.20.0",
     "ruff==0.15.22",
     "sentry-sdk>=1.33.1,<3.0.0",
-    "setuptools<82.0.0",
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
@@ -1982,8 +1977,6 @@ datahub = ["py.typed", "constraints.txt"]
 # ===== TOOL CONFIGURATION =====
 
 [tool.uv]
-# flatdict 4.0.1 uses pkg_resources but doesn't declare setuptools as build dep
-extra-build-dependencies = { flatdict = ["setuptools<82"] }
 # Security constraints applied during resolution (see each comment).
 constraint-dependencies = [
     "jaraco-context>=6.1.0,<7",  # GHSA-58pv-8j8x-9vj2 (path traversal)
@@ -2001,6 +1994,9 @@ constraint-dependencies = [
     # setup.py floors urllib3 at >=2.5.0 (Airflow ceiling); >=2.7.0 is enforced here at lock time
     # only, since Airflow constraints pin urllib3 below 2.7.
     "urllib3>=2.7.0,<3.0.0",
+    # CVE-2026-59890: floored at lock time, not in base_requirements (Airflow
+    # constraint files pin setuptools, so a base floor breaks those installs).
+    "setuptools>=83.0.0",
 ]
 
 [tool.ruff]
