@@ -2,6 +2,8 @@ import logging
 import os
 from typing import Optional
 
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+
 S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
 
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -48,10 +50,29 @@ def make_s3_urn(s3_uri: str, env: str, remove_extension: bool = True) -> str:
     return f"urn:li:dataset:(urn:li:dataPlatform:s3,{s3_name},{env})"
 
 
-def make_s3_urn_for_lineage(s3_uri: str, env: str) -> str:
+def make_s3_urn_for_lineage(
+    s3_uri: str, env: str, *, platform_instance: Optional[str] = None
+) -> str:
     # Ideally this is the implementation for all S3 URNs
     # Don't feel comfortable changing `make_s3_urn` for glue, sagemaker, and athena
-    return make_s3_urn(s3_uri, env, remove_extension=False)
+    #
+    # Warehouse sources use this helper to name an S3 dataset that the *S3 source* owns,
+    # so the URN has to be built the way s3/source.py builds it -- same URN builder, same
+    # `.strip("/")`, same platform instance prefix. Anything else silently produces a
+    # dangling upstream instead of a connected edge. Note this escapes URN-reserved
+    # characters (`,`, `(`, `)`) where the old f-string did not; that matches the producer
+    # side, but see docs/how/updating-datahub.md -- it re-keys previously emitted URNs for
+    # buckets whose object keys contain those characters.
+    #
+    # Case is NOT normalized here: the S3 source lowercases via its own
+    # `convert_urns_to_lowercase` config, which this helper cannot see. Only the global
+    # DATASET_URN_TO_LOWER flag applies on both sides.
+    return make_dataset_urn_with_platform_instance(
+        platform="s3",
+        name=strip_s3_prefix(s3_uri).strip("/"),
+        platform_instance=platform_instance,
+        env=env,
+    )
 
 
 def get_bucket_name(s3_uri: str) -> str:
