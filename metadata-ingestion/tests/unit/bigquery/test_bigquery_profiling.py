@@ -1176,6 +1176,22 @@ def test_configured_iso_string_fallback_widens_temporal_partition():
     compact = discovery._parse_iso_temporal("20250115")
     assert compact is None
 
+    # BigQuery DATETIME is timezone-naive: an offset-bearing string must not be widened
+    # (the range builder would drop the offset and floor the wrong wall clock). It defers
+    # to create_safe_filter, which rejects tz-bearing DATETIME, so the column falls back to
+    # IS NOT NULL rather than a mis-floored range.
+    naive_dt = discovery._value_filter(table, "dt", "2025-01-15T10:00:00", "DATETIME")
+    assert ">=" in naive_dt and "<" in naive_dt
+    # A tz-bearing DATETIME config value is not widened into a naive range; it defers to
+    # create_safe_filter (which rejects it), so the column falls back to IS NOT NULL.
+    discovery_tz = PartitionDiscovery(
+        make_config(fallback_partition_values={"dt": "2025-01-15T10:00:00+05:00"})
+    )
+    tz_result = discovery_tz._create_fallback_filter_for_column(
+        make_table(), "dt", datetime(2025, 1, 15), "DATETIME"
+    )
+    assert "IS NOT NULL" in tz_result
+
 
 def test_partition_column_types_backfills_pseudo_columns():
     """INFORMATION_SCHEMA.COLUMNS never lists the ingestion-time pseudo-columns, so
