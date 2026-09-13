@@ -50,6 +50,7 @@ export const EditorContainer = styled.div<{
     $hideBorder?: boolean;
     $fixedBottomToolbar?: boolean;
     $compact?: boolean;
+    $noPadding?: boolean;
 }>`
     ${extensionBlockquoteStyledCss}
     ${extensionCalloutStyledCss}
@@ -82,7 +83,11 @@ export const EditorContainer = styled.div<{
         flex: 1 1 100%;
         border: 0;
         font-size: 14px;
-        padding: ${(props) => (props.$compact ? '12px 16px 0 16px' : '16px')};
+        padding: ${(props) => {
+            if (props.$noPadding) return '0';
+            if (props.$compact) return '12px 16px 0 16px';
+            return '16px';
+        }};
         position: relative;
         outline: 0;
         line-height: ${(props) => (props.$compact ? '20px' : '1.5')};

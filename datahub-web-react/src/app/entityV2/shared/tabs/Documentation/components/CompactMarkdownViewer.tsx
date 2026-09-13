@@ -72,8 +72,6 @@ const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React
             ${(props) => props?.customStyle?.fontSize && `font-size: ${props?.customStyle?.fontSize}`};
             margin-bottom: 0;
         }
-
-        padding: 0;
     }
 `;
 
@@ -137,6 +135,7 @@ export default function CompactMarkdownViewer({
                     limit={isShowingMore ? null : lineLimit}
                     content={content}
                     readOnly
+                    noPadding
                 />
             </MarkdownViewContainer>
             {hideShowMore && isTruncated && (
