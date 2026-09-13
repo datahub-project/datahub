@@ -64,7 +64,7 @@ export default function RootDomains({ setIsCreatingDomain }: Props) {
                         <Loading height={24} marginTop={0} />
                     </LoadingWrapper>
                 )}
-                {domains.length > 0 && <div ref={scrollRef} />}
+                <div ref={scrollRef} />
             </DomainsWrapper>
         </>
     );
