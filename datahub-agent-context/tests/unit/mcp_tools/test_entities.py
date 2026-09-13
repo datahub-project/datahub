@@ -366,3 +366,36 @@ class TestListSchemaFields:
         assert result["totalFields"] == 0
         assert result["returned"] == 0
         assert result["fields"] == []
+
+    def test_list_fields_null_schema_metadata(self, mock_client):
+        """A dataset with no schema aspect comes back as an explicit null.
+
+        `{"fields": []}` is not what the server sends for a dataset whose schema
+        was never ingested -- it sends `"schemaMetadata": null`, which is what a
+        dataset created by lineage alone, or by a partial ingestion, looks like.
+        """
+        urn = "urn:li:dataset:(urn:li:dataPlatform:sqlite,db.schema.view,PROD)"
+
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": {"urn": urn, "schemaMetadata": None}
+        }
+
+        with DataHubContext(mock_client):
+            result = list_schema_fields(urn)
+        assert result["totalFields"] == 0
+        assert result["fields"] == []
+
+    def test_list_fields_null_schema_metadata_with_keywords(self, mock_client):
+        """Same, on the keyword path -- it counts matches from its own read."""
+        urn = "urn:li:dataset:(urn:li:dataPlatform:sqlite,db.schema.view,PROD)"
+
+        mock_client._graph.exists.return_value = True
+        mock_client._graph.execute_graphql.return_value = {
+            "entity": {"urn": urn, "schemaMetadata": None}
+        }
+
+        with DataHubContext(mock_client):
+            result = list_schema_fields(urn, keywords=["user"])
+        assert result["totalFields"] == 0
+        assert result["fields"] == []
