@@ -202,11 +202,9 @@ def build_expectation_info_mcp(
     assertion_urn: str,
     dataset_urn: str,
 ) -> MetadataChangeProposalWrapper:
-    # Structured custom row-level assertion. The scope/operator/aggregation/nativeType
-    # fully describe the check, but the assertions list renders a custom assertion's
-    # name from `description` and never fetches those structured fields — so we set a
-    # `description` carrying the expectation name. The DLT action is surfaced as a
-    # custom property.
+    # Populate the full structured check so the assertion is semantically complete;
+    # the list's displayed name still comes only from `description`
+    # (see EXPECTATION_ASSERTION_DESCRIPTION).
     custom_properties = {
         "expectation": result.name,
         "pipeline_id": result.pipeline_id,

@@ -118,7 +118,6 @@ Behavior:
 - One assertion is published per expectation per dataset, scoped to the dataset's rows; `passed_records` and `failed_records` from the latest update are reported as the run result.
 - The expectation's action is captured on the assertion: a failure from `expect_or_fail` or `expect_or_drop` is recorded at **high** severity, and a plain `expect` (warn-only) at **low** severity.
 - Each expectation's dataset is resolved to a Unity Catalog dataset using the pipeline's target `catalog` and `schema`; pipelines without a Unity Catalog target are skipped.
-- Assertion identity is deterministic (derived from the dataset, pipeline and expectation name — not the update), so re-ingesting is idempotent: the same assertion accrues new run events rather than creating duplicates.
 
 Permissions: the ingesting principal needs read access (`CAN_VIEW`) on the pipelines whose expectations you want to publish; a pipeline whose event log cannot be read is reported as a warning and skipped.
 
