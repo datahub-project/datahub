@@ -24,9 +24,16 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
+    _extract_custom_incremental_merge,
+    _normalize_self_reference,
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
+)
+from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    QueryLogSetting,
+    SqlParsingAggregator,
 )
 
 
@@ -1139,3 +1146,78 @@ def test_register_dynamic_table_excludes_self_from_inputs():
         dt_urn not in fallback
     )  # self-loop dropped via real-identifier reconciliation
     assert fallback == [src_urn]
+
+
+def test_self_reference_dropped_end_to_end_through_real_aggregator():
+    """A self-referencing CUSTOM_INCREMENTAL DT, run through a real SqlParsingAggregator, must yield
+    exactly its base table with column lineage. The framework self-guard fails open on URN drift, so
+    the connector and framework halves tested in isolation can both pass while the headline bug
+    regresses."""
+    ids = SnowflakeIdentifierBuilder(
+        identifier_config=SnowflakeIdentifierConfig(),
+        structured_reporter=SourceReport(),
+    )
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        query_log=QueryLogSetting.STORE_ALL,
+    )
+    gen = _make_gen_with_mocks()
+    gen.identifiers = ids
+    gen.aggregator = aggregator
+    definition = (
+        "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL "
+        "refresh using (merge into self as tgt using ("
+        "select a, b from db.schema.src_a union all "
+        "select a, b from self where a not in (select a from db.schema.src_a)) as src "
+        "on tgt.a = src.a when matched then update set tgt.b = src.b "
+        "when not matched then insert (a, b) values (src.a, src.b))"
+    )
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    dt_urn = ids.gen_dataset_urn(ids.get_dataset_identifier("DT", "SCHEMA", "DB"))
+    src_a_urn = ids.gen_dataset_urn(
+        ids.get_dataset_identifier_from_qualified_name("DB.SCHEMA.SRC_A")
+    )
+    upstreams = None
+    fine_grained = 0
+    for mcp in aggregator.gen_metadata():
+        if getattr(mcp, "entityUrn", None) != dt_urn:
+            continue
+        aspect = getattr(mcp, "aspect", None)
+        if isinstance(aspect, UpstreamLineageClass):
+            upstreams = {u.dataset for u in aspect.upstreams}
+            fine_grained = len(aspect.fineGrainedLineages or [])
+    assert upstreams is not None
+    # Exact set catches both a self-loop (db.schema.dt) and the phantom db.schema.self that an
+    # un-normalized `self` would resolve to.
+    assert upstreams == {src_a_urn}
+    assert fine_grained > 0  # column lineage recovered from the extracted MERGE
+
+
+def test_normalize_self_reference_rewrites_bare_column_qualifier():
+    """A bare `self.a` column qualifier (self not aliased) is rewritten to the DT's qualified name."""
+    out = _normalize_self_reference(
+        "merge into x as t using (select self.a from self) as s "
+        "on t.a = s.a when matched then update set t.a = s.a",
+        "db.schema.dt",
+    ).lower()
+    assert "self.a" not in out
+    assert "db.schema.dt.a" in out
+
+
+def test_normalize_self_reference_returns_body_unchanged_when_unparseable():
+    """An unparseable body is returned unchanged, so the caller falls back to INPUTS lineage."""
+    body = "merge into self using ("
+    assert _normalize_self_reference(body, "db.schema.dt") == body
+
+
+def test_extract_custom_incremental_merge_unbalanced_parens_returns_none():
+    """A REFRESH USING ( whose parenthesis never closes (truncated DDL) yields None, not a slice."""
+    definition = (
+        "create dynamic table db.schema.dt refresh using "
+        "(merge into self using (select a from db.schema.src"
+    )
+    assert _extract_custom_incremental_merge(definition) is None

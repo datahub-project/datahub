@@ -229,44 +229,44 @@ def _normalize_self_reference(merge_body: str, dt_identifier: str) -> str:
     a phantom ``<db>.<schema>.self`` upstream whenever the schema resolver can't override it (e.g. a
     lineage-only run with no graph). Done as an AST edit so the name is emitted quoted where Snowflake
     needs it: a db/schema/table name with a hyphen, space or dot no longer breaks the parse. A quoted
-    ``"self"`` identifier is a distinct token and is left untouched. Returns the body unchanged when it
-    does not parse -- it would then produce no lineage either way."""
+    ``"self"`` identifier is a distinct token and is left untouched. Returns the body unchanged if it
+    cannot be parsed or rewritten, so the caller falls back to the table-level INPUTS upstreams."""
     try:
         tree = sqlglot.parse_one(merge_body, dialect="snowflake")
+        dt_table = sqlglot.expressions.to_table(dt_identifier, dialect="snowflake")
+        changed = False
+        for table in tree.find_all(sqlglot.expressions.Table):
+            # `.name` strips quoting, so guard on `.this.quoted`: a double-quoted "self" is a user
+            # table, not the keyword, and must be left alone.
+            if (
+                table.name.lower() == "self"
+                and not table.this.quoted
+                and not table.db
+                and not table.catalog
+            ):
+                replacement = dt_table.copy()
+                alias = table.args.get("alias")
+                if alias is not None:
+                    replacement.set("alias", alias.copy())
+                table.replace(replacement)
+                changed = True
+        # Columns qualified by a bare `self` (rare -- the target is normally aliased), e.g. `self.a`.
+        for column in tree.find_all(sqlglot.expressions.Column):
+            table_id = column.args.get("table")
+            if (
+                table_id is not None
+                and table_id.name.lower() == "self"
+                and not table_id.quoted
+            ):
+                column.set("table", dt_table.this.copy())
+                if dt_table.args.get("db"):
+                    column.set("db", dt_table.args["db"].copy())
+                if dt_table.args.get("catalog"):
+                    column.set("catalog", dt_table.args["catalog"].copy())
+                changed = True
+        return tree.sql(dialect="snowflake") if changed else merge_body
     except Exception:
         return merge_body
-    dt_table = sqlglot.expressions.to_table(dt_identifier, dialect="snowflake")
-    changed = False
-    for table in tree.find_all(sqlglot.expressions.Table):
-        # `.name` strips quoting, so guard on `.this.quoted`: a double-quoted "self" is a user table,
-        # a distinct identifier, and must be left alone. Only the bare `self` keyword is rewritten.
-        if (
-            table.name.lower() == "self"
-            and not table.this.quoted
-            and not table.db
-            and not table.catalog
-        ):
-            replacement = dt_table.copy()
-            alias = table.args.get("alias")
-            if alias is not None:
-                replacement.set("alias", alias.copy())
-            table.replace(replacement)
-            changed = True
-    # Columns qualified by a bare `self` (rare -- the target is normally aliased), e.g. `self.a`.
-    for column in tree.find_all(sqlglot.expressions.Column):
-        table_id = column.args.get("table")
-        if (
-            table_id is not None
-            and table_id.name.lower() == "self"
-            and not table_id.quoted
-        ):
-            column.set("table", dt_table.this.copy())
-            if dt_table.args.get("db"):
-                column.set("db", dt_table.args["db"].copy())
-            if dt_table.args.get("catalog"):
-                column.set("catalog", dt_table.args["catalog"].copy())
-            changed = True
-    return tree.sql(dialect="snowflake") if changed else merge_body
 
 
 class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
