@@ -381,6 +381,15 @@ datasource_upstream_fields_graphql_query = """
         table {
             __typename
             id
+            name
+            ... on VirtualConnectionTable {
+                virtualConnection {
+                    id
+                    name
+                    luid
+                    projectName
+                }
+            }
         }
     }
 }
