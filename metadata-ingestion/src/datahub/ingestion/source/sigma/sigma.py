@@ -7414,7 +7414,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         return fields
 
     # A derived column can sit several hops from a real upstream --
-    # LY Revenue -> Revenue -> Revenue (1) -> warehouse column -- so one pass is
+    # LY Amount -> Amount -> Amount (1) -> warehouse column -- so one pass is
     # not enough. Bounded to keep a reference cycle (which Sigma permits in
     # principle) from looping; anything still unresolved after this many passes
     # keeps its self-referential field, exactly as before.
@@ -7430,8 +7430,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> None:
         """Give a derived column the upstreams of the siblings it is computed from.
 
-        A formula like ``Sum([Revenue (1)])`` or
-        ``DateLookback([Revenue], [Time Period], 1, "year")`` references other
+        A formula like ``Sum([Amount (1)])`` or
+        ``DateLookback([Amount], [Date Col], 1, "year")`` references other
         columns of the SAME chart, so it resolves to no external upstream and
         used to be dropped as "sibling". But the sibling it names usually does
         resolve, and the derived column is genuinely downstream of whatever
@@ -7440,7 +7440,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         This was the single largest chart-side gap on a real tenant (2026-09):
         27,037 columns, with 5,246 charts losing columns for this reason ALONE.
         The customer-reported symptom was a dashboard whose headline measures
-        (Revenue, LY Revenue, Cost) all showed no column lineage while the raw
+        (Amount, LY Amount, Cost) all showed no column lineage while the raw
         columns beside them showed it.
 
         Counters move with the columns: a column that inherits is no longer
@@ -9271,7 +9271,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         This is the largest resolvable-looking outcome (4,163 columns on the
         customer tenant) and the least understood, because its two halves
         disagree between tenants: ``path[1]`` is a DISPLAY NAME in the customer
-        samples (``Account Type Name``) and an opaque COLUMN ID on our dev
+        samples (``Display Col Name``) and an opaque COLUMN ID on our dev
         tenant (``-huDtVJMTb``). A handler must try both, and writing one before
         the mix is known is how the union reader ended up emitting 0 edges.
 

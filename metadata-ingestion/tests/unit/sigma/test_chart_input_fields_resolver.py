@@ -2496,8 +2496,8 @@ class TestDmElementHeadShape:
     def test_path1_as_a_display_name_is_named(self) -> None:
         src = self._measure(
             head="u1/el1",
-            second="Account Type Name",
-            cols={self._URN: {"account type name": "Account Type Name"}},
+            second="Display Col Name",
+            cols={self._URN: {"display col name": "Display Col Name"}},
         )
         assert src.reporter.chart_ref_schema_dm_element_shape == {
             "path1_is_a_column_name": 1
@@ -3135,7 +3135,7 @@ class TestTheFixesReachTheEmittedAspectNotJustTheResolver:
 class TestDerivedColumnsInheritTheirSiblingsUpstreams:
     """The largest chart-side gap measured: 27,037 columns on one tenant.
 
-    A formula like ``Sum([Revenue (1)])`` references another column of the SAME
+    A formula like ``Sum([Amount (1)])`` references another column of the SAME
     chart, so it resolves to no external upstream and was dropped as "sibling".
     But the sibling usually resolves, and the derived column is genuinely
     downstream of whatever the sibling came from. The reported symptom was a
@@ -3150,7 +3150,7 @@ class TestDerivedColumnsInheritTheirSiblingsUpstreams:
     def _build(self, col_formulas: Dict[str, Optional[str]]) -> List[InputFieldClass]:
         element = _make_element_with_formula("e1", "Chart", col_formulas)
         element.column_id_by_name = {c: f"id-{c}" for c in col_formulas}
-        upstream = _make_element("src", "SRC", ["Revenue (1)"])
+        upstream = _make_element("src", "SRC", ["Amount (1)"])
         return self.src._build_element_input_fields(
             element=element,
             chart_urn=builder.make_chart_urn("sigma", "e1"),
@@ -3164,8 +3164,8 @@ class TestDerivedColumnsInheritTheirSiblingsUpstreams:
     def test_a_sum_over_a_sibling_inherits_that_siblings_upstream(self) -> None:
         fields = self._build(
             {
-                "Revenue (1)": "[SRC/Revenue (1)]",
-                "Revenue": "Sum([Revenue (1)])",
+                "Amount (1)": "[SRC/Amount (1)]",
+                "Amount": "Sum([Amount (1)])",
             }
         )
         by_col = {
@@ -3174,18 +3174,18 @@ class TestDerivedColumnsInheritTheirSiblingsUpstreams:
             if f.schemaField is not None
         }
         # Both columns now point at the same real upstream.
-        assert by_col["Revenue"] == by_col["Revenue (1)"]
-        assert "urn:li:chart:(sigma,e1)" not in by_col["Revenue"]
+        assert by_col["Amount"] == by_col["Amount (1)"]
+        assert "urn:li:chart:(sigma,e1)" not in by_col["Amount"]
         assert self.src.reporter.chart_input_fields_sibling_inherited == 1
 
     def test_it_follows_a_CHAIN_of_derived_columns(self) -> None:
-        """LY Revenue -> Revenue -> Revenue (1) -> the real upstream. One pass
+        """LY Amount -> Amount -> Amount (1) -> the real upstream. One pass
         would resolve only the middle hop, which is why this iterates."""
         fields = self._build(
             {
-                "Revenue (1)": "[SRC/Revenue (1)]",
-                "Revenue": "Sum([Revenue (1)])",
-                "LY Revenue": 'DateLookback([Revenue], 1, "year")',
+                "Amount (1)": "[SRC/Amount (1)]",
+                "Amount": "Sum([Amount (1)])",
+                "LY Amount": 'DateLookback([Amount], 1, "year")',
             }
         )
         by_col = {
@@ -3193,7 +3193,7 @@ class TestDerivedColumnsInheritTheirSiblingsUpstreams:
             for f in fields
             if f.schemaField is not None
         }
-        assert by_col["LY Revenue"] == by_col["Revenue (1)"]
+        assert by_col["LY Amount"] == by_col["Amount (1)"]
         assert self.src.reporter.chart_input_fields_sibling_inherited == 2
 
     def test_a_sibling_that_resolves_to_nothing_yields_nothing(self) -> None:
@@ -3219,9 +3219,7 @@ class TestDerivedColumnsInheritTheirSiblingsUpstreams:
     def test_the_counter_identity_still_holds(self) -> None:
         """An inherited column moves from skipped_sibling to resolved; if it
         were counted in both or neither, the per-element invariant breaks."""
-        self._build(
-            {"Revenue (1)": "[SRC/Revenue (1)]", "Revenue": "Sum([Revenue (1)])"}
-        )
+        self._build({"Amount (1)": "[SRC/Amount (1)]", "Amount": "Sum([Amount (1)])"})
         r = self.src.reporter
         total = (
             r.chart_input_fields_resolved
@@ -3406,9 +3404,9 @@ class TestTheEdgeAuditAnswersIsItTheRightEdge:
         ]
 
     def test_an_edge_to_a_column_the_upstream_has_is_verified(self) -> None:
-        self.src._known_field_paths[self.upstream] = {"Revenue"}
+        self.src._known_field_paths[self.upstream] = {"Amount"}
         self.src._record_edges_for_audit(
-            "urn:li:chart:(sigma,down)", self._edge_to("Revenue")
+            "urn:li:chart:(sigma,down)", self._edge_to("Amount")
         )
         self.src._audit_emitted_edges()
         assert self.src.reporter.edge_audit_verified == 1
@@ -3417,14 +3415,14 @@ class TestTheEdgeAuditAnswersIsItTheRightEdge:
     def test_a_DANGLING_edge_is_caught_and_sampled(self) -> None:
         """The failure no counter could see: an edge naming a column the
         upstream does not have."""
-        self.src._known_field_paths[self.upstream] = {"Revenue"}
+        self.src._known_field_paths[self.upstream] = {"Amount"}
         self.src._record_edges_for_audit(
             "urn:li:chart:(sigma,down)", self._edge_to("Nope")
         )
         self.src._audit_emitted_edges()
         assert self.src.reporter.edge_audit_field_absent_from_upstream == 1
         sample = list(self.src.reporter.edge_audit_absent_samples)[0]
-        assert "field='Nope'" in sample and "Revenue" in sample
+        assert "field='Nope'" in sample and "Amount" in sample
 
     def test_a_warehouse_upstream_is_out_of_scope_not_a_failure(self) -> None:
         """We never emit a schema for a warehouse table, so counting it as
@@ -3472,24 +3470,24 @@ class TestARefsColumnIsValidatedAgainstTheUpstream:
         self.src.reporter = SigmaSourceReport()
 
     def test_a_name_the_upstream_has_passes_through(self) -> None:
-        upstream = _make_element("up", "Up", ["Revenue"])
+        upstream = _make_element("up", "Up", ["Amount"])
         assert (
-            self.src._upstream_field_for_ref(_make_ref("Up", "Revenue"), upstream)
-            == "Revenue"
+            self.src._upstream_field_for_ref(_make_ref("Up", "Amount"), upstream)
+            == "Amount"
         )
 
     def test_a_column_ID_is_TRANSLATED_to_its_display_name(self) -> None:
         """A recovery, not just a refusal: the edge is real, the name was not."""
-        upstream = _make_element("up", "Up", ["Revenue"])
-        upstream.column_id_by_name = {"Revenue": "CDZQGH9FD2"}
+        upstream = _make_element("up", "Up", ["Amount"])
+        upstream.column_id_by_name = {"Amount": "CDZQGH9FD2"}
         assert (
             self.src._upstream_field_for_ref(_make_ref("Up", "CDZQGH9FD2"), upstream)
-            == "Revenue"
+            == "Amount"
         )
         assert self.src.reporter.chart_ref_column_id_translated_to_name == 1
 
     def test_a_column_the_upstream_does_not_have_is_refused(self) -> None:
-        upstream = _make_element("up", "Up", ["Revenue"])
+        upstream = _make_element("up", "Up", ["Amount"])
         assert (
             self.src._upstream_field_for_ref(_make_ref("Up", "CDZQGH9FD2"), upstream)
             is None
@@ -3512,8 +3510,8 @@ class TestARefsColumnIsValidatedAgainstTheUpstream:
         reading a failed schema lookup as 'the table has no such column'."""
         upstream = _make_element("up", "Up", [])
         assert (
-            self.src._upstream_field_for_ref(_make_ref("Up", "Revenue"), upstream)
-            == "Revenue"
+            self.src._upstream_field_for_ref(_make_ref("Up", "Amount"), upstream)
+            == "Amount"
         )
         assert self.src.reporter.chart_ref_column_absent_from_upstream == 0
 
@@ -3758,7 +3756,7 @@ class TestSpeculativeSplitsDoNotInflateTheRefusalCount:
         self.src = _make_source()
         self.src.reporter = SigmaSourceReport()
         self.src._init_diagnostic_state()
-        self.upstream = _make_element("up", "Up", ["Revenue"])
+        self.upstream = _make_element("up", "Up", ["Amount"])
 
     def test_a_speculative_probe_is_refused_but_not_counted(self) -> None:
         assert (

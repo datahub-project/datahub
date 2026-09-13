@@ -606,7 +606,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # because two genuinely different charts still share one entity.
     chart_urns_claimed_by_multiple_workbooks: int = 0
     # Derived columns that took their upstreams from the sibling columns they
-    # are computed from (Sum([Revenue (1)]), DateLookback([Revenue], ...)).
+    # are computed from (Sum([Amount (1)]), DateLookback([Amount], ...)).
     # Largest chart-side gap measured on a real tenant: 27,037 columns, with
     # 5,246 charts losing columns for this reason alone. Counted as resolved
     # once inherited, so the per-element identity still holds.
