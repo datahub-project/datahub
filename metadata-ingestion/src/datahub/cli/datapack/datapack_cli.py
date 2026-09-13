@@ -30,13 +30,33 @@ class _DatapackGroup(click.Group):
         super().format_help(ctx, formatter)
         formatter.write(f"\n{_EXPERIMENTAL_NOTICE}\n")
         if not sys.stdout.isatty():
-            agent_text = (
+            agent_text = self._read_agent_context()
+            if agent_text is not None:
+                formatter.write("\n")
+                formatter.write(agent_text)
+
+    @staticmethod
+    def _read_agent_context() -> Optional[str]:
+        """Best-effort read of the bundled agent-context doc.
+
+        This resource is optional supplementary text for non-interactive
+        callers (CI, scripts, agents) -- if it's missing from the installed
+        package (e.g. a packaging gap for a given release), that must not
+        break `--help` for exactly the callers who can't handle a crash.
+        """
+        try:
+            return (
                 importlib.resources.files("datahub.cli.datapack.resources")
                 .joinpath("DATAPACK_AGENT_CONTEXT.md")
                 .read_text(encoding="utf-8")
             )
-            formatter.write("\n")
-            formatter.write(agent_text)
+        except (FileNotFoundError, ModuleNotFoundError, OSError):
+            logger.debug(
+                "DATAPACK_AGENT_CONTEXT.md not found in the installed package; "
+                "omitting it from --help output.",
+                exc_info=True,
+            )
+            return None
 
     def invoke(self, ctx: click.Context) -> object:
         if ctx.invoked_subcommand:
