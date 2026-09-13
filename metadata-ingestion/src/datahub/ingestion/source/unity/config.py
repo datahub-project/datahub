@@ -214,6 +214,21 @@ class UnityCatalogDataQualityConfig(ConfigModel):
     )
 
 
+class UnityCatalogPipelineExpectationsConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="Publish Lakeflow Declarative Pipelines (formerly Delta Live "
+        "Tables) expectation results as DataHub dataset assertions. Reads the "
+        "pipeline event log over the REST API, so no SQL warehouse is required. "
+        "Disabled by default.",
+    )
+    pipeline_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Which pipelines to publish expectation assertions for, matched "
+        "on the pipeline name.",
+    )
+
+
 class UnityCatalogSourceConfig(
     UnityCatalogConnectionConfig,
     SQLCommonConfig,
@@ -416,6 +431,14 @@ class UnityCatalogSourceConfig(
             "Publish Databricks data-quality monitor results as DataHub assertions. "
             "Disabled by default; requires warehouse_id since the monitor metric "
             "tables are queried over SQL."
+        ),
+    )
+
+    pipeline_expectations: UnityCatalogPipelineExpectationsConfig = pydantic.Field(
+        default_factory=UnityCatalogPipelineExpectationsConfig,
+        description=(
+            "Publish Lakeflow pipeline expectation results as DataHub assertions. "
+            "Disabled by default; reads the pipeline event log over the REST API."
         ),
     )
 

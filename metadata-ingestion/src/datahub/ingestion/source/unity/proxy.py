@@ -18,6 +18,7 @@ from typing import (
     Optional,
     Protocol,
     Sequence,
+    Tuple,
     Union,
     cast,
 )
@@ -45,6 +46,7 @@ from databricks.sdk.service.iam import ServicePrincipal as DatabricksServicePrin
 from databricks.sdk.service.ml import (
     ExperimentsAPI,
 )
+from databricks.sdk.service.pipelines import PipelineStateInfo
 from databricks.sdk.service.sql import (
     QueryFilter,
     QueryInfo,
@@ -1771,6 +1773,46 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
         except NotFound:
             return None
+
+    def list_pipelines(self) -> List[PipelineStateInfo]:
+        return list(self._workspace_client.pipelines.list_pipelines())
+
+    def get_pipeline_target(self, pipeline_id: str) -> Optional[Tuple[str, str]]:
+        # Expectation events report each dataset by its short name; resolve it to a
+        # UC dataset by prefixing the pipeline's target catalog and schema. Returns
+        # None when the pipeline has no UC target (e.g. legacy HMS publishing), so
+        # the caller can skip it rather than emit an unattached assertion.
+        spec = self._workspace_client.pipelines.get(pipeline_id).spec
+        if spec is None:
+            return None
+        catalog = spec.catalog
+        schema = spec.schema or spec.target
+        if not catalog or not schema:
+            return None
+        return catalog, schema
+
+    def get_pipeline_events(self, pipeline_id: str) -> Iterable[Dict[str, Any]]:
+        # Uses the raw REST endpoint rather than pipelines.list_pipeline_events()
+        # because the typed SDK model drops the `details` payload that carries the
+        # data-quality expectation metrics. Events come back newest-first and are
+        # yielded lazily so the caller can stop once it has consumed the newest
+        # update (which holds the current expectations) instead of draining the
+        # whole log — while never silently truncating it with a fixed page cap.
+        page_token: Optional[str] = None
+        while True:
+            query: Dict[str, Any] = {"max_results": 250}
+            if page_token:
+                query["page_token"] = page_token
+            resp = cast(
+                Dict[str, Any],
+                self._workspace_client.api_client.do(
+                    "GET", f"/api/2.0/pipelines/{pipeline_id}/events", query=query
+                ),
+            )
+            yield from resp.get("events") or []
+            page_token = resp.get("next_page_token")
+            if not page_token:
+                break
 
     def _execute_sql_query_streaming(
         self,

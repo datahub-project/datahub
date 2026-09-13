@@ -96,6 +96,9 @@ from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HiveMetastoreProxy,
 )
 from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
+from datahub.ingestion.source.unity.pipeline_expectations import (
+    UnityCatalogPipelineExpectationsExtractor,
+)
 from datahub.ingestion.source.unity.platform_resource_repository import (
     UnityCatalogPlatformResourceRepository,
 )
@@ -628,6 +631,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     self.table_refs | self.view_refs
                 )
 
+        # Pipeline expectations are REST-only and independent of the SQL warehouse, so
+        # extract them before the warehouse-gated profiling block (which returns early
+        # if the warehouse can't start).
+        if self.config.pipeline_expectations.enabled:
+            yield from self._gen_pipeline_expectation_workunits()
+
         if self.config.is_profiling_enabled():
             # Start the warehouse again for profiling; it may have been stopped after
             # ingestion if that took a while.
@@ -664,6 +673,41 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.data_quality.enabled:
             yield from self._gen_data_quality_workunits()
+
+    def _gen_pipeline_expectation_workunits(self) -> Iterable[MetadataWorkUnit]:
+        # Dataset URNs embed the metastore id only when include_metastore is on; pass
+        # it through so expectation assertions resolve to the same dataset.
+        metastore_id: Optional[str] = None
+        if self.config.include_metastore:
+            metastore = self.unity_catalog_api_proxy.assigned_metastore()
+            if metastore is not None:
+                metastore_id = metastore.id
+
+        with self.report.new_stage("Ingest pipeline expectations"):
+            extractor = UnityCatalogPipelineExpectationsExtractor(
+                config=self.config.pipeline_expectations,
+                report=self.report,
+                proxy=self.unity_catalog_api_proxy,
+                dataset_urn_builder=self.gen_dataset_urn,
+                metastore=metastore_id,
+                is_dataset_allowed=self._pipeline_dataset_allowed,
+            )
+            yield from extractor.get_workunits()
+
+    def _pipeline_dataset_allowed(self, ref: TableReference) -> bool:
+        # Reuse the catalog/schema/table filters applied during table ingestion so a
+        # pipeline expectation on an excluded dataset is skipped. catalog.id and
+        # schema.id are metastore-prefixed and space-escaped the same way the proxy
+        # builds them; table_pattern matches the raw qualified name.
+        catalog_id = ref.catalog.replace(" ", "_")
+        if ref.metastore:
+            catalog_id = f"{ref.metastore}.{catalog_id}"
+        schema_id = f"{catalog_id}.{ref.schema.replace(' ', '_')}"
+        return (
+            self.config.catalog_pattern.allowed(catalog_id)
+            and self.config.schema_pattern.allowed(schema_id)
+            and self.config.table_pattern.allowed(ref.qualified_table_name)
+        )
 
     def _start_warehouse_or_report(self, failure_context: str) -> bool:
         # Starting the SQL warehouse can take minutes; every warehouse-gated stage

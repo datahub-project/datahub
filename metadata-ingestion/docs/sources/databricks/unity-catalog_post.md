@@ -98,6 +98,31 @@ Behavior:
 
 Permissions: the metric tables are read over SQL, so a running SQL warehouse (`warehouse_id`) is required, and the ingesting principal needs `SELECT` on each monitor's `*_profile_metrics` table. If a monitor writes its metrics to a schema that is not otherwise ingested, grant `USE SCHEMA` on that schema as well.
 
+#### Pipeline Expectations (assertions)
+
+DataHub ingests [Lakeflow Declarative Pipelines](https://docs.databricks.com/aws/en/ldp/) (formerly Delta Live Tables) [expectation](https://docs.databricks.com/aws/en/ldp/expectations) results as DataHub **assertions**. When `pipeline_expectations.enabled: true`, DataHub lists the workspace's pipelines, reads each pipeline's event log, and for the most recent update emits a dataset-level assertion (plus a per-run result) for every expectation defined on a dataset. The assertion passes when no records failed the expectation.
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    pipeline_expectations:
+      enabled: true
+      # Optional: restrict which pipelines are read, matched on pipeline name.
+      pipeline_pattern:
+        allow: [".*"]
+```
+
+Behavior:
+
+- The event log is read over the pipelines REST API, so **no SQL warehouse is required** for this feature.
+- One assertion is published per expectation per dataset, scoped to the dataset's rows; `passed_records` and `failed_records` from the latest update are reported as the run result.
+- The expectation's action is captured on the assertion: a failure from `expect_or_fail` or `expect_or_drop` is recorded at **high** severity, and a plain `expect` (warn-only) at **low** severity.
+- Each expectation's dataset is resolved to a Unity Catalog dataset using the pipeline's target `catalog` and `schema`; pipelines without a Unity Catalog target are skipped.
+- Assertion identity is deterministic (derived from the dataset, pipeline and expectation name — not the update), so re-ingesting is idempotent: the same assertion accrues new run events rather than creating duplicates.
+
+Permissions: the ingesting principal needs read access (`CAN_VIEW`) on the pipelines whose expectations you want to publish; a pipeline whose event log cannot be read is reported as a warning and skipped.
+
 #### Delta Lake External Tables
 
 When `emit_siblings` is enabled (the default), the connector emits sibling relationships between Unity Catalog external tables and their corresponding `delta-lake` platform entities for tables stored on S3 or other object storage. This means you may see a second dataset entity for each external Delta table — one under the `databricks` platform and one under `delta-lake` — linked as siblings in DataHub. Set `emit_siblings: false` in your recipe to disable this behavior if you don't need cross-platform linkage.
