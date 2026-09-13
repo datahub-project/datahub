@@ -12,6 +12,10 @@ from datahub.ingestion.source.looker.looker_common import (
     ExploreUpstreamViewField,
     LookerExplore,
     LookerExploreJoin,
+    ViewField,
+    ViewFieldType,
+    create_view_project_map,
+    extract_project_from_imported_file_path,
 )
 from datahub.ingestion.source.looker.looker_config import LookerCommonConfig
 
@@ -170,3 +174,61 @@ class TestLookerExploreJoinReconstruction:
         view_logic = explore._build_explore_view_logic()
         assert view_logic is not None
         assert r'label: "My \"Q3\" Explore"' in view_logic
+
+
+class TestExtractProjectFromImportedFilePath:
+    @pytest.mark.parametrize(
+        "file_path,expected",
+        [
+            (
+                "imported_projects/project-a/views/foo.view.lkml",
+                "project-a",
+            ),
+            (
+                "imported_projects/my-project/path/to/file.view.lkml",
+                "my-project",
+            ),
+            (
+                "views/foo.view.lkml",  # same-project path, no imported_projects/ prefix
+                None,
+            ),
+            (
+                "imported_projects",  # malformed: no slash after the prefix
+                None,
+            ),
+        ],
+    )
+    def test_extract(self, file_path: str, expected: "str | None") -> None:
+        assert extract_project_from_imported_file_path(file_path) == expected
+
+
+class TestCreateViewProjectMap:
+    def _make_view_field(self, view_name: str, project_name: "str | None") -> ViewField:
+        return ViewField(
+            name=f"{view_name}.some_field",
+            label=None,
+            type="string",
+            description="",
+            field_type=ViewFieldType.DIMENSION,
+            project_name=project_name,
+            view_name=view_name,
+        )
+
+    def test_cross_project_views_keep_their_own_project(self) -> None:
+        # Regression test: a cross-project imported view must keep the project taken from its
+        # source_file, even when it is the explore's primary view and the explore belongs to a
+        # different project. Overriding it produced upstream URNs that matched no view entity.
+        result = create_view_project_map(
+            view_fields=[
+                self._make_view_field("my_view", project_name="project-a"),
+                self._make_view_field("other_view", project_name="project-b"),
+            ]
+        )
+        assert result == {"my_view": "project-a", "other_view": "project-b"}
+
+    def test_same_project_view_not_in_map(self) -> None:
+        # Same-project views have project_name=None; they should not appear in the map
+        # and fall back to the explore's project via the BASE_PROJECT_NAME sentinel.
+        view_field = self._make_view_field("my_view", project_name=None)
+        result = create_view_project_map(view_fields=[view_field])
+        assert "my_view" not in result
