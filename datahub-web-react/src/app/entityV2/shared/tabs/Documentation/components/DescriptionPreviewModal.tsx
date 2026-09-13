@@ -3,12 +3,14 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useRouteToTab } from '@app/entity/shared/EntityContext';
+import { DOCUMENTATION_TAB_ID } from '@app/entityV2/shared/constants';
 import { DescriptionEditor } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditor';
 import { DescriptionPreview } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionPreview';
 import ClickOutside from '@app/shared/ClickOutside';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
-const DOCUMENTATION_TAB_NAME = 'Documentation';
+// Stable, locale-independent tab id used for routing (see issue #19658). Must match the tab's `id`.
+const DOCUMENTATION_TAB_NAME = DOCUMENTATION_TAB_ID;
 
 const modalStyle = {
     top: '5%',
