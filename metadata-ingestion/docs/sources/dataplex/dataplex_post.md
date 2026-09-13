@@ -186,7 +186,7 @@ Each term is emitted as a `GlossaryTerm` with:
 - `term_source: EXTERNAL` and a `source_url` linking directly to the term in the Dataplex console
 - `custom_properties` carrying `project_id`, `location`, `glossary_id`, and `term_id`
 
-When `include_glossary_term_associations` is enabled (opt-in, default: `false`), the connector additionally resolves term-to-asset links using the Dataplex `lookupEntryLinks` API and attaches the corresponding terms to each linked DataHub dataset. This phase runs after entries are ingested, so only assets already discovered by the entries stage can be linked. It requires a role granting `resourcemanager.projects.get` (such as [`roles/browser`](https://cloud.google.com/iam/docs/understanding-roles#browser)) on all configured projects. See the Permissions table in the [Prerequisites](#permissions) section above and the GCP [Resource Manager roles reference](https://cloud.google.com/iam/docs/understanding-roles#resource-manager-roles).
+When `include_glossary_term_associations` is enabled (opt-in, default: `false`), the connector additionally resolves term-to-asset links using the Dataplex `lookupEntryLinks` API and attaches the corresponding terms to each linked DataHub dataset. For each term, the API is called at the term's location to retrieve all linked assets (regardless of where those assets are located). This phase runs after entries are ingested, so only assets already discovered by the entries stage can be linked. It requires a role granting `resourcemanager.projects.get` (such as [`roles/browser`](https://cloud.google.com/iam/docs/understanding-roles#browser)) on all configured projects. See the Permissions table in the [Prerequisites](#permissions) section above and the GCP [Resource Manager roles reference](https://cloud.google.com/iam/docs/understanding-roles#resource-manager-roles).
 
 **Configuration:**
 
@@ -221,6 +221,14 @@ source:
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+#### Entity Type Support
+
+Dataplex entries map to either DataHub **Dataset** entities (BigQuery tables and views, Cloud SQL tables, Spanner tables and graphs, Bigtable tables, Pub/Sub topics, Vertex AI datasets, Dataproc Metastore tables) or DataHub **Container** entities (BigQuery datasets, Cloud SQL instances and databases, Spanner instances and databases, Bigtable instances, Dataproc Metastore services and databases).
+
+**Lineage extraction** applies to Dataset entities only. Containers have no lineage in Dataplex, so no lineage is emitted for them.
+
+**Glossary term associations** apply to both Dataset and Container entities, so a term attached to a BigQuery dataset in Dataplex appears on the corresponding DataHub container. Only assets already discovered by the entries stage can be linked — a term pointing at an entry outside the configured projects, `entries_locations`, or `entries` pattern is reported under `term_links_unmatched` and skipped.
 
 ### Troubleshooting
 

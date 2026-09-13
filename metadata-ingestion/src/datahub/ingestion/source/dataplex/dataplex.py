@@ -474,14 +474,13 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 ):
                     try:
                         yield from self.glossary_processor.process_term_associations(
-                            project_ids=self.config.project_ids,
                             max_workers=self.config.max_workers_glossary,
                         )
                     except Exception as exc:
                         self.report.warning(
                             title="Failed to extract term-asset associations",
                             message="Error while calling lookupEntryLinks.",
-                            context=str(self.config.project_ids),
+                            context=str(self._project_ids),
                             exc=exc,
                         )
 
