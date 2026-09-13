@@ -8,8 +8,10 @@ import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
 import { CSVInfo } from '@app/ingestV2/source/builder/CSVInfo';
 import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
 import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
+import { SnowflakePasswordAuthDeprecationWarning } from '@app/ingestV2/source/builder/SnowflakePasswordAuthDeprecationWarning';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
+import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
 import {
     INGESTION_TYPE_CHANGED_ERROR,
     INGESTION_TYPE_EMPTY_ERROR,
@@ -47,6 +49,15 @@ export function ConnectionDetailsStep() {
     const placeholderRecipe = getPlaceholderRecipe(ingestionSources, type);
     const [initialRecipeYml] = useState(existingRecipeFromStateYaml || existingRecipeYaml);
     const [stagedRecipeYml, setStagedRecipeYml] = useState(initialRecipeYml || placeholderRecipe);
+
+    // state.config.recipe is a JSON string; parse it for client-side detection.
+    const parsedRecipe = useMemo(() => {
+        try {
+            return state.config?.recipe ? JSON.parse(state.config.recipe) : null;
+        } catch {
+            return null;
+        }
+    }, [state.config?.recipe]);
 
     const analyticsRef = useRef(false);
 
@@ -173,6 +184,7 @@ export function ConnectionDetailsStep() {
         <>
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
             {type === CSV && <CSVInfo />}
+            {type === SNOWFLAKE && <SnowflakePasswordAuthDeprecationWarning recipe={parsedRecipe} />}
             <Container>
                 <NameAndOwnersSection
                     source={state.ingestionSource}

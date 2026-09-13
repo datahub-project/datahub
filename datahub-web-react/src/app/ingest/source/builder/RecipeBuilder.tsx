@@ -12,6 +12,7 @@ import RecipeForm from '@app/ingest/source/builder/RecipeForm/RecipeForm';
 import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingest/source/builder/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingest/source/builder/types';
+import { SnowflakePasswordAuthDeprecationWarning } from '@app/ingestV2/source/builder/SnowflakePasswordAuthDeprecationWarning';
 import { Button } from '@src/alchemy-components';
 
 const ControlsContainer = styled.div`
@@ -72,6 +73,15 @@ function RecipeBuilder(props: Props) {
     const [isViewingForm, setIsViewingForm] = useState(true);
     const [hideDocsHint, setHideDocsHint] = useState(false);
 
+    // Invalid YAML is ignored; the form/yaml editor surfaces its own validation errors.
+    const parsedRecipe = React.useMemo(() => {
+        try {
+            return displayRecipe ? YAML.parse(displayRecipe) : null;
+        } catch {
+            return null;
+        }
+    }, [displayRecipe]);
+
     function switchViews(isFormView: boolean) {
         try {
             YAML.parse(displayRecipe);
@@ -91,6 +101,7 @@ function RecipeBuilder(props: Props) {
             ) : null}
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
             {type === CSV && <CSVInfo />}
+            {type === 'snowflake' && <SnowflakePasswordAuthDeprecationWarning recipe={parsedRecipe} />}
             <HeaderContainer>
                 <Title style={{ marginBottom: 0 }} level={5}>
                     {sourceConfigs?.displayName} Details
