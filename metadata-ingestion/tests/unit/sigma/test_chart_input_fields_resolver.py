@@ -3343,8 +3343,8 @@ class TestARefsColumnIsValidatedAgainstTheUpstream:
 class TestTheAuditDecodesTheFieldPathBeforeComparing:
     """A schemaField URN PERCENT-ENCODES its field path.
 
-    ``make_schema_field_urn(parent, "Logo Id (X)")`` yields
-    ``...,Logo Id %28X%29)``, while the upstream's schema holds the literal
+    ``make_schema_field_urn(parent, "Total Sales (X)")`` yields
+    ``...,Total Sales %28X%29)``, while the upstream's schema holds the literal
     name. Comparing without decoding made the audit accuse the pipeline of its
     own bug: 8,439 correct edges reported as dangling on one run.
     """
@@ -3356,7 +3356,7 @@ class TestTheAuditDecodesTheFieldPathBeforeComparing:
 
     def test_a_name_needing_encoding_is_still_verified(self) -> None:
         upstream = "urn:li:chart:(sigma,up)"
-        name = "Logo Id (UNIVERSAL_DIM_ACCOUNTS)"
+        name = "Total Sales (Region A)"
         self.src._known_field_paths[upstream] = {name}
         self.src._record_edges_for_audit(
             "urn:li:chart:(sigma,down)",
@@ -3374,7 +3374,7 @@ class TestTheAuditDecodesTheFieldPathBeforeComparing:
     def test_a_genuinely_absent_column_is_still_caught(self) -> None:
         """Decoding must not turn the audit into a rubber stamp."""
         upstream = "urn:li:chart:(sigma,up)"
-        self.src._known_field_paths[upstream] = {"Logo Id (X)"}
+        self.src._known_field_paths[upstream] = {"Total Sales (X)"}
         self.src._record_edges_for_audit(
             "urn:li:chart:(sigma,down)",
             [
@@ -3602,7 +3602,7 @@ class TestSpeculativeSplitsDoNotInflateTheRefusalCount:
 
 
 class TestUnresolvedSourceNamesAreLocated:
-    """"Unknown to this workbook" left 11,028 refs undecidable.
+    """ "Unknown to this workbook" left 11,028 refs undecidable.
 
     Three possibilities need completely different fixes -- the run holds the
     element and the lookup scope was too narrow, another workbook holds it, or

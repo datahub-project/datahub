@@ -7716,8 +7716,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if match is None:
                 continue
             # A schemaField URN PERCENT-ENCODES its field path, so the raw
-            # capture is "Logo Id %28X%29" where the upstream's schema holds
-            # "Logo Id (X)". Comparing without decoding reported 8,439 correct
+            # capture is "Total Sales %28X%29" where the upstream's schema holds
+            # "Total Sales (X)". Comparing without decoding reported 8,439 correct
             # edges as dangling on one run -- the audit accusing the pipeline of
             # its own bug. Decode before comparing.
             parent = match.group("parent")
