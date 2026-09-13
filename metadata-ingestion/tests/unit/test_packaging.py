@@ -22,7 +22,9 @@ def test_setuptools_not_capped_below_83():
     # >=83 floor is enforced at lock time (pyproject [tool.uv]) and resolved in
     # constraints.txt. Guards against a cap being reintroduced.
     setup_py = (_METADATA_INGESTION / "setup.py").read_text()
-    assert not re.search(r"setuptools\s*<", setup_py), (
+    # Strip comments so a comment mentioning "setuptools <83" can't false-trigger.
+    code = "\n".join(line.split("#", 1)[0] for line in setup_py.splitlines())
+    assert not re.search(r"setuptools\s*<", code), (
         "setup.py must not cap setuptools (blocks setuptools>=83 / CVE-2026-59890)"
     )
 

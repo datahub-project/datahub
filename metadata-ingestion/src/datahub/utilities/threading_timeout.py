@@ -3,13 +3,7 @@ import functools
 import platform
 from typing import ContextManager
 
-from datahub.utilities.pkg_resources_shim import ensure_pkg_resources
-
-# stopit does `import pkg_resources` at import time; setuptools>=82 removed it.
-# Install the shim first (no-op when the real pkg_resources is present).
-ensure_pkg_resources()
-
-from stopit import ThreadingTimeout as _ThreadingTimeout, TimeoutException  # noqa: E402
+from stopit import ThreadingTimeout as _ThreadingTimeout, TimeoutException
 
 __all__ = ["threading_timeout", "TimeoutException"]
 

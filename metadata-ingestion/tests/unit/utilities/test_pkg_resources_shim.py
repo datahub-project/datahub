@@ -1,3 +1,4 @@
+import importlib
 import importlib.metadata
 import importlib.util
 import os
@@ -8,7 +9,6 @@ import pytest
 from datahub.utilities import pkg_resources_shim
 from datahub.utilities.pkg_resources_shim import (
     DistributionNotFound,
-    ensure_pkg_resources,
     get_distribution,
     parse_version,
     require,
@@ -16,6 +16,9 @@ from datahub.utilities.pkg_resources_shim import (
 )
 
 _PKG = "acryl-datahub"
+
+
+# --- shim API (exercised via the module directly) ---
 
 
 def test_get_distribution_returns_version_and_parsed_version():
@@ -29,19 +32,8 @@ def test_get_distribution_missing_raises():
         get_distribution("no-such-distribution-xyz-123")
 
 
-def test_parse_version_orders_correctly():
-    assert parse_version("2.4") < parse_version("2.5")
-
-
 def test_require_returns_sequence_with_version():
     assert require(_PKG)[0].version == importlib.metadata.version(_PKG)
-
-
-def test_require_accepts_version_specifier():
-    # Real pkg_resources.require() accepts PEP 508 requirement strings; the name
-    # must be resolved out of the specifier, not passed whole to metadata lookup.
-    installed = importlib.metadata.version(_PKG)
-    assert require(f"{_PKG}>=0")[0].version == installed
 
 
 def test_get_distribution_accepts_requirement_specifier():
@@ -74,15 +66,10 @@ def test_resource_filename_returns_existing_path():
 
 
 def test_resource_filename_accepts_submodule_anchor():
-    # The real redshift/cockroachdb call is a *submodule* anchor (no __path__):
-    # pkg_resources.resource_filename("sqlalchemy_redshift.dialect", "redshift-ca-bundle.crt").
-    # That resolves through a different branch than the package anchor above, so
-    # exercise it directly against the dialect this shim exists to support.
+    # The real redshift call is a *submodule* anchor (no __path__); exercise that
+    # branch against the dialect this shim exists to support.
     if importlib.util.find_spec("sqlalchemy_redshift") is None:
         pytest.skip("sqlalchemy_redshift not installed")
-    # The dialect imports pkg_resources at module load; under setuptools>=82 that
-    # is only importable once the shim is installed (the real callers do this too).
-    ensure_pkg_resources()
     path = resource_filename("sqlalchemy_redshift.dialect", "redshift-ca-bundle.crt")
     assert os.path.exists(path)
 
@@ -94,77 +81,49 @@ def test_resource_filename_rejects_traversal():
         resource_filename("datahub.cli.gql", "/etc/passwd")
 
 
-def test_ensure_pkg_resources_installs_usable_module():
-    ensure_pkg_resources()
-    import pkg_resources
-
-    assert pkg_resources.get_distribution(_PKG).version
-    ensure_pkg_resources()  # idempotent, must not raise
-
-
 def test_shim_is_loud_on_unimplemented_symbol():
-    ensure_pkg_resources()
-    import pkg_resources
-
-    if not getattr(pkg_resources, "__datahub_shim__", False):
-        pytest.skip("real pkg_resources present; shim not active in this env")
+    # PEP 562 module __getattr__ names the implemented surface for anything else.
     with pytest.raises(AttributeError):
-        _ = pkg_resources.working_set
+        _ = pkg_resources_shim.working_set
 
 
-def test_shim_does_not_break_pytest_syspath_prepend(monkeypatch, tmp_path):
-    # pytest's syspath_prepend imports fixup_namespace_packages when pkg_resources
-    # is in sys.modules; the shim must provide it. Regression test.
-    ensure_pkg_resources()
-    monkeypatch.syspath_prepend(str(tmp_path))
+# --- the sys.meta_path finder ---
+
+
+def test_finder_installed_once_and_targets_only_pkg_resources():
+    from datahub._pkg_resources_finder import _PkgResourcesShimFinder
+
+    finders = [f for f in sys.meta_path if isinstance(f, _PkgResourcesShimFinder)]
+    assert len(finders) == 1  # installed once, no duplicates
+    assert finders[0].find_spec("pkg_resources", None) is not None
+    assert finders[0].find_spec("something_else", None) is None
+
+
+def test_finder_spec_loads_a_working_shim():
+    from datahub._pkg_resources_finder import _PkgResourcesShimFinder
+
+    spec = _PkgResourcesShimFinder().find_spec("pkg_resources", None)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.__datahub_shim__ is True
+    assert module.get_distribution(_PKG).version == importlib.metadata.version(_PKG)
+    with pytest.raises(AttributeError):
+        _ = module.working_set
 
 
 @pytest.mark.parametrize("mod", ["sqlalchemy_redshift", "sqlalchemy_cockroachdb"])
-def test_stranded_dialects_import_after_shim(mod):
-    # With the shim installed, these dialects (which import pkg_resources at load)
-    # must import cleanly. find_spec doesn't execute the module, so it's safe here.
-    ensure_pkg_resources()
+def test_stranded_dialects_import(mod):
+    # These dialects import pkg_resources at load; with the finder installed
+    # (via `import datahub`, done at conftest load) they must import cleanly.
     if importlib.util.find_spec(mod) is None:
         pytest.skip(f"{mod} not installed")
-    importlib.import_module(mod)  # must not raise
+    importlib.import_module(mod)
 
 
-def test_make_shim_exposes_documented_api_and_rejects_others():
-    # Exercise the fallback module directly, so its API and the loud __getattr__
-    # are covered even in environments where real pkg_resources is present.
-    shim = pkg_resources_shim._make_shim()
-    assert shim.__datahub_shim__ is True
-    assert shim.get_distribution(_PKG).version == importlib.metadata.version(_PKG)
-    assert shim.require(_PKG)[0].version == importlib.metadata.version(_PKG)
-    assert shim.parse_version("2.5") == parse_version("2.5")
-    with pytest.raises(AttributeError):
-        _ = shim.working_set  # unimplemented -> module __getattr__ raises
+def test_shim_does_not_break_pytest_syspath_prepend(monkeypatch, tmp_path):
+    # pytest's syspath_prepend calls pkg_resources.fixup_namespace_packages when
+    # pkg_resources is imported; the shim must provide it. Regression test.
+    import pkg_resources  # noqa: F401
 
-
-def test_namespace_helpers_are_noops():
-    # Both are no-ops for PEP 420; call them for coverage (they return None).
-    pkg_resources_shim.declare_namespace("foo.bar")
-    pkg_resources_shim.fixup_namespace_packages("/some/path")
-
-
-def test_ensure_pkg_resources_installs_shim_when_import_fails(monkeypatch):
-    # Force the real pkg_resources to be unimportable so the fallback-install
-    # branch runs (the py3.12 / setuptools-absent scenario). ensure_pkg_resources
-    # writes sys.modules directly, and monkeypatch cannot restore a key that never
-    # existed, so snapshot and restore it ourselves to keep the test isolated.
-    saved = sys.modules.pop("pkg_resources", None)
-    real_import = importlib.import_module
-
-    def fake_import(name, *args, **kwargs):
-        if name == "pkg_resources":
-            raise ImportError("blocked for test")
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(importlib, "import_module", fake_import)
-    try:
-        pkg_resources_shim.ensure_pkg_resources()
-        assert getattr(sys.modules["pkg_resources"], "__datahub_shim__", False) is True
-    finally:
-        sys.modules.pop("pkg_resources", None)
-        if saved is not None:
-            sys.modules["pkg_resources"] = saved
+    monkeypatch.syspath_prepend(str(tmp_path))

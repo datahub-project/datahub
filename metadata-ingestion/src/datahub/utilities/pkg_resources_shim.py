@@ -1,23 +1,36 @@
+"""A minimal ``pkg_resources`` replacement, loaded in place of the real module
+when setuptools>=82 has removed it.
+
+``stopit``, ``sqlalchemy-redshift`` and ``sqlalchemy-cockroachdb`` all
+``import pkg_resources`` at module load. This module implements only the
+``pkg_resources`` API those dependencies use; anything else raises via the
+module-level ``__getattr__`` below, so a new caller needing more must add it here
+after checking the real semantics. It is loaded by the ``sys.meta_path`` finder
+in ``datahub/_pkg_resources_finder.py``, which defers to a real ``pkg_resources``
+whenever one is installed.
+"""
+
 import importlib
 import importlib.metadata as _im
 import importlib.resources as _ir
-import logging
 import os
-import sys
-import types
 from typing import List
 
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version, parse as _parse
 
-logger = logging.getLogger(__name__)
+# Detection marker for tests and diagnostics.
+__datahub_shim__ = True
 
-_SHIM_NAME = "pkg_resources"
-
-# sqlalchemy-redshift and sqlalchemy-cockroachdb import pkg_resources at module
-# load; setuptools>=82 removed it. This shim implements only the pkg_resources
-# API those dialects use; any other attribute raises via __getattr__ below, so a
-# new dependency needing more must add it here after checking the real semantics.
+_PUBLIC = (
+    "DistributionNotFound",
+    "get_distribution",
+    "require",
+    "parse_version",
+    "resource_filename",
+    "declare_namespace",
+    "fixup_namespace_packages",
+)
 
 
 class DistributionNotFound(Exception):
@@ -87,8 +100,16 @@ def resource_filename(package_or_requirement: str, resource_name: str) -> str:
     ref = _ir.files(anchor)
     for part in parts:
         ref = ref.joinpath(part)
-    # Must stay a real path: redshift opens it as sslrootcert at connect time.
-    return str(ref)
+    path = str(ref)
+    # A zip/egg import yields a fabricated (non-filesystem) path; the caller opens
+    # this as a real file (redshift's sslrootcert), so fail clearly rather than
+    # returning a path that later errors far from here.
+    if not os.path.exists(path):
+        raise DistributionNotFound(
+            f"resource {resource_name!r} in {anchor!r} is not a real filesystem "
+            "path (zip/egg imports are not supported by this shim)"
+        )
+    return path
 
 
 def declare_namespace(name: str) -> None:
@@ -99,42 +120,8 @@ def fixup_namespace_packages(path: str, *args: object, **kwargs: object) -> None
     return None  # No-op for PEP 420; called by pytest's syspath_prepend.
 
 
-def _make_shim() -> types.ModuleType:
-    def __getattr__(name: str) -> object:
-        raise AttributeError(
-            f"pkg_resources shim does not implement {name!r}; it provides only "
-            "get_distribution, require, parse_version, resource_filename, "
-            "declare_namespace, fixup_namespace_packages, DistributionNotFound"
-        )
-
-    shim = types.ModuleType(_SHIM_NAME)
-    # Via __dict__: keeps mypy happy and registers __getattr__ as a PEP 562 hook.
-    shim.__dict__.update(
-        {
-            "__datahub_shim__": True,  # detection marker
-            "DistributionNotFound": DistributionNotFound,
-            "get_distribution": get_distribution,
-            "require": require,
-            "parse_version": parse_version,
-            "resource_filename": resource_filename,
-            "declare_namespace": declare_namespace,
-            "fixup_namespace_packages": fixup_namespace_packages,
-            "__getattr__": __getattr__,
-        }
+def __getattr__(name: str) -> object:
+    raise AttributeError(
+        f"pkg_resources shim does not implement {name!r}; it provides only: "
+        + ", ".join(_PUBLIC)
     )
-    return shim
-
-
-def ensure_pkg_resources() -> None:
-    """Install the pkg_resources shim if the real module is absent (idempotent).
-
-    Call before importing the sqlalchemy-redshift/cockroachdb dialects.
-    """
-    if _SHIM_NAME in sys.modules:
-        return
-    try:
-        importlib.import_module(_SHIM_NAME)
-        return  # real pkg_resources present -> never shadow it
-    except ImportError:
-        logger.debug("pkg_resources unavailable; installing datahub shim")
-        sys.modules[_SHIM_NAME] = _make_shim()

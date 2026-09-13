@@ -11,7 +11,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
-from datahub.utilities.pkg_resources_shim import ensure_pkg_resources
 
 
 class CockroachDBConfig(PostgresConfig):
@@ -33,9 +32,6 @@ class CockroachDBSource(PostgresSource):
     config: CockroachDBConfig
 
     def __init__(self, config: CockroachDBConfig, ctx: PipelineContext):
-        # sqlalchemy-cockroachdb imports pkg_resources at module load; setuptools>=82
-        # removed it. Install the shim before the cockroachdb SQLAlchemy dialect loads.
-        ensure_pkg_resources()
         super().__init__(config, ctx)
 
     def get_platform(self):
