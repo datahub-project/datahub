@@ -163,9 +163,15 @@ class PartitionDiscovery:
                 f"Extracted partition columns from DDL: {column_names} for table {table.name}"
             )
 
-            return self._get_partition_column_types(
+            column_types = self._get_partition_column_types(
                 table, project, schema, column_names, execute_query_func
             )
+            # A failed/partial type lookup must not drop the DDL-discovered partition
+            # columns: an empty dict is indistinguishable from "no PARTITION BY clause"
+            # and would make a partitioned table look unpartitioned (full scan). Keep
+            # every extracted column, so an unknown type degrades to an untyped string
+            # filter downstream rather than losing the partition entirely.
+            return {col: column_types.get(col, "") for col in column_names}
 
         except Exception as e:
             warn(
@@ -243,7 +249,10 @@ class PartitionDiscovery:
             probed_columns, probe_error = self._probe_required_partition_columns(
                 table, project, schema, execute_query_func, "partition detection"
             )
-            required_partition_columns = sorted(probed_columns)
+            # Preserve the require-filter error's column order (a composite partition key
+            # is positional); ordered dedup rather than sorted(), which would bind
+            # partition-id components to the wrong columns downstream.
+            required_partition_columns = list(dict.fromkeys(probed_columns))
 
         if not required_partition_columns:
             if table.external:
@@ -975,7 +984,7 @@ class PartitionDiscovery:
         schema: str,
         execute_query_func: Callable[[str, Optional[QueryJobConfig], str], List[Row]],
         purpose: str,
-    ) -> Tuple[Set[str], Optional[str]]:
+    ) -> Tuple[List[str], Optional[str]]:
         # Cheap `SELECT 1 ... LIMIT n` probe. This is only a *supplementary* detector:
         # BigQuery raises "requires filter over column(s) ..." only for tables with
         # require_partition_filter=TRUE, so a failure lets us parse the partition columns
@@ -983,8 +992,10 @@ class PartitionDiscovery:
         # a partitioned table with require_partition_filter=FALSE also succeeds. That is
         # why this runs only after the authoritative INFORMATION_SCHEMA.COLUMNS lookup
         # (which flags partition columns regardless of require_partition_filter); callers
-        # must not treat probe success alone as definitive. Returns (columns, error):
-        # empty columns + None error means "no require-filter error", not "unpartitioned".
+        # must not treat probe success alone as definitive. Columns are returned in the
+        # order BigQuery lists them in the require-filter error, since a composite
+        # partition key is positional. Returns (columns, error): empty columns + None
+        # error means "no require-filter error", not "unpartitioned".
         # PARTITION_FILTER_PROBE reads at most n rows in the success case (a COUNT(*) would
         # full-scan a non-require-filter table because LIMIT bounds only the aggregate row).
         try:
@@ -996,9 +1007,16 @@ class PartitionDiscovery:
                 ]
             )
             execute_query_func(test_query, job_config, purpose)
-            return set(), None
+            return [], None
         except Exception as e:
-            cols = set(self._extract_partition_info_from_error(str(e)).required_columns)
+            # Preserve BigQuery's column order (a composite partition key is positional);
+            # ordered dedup rather than a set so partition-id components stay bound to the
+            # right column downstream.
+            cols = list(
+                dict.fromkeys(
+                    self._extract_partition_info_from_error(str(e)).required_columns
+                )
+            )
             return cols, str(e)
 
     def _get_partition_columns_from_schema(
