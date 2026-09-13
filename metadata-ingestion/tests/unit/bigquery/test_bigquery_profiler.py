@@ -2143,9 +2143,16 @@ def test_queries_templates_pass_sql_validation():
             table_ref="`p.d.t`", where="`event_date` = '2023-12-25'"
         ),
         queries.LATEST_BY_DATE_SAMPLE.format(
-            table_ref="`p.d.t`", date_col="event_date"
+            table_ref="`p.d.t`", date_col="event_date", select_extra=""
         ),
-        queries.TABLESAMPLE_SAMPLE.format(table_ref="`p.d.t`", sample_percent=0.001),
+        queries.LATEST_BY_DATE_SAMPLE.format(
+            table_ref="`p.d.t`",
+            date_col="_PARTITIONTIME",
+            select_extra=", `_PARTITIONTIME`",
+        ),
+        queries.TABLESAMPLE_SAMPLE.format(
+            table_ref="`p.d.t`", sample_percent=0.001, select_extra=""
+        ),
         queries.TOP_VALUES_BY_COUNT.format(
             col_name="region",
             table_ref="`p.d.t`",
