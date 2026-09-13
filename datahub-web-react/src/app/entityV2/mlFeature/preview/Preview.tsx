@@ -7,7 +7,7 @@ import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { BrowsePathV2, DataPlatform, DataProduct, EntityPath, EntityType, Owner } from '@types';
+import { BrowsePathV2, DataPlatform, DataProduct, EntityPath, EntityType, Health, Owner } from '@types';
 
 export const Preview = ({
     urn,
@@ -19,6 +19,7 @@ export const Preview = ({
     dataProduct,
     owners,
     platform,
+    health,
     degree,
     paths,
     isOutputPort,
@@ -35,6 +36,7 @@ export const Preview = ({
     dataProduct?: DataProduct | null;
     owners?: Array<Owner> | null;
     platform?: DataPlatform | null | undefined;
+    health?: Health[] | null;
     degree?: number;
     paths?: EntityPath[];
     isOutputPort?: boolean;
@@ -63,6 +65,7 @@ export const Preview = ({
             typeIcon={entityRegistry.getIcon(EntityType.Mlfeature, 14, IconStyleType.ACCENT)}
             owners={owners}
             dataProduct={dataProduct}
+            health={health || undefined}
             degree={degree}
             paths={paths}
             isOutputPort={isOutputPort}
