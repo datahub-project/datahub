@@ -1,7 +1,7 @@
 """Configuration for Google Dataplex source."""
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
@@ -16,6 +16,7 @@ from datahub.ingestion.source.common.gcp_project_filter import (
     GCPValidationError,
     validate_project_label_list,
 )
+from datahub.ingestion.source.dataplex.dataplex_helpers import parse_gcs_path
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -108,6 +109,105 @@ class DataplexFilterConfig(ConfigModel):
     )
 
 
+class DataplexExportJobConfig(ConfigModel):
+    """Configuration for ``extraction_method: export``.
+
+    One Dataplex ``metadataJobs.create`` EXPORT job is submitted per configured
+    entries location, writing JSONL to a per-location Cloud Storage bucket. The
+    bucket for each location is resolved from ``export_bucket_config[location]``
+    first, falling back to ``{bucket_base_name}-{location}``.
+    """
+
+    export_job_runner_project: str = Field(
+        description="GCP project that runs the Dataplex metadata export jobs. "
+        "The service account needs roles/dataplex.metadataJobOwner on this project.",
+    )
+
+    export_bucket_config: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Explicit mapping of GCP location to GCS bucket name. "
+        "Example: {us: my-bucket-us, us-east5: my-bucket-east5}. "
+        "Entries here take priority over 'bucket_base_name'.",
+    )
+
+    bucket_base_name: Optional[str] = Field(
+        default=None,
+        description="Fallback base GCS bucket name used when a location is not "
+        "listed in 'export_bucket_config'. The bucket name is derived as "
+        "'{bucket_base_name}-{location}'.",
+    )
+
+    prefix: Optional[str] = Field(
+        default=None,
+        max_length=128,
+        description="Optional folder prefix inside each export bucket. The "
+        "Dataplex Metadata Export API limits the custom prefix to 128 characters.",
+    )
+
+    export_poll_seconds: int = Field(
+        default=15,
+        ge=1,
+        description="Polling interval (seconds) while waiting for export jobs to finish.",
+    )
+
+    export_timeout_seconds: int = Field(
+        default=3600,
+        ge=1,
+        description="Total wait timeout (seconds) for all export jobs to finish.",
+    )
+
+    def bucket_for_location(self, location: str) -> str:
+        """Resolve the GCS bucket for a given location.
+
+        Precedence: ``export_bucket_config[location]`` > ``{bucket_base_name}-{location}``.
+        """
+        if location in self.export_bucket_config:
+            return self.export_bucket_config[location]
+        if self.bucket_base_name:
+            return f"{self.bucket_base_name}-{location}"
+        raise ValueError(
+            f"No bucket configured for location '{location}'. Add it to "
+            "'export_bucket_config' or set 'bucket_base_name'."
+        )
+
+
+class DataplexReadExportConfig(ConfigModel):
+    """Configuration for ``extraction_method: read_export``.
+
+    Ingests the output of Dataplex metadata exports produced outside DataHub
+    (Cloud Scheduler, Workflows, a separate pipeline, etc.). No export jobs are
+    submitted, so the service account only needs roles/storage.objectViewer on
+    the buckets — no Dataplex job-submission roles.
+    """
+
+    export_paths: Dict[str, str] = Field(
+        description="Mapping of entries location to the 'gs://bucket[/prefix]' "
+        "output path of an already-completed Dataplex metadata export, e.g. "
+        "{us: 'gs://my-bucket-us/exports'}. If a path contains output from "
+        "several export jobs (multiple 'job=<id>' partitions), only the most "
+        "recently written partition is read; point the path at a specific "
+        "'.../job=<id>' folder to pin an exact run. The entries stage reads "
+        "exactly the locations in this mapping ('entries_locations' applies to "
+        "the other stages: lineage, glossaries).",
+    )
+
+    @field_validator("export_paths")
+    @classmethod
+    def _validate_export_paths(cls, v: Dict[str, str]) -> Dict[str, str]:
+        if not v:
+            raise ValueError(
+                "export_paths must contain at least one location -> gs:// path entry."
+            )
+        for location, path in v.items():
+            try:
+                parse_gcs_path(path)
+            except ValueError as e:
+                raise ValueError(
+                    f"export_paths entry for location '{location}' is invalid: {e}"
+                ) from e
+        return v
+
+
 class DataplexConfig(
     GcpProjectFilterConfig,
     EnvConfigMixin,
@@ -128,6 +228,35 @@ class DataplexConfig(
     credential: Optional[GCPCredential] = Field(
         default=None,
         description="GCP credential information. If not specified, uses Application Default Credentials.",
+    )
+
+    extraction_method: Literal["api", "export", "read_export"] = Field(
+        default="api",
+        description="How entries are fetched from the Universal Catalog. "
+        "'api' (default) lists entries per project via list_entry_groups / "
+        "list_entries / get_entry — this only sees entries physically created in "
+        "the configured projects. 'export' submits a Dataplex metadata EXPORT job "
+        "per entries location (scoped to the configured projects) that writes "
+        "JSONL to a GCS bucket, then reads entries from that bucket; use it for "
+        "central-catalog / federated architectures where assets surface in a "
+        "catalog project via Dataplex catalog linking and are invisible to "
+        "list_entries. Requires 'export_config'. 'read_export' ingests the "
+        "output of export jobs you run outside DataHub — no jobs are submitted "
+        "and only storage read access is needed. Requires 'read_export_config'.",
+    )
+
+    export_config: Optional[DataplexExportJobConfig] = Field(
+        default=None,
+        description="Settings for extraction_method 'export' (job runner "
+        "project, GCS buckets, polling). Required for 'export', not allowed "
+        "otherwise.",
+    )
+
+    read_export_config: Optional[DataplexReadExportConfig] = Field(
+        default=None,
+        description="Settings for extraction_method 'read_export' (paths of "
+        "pre-existing export output). Required for 'read_export', not allowed "
+        "otherwise.",
     )
 
     entries_locations: List[str] = Field(
@@ -336,6 +465,60 @@ class DataplexConfig(
                 "when include_glossaries is enabled."
             )
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_extraction_method_configuration(self) -> "DataplexConfig":
+        """One rule: the selected method's config block must be present, the others absent."""
+        required_block_by_method = {
+            "api": None,
+            "export": "export_config",
+            "read_export": "read_export_config",
+        }
+        required_block = required_block_by_method[self.extraction_method]
+        for block in ("export_config", "read_export_config"):
+            if block == required_block:
+                if getattr(self, block) is None:
+                    raise ValueError(
+                        f"{block} must be set when extraction_method is "
+                        f"'{self.extraction_method}'."
+                    )
+            elif getattr(self, block) is not None:
+                raise ValueError(
+                    f"{block} is set but extraction_method is "
+                    f"'{self.extraction_method}'. Remove it, or switch "
+                    "extraction_method to the matching value."
+                )
+
+        if self.extraction_method != "export":
+            return self
+        assert self.export_config is not None
+        # A key that is present but blank would pass the missing-bucket check
+        # below and produce an invalid 'gs:///...' output path at runtime.
+        blank_buckets = [
+            loc
+            for loc, bucket in self.export_config.export_bucket_config.items()
+            if not bucket.strip()
+        ]
+        if blank_buckets:
+            raise ValueError(
+                f"export_bucket_config entries for locations {blank_buckets} are "
+                "blank. Provide a bucket name or remove those entries."
+            )
+        # Every entries location must resolve to a bucket up front, so a
+        # misconfiguration fails at recipe validation rather than mid-run.
+        missing = [
+            loc
+            for loc in self.entries_locations
+            if loc not in self.export_config.export_bucket_config
+            and not self.export_config.bucket_base_name
+        ]
+        if missing:
+            raise ValueError(
+                f"Locations {missing} have no export bucket configured. Either add "
+                "them to 'export_config.export_bucket_config' or set "
+                "'export_config.bucket_base_name' as a fallback."
+            )
         return self
 
     def get_credentials(self) -> Optional[Dict[str, str]]:
