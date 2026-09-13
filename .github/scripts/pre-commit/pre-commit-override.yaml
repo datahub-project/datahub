@@ -14,7 +14,7 @@ repos:
         # once before this guard. A >500-file push is still rejected, but only
         # after the formatters have run on the diff. Making the guard fast-fail
         # first would require changing the generator's merge order (prepend
-        # override hooks) — deferred as not worth it for now.
+        # override hooks) - deferred as not worth it for now.
         stages: [pre-push]
       - id: update-lineage-file
         name: update-lineage-file
@@ -99,7 +99,7 @@ repos:
         language: system
         pass_filenames: false
         # Scans only the staged diff. A native (non-docker) binary resolves git worktrees
-        # correctly — a docker_image hook cannot (it only mounts $PWD, not the external gitdir).
+        # correctly - a docker_image hook cannot (it only mounts $PWD, not the external gitdir).
         # Keep pass_filenames: false: betterleaks reads the staged diff itself; passing files
         # would switch it to `dir` semantics (whole-file, and broken/slow on multiple file args).
         stages: [pre-commit]
