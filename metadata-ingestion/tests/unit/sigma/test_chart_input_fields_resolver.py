@@ -3535,3 +3535,67 @@ class TestEachMissReasonCarriesItsSourceNames:
             "element_named_but_not_a_lineage_upstream"
         ]
         assert len(names) == 200
+
+
+class TestTheChartPathInfersItsConnectionFromTheWorkbook:
+    """The /files fallback never ran once on a real tenant.
+
+    It asked "is there exactly ONE mappable connection on the whole tenant?" --
+    true on dev, false on a customer with several -- so it refused 5,518 times
+    and the resolver it was built to feed reported 0. A workbook almost always
+    draws from one connection, and that is the right scope for the guess.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+        self.src._init_diagnostic_state()
+
+    def test_one_workbook_connection_is_used(self) -> None:
+        self.src._current_workbook_connection_ids = {"conn-a"}
+        assert self.src._infer_connection_id_for_chart_path() == "conn-a"
+
+    def test_several_are_refused_rather_than_guessed(self) -> None:
+        """A wrong connection emits a URN pointing at the wrong platform or
+        instance, which is worse than no edge."""
+        self.src._current_workbook_connection_ids = {"conn-a", "conn-b"}
+        assert self.src._infer_connection_id_for_chart_path() is None
+
+    def test_no_workbook_connections_falls_back_to_the_tenant_rule(self) -> None:
+        self.src._current_workbook_connection_ids = set()
+        with patch.object(SigmaSource, "_infer_connection_id", return_value="sole"):
+            assert self.src._infer_connection_id_for_chart_path() == "sole"
+
+
+class TestSpeculativeSplitsDoNotInflateTheRefusalCount:
+    """A join-chain ref tries up to 2N-3 splits; each one reaching the column
+    validation counted as a separate refusal.
+
+    That is what `count` exists to prevent -- it is why chart_ref_miss_reasons
+    was unreadable before it existed -- and it inflated
+    chart_ref_column_absent_from_upstream to 4,889 on run 8.
+    """
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+        self.src.reporter = SigmaSourceReport()
+        self.src._init_diagnostic_state()
+        self.upstream = _make_element("up", "Up", ["Revenue"])
+
+    def test_a_speculative_probe_is_refused_but_not_counted(self) -> None:
+        assert (
+            self.src._upstream_field_for_ref(
+                _make_ref("Up", "NoSuchColumn"), self.upstream, count=False
+            )
+            is None
+        ), "the refusal itself must still stand -- the split IS invalid"
+        assert self.src.reporter.chart_ref_column_absent_from_upstream == 0
+
+    def test_a_real_ref_is_still_counted(self) -> None:
+        assert (
+            self.src._upstream_field_for_ref(
+                _make_ref("Up", "NoSuchColumn"), self.upstream
+            )
+            is None
+        )
+        assert self.src.reporter.chart_ref_column_absent_from_upstream == 1

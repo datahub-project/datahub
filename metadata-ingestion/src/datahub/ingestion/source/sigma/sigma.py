@@ -1,7 +1,7 @@
 import hashlib
 import logging
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field as dc_field, replace
 from typing import (
     AbstractSet,
     Any,
@@ -405,6 +405,13 @@ class _WorkbookWarehouseIndex:
 
     by_url_id: Dict[str, str]
     by_name: Dict[str, List[str]]
+    # Connection ids this workbook's tables come from. A /files entry carries no
+    # connectionId, so a table resolved through /v2/files/{urlId} has to borrow
+    # one; borrowing it from THIS WORKBOOK is far more likely to be right than
+    # the previous fallback, "the tenant's sole mappable connection", which
+    # refused 5,518 times on a multi-connection tenant and left the whole
+    # fallback dead.
+    connection_ids: Set[str] = dc_field(default_factory=set)
 
 
 @dataclass
@@ -5795,7 +5802,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._wb_url_id_to_conn_id = {
             url_id: ref.connection_id for url_id, ref in transient_map.items()
         }
-        return _WorkbookWarehouseIndex(by_url_id=by_url_id, by_name=by_name)
+        return _WorkbookWarehouseIndex(
+            by_url_id=by_url_id,
+            by_name=by_name,
+            connection_ids={e.connectionId for e in entries if e.connectionId},
+        )
 
     @staticmethod
     def _merge_warehouse_table_indices(
@@ -6447,7 +6458,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if len(sheet_matches) == 1:
                 elem_urn = elementId_to_chart_urn.get(sheet_matches[0].elementId)
                 if elem_urn:
-                    field = self._upstream_field_for_ref(ref, sheet_matches[0])
+                    field = self._upstream_field_for_ref(
+                        ref, sheet_matches[0], count=count
+                    )
                     if field is None:
                         # Record WHY, or this column lands in the unresolved
                         # bucket with nothing in chart_ref_miss_reasons -- which
@@ -6961,6 +6974,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # a workbook from the log is close to un-investigable -- doing it by
         # hand once required bisecting emission-order dashboard URNs.
         self._current_workbook: Optional[Workbook] = None
+        self._current_workbook_connection_ids: Set[str] = set()
         # chart URN -> resolved-field count of the best aspect already emitted,
         # and the workbook that produced it. Guards against a poorer duplicate
         # overwriting a richer one; see _chart_input_fields_workunits.
@@ -7505,6 +7519,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None
         return builder.make_schema_field_urn(warehouse_urn, native)
 
+    def _infer_connection_id_for_chart_path(self) -> Optional[str]:
+        """Connection to attribute a table that /files does not name one for.
+
+        Prefers the connections THIS WORKBOOK's own tables come from: a workbook
+        almost always draws from one connection, and that is a far better guess
+        than the tenant-wide fallback. Ambiguity is still refused rather than
+        guessed -- a wrong connection emits a URN pointing at the wrong platform
+        or instance, which is worse than no edge at all.
+
+        Falls back to the Data Model path's rule (the tenant's sole mappable
+        connection) when the workbook declares none.
+        """
+        conns = self._current_workbook_connection_ids
+        if len(conns) == 1:
+            return next(iter(conns))
+        if conns:
+            return None
+        return self._infer_connection_id({})
+
     def _warehouse_urn_via_files_lookup(
         self, url_id: str, warehouse_urn_by_url_id: Dict[str, str]
     ) -> Optional[str]:
@@ -7522,7 +7555,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # connection. Ambiguity is refused rather than guessed -- attributing a
         # table to the wrong connection emits a URN pointing at the wrong
         # platform or instance, which is worse than no edge.
-        connection_id = self._infer_connection_id({})
+        connection_id = self._infer_connection_id_for_chart_path()
         if connection_id is None:
             self.reporter.chart_warehouse_files_lookup_no_connection += 1
             return None
@@ -7564,10 +7597,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         exact = folded.get(ref.column.casefold())
         if exact is not None:
             return exact
-        self.reporter.chart_ref_column_absent_from_upstream += 1
-        self.reporter.chart_ref_column_absent_samples.append(
-            f"ref={ref.raw!r} upstream={dm_urn} upstream_has={sorted(known)[:6]}"
-        )
+        if count:
+            self.reporter.chart_ref_column_absent_from_upstream += 1
+            self.reporter.chart_ref_column_absent_samples.append(
+                f"ref={ref.raw!r} upstream={dm_urn} upstream_has={sorted(known)[:6]}"
+            )
         self._note_chart_ref_miss(
             _CHART_REF_MISS_COLUMN_ABSENT_FROM_UPSTREAM,
             ref=ref,
@@ -7578,7 +7612,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         return None
 
     def _upstream_field_for_ref(
-        self, ref: BracketRef, upstream: Element
+        self, ref: BracketRef, upstream: Element, *, count: bool = True
     ) -> Optional[str]:
         """The upstream column this ref names -- as a NAME the upstream has.
 
@@ -7620,11 +7654,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if column_id == ref.column:
                 self.reporter.chart_ref_column_id_translated_to_name += 1
                 return name
-        self.reporter.chart_ref_column_absent_from_upstream += 1
-        self.reporter.chart_ref_column_absent_samples.append(
-            f"ref={ref.raw!r} upstream={upstream.elementId} "
-            f"upstream_has={sorted(upstream.columns)[:6]}"
-        )
+        # count=False means this is one of the up to 2N-3 SPECULATIVE splits a
+        # join-chain ref tries. Counting each probe reports several refusals for
+        # one ref -- which is what made chart_ref_miss_reasons unreadable before
+        # `count` existed, and it inflated this counter to 4,889 on run 8. The
+        # refusal itself still stands: a split naming a column the upstream does
+        # not have is invalid, which is exactly the validation the splitter wants.
+        if count:
+            self.reporter.chart_ref_column_absent_from_upstream += 1
+            self.reporter.chart_ref_column_absent_samples.append(
+                f"ref={ref.raw!r} upstream={upstream.elementId} "
+                f"upstream_has={sorted(upstream.columns)[:6]}"
+            )
         return None
 
     def _stated_upstreams_for(
@@ -8086,6 +8127,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                                 element.column_native_names[display_name] = native
 
             self._current_workbook = workbook
+            self._current_workbook_connection_ids = (
+                wb_warehouse_table_index.connection_ids
+                if wb_warehouse_table_index
+                else set()
+            )
             # Counter deltas across this ONE element's build are the only way
             # to attribute a chart-level outcome to a per-column cause without
             # rewriting the column loop to return causes it does not currently
