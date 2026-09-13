@@ -7,6 +7,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.patch.template.Template;
+import com.linkedin.metadata.aspect.patch.template.assertion.AssertionRunSummaryTemplate;
 import com.linkedin.metadata.aspect.patch.template.chart.ChartInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.DocumentationTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.DomainsTemplate;
@@ -136,6 +137,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(
         ML_MODEL_GROUP_EDITABLE_PROPERTIES_ASPECT_NAME,
         new EditableMLModelGroupPropertiesTemplate());
+    aspectSpecTemplateMap.put(ASSERTION_RUN_SUMMARY_ASPECT_NAME, new AssertionRunSummaryTemplate());
     return new AspectTemplateEngine(aspectSpecTemplateMap);
   }
 
