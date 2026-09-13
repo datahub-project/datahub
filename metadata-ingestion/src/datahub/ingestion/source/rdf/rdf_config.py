@@ -5,10 +5,12 @@ This module contains the configuration class for the RDF ingestion source,
 following DataHub conventions for separating configuration from source implementation.
 """
 
+import os
 from typing import List, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
+from datahub.configuration.git import GitInfo
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -117,14 +119,21 @@ class RDFSourceConfig(
     """
 
     # Source Options
-    source: str = Field(
+    source: Optional[str] = Field(
+        default=None,
         description=(
-            "Primary: Web URL to .ttl or .zip file (e.g. https://example.org/glossary.ttl, "
-            "https://example.org/data.zip). Also supports web folder URLs. "
-            "Local file/folder paths work only when running via CLI. "
-            "Examples: 'https://example.org/glossary.ttl', 'https://example.org/data.zip', "
-            "'https://example.org/folder/', '/path/to/file.ttl' (CLI-only)"
-        )
+            "Location of RDF data: a file, folder, URL, zip, comma-separated list, or glob "
+            "pattern; or — when `git_info` is set — a path relative to the repository checkout "
+            "(optional, defaults to the repo root)."
+        ),
+    )
+    git_info: Optional[GitInfo] = Field(
+        default=None,
+        description=(
+            "Git repository to shallow-clone (SSH deploy key auth); when set, `source` is "
+            "resolved relative to the repository checkout (e.g. a file or folder within the "
+            "repo), and may be omitted to scan the repo root."
+        ),
     )
     format: Optional[str] = Field(
         default=None,
@@ -240,12 +249,41 @@ class RDFSourceConfig(
     @classmethod
     def validate_source(cls, v):
         """Validate source parameter is not empty."""
-        if not v or not v.strip():
+        if v is None:
+            return None
+        if not v.strip():
             raise ValueError(
                 "Source parameter cannot be empty. Please provide a web URL (.ttl or .zip), "
                 "or a local path when running via CLI."
             )
         return v.strip()
+
+    @model_validator(mode="after")
+    def source_or_git_required(self) -> "RDFSourceConfig":
+        if not self.source and self.git_info is None:
+            raise ValueError("source is required unless git_info is set")
+        return self
+
+    @model_validator(mode="after")
+    def validate_git_source_paths(self) -> "RDFSourceConfig":
+        # When git_info is set and source is provided, each comma-separated part
+        # must be a relative path so it can't escape the checkout directory.
+        if self.git_info is not None and self.source:
+            parts = [p.strip() for p in self.source.split(",")]
+            for part in parts:
+                if not part:
+                    continue
+                if os.path.isabs(part) or part.startswith("\\"):
+                    raise ValueError(
+                        f"source path '{part}' must be relative when git_info is set; "
+                        "absolute paths are not allowed"
+                    )
+                components = part.replace("\\", "/").split("/")
+                if ".." in components:
+                    raise ValueError(
+                        f"source path '{part}' must not contain '..' components when git_info is set"
+                    )
+        return self
 
     @field_validator("sparql_filter")
     @classmethod
