@@ -6,13 +6,16 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
@@ -36,6 +39,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -969,6 +973,39 @@ public class UpdateIndicesV2StrategyTest {
             any(AuditStamp.class));
     verify(timeseriesAspectService, times(2))
         .upsertDocument(any(OperationContext.class), anyString(), anyString(), anyString(), any());
+  }
+
+  @Test
+  public void testProcessBatch_timeseriesJsonFailure_propagatesWhenFailLoud() throws Exception {
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(timeseriesAspectService.shouldPropagateWriteFailures()).thenReturn(true);
+
+    try (var transformer = mockStatic(TimeseriesAspectTransformer.class)) {
+      transformer
+          .when(() -> TimeseriesAspectTransformer.transform(any(), any(), any(), any(), any()))
+          .thenThrow(new JsonProcessingException("boom") {});
+      expectThrows(
+          IllegalStateException.class,
+          () -> strategy.processBatch(operationContext, groupedFor(List.of(mockEvent)), false));
+    }
+  }
+
+  @Test
+  public void testProcessBatch_timeseriesJsonFailure_continuesWhenSoftMode() throws Exception {
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+
+    try (var transformer = mockStatic(TimeseriesAspectTransformer.class)) {
+      transformer
+          .when(() -> TimeseriesAspectTransformer.transform(any(), any(), any(), any(), any()))
+          .thenThrow(new JsonProcessingException("boom") {});
+      strategy.processBatch(operationContext, groupedFor(List.of(mockEvent)), false);
+    }
+    verify(timeseriesAspectService, never())
+        .upsertDocument(any(), anyString(), anyString(), anyString(), any());
   }
 
   @Test

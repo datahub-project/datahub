@@ -56,6 +56,44 @@ public class OperationsResourceTest {
   }
 
   @Test
+  public void testPostgresSoT_alwaysDeleteByQueryEvenWhenMajority() {
+    // filteredCount=20, count=30 → >50% would reindex on ES; PG must delete.
+    TimeseriesAspectService postgresMock =
+        new MockTimeseriesAspectService(30, 20, "pg-task") {
+          @Override
+          public boolean supportsReindexForTruncate() {
+            return false;
+          }
+        };
+    String entityType = "dataset";
+    String aspectName = "datasetusagestatistics";
+    long endTimeMillis = 3000;
+
+    try (MockedStatic<AuthenticationContext> utilities =
+        Mockito.mockStatic(AuthenticationContext.class)) {
+      utilities
+          .when(AuthenticationContext::getAuthentication)
+          .thenReturn(
+              new Authentication(new Actor(ActorType.USER, "urn:li:corpuser:test"), ""));
+
+      OperationContext operationContext =
+          TestOperationContexts.systemContextNoSearchAuthorization();
+      OperationsResource resource = new OperationsResource(operationContext, postgresMock);
+
+      String dry =
+          resource.executeTruncateTimeseriesAspect(
+              operationContext, entityType, aspectName, endTimeMillis, true, null, null, null, null);
+      assertTrue(dry.contains("Issuing a delete by query request."));
+      assertFalse(dry.contains("Reindexing the aspect"));
+
+      String forceReindexRejected =
+          resource.executeTruncateTimeseriesAspect(
+              operationContext, entityType, aspectName, endTimeMillis, true, null, null, null, true);
+      assertTrue(forceReindexRejected.contains("forceReindex is not supported"));
+    }
+  }
+
+  @Test
   public void testForceFlags() {
     final String reindexTaskId = "REINDEX_TASK_ID";
     TimeseriesAspectService mockTimeseriesAspectServiceWouldDeleteByQuery =
