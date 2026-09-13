@@ -5,7 +5,7 @@ import pytest
 
 def test_bridge_starts_on_current_platform():
     """Bridge binary exists and starts without error."""
-    from datahub.ingestion.source.powerbi.m_query._bridge import (
+    from datahub.ingestion.source.common.m_query._bridge import (
         _clear_bridge,
         get_bridge,
     )
@@ -18,7 +18,7 @@ def test_bridge_starts_on_current_platform():
 
 def test_bridge_parses_simple_let_expression():
     """A valid M-Query let expression returns a nodeIdMap with a LetExpression root."""
-    from datahub.ingestion.source.powerbi.m_query._bridge import (
+    from datahub.ingestion.source.common.m_query._bridge import (
         _clear_bridge,
         get_bridge,
     )
@@ -33,7 +33,7 @@ def test_bridge_parses_simple_let_expression():
 
 def test_bridge_parses_minimal_section_document():
     """DefaultSettings use ParseEitherExpressionOrSection — a bare section parses."""
-    from datahub.ingestion.source.powerbi.m_query._bridge import (
+    from datahub.ingestion.source.common.m_query._bridge import (
         _clear_bridge,
         get_bridge,
     )
@@ -89,7 +89,7 @@ def test_bridge_errors_include_stage_and_details(
     expression: str, required_substrings: tuple[str, ...]
 ) -> None:
     """Lex/Parse failures surface as MQueryParseError with Lex:/Parse: prefix and message text."""
-    from datahub.ingestion.source.powerbi.m_query._bridge import (
+    from datahub.ingestion.source.common.m_query._bridge import (
         MQueryParseError,
         _clear_bridge,
         get_bridge,
@@ -107,7 +107,7 @@ def test_bridge_errors_include_stage_and_details(
 
 def test_bridge_restart_after_clear():
     """After _clear_bridge(), a fresh get_bridge() call succeeds."""
-    from datahub.ingestion.source.powerbi.m_query._bridge import (
+    from datahub.ingestion.source.common.m_query._bridge import (
         _clear_bridge,
         get_bridge,
     )

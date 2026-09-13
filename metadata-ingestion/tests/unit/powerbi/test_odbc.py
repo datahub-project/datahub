@@ -1,4 +1,4 @@
-from datahub.ingestion.source.powerbi.m_query.odbc import (
+from datahub.ingestion.source.common.m_query.odbc import (
     extract_driver,
     extract_dsn,
     extract_platform,
