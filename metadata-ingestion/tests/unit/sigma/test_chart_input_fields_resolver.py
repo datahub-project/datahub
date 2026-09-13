@@ -2939,7 +2939,7 @@ class TestARicherAspectIsNeverOverwrittenByAPoorerDuplicate:
     A duplicated workbook reuses them, and the chart URN is the element id
     alone, so several workbooks' charts collide on one URN. InputFields is
     full-replace, so the last workbook processed wins outright. Observed on a
-    real tenant: element 26QX9Orvz- resolved 59 of 66 columns in one workbook,
+    real tenant: a chart element resolved 59 of 66 columns in one workbook,
     then a broken duplicate -- whose /columns call aborted, so no column
     carried a formula -- overwrote it with an empty aspect eleven minutes
     later. 23% of that tenant's chart ids were claimed by more than one
