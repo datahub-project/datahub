@@ -25,13 +25,13 @@ from datahub.metadata.schema_classes import (
     DatasetAssertionScopeClass,
 )
 
-# The assertion "type" shown as its category in DataHub. dbt tags each kind of
-# assertion distinctly (regular tests -> "dbt", freshness -> "dbt Freshness")
-# rather than a single flat label, so we name the Databricks source instead of a
-# generic "Databricks"; the specific check is carried in `nativeType`.
+# Shown as the assertion's category in DataHub. We name the specific source of the
+# check (the monitor) rather than a generic "Databricks" so that different
+# Databricks-sourced checks stay distinguishable; the specific check is carried in
+# `nativeType`.
 LAKEHOUSE_MONITOR_ASSERTION_TYPE = "Databricks Lakehouse Monitor"
 
-# Native check name shown in the assertion details (analogous to a dbt test name).
+# Native check name shown in the assertion details.
 COMPLETENESS_NATIVE_TYPE = "completeness"
 
 # The assertion "name" shown in the DataHub assertions list. The list renders a
@@ -80,11 +80,10 @@ def build_assertion_info_mcp(
     dataset_urn: str,
 ) -> MetadataChangeProposalWrapper:
     field_urn = make_schema_field_urn(dataset_urn, result.column)
-    # Structured custom assertion (matching the dbt connector's shape). The
-    # scope/aggregation/operator/parameters/field are still populated for
-    # future-proofing, but the assertions list renders a custom assertion's name
-    # from `description` and never fetches those structured fields — so we also
-    # set an explicit column-aware `description` to surface the column in the name.
+    # Structured custom assertion. The scope/aggregation/operator/parameters/field
+    # fully describe the check, but the assertions list renders a custom assertion's
+    # name from `description` and never fetches those structured fields — so we also
+    # set a column-aware `description` to surface the column in the name.
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
         description=COMPLETENESS_ASSERTION_DESCRIPTION.format(
