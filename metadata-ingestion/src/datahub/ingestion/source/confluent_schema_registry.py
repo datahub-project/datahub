@@ -111,16 +111,26 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         #  (c) TopicNameStrategy differing by environment name suffixes.
         #       e.g "a.b.c.d-value" and "a.b.c.d.qa-value"
         #       For such instances, the wrong schema registry entries could picked by the previous logic.
+
+        # (a) is unambiguous, so honour it before considering any longer subject. A scan
+        # that only tests the topic as a prefix cannot distinguish this topic's own
+        # subject from one belonging to a topic whose name merely begins the same way,
+        # which is case (c): given "a.b.c.d-value" and "a.b.c.d.qa-value", topic
+        # "a.b.c.d" is served either subject depending on registry ordering.
+        if subject_key in self.known_schema_registry_subjects:
+            return subject_key
+
+        if self.source_config.disable_topic_record_naming_strategy:
+            return None
+
+        # (b) appends "-<record name>" to the topic, so require that delimiter. It is
+        # what separates this topic's subjects from those of a "<topic>.<suffix>" topic,
+        # whose name continues with "." and which is a different topic altogether -
+        # ".RETRY" and ".DLT" companion topics being the common shape.
+        record_name_prefix: str = topic + "-"
         for subject in self.known_schema_registry_subjects:
-            if (
-                self.source_config.disable_topic_record_naming_strategy
-                and subject == subject_key
-            ):
-                return subject
-            if (
-                (not self.source_config.disable_topic_record_naming_strategy)
-                and subject.startswith(topic)
-                and subject.endswith(subject_key_suffix)
+            if subject.startswith(record_name_prefix) and subject.endswith(
+                subject_key_suffix
             ):
                 return subject
         return None
