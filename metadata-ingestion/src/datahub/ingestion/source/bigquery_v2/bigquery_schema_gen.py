@@ -32,7 +32,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDataReader
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
-    unquote_and_decode_unicode_escape_seq,
+    unquote_and_decode_escape_seq,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper import (
     BigQueryLabel,
@@ -1191,9 +1191,7 @@ class BigQuerySchemaGenerator:
         dataset_properties = DatasetProperties(
             name=datahub_dataset_name.get_table_display_name(),
             description=(
-                unquote_and_decode_unicode_escape_seq(table.comment)
-                if table.comment
-                else ""
+                unquote_and_decode_escape_seq(table.comment) if table.comment else ""
             ),
             qualifiedName=str(datahub_dataset_name),
             created=(
