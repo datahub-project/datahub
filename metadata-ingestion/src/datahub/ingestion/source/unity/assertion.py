@@ -80,10 +80,9 @@ def build_assertion_info_mcp(
     dataset_urn: str,
 ) -> MetadataChangeProposalWrapper:
     field_urn = make_schema_field_urn(dataset_urn, result.column)
-    # Structured custom assertion. The scope/aggregation/operator/parameters/field
-    # fully describe the check, but the assertions list renders a custom assertion's
-    # name from `description` and never fetches those structured fields — so we also
-    # set a column-aware `description` to surface the column in the name.
+    # Populate the full structured check so the assertion is semantically complete;
+    # the list's displayed name still comes only from `description`
+    # (see COMPLETENESS_ASSERTION_DESCRIPTION).
     assertion_info = AssertionInfoClass(
         type=AssertionTypeClass.CUSTOM,
         description=COMPLETENESS_ASSERTION_DESCRIPTION.format(
