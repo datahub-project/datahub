@@ -14,8 +14,9 @@
 
 import logging
 import os
+import threading
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 # Confluent important
 import confluent_kafka
@@ -206,6 +207,18 @@ class KafkaEventSource(EventSource):
         self._early_mcl_criteria_list: List[Dict[str, Any]] = []
         self._pipeline_name = ctx.pipeline_name
 
+        # ZD-8461: per-partition offset bookkeeping for unroutable messages.
+        # _stored_hwm: highest next-offset already stored (monotonic guard);
+        # _yielded_hwm: highest routable offset handed to the pipeline;
+        # _deferred_skip: (unroutable offset to skip through, routable
+        # high-watermark guarding it) awaiting acks of earlier events.
+        # Acks arrive from emitter/flush threads while the consume loop runs,
+        # hence the lock.
+        self._offset_lock = threading.Lock()
+        self._stored_hwm: Dict[Tuple[str, int], int] = {}
+        self._yielded_hwm: Dict[Tuple[str, int], int] = {}
+        self._deferred_skip: Dict[Tuple[str, int], Tuple[int, int]] = {}
+
         # Initialize lag monitoring (if enabled)
         if self._is_lag_monitoring_enabled():
             lag_interval = float(
@@ -385,7 +398,7 @@ class KafkaEventSource(EventSource):
         topic_routes = self.source_config.topic_routes or DEFAULT_TOPIC_ROUTES
         topics_to_subscribe = list(topic_routes.values())
         logger.debug(f"Subscribing to the following topics: {topics_to_subscribe}")
-        self.consumer.subscribe(topics_to_subscribe)
+        self.consumer.subscribe(topics_to_subscribe, on_assign=self._on_assign)
 
         # Start lag monitoring after subscription
         if self._lag_monitor is not None:
@@ -423,9 +436,93 @@ class KafkaEventSource(EventSource):
                         msg
                     )  # Handle timeseries in the same way as usual MCL.
                 elif "pe" in topic_routes and msg.topic() == topic_routes["pe"]:
-                    yield from self.handle_pe(msg)
+                    routed = False
+                    for envelope in self.handle_pe(msg):
+                        if not routed:
+                            routed = True
+                            self._record_yielded(msg)
+                        yield envelope
+                    if not routed:
+                        self._ack_unroutable_message(msg)
 
         logger.info("Kafka consumer exiting main loop")
+
+    def _on_assign(self, consumer: Any, partitions: List[TopicPartition]) -> None:
+        """Reset per-partition offset bookkeeping on (re)assignment: consumption
+        restarts from the committed offset, so stale watermarks from a previous
+        assignment must not block or defer stores."""
+        with self._offset_lock:
+            for tp in partitions:
+                key = (tp.topic, tp.partition)
+                self._stored_hwm.pop(key, None)
+                self._yielded_hwm.pop(key, None)
+                self._deferred_skip.pop(key, None)
+        logger.debug("Partition assignment: %s", partitions)
+
+    def _record_yielded(self, msg: Any) -> None:
+        """Remember the highest routable offset handed to the pipeline, per
+        partition, so unroutable-offset stores never commit past an event whose
+        work is still in flight."""
+        key = (msg.topic(), msg.partition())
+        with self._offset_lock:
+            self._yielded_hwm[key] = max(self._yielded_hwm.get(key, -1), msg.offset())
+
+    def _ack_unroutable_message(self, msg: Any) -> None:
+        """Advance offsets for a consumed message that produced no envelope.
+
+        PlatformEvent_v1 is a multiplexed topic and handle_pe only routes
+        entityChangeEvent / relationshipChangeEvent. Any other event name yields
+        no envelope, so the pipeline never acks the message. In async-commit
+        mode enable.auto.offset.store is false, so without this the offset is
+        never stored or committed and a partition whose tail is unroutable
+        reports consumer lag forever (ZD-8461). Sync-commit mode keeps
+        enable.auto.offset.store=true, so librdkafka already tracks consumed
+        positions there.
+
+        If routable events below this offset are still in flight, storing now
+        would commit past work that could be lost on a crash, so the store is
+        deferred until their ack lands (see _store_next_offset).
+        """
+        if not self.source_config.async_commit_enabled:
+            return
+        name = None
+        value = msg.value()
+        if isinstance(value, dict):
+            name = value.get("name")
+        topic, partition, offset = msg.topic(), msg.partition(), msg.offset()
+        key = (topic, partition)
+        with self._offset_lock:
+            yielded = self._yielded_hwm.get(key, -1)
+            stored = self._stored_hwm.get(key, -1)
+            if yielded >= 0 and stored < yielded + 1:
+                # Earlier routable events not yet acked -- defer. Remember both
+                # the offset to skip through and the routable high-watermark
+                # guarding it: once acks pass the guard, the skip is safe.
+                prev_skip, _ = self._deferred_skip.get(key, (-1, -1))
+                self._deferred_skip[key] = (max(offset, prev_skip), yielded)
+                logger.debug(
+                    "Deferring offset store for unroutable message on %s [%s] "
+                    "offset %s (name=%s): routable events still in flight",
+                    topic,
+                    partition,
+                    offset,
+                    name,
+                )
+                return
+        logger.debug(
+            "Storing offset for unroutable message on %s [%s] offset %s (name=%s)",
+            topic,
+            partition,
+            offset,
+            name,
+        )
+        try:
+            self._store_next_offset(topic, partition, offset + 1)
+        except Exception as e:
+            # e.g. the partition was revoked between poll and store; the next
+            # assignee re-consumes from the last committed offset and stores
+            # this offset itself.
+            logger.warning(f"Failed to store offset for unroutable message: {e}")
 
     def handle_mcl(self, msg: Any) -> Iterable[EventEnvelope]:
         """
@@ -550,14 +647,32 @@ class KafkaEventSource(EventSource):
         )
 
     def _store_offsets(self, event: EventEnvelope) -> None:
+        kafka = event.meta["kafka"]
+        self._store_next_offset(kafka["topic"], kafka["partition"], kafka["offset"] + 1)
+
+    def _store_next_offset(self, topic: str, partition: int, next_offset: int) -> None:
+        """Store an offset for autocommit, monotonically per partition.
+
+        Skipping non-advancing stores keeps a late ack for an in-flight event
+        from rewinding a store already made for a later unroutable message.
+        Advancing past a deferred unroutable offset also releases that deferral
+        (all routable events below it have now been acked).
+        """
+        key = (topic, partition)
+        with self._offset_lock:
+            if next_offset <= self._stored_hwm.get(key, -1):
+                return
+            entry = self._deferred_skip.get(key)
+            if entry is not None:
+                skip, guard = entry
+                if next_offset > guard:
+                    # Every routable event below the deferred skip is now
+                    # acked; safe to commit through the unroutable range.
+                    del self._deferred_skip[key]
+                    next_offset = max(next_offset, skip + 1)
+            self._stored_hwm[key] = next_offset
         self.consumer.store_offsets(
-            offsets=[
-                TopicPartition(
-                    event.meta["kafka"]["topic"],
-                    event.meta["kafka"]["partition"],
-                    event.meta["kafka"]["offset"] + 1,
-                )
-            ],
+            offsets=[TopicPartition(topic, partition, next_offset)],
         )
 
     def ack(self, event: EventEnvelope, processed: bool = True) -> None:
