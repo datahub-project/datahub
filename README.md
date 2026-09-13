@@ -110,7 +110,7 @@ cd analytics-agent && bash quickstart.sh
 
 [Read the announcement →](https://datahub.com/blog/datahub-analytics-agent/) · [Docs →](https://docs.datahub.com/docs/features/feature-guides/analytics-agent) · [Repo →](https://github.com/datahub-project/analytics-agent)
 
-> **Using AI coding assistants?** Connect Cursor, Claude Desktop, or Cline directly to DataHub via the [Model Context Protocol](https://github.com/acryldata/mcp-server-datahub): `npx -y @acryldata/mcp-server-datahub init`
+> **Using AI coding assistants?** Connect Cursor, Claude Desktop, or Cline directly to DataHub via the [Model Context Protocol](https://github.com/acryldata/mcp-server-datahub) using `uvx mcp-server-datahub@latest`. See the [MCP setup guide](https://docs.datahub.com/docs/features/feature-guides/mcp#self-hosted-mcp-server-usage) for configuration.
 
 ---
 
@@ -572,18 +572,15 @@ print(f"✓ Successfully updated documentation for {dataset_urn}")
 
 - DataHub instance running and accessible
 - MCP-compatible AI tool installed (Cursor, Claude Desktop, Cline, etc.)
-- Node.js 18+ installed
+- [`uv`](https://docs.astral.sh/uv/getting-started/installation/) installed
 
 **Quick Setup:**
 
 ```bash
-# Initialize MCP server for DataHub
-npx -y @acryldata/mcp-server-datahub init
-
-# Follow the interactive prompts to configure:
-# - DataHub GMS endpoint (e.g., http://localhost:8080)
-# - Authentication token (if required)
-# - MCP server settings
+# Run the MCP server over stdio
+DATAHUB_GMS_URL="http://localhost:8080" \
+DATAHUB_GMS_TOKEN="<your-personal-access-token>" \
+uvx mcp-server-datahub@latest
 ```
 
 **Configure your AI tool:**
@@ -594,14 +591,20 @@ For **Claude Desktop**, add to `~/Library/Application Support/Claude/claude_desk
 {
   "mcpServers": {
     "datahub": {
-      "command": "npx",
-      "args": ["-y", "@acryldata/mcp-server-datahub"]
+      "command": "uvx",
+      "args": ["mcp-server-datahub@latest"],
+      "env": {
+        "DATAHUB_GMS_URL": "http://localhost:8080",
+        "DATAHUB_GMS_TOKEN": "<your-personal-access-token>"
+      }
     }
   }
 }
 ```
 
 For **Cursor**, configure in Settings → Features → MCP Servers
+
+For additional clients and authentication options, see the [MCP setup guide](https://docs.datahub.com/docs/features/feature-guides/mcp#self-hosted-mcp-server-usage).
 
 **What you can ask your AI:**
 
