@@ -92,7 +92,7 @@ from datahub.metadata.urns import (
     MlPrimaryKeyUrn,
     Urn,
 )
-from datahub.telemetry.telemetry import telemetry_instance
+from datahub.telemetry.telemetry import get_telemetry_instance
 from datahub.utilities.server_state_disk_cache import ServerStateDiskCache
 from datahub.utilities.urns.urn import guess_entity_type
 
@@ -239,9 +239,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         super().test_connection()
 
         # Cache the server id for telemetry.
-        from datahub.telemetry.telemetry import telemetry_instance
-
-        if not telemetry_instance.enabled:
+        if not get_telemetry_instance().enabled:
             self.server_id = _MISSING_SERVER_ID
             return
         try:
@@ -2444,5 +2442,5 @@ def get_default_graph(
     graph_config.datahub_component = datahub_component
     graph = DataHubGraph(graph_config)
     graph.test_connection()
-    telemetry_instance.set_context(server=graph)
+    get_telemetry_instance().set_context(server=graph)
     return graph
