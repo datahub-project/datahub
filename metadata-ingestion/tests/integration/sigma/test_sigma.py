@@ -1864,6 +1864,255 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
 
 
 @pytest.mark.integration
+def test_sigma_chart_ref_resolved_against_a_model_the_workbook_loads(
+    pytestconfig, tmp_path, requests_mock
+):
+    """A chart ref naming no workbook element, answered by the workbook's models.
+
+    Steps 3b/3c search only the model upstreams Sigma declared for THAT CHART.
+    Here the workbook loads the model through a different element, so the
+    referencing chart has no data-model node of its own and the ref was
+    recorded as "source name unknown to this workbook" and dropped.
+
+    Unreachable on the dev tenant, which has no instance of this case at all,
+    so the whole pipeline is exercised here.
+
+    Both halves matter and are asserted together: a UNIQUE owner resolves, and
+    a name owned by two elements is refused rather than picked between. The
+    refusal is the safety property -- an InputField carries no confidence
+    score, so a wrong edge is byte-identical to one Sigma stated.
+    """
+    workbook = "9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b"
+    override_data: Dict[str, Dict] = get_mock_data_model_api()
+    _apply_dm_bridge_workbook_overrides(override_data)
+
+    elements_url = (
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{workbook}"
+        "/pages/DmBridgePage/elements"
+    )
+    entries = override_data[elements_url]["json"]["entries"]
+    entries.append(
+        {
+            # Deliberately NOT named after any DM element: the ref has to be
+            # answered by the model index, not by a workbook name match.
+            "elementId": "dmRefElem04",
+            "type": "table",
+            "name": "T Undeclared Model Ref",
+            "columns": ["Unique Ref", "Ambiguous Ref"],
+            "vizualizationType": "levelTable",
+        }
+    )
+    override_data[elements_url]["json"]["total"] = len(entries)
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{workbook}/columns"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "elementId": "dmRefElem04",
+                    "name": "Unique Ref",
+                    # "2313213123.test.231" names exactly one DM element, and
+                    # that element owns "team1".
+                    "formula": "[2313213123.test.231/team1]",
+                },
+                {
+                    "elementId": "dmRefElem04",
+                    "name": "Ambiguous Ref",
+                    # "random data model" names TWO elements, both owning
+                    # "team1" -- no lookup can choose between them.
+                    "formula": "[random data model/team1]",
+                },
+            ],
+            "total": 2,
+            "nextPage": None,
+        },
+    }
+    # No data-model node of its own: the workbook loads the model through
+    # dmRefElem01, which is exactly the gap being closed.
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{workbook}"
+        "/lineage/elements/dmRefElem04"
+    ] = {"method": "GET", "status_code": 200, "json": {"dependencies": {}, "edges": []}}
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{workbook}"
+        "/elements/dmRefElem04/query"
+    ] = {"method": "GET", "status_code": 404, "json": {}}
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+    output_path = f"{tmp_path}/sigma_loaded_dm_ref_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "ingest_data_models": True,
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": output_path}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+    emitted = {
+        field["schemaField"]["fieldPath"]: field["schemaFieldUrn"]
+        for mce in mces
+        if mce.get("aspectName") == "inputFields"
+        and mce.get("entityUrn") == "urn:li:chart:(sigma,dmRefElem04)"
+        for field in mce["aspect"]["json"]["fields"]
+    }
+    assert emitted["Unique Ref"] == (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,"
+        "147a4d09-a686-4eea-b183-9b82aa0f7beb.4plNusNz75,PROD),team1)"
+    ), emitted
+    # The ambiguous ref must NOT be resolved to either candidate; it falls back
+    # to a self-reference rather than guessing.
+    assert "urn:li:chart:(sigma,dmRefElem04)" in emitted["Ambiguous Ref"]
+
+    report = _sigma_report(pipeline)
+    assert report.chart_ref_resolved_in_loaded_data_model == 1
+    assert report.chart_ref_loaded_dm_ambiguous == 1
+
+
+@pytest.mark.integration
+def test_sigma_chart_column_id_naming_a_sigma_dataset(
+    pytestconfig, tmp_path, requests_mock
+):
+    """A chart columnId's inode names a Sigma Dataset, not a warehouse table.
+
+    This shape cannot be produced on the dev tenant -- it holds one Sigma
+    Dataset, every chart column there reports
+    ``columnId_not_inode_shaped`` (40 of 40), and Sigma's API cannot author
+    workbook content -- so the whole pipeline is exercised here instead.
+
+    Before the fix the resolver took the inode for a warehouse table, asked
+    ``/v2/files/{urlId}`` about it and got a Data Models path back, then fell
+    through to a self-reference. A self-reference renders in the UI exactly
+    like real lineage while carrying no information, which is how the
+    population stayed invisible for two full customer runs.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+    workbook = "9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b"
+    # The Sigma Dataset the base fixture already ingests.
+    dataset_url_id = "49HFLTr6xytgrPly3PFsNC"
+
+    override_data: Dict[str, Dict] = {
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{workbook}/pages": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [{"pageId": "DsColPage", "name": "Dataset Column Page"}],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{workbook}/pages/DsColPage/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": "dsColElem01",
+                        "type": "table",
+                        "name": "T Dataset Column",
+                        "columns": ["Pet Name"],
+                        "vizualizationType": "levelTable",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # No formula: the columnId alone has to carry the answer, which is the
+        # whole point -- this also covers columns whose formula never parsed.
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{workbook}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": "dsColElem01",
+                        "name": "Pet Name",
+                        "formula": None,
+                        "columnId": f"inode-{dataset_url_id}/Pet Name",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{workbook}/lineage/elements/dsColElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"dependencies": {}, "edges": []},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{workbook}/elements/dsColElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+    output_path = f"{tmp_path}/sigma_dataset_column_id_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": output_path}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+    # The aspect is emitted on the chart and again on the page's dashboard;
+    # both must carry the dataset edge, so assert per entity rather than
+    # flattening them together.
+    emitted_by_entity = {
+        mce["entityUrn"]: [
+            field["schemaFieldUrn"] for field in mce["aspect"]["json"]["fields"]
+        ]
+        for mce in mces
+        if mce.get("aspectName") == "inputFields"
+    }
+    expected = [
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,"
+        f"{dataset_url_id},PROD),Pet Name)"
+    ]
+    assert emitted_by_entity == {
+        "urn:li:chart:(sigma,dsColElem01)": expected,
+        "urn:li:dashboard:(sigma,DsColPage)": expected,
+    }, emitted_by_entity
+    # The regression this replaces: the column pointing back at its own chart.
+    assert not any(
+        "urn:li:chart:" in urn for urns in emitted_by_entity.values() for urn in urns
+    )
+
+    report = _sigma_report(pipeline)
+    assert report.chart_input_fields_sigma_dataset_by_column_id == 1
+    assert report.chart_input_fields_self_ref_fallback == 0
+    assert report.chart_warehouse_files_lookup_miss == 0
+    assert test_resources_dir.exists()
+
+
+@pytest.mark.integration
 def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
 
