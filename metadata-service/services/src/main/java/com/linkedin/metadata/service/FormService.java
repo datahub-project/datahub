@@ -30,6 +30,7 @@ import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormActorAssignment;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
+import com.linkedin.form.FormPromptType;
 import com.linkedin.form.FormType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.OwnershipUtils;
@@ -189,10 +190,16 @@ public class FormService extends BaseService {
       @Nonnull final String formPromptId)
       throws Exception {
 
-    // First, let's apply the action and add the structured property.
+    validateFormPromptSubmission(
+        opContext,
+        entityUrn,
+        structuredPropertyUrn,
+        formUrn,
+        formPromptId,
+        FormPromptType.STRUCTURED_PROPERTY);
+
     ingestStructuredProperties(opContext, entityUrn, structuredPropertyUrn, values);
 
-    // Then, let's apply the change to the entity's form status.
     ingestCompletedFormResponse(opContext, entityUrn, formUrn, formPromptId);
 
     return true;
@@ -234,14 +241,55 @@ public class FormService extends BaseService {
       @Nonnull final String fieldPath)
       throws Exception {
 
-    // First, let's apply the action and add the structured property.
+    validateFormPromptSubmission(
+        opContext,
+        entityUrn,
+        structuredPropertyUrn,
+        formUrn,
+        formPromptId,
+        FormPromptType.FIELDS_STRUCTURED_PROPERTY);
+
     ingestSchemaFieldStructuredProperties(
         opContext, entityUrn, structuredPropertyUrn, values, fieldPath);
 
-    // Then, let's apply the change to the entity's form status.
     ingestCompletedFieldFormResponse(opContext, entityUrn, formUrn, formPromptId, fieldPath);
 
     return true;
+  }
+
+  private void validateFormPromptSubmission(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Urn structuredPropertyUrn,
+      @Nonnull final Urn formUrn,
+      @Nonnull final String formPromptId,
+      @Nonnull final FormPromptType expectedPromptType)
+      throws Exception {
+    final Forms forms = getEntityForms(opContext, entityUrn);
+    if (getFormWithUrn(forms, formUrn) == null) {
+      throw new RuntimeException(
+          String.format("Form %s has not been assigned to entity %s", formUrn, entityUrn));
+    }
+
+    final FormInfo formInfo = getFormInfo(opContext, formUrn);
+    final FormPrompt formPrompt =
+        formInfo.getPrompts().stream()
+            .filter(prompt -> prompt.getId().equals(formPromptId))
+            .findFirst()
+            .orElseThrow(
+                () ->
+                    new RuntimeException(
+                        String.format(
+                            "Prompt %s does not exist in form %s", formPromptId, formUrn)));
+
+    if (!expectedPromptType.equals(formPrompt.getType())
+        || formPrompt.getStructuredPropertyParams() == null
+        || !structuredPropertyUrn.equals(formPrompt.getStructuredPropertyParams().getUrn())) {
+      throw new RuntimeException(
+          String.format(
+              "Prompt %s in form %s does not accept structured property %s",
+              formPromptId, formUrn, structuredPropertyUrn));
+    }
   }
 
   private void ingestCompletedFieldFormResponse(

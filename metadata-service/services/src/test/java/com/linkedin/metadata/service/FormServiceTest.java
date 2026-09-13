@@ -20,8 +20,11 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
+import com.linkedin.form.FormPromptType;
+import com.linkedin.form.StructuredPropertyParams;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.structured.PrimitivePropertyValueArray;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
@@ -319,6 +322,60 @@ public class FormServiceTest {
         List.of(otherForm));
   }
 
+  @Test
+  public void testSubmitRejectsPropertyNotBoundToPromptBeforeWriting() throws Exception {
+    final Urn entityUrn = datasetUrns(1).get(0);
+    final Urn expectedPropertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:expected-property");
+    final Urn submittedPropertyUrn =
+        UrnUtils.getUrn("urn:li:structuredProperty:submitted-property");
+    final SystemEntityClient mockClient =
+        mockSubmitClient(
+            entityUrn,
+            formsWithIncomplete(TEST_FORM_URN),
+            formInfoWithPrompt(expectedPropertyUrn, FormPromptType.STRUCTURED_PROPERTY));
+
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            new FormService(mockClient)
+                .submitStructuredPropertyPromptResponse(
+                    OP_CONTEXT,
+                    entityUrn,
+                    submittedPropertyUrn,
+                    new PrimitivePropertyValueArray(),
+                    TEST_FORM_URN,
+                    TEST_PROMPT_ID));
+
+    verify(mockClient, never()).ingestProposal(any(), any(), anyBoolean());
+    verify(mockClient, never()).batchIngestProposals(any(), anyCollection(), anyBoolean());
+  }
+
+  @Test
+  public void testSubmitRejectsUnassignedFormBeforeWriting() throws Exception {
+    final Urn entityUrn = datasetUrns(1).get(0);
+    final Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test-property");
+    final SystemEntityClient mockClient =
+        mockSubmitClient(
+            entityUrn,
+            emptyForms(),
+            formInfoWithPrompt(propertyUrn, FormPromptType.STRUCTURED_PROPERTY));
+
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            new FormService(mockClient)
+                .submitStructuredPropertyPromptResponse(
+                    OP_CONTEXT,
+                    entityUrn,
+                    propertyUrn,
+                    new PrimitivePropertyValueArray(),
+                    TEST_FORM_URN,
+                    TEST_PROMPT_ID));
+
+    verify(mockClient, never()).ingestProposal(any(), any(), anyBoolean());
+    verify(mockClient, never()).batchIngestProposals(any(), anyCollection(), anyBoolean());
+  }
+
   /**
    * A stored aspect that cannot be read as a Forms record, standing in for any per-entity
    * deserialization failure: the required incompleteForms / completedForms arrays are absent.
@@ -425,6 +482,38 @@ public class FormServiceTest {
   private static EntityResponse entityResponse(
       final Urn urn, final String aspectName, final com.linkedin.data.DataMap aspectData) {
     return entityResponse(urn, Map.of(aspectName, aspectData));
+  }
+
+  private static FormInfo formInfoWithPrompt(
+      final Urn structuredPropertyUrn, final FormPromptType promptType) {
+    return new FormInfo()
+        .setName("Test Form")
+        .setPrompts(
+            new FormPromptArray(
+                ImmutableList.of(
+                    new FormPrompt()
+                        .setId(TEST_PROMPT_ID)
+                        .setType(promptType)
+                        .setStructuredPropertyParams(
+                            new StructuredPropertyParams().setUrn(structuredPropertyUrn)))));
+  }
+
+  private static SystemEntityClient mockSubmitClient(
+      final Urn entityUrn, final Forms forms, final FormInfo formInfo) throws Exception {
+    final SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
+    when(mockClient.getV2(
+            eq(OP_CONTEXT),
+            eq(entityUrn.getEntityType()),
+            eq(entityUrn),
+            eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
+        .thenReturn(entityResponse(entityUrn, FORMS_ASPECT_NAME, forms.data()));
+    when(mockClient.getV2(
+            eq(OP_CONTEXT),
+            eq(TEST_FORM_URN.getEntityType()),
+            eq(TEST_FORM_URN),
+            eq(ImmutableSet.of(FORM_INFO_ASPECT_NAME))))
+        .thenReturn(entityResponse(TEST_FORM_URN, FORM_INFO_ASPECT_NAME, formInfo.data()));
+    return mockClient;
   }
 
   private static EntityResponse entityResponse(
