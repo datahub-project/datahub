@@ -3,10 +3,12 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from datahub.errors import ItemNotFoundError
 from datahub_agent_context.context import DataHubContext
 from datahub_agent_context.mcp_tools.save_document import (
     ROOT_PARENT_DOC_ID,
     _generate_document_id,
+    _get_existing_document,
     _get_parent_title,
     _get_root_parent_id,
     _get_root_parent_urn,
@@ -240,6 +242,94 @@ class TestSaveDocument:
 
         assert result["success"] is True
         assert result["urn"] is not None
+
+    def test_save_document_creates_at_caller_urn(self, mock_client, mock_user_info):
+        """Test creating a NEW document at a caller-supplied URN.
+
+        Regression test for #19027: supplying urn= for a not-yet-existing
+        document must create it at that URN (create-or-update keyed on the
+        URN) rather than being rejected as update-only.
+        """
+        mock_client.entities.get.return_value = None  # document does not exist
+        mock_client._graph.execute_graphql.return_value = {
+            "me": {"corpUser": mock_user_info}
+        }
+
+        caller_urn = "urn:li:document:memory:my-run:weather"
+        # RESTRICT_UPDATES left at its default (true) to prove the shared-folder
+        # check does not reject creating a brand-new caller URN.
+        with DataHubContext(mock_client):
+            result = save_document(
+                urn=caller_urn,
+                document_type="Note",
+                title="Weather Memo",
+                content="Sunny today.",
+            )
+
+        assert result["success"] is True
+        assert result["urn"] == caller_urn
+        assert "created" in result["message"].lower()
+
+    def test_save_document_creates_at_caller_urn_when_get_raises_not_found(
+        self, mock_client, mock_user_info
+    ):
+        """Test create-at-URN when the SDK raises instead of returning None.
+
+        The SDK's ``entities.get`` raises ItemNotFoundError for a missing
+        document rather than returning None; this is the exact failure from
+        #19027, where existence probing collapsed into the update path and the
+        shared-folder guard rejected the create.
+        """
+        mock_client.entities.get.side_effect = ItemNotFoundError(
+            "Entity urn:li:document:memory:my-run:weather not found"
+        )
+        mock_client._graph.execute_graphql.return_value = {
+            "me": {"corpUser": mock_user_info}
+        }
+
+        caller_urn = "urn:li:document:memory:my-run:weather"
+        with DataHubContext(mock_client):
+            result = save_document(
+                urn=caller_urn,
+                document_type="Note",
+                title="Weather Memo",
+                content="Sunny today.",
+            )
+
+        assert result["success"] is True
+        assert result["urn"] == caller_urn
+        assert "created" in result["message"].lower()
+        # Creation at a new URN sets authorship ownership rather than preserving
+        # existing ownership — verify the created document carries the caller as
+        # an owner (the fix that create-at-URN does not strip ownership).
+        created_doc = mock_client.entities.upsert.call_args.args[0]
+        ownership = created_doc._aspects["ownership"]
+        owner_urns = [owner.owner for owner in ownership.owners]
+        assert owner_urns == ["urn:li:corpuser:john.doe"]
+
+    def test_save_document_probe_error_returns_structured_failure(
+        self, mock_client, mock_user_info
+    ):
+        """Test that an existence-probe error (non-not-found) yields the tool's
+        structured failure response rather than escaping save_document."""
+        mock_client.entities.get.side_effect = Exception("connection refused")
+        mock_client._graph.execute_graphql.return_value = {
+            "me": {"corpUser": mock_user_info}
+        }
+
+        with DataHubContext(mock_client):
+            result = save_document(
+                urn="urn:li:document:memory:some-doc",
+                document_type="Note",
+                title="Title",
+                content="Content",
+            )
+
+        assert result["success"] is False
+        assert "Error reading document" in result["message"]
+        # The outer upsert error handler is not what produced this; the probe
+        # failed before any upsert was attempted.
+        mock_client.entities.upsert.assert_not_called()
 
     def test_save_document_update_existing_document(self, mock_client, mock_user_info):
         """Test updating an existing document by providing URN."""
@@ -491,11 +581,10 @@ class TestDocumentInSharedFolder:
         mock_doc_info.parentDocument = mock_parent
         mock_doc = Mock()
         mock_doc.aspects = {"documentInfo": mock_doc_info}
-        mock_client.entities.get.return_value = mock_doc
 
         with DataHubContext(mock_client):
             is_valid, error = _is_document_in_shared_folder(
-                "urn:li:document:test-doc-123"
+                "urn:li:document:test-doc-123", mock_doc
             )
 
         assert is_valid is True
@@ -510,11 +599,10 @@ class TestDocumentInSharedFolder:
         mock_doc_info.parentDocument = mock_parent
         mock_doc = Mock()
         mock_doc.aspects = {"documentInfo": mock_doc_info}
-        mock_client.entities.get.return_value = mock_doc
 
         with DataHubContext(mock_client):
             is_valid, error = _is_document_in_shared_folder(
-                "urn:li:document:external-doc-123"
+                "urn:li:document:external-doc-123", mock_doc
             )
 
         assert is_valid is False
@@ -526,11 +614,10 @@ class TestDocumentInSharedFolder:
         mock_doc_info.parentDocument = None
         mock_doc = Mock()
         mock_doc.aspects = {"documentInfo": mock_doc_info}
-        mock_client.entities.get.return_value = mock_doc
 
         with DataHubContext(mock_client):
             is_valid, error = _is_document_in_shared_folder(
-                "urn:li:document:orphan-doc-123"
+                "urn:li:document:orphan-doc-123", mock_doc
             )
 
         assert is_valid is False
@@ -538,11 +625,9 @@ class TestDocumentInSharedFolder:
 
     def test_nonexistent_document_returns_true(self, mock_client):
         """Test that non-existent document is allowed (will be created)."""
-        mock_client.entities.get.return_value = None
-
         with DataHubContext(mock_client):
             is_valid, error = _is_document_in_shared_folder(
-                "urn:li:document:new-doc-123"
+                "urn:li:document:new-doc-123", None
             )
 
         assert is_valid is True
@@ -553,7 +638,7 @@ class TestDocumentInSharedFolder:
         root_urn = _get_root_parent_urn()
 
         with DataHubContext(mock_client):
-            is_valid, error = _is_document_in_shared_folder(root_urn)
+            is_valid, error = _is_document_in_shared_folder(root_urn, None)
 
         assert is_valid is False
         assert "Cannot update the root shared documents folder" in error
@@ -562,11 +647,10 @@ class TestDocumentInSharedFolder:
         """Test that document without documentInfo aspect is invalid."""
         mock_doc = Mock()
         mock_doc.aspects = {}  # No documentInfo
-        mock_client.entities.get.return_value = mock_doc
 
         with DataHubContext(mock_client):
             is_valid, error = _is_document_in_shared_folder(
-                "urn:li:document:no-info-doc-123"
+                "urn:li:document:no-info-doc-123", mock_doc
             )
 
         assert is_valid is False
@@ -642,6 +726,15 @@ class TestUpdateOwnership:
             "me": {"corpUser": mock_user_info}
         }
 
+        # Capture what gets passed to upsert
+        captured_doc = None
+
+        def capture_upsert(doc):
+            nonlocal captured_doc
+            captured_doc = doc
+
+        mock_client.entities.upsert = capture_upsert
+
         existing_urn = "urn:li:document:shared-existing-doc-123"
 
         with DataHubContext(mock_client):
@@ -654,6 +747,40 @@ class TestUpdateOwnership:
 
         assert result["success"] is True
         assert "updated" in result["message"].lower()
+        # The update path must not set authorship ownership: the upserted
+        # document carries no ownership aspect, so existing ownership is left
+        # untouched.
+        assert "ownership" not in captured_doc._aspects
+
+
+class TestGetExistingDocument:
+    """Tests for the _get_existing_document existence helper."""
+
+    def test_returns_document_when_it_exists(self, mock_client):
+        """Test that an existing document is returned as-is."""
+        doc = Mock()
+        mock_client.entities.get.return_value = doc
+
+        assert _get_existing_document(mock_client, "urn:li:document:doc-1") is doc
+
+    def test_returns_none_when_sdk_returns_none(self, mock_client):
+        """Test that a None result (missing) becomes None."""
+        mock_client.entities.get.return_value = None
+
+        assert _get_existing_document(mock_client, "urn:li:document:doc-1") is None
+
+    def test_returns_none_on_item_not_found(self, mock_client):
+        """Test that ItemNotFoundError (missing) becomes None."""
+        mock_client.entities.get.side_effect = ItemNotFoundError("missing")
+
+        assert _get_existing_document(mock_client, "urn:li:document:doc-1") is None
+
+    def test_propagates_other_errors(self, mock_client):
+        """Test that non-not-found errors propagate for structured handling."""
+        mock_client.entities.get.side_effect = RuntimeError("boom")
+
+        with pytest.raises(RuntimeError):
+            _get_existing_document(mock_client, "urn:li:document:doc-1")
 
 
 class TestOrganizeByUser:
