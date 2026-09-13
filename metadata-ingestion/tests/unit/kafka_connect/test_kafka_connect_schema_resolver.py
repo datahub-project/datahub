@@ -593,6 +593,126 @@ class TestSchemaResolverIntegration:
         assert lineage.target_dataset == "testserver.public.users"
 
 
+class TestDebeziumLineageWithoutDiscoverableDatabase:
+    """Lineage for connectors whose tables cannot be discovered from DataHub.
+
+    MongoDB and MySQL Debezium connectors have no single database name in their config,
+    so DataHub-based table discovery yields nothing for them. Enabling
+    use_schema_resolver must not cost them the lineage they get from topic names.
+    """
+
+    def test_mongodb_lineage_preserved_with_schema_resolver(self):
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+
+        connector_manifest = ConnectorManifest(
+            name="mongo-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.mongodb.MongoDbConnector",
+                "topic.prefix": "cdc",
+            },
+            tasks=[],
+            topic_names=["cdc.mydb.orders", "cdc.mydb.customers"],
+        )
+
+        mock_resolver = MockSchemaResolver(platform="mongodb")
+        mock_resolver.add_schema("mydb.orders", {"_id": "STRING", "total": "DOUBLE"})
+
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=KafkaConnectSourceReport(),
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert {lineage.source_dataset for lineage in lineages} == {
+            "mydb.orders",
+            "mydb.customers",
+        }
+        orders = next(
+            lineage for lineage in lineages if lineage.source_dataset == "mydb.orders"
+        )
+        assert orders.target_dataset == "cdc.mydb.orders"
+        assert orders.fine_grained_lineages is not None
+        assert len(orders.fine_grained_lineages) == 2
+
+    def test_mongodb_collection_include_list_drives_lineage(self):
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+
+        connector_manifest = ConnectorManifest(
+            name="mongo-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.mongodb.MongoDbConnector",
+                "topic.prefix": "cdc",
+                "collection.include.list": "mydb.orders",
+            },
+            tasks=[],
+            topic_names=["cdc.mydb.orders", "cdc.mydb.customers"],
+        )
+
+        mock_resolver = MockSchemaResolver(platform="mongodb")
+        mock_resolver.add_schema("mydb.orders", {"_id": "STRING", "total": "DOUBLE"})
+
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=KafkaConnectSourceReport(),
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+
+        lineages = connector.extract_lineages()
+
+        # Only the collection named in the capture list is captured
+        assert len(lineages) == 1
+        assert lineages[0].source_dataset == "mydb.orders"
+        assert lineages[0].target_dataset == "cdc.mydb.orders"
+        assert lineages[0].fine_grained_lineages is not None
+
+    def test_mysql_lineage_preserved_with_schema_resolver(self):
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+        )
+
+        connector_manifest = ConnectorManifest(
+            name="mysql-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+                "database.server.name": "testserver",
+            },
+            tasks=[],
+            topic_names=["testserver.mydb.users"],
+        )
+
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=KafkaConnectSourceReport(),
+            schema_resolver=MockSchemaResolver(platform="mysql"),  # type: ignore[arg-type]
+        )
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].source_dataset == "mydb.users"
+        assert lineages[0].target_dataset == "testserver.mydb.users"
+
+
 class TestSchemaResolverEdgeCases:
     """Test edge cases and error handling for schema resolver."""
 
