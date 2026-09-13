@@ -376,9 +376,44 @@ def test_fallback_uses_range_for_temporal_column_not_full_scan():
         {"event_ts": "TIMESTAMP"},
     )
 
-    assert len(filters) == 1
-    assert "IS NOT NULL" not in filters[0]
-    assert ">=" in filters[0] and "<" in filters[0]
+    # Pin the exact single-day bounds (not just "some range exists"): a regression that
+    # widened the window (e.g. to 7 days or a year) would still contain ">=" and "<" but
+    # would break the single-partition prune this test documents. Bounds are derived the
+    # same way _get_fallback_partition_filters does: yesterday (UTC), floored to the day.
+    lower_day = (datetime.now(timezone.utc) - timedelta(days=1)).date()
+    upper_day = lower_day + timedelta(days=1)
+    assert filters == [
+        f"`event_ts` >= TIMESTAMP('{lower_day} 00:00:00+00:00') "
+        f"AND `event_ts` < TIMESTAMP('{upper_day} 00:00:00+00:00')"
+    ]
+
+
+def test_configured_iso_string_fallback_widens_temporal_partition():
+    """A user-configured fallback_partition_values entry for a DATETIME/TIMESTAMP partition
+    arrives as an ISO string. It must be normalized to a datetime and widened to the whole
+    partition (half-open range), not emitted as a point equality that matches a single
+    instant. A compact partition id (all-digit) must keep create_safe_filter's compact-id
+    handling and must not be misread as a date.
+    """
+    discovery = PartitionDiscovery(
+        make_config(fallback_partition_values={"event_ts": "2025-01-15"})
+    )
+    table = make_table(partition_info=PartitionInfo(fields=("event_ts",), type="DAY"))
+
+    widened = discovery._create_fallback_filter_for_column(
+        table, "event_ts", datetime(2025, 1, 15, tzinfo=timezone.utc), "TIMESTAMP"
+    )
+    # A date-only ISO string parses to a naive datetime, so the literal carries no offset;
+    # the point is the half-open day range (not an equality to a single instant).
+    assert widened == (
+        "`event_ts` >= TIMESTAMP('2025-01-15 00:00:00') "
+        "AND `event_ts` < TIMESTAMP('2025-01-16 00:00:00')"
+    )
+
+    # A compact partition id is all-digit (no ISO separators): it must not be parsed as a
+    # date, so it stays on create_safe_filter's compact-id path (an equality), not widened.
+    compact = discovery._parse_iso_temporal("20250115")
+    assert compact is None
 
 
 def test_partition_column_types_backfills_pseudo_columns():
