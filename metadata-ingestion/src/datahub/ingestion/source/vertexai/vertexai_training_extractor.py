@@ -58,6 +58,7 @@ from datahub.ingestion.source.vertexai.vertexai_utils import (
     get_actor_from_labels,
     log_checkpoint_time,
     log_progress,
+    rate_limited_gapic_iter,
     rate_limited_gapic_list,
 )
 from datahub.metadata.schema_classes import (
@@ -131,7 +132,7 @@ class VertexAITrainingExtractor:
             if last_checkpoint_millis:
                 log_checkpoint_time(last_checkpoint_millis, class_name)
 
-            jobs = rate_limited_gapic_list(
+            jobs = rate_limited_gapic_iter(
                 getattr(self.client, class_name),
                 self.rate_limiter,
                 order_by=ORDER_BY_UPDATE_TIME_DESC,

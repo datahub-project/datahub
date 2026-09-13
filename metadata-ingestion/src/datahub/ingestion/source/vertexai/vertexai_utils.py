@@ -99,8 +99,12 @@ def patch_vertex_sdk_retry(custom_retry: api_retry.Retry) -> None:
             pass
 
 
+# Retry for the low-level GAPIC listing path
+_LISTING_RETRY = create_vertex_retry_without_429()
+
+
 class _GapicPagedFn(Protocol[T_co]):
-    def __call__(self, *, request: object) -> Iterable[T_co]:
+    def __call__(self, *, request: object, retry: api_retry.Retry) -> Iterable[T_co]:
         pass
 
 
@@ -108,9 +112,10 @@ def rate_limited_paged_call(
     gapic_fn: _GapicPagedFn[T],
     request: object,
     rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
+    retry: api_retry.Retry = _LISTING_RETRY,
 ) -> Iterable[T]:
     with rate_limiter:
-        pager = gapic_fn(request=request)
+        pager = gapic_fn(request=request, retry=retry)
     if hasattr(pager, "_method"):
         _orig = pager._method
 
@@ -122,21 +127,28 @@ def rate_limited_paged_call(
     return pager
 
 
-def rate_limited_gapic_list(
+def rate_limited_gapic_iter(
     cls: Type[T],
     rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
     order_by: Optional[str] = None,
     filter_str: Optional[str] = None,
     parent: Optional[str] = None,
-) -> List[T]:
-    """List SDK resources via GAPIC with one rate-limit token per page fetch."""
+) -> Iterator[T]:
+    """Stream SDK resources via GAPIC, one rate-limit token per page fetch.
+
+    Yields lazily, so peak memory holds a single page rather than the whole
+    listing. Prefer this for large listings; use rate_limited_gapic_list only
+    when the caller needs list semantics.
+    """
     # sdk_cls typed as Any to access SDK private class attributes (_empty_constructor,
     # _list_method, _construct_sdk_resource_from_gapic) that are not in the public type.
     sdk_cls: Any = cls
 
     if not hasattr(sdk_cls, "_list_method"):
         with rate_limiter:
-            return sdk_cls.list(order_by=order_by) if order_by else sdk_cls.list()
+            fallback = sdk_cls.list(order_by=order_by) if order_by else sdk_cls.list()
+        yield from fallback
+        return
 
     supported_schemas = getattr(sdk_cls, "_supported_training_schemas", None)
     supported_uris = getattr(sdk_cls, "_supported_metadata_schema_uris", None)
@@ -148,6 +160,9 @@ def rate_limited_gapic_list(
             return p.metadata_schema_uri in supported_uris
         return True
 
+    # Pager setup runs before any yield so a class that lacks per-page GAPIC
+    # listing falls back cleanly to the high-level list(). The fallback must not
+    # happen mid-iteration, which would re-yield already-emitted resources.
     try:
         resource = sdk_cls._empty_constructor()
         creds = resource.credentials
@@ -172,18 +187,41 @@ def rate_limited_gapic_list(
                 ),
                 rate_limiter,
             )
-
-        return [
-            sdk_cls._construct_sdk_resource_from_gapic(proto, credentials=creds)
-            for proto in pager
-            if proto_filter(proto)
-        ]
     except (AttributeError, TypeError):
         logger.debug(
             f"Per-page rate limiting unavailable for {cls.__name__}, falling back"
         )
         with rate_limiter:
-            return sdk_cls.list(order_by=order_by) if order_by else sdk_cls.list()
+            fallback = sdk_cls.list(order_by=order_by) if order_by else sdk_cls.list()
+        yield from fallback
+        return
+
+    for proto in pager:
+        if proto_filter(proto):
+            yield sdk_cls._construct_sdk_resource_from_gapic(proto, credentials=creds)
+
+
+def rate_limited_gapic_list(
+    cls: Type[T],
+    rate_limiter: Union[RateLimiter, AbstractContextManager[None]],
+    order_by: Optional[str] = None,
+    filter_str: Optional[str] = None,
+    parent: Optional[str] = None,
+) -> List[T]:
+    """Materialize rate_limited_gapic_iter into a list.
+
+    Use only when the caller needs list semantics: multiple iterations, sort,
+    slice, or len(). Holds every resource in memory at once.
+    """
+    return list(
+        rate_limited_gapic_iter(
+            cls,
+            rate_limiter,
+            order_by=order_by,
+            filter_str=filter_str,
+            parent=parent,
+        )
+    )
 
 
 def log_progress(
