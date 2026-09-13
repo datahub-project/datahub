@@ -534,6 +534,46 @@ class TestDeriveTopicsFromTables:
 class TestGetTopicsFromConfigIntegration:
     """Integration tests for the full get_topics_from_config flow."""
 
+    @pytest.mark.parametrize(
+        "table_pattern",
+        [r"public\..*", r"my_db\.public\..*"],
+    )
+    def test_pattern_expansion_preserves_schema_table_identity(
+        self, table_pattern: str
+    ) -> None:
+        """Pattern matches should not retain the database prefix from resolver URNs."""
+        connector_config = {
+            "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+            "database.dbname": "my_db",
+            "table.include.list": table_pattern,
+            "topic.prefix": "server",
+        }
+        schema_resolver = Mock(spec=SchemaResolver)
+        schema_resolver.platform_instance = "my_instance"
+        schema_resolver.get_urns.return_value = {
+            (
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,"
+                "my_instance.my_db.public.orders,PROD)"
+            ),
+            (
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,"
+                "my_instance.other_db.public.orders,PROD)"
+            ),
+        }
+        connector = create_debezium_connector(
+            connector_config,
+            schema_resolver=schema_resolver,
+            use_schema_resolver=True,
+        )
+        connector.config.schema_resolver_finegrained_lineage = False
+        connector.connector_manifest.topic_names = ["server.public.orders"]
+
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].source_dataset == "my_db.public.orders"
+        assert lineages[0].target_dataset == "server.public.orders"
+
     def test_full_flow_without_schema_resolver(self) -> None:
         """Test complete flow using only table.include.list."""
         connector_config = {
