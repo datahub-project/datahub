@@ -526,6 +526,96 @@ class TestAwsCommon:
             # assume_role should only be called once
             assert mock_assume_role.call_count == 1
 
+    def test_get_s3_client_cached_per_verify_ssl(self):
+        """
+        get_s3_client() memoizes the built client: repeated calls on the same
+        instance return the same object, and each verify_ssl value gets its
+        own client.
+        """
+        config = AwsConnectionConfig(
+            aws_access_key_id="test-key",
+            aws_secret_access_key="test-secret",
+            aws_region="us-east-1",
+        )
+
+        with patch.object(AwsConnectionConfig, "get_session") as mock_get_session:
+            mock_get_session.return_value.client.side_effect = lambda *args, **kwargs: (
+                MagicMock()
+            )
+
+            client1 = config.get_s3_client()
+            client2 = config.get_s3_client()
+            assert client1 is client2
+            # Only one session/client construction for the repeated call
+            assert mock_get_session.call_count == 1
+
+            client3 = config.get_s3_client(verify_ssl=False)
+            assert client3 is not client1
+            assert mock_get_session.call_count == 2
+            assert config.get_s3_client(verify_ssl=False) is client3
+
+    def test_get_s3_client_rebuilt_when_role_credentials_need_refresh(self):
+        """
+        Once a role has actually been assumed, the cached client holds static
+        credentials, so it must be rebuilt when those credentials need a refresh.
+        """
+        config = AwsConnectionConfig(
+            aws_region="us-east-1",
+            aws_role="arn:aws:iam::123456789012:role/test-role",
+        )
+        # Model the post-assume state: get_session populates _cached_credentials
+        # only when it actually assumes a role, and that is the precondition for
+        # invalidating the cached client.
+        config._cached_credentials = {
+            "AccessKeyId": "ASSUMED_KEY",
+            "SecretAccessKey": "ASSUMED_SECRET",
+            "SessionToken": "ASSUMED_TOKEN",
+        }
+
+        with (
+            patch.object(AwsConnectionConfig, "get_session") as mock_get_session,
+            patch.object(
+                AwsConnectionConfig, "_should_refresh_credentials"
+            ) as mock_should_refresh,
+        ):
+            mock_get_session.return_value.client.side_effect = lambda *args, **kwargs: (
+                MagicMock()
+            )
+
+            mock_should_refresh.return_value = False
+            client1 = config.get_s3_client()
+            assert config.get_s3_client() is client1
+            assert mock_get_session.call_count == 1
+
+            mock_should_refresh.return_value = True
+            client2 = config.get_s3_client()
+            assert client2 is not client1
+            assert mock_get_session.call_count == 2
+
+    def test_get_s3_client_cached_when_role_matches_ambient_identity(self):
+        """
+        When a role is configured but never actually assumed (the ambient identity
+        already is that role), get_session records no expiration and leaves
+        _cached_credentials as None. The client must still be cached: invalidation
+        keys off assumed static credentials, not merely on aws_role being set —
+        otherwise _should_refresh_credentials() (always True while expiration is
+        None) would rebuild the client on every call.
+        """
+        config = AwsConnectionConfig(
+            aws_region="us-east-1",
+            aws_role="arn:aws:iam::123456789012:role/test-role",
+        )
+        assert config._cached_credentials is None
+
+        with patch.object(AwsConnectionConfig, "get_session") as mock_get_session:
+            mock_get_session.return_value.client.side_effect = lambda *args, **kwargs: (
+                MagicMock()
+            )
+
+            client1 = config.get_s3_client()
+            assert config.get_s3_client() is client1
+            assert mock_get_session.call_count == 1
+
     @mock_aws
     def test_role_assumption_without_caching_before_fix(self):
         """
