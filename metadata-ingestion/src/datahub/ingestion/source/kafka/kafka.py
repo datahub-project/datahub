@@ -110,11 +110,14 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
     BrowsePathsV2Class,
+    DatasetLineageTypeClass,
     DatasetProfileClass,
     KafkaSchemaClass,
     OwnershipSourceTypeClass,
     SchemaMetadataClass,
     StatusClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
@@ -317,8 +320,10 @@ class KafkaConnectionTest:
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Not supported. If you use Kafka Connect, the kafka-connect source can generate lineage.",
-    supported=False,
+    "Optionally emits topic-to-topic lineage from Stream Catalog cluster links / mirror "
+    "topics via `confluent_catalog.include_lineage`. For source/sink lineage to external "
+    "systems, use the kafka-connect source.",
+    supported=True,
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -1282,6 +1287,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         if not is_subject:
             self._apply_catalog_metadata(topic, all_tags, custom_props)
+            mirror_lineage = self._build_catalog_lineage(topic)
+            if mirror_lineage is not None:
+                extra_aspects.append(mirror_lineage)
 
         if self.source_config.external_url_base:
             base_url = self.source_config.external_url_base.rstrip("/")
@@ -1356,6 +1364,36 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             if properties:
                 custom_props.update(properties)
                 self.report.catalog_topics_with_business_metadata += 1
+
+    def _build_catalog_lineage(self, topic: str) -> Optional[UpstreamLineageClass]:
+        if self.topic_catalog is None:
+            return None
+        if not self.source_config.confluent_catalog.include_lineage:
+            return None
+
+        catalog_topic = self.topic_catalog.get_topic(topic)
+        if catalog_topic is None:
+            return None
+
+        upstream_name = catalog_topic.upstream_topic_name()
+        if not upstream_name:
+            return None
+
+        upstream_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=upstream_name,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+        )
+        self.report.catalog_mirror_lineage_edges += 1
+        return UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    dataset=upstream_urn,
+                    type=DatasetLineageTypeClass.COPY,
+                )
+            ]
+        )
 
     def build_custom_properties(
         self,

@@ -71,6 +71,8 @@ TOPIC_QUERY_KNOWN_FIELDS = frozenset(
         "name",
         "qualifiedName",
         "logical_cluster_id",
+        "externalSourceTopicName",
+        "source_topic",
         "tags",
         "business_metadata",
         "value",

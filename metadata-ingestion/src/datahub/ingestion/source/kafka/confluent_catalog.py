@@ -5,6 +5,7 @@ from pydantic import Field
 from datahub.ingestion.source.confluent.client import ConfluentStreamCatalogClient
 from datahub.ingestion.source.confluent.models import (
     CatalogEntity,
+    CatalogModel,
     NameIndex,
     index_by_name,
 )
@@ -16,8 +17,25 @@ from datahub.ingestion.source.kafka.kafka_config import KafkaConfluentCatalogCon
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 
 
+class CatalogMirrorSourceTopic(CatalogModel):
+    name: Optional[str] = None
+    cluster_id: Optional[str] = Field(default=None, alias="logical_cluster_id")
+
+
 class CatalogKafkaTopic(CatalogEntity):
     cluster_id: Optional[str] = Field(default=None, alias="logical_cluster_id")
+    # Replication/cluster-link source: the topic this one mirrors from. `source_topic` is the
+    # populated relationship; `externalSourceTopicName` is the scalar fallback used when the
+    # upstream lives in a cluster that is not in this catalog.
+    source_topic: Optional[CatalogMirrorSourceTopic] = None
+    external_source_topic_name: Optional[str] = Field(
+        default=None, alias="externalSourceTopicName"
+    )
+
+    def upstream_topic_name(self) -> Optional[str]:
+        if self.source_topic and self.source_topic.name:
+            return self.source_topic.name
+        return self.external_source_topic_name or None
 
 
 class KafkaTopicCatalog:

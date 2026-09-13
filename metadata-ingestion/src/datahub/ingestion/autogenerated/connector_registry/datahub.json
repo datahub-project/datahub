@@ -2297,9 +2297,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Not supported. If you use Kafka Connect, the kafka-connect source can generate lineage.",
+          "description": "Optionally emits topic-to-topic lineage from Stream Catalog cluster links / mirror topics via `confluent_catalog.include_lineage`. For source/sink lineage to external systems, use the kafka-connect source.",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "TEST_CONNECTION",

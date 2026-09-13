@@ -85,6 +85,13 @@ class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
         description="Emit Confluent Cloud business metadata attributes on topics as DataHub "
         "custom properties.",
     )
+    include_lineage: bool = Field(
+        default=False,
+        description="Emit topic-to-topic lineage from Stream Catalog replication metadata "
+        "(cluster links / mirror topics). Each topic that mirrors another gets an upstream "
+        "edge to its source topic. Connector and external-system lineage is handled by the "
+        "kafka-connect source, not here.",
+    )
 
 
 class KafkaSourceConfig(

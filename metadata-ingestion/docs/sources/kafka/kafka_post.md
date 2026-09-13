@@ -114,8 +114,9 @@ Requirements and limitations:
 - The catalog covers a whole **environment**, so if that environment holds more than one Kafka
   cluster the same topic name can appear twice. Those topics are skipped, with a warning, unless
   you set `confluent_catalog.cluster_id` to the cluster this recipe ingests (e.g. `lkc-xxxxx`).
-- The catalog carries **no lineage between topics**. The producer/consumer graph shown in
-  Confluent's Stream Lineage UI is not exposed by the API. Connector-to-topic lineage is
+- The catalog does not expose the producer/consumer graph shown in Confluent's Stream
+  Lineage UI. Set `confluent_catalog.include_lineage: true` to emit topic-to-topic
+  lineage from cluster links / mirror topics. Connector-to-topic lineage is
   available through the [`kafka-connect`](/docs/generated/ingestion/sources/kafka-connect)
   source for environments that use Kafka Connect.
 
