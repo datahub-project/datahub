@@ -193,7 +193,8 @@ def version() -> None:
 def handle_shutdown(signum: int, frame: Any) -> None:
     logger.info("Stopping all running Action Pipelines...")
     pipeline_manager.stop_all()
-    sys.exit(1)
+    sys.exit(0)
 
 
 signal.signal(signal.SIGINT, handle_shutdown)
+signal.signal(signal.SIGTERM, handle_shutdown)
