@@ -359,6 +359,28 @@ def test_ddl_columns_survive_type_lookup_failure():
     assert result == {"event_date": ""}
 
 
+def test_fallback_uses_range_for_temporal_column_not_full_scan():
+    """When discovery falls back for a DATE/DATETIME/TIMESTAMP partition column, it must
+    prune to a single recent partition with a granularity-aware half-open range rather than
+    emit an IS NOT NULL full scan. Temporal columns are the most common partition type and
+    the exact scan this feature exists to avoid; previously fallback_date was only applied
+    to year/month/day component columns and real temporal columns silently got IS NOT NULL.
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    filters = discovery._get_fallback_partition_filters(
+        make_table(name="daily_events"),
+        "test-project-123456",
+        "ds",
+        ["event_ts"],
+        {"event_ts": "TIMESTAMP"},
+    )
+
+    assert len(filters) == 1
+    assert "IS NOT NULL" not in filters[0]
+    assert ">=" in filters[0] and "<" in filters[0]
+
+
 def test_partition_column_types_backfills_pseudo_columns():
     """INFORMATION_SCHEMA.COLUMNS never lists the ingestion-time pseudo-columns, so
     get_partition_column_types must backfill their fixed BigQuery types
