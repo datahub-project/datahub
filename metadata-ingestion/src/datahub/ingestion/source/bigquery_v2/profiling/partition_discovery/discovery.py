@@ -24,6 +24,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     DEFAULT_PARTITION_STATS_LIMIT,
     MAX_PARTITION_VALUES,
     PSEUDO_PARTITION_COLUMN_TYPES,
+    SUBDAY_TEMPORAL_PARTITION_TYPES,
     TEMPORAL_PARTITION_TYPES,
     VALID_COLUMN_NAME_PATTERN,
 )
@@ -602,6 +603,17 @@ class PartitionDiscovery:
                 moment = val
             elif isinstance(val, date):
                 moment = datetime(val.year, val.month, val.day)
+            elif (
+                isinstance(val, str)
+                and col_type.upper() in SUBDAY_TEMPORAL_PARTITION_TYPES
+            ):
+                # A user-configured fallback for a DATETIME/TIMESTAMP partition arrives as
+                # an ISO string; normalize it to a datetime so it is widened to the whole
+                # partition instead of matching a single instant. DATE strings are left to
+                # create_safe_filter (a DATE equality already covers the whole-day
+                # partition), as are compact partition IDs (all-digit, e.g. "20240115") and
+                # unparseable strings, which return None from _parse_iso_temporal.
+                moment = self._parse_iso_temporal(val)
             else:
                 moment = None
             if moment is not None:
@@ -611,6 +623,19 @@ class PartitionDiscovery:
         # A string value still carries compact-partition-id range handling inside
         # create_safe_filter, so defer to it.
         return self._create_safe_filter(col_name, val, col_type)
+
+    @staticmethod
+    def _parse_iso_temporal(val: str) -> Optional[datetime]:
+        # Only ISO date/datetime strings carry '-' separators; requiring one avoids
+        # misreading a compact partition id like "20240115" (which fromisoformat accepts
+        # on 3.11+) as a date and widening it, which would break compact-id handling.
+        text = val.strip()
+        if "-" not in text:
+            return None
+        try:
+            return datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            return None
 
     def _process_date_components_hierarchically(
         self,
