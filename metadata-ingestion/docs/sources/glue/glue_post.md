@@ -81,6 +81,17 @@ For cross-account S3 access, refer to the [S3 connector's cross-account document
 
 To capture lineage across Glue jobs and databases, a requirements must be met – otherwise the AWS API is unable to report any lineage. The job must be created in Glue Studio with the "Generate classic script" option turned on (this option can be accessed in the "Script" tab). Any custom scripts that do not have the proper annotations will not have reported lineage.
 
+#### DynamoDB Job Lineage
+
+When a Glue job reads or writes DynamoDB via `create_dynamic_frame.from_options(connection_type="dynamodb", ...)`, the connector emits dataset URNs that match the [DynamoDB source](https://docs.datahub.com/docs/generated/ingestion/sources/dynamodb) (`{region}.{table}`, platform_instance = AWS account id by default). That joins DynamoDB tables into Glue job lineage alongside catalog or S3 sinks.
+
+Typical patterns:
+
+1. **Native DynamoDB Export to S3** (JSON/Ion) — use the DynamoDB source with `include_s3_export_lineage: true`.
+2. **Glue ETL DynamoDB → catalog / Iceberg / Parquet** — use the Glue source with `extract_transforms: true`. Catalog sinks already resolve; enable `emit_storage_lineage: true` to link Glue Iceberg tables to Iceberg/S3 storage.
+
+To align URNs when the DynamoDB connector uses a custom `platform_instance`, set the same value under Glue `target_platform_configs.dynamodb`.
+
 #### JDBC Upstream Lineage
 
 When a Glue job reads from a JDBC source (e.g. PostgreSQL, MySQL, Redshift, Oracle, SQL Server), the plugin automatically extracts upstream lineage to the referenced tables. This works for both:
