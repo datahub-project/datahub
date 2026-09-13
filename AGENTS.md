@@ -721,3 +721,16 @@ Gradle tasks manage all venvs automatically. Never create, activate, or pip-inst
 - Entity Registry is defined in YAML, not code (`entity-registry.yml`)
 - All metadata changes flow through the event streaming system
 - GraphQL schema is generated from backend GMS APIs
+
+## Learned User Preferences
+
+- No "AI slop": strip boilerplate/obvious comments and keep comments only where they explain the "why" for developers; clean up AI-generated comment noise before pushing.
+- In connector/ingestion code, model data with Pydantic models, hoist magic strings and SQL queries into constants, and add helper methods only where they add real value.
+- Keep ingestion configuration simple to supply, and keep asset-specific data (e.g. table-level detail) out of the ingestion script.
+- When addressing PR review comments, reply to and resolve every thread (human and bot), separating legitimate issues from noise, then commit and push.
+- Keep each connector in its own PR and split shared/framework changes into a separate PR; a connector PR's title, description, comments, and docstrings should reference only that connector, and docs should match existing connector style without design-decision writeups.
+- For ingested assertions/quality checks, names and categories should be user-facing and consistent with dbt (include column/check context), not the source product name or a generic type alone.
+
+## Learned Workspace Facts
+
+- The user contributes stacked/dependent PRs to `datahub-project/datahub`: large PRs are split into a stack of small reviewable PRs, and after each one merges the next PR's base is re-pointed at master and the rest of the stack is rebased down the chain.

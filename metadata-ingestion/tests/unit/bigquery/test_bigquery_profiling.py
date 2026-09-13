@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Any, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -117,13 +117,13 @@ def test_inconclusive_detection_skips_partitioned_table():
     class ProbeErrorDiscovery(PartitionDiscovery):
         def _probe_required_partition_columns(
             self, *args: Any, **kwargs: Any
-        ) -> Tuple[Set[str], Optional[str]]:
-            return set(), "query timed out"
+        ) -> Tuple[List[str], Optional[str]]:
+            return [], "query timed out"
 
     discovery = ProbeErrorDiscovery(make_config())
 
     filters = discovery.get_required_partition_filters(
-        make_table(name="unknown_state"), "proj", "ds", execute
+        make_table(name="unknown_state"), "test-project-123456", "ds", execute
     )
 
     assert filters is None
@@ -140,7 +140,7 @@ def test_authoritative_empty_columns_skips_probe():
     class ProbeGuardDiscovery(PartitionDiscovery):
         def _probe_required_partition_columns(
             self, *args: Any, **kwargs: Any
-        ) -> Tuple[Set[str], Optional[str]]:
+        ) -> Tuple[List[str], Optional[str]]:
             raise AssertionError(
                 "probe must not run after an authoritative COLUMNS result"
             )
@@ -283,15 +283,80 @@ def test_failed_columns_lookup_with_clean_probe_skips_table():
     def execute(query: str, job_config: Any, context: str) -> list:
         raise RuntimeError("INFORMATION_SCHEMA unavailable")
 
-    # Default _probe_required_partition_columns stub returns (set(), None): a clean probe
+    # Default _probe_required_partition_columns stub returns ([], None): a clean probe
     # that discovered no columns. That must not be read as "unpartitioned".
     discovery = PartitionDiscovery(make_config())
 
     filters = discovery.get_required_partition_filters(
-        make_table(name="failed_columns_clean_probe"), "proj", "ds", execute
+        make_table(name="failed_columns_clean_probe"),
+        "test-project-123456",
+        "ds",
+        execute,
     )
 
     assert filters is None
+
+
+def test_probe_fallback_preserves_column_order():
+    """When the COLUMNS lookup fails and the probe recovers columns from BigQuery's
+    require-filter error, the coordinator must keep the error's column order — a composite
+    partition key is positional, so sorting alphabetically would bind partition-id
+    components to the wrong columns downstream.
+    """
+    seen_columns: List[List[str]] = []
+
+    class OrderedProbeDiscovery(PartitionDiscovery):
+        def _probe_required_partition_columns(
+            self, *args: Any, **kwargs: Any
+        ) -> Tuple[List[str], Optional[str]]:
+            # BigQuery lists the columns in this order in the require-filter error;
+            # alphabetical sorting would swap them to (event_date, region).
+            return ["region", "event_date"], "requires filter over column(s)"
+
+        def _get_partition_column_types(
+            self,
+            table: BigqueryTable,
+            project: str,
+            schema: str,
+            partition_columns: List[str],
+            *args: Any,
+            **kwargs: Any,
+        ) -> Dict[str, str]:
+            seen_columns.append(list(partition_columns))
+            return {}
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        raise RuntimeError("INFORMATION_SCHEMA unavailable")
+
+    discovery = OrderedProbeDiscovery(make_config())
+    discovery.get_required_partition_filters(
+        make_table(name="composite_probe"), "test-project-123456", "ds", execute
+    )
+
+    assert seen_columns
+    assert seen_columns[0] == ["region", "event_date"]
+
+
+def test_ddl_columns_survive_type_lookup_failure():
+    """A failed INFORMATION_SCHEMA type lookup must not drop the DDL-extracted partition
+    columns: an empty dict is indistinguishable from an unpartitioned table and would
+    trigger a full scan. The column is kept with an unknown ("") type instead.
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        raise RuntimeError("INFORMATION_SCHEMA.COLUMNS unavailable")
+
+    table = make_table(
+        name="ddl_partitioned",
+        ddl="CREATE TABLE ds.ddl_partitioned (event_date DATE) PARTITION BY event_date",
+    )
+
+    result = discovery.get_partition_columns_from_ddl(
+        table, "test-project-123456", "ds", execute
+    )
+
+    assert result == {"event_date": ""}
 
 
 def test_partition_column_types_backfills_pseudo_columns():
