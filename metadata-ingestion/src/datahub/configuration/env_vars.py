@@ -533,6 +533,18 @@ def get_compose_project_name() -> str:
     return os.getenv("DATAHUB_COMPOSE_PROJECT_NAME", "datahub")
 
 
+def get_skip_quickstart_memory_check() -> bool:
+    """Skip the quickstart preflight Docker memory check (run_quickstart_preflight_checks).
+
+    The check exists as a safety net against silently-unstable quickstart runs on
+    under-provisioned Docker, not a hard platform requirement. Operators who've already
+    tuned per-service JVM heaps to fit a smaller memory ceiling, or are knowingly
+    accepting the risk (e.g. a smaller profile, or hardware they've validated themselves),
+    currently have no way to bypass it.
+    """
+    return os.getenv("DATAHUB_QUICKSTART_SKIP_MEMORY_CHECK", "").lower() in ("true", "1")
+
+
 def get_docker_compose_base() -> Optional[str]:
     """Base path for Docker Compose files."""
     return os.getenv("DOCKER_COMPOSE_BASE")
