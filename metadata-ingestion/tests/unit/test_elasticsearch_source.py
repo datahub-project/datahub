@@ -2576,6 +2576,18 @@ def test_api_key_authorization_passes_through_encoded_string() -> None:
     assert _api_key_authorization("already-encoded") == "ApiKey already-encoded"
 
 
+def test_api_key_authentication_is_mutually_exclusive_with_basic_auth() -> None:
+    with pytest.raises(pydantic.ValidationError):
+        ElasticsearchSourceConfig.model_validate(
+            {
+                "host": "localhost:9200",
+                "api_key": ["id", "key"],
+                "username": "user",
+                "password": "password",
+            }
+        )
+
+
 @patch("datahub.ingestion.source.elastic_search.OpenSearch")
 def test_api_key_list_sets_authorization_header(mock_opensearch: Any) -> None:
     ElasticsearchSource.create(
