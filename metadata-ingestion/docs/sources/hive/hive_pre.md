@@ -106,7 +106,8 @@ source:
 
 - Valid Kerberos ticket (use `kinit` before running ingestion)
 - Kerberos configuration file (`/etc/krb5.conf` or specified via `KRB5_CONFIG` environment variable)
-- PyKerberos or requests-kerberos package installed
+- `kerberos` package installed (`pip install kerberos`). Note: this is not included in the
+  `hive` plugin by default — add it via `extra_pip_requirements` or install it separately.
 
 ##### TLS/SSL Connection
 
