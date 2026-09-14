@@ -236,7 +236,8 @@ platform_filter: null # or omit the field
 ```
 
 - Processes all NATIVE documents (sourceType=NATIVE)
-- Ignores EXTERNAL documents from other platforms
+- Also processes EXTERNAL documents from every platform (`include_external_documents`
+  defaults to true); set `platform_filter` to restrict them to specific platforms
 
 **Specific Platforms:**
 
