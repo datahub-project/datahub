@@ -1392,6 +1392,44 @@ class TestSkipMarkersAndEmbedAccounting:
         assert source.report.num_embedding_failures == 1
         assert "1 vectors for 2 chunks" in source.report.embedding_failures[0]
 
+    def test_vector_count_is_checked_per_batch(self, pipeline_context):
+        """Miscounts that net out across batches must still fail, and a short batch
+        must fail before the remaining provider calls are spent."""
+        config = DocumentChunkingSourceConfig(
+            embedding=EmbeddingConfig(
+                provider="bedrock",
+                model="cohere.embed-english-v3",
+                aws_region="us-west-2",
+                allow_local_embedding_config=True,
+                batch_size=1,
+            ),
+            chunking=ChunkingConfig(strategy="basic"),
+        )
+        source = self._source(pipeline_context, config)
+        provider = MagicMock()
+        # Two vectors for the first one-chunk batch, none for the second: the
+        # aggregate count would match.
+        provider.embed.side_effect = [
+            EmbeddingResult(embeddings=[[1.0, 0.0], [0.0, 1.0]]),
+            EmbeddingResult(embeddings=[]),
+        ]
+        source._provider = provider
+        chunks = [{"text": "alpha"}, {"text": "gamma"}]
+
+        with (
+            patch.object(source, "_chunk_elements", return_value=chunks),
+            pytest.raises(RuntimeError, match="2 vectors for 1 chunks"),
+        ):
+            list(
+                source.process_elements_inline(
+                    "urn:li:document:per-batch",
+                    [{"type": "NarrativeText", "text": "alpha gamma"}],
+                )
+            )
+        # Failed on the first short batch; the second provider call was never made.
+        assert provider.embed.call_count == 1
+        assert source.report.num_embedding_failures == 1
+
     def test_provider_returning_no_vectors_is_failure_not_success(
         self, pipeline_context, chunking_config
     ):

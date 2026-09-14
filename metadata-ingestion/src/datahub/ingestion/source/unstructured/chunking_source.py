@@ -875,19 +875,21 @@ class DocumentChunkingSource(Source):
             for i in range(0, len(texts), self.config.embedding.batch_size):
                 batch = texts[i : i + self.config.embedding.batch_size]
                 result = provider.embed(batch)
+                # Checked per batch so a short batch fails before the remaining
+                # provider calls are spent and miscounts cannot net out across a
+                # batch boundary. Raised inside the try so both callers record it
+                # as an embedding failure (no semanticContent is written, the
+                # document is retried) instead of counting a success and then
+                # emitting a misaligned aspect. RuntimeError is the type the inline
+                # callers already treat as "provider misbehaved, defer the
+                # document", the same contract as the zero-vector check.
+                if len(result.embeddings) != len(batch):
+                    raise RuntimeError(
+                        f"Embedding provider returned {len(result.embeddings)} "
+                        f"vectors for {len(batch)} chunks"
+                    )
                 embeddings.extend(result.embeddings)
                 logger.debug(f"Generated {len(result.embeddings)} embeddings for batch")
-
-            # Raised inside the try so both callers record it as an embedding failure
-            # (no semanticContent is written, the document is retried) instead of
-            # counting a success and then emitting a misaligned aspect. RuntimeError
-            # is the type the inline callers already treat as "provider misbehaved,
-            # defer the document", the same contract as the zero-vector check.
-            if len(embeddings) != len(texts):
-                raise RuntimeError(
-                    f"Embedding provider returned {len(embeddings)} vectors for "
-                    f"{len(texts)} chunks"
-                )
 
             logger.info(
                 f"Generated {len(embeddings)} embeddings using {self.embedding_model}"
@@ -1012,6 +1014,8 @@ class DocumentChunkingSource(Source):
             generatedAt=int(datetime.utcnow().timestamp() * 1000),
             sourceTextSha256=source_text_sha256,
             chunkingStrategy=self.config.chunking.strategy,
+            # Counts the chunks that carry a vector (the emitted list), not every
+            # chunk the splitter produced: blank chunks are never embedded.
             totalChunks=len(embeddable),
             chunks=embedding_chunks,
         )
