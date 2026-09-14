@@ -3,6 +3,7 @@ from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobInputOutputClass,
+    EditableDataJobPropertiesClass,
     GlobalTagsClass,
     OwnershipClass,
 )
@@ -21,15 +22,35 @@ job_info = graph.get_aspect(entity_urn=str(datajob_urn), aspect_type=DataJobInfo
 if job_info is None:
     raise SystemExit(f"DataJob not found: {datajob_urn}")
 
+# The SDK writes description to the editable overlay, while ingestion sources write it
+# to dataJobInfo. Prefer the overlay and fall back, which is what DataJob.description does.
+editable = graph.get_aspect(
+    entity_urn=str(datajob_urn), aspect_type=EditableDataJobPropertiesClass
+)
+description = (editable.description if editable else None) or job_info.description
+
 print(f"Job Name: {job_info.name}")
-print(f"Description: {job_info.description}")
+print(f"Description: {description}")
 
 lineage = graph.get_aspect(
     entity_urn=str(datajob_urn), aspect_type=DataJobInputOutputClass
 )
 if lineage is not None:
-    print(f"\nInput Datasets: {len(lineage.inputDatasetEdges or [])}")
-    print(f"Output Datasets: {len(lineage.outputDatasetEdges or [])}")
+    # Lineage comes back either as plain urn lists or as edges carrying audit stamps,
+    # depending on which writer produced it -- the SDK writes the former. Read both.
+    inputs = [*(lineage.inputDatasets or [])] + [
+        edge.destinationUrn for edge in (lineage.inputDatasetEdges or [])
+    ]
+    outputs = [*(lineage.outputDatasets or [])] + [
+        edge.destinationUrn for edge in (lineage.outputDatasetEdges or [])
+    ]
+
+    print(f"\nInput Datasets: {len(inputs)}")
+    for dataset_urn in inputs:
+        print(f"  - {dataset_urn}")
+    print(f"Output Datasets: {len(outputs)}")
+    for dataset_urn in outputs:
+        print(f"  - {dataset_urn}")
 
 ownership = graph.get_aspect(entity_urn=str(datajob_urn), aspect_type=OwnershipClass)
 if ownership is not None:
