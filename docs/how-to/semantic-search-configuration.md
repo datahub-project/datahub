@@ -5,7 +5,7 @@ Semantic search lets you find DataHub entities using natural language queries li
 ## Prerequisites
 
 1. **OpenSearch 2.17.0+** with k-NN plugin (DataHub ships with `opensearchproject/opensearch:2.19.3`). Elasticsearch is **not** supported.
-2. **An API key** for your chosen embedding provider (see table below).
+2. **An API key** for your chosen embedding provider (see table below), unless you use the `classical` provider, which needs no external service.
 
 ## How to Configure Semantic Search
 
@@ -122,6 +122,17 @@ COHERE_API_KEY=your-cohere-api-key
 ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION=1024
 ```
 
+#### Classical (no external service)
+
+```bash
+ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
+SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true
+ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document
+EMBEDDING_PROVIDER_TYPE=classical
+```
+
+The `classical` provider computes deterministic lexical embeddings in-process: word and character n-gram features are hashed with SHA-256 into a 2048-dimensional vector. It needs no API key, endpoint, or model download, and the Python ingestion provider implements the identical algorithm, so document and query vectors match exactly. Matching quality is lexical (shared words and character n-grams), not semantic. The default model is `hash-v1-2048`; `CLASSICAL_EMBEDDING_MODEL` selects another width (`hash-v1-<dims>`), which needs a matching `semanticSearch.models` entry and, like any model switch, a re-index (see [Switching Providers](../dev-guides/semantic-search/SWITCHING_PROVIDERS.md)).
+
 ### Verify It's Working
 
 After restarting, check the GMS logs:
@@ -167,13 +178,14 @@ For external document sources (Notion, Confluence, etc.), see the [Notion Source
 
 ## Supported Models
 
-| Provider    | Model                     | Dimensions | Notes                   |
-| ----------- | ------------------------- | ---------- | ----------------------- |
-| OpenAI      | `text-embedding-3-large`  | 3072       | Default, higher quality |
-| OpenAI      | `text-embedding-3-small`  | 1536       | Fast, cost-effective    |
-| AWS Bedrock | `cohere.embed-english-v3` | 1024       | AWS-managed             |
-| Cohere      | `embed-english-v3.0`      | 1024       | English optimized       |
-| Cohere      | `embed-multilingual-v3.0` | 1024       | 100+ languages          |
+| Provider    | Model                     | Dimensions | Notes                                     |
+| ----------- | ------------------------- | ---------- | ----------------------------------------- |
+| OpenAI      | `text-embedding-3-large`  | 3072       | Default, higher quality                   |
+| OpenAI      | `text-embedding-3-small`  | 1536       | Fast, cost-effective                      |
+| AWS Bedrock | `cohere.embed-english-v3` | 1024       | AWS-managed                               |
+| Cohere      | `embed-english-v3.0`      | 1024       | English optimized                         |
+| Cohere      | `embed-multilingual-v3.0` | 1024       | 100+ languages                            |
+| Classical   | `hash-v1-2048`            | 2048       | Deterministic lexical hashing, no API key |
 
 > To use a non-default model, set the model name in your Helm values or environment variable and update `vectorDimension` / `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match.
 

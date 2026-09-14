@@ -7,6 +7,7 @@ import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProvider;
+import com.linkedin.metadata.search.embedding.ClassicalEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.CohereEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.LocalEmbeddingProvider;
@@ -17,6 +18,7 @@ import com.linkedin.metadata.search.embedding.VertexAiEmbeddingProvider;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
@@ -41,6 +43,8 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
  *   <li><b>local</b>: Any locally-running OpenAI-compatible server (Ollama, LM Studio, etc.)
  *   <li><b>vertex_ai</b>: Google Vertex AI Embeddings API with Gemini embedding models
  *   <li><b>onnx</b>: In-process ONNX Runtime inference (no external server required)
+ *   <li><b>classical</b>: Deterministic in-process lexical hashing (no external service or model
+ *       files)
  * </ul>
  *
  * <p>The provider is conditionally created only when semantic search is enabled in the
@@ -94,17 +98,18 @@ public class EmbeddingProviderFactory {
     String providerType = config.getType();
     log.info("Creating embedding provider with type: {}", providerType);
 
-    return switch (providerType.toLowerCase()) {
+    return switch (providerType.toLowerCase(Locale.ROOT)) {
       case "aws-bedrock" -> createAwsBedrockProvider(config);
       case "openai" -> createOpenAIProvider(config);
       case "cohere" -> createCohereProvider(config);
       case "local" -> createLocalProvider(config);
       case "vertex_ai" -> createVertexAiProvider(config);
       case "onnx" -> createOnnxProvider(config, semanticSearchConfig);
+      case "classical" -> createClassicalProvider(config, semanticSearchConfig);
       default ->
           throw new IllegalStateException(
               String.format(
-                  "Unsupported embedding provider type: %s. Supported types: aws-bedrock, openai, cohere, local, vertex_ai, onnx",
+                  "Unsupported embedding provider type: %s. Supported types: aws-bedrock, openai, cohere, local, vertex_ai, onnx, classical",
                   providerType));
     };
   }
@@ -310,6 +315,75 @@ public class EmbeddingProviderFactory {
       }
       throw e;
     }
+  }
+
+  /**
+   * Creates the classical provider and fails startup unless the {@code semanticSearch.models} entry
+   * derived from the model name matches its width and uses a cosine space type: the vectors are
+   * unnormalized integer counts, and a width or metric mismatch would only surface as silent empty
+   * search results.
+   */
+  private EmbeddingProvider createClassicalProvider(
+      EmbeddingProviderConfiguration config, SemanticSearchConfiguration semanticSearchConfig) {
+    EmbeddingProviderConfiguration.ClassicalConfig classicalConfig = config.getClassical();
+    String model = classicalConfig != null ? classicalConfig.getModel() : null;
+    if (model == null || model.isBlank()) {
+      throw new IllegalStateException(
+          "Classical embedding model is required when using 'classical' embedding provider. "
+              + "Set the CLASSICAL_EMBEDDING_MODEL environment variable or configure "
+              + "embeddingProvider.classical.model in application.yaml (e.g. 'hash-v1-2048').");
+    }
+
+    ClassicalEmbeddingProvider provider;
+    try {
+      provider = new ClassicalEmbeddingProvider(model);
+    } catch (IllegalArgumentException e) {
+      throw new IllegalStateException(
+          "Invalid classical embedding model '" + model + "': " + e.getMessage(), e);
+    }
+
+    // Same derivation as the SemanticEntitySearchServiceFactory fallback (none of its special-cased
+    // model names match hash-v1-*), so this is the key the query path will read from the index.
+    String modelKey = model.replace("-", "_").replace(".", "_").replace(":", "_");
+    Map<String, ModelEmbeddingConfig> models = semanticSearchConfig.getModels();
+    ModelEmbeddingConfig modelConfig = models != null ? models.get(modelKey) : null;
+    if (modelConfig == null) {
+      String available = models != null ? models.keySet().toString() : "none";
+      throw new IllegalStateException(
+          String.format(
+              "Classical embedding model '%s' has no entry '%s' in semanticSearch.models. "
+                  + "Available keys: %s. Add an entry with vectorDimension=%d and "
+                  + "spaceType=cosinesimil in application.yaml (requires reindexing).",
+              model, modelKey, available, provider.getDimensions()));
+    }
+    if (modelConfig.getVectorDimension() != provider.getDimensions()) {
+      throw new IllegalStateException(
+          String.format(
+              "Classical embedding model '%s' produces %d-dim vectors but "
+                  + "semanticSearch.models.%s.vectorDimension is %d. Either change the model name "
+                  + "or set vectorDimension=%d (requires reindexing if changed).",
+              model,
+              provider.getDimensions(),
+              modelKey,
+              modelConfig.getVectorDimension(),
+              provider.getDimensions()));
+    }
+    String spaceType = modelConfig.getSpaceType();
+    if (!"cosinesimil".equalsIgnoreCase(spaceType) && !"cosine".equalsIgnoreCase(spaceType)) {
+      throw new IllegalStateException(
+          String.format(
+              "Classical embedding vectors are unnormalized and require a cosine space type, but "
+                  + "semanticSearch.models.%s.spaceType is '%s'. Set it to cosinesimil (OpenSearch) "
+                  + "or cosine (Elasticsearch).",
+              modelKey, spaceType));
+    }
+
+    log.info(
+        "Configuring classical embedding provider: model={}, modelKey={}, dimensions={}",
+        model,
+        modelKey,
+        provider.getDimensions());
+    return provider;
   }
 
   EmbeddingProvider createVertexAiProvider(EmbeddingProviderConfiguration config) {

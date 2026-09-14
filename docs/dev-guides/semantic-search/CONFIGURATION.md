@@ -57,6 +57,7 @@ elasticsearch:
 | OpenAI text-embedding-3-small | `text_embedding_3_small` | 1536       |
 | OpenAI text-embedding-3-large | `text_embedding_3_large` | 3072       |
 | Cohere embed-english-v3.0     | `embed_english_v3_0`     | 1024       |
+| Classical hash-v1-2048        | `hash_v1_2048`           | 2048       |
 
 > **Important:** The model key is derived from the configured model ID using explicit mappings for known models, with a fallback that replaces dots, hyphens, and colons with underscores. For example:
 >
@@ -182,6 +183,7 @@ public interface EmbeddingProvider {
 
 - `OpenAiEmbeddingProvider` - Uses OpenAI API (default)
 - `AwsBedrockEmbeddingProvider` - Uses AWS Bedrock
+- `ClassicalEmbeddingProvider` - Deterministic in-process lexical hashing (no external service)
 - `NoOpEmbeddingProvider` - Throws exception if called (used when semantic search disabled)
 
 The following providers can be configured:
@@ -254,6 +256,21 @@ COHERE_EMBEDDING_MODEL=embed-english-v3.0
 | ------------------------- | ---------- | ----------------- |
 | `embed-english-v3.0`      | 1024       | English optimized |
 | `embed-multilingual-v3.0` | 1024       | 100+ languages    |
+
+#### Classical (Deterministic Hashing)
+
+Compute embeddings in-process with no external service:
+
+```bash
+# Required
+EMBEDDING_PROVIDER_TYPE=classical
+
+# Optional - default shown. Format hash-v1-<dims>; the width must match the
+# semanticSearch.models entry (hash_v1_2048) and changing it requires a re-index.
+CLASSICAL_EMBEDDING_MODEL=hash-v1-2048
+```
+
+The classical provider hashes word and character n-gram features with SHA-256 into a fixed-width vector (2048 dimensions by default). It needs no API key, endpoint, or model download, and the Python ingestion provider implements the identical algorithm, so document and query vectors are bit-identical. Ranking is lexical (shared words and character n-grams), not semantic: it does not match synonyms or paraphrases.
 
 #### Switching Between Providers
 

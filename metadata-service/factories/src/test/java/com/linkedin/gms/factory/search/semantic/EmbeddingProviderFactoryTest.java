@@ -18,8 +18,10 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProvider;
+import com.linkedin.metadata.search.embedding.ClassicalEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.CohereEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
@@ -718,6 +720,85 @@ public class EmbeddingProviderFactoryTest {
         "expected dimension-mismatch message, got: " + ex.getMessage());
     // Provider must be closed to release native resources when validation fails.
     verify(provider).close();
+  }
+
+  // ------- Classical provider tests -------
+  // factoryWithOnnxConfig is the generic config + models wiring, reused as-is.
+
+  private static EmbeddingProviderConfiguration configWithClassical(String model) {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("classical");
+    config.getClassical().setModel(model);
+    return config;
+  }
+
+  private static Map<String, ModelEmbeddingConfig> modelsWith(
+      String key, int dims, String spaceType) {
+    ModelEmbeddingConfig modelConfig = new ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(dims);
+    modelConfig.setSpaceType(spaceType);
+    return Map.of(key, modelConfig);
+  }
+
+  @Test
+  public void instantiatesClassicalProviderViaGetInstance() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"), modelsWith("hash_v1_2048", 2048, "cosinesimil"));
+
+    EmbeddingProvider provider = factory.getInstance();
+
+    assertTrue(
+        provider instanceof ClassicalEmbeddingProvider,
+        "expected ClassicalEmbeddingProvider, got: " + provider.getClass().getName());
+    assertEquals(provider.embed("id", null).length, 2048);
+  }
+
+  /** Elasticsearch names the metric "cosine"; OpenSearch "cosinesimil". Both are accepted. */
+  @Test
+  public void acceptsClassicalWithElasticsearchCosineSpaceType() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-256"), modelsWith("hash_v1_256", 256, "cosine"));
+
+    assertTrue(factory.getInstance() instanceof ClassicalEmbeddingProvider);
+  }
+
+  @Test
+  public void rejectsClassicalWithMalformedModelName() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v9-2048"), modelsWith("hash_v9_2048", 2048, "cosinesimil"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  @Test
+  public void rejectsClassicalWhenModelKeyMissingFromModelsMap() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"),
+            modelsWith("text_embedding_3_large", 3072, "cosinesimil"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  @Test
+  public void rejectsClassicalOnDimensionMismatch() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"), modelsWith("hash_v1_2048", 1024, "cosinesimil"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  @Test
+  public void rejectsClassicalOnNonCosineSpaceType() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"), modelsWith("hash_v1_2048", 2048, "l2"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
   }
 
   // ------- getInstance() NoOp paths -------

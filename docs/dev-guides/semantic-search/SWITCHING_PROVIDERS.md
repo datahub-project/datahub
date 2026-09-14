@@ -9,6 +9,7 @@ This guide explains how to migrate from one embedding provider to another. Switc
 - Switching from OpenAI to AWS Bedrock (or vice versa)
 - Switching from one model to another with different vector dimensions
 - Changing from Cohere direct API to AWS Bedrock-managed Cohere
+- Switching to or from the `classical` provider, or changing its `hash-v1-<dims>` width (each width is a separate model key)
 
 ## Provider and Model Reference
 
@@ -18,6 +19,7 @@ This guide explains how to migrate from one embedding provider to another. Switc
 | OpenAI      | `text-embedding-3-small`  | `text_embedding_3_small` | 1536       |
 | AWS Bedrock | `cohere.embed-english-v3` | `cohere_embed_v3`        | 1024       |
 | Cohere      | `embed-english-v3.0`      | `embed_english_v3_0`     | 1024       |
+| Classical   | `hash-v1-2048`            | `hash_v1_2048`           | 2048       |
 
 > **Important:** The model key is derived from the model name by replacing `-` and `.` with `_`. Both the ingestion connector and GMS must use the same model to ensure query embeddings match document embeddings.
 
@@ -154,7 +156,7 @@ docker exec datahub-gms env | grep -E 'OPENAI_API_KEY|COHERE_API_KEY'
 
 **Solution:** Ensure both the ingestion connector AND GMS use the same embedding model. Check:
 
-- The provider-specific model env var (`BEDROCK_EMBEDDING_MODEL`, `OPENAI_EMBEDDING_MODEL`, or `COHERE_EMBEDDING_MODEL`) in GMS config
+- The provider-specific model env var (`BEDROCK_EMBEDDING_MODEL`, `OPENAI_EMBEDDING_MODEL`, `COHERE_EMBEDDING_MODEL`, or `CLASSICAL_EMBEDDING_MODEL`) in GMS config
 - Embedding model in your ingestion recipe
 
 ## Best Practices

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config.search;
 
+import java.util.Locale;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -7,7 +8,7 @@ import lombok.NoArgsConstructor;
 /**
  * Configuration for embedding providers used to generate query embeddings for semantic search.
  *
- * <p>Supports six providers:
+ * <p>Supports seven providers:
  *
  * <ul>
  *   <li><b>aws-bedrock</b>: AWS Bedrock Runtime API with Cohere/Titan models
@@ -16,6 +17,8 @@ import lombok.NoArgsConstructor;
  *   <li><b>local</b>: Any locally-running OpenAI-compatible server (Ollama, LM Studio, etc.)
  *   <li><b>vertex_ai</b>: Google Vertex AI Embeddings API with Gemini embedding models
  *   <li><b>onnx</b>: In-process ONNX Runtime inference (no external server required)
+ *   <li><b>classical</b>: Deterministic in-process lexical hashing (no external service or model
+ *       files)
  * </ul>
  */
 @Data
@@ -25,7 +28,7 @@ public class EmbeddingProviderConfiguration {
 
   /**
    * Type of embedding provider. Supported values: "openai", "aws-bedrock", "cohere", "local",
-   * "vertex_ai", "onnx". Defaults to "openai".
+   * "vertex_ai", "onnx", "classical". Defaults to "openai".
    */
   private String type = "openai";
 
@@ -53,6 +56,9 @@ public class EmbeddingProviderConfiguration {
   /** Configuration for in-process ONNX embedding provider. */
   private OnnxConfig onnx = new OnnxConfig();
 
+  /** Configuration for the classical (deterministic hashing) embedding provider. */
+  private ClassicalConfig classical = new ClassicalConfig();
+
   /**
    * Returns the model ID for the configured provider type, pulling from the appropriate sub-config.
    */
@@ -60,7 +66,7 @@ public class EmbeddingProviderConfiguration {
     if (type == null) {
       return null;
     }
-    switch (type.toLowerCase()) {
+    switch (type.toLowerCase(Locale.ROOT)) {
       case "openai":
         return openai != null ? openai.getModel() : null;
       case "cohere":
@@ -73,6 +79,8 @@ public class EmbeddingProviderConfiguration {
         return vertexai != null ? vertexai.getModel() : null;
       case "onnx":
         return onnx != null ? onnx.getModelName() : null;
+      case "classical":
+        return classical != null ? classical.getModel() : null;
       default:
         return null;
     }
@@ -259,5 +267,20 @@ public class EmbeddingProviderConfiguration {
      * "}. Empty (the default) disables prefixing for symmetric models.
      */
     private String queryInstruction = "";
+  }
+
+  /** Classical (deterministic hashing) provider configuration. */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class ClassicalConfig {
+    /**
+     * Model name in the form {@code hash-v1-<dims>} (dims 1..4096). It fixes the algorithm version
+     * and the vector width, and derives the {@code semanticSearch.models} key ({@code hash_v1_2048}
+     * for the default), which must exist with the same {@code vectorDimension} and a cosine space
+     * type. Ingestion must be configured with the same model name so document and query vectors
+     * match. Defaults to "hash-v1-2048".
+     */
+    private String model = "hash-v1-2048";
   }
 }
