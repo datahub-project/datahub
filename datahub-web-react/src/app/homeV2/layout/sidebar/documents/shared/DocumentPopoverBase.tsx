@@ -80,10 +80,12 @@ const BREADCRUMB_SEPARATOR = ' > ';
 interface DocumentPopoverBaseProps {
     /** Optional header content to render above search */
     headerContent?: React.ReactNode;
-    /** Callback when a document is selected from tree */
-    onSelectDocument?: (urn: string) => void;
+    /** Callback when a document is selected from tree. `title` is forwarded from the already-loaded
+     *  tree/search data so callers can display the selection immediately, without waiting on a
+     *  separate fetch just to show a name. */
+    onSelectDocument?: (urn: string, title?: string) => void;
     /** Callback when a document is selected from search results */
-    onSelectSearchResult?: (urn: string) => void;
+    onSelectSearchResult?: (urn: string, title?: string) => void;
     /** Callback for creating a child document */
     onCreateChild?: (parentUrn: string | null) => void;
     /** Whether to hide actions in the tree */
