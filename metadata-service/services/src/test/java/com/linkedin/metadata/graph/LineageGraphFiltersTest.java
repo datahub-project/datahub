@@ -62,6 +62,37 @@ public class LineageGraphFiltersTest {
   }
 
   @Test
+  public void testForEntityType_SchemaFieldKeepsConsumerEdges() {
+    LineageRegistry lineageRegistry = opContext.getLineageRegistry();
+
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            lineageRegistry, "schemaField", LineageDirection.DOWNSTREAM);
+
+    assertTrue(filters.getAllowedEntityTypes().contains("schemaField"));
+    assertTrue(filters.getAllowedEntityTypes().contains("metric"));
+    assertTrue(filters.getAllowedEntityTypes().contains("chart"));
+    assertTrue(filters.getAllowedEntityTypes().contains("dashboard"));
+
+    Set<LineageRegistry.EdgeInfo> edges = filters.getEdgeInfo(lineageRegistry, "schemaField");
+    assertTrue(
+        edges.contains(
+            new LineageRegistry.EdgeInfo(
+                "DownstreamOf", RelationshipDirection.INCOMING, "schemaField")));
+    assertTrue(
+        edges.contains(
+            new LineageRegistry.EdgeInfo("Consumes", RelationshipDirection.INCOMING, "metric")));
+    assertTrue(
+        edges.contains(
+            new LineageRegistry.EdgeInfo(
+                "consumesField", RelationshipDirection.INCOMING, "chart")));
+    assertTrue(
+        edges.contains(
+            new LineageRegistry.EdgeInfo(
+                "consumesField", RelationshipDirection.INCOMING, "dashboard")));
+  }
+
+  @Test
   public void testWithEntityTypes() {
     Set<String> allowedEntityTypes = Set.of("dataset", "chart");
 

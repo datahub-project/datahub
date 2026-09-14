@@ -228,6 +228,18 @@ public class LineageRegistryTest {
   }
 
   @Test
+  public void testGetEntitiesWithLineageToSchemaField() {
+    // schemaField's LineageSpec is empty; discovery must still include hardcoded consumers
+    Set<String> entitiesWithLineage =
+        lineageRegistry.getEntitiesWithLineageToEntityType(Constants.SCHEMA_FIELD_ENTITY_NAME);
+
+    assertTrue(entitiesWithLineage.contains(Constants.SCHEMA_FIELD_ENTITY_NAME));
+    assertTrue(entitiesWithLineage.contains(Constants.METRIC_ENTITY_NAME));
+    assertTrue(entitiesWithLineage.contains(Constants.CHART_ENTITY_NAME));
+    assertTrue(entitiesWithLineage.contains(Constants.DASHBOARD_ENTITY_NAME));
+  }
+
+  @Test
   public void testGetLineageSpecs() {
     // Test the getLineageSpecs method which should return only entities with lineage relationships
     Map<String, LineageRegistry.LineageSpec> allLineageSpecs = lineageRegistry.getLineageSpecs();
