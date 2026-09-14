@@ -108,14 +108,15 @@ def test_embedding_success_reporting_inline_mode(pipeline_context, chunking_conf
         {"type": "NarrativeText", "text": "Test content"},
     ]
 
-    # Mock successful embedding generation
-    mock_embeddings = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+    # Mock successful embedding generation: the basic strategy folds both elements
+    # into one chunk, so the provider returns one vector.
+    mock_embeddings = [[0.1, 0.2, 0.3]]
     with patch.object(source, "_generate_embeddings", return_value=mock_embeddings):
         list(source.process_elements_inline(document_urn, elements))
 
     # Verify document was processed and embeddings counted
     assert source.report.num_documents_processed == 1
-    assert source.report.num_embeddings_generated == 2
+    assert source.report.num_embeddings_generated == 1
 
 
 def test_embedding_failure_batch_mode(pipeline_context, chunking_config):
@@ -1342,6 +1343,52 @@ class TestSkipMarkersAndEmbedAccounting:
             (8, 5),
         ]
 
+    def test_null_chunk_text_is_skipped_like_blank(
+        self, pipeline_context, chunking_config
+    ):
+        source = self._source(pipeline_context, chunking_config)
+        provider = MagicMock()
+        provider.embed.return_value = EmbeddingResult(embeddings=[[1.0, 0.0]])
+        source._provider = provider
+        chunks = [{"text": None}, {"text": "alpha"}]
+
+        with patch.object(source, "_chunk_elements", return_value=chunks):
+            wus = list(
+                source.process_elements_inline(
+                    "urn:li:document:nulltext",
+                    [{"type": "NarrativeText", "text": "alpha"}],
+                )
+            )
+
+        semantic_wu = next(wu for wu in wus if "semanticContent" in wu.id)
+        (model_data,) = _semantic_embeddings(semantic_wu).values()
+        assert [(c.text, c.characterOffset) for c in model_data.chunks] == [
+            ("alpha", 0)
+        ]
+        assert model_data.totalChunks == 1
+
+    def test_vector_count_mismatch_fails_document_instead_of_emitting(
+        self, pipeline_context, chunking_config
+    ):
+        """A provider returning fewer vectors than chunks must not produce a
+        semanticContent whose totalChunks claims chunks that carry no vector."""
+        source = self._source(pipeline_context, chunking_config)
+        provider = MagicMock()
+        provider.embed.return_value = EmbeddingResult(embeddings=[[1.0, 0.0]])
+        source._provider = provider
+        chunks = [{"text": "alpha"}, {"text": "gamma"}]
+
+        with (
+            patch.object(source, "_chunk_elements", return_value=chunks),
+            pytest.raises(ValueError, match="1 vectors for 2 embeddable chunks"),
+        ):
+            list(
+                source.process_elements_inline(
+                    "urn:li:document:mismatch",
+                    [{"type": "NarrativeText", "text": "alpha gamma"}],
+                )
+            )
+
     def test_provider_returning_no_vectors_is_failure_not_success(
         self, pipeline_context, chunking_config
     ):
@@ -1370,9 +1417,8 @@ class TestSkipMarkersAndEmbedAccounting:
             {"type": "NarrativeText", "text": "Test content"},
         ]
 
-        with patch.object(
-            source, "_generate_embeddings", return_value=[[0.1, 0.2], [0.3, 0.4]]
-        ):
+        # Both elements fold into one chunk under the basic strategy: one vector.
+        with patch.object(source, "_generate_embeddings", return_value=[[0.1, 0.2]]):
             wus = list(
                 source.process_elements_inline("urn:li:document:embedded", elements)
             )

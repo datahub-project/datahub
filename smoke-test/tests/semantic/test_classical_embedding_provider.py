@@ -83,8 +83,9 @@ def _wait_for_semantic_index(
     """Poll semantic search until every expected URN is returned, or the deadline passes.
 
     The semantic index refreshes asynchronously after the semanticContent write, so
-    a single query after a fixed sleep races it. Returns the last response either
-    way; callers assert on it.
+    a single query after a fixed sleep races it. Pass only the URNs the caller goes
+    on to assert on: the classical provider is lexical, so unrelated documents may
+    legitimately never rank for the query. Returns the last response either way.
     """
     deadline = time.monotonic() + INDEXING_WAIT_SECONDS
     while True:
@@ -290,10 +291,14 @@ class TestClassicalEmbeddingProvider:
         run_ingestion(auth_session, recipe_path)
         wait_for_writes_to_sync(mcp_only=True)
 
-        # Step 3: Poll the semantic index with the lexical query used below until all
-        # three documents are visible (or the deadline passes), then verify aspects.
+        # Step 3: Poll the semantic index with the lexical query used below until the
+        # document it must match is visible (or the deadline passes), then verify
+        # aspects. The other two documents share no words with the query and are only
+        # asserted to rank below it, which "not returned" satisfies.
         test_query = "data access request process"
-        result = _wait_for_semantic_index(auth_session, test_query, urns)
+        result = _wait_for_semantic_index(
+            auth_session, test_query, [f"urn:li:document:{doc_ids[1]}"]
+        )
 
         # Step 3b: Verify semanticContent exists for each document
         logger.info("Verifying semanticContent aspects...")

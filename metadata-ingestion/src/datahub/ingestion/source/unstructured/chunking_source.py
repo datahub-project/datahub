@@ -965,18 +965,26 @@ class DocumentChunkingSource(Source):
         current_offset = 0
         for chunk in chunks:
             offsets.append(current_offset)
-            current_offset += len(chunk.get("text", ""))
+            current_offset += len(chunk.get("text") or "")
         embeddable = [
             (chunk, offset)
             for chunk, offset in zip(chunks, offsets, strict=True)
             if _has_embeddable_text(chunk)
         ]
+        # A provider that returns the wrong number of vectors would otherwise be
+        # emitted as a shorter chunk list under a totalChunks that claims them all.
+        if len(embeddings) != len(embeddable):
+            raise ValueError(
+                f"Embedding provider returned {len(embeddings)} vectors for "
+                f"{len(embeddable)} embeddable chunks of {document_urn}; refusing to "
+                "emit a misaligned semanticContent"
+            )
 
         # Build embedding chunks
         embedding_chunks = []
 
         for i, ((chunk, offset), embedding) in enumerate(
-            zip(embeddable, embeddings, strict=False)
+            zip(embeddable, embeddings, strict=True)
         ):
             chunk_text = chunk.get("text", "")
 
