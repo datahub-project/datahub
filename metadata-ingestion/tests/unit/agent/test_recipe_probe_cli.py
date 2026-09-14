@@ -1,3 +1,4 @@
+import io
 import json
 import pathlib
 
@@ -628,3 +629,85 @@ def test_the_notice_does_not_say_which_secret_collided(tmp_path):
     notice = next(w for w in json.loads(res.output)["warnings"] if "redacted" in w)
     assert "password" not in notice.split("a password the same as")[0]
     assert "shared_name_value" not in notice
+
+
+# `--recipe -` accepts the same JSON envelope `datahub ingest -c -` does, so
+# the executor can hand the probe its resolved credentials without writing
+# them to the environment -- where they are readable from /proc/<pid>/environ
+# and `ps e`, and inherited by every process the CLI spawns.
+
+
+def _envelope(secrets):
+    return json.dumps(
+        {
+            "__recipe_yaml__": (
+                "source:\n"
+                "  type: mysql\n"
+                "  config:\n"
+                "    host_port: h:3306\n"
+                "    username: u\n"
+                "    password: ${PROBE_TEST_REF}\n"
+            ),
+            "__secrets__": secrets,
+        }
+    )
+
+
+def test_a_ref_resolves_from_the_stdin_envelope_not_the_environment(monkeypatch):
+    monkeypatch.delenv("PROBE_TEST_REF", raising=False)
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr("sys.stdin", io.StringIO(_envelope({"PROBE_TEST_REF": "resolved-from-envelope"})))
+
+    loaded = rc._load_recipe("-")
+    source_type, config, secret_values = rc._resolve_for_probe(loaded)
+
+    assert source_type == "mysql"
+    assert config["password"] == "resolved-from-envelope"
+    # and it is collected for masking, so it cannot reach the caller's output
+    assert "resolved-from-envelope" in secret_values
+
+
+def test_the_envelope_wins_over_a_same_named_environment_variable(monkeypatch):
+    monkeypatch.setenv("PROBE_TEST_REF", "from-env")
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr("sys.stdin", io.StringIO(_envelope({"PROBE_TEST_REF": "from-stdin"})))
+
+    _t, config, _s = rc._resolve_for_probe(rc._load_recipe("-"))
+    assert config["password"] == "from-stdin"
+
+
+def test_an_envelope_secret_is_masked_even_if_the_recipe_never_uses_it(monkeypatch):
+    """A value may arrive already substituted, so 'the recipe references it' is
+    not a sound test for whether it must be masked. Mirrors load_config_file."""
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(
+        "sys.stdin",
+        io.StringIO(_envelope({"PROBE_TEST_REF": "used", "UNREFERENCED": "also-secret"})),
+    )
+
+    _t, _c, secret_values = rc._resolve_for_probe(rc._load_recipe("-"))
+    assert "also-secret" in secret_values
+
+
+def test_a_plain_recipe_on_stdin_still_works(monkeypatch):
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(
+        "sys.stdin", io.StringIO("source:\n  type: mysql\n  config:\n    a: 1\n")
+    )
+    source = rc._load_recipe("-")["source"]
+    assert isinstance(source, dict)
+    assert source["type"] == "mysql"
+
+
+def test_empty_stdin_is_a_user_error_not_a_traceback(monkeypatch):
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr("sys.stdin", io.StringIO("   "))
+    with pytest.raises(ValueError, match="no recipe received on stdin"):
+        rc._load_recipe("-")
+
+
+def test_a_non_mapping_recipe_on_stdin_is_refused(monkeypatch):
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr("sys.stdin", io.StringIO("- just\n- a list\n"))
+    with pytest.raises(ValueError, match="must be a YAML mapping"):
+        rc._load_recipe("-")

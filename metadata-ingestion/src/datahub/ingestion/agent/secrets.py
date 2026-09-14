@@ -22,6 +22,23 @@ class EnvVarResolver:
         return os.environ.get(ref)
 
 
+class MappingResolver:
+    """Resolve `${ref}` from an explicit mapping rather than the environment.
+
+    For a caller that already holds the resolved secrets and must not put them
+    in `os.environ` -- the executor pipes them in a stdin envelope precisely so
+    they are not readable from /proc/<pid>/environ, `ps e`, or inherited by
+    every grandchild the CLI spawns. Placed ahead of EnvVarResolver so an
+    envelope value wins over a same-named ambient variable.
+    """
+
+    def __init__(self, values: Dict[str, str]) -> None:
+        self._values = dict(values)
+
+    def resolve(self, ref: str) -> Optional[str]:
+        return self._values.get(ref)
+
+
 # ~/.datahubenv nests everything under `gms:` (DatahubConfig.gms), so a flat
 # top-level lookup resolves nothing at all. These map the two names a recipe
 # actually spells -- the same ones the CLI documents as env vars -- onto where

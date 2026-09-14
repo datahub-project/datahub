@@ -3,7 +3,7 @@ import json
 import re
 import sys
 from contextlib import contextmanager
-from typing import Dict, Iterator, NoReturn, Optional, Set, Tuple, Type
+from typing import Dict, Iterator, List, NoReturn, Optional, Set, Tuple, Type
 
 import click
 import yaml
@@ -25,6 +25,8 @@ from datahub.ingestion.agent.redact import (
     redact,
 )
 from datahub.ingestion.agent.secrets import (
+    MappingResolver,
+    SecretResolver,
     default_resolvers,
     resolve_config_collecting,
 )
@@ -147,7 +149,60 @@ def _fail(message: str, code: int) -> NoReturn:
     sys.exit(code)
 
 
+# Secrets handed in on stdin alongside the recipe. Module-level because the
+# resolve step happens well after loading, and threading an extra argument
+# through every probe subcommand to carry it would be noise for a value that
+# is set at most once per process.
+_stdin_secrets: Dict[str, str] = {}
+
+
+def _probe_resolvers() -> List[SecretResolver]:
+    """Resolvers for a probe, stdin-supplied secrets first.
+
+    A value the caller piped in wins over a same-named ambient variable: they
+    passed it that way precisely to avoid the environment.
+    """
+    if _stdin_secrets:
+        return [MappingResolver(_stdin_secrets), *default_resolvers()]
+    return default_resolvers()
+
+
+def _recipe_from_stdin() -> Dict[str, object]:
+    raw = sys.stdin.read()
+    if not raw.strip():
+        raise ValueError("no recipe received on stdin")
+    try:
+        envelope = json.loads(raw)
+    except ValueError:
+        envelope = None
+    if isinstance(envelope, dict) and "__recipe_yaml__" in envelope:
+        secrets = envelope.get("__secrets__") or {}
+        if isinstance(secrets, dict):
+            _stdin_secrets.update({str(k): str(v) for k, v in secrets.items()})
+        raw = envelope["__recipe_yaml__"]
+    try:
+        loaded = yaml.safe_load(raw) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f"cannot parse recipe from stdin: {exc}") from exc
+    if not isinstance(loaded, dict):
+        raise ValueError("recipe must be a YAML mapping")
+    return loaded
+
+
 def _load_recipe(path: str) -> Dict[str, object]:
+    """The recipe at `path`, or from stdin when `path` is `-`.
+
+    `-` accepts the same JSON envelope `datahub ingest -c -` does:
+    `{"__recipe_yaml__": ..., "__secrets__": {...}}`. The executor uses it so
+    resolved credentials reach the probe without being written to the
+    environment -- where they would be readable from /proc/<pid>/environ and
+    `ps e`, and inherited by every process the CLI spawns. A plain recipe on
+    stdin works too. The secrets travel out through `_stdin_secrets` rather
+    than being substituted here, so the normal resolve-and-collect path still
+    sees the `${refs}` and can record what to mask.
+    """
+    if path == "-":
+        return _recipe_from_stdin()
     try:
         with open(path) as f:
             loaded = yaml.safe_load(f) or {}
@@ -173,7 +228,7 @@ def _resolve_for_probe(
     source_type = str(source.get("type"))
     raw_config = source.get("config")
     config: Dict[str, object] = raw_config if isinstance(raw_config, dict) else {}
-    resolved = resolve_config_collecting(config, default_resolvers())
+    resolved = resolve_config_collecting(config, _probe_resolvers())
     spec = describe_source(source_type)
     secret_fields = {f.name for f in spec.fields if f.kind == FieldKind.SECRET}
     # Union of every ${ref}-sourced value (nested-safe) and top-level inline
@@ -185,6 +240,10 @@ def _resolve_for_probe(
     # (e.g. Kafka's consumer_config) that aren't typed SecretStr and so aren't
     # covered by either collection above.
     secret_values |= collect_nested_secret_values(resolved.config, _SENSITIVE_KEY_HINTS)
+    # Anything piped in is a secret by declaration, so mask it whether or not
+    # the recipe happened to reference it (it may have arrived already
+    # substituted). Mirrors what load_config_file does for `ingest -c -`.
+    secret_values |= {v for v in _stdin_secrets.values() if v}
     return source_type, resolved.config, secret_values
 
 
@@ -206,7 +265,7 @@ def _secrets_in_recipe(recipe: Dict[str, object]) -> Set[str]:
     # recipe, so a later failure cannot cost us these.
     values |= collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
     try:
-        resolved = resolve_config_collecting(config, default_resolvers())
+        resolved = resolve_config_collecting(config, _probe_resolvers())
     except Exception:
         # An unresolvable ${ref} is the command's own finding to report, and it
         # produced no value, so there is nothing further to mask.
