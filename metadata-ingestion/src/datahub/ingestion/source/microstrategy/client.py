@@ -62,7 +62,27 @@ _MAX_RETRY_DELAY_SECONDS = 60
 
 
 class MicroStrategyAPIError(RuntimeError):
-    pass
+    """An API call failed. `status_code` and `url` are set when the failure
+    was an HTTP error response, so callers that swallow the error can still
+    record which endpoint answered with what (e.g. a 403 on the Modeling
+    service vs. a 404 on an older server that lacks it)."""
+
+    def __init__(
+        self,
+        message: str,
+        status_code: Optional[int] = None,
+        url: Optional[str] = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.url = url
+
+    def summary(self) -> str:
+        """One-line form for report samples: the HTTP status when known,
+        then the message."""
+        if self.status_code is not None:
+            return f"HTTP {self.status_code}: {self}"
+        return str(self)
 
 
 class MicroStrategyAuthError(RuntimeError):
@@ -913,7 +933,9 @@ class MicroStrategyClient:
             except requests.HTTPError as error:
                 self.report.report_api_error()
                 raise MicroStrategyAPIError(
-                    f"MicroStrategy API request failed: {method} {path}: {error}"
+                    f"MicroStrategy API request failed: {method} {path}: {error}",
+                    status_code=response.status_code,
+                    url=url,
                 ) from error
             return response
 

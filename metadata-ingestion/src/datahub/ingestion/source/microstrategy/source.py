@@ -29,6 +29,9 @@ from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
     MSTR_CUBE_SUBTYPES,
+    MSTR_DEFINITION_ENDPOINT_MODEL,
+    MSTR_DEFINITION_ENDPOINT_V2,
+    MSTR_DERIVED_DEBUG_LOG_PREFIX,
     MSTR_OBJECT_SUBTYPE_DOCUMENT,
     MSTR_OBJECT_TYPE_REPORT,
     MSTR_PREDEFINED_FOLDER_LABELS,
@@ -69,8 +72,11 @@ from datahub.ingestion.source.microstrategy.models import (
     ReportDerivedMetric,
     Visualization,
     extract_embedded_metric_definitions,
+    first_derived_node_skeleton,
     metric_enrichment_from_expression,
     normalize_object_id,
+    payload_key_skeleton,
+    payload_type_vocabulary,
 )
 from datahub.ingestion.source.microstrategy.report import MicroStrategyReport
 from datahub.ingestion.source.microstrategy.usage import (
@@ -84,6 +90,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source_report.ingestion_stage import METADATA_EXTRACTION
 
 logger = logging.getLogger(__name__)
+
+_ERROR_SUMMARY_MAX_CHARS = 300
 
 
 @platform_name("MicroStrategy")
@@ -147,6 +155,12 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._report_derived_metric_cache: Dict[
             Tuple[str, str], Optional[List[ReportDerivedMetric]]
         ] = {}
+        # Projects already warned about the Modeling report definition
+        # endpoint failing (one structured warning per project, not per
+        # report), and projects whose v2 payload shape was already logged.
+        self._model_definition_warned_projects: Set[str] = set()
+        self._v2_definition_logged_projects: Set[str] = set()
+        self._model_empty_logged_projects: Set[str] = set()
         if self.config.extract_derived_metrics and not (
             self.config.extract_lineage and self.config.extract_visualization_details
         ):
@@ -722,27 +736,44 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return self._report_derived_metric_cache[cache_key]
 
         definitions: List[ReportDerivedMetric] = []
-        errors: List[Exception] = []
+        model_error: Optional[Exception] = None
+        v2_error: Optional[Exception] = None
         try:
-            definitions = extract_embedded_metric_definitions(
-                self.client.get_model_report(project_id, report_id)
-            )
+            model_payload = self.client.get_model_report(project_id, report_id)
         except MicroStrategyAuthError:
             raise
         except Exception as error:
-            errors.append(error)
+            model_error = error
+        else:
+            definitions = extract_embedded_metric_definitions(
+                model_payload, endpoint=MSTR_DEFINITION_ENDPOINT_MODEL
+            )
+            if definitions and not any(d.has_expression for d in definitions):
+                self._debug_model_definition_without_expressions(
+                    project_id, report_id, model_payload, len(definitions)
+                )
+            elif not definitions:
+                self._debug_model_definition_empty(project_id, report_id, model_payload)
         if not definitions:
             try:
-                definitions = extract_embedded_metric_definitions(
-                    self.client.get_report_definition(project_id, report_id)
-                )
+                v2_payload = self.client.get_report_definition(project_id, report_id)
             except MicroStrategyAuthError:
                 raise
             except Exception as error:
-                errors.append(error)
+                v2_error = error
+            else:
+                definitions = extract_embedded_metric_definitions(
+                    v2_payload, endpoint=MSTR_DEFINITION_ENDPOINT_V2
+                )
+                if model_error is not None:
+                    self._record_model_definition_failure(
+                        project_id, report_id, model_error
+                    )
+                if definitions:
+                    self._debug_v2_definition_payload(project_id, report_id, v2_payload)
 
         result: Optional[List[ReportDerivedMetric]] = definitions
-        if len(errors) == 2:
+        if model_error is not None and v2_error is not None:
             result = None
             self.report.report_report_definition_failure()
             self.report.warning(
@@ -754,13 +785,127 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     "formula)."
                 ),
                 context=f"project_id={project_id}, report_id={report_id}",
-                exc=errors[-1],
+                exc=v2_error,
                 log=False,
             )
         elif definitions:
             self.report.report_report_derived_metrics_extracted(len(definitions))
         self._report_derived_metric_cache[cache_key] = result
         return result
+
+    def _record_model_definition_failure(
+        self,
+        project_id: str,
+        report_id: str,
+        error: Exception,
+    ) -> None:
+        """The Modeling report definition failed but the v2 definition
+        answered: derived metrics keep their report names but have no
+        formula. Counted per report (with the HTTP status when the failure
+        was an error response) and warned once per project, since the cause
+        (privilege, an older server without the Modeling service) is
+        project-wide."""
+        self.report.report_report_model_definition_failure(
+            f"{report_id}: {_error_summary(error)}"
+        )
+        if project_id in self._model_definition_warned_projects:
+            return
+        self._model_definition_warned_projects.add(project_id)
+        self.report.warning(
+            title="Modeling report definition unavailable; derived metric formulas omitted",
+            message=(
+                "GET /api/model/reports/{id} failed, so report derived metrics "
+                "were taken from the v2 report definition, which names them "
+                "but does not expose their formulas. Check the principal's "
+                "Modeling service access and the MicroStrategy version (the "
+                "endpoint needs 2021 Update 7 or later)."
+            ),
+            context=f"project_id={project_id}, first_report_id={report_id}",
+            exc=error,
+        )
+
+    def _debug_model_definition_without_expressions(
+        self,
+        project_id: str,
+        report_id: str,
+        payload: Dict[str, object],
+        definition_count: int,
+    ) -> None:
+        """The Modeling endpoint answered and named derived metrics, but none
+        carried an expression under a key the walker reads. Count it and log
+        the payload's key skeleton (keys, list lengths and value types only;
+        no names or values) so the actual shape can be read from a debug
+        execution log."""
+        self.report.report_report_definition_without_expressions()
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        logger.debug(
+            "%s Modeling report definition project_id=%s report_id=%s named %d "
+            "derived metrics but none carried an expression; payload skeleton: %s",
+            MSTR_DERIVED_DEBUG_LOG_PREFIX,
+            project_id,
+            report_id,
+            definition_count,
+            payload_key_skeleton(payload),
+        )
+        logger.debug(
+            "%s first derived-flagged node project_id=%s report_id=%s: %s",
+            MSTR_DERIVED_DEBUG_LOG_PREFIX,
+            project_id,
+            report_id,
+            first_derived_node_skeleton(payload),
+        )
+
+    def _debug_model_definition_empty(
+        self,
+        project_id: str,
+        report_id: str,
+        payload: Dict[str, object],
+    ) -> None:
+        """The Modeling endpoint answered but the walker found no derived
+        metric definition in the payload at all, so the v2 definition will
+        supply names only. This is the case a live run hit: it is invisible
+        in the counters unless recorded here, and the payload shape is the
+        only way to learn which key the derived metrics live under. Count it
+        per report; log the key skeleton once per project."""
+        self.report.report_report_model_definition_empty()
+        if project_id in self._model_empty_logged_projects:
+            return
+        self._model_empty_logged_projects.add(project_id)
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        logger.debug(
+            "%s Modeling report definition project_id=%s report_id=%s returned "
+            "no derived metric definitions; type/subType vocabulary: %s; "
+            "payload skeleton: %s",
+            MSTR_DERIVED_DEBUG_LOG_PREFIX,
+            project_id,
+            report_id,
+            payload_type_vocabulary(payload),
+            payload_key_skeleton(payload),
+        )
+
+    def _debug_v2_definition_payload(
+        self,
+        project_id: str,
+        report_id: str,
+        payload: Dict[str, object],
+    ) -> None:
+        """Key skeleton of the v2 report definition that supplied derived
+        metric names, once per project."""
+        if project_id in self._v2_definition_logged_projects:
+            return
+        self._v2_definition_logged_projects.add(project_id)
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        logger.debug(
+            "%s v2 report definition project_id=%s report_id=%s supplied derived "
+            "metric names; payload skeleton: %s",
+            MSTR_DERIVED_DEBUG_LOG_PREFIX,
+            project_id,
+            report_id,
+            payload_key_skeleton(payload),
+        )
 
     def _process_project_reports(
         self,
@@ -1752,6 +1897,17 @@ def _is_report_dependency(dependency: MicroStrategyObject) -> bool:
     # Match on the MicroStrategy object type only; a name-substring heuristic
     # would fabricate report chart URNs for anything named "...Report...".
     return (dependency.type or "").strip() == str(MSTR_OBJECT_TYPE_REPORT)
+
+
+def _error_summary(error: Exception) -> str:
+    """One-line error for report samples: HTTP status first when the client
+    recorded one, then the message, bounded so a long server body cannot
+    bloat the report."""
+    if isinstance(error, MicroStrategyAPIError):
+        text = error.summary()
+    else:
+        text = f"{type(error).__name__}: {error}"
+    return text[:_ERROR_SUMMARY_MAX_CHARS]
 
 
 def _metric_expression_summary(model: Dict[str, object]) -> Optional[MetricEnrichment]:
