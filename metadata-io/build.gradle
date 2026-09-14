@@ -151,13 +151,19 @@ dependencies {
   implementation 'software.amazon.awssdk:bedrockruntime'
 
   // ONNX Runtime for in-process embedding inference (semantic search).
-  // These land on the runtimeClasspath of every metadata-io consumer (~80MB of native libs),
-  // including images that never embed. Accepted for the initial opt-in provider; slimming the
-  // default images via ONNX-only variant builds is tracked as R3 in the design review
-  // (docs/design-reviews/2026-05-06-onnx-embedding-design-review.md).
-  implementation externalDependency.onnxRuntime
-  implementation externalDependency.djlApi
-  implementation externalDependency.djlHuggingFaceTokenizers
+  // compileOnlyApi (not implementation) keeps these ~71MB of native libs OFF the runtimeClasspath
+  // of every metadata-io consumer (GMS, mce/mae-consumer, datahub-upgrade), so default images stay
+  // slim. They are supplied at runtime only in the dedicated ONNX image variants (datahub-gms-onnx,
+  // datahub-upgrade-onnx), whose bootJars re-add them. OnnxEmbeddingProvider is loaded only in the
+  // EmbeddingProviderFactory "onnx" arm, so a default image without these fails fast there rather
+  // than at startup. See docs/design-reviews/2026-05-06-onnx-embedding-design-review.md (R3).
+  compileOnlyApi externalDependency.onnxRuntime
+  compileOnlyApi externalDependency.djlApi
+  compileOnlyApi externalDependency.djlHuggingFaceTokenizers
+  // Provider unit tests exercise the real ONNX/DJL libraries.
+  testImplementation externalDependency.onnxRuntime
+  testImplementation externalDependency.djlApi
+  testImplementation externalDependency.djlHuggingFaceTokenizers
 
   // Optional search client shim dependencies
   api externalDependency.elasticsearch8Client
