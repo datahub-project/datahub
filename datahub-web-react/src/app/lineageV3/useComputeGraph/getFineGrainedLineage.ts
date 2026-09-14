@@ -38,16 +38,11 @@ interface TentativeEdge {
  */
 export function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: NodeContext['nodes']): boolean {
     const node = nodes.get(datasetUrn);
-    if (!node?.entity?.schemaMetadata?.fields) {
+    if (!node?.entity?.lineageAssets) {
         return false;
     }
 
-    // Normalize both paths to V1 format for comparison, since fineGrainedLineages paths
-    // are downgraded to V1 in EntityRegistry but schema field paths may still be V2
-    const normalizedFieldPath = downgradeV2FieldPath(fieldPath);
-    return node.entity.schemaMetadata.fields.some(
-        (field) => downgradeV2FieldPath(field.fieldPath) === normalizedFieldPath,
-    );
+    return node.entity.lineageAssets.has(downgradeV2FieldPath(fieldPath));
 }
 
 /**
