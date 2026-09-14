@@ -380,6 +380,12 @@ embedding:
   bigrams/trigrams are SHA-256 feature-hashed into a fixed-width integer vector.
   No API key, endpoint, or model download, and nothing extra to install. GMS
   computes query vectors with the identical algorithm.
+- The ingestion CLI must know this provider, which ships in the same release as
+  the server side. An older CLI pointed at a `classical` server cannot map the
+  provider: it logs `Failed to load embedding config from server: Unsupported
+provider from server: classical` and ingests documents without embeddings, so
+  upgrade the CLI (on managed instances, the executor's CLI) before switching
+  the server.
 - Quality is lexical, not semantic: results rank by shared words and character
   fragments (`user_id` scores against `customer_id` through the fragments they
   share, and no query matches by meaning). Use it where no neural provider is
