@@ -353,7 +353,8 @@ public class EmbeddingProviderFactory {
           String.format(
               "Classical embedding model '%s' has no entry '%s' in semanticSearch.models. "
                   + "Available keys: %s. Add an entry with vectorDimension=%d and "
-                  + "spaceType=cosinesimil in application.yaml (requires reindexing).",
+                  + "spaceType=cosinesimil in application.yaml (the next system-update run "
+                  + "adds the mapping to the semantic index).",
               model, modelKey, available, provider.getDimensions()));
     }
     if (modelConfig.getVectorDimension() != provider.getDimensions()) {

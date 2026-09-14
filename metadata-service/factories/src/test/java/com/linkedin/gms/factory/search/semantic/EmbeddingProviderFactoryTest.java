@@ -801,6 +801,16 @@ public class EmbeddingProviderFactoryTest {
     assertThrows(IllegalStateException.class, factory::getInstance);
   }
 
+  /** The mapping translator matches case-sensitively, so a case variant must fail here too. */
+  @Test
+  public void rejectsClassicalOnCaseVariantSpaceType() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"), modelsWith("hash_v1_2048", 2048, "Cosinesimil"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
   /** A yaml without the classical block must fail with the configuration hint, not an NPE. */
   @Test
   public void rejectsClassicalWhenClassicalConfigBlockMissing() throws Exception {

@@ -194,10 +194,11 @@ class TestClassicalEmbeddingProvider:
             }
         """
         result = execute_graphql(auth_session, query)
+        # The suite only runs under an explicit opt-in gate, so a server that cannot
+        # answer this is misconfigured for the run: fail rather than skip.
         if "errors" in result:
-            pytest.skip(
-                f"Could not fetch appConfig (GraphQL errors: {result['errors']}). "
-                "Skipping provider type assertion."
+            pytest.fail(
+                f"Could not fetch appConfig (GraphQL errors: {result['errors']})"
             )
 
         semantic_config = (
@@ -208,9 +209,9 @@ class TestClassicalEmbeddingProvider:
         provider_type = embedding_config.get("provider")
 
         if provider_type is None:
-            pytest.skip(
-                "semanticSearchConfig.embeddingConfig.provider not exposed by this server. "
-                "Skipping check."
+            pytest.fail(
+                "semanticSearchConfig.embeddingConfig.provider not exposed by this server; "
+                "the classical suite needs a semantic-search-enabled GMS"
             )
 
         assert provider_type == "classical", (

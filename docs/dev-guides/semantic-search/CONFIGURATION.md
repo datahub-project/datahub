@@ -272,6 +272,8 @@ CLASSICAL_EMBEDDING_MODEL=hash-v1-2048
 
 The classical provider hashes word and character n-gram features with SHA-256 into a fixed-width vector (2048 dimensions by default). It needs no API key, endpoint, or model download, and the Python ingestion provider implements the identical algorithm, so document and query vectors are bit-identical. Ranking is lexical (shared words and character n-grams), not semantic: it does not match synonyms or paraphrases.
 
+`EMBEDDING_PROVIDER_MAX_CHAR_LENGTH` does not apply to this provider: instead of truncating, it rejects any input over 16,384 code points, on both the query and the ingestion side. Keep the ingestion recipe's `chunking.max_characters` (default 500) below that limit, or those chunks fail to embed on every run.
+
 #### Switching Between Providers
 
 When switching embedding providers, you must delete and recreate the semantic index because different models produce vectors with different dimensions.
