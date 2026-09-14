@@ -327,6 +327,16 @@ ext {
         return activeProfile
     }
 
+    // Helper function to read the captured quickstart task name from file.
+    // Distinct from the profile: some debug stacks share a compose profile (quickstartDebug and
+    // quickstartDebugBuiltinEmbedding both use 'debug'), so reload[Env] needs the exact task to
+    // rebuild stack-specific artifacts like the onnx boot archives.
+    readCapturedTaskName = {
+        def composeFileName = new File(compose_base).getName()
+        def taskFile = new File(rootProject.buildDir, composeFileName.replace('.yml', '-task.txt'))
+        return taskFile.exists() ? taskFile.text.trim() : null
+    }
+
     // Helper function to find the taskName and config that uses a given profile (only searches debug tasks)
     // Returns a map with 'taskName' and 'config' keys
     findTaskNameByProfile = { profile ->
@@ -788,6 +798,12 @@ tasks.withType(ComposeUp).configureEach {
             profileFile.text = primaryProfile
 
             logger.lifecycle("Captured profile '${primaryProfile}' to ${profileFile.absolutePath}")
+
+            // Also record the exact quickstart task. Profiles are not unique across debug stacks
+            // (quickstartDebug and quickstartDebugBuiltinEmbedding both use 'debug'), so reload[Env]
+            // reads this to rebuild stack-specific artifacts like the onnx boot archives.
+            def taskFile = new File(rootProject.buildDir, composeFileName.replace('.yml', '-task.txt'))
+            taskFile.text = taskBaseName
         }
     }
 }
@@ -817,8 +833,10 @@ tasks.register("reload", Exec) {
 
           // The builtin-embedding stack mounts the onnx boot archives (war-onnx.war /
           // datahub-upgrade-onnx.jar) over the defaults, so reload must rebuild THOSE or the
-          // containers keep running stale variant code after a source change.
-          if (matchingTaskName == 'quickstartDebugBuiltinEmbedding') {
+          // containers keep running stale variant code after a source change. Key off the
+          // captured task, not matchingTaskName: builtin-embedding shares the 'debug' profile
+          // with quickstartDebug, so profile lookup resolves to quickstartDebug here.
+          if (readCapturedTaskName.call() == 'quickstartDebugBuiltinEmbedding') {
             dependsOn ':metadata-service:war:onnxBootJar', ':datahub-upgrade:onnxBootJar'
           }
       }
@@ -881,8 +899,10 @@ tasks.register("reloadEnv", Exec) {
 
             // The builtin-embedding stack mounts the onnx boot archives (war-onnx.war /
             // datahub-upgrade-onnx.jar) over the defaults, so reloadEnv must rebuild THOSE or the
-            // recreated containers keep running stale variant code after a source change.
-            if (matchingTaskName == 'quickstartDebugBuiltinEmbedding') {
+            // recreated containers keep running stale variant code after a source change. Key off
+            // the captured task, not matchingTaskName: builtin-embedding shares the 'debug'
+            // profile with quickstartDebug, so profile lookup resolves to quickstartDebug here.
+            if (readCapturedTaskName.call() == 'quickstartDebugBuiltinEmbedding') {
               dependsOn ':metadata-service:war:onnxBootJar', ':datahub-upgrade:onnxBootJar'
             }
         }
