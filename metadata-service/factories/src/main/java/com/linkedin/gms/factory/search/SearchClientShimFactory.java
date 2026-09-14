@@ -13,6 +13,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClie
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -119,6 +120,8 @@ public class SearchClientShimFactory {
       int connectionRequestTimeoutMs)
       throws IOException {
 
+    assertIamAuthHasSharedCredentials(esConfig, defaultAwsCredentialsProvider);
+
     // Build the shim configuration from DataHub configuration
     ShimConfigurationBuilder configBuilder =
         new ShimConfigurationBuilder()
@@ -164,6 +167,21 @@ public class SearchClientShimFactory {
     assertCompatModeNotSemanticEnabled(shim, semanticEnabled);
 
     return shim;
+  }
+
+  /**
+   * OpenSearch IAM signing must use the process-wide {@code defaultAwsCredentialsProvider}. A null
+   * provider would either fail later in the shim or (worse) let a client fall through to a new IRSA
+   * default chain.
+   */
+  static void assertIamAuthHasSharedCredentials(
+      @Nonnull ElasticSearchConfiguration esConfig,
+      @Nullable AwsCredentialsProvider defaultAwsCredentialsProvider) {
+    if (esConfig.isOpensearchUseAwsIamAuth() && defaultAwsCredentialsProvider == null) {
+      throw new IllegalStateException(
+          "Shared DefaultCredentialsProvider is required when elasticsearch.iam /"
+              + " opensearchUseAwsIamAuth is enabled");
+    }
   }
 
   /**

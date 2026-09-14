@@ -54,7 +54,7 @@ public class IgnoreUnknownMutator extends MutationHook {
                 log.warn(
                     "Dropping unknown aspect {} on entity {}",
                     item.getAspectName(),
-                    item.getAspectSpec().getName());
+                    item.getEntitySpec().getName());
                 return false;
               }
               if (!SUPPORTED_MIME_TYPES.contains(

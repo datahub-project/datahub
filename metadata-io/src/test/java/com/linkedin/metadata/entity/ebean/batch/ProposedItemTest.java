@@ -8,6 +8,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -63,6 +64,15 @@ public class ProposedItemTest {
     assertEquals(item.getAuditStamp(), auditStamp);
     assertEquals(item.getEntitySpec(), entitySpec);
     assertEquals(item.getAspectSpec(), aspectSpec);
+  }
+
+  @Test
+  public void testBuildRejectsUnknownAspect() {
+    mcp.setAspectName("notARegisteredAspect");
+
+    assertThrows(
+        ValidationException.class,
+        () -> ProposedItem.builder().build(mcp, auditStamp, entityRegistry));
   }
 
   @Test

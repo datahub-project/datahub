@@ -21,6 +21,7 @@ def dataset_urn(auth_session, graph_client, tmp_path_factory):
     )
 
 
+@pytest.mark.p0
 @pytest.mark.dependency()
 def test_update_deprecation_all_fields(auth_session, dataset_urn):
     query = """query getDataset($urn: String!) {\n

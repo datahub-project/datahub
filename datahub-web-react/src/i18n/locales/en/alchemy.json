@@ -64,6 +64,8 @@
     "incidentStage.noAction": "No action",
     "incidentStage.triage": "Triage",
     "input.placeholder": "Placeholder",
+    "multiSelectInput.clearAllAriaLabel": "Clear all tags",
+    "multiSelectInput.removeTagAriaLabel": "Remove {{tag}}",
     "loadedImage.error": "Image not found",
     "loadedVideo.error": "Failed to load video",
     "loadedVideo.unsupportedFallback": "Your browser doesn't support HTML5 video. Here's a <anchor>link to the video</anchor> instead.",

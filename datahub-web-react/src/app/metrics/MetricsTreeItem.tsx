@@ -30,6 +30,7 @@ interface MetricsTreeItemProps {
     hasChildren?: boolean;
     childCount?: number;
     isExpanded?: boolean;
+    afterLabel?: React.ReactNode;
     onClick: () => void;
     onToggleExpand?: () => void;
     testId?: string;
@@ -45,6 +46,7 @@ export const MetricsTreeItem: React.FC<MetricsTreeItemProps> = ({
     hasChildren = false,
     childCount,
     isExpanded = false,
+    afterLabel,
     onClick,
     onToggleExpand,
     testId,
@@ -73,6 +75,7 @@ export const MetricsTreeItem: React.FC<MetricsTreeItemProps> = ({
             icon={glyph}
             label={title}
             labelTitle={title}
+            afterLabel={afterLabel}
             onSelect={onClick}
             onToggleExpand={onToggleExpand}
             data-testid={testId}

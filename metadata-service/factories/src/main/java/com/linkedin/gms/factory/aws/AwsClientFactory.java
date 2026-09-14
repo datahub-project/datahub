@@ -6,6 +6,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import com.linkedin.metadata.utils.aws.AwsClientCredentials;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PreDestroy;
 import javax.annotation.Nonnull;
@@ -14,8 +15,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -121,11 +124,23 @@ public class AwsClientFactory {
       return null;
     }
 
+    AwsCredentialsProvider resolvedCredentials = credentialsProvider;
+    if (resolvedCredentials == null) {
+      if (hasAwsEndpoint) {
+        // LocalStack / custom endpoint: never fall through to the IRSA default chain.
+        resolvedCredentials =
+            StaticCredentialsProvider.create(AwsBasicCredentials.create("test", "test"));
+      } else {
+        log.debug(
+            "Skipping shared object storage S3Client (no explicit credentials provider; "
+                + "AWS SDK would otherwise build a new IRSA DefaultCredentialsProvider)");
+        return null;
+      }
+    }
+
     try {
       var clientBuilder = S3Client.builder();
-      if (credentialsProvider != null) {
-        clientBuilder.credentialsProvider(credentialsProvider);
-      }
+      clientBuilder.credentialsProvider(resolvedCredentials);
       if (hasAwsEndpoint) {
         clientBuilder.endpointOverride(java.net.URI.create(endpointUrl));
         clientBuilder.forcePathStyle(true);
@@ -181,7 +196,7 @@ public class AwsClientFactory {
   private static S3Presigner buildPresigner(@Nonnull S3Client s3Client) {
     var presignerBuilder =
         S3Presigner.builder()
-            .credentialsProvider(s3Client.serviceClientConfiguration().credentialsProvider())
+            .credentialsProvider(AwsClientCredentials.requireFrom(s3Client))
             .region(s3Client.serviceClientConfiguration().region());
 
     String endpointUrl = envOrProperty("AWS_ENDPOINT_URL");
