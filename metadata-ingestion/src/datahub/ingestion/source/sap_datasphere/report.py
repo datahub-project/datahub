@@ -58,6 +58,9 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     # annotations.
     analytic_model_columns_typed_from_source: int = 0
     analytic_model_columns_typed_by_measure_heuristic: int = 0
+    # Calculated columns whose CSN expression was rendered onto the column
+    # description as a ``formula: <expr>`` line (mirrors the Tableau connector).
+    calculated_column_formulas_emitted: int = 0
     assets_csn_fetch_failed: LossyList[str] = field(default_factory=LossyList)
     # Non-empty means the supportsAnalyticalQueries routing heuristic was wrong
     # for those assets but the sibling-type fallback recovered them.

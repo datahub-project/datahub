@@ -6242,3 +6242,34 @@ def test_column_lineage_extractor_failure_preserves_table_level(
         f"expected the column-lineage failure warning; got "
         f"{[w.title for w in source.report.warnings]}"
     )
+
+
+def test_schema_fields_from_csn_appends_calculated_formula():
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="calc-formula"), cfg)
+    csn_def = {
+        "elements": {
+            "QTY": {"type": "cds.Decimal", "@EndUserText.label": "Quantity"},
+            "TOTAL": {"type": "cds.Decimal", "@EndUserText.label": "Total"},
+        },
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"ref": ["QTY"]},
+                    {"xpr": [{"ref": ["PRICE"]}, "*", {"ref": ["QTY"]}], "as": "TOTAL"},
+                ],
+            }
+        },
+    }
+
+    fields = source._schema_fields_from_csn("S1", "MY_VIEW", csn_def)
+    assert fields is not None
+    by_path = {f.fieldPath: f for f in fields}
+    # The calculated column carries its label plus the rendered formula.
+    assert by_path["TOTAL"].description == "Total\n\nformula: PRICE * QTY"
+    # A plain projected column keeps its label untouched.
+    assert by_path["QTY"].description == "Quantity"
+    assert source.report.calculated_column_formulas_emitted == 1

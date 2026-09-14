@@ -100,6 +100,10 @@ from datahub.ingestion.source.sap_datasphere.csn_parser import (
 )
 from datahub.ingestion.source.sap_datasphere.edmx_parser import EdmxParser
 from datahub.ingestion.source.sap_datasphere.flows import parse_flow
+from datahub.ingestion.source.sap_datasphere.formula import (
+    extract_calculated_column_formulas,
+    make_description_with_formula,
+)
 from datahub.ingestion.source.sap_datasphere.graph_resolver import (
     ExternalUrnGraphResolver,
 )
@@ -2030,11 +2034,46 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 space_name, asset_name, csn_def, csn_schema.fields, missing
             )
         self._report_missing_cds_types(space_name, asset_name, missing)
+        self._apply_calculated_column_formulas(
+            space_name, asset_name, csn_def, csn_schema.fields
+        )
         filtered = self._apply_column_pattern(csn_schema.fields)
         if not filtered:
             return None
         self.report.assets_schema_from_csn += 1
         return filtered
+
+    def _apply_calculated_column_formulas(
+        self,
+        space_name: str,
+        asset_name: str,
+        csn_def: JsonDict,
+        fields: List[SchemaFieldClass],
+    ) -> None:
+        # Surface each calculated column's expression on its description, the way
+        # the Tableau connector appends a CalculatedField's formula. The CSN label
+        # (if any) stays first; the formula is appended as a `formula:` line.
+        try:
+            formulas = extract_calculated_column_formulas(csn_def)
+        except Exception as e:
+            logger.debug(
+                "Could not extract calculated-column formulas for %s.%s: %s",
+                space_name,
+                asset_name,
+                e,
+            )
+            return
+        if not formulas:
+            return
+        field_by_path = {f.fieldPath: f for f in fields}
+        for column_name, formula in formulas.items():
+            field = field_by_path.get(column_name)
+            if field is None:
+                continue
+            field.description = make_description_with_formula(
+                field.description, formula
+            )
+            self.report.calculated_column_formulas_emitted += 1
 
     def _decorate_fields(self, result: EdmxParseResult) -> List[SchemaFieldClass]:
         decorated: List[SchemaFieldClass] = []
