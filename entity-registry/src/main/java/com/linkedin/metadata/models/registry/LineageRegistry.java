@@ -132,15 +132,20 @@ public class LineageRegistry {
 
       for (String currentType : typesToProcess) {
         if (discoveredTypes.add(currentType)) {
-          LineageSpec lineageSpec = _lineageSpecMap.get(currentType.toLowerCase());
-          if (lineageSpec != null) {
-            Stream.concat(
-                    lineageSpec.getDownstreamEdges().stream(),
-                    lineageSpec.getUpstreamEdges().stream())
-                .map(EdgeInfo::getOpposingEntityType)
-                .map(entity -> specs.get(entity.toLowerCase()).getName())
-                .forEach(nextBatch::add);
-          }
+          EntitySpec currentSpec = specs.get(currentType.toLowerCase());
+          String lookupName = currentSpec != null ? currentSpec.getName() : currentType;
+          Stream.concat(
+                  getLineageRelationships(lookupName, LineageDirection.UPSTREAM).stream(),
+                  getLineageRelationships(lookupName, LineageDirection.DOWNSTREAM).stream())
+              .map(EdgeInfo::getOpposingEntityType)
+              .map(
+                  entity -> {
+                    EntitySpec opposingSpec = specs.get(entity.toLowerCase());
+                    // Hardcoded schemaField edges may name types absent from a partial
+                    // test registry; keep the annotated name so discovery still works.
+                    return opposingSpec != null ? opposingSpec.getName() : entity;
+                  })
+              .forEach(nextBatch::add);
         }
       }
       typesToProcess = nextBatch;
