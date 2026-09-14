@@ -605,6 +605,41 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # The skip above prevents the DATA LOSS; it does not make the URNs correct,
     # because two genuinely different charts still share one entity.
     chart_urns_claimed_by_multiple_workbooks: int = 0
+    # A chart URN re-emitted by the SAME workbook -- the /schema correction pass
+    # re-entering the emission guard. Not a collision, and counting it as one
+    # inflated the headline figure by however many charts /schema corrected:
+    # the collision counter moved -8 in lockstep with the self-reference fix in
+    # run 11, a run where no workbook was added or removed.
+    chart_urn_reemitted_by_same_workbook: int = 0
+    # The live-vs-stale split, recorded where the URN is CLAIMED rather than
+    # where an emission is refused. The refusal path only fires when the
+    # incoming copy is POORER, so it samples exactly the copies that look worse
+    # -- 449 of 2,741 charts on one tenant. This is the number that decides
+    # whether workbook-scoped URNs are worth breaking every existing chart URN:
+    # two live charts means the migration buys real entities, one live and one
+    # stale means it buys almost nothing.
+    chart_urn_collisions_both_live: int = 0
+    chart_urn_collisions_one_side_empty: int = 0
+    chart_urn_collision_pairs: LossyList[str] = field(default_factory=LossyList)
+    # Page DASHBOARDS collide by the same mechanism and have NEVER been counted:
+    # Page.get_urn_part() is a bare pageId, and a copied workbook reuses page
+    # ids exactly as it reuses element ids (confirmed on our dev tenant: 1 of 9
+    # pageIds and 5 of 19 elementIds shared with the copy). Charts at least have
+    # the regressive-emission guard; dashboards have no equivalent, so the later
+    # page simply overwrites the earlier one. Every sizing of the URN migration
+    # so far has used the chart number alone and understated it.
+    page_dashboard_urns_claimed_by_multiple_workbooks: int = 0
+    page_dashboard_collision_samples: LossyList[str] = field(default_factory=LossyList)
+    # Refusals by the opt-in name guess now that it requires a unique OTHER
+    # element owning the column, instead of taking candidates[0] outright.
+    chart_ref_name_guess_refused_ambiguous: int = 0
+    chart_ref_name_guess_refused_no_owner: int = 0
+    # Anonymised structural fingerprints -- counts and ref topology as indexes,
+    # never names, ids or formula bodies. Enough to GENERATE an equivalent
+    # workbook on the dev tenant, which is the only way the chart path will ever
+    # get a fixture: Sigma has no workbook-content authoring API, so every
+    # chart-side resolver is currently exercised only by a 6-hour customer run.
+    workbook_shape_fingerprints: LossyList[str] = field(default_factory=LossyList)
     # Derived columns that took their upstreams from the sibling columns they
     # are computed from (Sum([Amount (1)]), DateLookback([Amount], ...)).
     # Largest chart-side gap measured on a real tenant: 27,037 columns, with

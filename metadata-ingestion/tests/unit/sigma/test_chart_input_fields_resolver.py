@@ -3264,7 +3264,12 @@ class TestARicherAspectIsNeverOverwrittenByAPoorerDuplicate:
             )
         return out
 
-    def _emit(self, resolved: int, total: int) -> int:
+    def _emit(self, resolved: int, total: int, workbook: str = "wb1") -> int:
+        # Which WORKBOOK emits matters: a re-emit by the same workbook is the
+        # /schema correction pass, not a collision, and conflating the two
+        # inflated the collision total by however many charts /schema corrected.
+        self.src._current_workbook = _make_workbook_with_elements([[]])
+        self.src._current_workbook.workbookId = workbook
         return len(
             list(
                 self.src._chart_input_fields_workunits(
@@ -3298,9 +3303,37 @@ class TestARicherAspectIsNeverOverwrittenByAPoorerDuplicate:
     def test_collisions_are_counted_even_when_nothing_is_refused(self) -> None:
         """The skip prevents DATA LOSS; it does not make the URN correct. The
         count is what says how many entities are actually two charts."""
-        self._emit(10, 10)
-        self._emit(10, 10)
-        assert self.src.reporter.chart_urns_claimed_by_multiple_workbooks == 1
+        self._emit(10, 10, workbook="wb1")
+        self._emit(10, 10, workbook="wb2")
+        r = self.src.reporter
+        assert r.chart_urns_claimed_by_multiple_workbooks == 1
+        assert r.chart_urn_reemitted_by_same_workbook == 0
+        # Both sides resolved something, so this collision is two LIVE charts --
+        # the case that makes the URN migration worth its cost.
+        assert r.chart_urn_collisions_both_live == 1
+        assert r.chart_urn_collisions_one_side_empty == 0
+
+    def test_a_same_workbook_reemit_is_not_a_collision(self) -> None:
+        """/schema re-enters this guard to correct a chart it already emitted.
+
+        Counting that as a second workbook claiming the URN is how the headline
+        figure moved -8 in lockstep with the self-reference fix, in a run where
+        no workbook was added or removed.
+        """
+        self._emit(10, 10, workbook="wb1")
+        self._emit(10, 10, workbook="wb1")
+        r = self.src.reporter
+        assert r.chart_urns_claimed_by_multiple_workbooks == 0
+        assert r.chart_urn_reemitted_by_same_workbook == 1
+
+    def test_a_stale_copy_is_told_apart_from_a_live_one(self) -> None:
+        """One side resolving NOTHING means the migration buys almost nothing
+        for that URN -- the opposite conclusion from two live charts."""
+        self._emit(10, 10, workbook="wb1")
+        self._emit(0, 10, workbook="wb2")
+        r = self.src.reporter
+        assert r.chart_urn_collisions_one_side_empty == 1
+        assert r.chart_urn_collisions_both_live == 0
 
 
 class TestTheFixesReachTheEmittedAspectNotJustTheResolver:
@@ -3633,6 +3666,63 @@ class TestNameMatchingIsOptInAndOffByDefault:
             builder.make_chart_urn("sigma", "elX"),
             "col",
         )
+
+    def _resolve_with(self, elements, *, chart_element_id="e1"):
+        src = _make_source({"resolve_chart_refs_by_element_name": True})
+        src.reporter = SigmaSourceReport()
+        return src, src._resolve_chart_ref(
+            _make_ref("NotAnUpstream", "col"),
+            chart_element_id=chart_element_id,
+            chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={"NotAnUpstream": elements},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={
+                e.elementId: builder.make_chart_urn("sigma", e.elementId)
+                for e in elements
+            },
+            workbook_dm_url_ids=frozenset(),
+        )
+
+    def test_an_element_naming_ITSELF_is_never_the_upstream(self) -> None:
+        """Sigma names a warehouse-sourced element after its table, so a
+        formula inside that element matches its own name. Emitting it makes a
+        chart point at its own column, which is not lineage.
+
+        Run 11: 2,842 of 5,338 single-owner matches were this, and every one of
+        the 23 /schema contradictions came from the group.
+        """
+        itself = _make_element("e1", "NotAnUpstream", ["col"])
+        src, result = self._resolve_with([itself], chart_element_id="e1")
+
+        assert result is None
+        assert src.reporter.chart_ref_name_guess_refused_no_owner == 1
+        assert src.reporter.chart_ref_resolved_by_element_name_guess == 0
+
+    def test_a_candidate_without_the_column_is_refused(self) -> None:
+        """The old path took candidates[0] with no ownership test at all."""
+        other = _make_element("elX", "NotAnUpstream", ["somethingElse"])
+        src, result = self._resolve_with([other])
+
+        assert result is None
+        assert src.reporter.chart_ref_name_guess_refused_no_owner == 1
+
+    def test_two_owners_are_refused_rather_than_ordered(self) -> None:
+        a = _make_element("elA", "NotAnUpstream", ["col"])
+        b = _make_element("elB", "NotAnUpstream", ["col"])
+        src, result = self._resolve_with([a, b])
+
+        assert result is None, "first-in-list is not a tiebreaker"
+        assert src.reporter.chart_ref_name_guess_refused_ambiguous == 1
+
+    def test_a_sole_other_owner_still_resolves(self) -> None:
+        """The tightening must not empty the feature out."""
+        itself = _make_element("e1", "NotAnUpstream", ["col"])
+        real = _make_element("elX", "NotAnUpstream", ["col"])
+        src, result = self._resolve_with([itself, real], chart_element_id="e1")
+
+        assert result == (builder.make_chart_urn("sigma", "elX"), "col")
+        assert src.reporter.chart_ref_resolved_by_element_name_guess == 1
 
 
 class TestTheEdgeAuditAnswersIsItTheRightEdge:

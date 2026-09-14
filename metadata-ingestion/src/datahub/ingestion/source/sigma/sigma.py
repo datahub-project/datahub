@@ -6325,6 +6325,72 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
         return (urn, canonical)
 
+    @staticmethod
+    def _element_owns_column(element: Element, wanted_lower: str) -> bool:
+        """Does this element carry a column of that name?
+
+        Checks both sources deliberately. ``column_id_by_name`` comes from
+        /columns and is absent for a workbook whose fetch aborted; ``columns``
+        comes from the page-elements payload and survives that. Consulting only
+        the first would make ownership unanswerable for exactly the workbooks
+        already worst served.
+
+        Shared by the measurement and the emission path on purpose: they scored
+        differently once, which meant the published accuracy figure described a
+        resolver that was not the one running.
+        """
+        return any(
+            name.strip().lower() == wanted_lower
+            for name in list(element.column_id_by_name) + list(element.columns or [])
+        )
+
+    def _sole_named_owner_of_column(
+        self,
+        ref: BracketRef,
+        candidates: Sequence[Element],
+        *,
+        chart_element_id: str,
+    ) -> Optional[Element]:
+        """The one OTHER element named ref.source that owns ref.column, or None.
+
+        The opt-in name guess used to take ``candidates[0]`` outright: no
+        ownership test, no self-exclusion, first in list wins. Run 11 measured
+        what that costs by scoring the same refs against /schema's independent
+        ID answer, and the two failure modes it found are both avoidable:
+
+        - **2,842 of 5,338 single-owner matches were the element naming
+          ITSELF.** Sigma names a warehouse-sourced element after its table, so
+          a formula ``[THE_TABLE/col]`` inside that same element matches its own
+          name. Emitting that produces a chart pointing at its own column, which
+          is the absence of lineage dressed as lineage.
+        - **Every one of the 23 /schema contradictions was such a self-match.**
+          Against 663 confirmations, so the guess is right 96.6% of the time
+          overall and the wrongness concentrates entirely in the degenerate
+          group.
+
+        Excluding self and requiring a unique OWNER is therefore not a tightening
+        for its own sake -- it removes the only population /schema caught being
+        wrong, and leaves ~2,496 refs the measurement supports. The flag stays
+        off by default regardless: ``InputFields`` still carries no
+        confidenceScore, so even a 96.6% edge is unauditable downstream.
+        """
+        if not ref.column:
+            return None
+        wanted = ref.column.strip().lower()
+        owners = [
+            elem
+            for elem in candidates
+            if elem.elementId != chart_element_id
+            and self._element_owns_column(elem, wanted)
+        ]
+        if len(owners) > 1:
+            self.reporter.chart_ref_name_guess_refused_ambiguous += 1
+            return None
+        if not owners:
+            self.reporter.chart_ref_name_guess_refused_no_owner += 1
+            return None
+        return owners[0]
+
     def _note_named_not_upstream_evidence(
         self,
         *,
@@ -6362,27 +6428,41 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if not wanted:
             return
         owners = [
-            elem
-            for elem in named_candidates
-            if any(name.strip().lower() == wanted for name in elem.column_id_by_name)
+            elem for elem in named_candidates if self._element_owns_column(elem, wanted)
         ]
+        # A single owner that IS this element is not a candidate upstream, it is
+        # the element naming itself -- Sigma names a warehouse-sourced element
+        # after its table, so [THE_TABLE/col] inside that element matches its own
+        # name. Run 11: 2,842 of 5,338 single-owner matches were this, and every
+        # /schema contradiction came from the group. Reported separately so the
+        # eligible population is read off the counter instead of being
+        # reconstructed by parsing 6,715 debug lines, which is how it was found.
+        others = [elem for elem in owners if elem.elementId != chart_element_id]
         outcome = (
-            "unique_candidate_owns_the_column"
-            if len(owners) == 1
+            "self_match_not_an_upstream"
+            if owners and not others
+            else "unique_candidate_owns_the_column"
+            if len(others) == 1
             else "several_candidates_own_the_column"
-            if len(owners) > 1
+            if len(others) > 1
             else "no_candidate_owns_the_column"
         )
         self.reporter.chart_ref_named_not_upstream_outcomes[outcome] = (
             self.reporter.chart_ref_named_not_upstream_outcomes.get(outcome, 0) + 1
         )
-        if len(owners) == 1:
+        if len(others) == 1:
+            # ``others``, not ``owners``: scoring self-matches against /schema
+            # measured a resolver nobody would ship. All 23 contradictions in
+            # run 11 were self-matches, so including them reported the guess as
+            # 96.6% accurate when the accuracy of the guesses we would ACTUALLY
+            # emit was never measured at all.
+            #
             # Keyed on the UPSTREAM column name, which is what /schema reports
             # on the other side; the chart's own column name is not known here
             # and is not the thing being compared.
             self._name_guess_element_ids.setdefault(
                 (chart_element_id, wanted), set()
-            ).add(owners[0].elementId)
+            ).add(others[0].elementId)
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
                 "CHART REF NAMED-NOT-UPSTREAM element %s ref=%r -> %s: %d workbook "
@@ -6709,12 +6789,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # check against. Kept reachable because "a best-effort edge beats none"
         # is a legitimate preference -- it just must not be the default.
         if self.config.resolve_chart_refs_by_element_name and candidates:
-            named = candidates[0]
-            chart_urn_for_named = elementId_to_chart_urn.get(named.elementId)
-            if chart_urn_for_named is not None and ref.column is not None:
-                if count:
-                    self.reporter.chart_ref_resolved_by_element_name_guess += 1
-                return (chart_urn_for_named, ref.column)
+            named = self._sole_named_owner_of_column(
+                ref, candidates, chart_element_id=chart_element_id
+            )
+            if named is not None:
+                chart_urn_for_named = elementId_to_chart_urn.get(named.elementId)
+                if chart_urn_for_named is not None and ref.column is not None:
+                    if count:
+                        self.reporter.chart_ref_resolved_by_element_name_guess += 1
+                    return (chart_urn_for_named, ref.column)
 
         # Nothing this workbook's own elements or the chart's declared model
         # upstreams could answer. Before giving up, ask the models the WORKBOOK
@@ -7141,6 +7224,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # runs per PAGE and /schema is one document per WORKBOOK, so without
         # this the ceiling is multiplied by the page count.
         self._blocked_workbooks_measured: Set[str] = set()
+        # Page dashboard URN -> the first workbook that claimed it. Page ids are
+        # workbook-scoped like element ids, so a copy collides here too.
+        self._page_dashboard_workbook: Dict[str, str] = {}
         # Global: element Dataset URN -> {lowercased column name: canonical
         # column name}. Same dedup logic as the per-element urn_to_cols in the
         # FGL builder, so column validation uses the winner set rather than raw
@@ -7999,7 +8085,34 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         resolved = self._resolved_field_count(chart_urn, fields)
         best = self._chart_best_resolved.get(chart_urn)
         if best is not None:
-            self.reporter.chart_urns_claimed_by_multiple_workbooks += 1
+            previous_workbook = self._chart_best_workbook.get(chart_urn)
+            current_workbook = self._current_workbook_id()
+            if previous_workbook == current_workbook:
+                # NOT a collision. /schema re-emits a corrected aspect for the
+                # same chart through this same function, so counting every
+                # re-entry inflated the collision total by however many charts
+                # /schema corrected -- which is why the counter moved in
+                # lockstep with the self-reference fix (-8 on both) in a run
+                # where no workbook was added or removed. Two different
+                # workbooks claiming one URN is the thing being counted.
+                self.reporter.chart_urn_reemitted_by_same_workbook += 1
+            else:
+                self.reporter.chart_urns_claimed_by_multiple_workbooks += 1
+                # Recorded at CLAIM time, not only when an emission is refused.
+                # The refusal path fires only when the incoming copy is POORER,
+                # so reading a live-vs-stale split off it samples exactly the
+                # copies that look worse -- 449 of 2,741 charts on one tenant
+                # (2026-09). Both claimants' resolved counts are what decide
+                # whether a collision is two live charts (migrate, and pay for
+                # it) or one live chart and a stale copy (the URN change buys
+                # nothing). Capped; the distribution is the answer, not the list.
+                self.reporter.chart_urn_collision_pairs.append(
+                    f"chart={chart_urn} first={best} second={resolved}"
+                )
+                if best > 0 and resolved > 0:
+                    self.reporter.chart_urn_collisions_both_live += 1
+                else:
+                    self.reporter.chart_urn_collisions_one_side_empty += 1
             if resolved < best:
                 self.reporter.chart_input_fields_regressive_emission_skipped += 1
                 self.reporter.chart_regressive_emission_samples.append(
@@ -8025,6 +8138,90 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=chart_urn,
             aspect=InputFieldsClass(fields=fields),
         ).as_workunit()
+
+    def _note_workbook_shape(self, workbook: Workbook) -> None:
+        """An anonymised structural fingerprint, for rebuilding this on dev.
+
+        The chart path has no dev fixture and cannot get one from the API --
+        Sigma has no workbook-content authoring endpoint -- so every chart-side
+        resolver is exercised only by the customer's 6-hour run. To generate an
+        equivalent workbook by hand we need the SHAPE: how many pages, how many
+        elements, how the refs connect them, how deep the formulas nest.
+
+        What we must NOT take is the identity. This is a public repo and names
+        have leaked into it four times, every one of them a name that "looked
+        generic". So nothing here records a name, a column, a table, an id or a
+        formula body -- only counts, and ref topology as indexes INTO this
+        workbook's own element list. ``e3 -> e7`` says element 3 references
+        element 7; it says nothing about what either is called, and it is
+        exactly what a fixture generator needs.
+
+        Cheap by construction: one line per workbook, bounded by workbook count,
+        and derived from data already in memory.
+        """
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        elements = [el for page in workbook.pages for el in page.elements]
+        # A ref names its source by DISPLAY NAME, so the topology has to be
+        # recovered through the name index -- but only the resulting INDEX is
+        # recorded, never the name that produced it.
+        index_by_name: Dict[str, int] = {}
+        for i, element in enumerate(elements):
+            if element.name:
+                index_by_name.setdefault(element.name.strip().lower(), i)
+        edges: Set[str] = set()
+        segment_histogram: Dict[int, int] = {}
+        for i, element in enumerate(elements):
+            for formula in (element.column_formulas or {}).values():
+                for ref in extract_bracket_refs(formula or ""):
+                    segment_histogram[len(ref.parts)] = (
+                        segment_histogram.get(len(ref.parts), 0) + 1
+                    )
+                    if ref.is_parameter or not ref.source:
+                        continue
+                    target = index_by_name.get(ref.source.strip().lower())
+                    if target is not None and len(edges) < 200:
+                        edges.add(f"e{i}->e{target}")
+        self.reporter.workbook_shape_fingerprints.append(
+            f"pages={len(workbook.pages)} elements={len(elements)} "
+            f"columns={sum(len(el.columns or []) for el in elements)} "
+            f"with_formula={sum(1 for el in elements if el.column_formulas)} "
+            f"ref_segments={dict(sorted(segment_histogram.items()))} "
+            f"edges={sorted(edges)[:40]}"
+        )
+
+    def _note_page_dashboard_claim(
+        self, dashboard_urn: str, workbook: Workbook
+    ) -> None:
+        """Count page DASHBOARDS colliding, which nothing has ever measured.
+
+        ``Page.get_urn_part()`` is a bare ``pageId`` and a page becomes a
+        Dashboard, so a copied workbook collides here exactly as its charts do
+        -- confirmed on our own dev tenant, where one pageId and five
+        elementIds are shared between a workbook and its copy. Every discussion
+        of the URN migration has been sized on the CHART number alone, which
+        understates it.
+
+        Charts at least have the regressive-emission guard to keep the richer
+        aspect. Dashboards have no equivalent: the later page simply overwrites
+        the earlier one's aspects. Counting first, because the remedy is the
+        same workbook-scoped URN change and the decision is one decision.
+
+        The workbook's OWN dashboard URN is built from ``workbook.workbookId``
+        and is globally unique; only page dashboards are affected.
+        """
+        previous = self._page_dashboard_workbook.get(dashboard_urn)
+        current = workbook.workbookId
+        if previous is None:
+            self._page_dashboard_workbook[dashboard_urn] = current
+            return
+        if previous == current:
+            return
+        self.reporter.page_dashboard_urns_claimed_by_multiple_workbooks += 1
+        self.reporter.page_dashboard_collision_samples.append(
+            f"dashboard={dashboard_urn} first_workbook={previous} "
+            f"second_workbook={current}"
+        )
 
     @staticmethod
     def _resolved_field_count(chart_urn: str, fields: List[InputFieldClass]) -> int:
@@ -8498,8 +8695,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         else:
             wb_warehouse_table_index = None
 
+        self._note_workbook_shape(workbook)
+
         for page in workbook.pages:
             dashboard_urn = self._gen_dashboard_urn(page.get_urn_part())
+            self._note_page_dashboard_claim(dashboard_urn, workbook)
 
             yield self._gen_entity_status_aspect(dashboard_urn)
 
