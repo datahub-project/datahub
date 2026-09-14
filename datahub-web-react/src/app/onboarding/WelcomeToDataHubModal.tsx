@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import analytics, { EventType } from '@app/analytics';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ANT_NOTIFICATION_Z_INDEX } from '@app/shared/constants';
+import { checkShouldSkipWelcomeModal, setSkipWelcomeModal } from '@app/shared/localStorageUtils';
 import {
     LoadingContainer,
     SlideContainer,
@@ -19,7 +20,6 @@ import welcomeModalHomeScreenshot from '@images/welcome-modal-home-screenshot.pn
 
 const SLIDE_DURATION_MS = 10000;
 const DATAHUB_DOCS_URL = 'https://docs.datahub.com/docs/category/features';
-const SKIP_WELCOME_MODAL_KEY = 'skipWelcomeModal';
 
 interface VideoSources {
     search: string;
@@ -28,17 +28,12 @@ interface VideoSources {
     aiDocs?: string;
 }
 
-function checkShouldSkipWelcomeModal() {
-    return localStorage.getItem(SKIP_WELCOME_MODAL_KEY) === 'true';
-}
-
 export const WelcomeToDataHubModal = () => {
     const { t } = useTranslation('onboarding');
     const { t: tf } = useTranslation('common.feedback');
     const [shouldShow, setShouldShow] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
     const [videoSources, setVideoSources] = useState<VideoSources | null>(null);
-    const [videoLoading, setVideoLoading] = useState(false);
     const [videosReady, setVideosReady] = useState<{ [key in keyof VideoSources]?: boolean }>({});
     const hasTrackedView = useRef(false);
     const carouselRef = useRef<any>(null);
@@ -78,7 +73,6 @@ export const WelcomeToDataHubModal = () => {
                 aiDocs: undefined,
             };
             setVideoSources(emptyVideoSources);
-            setVideoLoading(false);
 
             // Load all videos in parallel, update each as it completes
             const loadVideo = async (videoKey: keyof VideoSources, importPromise: Promise<{ default: string }>) => {
@@ -177,14 +171,14 @@ export const WelcomeToDataHubModal = () => {
             closeModalTour();
         } else {
             // Only set localStorage for automatic first-time tours, not manual triggers
-            localStorage.setItem(SKIP_WELCOME_MODAL_KEY, 'true');
+            setSkipWelcomeModal(true);
         }
     }
 
     if (!shouldShow) return null;
 
     // Show loading state while videos are being loaded
-    if (videoLoading || !videoSources) {
+    if (!videoSources) {
         return (
             <Modal
                 title={t('welcome.modalTitle')}

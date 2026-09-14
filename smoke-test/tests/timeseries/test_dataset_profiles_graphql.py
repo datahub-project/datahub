@@ -23,7 +23,7 @@ from tests.utils import (
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.OBSERVE)
+pytestmark = [pytest.mark.domain(Domain.OBSERVE), pytest.mark.p0]
 
 _DATASET_URNS = [
     f"urn:li:dataset:(urn:li:dataPlatform:test,profilesGraphqlDataset{i},PROD)"

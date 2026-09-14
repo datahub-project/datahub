@@ -9,7 +9,7 @@ from tests.utils import delete_urns, wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = [pytest.mark.domain(Domain.PLATFORM), pytest.mark.p0]
 
 
 generated_urns = [make_dataset_urn("test", f"database_test_{i}") for i in range(0, 100)]

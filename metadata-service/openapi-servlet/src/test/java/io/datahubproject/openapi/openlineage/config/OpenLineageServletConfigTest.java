@@ -7,7 +7,9 @@ import static org.testng.Assert.assertNull;
 import com.linkedin.common.FabricType;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -331,4 +333,32 @@ public class OpenLineageServletConfigTest extends AbstractTestNGSpringContextTes
       return props;
     }
   }
+
+  /**
+   * Unlike the cases above, which hand-build the properties bean and so never exercise binding,
+   * this one enables real {@code @ConfigurationProperties} binding. It covers both the {@code
+   * .domains(...)} wiring in {@link OpenLineageServletConfig#mappingConfig()} and {@code
+   * DATAHUB_OPENLINEAGE_DOMAINS} parsing as a comma-separated list.
+   */
+  @SpringBootTest(classes = {OpenLineageServletConfig.class, TestConfigBoundProperties.class})
+  @TestPropertySource(
+      properties = {
+        "datahub.openlineage.env=PROD",
+        "datahub.openlineage.domains=urn:li:domain:finance,urn:li:domain:reporting"
+      })
+  public static class BoundDomainsTest extends AbstractTestNGSpringContextTests {
+
+    @Autowired private RunEventMapper.MappingConfig mappingConfig;
+
+    @Test
+    public void testCommaSeparatedDomainsBindAndReachConverterConfig() {
+      assertEquals(
+          mappingConfig.getDatahubConfig().getDomains(),
+          List.of("urn:li:domain:finance", "urn:li:domain:reporting"));
+    }
+  }
+
+  @Configuration
+  @EnableConfigurationProperties(DatahubOpenlineageProperties.class)
+  static class TestConfigBoundProperties {}
 }

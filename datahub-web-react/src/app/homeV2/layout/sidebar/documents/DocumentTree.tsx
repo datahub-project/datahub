@@ -1,3 +1,4 @@
+import { Button, Text } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -17,6 +18,7 @@ import {
 import { DocumentSourceGroup, partitionRootNodesByLayer } from '@app/document/utils/documentTreeGrouping';
 import { ChildLoadMoreTrigger } from '@app/homeV2/layout/sidebar/documents/ChildLoadMoreTrigger';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
+import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
 import Loading from '@app/shared/Loading';
 import { TreeSectionHeader } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeSectionHeader';
 
@@ -34,6 +36,20 @@ const TreeContainer = styled.div`
 const RootObserver = styled.div`
     height: 1px;
     margin-top: 1px;
+`;
+
+// Matches SidebarFilteredResults' empty-state layout so the view-aware empty
+// tree reads the same as the search-mode empty state.
+const EmptyStateWrap = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 24px 16px;
+
+    p {
+        text-align: center;
+    }
 `;
 
 interface DocumentTreeProps {
@@ -118,6 +134,9 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
         loadMoreChildren,
     });
     const { getCurrentDocumentUrn, handleDocumentClick } = useDocumentNavigation(onSelectDocument);
+    // The document tree query is always View-scoped, so a restrictive View can
+    // filter out every root — surface that instead of rendering a blank sidebar.
+    const { hasSelectedView, clearSelectedView } = useSelectedView();
 
     // Deep-link / URL navigation: expand + load the ancestor path so the selected
     // row mounts. Skip in picker/selection mode (move dialog, etc.).
@@ -328,6 +347,21 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
 
     if (loading) {
         return <Loading height={16} />;
+    }
+
+    const isTreeEmpty =
+        nativeRootNodes.length === 0 && sourcesByPlatform.length === 0 && !hasMoreRoots && !loadingMoreRoots;
+    if (isTreeEmpty && hasSelectedView) {
+        return (
+            <EmptyStateWrap data-testid="document-tree-view-empty">
+                <Text size="sm" color="gray">
+                    {t('context.viewHidingAllDocuments')}
+                </Text>
+                <Button variant="text" size="sm" onClick={clearSelectedView} data-testid="document-tree-clear-view">
+                    {t('context.clearSelectedView')}
+                </Button>
+            </EmptyStateWrap>
+        );
     }
 
     return (

@@ -33,8 +33,19 @@ export function useInfiniteScroll<T>({
     // Ref for initial loading
     const initialLoadedRef = useRef(false);
 
+    // Track if a fetch was in-flight before reset to avoid auto-triggering a new
+    // fetch on top of a slow, in-flight one
+    const wasLoadingBeforeResetRef = useRef(false);
+
     // Track prepended keys to avoid duplicates across resets
     const prependedKeysRef = useRef<Set<string | number>>(new Set());
+
+    // Monotonically incremented on every reset. Each `loadMore` snapshots the
+    // current value at fetch time, then drops its result if the generation has
+    // moved on. Without this guard, a slow in-flight fetch can land AFTER a
+    // resetTrigger change and append stale rows to the just-cleared list, or
+    // skip the new query's first page.
+    const generationRef = useRef(0);
 
     // Function to fetch the next batch of items, invoked when observer comes into view.
     // Returns the fetched page so callers (e.g. document-tree reveal) can wait on the batch.
@@ -43,9 +54,11 @@ export function useInfiniteScroll<T>({
 
         loadingRef.current = true;
         setLoading(true);
+        const gen = generationRef.current;
 
         try {
             const newItems = await fetchDataRef.current(startIndex.current, pageSize);
+            if (gen !== generationRef.current) return [];
             if (!Array.isArray(newItems)) return [];
 
             startIndex.current += newItems.length;
@@ -57,8 +70,13 @@ export function useInfiniteScroll<T>({
 
             return newItems;
         } finally {
-            loadingRef.current = false;
-            setLoading(false);
+            // Only clear the gates if this fetch still owns the current generation.
+            // A stale fetch (post-reset) must not toggle loading off on top of a
+            // fresh in-flight load.
+            if (gen === generationRef.current) {
+                loadingRef.current = false;
+                setLoading(false);
+            }
         }
     }, [pageSize, totalItemCount]);
 
@@ -95,7 +113,23 @@ export function useInfiniteScroll<T>({
     }, []);
 
     // Reset and reload when resetTrigger changes (e.g. document sidebar sort).
+    //
+    // hasMore and loading are also reset: without that, once a previous fetch
+    // returned fewer than pageSize items (hasMore=false), later resetTrigger
+    // changes would clear items but never refetch — the scroll-observer is
+    // gated by `hasMore` and loadMore short-circuits on `!hasMore`.
+    //
+    // The generation bump runs first so any in-flight fetch's resolver/finally
+    // see a stale gen and bail out before they can append rows or toggle
+    // loading on top of the fresh state.
+    //
+    // If a slow fetch was in-flight when reset happens, don't immediately start
+    // another fetch — just reset state and let the scroll observer or explicit
+    // calls trigger the next load. This prevents loading from being set true
+    // immediately after a reset.
     useEffect(() => {
+        wasLoadingBeforeResetRef.current = loadingRef.current;
+        generationRef.current += 1;
         setItems([]);
         startIndex.current = 0;
         hasMoreRef.current = true;
@@ -106,9 +140,10 @@ export function useInfiniteScroll<T>({
         prependedKeysRef.current = new Set();
     }, [resetTrigger]);
 
-    // Initial load + reload after resetTrigger clears the list
+    // Initial load on first mount, and reload after resetTrigger if previous fetch completed.
+    // If a slow fetch was in-flight during reset, don't auto-trigger another fetch.
     useEffect(() => {
-        if (!initialLoadedRef.current) {
+        if (!initialLoadedRef.current && !wasLoadingBeforeResetRef.current) {
             initialLoadedRef.current = true;
             loadMore();
         }

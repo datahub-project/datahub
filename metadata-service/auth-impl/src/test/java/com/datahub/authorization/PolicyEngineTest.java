@@ -26,6 +26,7 @@ import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.policy.*;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -64,7 +65,10 @@ public class PolicyEngineTest {
     _entityClient = Mockito.mock(SystemEntityClient.class);
     _groupService =
         new GroupService(
-            _entityClient, Mockito.mock(EntityService.class), Mockito.mock(GraphClient.class));
+            _entityClient,
+            Mockito.mock(EntityService.class),
+            Mockito.mock(GraphClient.class),
+            Mockito.mock(GraphService.class));
     systemOperationContext = TestOperationContexts.systemContextNoSearchAuthorization();
     _policyEngine = new PolicyEngine(_entityClient, _groupService);
 

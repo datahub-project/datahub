@@ -38,6 +38,7 @@ jobs:
       playwright-e2e: ${{ steps.filter.outputs.playwright-e2e == 'true' || steps.filter.outputs.lint-job == 'true' }}
       docs-website: ${{ steps.filter.outputs.docs-website == 'true' || steps.filter.outputs.lint-job == 'true' }}
       spotless: ${{ steps.filter.outputs.spotless == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      product-update-sync: ${{ steps.filter.outputs.product-update-sync == 'true' || steps.filter.outputs.lint-job == 'true' }}
       default-runner: ${{ steps.runners.outputs.default-runner }}
       default-gh-runner: ${{ steps.runners.outputs.default-gh-runner }}
     steps:
@@ -114,6 +115,21 @@ jobs:
           path: ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
 
+  product-update-release-sync:
+    name: product_update_release_sync
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.product-update-sync == 'true'
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "temurin"
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - name: Check product-update JSONs match the latest release notes
+        run: ./gradlew :metadata-service:configuration:productUpdateReleaseSyncCheck
+
   docs-website-lint:
     name: docs-website-lint
     runs-on: ${{ needs.setup.outputs.default-gh-runner }}
@@ -165,7 +181,7 @@ jobs:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: Install uv
         uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
@@ -203,7 +219,7 @@ jobs:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: run check
         run: python .github/scripts/check_event_type.py
 
@@ -216,7 +232,7 @@ jobs:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: run check
         run: python .github/scripts/check_policies.py
 
@@ -229,7 +245,7 @@ jobs:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: run check
         run: python .github/scripts/check_gradle_lockfiles.py
 
@@ -268,6 +284,13 @@ jobs:
         with:
           python-version: "3.11"
           cache: "pip"
+
+      # Ahead of the uv/gradle steps on purpose: the check is stdlib-only, so it
+      # still runs when the venv install breaks, and it fails in seconds rather
+      # than after the install.
+      - name: Check p0 test dependencies
+        run: python ./.github/scripts/check_p0_dependencies.py
+
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5
       # Restore-only: this workflow is pull_request-only, so a save here would be
       # ref-scoped to the PR and never shared. The master-scoped entry is written by

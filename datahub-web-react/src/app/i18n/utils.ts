@@ -5,6 +5,12 @@ export function isSupportedLanguage(lang: string): lang is SupportedLanguage {
     return lang in LOCALE_MAP;
 }
 
+function lookupSupportedLanguage(code: string): SupportedLanguage | undefined {
+    // Cast after the runtime membership check so companion-locale codes (e.g. zh-TW on the
+    // zh-CN-only PR) type-check without being present in the SupportedLanguage union yet.
+    return code in LOCALE_MAP ? (code as SupportedLanguage) : undefined;
+}
+
 /**
  * Best-effort match of the browser's preferred languages (`navigator.languages`, most-preferred
  * first) to a supported UI locale. Tries an exact, case-insensitive match first, then folds region
@@ -20,6 +26,14 @@ export function detectBrowserLanguage(): SupportedLanguage | undefined {
         if (!tag) return undefined;
         const lower = tag.toLowerCase();
         const base = lower.split('-')[0];
+        if (base === 'zh') {
+            if (lower.includes('hant') || lower === 'zh-tw' || lower === 'zh-hk' || lower === 'zh-mo') {
+                // Prefer zh-TW when registered (companion PR); never fold Traditional to zh-CN.
+                return lookupSupportedLanguage('zh-TW');
+            }
+            // zh-Hans, zh-CN, zh-SG, bare zh
+            return lookupSupportedLanguage('zh-CN');
+        }
         // Exact (case-insensitive) match first, then fold region variants to their base language.
         return (
             supported.find((locale) => locale.toLowerCase() === lower) ??
