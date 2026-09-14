@@ -490,3 +490,54 @@ def test_the_rest_of_the_relation_stays_readable(sql):
     check_query_scope(
         sql, platform="snowflake", scope=SnowflakeMetadataProbe.catalog_scope
     )
+
+
+# A SELECT need not name any relation, and one that names none is not catalog
+# inspection: it computes a row from server state. `SELECT @@datadir,
+# @@hostname` and `SELECT VERSION()` cleared an earlier gate because the table
+# walk was vacuously satisfied (no table) and neither is an Anonymous function
+# -- yet they disclose the data directory, hostname and version. Found in an
+# adversarial pass against a live MySQL.
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT @@version, @@datadir, @@hostname",
+        "SELECT @@secure_file_priv",
+        "SELECT @@GLOBAL.hostname",
+        # a system variable smuggled into a UNION branch alongside a real
+        # catalog table: the "must name a relation" rule is satisfied by the
+        # other branch, so the SessionParameter refusal is what catches this
+        "SELECT table_name FROM information_schema.tables UNION SELECT @@datadir",
+    ],
+)
+def test_rejects_a_server_or_session_variable(sql):
+    with pytest.raises(SqlScopeError, match="server"):
+        check_query_scope(sql, platform="mysql")
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT VERSION()",
+        "SELECT 1",
+        "SELECT 'x' AS literal",
+        "SELECT CURRENT_DATE",
+    ],
+)
+def test_rejects_a_query_that_reads_no_catalog_relation(sql):
+    """A row-returning query with no FROM reads server state rather than the
+    catalog. Requiring one relation closes the whole no-table disclosure
+    class, including built-in functions sqlglot models as first-class nodes
+    (not Anonymous) that the function check cannot see."""
+    with pytest.raises(SqlScopeError, match="catalog relation"):
+        check_query_scope(sql, platform="mysql")
+
+
+def test_still_permits_a_catalog_query_with_functions_and_no_user_table():
+    """The guard is 'names a catalog relation', not 'names no function' -- a
+    normal catalog query full of standard functions is still fine."""
+    check_query_scope(
+        "SELECT LOWER(table_name), COUNT(*) FROM information_schema.columns "
+        "GROUP BY table_name",
+        platform="mysql",
+    )

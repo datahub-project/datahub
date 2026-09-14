@@ -28,6 +28,17 @@ class CatalogScope:
     WHERE-clause literals included -- so a schema-level allow with a list of
     exclusions is a denylist, and would let the next text-bearing view somebody
     adds through by default. Naming relations keeps the default deny.
+
+    This scope is a ceiling, not the floor. The probe reads with the recipe's
+    own database credential, so the credential is the operative bound: it reads
+    only what that credential is privileged to read, and a schema admitted whole
+    still exposes only the rows the credential may see. `information_schema`
+    illustrates both edges -- it also holds operational views like
+    `processlist` and `*_privileges`, but MySQL's `processlist` shows other
+    sessions' in-flight SQL only to a credential holding the `PROCESS`
+    privilege. So give the probe a least-privilege, read-only credential: the
+    gate bounds which relations a query may name, and the credential bounds what
+    those relations reveal.
     """
 
     # Whole schemas whose every relation is metadata by definition. In practice
@@ -241,10 +252,37 @@ def check_query_scope(
     # table-based check alone never sees it.
     _check_functions(statement)
 
+    # `SELECT @@datadir, @@hostname` reads server state, not a relation: it
+    # names no table (so the table walk below is vacuously satisfied) and no
+    # Anonymous function (so _check_functions misses it), yet it discloses the
+    # data directory, hostname and version. sqlglot models `@@x` as its own
+    # node, so refuse the node directly rather than trying to enumerate which
+    # variables are sensitive.
+    _check_server_state(statement)
+
     _check_withheld_columns(statement)
 
+    saw_table = False
     for table in statement.find_all(exp.Table):
+        saw_table = True
         _check_table(table, scope=permitted, platform=platform)
+
+    # A row-returning query that names no relation is not catalog inspection --
+    # it computes a row from server state (`SELECT VERSION()`, `SELECT 1`).
+    # The point of the gate is that reads stay within the catalog scope; a
+    # query that reads no catalog relation has left that question unanswered
+    # rather than answered yes. Requiring one relation closes the whole
+    # no-table disclosure class in one place, including built-in functions
+    # sqlglot models as first-class nodes (not Anonymous) that _check_functions
+    # cannot see. The probe's typed getters cover legitimate no-SQL discovery;
+    # the `sql` command a caller reaches for is always catalog-content over a
+    # FROM.
+    if not saw_table:
+        raise SqlScopeError(
+            "a probe query must read from a catalog relation (for example a "
+            "table in information_schema); this query names none, so it "
+            "inspects server state rather than catalog metadata"
+        )
 
 
 def _check_withheld_columns(statement: exp.Expr) -> None:
@@ -294,6 +332,24 @@ def _check_functions(statement: exp.Expr) -> None:
             f"'{func.name}' is a vendor-specific function whose output the probe "
             f"cannot verify as catalog metadata; only standard SQL over catalog "
             f"tables is permitted"
+        )
+
+
+def _check_server_state(statement: exp.Expr) -> None:
+    """Refuse a reference to a server/session variable (`@@name`).
+
+    These name neither a relation nor a function, so the table walk and
+    _check_functions both pass them through, yet `@@datadir`, `@@hostname` and
+    the like disclose server configuration rather than catalog metadata. They
+    have no place in a catalog query, so any occurrence is refused -- including
+    one smuggled into a UNION branch alongside a real catalog table, which the
+    "must name a relation" rule alone would not catch.
+    """
+    for param in statement.find_all(exp.SessionParameter):
+        raise SqlScopeError(
+            f"'@@{param.name}' reads a server/session variable, which is server "
+            f"state rather than catalog metadata; only SELECTs over catalog "
+            f"tables are permitted"
         )
 
 
