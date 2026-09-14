@@ -68,12 +68,21 @@ def _digest(vector: list[float]) -> str:
     return hashlib.sha256(b"".join(struct.pack(">f", v) for v in vector)).hexdigest()
 
 
-@pytest.mark.skipif(
-    not GOLDEN, reason=f"shared golden fixture not found at {GOLDEN_FIXTURE}"
-)
-@pytest.mark.parametrize(
-    ("text", "expected"), [(t, d) for _, t, d in GOLDEN], ids=[i for i, _, _ in GOLDEN]
-)
+# An empty parametrize list collects nothing and reports nothing, so a checkout
+# without the fixture gets one explicitly skipped item naming the path instead.
+GOLDEN_PARAMS = [pytest.param(t, d, id=i) for i, t, d in GOLDEN] or [
+    pytest.param(
+        "",
+        "",
+        id="fixture-missing",
+        marks=pytest.mark.skip(
+            reason=f"shared golden fixture not found at {GOLDEN_FIXTURE}"
+        ),
+    )
+]
+
+
+@pytest.mark.parametrize(("text", "expected"), GOLDEN_PARAMS)
 def test_golden_vector(text: str, expected: str) -> None:
     vector = _embed(text)
     assert len(vector) == DIMS
