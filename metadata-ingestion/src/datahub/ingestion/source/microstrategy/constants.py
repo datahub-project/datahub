@@ -47,6 +47,18 @@ MSTR_OBJECT_SUBTYPE_DOCUMENT = "14081"
 MSTR_OBJECT_TYPE_METRIC = 7
 MSTR_OBJECT_TYPE_CONSOLIDATION = 47
 
+# Which REST endpoint supplied a report's derived metric definitions: the
+# Modeling service (GET /api/model/reports/{id}, carries expressions) or the
+# v2 report definition (GET /api/v2/reports/{id}, names derived metrics but
+# omits their formulas). Recorded per field so a formula-less description can
+# say which endpoint answered.
+MSTR_DEFINITION_ENDPOINT_MODEL = "model"
+MSTR_DEFINITION_ENDPOINT_V2 = "v2"
+# Fixed prefix on the DEBUG-level payload-shape lines emitted while resolving
+# report derived metric definitions, so they can be grepped out of an
+# executor debug log.
+MSTR_DERIVED_DEBUG_LOG_PREFIX = "[mstr-derived-debug]"
+
 MEASURE_TAG_URN = "urn:li:tag:Measure"
 DIMENSION_TAG_URN = "urn:li:tag:Dimension"
 TEMPORAL_TAG_URN = "urn:li:tag:Temporal"

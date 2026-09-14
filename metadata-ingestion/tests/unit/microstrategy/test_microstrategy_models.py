@@ -1,9 +1,14 @@
+import json
+
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
     Datasource,
     DatasourceConnection,
     ReportDefinition,
+    first_derived_node_skeleton,
+    payload_key_skeleton,
+    payload_type_vocabulary,
 )
 
 
@@ -373,3 +378,173 @@ def test_metric_formula_references_accept_braces_and_brackets() -> None:
         "Revenue",
         "Revenue LY",
     ]
+
+
+def test_payload_key_skeleton_keeps_keys_and_types_but_never_values() -> None:
+    payload = {
+        "information": {"objectId": "ABC123", "name": "RTL PLN", "hidden": False},
+        "elements": [
+            {"id": "D-1", "derived": True, "expression": {"text": "[A]/[B]"}},
+            {"id": "D-2", "derived": True, "expression": None},
+        ],
+        "count": 2,
+        "ratio": 0.5,
+        "empty": [],
+    }
+
+    rendered = payload_key_skeleton(payload)
+    assert json.loads(rendered) == {
+        "information": {"objectId": "str", "name": "str", "hidden": "bool"},
+        "elements": {
+            "$len": 2,
+            # Second item's null expression is visible alongside the first's dict.
+            "$item": {
+                "id": "str",
+                "derived": "bool",
+                "expression": '{"text":"str"}|null',
+            },
+        },
+        "count": "int",
+        "ratio": "float",
+        "empty": "list[0]",
+    }
+    for leaked in ("ABC123", "RTL PLN", "D-1", "[A]/[B]"):
+        assert leaked not in rendered
+
+
+def test_payload_key_skeleton_unions_heterogeneous_list_items() -> None:
+    # A report template mixes attribute units with one metrics unit whose
+    # elements are catalog metrics and derived metrics; only the minority
+    # items carry the keys that matter, so they must survive the rendering.
+    payload = {
+        "units": [
+            {"id": "A1", "name": "Region", "type": "attribute"},
+            {"id": "A2", "name": "District", "type": "attribute"},
+            {
+                "type": "metrics",
+                "elements": [
+                    {"id": "M1", "name": "Net Sales", "subType": "metric"},
+                    {
+                        "id": "D1",
+                        "name": "RTL PLN",
+                        "subType": "derived_metric",
+                        "expression": {"tokens": [{"value": "x"}]},
+                    },
+                ],
+            },
+        ]
+    }
+
+    assert json.loads(payload_key_skeleton(payload)) == {
+        "units": {
+            "$len": 3,
+            "$item": {
+                "id": "str",
+                "name": "str",
+                "type": "str",
+                "elements": {
+                    "$len": 2,
+                    "$item": {
+                        "id": "str",
+                        "name": "str",
+                        "subType": "str",
+                        "expression": {
+                            "tokens": {"$len": 1, "$item": {"value": "str"}}
+                        },
+                    },
+                },
+            },
+        }
+    }
+    assert payload_type_vocabulary(payload) == [
+        "attribute",
+        "derived_metric",
+        "metric",
+        "metrics",
+    ]
+    # The cap bounds traversal, so it keeps the first values met, not the
+    # alphabetically first: the unit-level types come before element subtypes.
+    assert payload_type_vocabulary(payload, max_values=2) == [
+        "attribute",
+        "metrics",
+    ]
+    assert payload_type_vocabulary({"type": 7, "items": [{"subType": "x"}]}) == ["x"]
+
+
+def test_payload_key_skeleton_is_depth_limited() -> None:
+    payload = {"a": {"b": {"c": {"d": [1, 2, 3]}}}}
+
+    assert json.loads(payload_key_skeleton(payload, max_depth=2)) == {
+        "a": {"b": "dict[1]"}
+    }
+    assert json.loads(payload_key_skeleton(payload, max_depth=3)) == {
+        "a": {"b": {"c": "dict[1]"}}
+    }
+    assert json.loads(payload_key_skeleton(payload)) == {
+        "a": {"b": {"c": {"d": {"$len": 3, "$item": "int"}}}}
+    }
+
+
+def test_payload_key_skeleton_is_size_capped() -> None:
+    payload = {f"key_{index:04d}": "value" for index in range(500)}
+
+    rendered = payload_key_skeleton(payload, max_chars=200)
+    assert len(rendered) == 200
+    assert rendered.endswith("...")
+    assert payload_key_skeleton("scalar") == '"str"'
+    assert payload_key_skeleton(None) == '"null"'
+
+
+def test_first_derived_node_skeleton_describes_node_identity_and_parent() -> None:
+    payload = {
+        "dataSource": {
+            "units": [
+                {
+                    "type": "metrics",
+                    "elements": [
+                        {"id": "M-1", "name": "Net Sales"},
+                        {
+                            "id": "D-1",
+                            "name": "RTL PLN",
+                            "derived": True,
+                            "definition": {"formulaText": "[A]/[B]"},
+                        },
+                    ],
+                }
+            ]
+        }
+    }
+
+    rendered = first_derived_node_skeleton(payload)
+    assert rendered is not None
+    assert json.loads(rendered) == {
+        "node": {
+            "id": "str",
+            "name": "str",
+            "derived": "bool",
+            "definition": {"formulaText": "str"},
+        },
+        "identity": {
+            "id": "str",
+            "name": "str",
+            "derived": "bool",
+            "definition": {"formulaText": "str"},
+        },
+        "parent_keys": ["elements", "type"],
+    }
+    assert "RTL PLN" not in rendered and "D-1" not in rendered
+
+
+def test_first_derived_node_skeleton_uses_parent_identity_and_handles_absence() -> None:
+    # A `definition` sub-object flagged derived borrows its parent's identity.
+    payload = {
+        "metrics": [{"id": "D-1", "name": "RTL PLN", "definition": {"isDerived": True}}]
+    }
+    rendered = first_derived_node_skeleton(payload)
+    assert rendered is not None
+    assert json.loads(rendered) == {
+        "node": {"isDerived": "bool"},
+        "identity": {"id": "str", "name": "str", "definition": {"isDerived": "bool"}},
+        "parent_keys": ["definition", "id", "name"],
+    }
+    assert first_derived_node_skeleton({"metrics": [{"id": "M-1"}]}) is None

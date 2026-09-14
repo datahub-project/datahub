@@ -10,6 +10,7 @@ from typing import (
     Literal,
     Optional,
     Set,
+    Tuple,
     Type,
     TypeVar,
 )
@@ -244,12 +245,17 @@ class DerivedMetricSpec(MicroStrategyBaseModel):
     # "report" or "document" when a definition supplied the formula; None for
     # a grid-only derived metric.
     definition_source: Optional[str] = None
+    # Which endpoint the definition came from (MSTR_DEFINITION_ENDPOINT_*), so
+    # a formula-less field can say whether the Modeling API was unavailable or
+    # answered without an expression.
+    definition_endpoint: Optional[str] = None
 
 
 class ReportDerivedMetric(MicroStrategyBaseModel):
     """A derived metric found in a report (or document) definition payload:
     the object name the report shows, plus its expression when the endpoint
-    exposed one."""
+    exposed one. `endpoint` records which REST endpoint the payload came from
+    (MSTR_DEFINITION_ENDPOINT_*)."""
 
     id: str
     name: str
@@ -257,6 +263,11 @@ class ReportDerivedMetric(MicroStrategyBaseModel):
     expression_text: Optional[str] = None
     expression_tokens: Optional[str] = None
     source: str = "report"
+    endpoint: Optional[str] = None
+
+    @property
+    def has_expression(self) -> bool:
+        return bool(self.expression_text or self.expression_tokens)
 
 
 @dataclass(frozen=True)
@@ -1085,6 +1096,7 @@ def _definition_identity(
 
 def extract_embedded_metric_definitions(
     payload: MicroStrategyDict,
+    endpoint: Optional[str] = None,
 ) -> List[ReportDerivedMetric]:
     """Metric definitions embedded in a report or document definition payload:
     any metric-typed node carrying an `expression`, plus metric nodes flagged
@@ -1093,7 +1105,8 @@ def extract_embedded_metric_definitions(
     report objects differently across versions; filters, thresholds and
     attributes are excluded by type so their expression text is never
     mistaken for a metric formula. Keyed by normalized id; the first
-    expression-bearing occurrence wins."""
+    expression-bearing occurrence wins. `endpoint` is stamped on every
+    definition (see MSTR_DEFINITION_ENDPOINT_*)."""
     found: Dict[str, ReportDerivedMetric] = {}
 
     def record(
@@ -1120,6 +1133,7 @@ def extract_embedded_metric_definitions(
             expression_text=enrichment.expression_text if enrichment else None,
             expression_tokens=enrichment.expression_tokens if enrichment else None,
             source=source,
+            endpoint=endpoint,
         )
 
     def visit(
@@ -1144,6 +1158,162 @@ def extract_embedded_metric_definitions(
 
     visit(payload, "", None)
     return list(found.values())
+
+
+PAYLOAD_SKELETON_MAX_DEPTH = 6
+PAYLOAD_SKELETON_MAX_CHARS = 4000
+PAYLOAD_SKELETON_MAX_TYPE_VALUES = 50
+_SKELETON_LIST_LENGTH_KEY = "$len"
+_SKELETON_LIST_ITEM_KEY = "$item"
+_SKELETON_TRUNCATED_SUFFIX = "..."
+
+
+def _payload_skeleton(value: object, depth: int) -> object:
+    if isinstance(value, dict):
+        if depth <= 0:
+            return f"dict[{len(value)}]"
+        return {
+            str(key): _payload_skeleton(child, depth - 1)
+            for key, child in value.items()
+        }
+    if isinstance(value, list):
+        if depth <= 0 or not value:
+            return f"list[{len(value)}]"
+        # The union of every item's shape, not just the first: API lists mix
+        # kinds (a template's units are attributes and one metrics unit; a
+        # grid's elements are catalog and derived metrics), and the keys
+        # that matter for diagnosis tend to sit on the minority item. Lists
+        # do not consume depth: the limit counts dict nesting only, so
+        # `units[].elements[].expression` costs the same as `a.b.c`.
+        merged: object = _payload_skeleton(value[0], depth)
+        for item in value[1:]:
+            merged = _merge_skeletons(merged, _payload_skeleton(item, depth))
+        return {
+            _SKELETON_LIST_LENGTH_KEY: len(value),
+            _SKELETON_LIST_ITEM_KEY: merged,
+        }
+    if value is None:
+        return "null"
+    return type(value).__name__
+
+
+def _merge_skeletons(left: object, right: object) -> object:
+    """Union of two skeletons: dict keys are merged recursively, differing
+    scalar descriptions are joined with `|` so a field that is a string on
+    one item and absent or a dict on another is visible as such."""
+    if isinstance(left, dict) and isinstance(right, dict):
+        out: Dict[str, object] = dict(left)
+        for key, child in right.items():
+            out[key] = _merge_skeletons(out[key], child) if key in out else child
+        return out
+    if left == right:
+        return left
+    parts: List[str] = []
+    for side in (left, right):
+        text = (
+            side
+            if isinstance(side, str)
+            else json.dumps(side, sort_keys=True, separators=(",", ":"))
+        )
+        for part in text.split("|"):
+            if part not in parts:
+                parts.append(part)
+    return "|".join(parts)
+
+
+def payload_type_vocabulary(
+    payload: object, max_values: int = PAYLOAD_SKELETON_MAX_TYPE_VALUES
+) -> List[str]:
+    """Sorted distinct string values of every `type` / `subType` / `subtype`
+    key in the payload. These are a small closed vocabulary of MicroStrategy
+    object kinds (`attribute`, `metric`, `derived_metric`...), never names or
+    ids, so they are safe to log and are what tells a derived metric element
+    apart when the payload carries no `derived` flag."""
+    found: Set[str] = set()
+
+    def visit(value: object) -> None:
+        if len(found) >= max_values:
+            return
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in ("type", "subType", "subtype") and isinstance(child, str):
+                    found.add(child)
+                else:
+                    visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    visit(payload)
+    return sorted(found)[:max_values]
+
+
+def _capped_json(value: object, max_chars: int) -> str:
+    rendered = json.dumps(value, sort_keys=True, separators=(",", ":"))
+    if len(rendered) > max_chars:
+        cut = max(max_chars - len(_SKELETON_TRUNCATED_SUFFIX), 0)
+        return rendered[:cut] + _SKELETON_TRUNCATED_SUFFIX
+    return rendered
+
+
+def payload_key_skeleton(
+    value: object,
+    max_depth: int = PAYLOAD_SKELETON_MAX_DEPTH,
+    max_chars: int = PAYLOAD_SKELETON_MAX_CHARS,
+) -> str:
+    """Structure-only rendering of an API payload for debug logs: dict keys,
+    list lengths (plus the union of the items' shapes) and scalar type names;
+    no object names, ids or values, so it is safe to leave in an execution log.
+    Depth-limited (deeper containers collapse to `dict[n]`/`list[n]`) and
+    capped at `max_chars`."""
+    return _capped_json(_payload_skeleton(value, max_depth), max_chars)
+
+
+def first_derived_node_skeleton(
+    payload: MicroStrategyDict,
+    max_depth: int = PAYLOAD_SKELETON_MAX_DEPTH,
+    max_chars: int = PAYLOAD_SKELETON_MAX_CHARS,
+) -> Optional[str]:
+    """Key skeleton of the first node flagged `derived`/`isDerived` that
+    extract_embedded_metric_definitions would visit: the node itself, the
+    identity dict it resolved (node, `information` block or parent) and the
+    parent's keys. None when no node carries the flag."""
+
+    def find(
+        value: object, parent: Optional[MicroStrategyDict]
+    ) -> Optional[Tuple[MicroStrategyDict, Optional[MicroStrategyDict]]]:
+        if isinstance(value, dict):
+            if value.get("derived") or value.get("isDerived"):
+                return value, parent
+            for child in value.values():
+                match = find(child, value)
+                if match is not None:
+                    return match
+        elif isinstance(value, list):
+            for child in value:
+                match = find(child, parent)
+                if match is not None:
+                    return match
+        return None
+
+    match = find(payload, None)
+    if match is None:
+        return None
+    node, parent = match
+    identity = _definition_identity(node, parent)
+    return _capped_json(
+        {
+            "node": _payload_skeleton(node, max_depth),
+            "identity": (
+                _payload_skeleton(identity, max_depth)
+                if identity is not None
+                else "null"
+            ),
+            # Parent keys stay literal: they are field names, not values.
+            "parent_keys": sorted(str(key) for key in parent) if parent else [],
+        },
+        max_chars,
+    )
 
 
 def extract_folder_parts(raw_object: MicroStrategyDict) -> List[FolderPart]:

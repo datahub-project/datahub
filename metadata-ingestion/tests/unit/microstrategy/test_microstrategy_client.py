@@ -672,6 +672,23 @@ def test_request_fails_fast_on_non_retryable_404(monkeypatch: MonkeyPatch) -> No
     assert report.api_errors == 1
 
 
+def test_http_error_carries_status_and_url_for_swallowing_callers(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    client, _report = _make_client()
+    monkeypatch.setattr(client.session, "request", lambda **kwargs: StatusResponse(403))
+
+    with pytest.raises(MicroStrategyAPIError) as excinfo:
+        client._request("GET", "/api/model/reports/abc")
+
+    error = excinfo.value
+    assert error.status_code == 403
+    assert error.url == f"{client.base_url}/api/model/reports/abc"
+    assert error.summary().startswith("HTTP 403: ")
+    # Plain (non-HTTP) failures have no status and summarize to the message.
+    assert MicroStrategyAPIError("no token").summary() == "no token"
+
+
 def _reauth_client(
     monkeypatch: MonkeyPatch,
     responses_by_path: Dict[str, List[StatusResponse]],

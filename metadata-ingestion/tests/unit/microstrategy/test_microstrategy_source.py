@@ -1,4 +1,5 @@
 import builtins
+import logging
 import sys
 from typing import Any, Dict, Iterator, List
 from unittest import mock
@@ -1468,8 +1469,207 @@ def test_report_derived_metrics_fall_back_to_v2_definition_names() -> None:
     assert source.report.report_definition_failures == 0
     rtl = _derived_field(workunits, "RTL PLN")
     assert rtl is not None
-    # The v2 definition named it but exposed no formula, and the field says so.
-    assert "formula is not exposed" in (rtl.description or "")
+    # The v2 definition named it but exposed no formula, and the field says
+    # which endpoint answered so the gap is diagnosable from the field.
+    assert "v2 definition supplies names only" in (rtl.description or "")
+    assert source.report.report_model_definition_failures == 1
+    assert source.report.report_model_definitions_empty == 0
+    assert source.report.report_definitions_without_expressions == 0
+    samples = list(source.report.report_model_definition_failure_samples)
+    assert len(samples) == 1 and samples[0].startswith("ds-shared: ")
+    assert [w.title for w in source.report.warnings] == [_MODEL_UNAVAILABLE_TITLE]
+
+
+_MODEL_UNAVAILABLE_TITLE = (
+    "Modeling report definition unavailable; derived metric formulas omitted"
+)
+_DERIVED_DEBUG_PREFIX = "[mstr-derived-debug]"
+
+
+class _TwoReportClient(_ReportDerivedClient):
+    """Two dossiers over two different report-backed datasets in one project;
+    the Modeling endpoint fails with an HTTP status for both."""
+
+    def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter(
+            [
+                MicroStrategyObject.model_validate({"id": "dash-1", "name": "D1"}),
+                MicroStrategyObject.model_validate({"id": "dash-2", "name": "D2"}),
+            ]
+        )
+
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
+        definition = super().get_dossier_definition(project_id, dossier_id)
+        definition["definition"]["datasets"][0]["id"] = f"ds-{dossier_id}"
+        return definition
+
+    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.model_calls.append(report_id)
+        raise MicroStrategyAPIError(
+            "MicroStrategy API request failed: GET /api/model/reports/x: 403",
+            status_code=403,
+            url="https://mstr.example.com/api/model/reports/x",
+        )
+
+
+def test_model_definition_failure_is_counted_per_report_and_warned_once() -> None:
+    source = _dataset_lookup_source()
+    client = _TwoReportClient()
+    source.client = client  # type: ignore[assignment]
+
+    list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert client.model_calls == ["ds-dash-1", "ds-dash-2"]
+    assert client.v2_calls == ["ds-dash-1", "ds-dash-2"]
+    assert source.report.report_model_definition_failures == 2
+    samples = list(source.report.report_model_definition_failure_samples)
+    assert [s.split(":")[0] for s in samples] == ["ds-dash-1", "ds-dash-2"]
+    # The HTTP status the client recorded is what tells 403 (privilege) from
+    # 404 (server without the Modeling service) apart in the report.
+    assert all("HTTP 403" in s for s in samples)
+    warnings = [
+        w for w in source.report.warnings if w.title == _MODEL_UNAVAILABLE_TITLE
+    ]
+    assert len(warnings) == 1
+    assert "first_report_id=ds-dash-1" in (warnings[0].context or [""])[0]
+
+
+class _ModelWithoutExpressionClient(_ReportDerivedClient):
+    """The Modeling endpoint answers and flags the derived metric, but its
+    formula sits under a key the walker does not read."""
+
+    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.model_calls.append(report_id)
+        return {
+            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "dataSource": {
+                "dataTemplate": {
+                    "units": [
+                        {
+                            "type": "metrics",
+                            "elements": [
+                                {
+                                    "id": "D-RTL",
+                                    "name": "RTL PLN",
+                                    "subType": "derived_metric",
+                                    "derived": True,
+                                    "definition": {"formulaText": "[A]/[B]-1"},
+                                }
+                            ],
+                        }
+                    ]
+                }
+            },
+        }
+
+
+def test_model_definition_without_expressions_counts_and_logs_payload_shape(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    source = _dataset_lookup_source()
+    client = _ModelWithoutExpressionClient()
+    source.client = client  # type: ignore[assignment]
+
+    with caplog.at_level(logging.DEBUG, logger=MicroStrategySource.__module__):
+        workunits = list(
+            source._process_project_dashboards(
+                "project-1", _LazyProjectLineage(source, "project-1", [])
+            )
+        )
+
+    assert client.model_calls == ["ds-shared"]
+    assert client.v2_calls == []
+    assert source.report.report_definitions_without_expressions == 1
+    assert source.report.report_model_definition_failures == 0
+    rtl = _derived_field(workunits, "RTL PLN")
+    assert rtl is not None
+    assert "Formula not present in the Modeling API report definition" in (
+        rtl.description or ""
+    )
+    debug_lines = [
+        record.getMessage()
+        for record in caplog.records
+        if record.getMessage().startswith(_DERIVED_DEBUG_PREFIX)
+    ]
+    assert len(debug_lines) == 2
+    assert "payload skeleton" in debug_lines[0]
+    assert '"formulaText":"str"' in debug_lines[0]
+    assert "first derived-flagged node" in debug_lines[1]
+    assert '"parent_keys":["elements","type"]' in debug_lines[1]
+    # Structure only: no object names, ids or formula text reach the log.
+    for line in debug_lines:
+        assert "RTL PLN" not in line
+        assert "D-RTL" not in line
+        assert "[A]/[B]-1" not in line
+
+
+class _ModelEmptyClient(_ReportDerivedClient):
+    """The Modeling endpoint answers with a report definition in which the
+    walker recognises no derived metric at all (the live-run shape), so the
+    v2 definition ends up supplying the names."""
+
+    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.model_calls.append(report_id)
+        return {
+            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "sourceType": "normal",
+            "dataSource": {
+                "dataTemplate": {
+                    "units": [
+                        {
+                            "type": "attribute",
+                            "id": "A-REGION",
+                            "name": "Region Number",
+                            "forms": [{"id": "F1", "name": "NUMBER"}],
+                        }
+                    ]
+                }
+            },
+        }
+
+
+def test_model_definition_empty_counts_and_logs_payload_shape(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    source = _dataset_lookup_source()
+    client = _ModelEmptyClient()
+    source.client = client  # type: ignore[assignment]
+
+    with caplog.at_level(logging.DEBUG, logger=MicroStrategySource.__module__):
+        workunits = list(
+            source._process_project_dashboards(
+                "project-1", _LazyProjectLineage(source, "project-1", [])
+            )
+        )
+
+    # Modeling answered (no failure), found nothing (counted), v2 supplied names.
+    assert client.model_calls == ["ds-shared"]
+    assert client.v2_calls == ["ds-shared"]
+    assert source.report.report_model_definition_failures == 0
+    assert source.report.report_model_definitions_empty == 1
+    assert source.report.report_definitions_without_expressions == 0
+    assert source.report.warnings == []
+    rtl = _derived_field(workunits, "RTL PLN")
+    assert rtl is not None
+    assert "v2 definition supplies names only" in (rtl.description or "")
+    debug_lines = [
+        record.getMessage()
+        for record in caplog.records
+        if record.getMessage().startswith(_DERIVED_DEBUG_PREFIX)
+    ]
+    assert len(debug_lines) == 2
+    assert "returned no derived metric definitions" in debug_lines[0]
+    assert '"units":{"$item":{"forms":' in debug_lines[0]
+    assert "v2 report definition" in debug_lines[1]
+    for line in debug_lines:
+        assert "Region Number" not in line
+        assert "A-REGION" not in line
 
 
 def test_report_derived_metrics_keep_grid_provenance_when_definitions_fail() -> None:

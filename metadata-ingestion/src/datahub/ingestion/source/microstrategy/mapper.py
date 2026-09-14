@@ -30,6 +30,8 @@ from datahub.ingestion.source.microstrategy.constants import (
     DIMENSION_TAG_URN,
     MEASURE_TAG_URN,
     MSTR_CUBE_SUBTYPES,
+    MSTR_DEFINITION_ENDPOINT_MODEL,
+    MSTR_DEFINITION_ENDPOINT_V2,
     MSTR_DOT_COLLAPSE_RE,
     MSTR_OBJECT_TIMESTAMP_FORMATS,
     MSTR_WHITESPACE_RE,
@@ -292,14 +294,16 @@ class MicroStrategyMapper:
                     expression_text=definition.expression_text,
                     expression_tokens=definition.expression_tokens,
                     definition_source=definition.source,
+                    definition_endpoint=definition.endpoint,
                 )
                 continue
             spec.name = definition.name
             spec.data_type = spec.data_type or definition.data_type
-            if definition.expression_text or definition.expression_tokens:
+            if definition.has_expression:
                 spec.expression_text = definition.expression_text
                 spec.expression_tokens = definition.expression_tokens
             spec.definition_source = definition.source
+            spec.definition_endpoint = definition.endpoint
 
     def dataset_field_paths(self, dataset: DatasetObject) -> List[str]:
         return [spec.field_path for spec in _iter_dataset_fields(dataset)]
@@ -1883,8 +1887,10 @@ def _derived_metric_description(
     derived: DerivedMetricSpec, dataset: DatasetObject
 ) -> str:
     """Where the derived metric is defined, then its formula as a fenced block
-    when a report/document definition exposed one. Only a metric no definition
-    exposed is described as visualization-local."""
+    when a report/document definition exposed one. A formula-less definition
+    says which endpoint answered (v2 only, or Modeling without an expression)
+    so the gap can be diagnosed from the field itself. Only a metric no
+    definition exposed is described as visualization-local."""
     if derived.definition_source:
         where = (
             f"report '{dataset.name}'"
@@ -1894,6 +1900,16 @@ def _derived_metric_description(
         sentence = f"Derived metric defined on {where}."
         if derived.expression_text:
             return f"{sentence}\n\n```\n{derived.expression_text}\n```"
+        if derived.definition_endpoint == MSTR_DEFINITION_ENDPOINT_V2:
+            return (
+                f"{sentence} Formula not returned by the report definition "
+                "endpoints: the Modeling API was unavailable or listed no derived "
+                "metric definitions, and the v2 definition supplies names only."
+            )
+        if derived.definition_endpoint == MSTR_DEFINITION_ENDPOINT_MODEL:
+            return (
+                f"{sentence} Formula not present in the Modeling API report definition."
+            )
         return f"{sentence} Its formula is not exposed by the MicroStrategy REST API."
     location = (
         f"the '{derived.column_set_name}' column group of "

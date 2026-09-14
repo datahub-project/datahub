@@ -46,6 +46,18 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     derived_metrics_unattached: int = 0
     report_derived_metrics_extracted: int = 0
     report_definition_failures: int = 0
+    # Modeling report definition failed but the v2 definition answered: the
+    # derived metrics keep their names but lose their formulas.
+    report_model_definition_failures: int = 0
+    report_model_definition_failure_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    # Modeling report definition answered with derived metrics, none of which
+    # carried an expression the connector could read.
+    report_definitions_without_expressions: int = 0
+    # Modeling report definition answered but the connector found no derived
+    # metric definition in it at all, so the v2 definition supplied the names.
+    report_model_definitions_empty: int = 0
     metric_formula_lineage_edges: int = 0
     metric_formula_refs_unresolved: int = 0
     metric_formula_unresolved_ref_samples: LossyList[str] = field(
@@ -170,6 +182,16 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_report_definition_failure(self) -> None:
         self.report_definition_failures += 1
+
+    def report_report_model_definition_failure(self, context: str) -> None:
+        self.report_model_definition_failures += 1
+        self.report_model_definition_failure_samples.append(context)
+
+    def report_report_definition_without_expressions(self) -> None:
+        self.report_definitions_without_expressions += 1
+
+    def report_report_model_definition_empty(self) -> None:
+        self.report_model_definitions_empty += 1
 
     def report_metric_formula_lineage_edges(self, count: int) -> None:
         self.metric_formula_lineage_edges += count
