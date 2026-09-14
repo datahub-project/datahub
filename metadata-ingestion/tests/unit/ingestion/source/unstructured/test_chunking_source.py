@@ -982,6 +982,43 @@ def test_validate_init_requirements_rejects_provider_without_model():
         DocumentChunkingSource._validate_provider_init_requirements(cfg)
 
 
+def test_validate_init_requirements_rejects_malformed_classical_model():
+    """A malformed classical model name must fail at init, not as a per-document
+    embedding failure inside the first embed call."""
+    cfg = EmbeddingConfig(
+        provider="classical",
+        model="hash-v1-lots",
+        allow_local_embedding_config=True,
+    )
+    with pytest.raises(ValueError, match="hash-v1-<dimensions>"):
+        DocumentChunkingSource._validate_provider_init_requirements(cfg)
+
+    DocumentChunkingSource._validate_provider_init_requirements(
+        EmbeddingConfig(
+            provider="classical",
+            model="hash-v1-2048",
+            allow_local_embedding_config=True,
+        )
+    )  # no raise
+
+
+def test_classical_rejects_chunk_size_above_code_point_limit(pipeline_context):
+    """The classical provider rejects oversized inputs instead of truncating, so a
+    chunk size above its cap would fail every document; refuse it up front."""
+    config = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="classical",
+            model="hash-v1-2048",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic", max_characters=20000),
+    )
+    with pytest.raises(ValueError, match="16384 code point limit"):
+        DocumentChunkingSource(
+            ctx=pipeline_context, config=config, standalone=False, graph=None
+        )
+
+
 # ---------------------------------------------------------------------------
 # _get_provider — caching behavior
 # ---------------------------------------------------------------------------

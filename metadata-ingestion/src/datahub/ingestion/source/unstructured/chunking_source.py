@@ -39,6 +39,10 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingProvider,
 )
+from datahub.ingestion.source.unstructured.embedding_providers.classical import (
+    MAX_CODE_POINTS as CLASSICAL_MAX_CODE_POINTS,
+    parse_dimensions as parse_classical_dimensions,
+)
 from datahub.ingestion.source.unstructured.embedding_providers.factory import (
     create_embedding_provider,
     derive_model_id,
@@ -193,6 +197,18 @@ class DocumentChunkingSource(Source):
             self.embedding_model = derive_model_id(
                 self.config.embedding.provider, self.config.embedding.model
             )
+            # The classical provider rejects inputs over its code point cap instead
+            # of truncating, so a chunk size above it would fail every document.
+            if (
+                self.config.embedding.provider == "classical"
+                and self.config.chunking.max_characters > CLASSICAL_MAX_CODE_POINTS
+            ):
+                raise ValueError(
+                    f"chunking.max_characters={self.config.chunking.max_characters} "
+                    f"exceeds the {CLASSICAL_MAX_CODE_POINTS} code point limit of the "
+                    "classical embedding provider; lower it so every chunk can be "
+                    "embedded."
+                )
 
         # Initialize rate limiter for embedding calls
         self.rate_limiter: Optional[RateLimiter] = (
@@ -234,6 +250,11 @@ class DocumentChunkingSource(Source):
                 f"embedding.model is required when using the {provider} provider. "
                 "Set embedding.model in your recipe."
             )
+
+        # Otherwise a malformed name only surfaces inside the first embed call and
+        # is reported as a per-document embedding failure on every document.
+        if provider == "classical" and embedding_config.model:
+            parse_classical_dimensions(embedding_config.model)
 
         if (
             provider == "cohere"

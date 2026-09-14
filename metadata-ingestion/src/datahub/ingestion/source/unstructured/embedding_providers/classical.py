@@ -55,7 +55,7 @@ _BOUNDARY_START = 0x01
 _BOUNDARY_END = 0x02
 
 
-def _parse_dimensions(model: str) -> int:
+def parse_dimensions(model: str) -> int:
     match = _MODEL_NAME_PATTERN.fullmatch(model)
     if match is None:
         raise ValueError(
@@ -158,7 +158,7 @@ class ClassicalEmbeddingProvider(EmbeddingProvider):
     """
 
     def __init__(self, model: str):
-        self.dimensions = _parse_dimensions(model)
+        self.dimensions = parse_dimensions(model)
         self.model_id = f"classical/{model}"
 
     def embed(self, texts: list[str]) -> EmbeddingResult:

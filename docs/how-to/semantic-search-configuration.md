@@ -187,7 +187,7 @@ For external document sources (Notion, Confluence, etc.), see the [Notion Source
 | Cohere      | `embed-multilingual-v3.0` | 1024       | 100+ languages                            |
 | Classical   | `hash-v1-2048`            | 2048       | Deterministic lexical hashing, no API key |
 
-> To use a non-default model, set the model name in your Helm values or environment variable and update `vectorDimension` / `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match.
+> To use a non-default model, set the model name in your Helm values or environment variable and update `vectorDimension` / `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match. The classical row is the exception: its width is fixed by the model name (`hash-v1-<dimensions>`) and its `hash_v1_2048` entry ships in the default `semanticSearch.models`, so there is nothing to update.
 
 ## Troubleshooting
 
