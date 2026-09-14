@@ -179,7 +179,7 @@ buildscript {
 }
 
 plugins {
-  id 'com.gorylenko.gradle-git-properties' version '2.5.3'
+  id 'com.gorylenko.gradle-git-properties' version '4.0.1'
   id 'com.gradleup.shadow' version '9.3.0' apply false
   id 'com.palantir.docker' version '0.35.0' apply false
   id 'com.avast.gradle.docker-compose' version '0.17.21'
@@ -800,12 +800,17 @@ allprojects {
 }
 
 apply plugin: 'com.gorylenko.gradle-git-properties'
+
+def gitDescribe = providers.exec {
+  workingDir rootProject.projectDir
+  commandLine 'git', 'describe', '--tags', '--always', '--abbrev=7'
+}.standardOutput.asText.map { it.trim() }
+
 gitProperties {
   keys = ['git.commit.id','git.commit.id.describe','git.commit.time']
-  // using any tags (not limited to annotated tags) for "git.commit.id.describe" property
-  // see http://ajoberstar.org/grgit/grgit-describe.html for more info about the describe method and available parameters
-  // 'it' is an instance of org.ajoberstar.grgit.Grgit
-  customProperty 'git.commit.id.describe', { it.describe(tags: true) }
+  // Include lightweight tags. The plugin's custom JGit describe path resolves the primary checkout
+  // in linked worktrees, so run Git from this worktree until upstream handles that case correctly.
+  customProperty 'git.commit.id.describe', { gitDescribe.get() }
   gitPropertiesResourceDir = rootProject.buildDir
   failOnNoGitDirectory = false
 }
