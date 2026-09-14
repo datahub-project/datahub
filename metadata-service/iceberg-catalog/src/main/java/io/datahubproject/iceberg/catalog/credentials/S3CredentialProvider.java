@@ -83,8 +83,7 @@ public class S3CredentialProvider implements CredentialProvider, AutoCloseable {
     }
   }
 
-  private StsClient acquireStsClientLocked(
-      StorageProviderCredentials storageProviderCredentials) {
+  private StsClient acquireStsClientLocked(StorageProviderCredentials storageProviderCredentials) {
     if (closed) {
       throw new IllegalStateException("S3CredentialProvider is closed");
     }
