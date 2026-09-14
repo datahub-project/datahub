@@ -1550,9 +1550,6 @@ _CONTAINER_ENV_EXCLUDE = {
     "PATH",
 }
 
-_MISE_GRADLE = ["mise", "exec", "--", "./gradlew"]
-
-
 def _find_running_container(service_names: List[str]) -> Optional[str]:
     """Return the container ID/name for the first running Compose service."""
     containers = _run_docker_compose_ps()
@@ -1664,7 +1661,7 @@ def cmd_play(args: argparse.Namespace) -> int:
     instance = _get_instance()
     port = instance["ports"]["DATAHUB_MAPPED_FRONTEND_PORT"] if instance else 9002
     gradle_args = [
-        *_MISE_GRADLE,
+        "./gradlew",
         "--no-configure-on-demand",
         ":datahub-frontend:playRun",
         "-PplayDev",
@@ -1676,7 +1673,7 @@ def cmd_play(args: argparse.Namespace) -> int:
     _log("Preparing the Play development classpath...")
     prepare = _run(
         [
-            *_MISE_GRADLE,
+            "./gradlew",
             ":datahub-frontend:classes",
             "-PplayDev",
             "-x",
@@ -1725,7 +1722,7 @@ def cmd_gms(args: argparse.Namespace) -> int:
     common_gradle_args = ["-x", "generateGitPropertiesGlobal"]
     _log("Compiling GMS before switching the running service...")
     prepare = _run(
-        [*_MISE_GRADLE, ":metadata-service:war:classes", *common_gradle_args],
+        ["./gradlew", ":metadata-service:war:classes", *common_gradle_args],
         capture=False,
     )
     if prepare.returncode != 0:
@@ -1761,7 +1758,7 @@ def cmd_gms(args: argparse.Namespace) -> int:
         )
         server = subprocess.Popen(
             [
-                *_MISE_GRADLE,
+                "./gradlew",
                 ":metadata-service:war:bootRun",
                 "-PhostDev",
                 *common_gradle_args,
@@ -1787,7 +1784,7 @@ def cmd_gms(args: argparse.Namespace) -> int:
         _log("Host GMS is healthy. Starting continuous compilation...")
         compiler = subprocess.Popen(
             [
-                *_MISE_GRADLE,
+                "./gradlew",
                 ":metadata-service:war:classes",
                 "--continuous",
                 *common_gradle_args,

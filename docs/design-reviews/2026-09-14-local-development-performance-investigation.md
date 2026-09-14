@@ -52,22 +52,16 @@ caches are retained.
 
 ## Static Analysis
 
-### Host toolchain and mise
+### Optional host tool bootstrap
 
-The upstream repository does use mise. `mise.toml` pins Java 25, Node.js 22, Python 3.11, Yarn 1.22.22,
-Actionlint, ShellCheck, and Betterleaks. This is the appropriate source of truth for host and CI tool
-versions.
+The upstream repository offers mise as an optional tool-bootstrap path. `mise.toml` pins Java 25,
+Node.js 22, Python 3.11, Yarn 1.22.22, Actionlint, ShellCheck, and Betterleaks, but normal
+`datahub-dev` commands do not require contributors to launch them through mise. Direct Python,
+Gradle-wrapper, and frontend-tool invocations are consistent with that optional contract.
 
-The setup is not fully mise-enforced, however:
-
-- the development shell wrapper invokes `python3` directly;
-- Gradle's settings logic probes for `pre-commit` and can install it with `python -m pip`; and
-- frontend Gradle tasks provision/use Yarn independently of a user entering through `mise exec`.
-
-This is primarily a reproducibility problem, not the dominant measured latency. The optimization is to
-make setup and CI enter a mise-managed environment consistently, then leave project dependencies to
-Gradle, uv, and the selected JavaScript package manager. Tool bootstrap time should be measured before
-changing enforcement.
+This is not an authorization to make mise mandatory. Any change to DataHub's supported tool-bootstrap
+contract requires separate agreement with the project. Performance work should preserve the current
+optional behavior.
 
 ### Gradle
 
@@ -208,9 +202,10 @@ clean source tree.
 
 Two setup defects materially affected discarded primers:
 
-- `scripts/dev/datahub-dev.sh rebuild` does not itself enforce mise. Direct invocation inherited an
-  incompatible host JDK and failed with `release version 25 not supported`; the valid Docker samples
-  wrapped the command in `mise exec --`.
+- A direct `scripts/dev/datahub-dev.sh rebuild` benchmark inherited an incompatible host JDK and
+  failed with `release version 25 not supported`; the valid Docker samples explicitly entered the
+  benchmark machine's mise environment. This was a benchmark-environment mistake, not evidence that
+  `datahub-dev` should require mise.
 - The git-properties plugin resolves the primary checkout's HEAD in a linked worktree. This
   worktree was at `dfdb81e`, but even a no-daemon, forced generation wrote the primary checkout's
   `f4e53a5` into `build/git.properties`. A concurrent primary-worktree commit therefore invalidated
@@ -283,7 +278,8 @@ input/output model can detect and repair it.
   translation, a health-gated continuous compiler, and automatic restoration of Docker GMS.
 - Disables Fabric8 Kubernetes auto-configuration only in host GMS mode so local kubeconfig credential
   helpers cannot block Spring startup.
-- Runs both new Gradle entry points through the repository's mise-managed Java 25 toolchain.
+- Runs both new Gradle entry points through the Gradle wrapper in the caller's configured environment,
+  consistent with the other `datahub-dev` commands.
 
 Functional validation reached HTTP 200 on Play `/admin` and GMS `/health`. A temporary GMS source
 edit was detected by the continuous compiler, caused a DevTools restart, and returned to HTTP 200.
@@ -337,20 +333,18 @@ root Gradle invocation while retaining path scoping and all existing checks.
 
 The order depends on the latency being optimized. For everyday edit/reload latency:
 
-1. Enforce mise for every `datahub-dev` Gradle invocation.
-2. Make git-properties generation linked-worktree aware and correctly track each worktree's HEAD.
-3. Make `datahub-dev gms` report compiler watch readiness separately from HTTP readiness.
-4. Measure hook scenarios, then consolidate Java Spotless invocations only if repeated Gradle launches
+1. Make git-properties generation linked-worktree aware and correctly track each worktree's HEAD.
+2. Make `datahub-dev gms` report compiler watch readiness separately from HTTP readiness.
+3. Measure hook scenarios, then consolidate Java Spotless invocations only if repeated Gradle launches
    are material.
-5. Benchmark Gradle worker/memory profiles on representative GMS rebuilds.
-6. Treat configuration-cache compatibility as a separate build-logic project after the above work.
+4. Benchmark Gradle worker/memory profiles on representative GMS rebuilds.
+5. Treat configuration-cache compatibility as a separate build-logic project after the above work.
 
 For environment startup and one-time setup:
 
 1. Benchmark Kafka versus Redpanda in the quickstart profile.
 2. Establish clean and warm Yarn installation baselines, then benchmark a complete pnpm prototype.
-3. Measure `mise install` and make wrapper/CI entry points consistently use the pinned environment.
-4. Establish a controlled cold-start baseline covering dependency download, code generation, image
+3. Establish a controlled cold-start baseline covering dependency download, code generation, image
    build/pull, database initialization, and search initialization.
 
 ## Benchmark Protocol for Remaining Work
@@ -358,7 +352,7 @@ For environment startup and one-time setup:
 Each experiment should record:
 
 - exact commit and dirty-worktree state;
-- host architecture, allocated Colima CPU/memory/disk, and tool versions from mise;
+- host architecture, allocated Colima CPU/memory/disk, and effective tool versions;
 - which of Gradle cache, package-manager store, `node_modules`, Docker image cache, volumes, and
   generated outputs were retained;
 - at least one priming run followed by five measured runs for warm scenarios;

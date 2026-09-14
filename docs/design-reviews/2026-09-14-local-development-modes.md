@@ -138,9 +138,10 @@ normal inner loop.
 
 ### Host tool setup
 
-`mise.toml` is the source of truth for the primary host runtimes, including Java 25, Node.js 22,
-Python 3.11, and Yarn 1.22.22. `mise install` prepares the toolchain. Project dependencies remain the
-responsibility of their project package managers.
+The repository offers an optional `mise.toml` that pins Java 25, Node.js 22, Python 3.11, and Yarn
+1.22.22. Contributors can use `mise install` to prepare those tools, but `datahub-dev` does not
+require mise and invokes the Gradle wrapper in the caller's configured environment. Project
+dependencies remain the responsibility of their project package managers.
 
 The wrapper provides separate setup actions for the Python ingestion environment and frontend
 dependencies. Frontend setup currently uses Yarn; a pnpm migration remains an experiment rather than
