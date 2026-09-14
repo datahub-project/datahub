@@ -297,10 +297,10 @@ The example shows both basic patterns for getting started and advanced patterns 
 
 ### Querying ML Model Information
 
-The standard REST APIs can be used to retrieve ML Model entities and their aspects:
+The Python SDK can be used to retrieve ML Model entities and their aspects:
 
 <details>
-<summary>Python: Query an ML Model via REST API</summary>
+<summary>Python SDK: Query an ML Model</summary>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/mlmodel_query_rest_api.py show_path_as_comment }}
