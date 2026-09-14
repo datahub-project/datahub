@@ -1305,6 +1305,37 @@ class TestSkipMarkersAndEmbedAccounting:
         assert aspect.skipReason == "NO_INDEXABLE_CONTENT"
         assert source.report.num_embedding_failures == 0
 
+    def test_blank_chunk_in_middle_keeps_embedding_alignment(
+        self, pipeline_context, chunking_config
+    ):
+        """Blank chunks are never sent to the provider; every emitted chunk must
+        still carry the vector computed from its own text, not its neighbour's."""
+        source = self._source(pipeline_context, chunking_config)
+        vectors = {"alpha": [1.0, 0.0], "gamma": [0.0, 1.0]}
+        provider = MagicMock()
+        provider.embed.side_effect = lambda texts: EmbeddingResult(
+            embeddings=[vectors[t] for t in texts]
+        )
+        source._provider = provider
+        chunks = [{"text": "alpha"}, {"text": "   "}, {"text": "gamma"}]
+
+        with patch.object(source, "_chunk_elements", return_value=chunks):
+            wus = list(
+                source.process_elements_inline(
+                    "urn:li:document:aligned",
+                    [{"type": "NarrativeText", "text": "alpha gamma"}],
+                )
+            )
+
+        semantic_wu = next(wu for wu in wus if "semanticContent" in wu.id)
+        (model_data,) = _semantic_embeddings(semantic_wu).values()
+        assert [(c.text, c.vector) for c in model_data.chunks] == [
+            ("alpha", [1.0, 0.0]),
+            ("gamma", [0.0, 1.0]),
+        ]
+        assert [c.position for c in model_data.chunks] == [0, 1]
+        assert model_data.totalChunks == 2
+
     def test_provider_returning_no_vectors_is_failure_not_success(
         self, pipeline_context, chunking_config
     ):

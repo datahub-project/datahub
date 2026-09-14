@@ -74,6 +74,15 @@ def compute_source_text_sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _has_embeddable_text(chunk: dict[str, Any]) -> bool:
+    """Whether a chunk is sent to the embedding provider.
+
+    Blank chunks are skipped. The same predicate must gate both the provider call
+    and the aspect emission, or the returned vectors shift onto the wrong chunks.
+    """
+    return bool((chunk.get("text") or "").strip())
+
+
 @dataclass
 class DocumentChunkingReport(SourceReport):
     """Report for document chunking source."""
@@ -324,7 +333,7 @@ class DocumentChunkingSource(Source):
         # All-blank chunk text is deterministic for this document: _generate_embeddings
         # would filter every chunk before calling the provider, so treat it as a
         # deliberate skip rather than an embedding failure that would retry forever.
-        if not any((chunk.get("text") or "").strip() for chunk in chunks):
+        if not any(_has_embeddable_text(chunk) for chunk in chunks):
             logger.warning(f"Only blank chunk text for document {document_urn}")
             yield self.build_skip_marker_workunit(document_urn, "NO_INDEXABLE_CONTENT")
             return
@@ -852,10 +861,11 @@ class DocumentChunkingSource(Source):
             raise
 
     def _generate_embeddings(self, chunks: list[dict[str, Any]]) -> list[list[float]]:
-        """Generate embeddings via the configured provider."""
-        # Extract text from chunks
-        texts = [chunk.get("text", "") for chunk in chunks]
-        texts = [t for t in texts if t.strip()]
+        """Generate embeddings via the configured provider.
+
+        Returns one vector per embeddable (non-blank) chunk, in chunk order.
+        """
+        texts = [chunk["text"] for chunk in chunks if _has_embeddable_text(chunk)]
         if not texts:
             return []
 
@@ -946,6 +956,11 @@ class DocumentChunkingSource(Source):
             self.config.embedding.provider, self.config.embedding.model
         )
         assert model_version is not None
+
+        # Only embeddable chunks were sent to the provider, so pair vectors with
+        # that same subset; zipping against every chunk would shift each vector
+        # after a blank chunk onto the wrong text.
+        chunks = [chunk for chunk in chunks if _has_embeddable_text(chunk)]
 
         # Build embedding chunks
         embedding_chunks = []
