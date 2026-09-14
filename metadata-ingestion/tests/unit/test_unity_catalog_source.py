@@ -225,6 +225,35 @@ class TestUnityCatalogSource:
         assert isinstance(source.report.ml_models, EntityFilterReport)
         assert isinstance(source.report.ml_model_versions, EntityFilterReport)
 
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    def test_start_warehouse_timeout_reported_as_failure(
+        self, mock_hive_proxy, mock_unity_proxy
+    ):
+        """A network timeout while starting the warehouse should surface as a
+        structured failure, not an uncaught pipeline exception."""
+        # The Databricks SDK raises a plain TimeoutError once its retry budget is
+        # exhausted (e.g. workspace host unreachable at the network layer).
+        mock_unity_proxy.return_value.start_warehouse.side_effect = TimeoutError(
+            "Timed out after 0:05:00"
+        )
+
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": True,
+            }
+        )
+        source = UnityCatalogSource.create(config, PipelineContext(run_id="test_run"))
+
+        workunits = list(source.get_workunits_internal())
+
+        assert workunits == []
+        assert len(source.report.failures) == 1
+        assert "warehouse" in source.report.failures[0].message.lower()
+
     def test_test_connection_with_ml_model_configs(self):
         """Test that test_connection properly handles ML model configs."""
         config_dict = {
