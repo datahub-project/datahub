@@ -6345,3 +6345,28 @@ def test_sql_editor_view_skips_formula_decoration():
     assert fields is not None
     assert {f.fieldPath: f.description for f in fields} == {"TOTAL": "Total"}
     assert source.report.calculated_column_formulas_emitted == 0
+
+
+def test_formula_extraction_exception_degrades_gracefully(monkeypatch):
+    """A renderer bug must not corrupt the schema: fields stay unchanged, the
+    counter stays 0, and the failure is surfaced (not swallowed)."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="formula-exc"), cfg)
+
+    def _boom(_csn_def):
+        raise ValueError("renderer blew up")
+
+    monkeypatch.setattr(source_module, "extract_calculated_column_formulas", _boom)
+
+    fields = [_string_field("TOTAL", "Total")]
+    source._apply_calculated_column_formulas("S1", "MY_VIEW", {"query": {}}, fields)
+
+    assert fields[0].description == "Total"
+    assert source.report.calculated_column_formulas_emitted == 0
+    assert "S1.MY_VIEW" in list(source.report.assets_formula_extraction_failed)
+    assert any(
+        w.title == "Failed to extract calculated-column formulas"
+        for w in source.report.warnings
+    )

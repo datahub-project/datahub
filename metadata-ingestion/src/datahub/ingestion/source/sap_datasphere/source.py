@@ -2058,15 +2058,23 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         fields: List[SchemaFieldClass],
     ) -> None:
         # Append each calculated column's expression to its description as a
-        # ``formula:`` line.
+        # ``formula:`` line. The renderer is defensively guarded, so surface an
+        # escaping exception as a warning (with the traceback) rather than
+        # swallowing it — it points at a renderer bug, not just malformed CSN.
         try:
             formulas = extract_calculated_column_formulas(csn_def)
         except Exception as e:
-            logger.debug(
-                "Could not extract calculated-column formulas for %s.%s: %s",
-                space_name,
-                asset_name,
-                e,
+            self.report.assets_formula_extraction_failed.append(
+                f"{space_name}.{asset_name}"
+            )
+            self.report.warning(
+                title="Failed to extract calculated-column formulas",
+                message=(
+                    "Column descriptions for this asset will omit calculation "
+                    "formulas; the rest of its metadata is unaffected"
+                ),
+                context=f"{space_name}.{asset_name}",
+                exc=e,
             )
             return
         if not formulas:

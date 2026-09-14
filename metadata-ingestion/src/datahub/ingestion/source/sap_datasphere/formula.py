@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Mapping, Optional
 
 from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_ARGS,
@@ -51,8 +51,7 @@ def render_cqn_expression(node: object) -> str:
     if isinstance(node, str):
         # A bare string inside an ``xpr`` is an operator/keyword (``+``, ``case``, ...).
         return node
-    if isinstance(node, bool):
-        return _render_literal(node)
+    # ``bool`` is a subclass of ``int``; _render_literal handles it internally.
     if isinstance(node, (int, float)):
         return _render_literal(node)
     if not isinstance(node, dict):
@@ -76,7 +75,8 @@ def render_cqn_expression(node: object) -> str:
         return _render_xpr(xpr)
     items = node.get(CSN_LIST)
     if isinstance(items, list):
-        rendered_items = _render_operands(items)
+        # An empty list is degenerate — render nothing, consistent with an empty xpr.
+        rendered_items = _render_operands(items) if items else None
         if rendered_items is None:
             return ""
         return "(" + ", ".join(rendered_items) + ")"
@@ -127,11 +127,11 @@ def _output_name(col: Dict[str, object]) -> Optional[str]:
     return None
 
 
-def _iter_selects(query: object) -> List[dict]:
+def _iter_selects(query: object) -> List[Dict[str, object]]:
     # Flatten a ``SET`` (UNION/INTERSECT/EXCEPT) body so branch columns are reached.
     if not isinstance(query, dict):
         return []
-    selects: List[dict] = []
+    selects: List[Dict[str, object]] = []
     select = query.get(CSN_SELECT)
     if isinstance(select, dict):
         selects.append(select)
@@ -144,14 +144,22 @@ def _iter_selects(query: object) -> List[dict]:
     return selects
 
 
-def _select_output_names(select: dict) -> List[Optional[str]]:
+def _select_output_names(select: Dict[str, object]) -> List[Optional[str]]:
     columns = select.get(CSN_COLUMNS)
     if not isinstance(columns, list):
         return []
     return [_output_name(c) if isinstance(c, dict) else None for c in columns]
 
 
-def _formulas_from_query_columns(csn_def: dict, out: Dict[str, str]) -> None:
+def _record_formula(out: Dict[str, str], name: str, node: object) -> None:
+    formula = render_cqn_expression(node)
+    if _is_meaningful_formula(formula):
+        out.setdefault(name, formula)
+
+
+def _formulas_from_query_columns(
+    csn_def: Mapping[str, object], out: Dict[str, str]
+) -> None:
     selects = _iter_selects(csn_def.get(CSN_KEY_QUERY))
     if not selects:
         return
@@ -168,14 +176,11 @@ def _formulas_from_query_columns(csn_def: dict, out: Dict[str, str]) -> None:
             name = output_names[index] if index < len(output_names) else None
             if name is None:
                 name = _output_name(col)
-            if name is None:
-                continue
-            formula = render_cqn_expression(col)
-            if _is_meaningful_formula(formula):
-                out.setdefault(name, formula)
+            if name is not None:
+                _record_formula(out, name, col)
 
 
-def _formulas_from_elements(csn_def: dict, out: Dict[str, str]) -> None:
+def _formulas_from_elements(csn_def: Mapping[str, object], out: Dict[str, str]) -> None:
     elements = csn_def.get(CSN_KEY_ELEMENTS)
     if not isinstance(elements, dict):
         return
@@ -183,14 +188,11 @@ def _formulas_from_elements(csn_def: dict, out: Dict[str, str]) -> None:
         if not isinstance(element, dict):
             continue
         value = element.get(CSN_KEY_VALUE)
-        if not isinstance(value, dict):
-            continue
-        formula = render_cqn_expression(value)
-        if _is_meaningful_formula(formula):
-            out.setdefault(name, formula)
+        if isinstance(value, dict):
+            _record_formula(out, name, value)
 
 
-def extract_calculated_column_formulas(csn_def: dict) -> Dict[str, str]:
+def extract_calculated_column_formulas(csn_def: Mapping[str, object]) -> Dict[str, str]:
     """Map each calculated output column (by name) to its rendered formula.
 
     Reads the ``query`` projection columns and any calculated element carrying an

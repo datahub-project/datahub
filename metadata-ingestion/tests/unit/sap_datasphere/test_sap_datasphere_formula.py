@@ -158,6 +158,44 @@ def test_extract_union_branch_maps_to_first_branch_output_name():
     assert extract_calculated_column_formulas(csn_def) == {"TOTAL": "P * Q"}
 
 
+def _branch(columns):
+    return {"SELECT": {"from": {"ref": ["T"]}, "columns": columns}}
+
+
+def test_extract_union_three_branches_with_extra_trailing_column():
+    # Branch 0 defines two output names; a later branch has a third column with no
+    # corresponding output name — the index guard must skip it, not raise.
+    csn_def = {
+        "query": {
+            "SET": {
+                "op": "union",
+                "args": [
+                    _branch([{"ref": ["A"]}, {"ref": ["B"]}]),
+                    _branch(
+                        [
+                            {"xpr": [{"ref": ["A"]}, "+", {"val": 1}], "as": "X"},
+                            {"ref": ["B"]},
+                        ]
+                    ),
+                    _branch(
+                        [
+                            {"ref": ["A"]},
+                            {"ref": ["B"]},
+                            {"xpr": [{"ref": ["C"]}, "*", {"val": 2}], "as": "EXTRA"},
+                        ]
+                    ),
+                ],
+            }
+        }
+    }
+    # The branch-1 calc maps to branch-0's first output name (``A``); the branch-2
+    # trailing calc has no branch-0 name, so it falls back to its own alias.
+    assert extract_calculated_column_formulas(csn_def) == {
+        "A": "A + 1",
+        "EXTRA": "C * 2",
+    }
+
+
 def test_extract_formula_from_element_value():
     csn_def = {
         "elements": {
