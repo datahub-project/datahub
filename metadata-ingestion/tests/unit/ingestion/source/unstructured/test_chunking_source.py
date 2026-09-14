@@ -1002,6 +1002,32 @@ def test_validate_init_requirements_rejects_malformed_classical_model():
     )  # no raise
 
 
+def test_classical_provider_is_not_rate_limited(pipeline_context, chunking_config):
+    """The documents-per-minute limiter protects external APIs; the in-process
+    classical provider must not be throttled by it."""
+    classical = DocumentChunkingSourceConfig(
+        embedding=EmbeddingConfig(
+            provider="classical",
+            model="hash-v1-2048",
+            allow_local_embedding_config=True,
+        ),
+        chunking=ChunkingConfig(strategy="basic"),
+    )
+    assert (
+        DocumentChunkingSource(
+            ctx=pipeline_context, config=classical, standalone=False, graph=None
+        ).rate_limiter
+        is None
+    )
+    # An API-backed provider keeps the default limiter.
+    assert (
+        DocumentChunkingSource(
+            ctx=pipeline_context, config=chunking_config, standalone=False, graph=None
+        ).rate_limiter
+        is not None
+    )
+
+
 def test_classical_rejects_chunk_size_above_code_point_limit(pipeline_context):
     """The classical provider rejects oversized inputs instead of truncating, so a
     chunk size above its cap would fail every document; refuse it up front."""
