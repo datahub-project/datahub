@@ -1282,10 +1282,21 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # analytic models, which expose no relational metadata URL for EDMX.
         if parse_result is not None and parse_result.fields:
             self.report.assets_schema_fetched += 1
-            return self._decorate_fields(parse_result)
-        if csn_def is not None:
-            return self._schema_fields_from_csn(space_name, asset_name, csn_def)
-        return None
+            fields = self._decorate_fields(parse_result)
+        elif csn_def is not None:
+            fields = self._schema_fields_from_csn(space_name, asset_name, csn_def)
+        else:
+            return None
+        # Decorate calculated columns with their formula on either schema path: a
+        # graphical view can expose a relational EDMX schema yet still carry
+        # calculated columns whose expressions only live in the CSN. Runs on the
+        # already-filtered field list (both paths apply column_pattern first) so
+        # excluded columns are neither decorated nor counted.
+        if fields and csn_def is not None:
+            self._apply_calculated_column_formulas(
+                space_name, asset_name, csn_def, fields
+            )
+        return fields
 
     def _fetch_asset_csn(
         self, space_name: str, asset: JsonDict, asset_name: str
@@ -2034,9 +2045,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 space_name, asset_name, csn_def, csn_schema.fields, missing
             )
         self._report_missing_cds_types(space_name, asset_name, missing)
-        self._apply_calculated_column_formulas(
-            space_name, asset_name, csn_def, csn_schema.fields
-        )
         filtered = self._apply_column_pattern(csn_schema.fields)
         if not filtered:
             return None

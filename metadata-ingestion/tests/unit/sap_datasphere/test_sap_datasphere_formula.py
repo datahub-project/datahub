@@ -38,9 +38,23 @@ def test_render_null_inside_case_expression():
     assert render_cqn_expression(node) == "case when X then NULL else Y end"
 
 
+def test_render_escapes_embedded_apostrophe():
+    # An apostrophe must be doubled so the literal stays valid SQL-like quoting.
+    assert render_cqn_expression({"val": "O'Reilly"}) == "'O''Reilly'"
+
+
 def test_render_function_call():
     node = {"func": "SUM", "args": [{"ref": ["AMOUNT"]}]}
     assert render_cqn_expression(node) == "SUM(AMOUNT)"
+
+
+def test_render_rejects_expression_with_unrenderable_child():
+    # A function or infix expression with an unsupported operand renders empty
+    # rather than surfacing a truncated ``COALESCE(A, )`` / ``A +``.
+    assert (
+        render_cqn_expression({"func": "COALESCE", "args": [{"ref": ["A"]}, {}]}) == ""
+    )
+    assert render_cqn_expression({"xpr": [{"ref": ["A"]}, "+", {"mystery": 1}]}) == ""
 
 
 def test_render_infix_expression():
@@ -84,6 +98,37 @@ def test_extract_formula_from_query_column():
     formulas = extract_calculated_column_formulas(csn_def)
     # Plain projections carry no formula; only the calculated column does.
     assert formulas == {"TOTAL": "PRICE * QTY"}
+
+
+def test_extract_formula_from_union_branches():
+    # UNION/INTERSECT/EXCEPT bodies live under query.SET.args, not query.SELECT.
+    csn_def = {
+        "query": {
+            "SET": {
+                "op": "union",
+                "args": [
+                    {
+                        "SELECT": {
+                            "from": {"ref": ["A"]},
+                            "columns": [
+                                {
+                                    "xpr": [{"ref": ["P"]}, "*", {"ref": ["Q"]}],
+                                    "as": "TOTAL",
+                                },
+                            ],
+                        }
+                    },
+                    {
+                        "SELECT": {
+                            "from": {"ref": ["B"]},
+                            "columns": [{"ref": ["TOTAL"]}],
+                        }
+                    },
+                ],
+            }
+        }
+    }
+    assert extract_calculated_column_formulas(csn_def) == {"TOTAL": "P * Q"}
 
 
 def test_extract_formula_from_element_value():

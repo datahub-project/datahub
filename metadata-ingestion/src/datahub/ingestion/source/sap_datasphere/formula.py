@@ -11,6 +11,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_LIST,
     CSN_REF,
     CSN_SELECT,
+    CSN_SET,
     CSN_VAL,
     CSN_XPR,
     PROJECTION_ALIAS,
@@ -41,7 +42,9 @@ def _render_literal(value: object) -> str:
     if value is None:
         return _SQL_NULL
     if isinstance(value, str):
-        return f"'{value}'"
+        # Double any embedded single quote so an apostrophe (``O'Reilly``) yields
+        # valid SQL-like quoting rather than a broken ``'O'Reilly'``.
+        return "'" + value.replace("'", "''") + "'"
     if isinstance(value, bool):
         return "TRUE" if value else "FALSE"
     return str(value)
@@ -73,19 +76,34 @@ def render_cqn_expression(node: object) -> str:
     func = node.get(CSN_FUNC)
     if isinstance(func, str):
         args = node.get(CSN_ARGS)
-        rendered_args = (
-            ", ".join(render_cqn_expression(arg) for arg in args)
-            if isinstance(args, list)
-            else ""
-        )
-        return f"{func}({rendered_args})"
+        if not isinstance(args, list):
+            return f"{func}()"
+        rendered_args = _render_operands(args)
+        if rendered_args is None:
+            return ""
+        return f"{func}({', '.join(rendered_args)})"
     xpr = node.get(CSN_XPR)
     if isinstance(xpr, list):
         return _render_xpr(xpr)
     items = node.get(CSN_LIST)
     if isinstance(items, list):
-        return "(" + ", ".join(render_cqn_expression(item) for item in items) + ")"
+        rendered_items = _render_operands(items)
+        if rendered_items is None:
+            return ""
+        return "(" + ", ".join(rendered_items) + ")"
     return ""
+
+
+def _render_operands(items: List[object]) -> Optional[List[str]]:
+    # Reject the whole expression if any operand is unrenderable: a partial render
+    # such as ``COALESCE(A, )`` is misleading metadata, worse than none.
+    rendered: List[str] = []
+    for item in items:
+        text = render_cqn_expression(item)
+        if not text:
+            return None
+        rendered.append(text)
+    return rendered
 
 
 def _render_xpr(items: List[object]) -> str:
@@ -93,7 +111,8 @@ def _render_xpr(items: List[object]) -> str:
     for item in items:
         text = render_cqn_expression(item)
         if not text:
-            continue
+            # A dangling operator (``A +``) is worse than omitting the formula.
+            return ""
         # Parenthesize a nested infix expression so operator precedence stays
         # visually unambiguous once flattened into one line.
         if isinstance(item, dict) and isinstance(item.get(CSN_XPR), list):
@@ -122,25 +141,40 @@ def _output_name(col: Dict[str, object]) -> Optional[str]:
     return None
 
 
-def _formulas_from_query_columns(csn_def: dict, out: Dict[str, str]) -> None:
-    query = csn_def.get(CSN_KEY_QUERY)
+def _iter_selects(query: object) -> List[dict]:
+    # A view body is either a single ``SELECT`` or a ``SET`` (UNION/INTERSECT/
+    # EXCEPT) whose ``args`` are themselves query bodies. Flatten both so a
+    # calculated column in any branch is reached, mirroring lineage extraction.
     if not isinstance(query, dict):
-        return
+        return []
+    selects: List[dict] = []
     select = query.get(CSN_SELECT)
-    if not isinstance(select, dict):
-        return
-    columns = select.get(CSN_COLUMNS)
-    if not isinstance(columns, list):
-        return
-    for col in columns:
-        if not isinstance(col, dict) or not _is_calculated_column(col):
+    if isinstance(select, dict):
+        selects.append(select)
+    set_node = query.get(CSN_SET)
+    if isinstance(set_node, dict):
+        args = set_node.get(CSN_ARGS)
+        if isinstance(args, list):
+            for arg in args:
+                selects.extend(_iter_selects(arg))
+    return selects
+
+
+def _formulas_from_query_columns(csn_def: dict, out: Dict[str, str]) -> None:
+    for select in _iter_selects(csn_def.get(CSN_KEY_QUERY)):
+        columns = select.get(CSN_COLUMNS)
+        if not isinstance(columns, list):
             continue
-        name = _output_name(col)
-        if name is None:
-            continue
-        formula = render_cqn_expression(col)
-        if _is_meaningful_formula(formula):
-            out.setdefault(name, formula)
+        for col in columns:
+            if not isinstance(col, dict) or not _is_calculated_column(col):
+                continue
+            name = _output_name(col)
+            if name is None:
+                continue
+            formula = render_cqn_expression(col)
+            if _is_meaningful_formula(formula):
+                # First branch wins; UNION branches align by output column name.
+                out.setdefault(name, formula)
 
 
 def _formulas_from_elements(csn_def: dict, out: Dict[str, str]) -> None:

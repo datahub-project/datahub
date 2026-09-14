@@ -17,6 +17,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.sap_common.models import EdmxParseResult
 from datahub.ingestion.source.sap_datasphere import source as source_module
 from datahub.ingestion.source.sap_datasphere.client import SapDatasphereClient
 from datahub.ingestion.source.sap_datasphere.config import SapDatasphereConfig
@@ -49,7 +50,10 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     MetadataChangeProposalClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    StringTypeClass,
     SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -6265,11 +6269,54 @@ def test_schema_fields_from_csn_appends_calculated_formula():
         },
     }
 
-    fields = source._schema_fields_from_csn("S1", "MY_VIEW", csn_def)
+    fields = source._resolve_asset_schema_fields("S1", "MY_VIEW", None, csn_def)
     assert fields is not None
     by_path = {f.fieldPath: f for f in fields}
     # The calculated column carries its label plus the rendered formula.
     assert by_path["TOTAL"].description == "Total\n\nformula: PRICE * QTY"
     # A plain projected column keeps its label untouched.
+    assert by_path["QTY"].description == "Quantity"
+    assert source.report.calculated_column_formulas_emitted == 1
+
+
+def _string_field(field_path: str, description: Optional[str]) -> SchemaFieldClass:
+    return SchemaFieldClass(
+        fieldPath=field_path,
+        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        nativeDataType="cds.String",
+        description=description,
+    )
+
+
+def test_edmx_schema_path_appends_calculated_formula():
+    """A graphical view can expose a relational EDMX schema yet still carry
+    calculated columns whose expressions only live in the CSN. The formula must be
+    decorated on the EDMX field list too, not only the CSN fallback."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="edmx-calc-formula"), cfg)
+    parse_result = EdmxParseResult(
+        fields=[
+            _string_field("QTY", "Quantity"),
+            _string_field("TOTAL", "Total"),
+        ]
+    )
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"ref": ["QTY"]},
+                    {"xpr": [{"ref": ["PRICE"]}, "*", {"ref": ["QTY"]}], "as": "TOTAL"},
+                ],
+            }
+        },
+    }
+
+    fields = source._resolve_asset_schema_fields("S1", "MY_VIEW", parse_result, csn_def)
+    assert fields is not None
+    by_path = {f.fieldPath: f for f in fields}
+    assert by_path["TOTAL"].description == "Total\n\nformula: PRICE * QTY"
     assert by_path["QTY"].description == "Quantity"
     assert source.report.calculated_column_formulas_emitted == 1
