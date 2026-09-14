@@ -101,7 +101,7 @@ class ConfluentStreamCatalogConfig(ConfigModel):
             return True
         report.warning(
             message="'confluent_catalog' is enabled but the Schema Registry endpoint is "
-            "not a Confluent Cloud one — the Stream Catalog is Confluent Cloud only and "
+            "not a Confluent Cloud one: the Stream Catalog is Confluent Cloud only and "
             "will be skipped",
             context=f"schema_registry_url={self.schema_registry_url}",
         )
