@@ -342,9 +342,9 @@ public class EmbeddingProviderFactory {
           "Invalid classical embedding model '" + model + "': " + e.getMessage(), e);
     }
 
-    // Same derivation as the SemanticEntitySearchServiceFactory fallback (none of its special-cased
-    // model names match hash-v1-*), so this is the key the query path will read from the index.
-    String modelKey = model.replace("-", "_").replace(".", "_").replace(":", "_");
+    // The key the query path reads from the index; derived by the same helper so startup
+    // validation and index lookup cannot drift apart.
+    String modelKey = SemanticEntitySearchServiceFactory.deriveModelEmbeddingKeyFromModelId(model);
     Map<String, ModelEmbeddingConfig> models = semanticSearchConfig.getModels();
     ModelEmbeddingConfig modelConfig = models != null ? models.get(modelKey) : null;
     if (modelConfig == null) {

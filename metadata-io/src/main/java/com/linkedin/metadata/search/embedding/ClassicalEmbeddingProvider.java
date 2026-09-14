@@ -145,6 +145,7 @@ public class ClassicalEmbeddingProvider implements EmbeddingProvider {
       for (Map.Entry<String, Integer> feature : termFrequency.entrySet()) {
         byte[] digest = sha256.digest(feature.getKey().getBytes(StandardCharsets.UTF_8));
         long weight = ceilSqrt(feature.getValue());
+        // Digest layout (shared with Python): bytes 0-3 big-endian bucket, byte 4 bit 0 sign.
         acc[bucket(digest)] += (digest[4] & 1) == 0 ? weight : -weight;
       }
       boolean allZero = true;
