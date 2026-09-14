@@ -41,6 +41,11 @@ GOLDEN: list[tuple[str, str, str]] = [
         "bec441fc81b6a708326c70ddfd5229c197bc315c450ac4cda1bfeb63826ce9ab",
     ),
     (
+        "hello_world_lowercase",  # same digest as hello_world: A-Z fold
+        "hello, world!",
+        "bec441fc81b6a708326c70ddfd5229c197bc315c450ac4cda1bfeb63826ce9ab",
+    ),
+    (
         "user_id_customer_id",
         "user_id customer_id",
         "0a803a46b7b0db404eeeb79344d9d56effcb6d81cdbce71a4e488e5978c78ec6",
@@ -52,27 +57,27 @@ GOLDEN: list[tuple[str, str, str]] = [
     ),
     (
         "gruesse_tokyo_data",  # "Grüße 東京 data"
-        "Grüße 東京 data",
+        "Gr\u00fc\u00dfe \u6771\u4eac data",
         "97777de6cfe5a291c9711b1be592479ea6867b80aca515d950a2018835b2dd74",
     ),
     (
         "naive_cafe",  # "naïve café"
-        "naïve café",
+        "na\u00efve caf\u00e9",
         "a8291f6e6798ef926025c47b85202c2734e66d025fa22b4bda60428104ae998e",
     ),
     (
         "e_acute_precomposed",  # "é" as U+00E9
-        "é",
+        "\u00e9",
         "3376ecfc87f89b3d3d673b2ec8ce2645713dbcd47bd73b1c1af41d793c70cfbf",
     ),
     (
         "e_acute_combining",  # "e" + U+0301 combining acute
-        "é",
+        "e\u0301",
         "26e0cf186ad15cc6a307f215cd94ffd41d2115b7b021cbd21a56be33a8ae4c5e",
     ),
     (
         "nbsp_one_word",  # "a" NBSP "b": NBSP is not a separator
-        "a b",
+        "a\u00a0b",
         "6f3c34bb96eb1114f09ab6f8965df17a170225eecd2e1cd9b9636c213300151e",
     ),
     (
@@ -134,15 +139,19 @@ def test_ascii_case_is_folded() -> None:
 
 def test_combining_mark_is_not_normalized() -> None:
     # No NFC/NFKC: precomposed and decomposed forms stay distinct (documented limitation).
-    assert _embed("é") != _embed("é")
+    assert _embed("\u00e9") != _embed("e\u0301")
 
 
 def test_nbsp_is_not_a_separator() -> None:
-    assert _embed("a b") != _embed("a b")
+    assert _embed("a\u00a0b") != _embed("a b")
+
+
+def test_nul_is_not_a_separator() -> None:
+    assert _embed("a\x00b") != _embed("a b")
 
 
 def test_lone_surrogate_is_replaced_not_raised() -> None:
-    assert _embed("\ud800x") == _embed("�x")
+    assert _embed("\ud800x") == _embed("\ufffdx")
 
 
 def test_rejects_input_over_max_code_points() -> None:
