@@ -23,6 +23,7 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.expressions as sqlglot_exp
 import yaml
+from databricks.sdk.core import DatabricksError
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
@@ -583,34 +584,46 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         """Start the SQL warehouse and block until it is running.
 
         Returns True once the warehouse is running. If the warehouse is missing,
-        or the workspace cannot be reached before the Databricks SDK exhausts its
-        retry budget, records a structured failure and returns False so ingestion
-        stops with an actionable message instead of an uncaught traceback.
+        the workspace is unreachable, or the warehouse fails to start, records a
+        structured failure and returns False so ingestion stops with an actionable
+        message instead of an uncaught traceback.
         """
+        warehouse_id = self.config.profiling.warehouse_id
         try:
-            # Can take several minutes, so this both starts and waits for the warehouse.
             wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
-            if wait_on_warehouse is None:
-                self.report.failure(
-                    message="SQL warehouse not found",
-                    context=f"SQL warehouse {self.config.profiling.warehouse_id} not found",
-                )
-                return False
-            wait_on_warehouse.result()
-            return True
         except TimeoutError as e:
             # The Databricks SDK raises a plain TimeoutError (not a DatabricksError)
-            # once its retry budget is exhausted, e.g. when the workspace host is
-            # unreachable at the network layer.
+            # once its retry budget is exhausted on the start request itself, e.g.
+            # when the workspace host is unreachable at the network layer.
             self.report.failure(
                 message="Timed out reaching the Databricks workspace to start the SQL warehouse",
                 context=(
-                    f"SQL warehouse {self.config.profiling.warehouse_id}: verify network "
-                    "connectivity to the Databricks workspace host (firewall/proxy/egress)"
+                    f"SQL warehouse {warehouse_id}: verify network connectivity to "
+                    "the Databricks workspace host (firewall/proxy/egress)"
                 ),
                 exc=e,
             )
             return False
+        if wait_on_warehouse is None:
+            self.report.failure(
+                message="SQL warehouse not found",
+                context=f"SQL warehouse {warehouse_id} not found",
+            )
+            return False
+        try:
+            # Waits (can take several minutes) for the warehouse to reach a running state.
+            wait_on_warehouse.result()
+        except (TimeoutError, DatabricksError) as e:
+            self.report.failure(
+                message="Failed to start the Databricks SQL warehouse",
+                context=(
+                    f"SQL warehouse {warehouse_id} did not reach a running state "
+                    "(it may be slow to start, or the workspace may be unreachable)"
+                ),
+                exc=e,
+            )
+            return False
+        return True
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage("Ingestion Setup"):
