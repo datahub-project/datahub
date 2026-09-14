@@ -860,6 +860,33 @@ def test_validate_provider_config_local_no_model_fails():
     assert not report.capable
 
 
+# --- _validate_provider_config for classical ---
+
+
+def test_validate_provider_config_classical_success():
+    """Classical provider needs nothing beyond the model name."""
+    config = EmbeddingConfig(
+        provider="classical",
+        model="hash-v1-2048",
+        allow_local_embedding_config=True,
+    )
+    model, report = DocumentChunkingSource._validate_provider_config(config)
+    assert model == "classical/hash-v1-2048"
+    assert report is None
+
+
+def test_validate_provider_config_classical_no_model_fails():
+    config = EmbeddingConfig(
+        provider="classical",
+        model=None,
+        allow_local_embedding_config=True,
+    )
+    model, report = DocumentChunkingSource._validate_provider_config(config)
+    assert model is None
+    assert report is not None
+    assert not report.capable
+
+
 # ---------------------------------------------------------------------------
 # _validate_provider_init_requirements — fail-fast presence checks
 # ---------------------------------------------------------------------------

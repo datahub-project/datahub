@@ -1281,11 +1281,20 @@ class DocumentChunkingSource(Source):
                 )
             return f"onnx/{model}", None
 
+        elif provider == "classical":
+            if not model:
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="Classical embedding model not specified in embedding config",
+                    mitigation_message="Set embedding.model to the hash model name (e.g., 'hash-v1-2048')",
+                )
+            return f"classical/{model}", None
+
         else:
             return None, CapabilityReport(
                 capable=False,
                 failure_reason=f"Unsupported embedding provider: {provider}",
-                mitigation_message="Supported providers: 'bedrock', 'cohere', 'openai', 'local', 'vertex_ai', 'onnx'",
+                mitigation_message="Supported providers: 'bedrock', 'cohere', 'openai', 'local', 'vertex_ai', 'onnx', 'classical'",
             )
 
     @staticmethod

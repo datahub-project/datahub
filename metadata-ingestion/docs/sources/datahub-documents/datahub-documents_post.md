@@ -363,6 +363,33 @@ embedding:
   model, pooling, and truncation length at startup; compare those log lines across
   GMS and the executor when recall looks wrong.
 
+**Classical (deterministic hashing, no external service):**
+
+Server-side configuration is all that is needed: set `EMBEDDING_PROVIDER_TYPE=classical`
+on GMS and leave the recipe's `embedding` section empty (it is loaded from the server).
+To pin it explicitly in the recipe instead:
+
+```yaml
+embedding:
+  provider: classical
+  model: hash-v1-2048
+  model_embedding_key: hash_v1_2048 # Must match server!
+```
+
+- A stateless, non-neural embedding: words plus boundary-marked character
+  bigrams/trigrams are SHA-256 feature-hashed into a fixed-width integer vector.
+  No API key, endpoint, or model download, and nothing extra to install. GMS
+  computes query vectors with the identical algorithm.
+- Quality is lexical, not semantic: results rank by shared words and character
+  fragments (`user_id` matches `id`), not by meaning. Use it where no neural
+  provider is available, or as a deterministic baseline.
+- The model name encodes the algorithm version and vector width
+  (`hash-v1-<dimensions>`), and the storage key is derived from it
+  (`hash_v1_2048`). GMS requires a `semanticSearch.models` entry for that key with
+  the same dimension and a cosine space type. Changing the model name (another
+  width, or a future `v2`) is a new key: existing vectors are not reused and every
+  document must be re-embedded, exactly as when switching any other provider.
+
 **Break-Glass Override (NOT RECOMMENDED):**
 
 ```yaml

@@ -18,6 +18,7 @@ SUPPORTED_PROVIDERS: tuple[str, ...] = (
     "local",
     "vertex_ai",
     "onnx",
+    "classical",
 )
 
 
@@ -144,5 +145,13 @@ def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
             model_dir=model_dir,
             pooling=config.onnx_pooling,
         )
+
+    if provider == "classical":
+        from datahub.ingestion.source.unstructured.embedding_providers.classical import (
+            ClassicalEmbeddingProvider,
+        )
+
+        # Stateless and stdlib-only: the model name alone fixes the algorithm.
+        return ClassicalEmbeddingProvider(model=model)
 
     raise ValueError(f"Unsupported embedding provider: {provider}")
