@@ -88,6 +88,7 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
     ELASTICSEARCH_8("elasticsearch", "8"),
     ELASTICSEARCH_9("elasticsearch", "9"),
     OPENSEARCH_2("opensearch", "2"),
+    OPENSEARCH_3("opensearch", "3"),
     UNKNOWN("unsupported", "none");
 
     private final String engine;
@@ -124,9 +125,12 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
       return this == ELASTICSEARCH_8 || this == ELASTICSEARCH_9;
     }
 
-    /** Determine if this engine type requires OpenSearch specific client */
+    /**
+     * Determine if this engine type is served by the unified OpenSearch shim (low-level RestClient
+     * transport; the REST high-level client is retained only as a type library).
+     */
     public boolean requiresOpenSearchClient() {
-      return false; // OpenSearch 3.x support not yet implemented
+      return this == OPENSEARCH_2 || this == OPENSEARCH_3;
     }
   }
 

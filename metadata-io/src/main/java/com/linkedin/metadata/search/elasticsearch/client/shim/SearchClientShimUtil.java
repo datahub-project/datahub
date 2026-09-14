@@ -3,7 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.client.shim;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es7CompatibilitySearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.ShimConfiguration;
@@ -425,7 +425,8 @@ public class SearchClientShimUtil {
         return new Es8SearchClientShim(config, objectMapper);
 
       case OPENSEARCH_2:
-        return new OpenSearch2SearchClientShim(config);
+      case OPENSEARCH_3:
+        return new OpenSearchSearchClientShim(config);
 
       default:
         throw new IllegalArgumentException("Unsupported search engine type: " + engineType);
@@ -485,13 +486,16 @@ public class SearchClientShimUtil {
               .withEngineTypeAutoDetected(true)
               .build();
 
-      try (SearchClientShim<?> testShim = new OpenSearch2SearchClientShim(testConfig)) {
+      try (SearchClientShim<?> testShim = new OpenSearchSearchClientShim(testConfig)) {
         String version = testShim.getEngineVersion();
 
         if (version != null && version.startsWith("2.")) {
           return SearchEngineType.OPENSEARCH_2;
+        } else if (version != null && version.startsWith("3.")) {
+          // No Elasticsearch 3.x exists, so a 3.x answer on the OpenSearch probe is unambiguous.
+          return SearchEngineType.OPENSEARCH_3;
         }
-        failures.add("OpenSearch: connected but version='" + version + "' (expected 2.x)");
+        failures.add("OpenSearch: connected but version='" + version + "' (expected 2.x/3.x)");
       }
     } catch (Exception e) {
       String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
