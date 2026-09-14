@@ -7137,6 +7137,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # a map that outlived its workbook would adjudicate one workbook's
         # guess against another's /schema and quietly invent agreement.
         self._name_guess_element_ids: Dict[Tuple[str, str], Set[str]] = {}
+        # Workbooks whose /schema coverage has been measured. The element pass
+        # runs per PAGE and /schema is one document per WORKBOOK, so without
+        # this the ceiling is multiplied by the page count.
+        self._blocked_workbooks_measured: Set[str] = set()
         # Global: element Dataset URN -> {lowercased column name: canonical
         # column name}. Same dedup logic as the per-element urn_to_cols in the
         # FGL builder, so column validation uses the winner set rather than raw
@@ -9219,10 +9223,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         before /schema is ever consulted. The endpoint may well be holding the
         data while we report zero.
 
-        So this counts what /schema returned for exactly those workbooks, and
-        samples the KEY SET of a sheet column -- because whether /schema names
-        its columns, rather than only identifying them, is what decides if it
-        can substitute for /columns here. Measure only; nothing is emitted.
+        Answered on the dev tenant by forcing the block on a real workbook
+        (368 columns): /schema returned all 368, every one WITH a formula. So
+        the formulas are not lost when /columns 4xxs. But only 46 of the 368
+        (12.5%) carry a ``name`` -- the rest are ``{formula, id, type}``. The
+        blocker is therefore NOT the formula, it is the columnId -> display
+        name mapping that /columns is the only known source of, and without a
+        name there is no field path to hang an InputField on.
+
+        That makes the recoverable share the NAMED share, which is what these
+        count. Kept as instrumentation rather than settled from one workbook:
+        12.5% on one dev workbook is not a tenant-wide rate, and the customer's
+        blocked workbooks are blocked for different reasons than this forced
+        one. Measure only; nothing is emitted.
         """
         if schema is None:
             return
@@ -9231,6 +9244,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             not in self.sigma_api.column_formulas_incomplete_workbooks
         ):
             return
+        # Once per WORKBOOK, not once per page. The enclosing pass runs per
+        # page while /schema is one document covering every sheet, so the
+        # per-page call counted a 368-column workbook as 1,104 -- caught on the
+        # dev tenant by forcing the block, which is the only reason the next
+        # customer run would not have reported a tripled ceiling.
+        if workbook.workbookId in self._blocked_workbooks_measured:
+            return
+        self._blocked_workbooks_measured.add(workbook.workbookId)
         r = self.reporter
         r.blocked_workbooks_schema_fetched += 1
         sheets = schema.get("sheets") or {}

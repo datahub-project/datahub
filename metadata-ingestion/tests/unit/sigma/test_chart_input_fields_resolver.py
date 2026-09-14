@@ -2220,6 +2220,23 @@ class TestWhetherSchemaCanSupplyWhatColumnsRefused:
 
         assert src.reporter.blocked_workbooks_schema_fetched == 0
 
+    def test_a_multi_page_workbook_is_measured_once(self) -> None:
+        """The enclosing pass runs per PAGE; /schema is one doc per WORKBOOK.
+
+        Caught on the dev tenant by forcing the block on a real 368-column
+        workbook and reading back 1,104 -- exactly three pages' worth. Without
+        this the next customer run reports a tripled recovery ceiling.
+        """
+        src = _make_source()
+        src.reporter = SigmaSourceReport()
+        workbook = _make_workbook_with_elements([[]])
+        src.sigma_api.column_formulas_incomplete_workbooks = {workbook.workbookId}
+        for _ in range(3):
+            src._measure_blocked_workbook_schema_coverage(workbook, schema=self._SCHEMA)
+
+        assert src.reporter.blocked_workbooks_schema_fetched == 1
+        assert src.reporter.blocked_workbook_schema_columns == 2
+
 
 class TestWorkbookSourcesMeasurement:
     """What GET /workbooks/{id}/sources would explain, measured before built.
