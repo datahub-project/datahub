@@ -231,6 +231,24 @@ public class AwsClientFactoryBedrockCredentialsTest {
   }
 
   @Test
+  public void mskIamOnOneKafkaClientIsNotHiddenByAnotherClientsPlainSasl() {
+    when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
+    KafkaProperties kafkaProperties = new KafkaProperties();
+    kafkaProperties.getConsumer().getProperties().put("sasl.mechanism", "AWS_MSK_IAM");
+    kafkaProperties.getProducer().getProperties().put("sasl.mechanism", "PLAIN");
+    kafkaProperties
+        .getProducer()
+        .getProperties()
+        .put(
+            "sasl.jaas.config",
+            "org.apache.kafka.common.security.plain.PlainLoginModule required;");
+    ReflectionTestUtils.setField(awsClientFactory, "kafkaProperties", kafkaProperties);
+
+    assertTrue(awsClientFactory.isMskIamAuthConfigured());
+    assertTrue(awsClientFactory.isAwsCredentialsRequired());
+  }
+
+  @Test
   public void plainKafkaSaslDoesNotRequireAwsCredentials() {
     when(configurationProvider.getElasticSearch()).thenReturn(new ElasticSearchConfiguration());
     KafkaProperties kafkaProperties = new KafkaProperties();

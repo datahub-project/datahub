@@ -52,17 +52,19 @@ public class S3CredentialProviderTest {
   }
 
   private static void stubAssumeRole(StsClient client) {
-    AssumeRoleResponse assumeRoleResponse =
-        AssumeRoleResponse.builder()
-            .credentials(
-                Credentials.builder()
-                    .accessKeyId("testAccessId-temp")
-                    .secretAccessKey("testSecretKey-temp")
-                    .sessionToken("testSessionToken-temp")
-                    .expiration(java.time.Instant.now().plusSeconds(900))
-                    .build())
-            .build();
-    when(client.assumeRole(any(AssumeRoleRequest.class))).thenReturn(assumeRoleResponse);
+    when(client.assumeRole(any(AssumeRoleRequest.class))).thenReturn(assumeRoleResponse());
+  }
+
+  private static AssumeRoleResponse assumeRoleResponse() {
+    return AssumeRoleResponse.builder()
+        .credentials(
+            Credentials.builder()
+                .accessKeyId("testAccessId-temp")
+                .secretAccessKey("testSecretKey-temp")
+                .sessionToken("testSessionToken-temp")
+                .expiration(java.time.Instant.now().plusSeconds(900))
+                .build())
+        .build();
   }
 
   @Test
@@ -143,6 +145,39 @@ public class S3CredentialProviderTest {
     }
 
     verify(builder, times(2)).build();
+    verify(secondClient).close();
+  }
+
+  @Test
+  public void warehouseSecretRotationDoesNotCloseInFlightStsClient() {
+    StsClient firstClient = mock(StsClient.class);
+    StsClient secondClient = mock(StsClient.class);
+    stubAssumeRole(secondClient);
+    StsClientBuilder builder = mock(StsClientBuilder.class, RETURNS_SELF);
+    when(builder.build()).thenReturn(firstClient, secondClient);
+
+    CredentialProvider.StorageProviderCredentials firstKeys =
+        new CredentialProvider.StorageProviderCredentials(
+            "client-id", "secret-a", "arn:aws:iam::123456789012:role/test-role", "us-east-1", null);
+    CredentialProvider.StorageProviderCredentials rotatedKeys =
+        new CredentialProvider.StorageProviderCredentials(
+            "client-id", "secret-b", "arn:aws:iam::123456789012:role/test-role", "us-east-1", null);
+
+    try (MockedStatic<StsClient> stsStatic = mockStatic(StsClient.class)) {
+      stsStatic.when(StsClient::builder).thenReturn(builder);
+      try (S3CredentialProvider provider = new S3CredentialProvider()) {
+        when(firstClient.assumeRole(any(AssumeRoleRequest.class)))
+            .thenAnswer(
+                invocation -> {
+                  provider.getCredentials(cacheKey, rotatedKeys);
+                  verify(firstClient, never()).close();
+                  return assumeRoleResponse();
+                });
+        provider.getCredentials(cacheKey, firstKeys);
+        verify(firstClient).close();
+      }
+    }
+
     verify(secondClient).close();
   }
 

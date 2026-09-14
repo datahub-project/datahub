@@ -31,7 +31,7 @@ public class S3CredentialProvider implements CredentialProvider, AutoCloseable {
   private static final int DEFAULT_CREDS_DURATION_SECS = 60 * 60;
 
   @Nullable private final StsClient injectedStsClient;
-  private final ConcurrentHashMap<String, StsClient> ownedClients = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, OwnedStsClient> ownedClients = new ConcurrentHashMap<>();
   private final Object lifecycle = new Object();
   private volatile boolean closed;
 
@@ -51,49 +51,78 @@ public class S3CredentialProvider implements CredentialProvider, AutoCloseable {
             ? DEFAULT_CREDS_DURATION_SECS
             : storageProviderCredentials.tempCredentialExpirationSeconds;
     String sessionPolicy = policyString(key);
-    AssumeRoleResponse response =
-        stsClient(storageProviderCredentials)
-            .assumeRole(
-                AssumeRoleRequest.builder()
-                    .roleArn(storageProviderCredentials.role)
-                    .roleSessionName("DataHubIcebergSession")
-                    .durationSeconds(expiration)
-                    .policy(sessionPolicy)
-                    .build());
+    StsClient client = null;
+    boolean leasedWarehouseClient = false;
+    try {
+      synchronized (lifecycle) {
+        client = acquireStsClientLocked(storageProviderCredentials);
+        leasedWarehouseClient = hasStaticKeys(storageProviderCredentials);
+      }
+      AssumeRoleResponse response =
+          client.assumeRole(
+              AssumeRoleRequest.builder()
+                  .roleArn(storageProviderCredentials.role)
+                  .roleSessionName("DataHubIcebergSession")
+                  .durationSeconds(expiration)
+                  .policy(sessionPolicy)
+                  .build());
 
-    return Map.of(
-        "client.region",
-        storageProviderCredentials.region,
-        "s3.access-key-id",
-        response.credentials().accessKeyId(),
-        "s3.secret-access-key",
-        response.credentials().secretAccessKey(),
-        "s3.session-token",
-        response.credentials().sessionToken());
-  }
-
-  private StsClient stsClient(StorageProviderCredentials storageProviderCredentials) {
-    synchronized (lifecycle) {
-      if (closed) {
-        throw new IllegalStateException("S3CredentialProvider is closed");
+      return Map.of(
+          "client.region",
+          storageProviderCredentials.region,
+          "s3.access-key-id",
+          response.credentials().accessKeyId(),
+          "s3.secret-access-key",
+          response.credentials().secretAccessKey(),
+          "s3.session-token",
+          response.credentials().sessionToken());
+    } finally {
+      if (leasedWarehouseClient) {
+        releaseWarehouseClient(storageProviderCredentials);
       }
-      if (hasStaticKeys(storageProviderCredentials)) {
-        String cacheKey = warehouseClientCacheKey(storageProviderCredentials);
-        StsClient client =
-            ownedClients.computeIfAbsent(
-                cacheKey, ignored -> buildWarehouseStsClient(storageProviderCredentials));
-        evictSupersededWarehouseClients(storageProviderCredentials, cacheKey);
-        return client;
-      }
-      if (injectedStsClient != null) {
-        return injectedStsClient;
-      }
-      throw new IllegalStateException(
-          "Iceberg S3 credential vending requires warehouse client keys or a shared StsClient");
     }
   }
 
-  private void evictSupersededWarehouseClients(
+  private StsClient acquireStsClientLocked(
+      StorageProviderCredentials storageProviderCredentials) {
+    if (closed) {
+      throw new IllegalStateException("S3CredentialProvider is closed");
+    }
+    if (hasStaticKeys(storageProviderCredentials)) {
+      String cacheKey = warehouseClientCacheKey(storageProviderCredentials);
+      OwnedStsClient owned =
+          ownedClients.computeIfAbsent(
+              cacheKey,
+              ignored -> new OwnedStsClient(buildWarehouseStsClient(storageProviderCredentials)));
+      owned.inFlight++;
+      retireSupersededWarehouseClients(storageProviderCredentials, cacheKey);
+      return owned.client;
+    }
+    if (injectedStsClient != null) {
+      return injectedStsClient;
+    }
+    throw new IllegalStateException(
+        "Iceberg S3 credential vending requires warehouse client keys or a shared StsClient");
+  }
+
+  private void releaseWarehouseClient(StorageProviderCredentials storageProviderCredentials) {
+    String cacheKey = warehouseClientCacheKey(storageProviderCredentials);
+    synchronized (lifecycle) {
+      OwnedStsClient owned = ownedClients.get(cacheKey);
+      if (owned == null) {
+        return;
+      }
+      owned.inFlight--;
+      closeOwnedIfIdleAndRetired(cacheKey, owned);
+    }
+  }
+
+  /**
+   * Drop rotated-out warehouse clients from the live map. Close immediately when nothing is using
+   * them; otherwise mark retired and let {@link #releaseWarehouseClient} close after in-flight
+   * {@code assumeRole} calls finish.
+   */
+  private void retireSupersededWarehouseClients(
       StorageProviderCredentials storageProviderCredentials, String keepKey) {
     String prefix =
         storageProviderCredentials.region + "|" + storageProviderCredentials.clientId + "|";
@@ -104,9 +133,21 @@ public class S3CredentialProvider implements CredentialProvider, AutoCloseable {
       }
     }
     for (String key : superseded) {
-      StsClient old = ownedClients.remove(key);
-      closeQuietly(old);
+      OwnedStsClient old = ownedClients.get(key);
+      if (old == null) {
+        continue;
+      }
+      old.retired = true;
+      closeOwnedIfIdleAndRetired(key, old);
     }
+  }
+
+  private void closeOwnedIfIdleAndRetired(String cacheKey, OwnedStsClient owned) {
+    if (!owned.retired || owned.inFlight > 0) {
+      return;
+    }
+    ownedClients.remove(cacheKey, owned);
+    closeQuietly(owned.client);
   }
 
   private static boolean hasStaticKeys(StorageProviderCredentials storageProviderCredentials) {
@@ -202,10 +243,15 @@ public class S3CredentialProvider implements CredentialProvider, AutoCloseable {
   public void close() {
     synchronized (lifecycle) {
       closed = true;
-      for (StsClient client : ownedClients.values()) {
-        closeQuietly(client);
+      List<String> keys = new ArrayList<>(ownedClients.keySet());
+      for (String key : keys) {
+        OwnedStsClient owned = ownedClients.get(key);
+        if (owned == null) {
+          continue;
+        }
+        owned.retired = true;
+        closeOwnedIfIdleAndRetired(key, owned);
       }
-      ownedClients.clear();
     }
   }
 
@@ -217,6 +263,16 @@ public class S3CredentialProvider implements CredentialProvider, AutoCloseable {
       client.close();
     } catch (Exception ignored) {
       // Best-effort shutdown of warehouse-scoped STS clients.
+    }
+  }
+
+  private static final class OwnedStsClient {
+    private final StsClient client;
+    private int inFlight;
+    private boolean retired;
+
+    private OwnedStsClient(StsClient client) {
+      this.client = client;
     }
   }
 

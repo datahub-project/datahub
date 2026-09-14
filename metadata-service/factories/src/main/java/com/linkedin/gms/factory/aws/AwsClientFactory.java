@@ -12,7 +12,9 @@ import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.utils.aws.AwsClientCredentials;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PreDestroy;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -398,26 +400,40 @@ public class AwsClientFactory {
    * explicit region.
    */
   boolean isMskIamAuthConfigured() {
-    Map<String, Object> kafkaClientProperties = new HashMap<>();
-    if (kafkaProperties != null) {
-      putStringProperties(kafkaClientProperties, kafkaProperties.getProperties());
-      putStringProperties(kafkaClientProperties, kafkaProperties.getConsumer().getProperties());
-      putStringProperties(kafkaClientProperties, kafkaProperties.getProducer().getProperties());
-      putStringProperties(kafkaClientProperties, kafkaProperties.getAdmin().getProperties());
+    List<Map<String, Object>> clients = new ArrayList<>();
+    if (kafkaProperties == null) {
+      clients.add(effectiveKafkaClientProperties(null, null));
+    } else {
+      Map<String, String> common = kafkaProperties.getProperties();
+      clients.add(
+          effectiveKafkaClientProperties(common, kafkaProperties.getConsumer().getProperties()));
+      clients.add(
+          effectiveKafkaClientProperties(common, kafkaProperties.getProducer().getProperties()));
+      clients.add(
+          effectiveKafkaClientProperties(common, kafkaProperties.getAdmin().getProperties()));
     }
-    if (!hasText(stringValue(kafkaClientProperties.get("sasl.mechanism")))) {
+    return clients.stream().anyMatch(KafkaMskIamAuth::isMskIam);
+  }
+
+  /**
+   * One Kafka client's effective SASL settings: common properties, then that client's overlay, then
+   * documented {@code SPRING_KAFKA_PROPERTIES_*} env fallbacks. Inspected separately so a non-IAM
+   * producer cannot hide an IAM consumer (or the reverse).
+   */
+  private Map<String, Object> effectiveKafkaClientProperties(
+      @Nullable Map<String, String> common, @Nullable Map<String, String> overlay) {
+    Map<String, Object> props = new HashMap<>();
+    putStringProperties(props, common);
+    putStringProperties(props, overlay);
+    if (!hasText(stringValue(props.get("sasl.mechanism")))) {
       putIfHasText(
-          kafkaClientProperties,
-          "sasl.mechanism",
-          envOrProperty("SPRING_KAFKA_PROPERTIES_SASL_MECHANISM"));
+          props, "sasl.mechanism", envOrProperty("SPRING_KAFKA_PROPERTIES_SASL_MECHANISM"));
     }
-    if (!hasText(stringValue(kafkaClientProperties.get("sasl.jaas.config")))) {
+    if (!hasText(stringValue(props.get("sasl.jaas.config")))) {
       putIfHasText(
-          kafkaClientProperties,
-          "sasl.jaas.config",
-          envOrProperty("SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG"));
+          props, "sasl.jaas.config", envOrProperty("SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG"));
     }
-    return KafkaMskIamAuth.isMskIam(kafkaClientProperties);
+    return props;
   }
 
   private static void putStringProperties(
