@@ -164,6 +164,27 @@ def test_extract_formula_from_top_level_case_column():
     }
 
 
+def test_extract_ignores_plain_ref_with_cast_type_metadata():
+    # ``cast`` beside a plain ``ref`` is type-cast metadata on an ordinary typed
+    # projection (dict value), not a calculation (list value) — must not surface
+    # a misleading ``formula: <col>`` line.
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {
+                        "ref": ["AMOUNT"],
+                        "cast": {"type": "cds.Decimal"},
+                        "as": "AMOUNT",
+                    },
+                ],
+            }
+        }
+    }
+    assert extract_calculated_column_formulas(csn_def) == {}
+
+
 def test_extract_union_branches_both_calculated_first_wins():
     # Both branches compute a formula for the same output name; branch 0's
     # formula must win over branch 1's, per the first-occurrence-wins contract.

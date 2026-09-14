@@ -21,7 +21,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
 
 # A projected column is calculated (vs. a plain projection/rename) when it carries
 # one of these expression keys rather than a bare ``ref``.
-_CALCULATION_KEYS = frozenset({CSN_XPR, CSN_FUNC, CSN_VAL, CSN_CASE, CSN_CAST})
+_CALCULATION_KEYS = frozenset({CSN_XPR, CSN_FUNC, CSN_VAL})
 
 _SQL_NULL = "NULL"
 
@@ -120,7 +120,13 @@ def _render_xpr(items: List[object]) -> Optional[str]:
 
 
 def _is_calculated_column(col: Dict[str, object]) -> bool:
-    return any(key in col for key in _CALCULATION_KEYS)
+    if any(key in col for key in _CALCULATION_KEYS):
+        return True
+    # ``case``/``cast`` only count as a calculation when they carry a renderable
+    # token stream (a list). A dict value is type-cast metadata beside a plain
+    # ``ref`` (e.g. ``{"ref": [...], "cast": {"type": "cds.Decimal"}}``) — not a
+    # calculation, just a typed projection.
+    return isinstance(col.get(CSN_CASE), list) or isinstance(col.get(CSN_CAST), list)
 
 
 def _output_name(col: Dict[str, object]) -> Optional[str]:
