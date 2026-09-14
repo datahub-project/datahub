@@ -66,7 +66,7 @@ Run `claude mcp list` to confirm the DataHub server appears.
 
 Custom remote MCP connectors are available on **Free, Pro, Max, Team, and Enterprise** plans (Free is limited to one custom connector; Team/Enterprise restricts adding to Owners).
 
-1. In Claude Desktop or claude.ai, open **Customize → Connectors** (Team/Enterprise: an owner adds it org-wide under **Organization settings → Connectors**).
+1. Open **Customize → Connectors**. On Team/Enterprise, an owner adds it under **Organization settings → Connectors**.
 2. Click **Add custom connector**.
 3. Name: `DataHub`. Remote MCP server URL: `https://mcp.datahub.com/mcp`. Leave **Advanced settings** empty — DataHub registers the client via DCR automatically.
 4. Click **Add**, then **Connect**. A browser window opens for the DataHub OAuth flow.

@@ -192,19 +192,19 @@ For on-premises DataHub Cloud, use your DataHub FQDN, e.g. `https://datahub.exam
 ### Configure Your Client
 
 :::note Using a scoped MCP server?
-If you have created a [scoped MCP server](./scoped-mcp-servers.md), substitute its **Connection URL** wherever these instructions use `https://mcp.datahub.com/mcp`. Scoped servers live under your tenant (for example, `https://<tenant>.acryl.io/mcp/finance`) — the shared `https://mcp.datahub.com/mcp` entry point always resolves to your tenant's **default** server and cannot be pointed at a scoped one. See [Connect a client to a scoped server](./scoped-mcp-servers.md#connect-a-client-to-a-scoped-server).
+Substitute the scoped server's **Connection URL** wherever these steps use `https://mcp.datahub.com/mcp` — that shared endpoint always resolves to your tenant's **default** server. See [Connect a client to a scoped server](./scoped-mcp-servers.md#connect-a-client-to-a-scoped-server).
 :::
 
 <details>
   <summary>Claude (web and desktop)</summary>
 
-1. In claude.ai or Claude Desktop, open **Customize → Connectors**. On Team/Enterprise, an owner adds it org-wide under **Organization settings → Connectors** and members then connect individually.
+1. Open **Customize → Connectors**. On Team/Enterprise, an owner adds it under **Organization settings → Connectors** and members connect individually.
 2. Click **+**, then **Add custom connector**.
-3. Name: `DataHub`. Remote MCP server URL: `https://mcp.datahub.com/mcp`. Leave the **Advanced settings** (OAuth Client ID / Secret) empty — DataHub registers the client automatically via DCR.
-4. Click **Add**, then **Connect**. Claude opens a browser window for the DataHub OAuth flow.
-5. Enter your DataHub domain when prompted (e.g. `<tenant>`), sign in, and approve the connection.
+3. Name: `DataHub`. Remote MCP server URL: `https://mcp.datahub.com/mcp`. Leave **Advanced settings** empty — DataHub registers the client via DCR.
+4. Click **Add**, then **Connect**.
+5. Enter your DataHub domain when prompted (e.g. `<tenant>`), sign in, and approve.
 
-Custom connectors cannot be added from the Claude mobile app — add the connector on claude.ai or Claude Desktop and it becomes available on mobile for the same account.
+You cannot add custom connectors in the Claude mobile app. Add it on web or desktop and it becomes available on mobile.
 
 :::note
 Remote MCP connectors are configured via the Claude UI, not `claude_desktop_config.json` — that file is reserved for local stdio servers. For older Claude Desktop versions without remote MCP support, fall back to the [`mcp-remote` bridge with a PAT](#managed-mcp-server-usage).
