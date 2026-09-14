@@ -8,6 +8,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -21,9 +22,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 @Slf4j
 @Configuration
+@Import(EntityDocumentIdHasherFactory.class)
 public class ElasticSearchServiceFactory {
 
   @Autowired
@@ -60,7 +63,8 @@ public class ElasticSearchServiceFactory {
       final ConfigurationProvider configurationProvider,
       final QueryFilterRewriteChain queryFilterRewriteChain,
       final ElasticSearchConfiguration elasticSearchConfiguration,
-      @Nullable final CustomSearchConfiguration customSearchConfiguration) {
+      @Nullable final CustomSearchConfiguration customSearchConfiguration,
+      final EntityDocumentIdHasher entityDocumentIdHasher) {
 
     return new ESSearchDAO(
         components.getSearchClient(),
@@ -68,7 +72,9 @@ public class ElasticSearchServiceFactory {
         elasticSearchConfiguration,
         customSearchConfiguration,
         queryFilterRewriteChain,
-        configurationProvider.getSearchService());
+        false,
+        configurationProvider.getSearchService(),
+        entityDocumentIdHasher);
   }
 
   @Bean

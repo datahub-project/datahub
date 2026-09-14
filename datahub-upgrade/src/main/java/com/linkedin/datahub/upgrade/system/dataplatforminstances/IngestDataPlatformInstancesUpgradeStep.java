@@ -66,7 +66,8 @@ public class IngestDataPlatformInstancesUpgradeStep implements UpgradeStep {
       log.info("Ingest data platform instances step is disabled; skipping.");
       return true;
     }
-    if (_migrationsDao.checkIfAspectExists(DATA_PLATFORM_INSTANCE_ASPECT_NAME)) {
+    if (_migrationsDao.checkIfAspectExists(
+        context.opContext(), DATA_PLATFORM_INSTANCE_ASPECT_NAME)) {
       log.info("DataPlatformInstance aspect exists. Skipping step.");
       return true;
     }
@@ -89,7 +90,7 @@ public class IngestDataPlatformInstancesUpgradeStep implements UpgradeStep {
   private void execute(@Nonnull final OperationContext systemOperationContext) throws Exception {
     log.info("Ingesting DataPlatformInstance aspects for all entities...");
 
-    long numEntities = _migrationsDao.countEntities();
+    long numEntities = _migrationsDao.countEntities(systemOperationContext);
     long start = 0;
 
     while (start < numEntities) {
@@ -104,7 +105,9 @@ public class IngestDataPlatformInstancesUpgradeStep implements UpgradeStep {
               .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
               .setTime(System.currentTimeMillis());
 
-      for (String urnStr : _migrationsDao.listAllUrns((int) start, (int) (start + BATCH_SIZE))) {
+      for (String urnStr :
+          _migrationsDao.listAllUrns(
+              systemOperationContext, (int) start, (int) (start + BATCH_SIZE))) {
         Urn urn = Urn.createFromString(urnStr);
         Optional<DataPlatformInstance> dataPlatformInstance =
             getDataPlatformInstance(systemOperationContext, urn);

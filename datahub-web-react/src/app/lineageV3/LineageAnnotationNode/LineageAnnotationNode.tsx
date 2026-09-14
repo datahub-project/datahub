@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 
-export const LINEAGE_ANNOTATION_NODE = 'lineage-annotation-node';
+export const LINEAGE_ANNOTATION_NODE_NAME = 'lineage-annotation-node';
 
 const Container = styled.div`
     background-color: ${(props) => props.theme.colors.bgSurface};

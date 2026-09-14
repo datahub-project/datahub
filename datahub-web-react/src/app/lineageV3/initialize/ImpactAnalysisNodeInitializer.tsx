@@ -1,16 +1,12 @@
-import React, { useContext, useEffect } from 'react';
+import React, { useContext } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import LineageDisplay from '@app/lineageV3/LineageDisplay';
-import {
-    FetchStatus,
-    LINEAGE_FILTER_PAGINATION,
-    LineageEntity,
-    LineageNodesContext,
-    useIgnoreSchemaFieldStatus,
-} from '@app/lineageV3/common';
+import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
+import { FetchStatus, LINEAGE_FILTER_PAGINATION, LineageEntity, LineageNodesContext } from '@app/lineageV3/common';
+import useResetLineageGraph from '@app/lineageV3/initialize/useResetLineageGraph';
 import useSearchAcrossLineage from '@app/lineageV3/queries/useSearchAcrossLineage';
+import { MODULE_VIEW_MAX_PER_LEVEL } from '@app/lineageV3/useComputeGraph/computeImpactAnalysisGraph';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -35,35 +31,9 @@ export default function ImpactAnalysisNodeInitializer(props: Props) {
  */
 function useInitializeNodes(urn: string, type: EntityType): boolean {
     const context = useContext(LineageNodesContext);
-
-    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const { nodes, adjacencyList, edges, setNodeVersion, setDisplayVersion, showGhostEntities } = context;
-    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
-
-    useEffect(() => {
-        // Reset graph if home node or time range changes
-        nodes.clear();
-        adjacencyList[LineageDirection.Upstream].clear();
-        adjacencyList[LineageDirection.Downstream].clear();
-        edges.clear();
-        nodes.set(urn, makeInitialNode(urn, type));
-        setNodeVersion(0);
-        setDisplayVersion([0, []]);
-    }, [urn, type, startTimeMillis, endTimeMillis, nodes, adjacencyList, edges, setNodeVersion, setDisplayVersion]);
-
-    useEffect(() => {
-        // Reset edges if showGhostEntities changes. Not necessary if on schema field page and ignoring status
-        if (!(type === EntityType.SchemaField && ignoreSchemaFieldStatus)) {
-            adjacencyList[LineageDirection.Upstream].clear();
-            adjacencyList[LineageDirection.Downstream].clear();
-            edges.clear();
-            nodes.forEach((node) => {
-                // eslint-disable-next-line no-param-reassign
-                node.entity = undefined;
-            });
-            setDisplayVersion([0, []]);
-        }
-    }, [showGhostEntities, ignoreSchemaFieldStatus, type, nodes, adjacencyList, edges, setDisplayVersion]);
+    const { isModuleView } = useContext(LineageGraphContext);
+    const initialLimit = isModuleView ? MODULE_VIEW_MAX_PER_LEVEL : LINEAGE_FILTER_PAGINATION;
+    useResetLineageGraph(context, urn, type, () => makeInitialNode(urn, type, initialLimit));
 
     const { processed: upstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Upstream);
     const { processed: downstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Downstream);
@@ -71,7 +41,7 @@ function useInitializeNodes(urn: string, type: EntityType): boolean {
     return upstreamProcessed && downstreamProcessed;
 }
 
-function makeInitialNode(urn: string, type: EntityType): LineageEntity {
+function makeInitialNode(urn: string, type: EntityType, limit: number): LineageEntity {
     return {
         id: urn,
         urn,
@@ -85,8 +55,8 @@ function makeInitialNode(urn: string, type: EntityType): LineageEntity {
             [LineageDirection.Downstream]: FetchStatus.LOADING,
         },
         filters: {
-            [LineageDirection.Upstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
-            [LineageDirection.Downstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
+            [LineageDirection.Upstream]: { limit, facetFilters: new Map() },
+            [LineageDirection.Downstream]: { limit, facetFilters: new Map() },
         },
     };
 }

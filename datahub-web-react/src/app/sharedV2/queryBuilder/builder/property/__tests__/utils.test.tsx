@@ -1,5 +1,7 @@
+import { OperatorId } from '@app/sharedV2/queryBuilder/builder/property/types/operators';
 import { entityProperties } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
-import { getPropertiesForEntityTypes } from '@app/sharedV2/queryBuilder/builder/property/utils';
+import { ValueTypeId } from '@app/sharedV2/queryBuilder/builder/property/types/values';
+import { getOperatorOptions, getPropertiesForEntityTypes } from '@app/sharedV2/queryBuilder/builder/property/utils';
 
 import { EntityType } from '@types';
 
@@ -26,6 +28,18 @@ describe('utils', () => {
             expect(res.length).toBeLessThan(
                 entityProperties.filter((obj) => obj.type === EntityType.Dashboard)[0].properties.length,
             );
+        });
+    });
+
+    describe('getOperatorOptions', () => {
+        it('returns Within before Equals for hierarchical URN fields', () => {
+            const options = getOperatorOptions(ValueTypeId.URN_HIERARCHY);
+            expect(options?.map((op) => op.id)).toEqual([OperatorId.WITHIN, OperatorId.EQUAL_TO, OperatorId.EXISTS]);
+        });
+
+        it('does not include Within for plain URN fields', () => {
+            const options = getOperatorOptions(ValueTypeId.URN);
+            expect(options?.map((op) => op.id)).toEqual([OperatorId.EQUAL_TO, OperatorId.EXISTS]);
         });
     });
 });

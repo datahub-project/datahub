@@ -6,6 +6,7 @@ import static org.testng.Assert.assertNotEquals;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import org.testng.annotations.Test;
 
@@ -73,20 +74,22 @@ public class SearchContextTest {
             .getCacheKeyComponent(),
         "Expected differences in search flags to result in different caches");
 
-    assertNotEquals(
+    // The index-name prefix is intentionally NOT part of the SearchContext cache key: it is
+    // resolved per operation (see SearchContext#getCacheKeyComponent), so two contexts differing
+    // only by their index-prefix resolver now share a cache key. A deployment that scopes the
+    // prefix per operation folds that discriminator into the OperationContext-level key instead.
+    assertEquals(
         testNoFlags.getCacheKeyComponent(),
         SearchContext.builder()
             .indexConvention(
                 new IndexConventionImpl(
-                    IndexConventionImpl.IndexConventionConfig.builder()
-                        .prefix("Some Prefix")
-                        .hashIdAlgo("MD5")
-                        .build(),
+                    IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+                    new ConfiguredIndexPrefixResolver("Some Prefix"),
                     entityIndexConfig))
             .searchFlags(null)
             .build()
             .getCacheKeyComponent(),
-        "Expected differences in index convention to result in different caches");
+        "Index-name prefix is intentionally excluded from the SearchContext cache key");
 
     assertNotEquals(
         SearchContext.builder()

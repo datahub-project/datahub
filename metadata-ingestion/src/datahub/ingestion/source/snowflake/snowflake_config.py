@@ -102,7 +102,26 @@ class SnowflakeShareConfig(ConfigModel):
 class SemanticViewsConfig(ConfigModel):
     enabled: bool = Field(
         default=False,
-        description="If enabled, semantic views will be ingested as datasets. Note: Semantic views require Snowflake Enterprise Edition or above, as they are part of the Cortex Analyst feature set. Set this to True only if you have Enterprise Edition or above.",
+        description="If enabled, semantic views will be ingested. By default they are ingested as datasets with subtype `Semantic View` (see emit_semantic_model_entities to change this). Note: Semantic views require Snowflake Enterprise Edition or above, as they are part of the Cortex Analyst feature set. Set this to True only if you have Enterprise Edition or above.",
+    )
+
+    emit_semantic_model_entities: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Tri-state control for emitting semantic views as semanticModel entities "
+            "(with their metrics as metric entities) instead of legacy datasets "
+            'subtyped "Semantic View". '
+            "`None` (default): follow the server - on DataHub Cloud >= 2.1.0 it is "
+            "enabled unless the Metrics feature is explicitly disabled; OSS/self-hosted, "
+            "older Cloud, and connectionless runs (e.g. file sink) stay off. It also "
+            "falls back to legacy datasets if the server version cannot be parsed or the "
+            "Metrics probe cannot be read (operational error). "
+            "`true`: request emission - on Cloud it is honored unless the server is "
+            "below 2.1.0 or Metrics is disabled (else warns and falls back to legacy "
+            "datasets); on OSS it enables emission (the operator must run a server that "
+            "registers these entities). "
+            "`false`: force legacy dataset behavior."
+        ),
     )
 
     column_lineage: bool = Field(
@@ -113,7 +132,9 @@ class SemanticViewsConfig(ConfigModel):
     include_usage: bool = Field(
         default=False,
         description="If enabled, usage statistics will be extracted for semantic views. "
-        "This scans QUERY_HISTORY which can be slow on accounts with high query volume.",
+        "This scans QUERY_HISTORY which can be slow on accounts with high query volume. "
+        "Ignored when emit_semantic_model_entities is enabled, since semanticModel "
+        "entities carry no usage statistics.",
     )
 
     include_queries: bool = Field(
@@ -149,6 +170,17 @@ class SemanticViewsConfig(ConfigModel):
             logger.warning(
                 "semantic_views.include_queries is set to True but semantic_views.enabled is False. "
                 "Query entities will not be generated. Set semantic_views.enabled to True to enable query tracking."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_usage_ignored_in_semantic_model_mode(self) -> "SemanticViewsConfig":
+        if self.include_usage and self.emit_semantic_model_entities:
+            logger.warning(
+                "semantic_views.include_usage is ignored because "
+                "semantic_views.emit_semantic_model_entities is enabled: "
+                "semanticModel entities carry no usage statistics. Query entities "
+                "are unaffected (see semantic_views.include_queries)."
             )
         return self
 
@@ -229,6 +261,7 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         "With the default SHOW VIEWS, view_pattern filtering falls back to Python re.match(). "
         "IMPORTANT: Snowflake RLIKE requires FULL STRING match, unlike Python re.match() which matches prefixes. "
         "For prefix matching use 'PATTERN.*', for suffix use '.*PATTERN$', for contains use '.*PATTERN.*'. "
+        "If the composed filter would exceed Snowflake's per-query size limit, that filter is automatically skipped and applied client-side instead (slower). "
         "See the [Metadata Pattern Pushdown](#metadata-pattern-pushdown) section for detailed usage and examples, "
         "and the [Snowflake RLIKE documentation](https://docs.snowflake.com/en/sql-reference/functions/rlike) for regex syntax details.",
     )
@@ -266,6 +299,23 @@ class SnowflakeIdentifierConfig(
     convert_urns_to_lowercase: bool = Field(
         default=True,
         description="Whether to convert dataset urns to lowercase.",
+    )
+
+    preserve_column_case: bool = Field(
+        default=False,
+        description="Preserve Snowflake's column casing in field paths and column-level "
+        "lineage instead of lowercasing them. Useful whenever a table has quoted "
+        "identifiers, because a quoted mixed-case column can only be queried by its "
+        'stored spelling — `SELECT "MixedCol"` works where `SELECT "mixedcol"` is an '
+        "invalid identifier — so the lowercased field path does not name anything you "
+        "can query. It is required when two quoted identifiers differ only by case "
+        '(e.g. `"col"` and `"COL"`), which would otherwise collapse into a single '
+        "field and lose one of them entirely. This value is part of each column's "
+        "schemaField URN identity, so changing it after data has been ingested re-keys "
+        "every column, orphaning column-level tags, glossary terms and documentation. "
+        "Pick one value before the first run and leave it unchanged. It must also match "
+        "across `snowflake` and `snowflake-queries` recipes pointed at the same account, "
+        "otherwise their field paths will not line up.",
     )
 
     email_domain: Optional[str] = pydantic.Field(
@@ -442,12 +492,15 @@ class SnowflakeV2Config(
 
     fetch_views_from_information_schema: bool = Field(
         default=False,
-        description="If enabled, uses information_schema.views to fetch view definitions instead of SHOW VIEWS command. "
-        "This alternative method can be more reliable for databases with large numbers of views (> 10K views), as the "
-        "SHOW VIEWS approach has proven unreliable and can lead to missing views in such scenarios. However, this method "
-        "requires OWNERSHIP privileges on views to retrieve their definitions. For views without ownership permissions "
-        "(where VIEW_DEFINITION is null/empty), the system will automatically fall back to using batched SHOW VIEWS queries "
-        "to populate the missing definitions.",
+        description="If enabled, uses information_schema.views to fetch views instead of the SHOW VIEWS command. "
+        "Enable this if you need `view_pattern` pushdown (see `push_down_metadata_patterns`, which cannot push a "
+        "pattern list into SHOW VIEWS) or an accurate `last_altered`, which SHOW VIEWS does not report. "
+        "Trade-offs: information_schema.views only exposes VIEW_DEFINITION to a view's owner, so definitions for "
+        "views you don't own are backfilled with batched SHOW VIEWS queries; it needs a running warehouse, whereas "
+        "SHOW VIEWS does not; and it does not report materialized views, which are absent from "
+        "information_schema.views and not covered by the default `table_types`. "
+        "This option is no longer needed for databases with more than 10K views - the SHOW VIEWS path now "
+        "paginates per schema and is exact at any scale.",
     )
 
     include_technical_schema: bool = Field(
@@ -860,6 +913,24 @@ class SnowflakeV2Config(
                 )
                 self.semantic_views.enabled = False
                 self.semantic_views.column_lineage = False
+        return self
+
+    @model_validator(mode="after")
+    def validate_semantic_model_entities_requires_technical_schema(
+        self,
+    ) -> "SnowflakeV2Config":
+        # Validated here (not on SemanticViewsConfig) because semantic view
+        # processing is gated on the top-level include_technical_schema, which is
+        # not visible from the nested config.
+        if (
+            self.semantic_views.emit_semantic_model_entities
+            and not self.include_technical_schema
+        ):
+            logger.warning(
+                "semantic_views.emit_semantic_model_entities is set but "
+                "include_technical_schema is False; no semanticModel/metric entities "
+                "will be emitted. Set include_technical_schema to True."
+            )
         return self
 
     def outbounds(self) -> Dict[str, Set[DatabaseId]]:

@@ -16,7 +16,6 @@ export class DatasetPage extends BasePage {
   // ── Glossary term sidebar ──────────────────────────────────────────────────
   readonly sidebarGlossarySection: Locator;
   readonly addTermsButton: Locator;
-  readonly tagTermOption: Locator;
   readonly addTagTermConfirmButton: Locator;
 
   // ── Sidebar Tags section ──────────────────────────────────────────────────
@@ -26,8 +25,6 @@ export class DatasetPage extends BasePage {
   readonly tagTermInput: Locator;
   readonly addTagFromModalButton: Locator;
   readonly tagUnassignConfirmButton: Locator;
-  readonly tagAddedToast: Locator;
-  readonly tagRemovedToast: Locator;
 
   // ── Close ─────────────────────────────────────────────────────────────────
   readonly modalCloseButton: Locator;
@@ -39,8 +36,6 @@ export class DatasetPage extends BasePage {
   readonly ownerDropdownSearchInput: Locator;
   readonly addOwnersSelectDropdown: Locator;
   readonly ownersDoneButton: Locator;
-  readonly ownersAddedToast: Locator;
-  readonly ownerRemovedToast: Locator;
   readonly ownerRemoveConfirmButton: Locator;
 
   // ── Business Attribute ────────────────────────────────────────────────────
@@ -66,19 +61,18 @@ export class DatasetPage extends BasePage {
     // eslint-disable-next-line playwright/no-raw-locators -- HTML id set by EntityProfileCard; no data-testid equivalent
     this.sidebarGlossarySection = page.locator('#entity-profile-glossary-terms');
     this.addTermsButton = this.sidebarGlossarySection.getByTestId('add-terms-button');
-    this.tagTermOption = page.getByTestId('tag-term-option').first();
     this.addTagTermConfirmButton = page.getByTestId('add-tag-term-from-modal-btn');
 
     // eslint-disable-next-line playwright/no-raw-locators -- HTML id set by EntityProfileCard; no data-testid equivalent
     this.tagsSectionContainer = page.locator('#entity-profile-tags');
     this.addTagsButton = this.tagsSectionContainer.getByTestId('add-tags-button');
     this.tagTermModalInput = page.getByTestId('tag-term-modal-input');
-    // AntD Select renders its inner input with role="combobox", not "textbox".
-    this.tagTermInput = this.tagTermModalInput.getByRole('combobox');
+    // Alchemy SimpleSelect renders the search input inside the dropdown popover (rendered
+    // outside the trigger container via AntD's Dropdown). Click `tagTermModalInput` first
+    // to open the dropdown before interacting with `tagTermInput`.
+    this.tagTermInput = page.getByTestId('dropdown-search-input');
     this.addTagFromModalButton = page.getByTestId('add-tag-term-from-modal-btn');
     this.tagUnassignConfirmButton = page.getByTestId('modal-confirm-button');
-    this.tagAddedToast = page.getByText('Added Tags!');
-    this.tagRemovedToast = page.getByText('Removed Tag!');
 
     this.modalCloseButton = page.getByRole('button', { name: 'Close' });
 
@@ -88,8 +82,6 @@ export class DatasetPage extends BasePage {
     this.ownerDropdownSearchInput = page.getByTestId('dropdown-search-input');
     this.addOwnersSelectDropdown = page.getByTestId('add-owners-select-dropdown');
     this.ownersDoneButton = page.getByRole('dialog').getByText('Done');
-    this.ownersAddedToast = page.getByText('Owners Added');
-    this.ownerRemovedToast = page.getByText('Owner Removed');
     this.ownerRemoveConfirmButton = page.getByRole('dialog').getByText('Yes');
 
     this.businessAttributeSection = page.getByTestId('sidebar-section-content-Business Attribute');
@@ -107,8 +99,7 @@ export class DatasetPage extends BasePage {
   }
 
   getTagOption(tagName: string): Locator {
-    // eslint-disable-next-line playwright/no-raw-locators -- AntD Select option uses name attribute; no semantic equivalent
-    return this.page.locator(`[name="${tagName}"]`);
+    return this.page.getByTestId(`tag-term-option-${tagName}`);
   }
 
   getTagRemoveIcon(tagName: string): Locator {
@@ -134,11 +125,17 @@ export class DatasetPage extends BasePage {
     this.logger?.step('addGlossaryTerm', { termName });
     await this.addTermsButton.click();
     await expect(this.tagTermModalInput).toBeVisible();
-    // AntD Select triggers search via keyboard events; pressSequentially (not fill) is required.
-    await this.tagTermInput.pressSequentially(termName);
-    await this.tagTermOption.click();
-    // Click the header to close the terms select dropdown if it stayed open.
-    await this.modalComponent.title.click();
+    // Alchemy SimpleSelect: click the trigger to open the dropdown, then type into the
+    // search input inside the dropdown popover.
+    await this.tagTermModalInput.click();
+    await this.tagTermInput.fill(termName);
+    await this.getTagOption(termName).click();
+    await this.tagTermModalInput.click();
+    // Click the modal footer's confirm button directly: it sits below the trigger so the
+    // dropdown popover (which AntD flips upward when results don't fit below) never
+    // covers it, and clicking outside the dropdown dismisses the popover in one step.
+    // We previously clicked `.ant-modal-title` here, but the upward-flipped popover
+    // intercepted the click and hung indefinitely.
     await this.addTagTermConfirmButton.click();
     await expect(this.addTagTermConfirmButton).toBeHidden();
 
@@ -303,7 +300,7 @@ export class DatasetPage extends BasePage {
     await this.page.getByRole('listbox').locator('..').getByText(ownerType).click();
     await expect(this.page.getByRole('dialog').getByText(ownerType)).toBeVisible();
     await this.ownersDoneButton.click();
-    await expect(this.ownersAddedToast).toBeVisible({ timeout: 15000 });
+    await this.toast.expectVisible('Owners Added', { timeout: 15000 });
     await expect(this.page.getByText(ownerType)).toBeVisible();
     await expect(this.page.getByText(owner)).toBeVisible();
   }
@@ -314,7 +311,7 @@ export class DatasetPage extends BasePage {
     // eslint-disable-next-line playwright/no-raw-locators -- dynamic href/id selector passed from test; no semantic equivalent
     await this.page.locator(elementId).locator('xpath=following-sibling::*[1]').click();
     await this.ownerRemoveConfirmButton.click();
-    await expect(this.ownerRemovedToast).toBeVisible({ timeout: 15000 });
+    await this.toast.expectVisible('Owner Removed', { timeout: 15000 });
     await expect(this.page.getByText(owner)).not.toBeVisible({ timeout: 10000 });
   }
 
@@ -327,19 +324,23 @@ export class DatasetPage extends BasePage {
     await this.addTagsButton.click();
 
     await expect(this.tagTermModalInput).toBeVisible();
-    await this.tagTermInput.focus();
+    // Alchemy SimpleSelect: open the dropdown so the search input becomes available.
+    await this.tagTermModalInput.click();
     await this.tagTermInput.fill(tagName);
 
     const tagOption = this.getTagOption(tagName);
     await tagOption.waitFor({ state: 'visible' });
     await tagOption.click();
 
-    await this.page.keyboard.press('Escape');
-
+    // The multi-select dropdown popover overlaps the footer, so a normal click on the confirm
+    // button is intercepted, and re-clicking the trigger to close the dropdown flakes when an
+    // option overlaps it. The selected tags are already in state after picking the option, so
+    // dispatch the click directly on the confirm button — it submits regardless of the open
+    // popover, independent of which way AntD flips the dropdown.
     await expect(this.addTagFromModalButton).toBeEnabled();
-    await this.addTagFromModalButton.click();
+    await this.addTagFromModalButton.dispatchEvent('click');
 
-    await expect(this.tagAddedToast).toBeVisible();
+    await this.toast.expectVisible('Added Tags!');
   }
 
   async unassignTag(tagName: string): Promise<void> {
@@ -348,7 +349,7 @@ export class DatasetPage extends BasePage {
     await this.getTagRemoveIcon(tagName).click();
     await expect(this.tagUnassignConfirmButton).toBeVisible();
     await this.tagUnassignConfirmButton.click();
-    await expect(this.tagRemovedToast).toBeVisible();
+    await this.toast.expectVisible('Removed Tag!');
   }
 
   async expectTagAssigned(tagName: string): Promise<void> {

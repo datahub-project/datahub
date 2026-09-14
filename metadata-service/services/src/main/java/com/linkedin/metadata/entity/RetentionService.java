@@ -1,17 +1,20 @@
 package com.linkedin.metadata.entity;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
+import com.linkedin.metadata.entity.retention.RetentionBatchEntry;
+import com.linkedin.metadata.entity.retention.RetentionKey;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -48,33 +51,40 @@ public abstract class RetentionService<U extends ChangeMCP> {
 
   protected abstract EntityService<U> getEntityService();
 
+  protected abstract SystemEntityClient getSystemEntityClient();
+
   /**
-   * Fetch retention policies given the entityName and aspectName Uses the entity service to fetch
-   * the latest retention policies set for the input entity and aspect
+   * Fetch retention policies given the entityName and aspectName. Resolution walks the prioritized
+   * list of retention keys: (entity, aspect), (entity, *), (*, aspect), (*, *). Reads go through
+   * {@link SystemEntityClient}'s entity/aspect cache (see {@code
+   * cache.client.entityClient.entityAspectTTLSeconds.dataHubRetention.dataHubRetentionConfig} in
+   * application.yaml), so repeated lookups for the same policy avoid a primary-storage read until
+   * the TTL expires or {@link #setRetention}/{@link #deleteRetention} invalidates the entry.
    *
    * @param entityName Name of the entity
    * @param aspectName Name of the aspect
    * @return retention policies to apply to the input entity and aspect
    */
+  @SneakyThrows
   public Retention getRetention(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String aspectName) {
     // Prioritized list of retention keys to fetch
     List<Urn> retentionUrns = getRetentionKeys(entityName, aspectName);
-    Map<Urn, List<RecordTemplate>> fetchedAspects =
-        getEntityService()
-            .getLatestAspects(
+    Map<Urn, EntityResponse> fetchedAspects =
+        getSystemEntityClient()
+            .batchGetV2(
                 opContext,
                 new HashSet<>(retentionUrns),
-                ImmutableSet.of(Constants.DATAHUB_RETENTION_ASPECT));
+                Set.of(Constants.DATAHUB_RETENTION_ASPECT));
     // Find the first retention info that is set among the prioritized list of retention keys above
     Optional<DataHubRetentionConfig> retentionInfo =
         retentionUrns.stream()
-            .flatMap(
-                urn ->
-                    fetchedAspects.getOrDefault(urn, Collections.emptyList()).stream()
-                        .filter(aspect -> aspect instanceof DataHubRetentionConfig))
-            .map(retention -> (DataHubRetentionConfig) retention)
-            .findFirst();
+            .map(fetchedAspects::get)
+            .filter(Objects::nonNull)
+            .map(response -> response.getAspects().get(Constants.DATAHUB_RETENTION_ASPECT))
+            .filter(Objects::nonNull)
+            .findFirst()
+            .map(envelopedAspect -> new DataHubRetentionConfig(envelopedAspect.getValue().data()));
     return retentionInfo.map(DataHubRetentionConfig::getRetention).orElse(new Retention());
   }
 
@@ -88,7 +98,7 @@ public abstract class RetentionService<U extends ChangeMCP> {
    * the current version is retained—consistent with retention service not being enabled.
    *
    * @param opContext operation context
-   * @param entityNa entity type
+   * @param entityName entity type
    * @param aspectName aspect name
    * @return 1 if no version policy; else version.maxVersions if set
    */
@@ -225,8 +235,13 @@ public abstract class RetentionService<U extends ChangeMCP> {
     AspectsBatch batch =
         buildAspectsBatch(opContext, List.of(keyProposal, aspectProposal), auditStamp);
 
-    return getEntityService().ingestProposal(opContext, batch, false).stream()
-        .anyMatch(IngestResult::isSqlCommitted);
+    boolean committed =
+        getEntityService().ingestProposal(opContext, batch, false).stream()
+            .anyMatch(IngestResult::isSqlCommitted);
+    getSystemEntityClient()
+        .getEntityClientCache()
+        .invalidate(retentionUrn, Set.of(Constants.DATAHUB_RETENTION_ASPECT));
+    return committed;
   }
 
   protected abstract AspectsBatch buildAspectsBatch(
@@ -252,6 +267,9 @@ public abstract class RetentionService<U extends ChangeMCP> {
     Urn retentionUrn =
         EntityKeyUtils.convertEntityKeyToUrn(retentionKey, Constants.DATAHUB_RETENTION_ENTITY);
     getEntityService().deleteUrn(opContext, retentionUrn);
+    getSystemEntityClient()
+        .getEntityClientCache()
+        .invalidate(retentionUrn, Set.of(Constants.DATAHUB_RETENTION_ASPECT));
   }
 
   private void validateRetention(Retention retention) {
@@ -298,7 +316,47 @@ public abstract class RetentionService<U extends ChangeMCP> {
                         && !context.getRetentionPolicy().get().data().isEmpty())
             .collect(Collectors.toList());
 
-    applyRetention(withDefaults);
+    applyRetention(opContext, withDefaults);
+  }
+
+  /**
+   * Batch variant of {@link #applyRetentionWithPolicyDefaults} intended for the post-commit drain
+   * path. Applies each pair's DELETE with per-pair failure isolation where supported by the storage
+   * backend (see {@code EbeanRetentionService} for the per-context transaction implementation).
+   * Returns the keys that were durably committed — callers should clear only those keys from the
+   * buffer.
+   *
+   * <p>The drainer passes a single {@code List<RetentionBatchEntry>}; each entry structurally pairs
+   * a {@link RetentionKey} with its {@link RetentionContext}, so the same-size / same-index
+   * invariant between keys and contexts is guaranteed by construction (not by a runtime check). The
+   * service uses each entry's context for the DELETE and echoes back the original key at each
+   * committed index. Cross-off in the drainer is by {@link RetentionKey} equals, which is explicit
+   * per subtype — so a key subtype that carries routing metadata is matched with that metadata
+   * intact (two requests for the same URN routed to different underlying databases do not
+   * cross-clear).
+   *
+   * <p>Default implementation falls back to {@link #applyRetentionWithPolicyDefaults} and returns
+   * the full input keys list — treating every pair as committed <b>with no per-pair failure
+   * isolation</b>. On a backend using this default (e.g. Cassandra) a partial failure that does not
+   * throw leaves those keys reported as committed, so the drainer clears them and they are silently
+   * under-pruned until the next enqueue re-adds them. Storage-specific subclasses (see {@code
+   * EbeanRetentionService}) override to apply each context in its own transaction (per-pair failure
+   * isolation).
+   *
+   * <p>Empty-policy contexts' keys are returned as committed (no-op DELETEs) so their buffer keys
+   * are cleared rather than retried forever.
+   *
+   * @param opContext operation context
+   * @param entries pairs of (key, context) to apply retention for
+   * @return the subset of keys whose corresponding context was durably committed (empty on
+   *     full-batch failure — all keys stay for retry)
+   */
+  @Nonnull
+  public List<RetentionKey> applyRetentionBatchWithPolicyDefaults(
+      @Nonnull OperationContext opContext, @Nonnull List<RetentionBatchEntry> entries) {
+    applyRetentionWithPolicyDefaults(
+        opContext, entries.stream().map(RetentionBatchEntry::context).collect(Collectors.toList()));
+    return entries.stream().map(RetentionBatchEntry::key).collect(Collectors.toList());
   }
 
   /**
@@ -310,16 +368,21 @@ public abstract class RetentionService<U extends ChangeMCP> {
    *
    * @param retentionContexts Additional context that could be used to apply retention
    */
-  protected abstract void applyRetention(List<RetentionContext> retentionContexts);
+  protected abstract void applyRetention(
+      @Nonnull OperationContext opContext, List<RetentionContext> retentionContexts);
 
   /**
    * Batch apply retention to all records that match the input entityName and aspectName
    *
+   * @param opContext operation context for the current call; used by storage implementations to
+   *     route raw-SQL statements to the correct underlying database
    * @param entityName Name of the entity to apply retention to. If null, applies to all entities
    * @param aspectName Name of the aspect to apply retention to. If null, applies to all aspects
    */
   public abstract void batchApplyRetention(
-      @Nullable String entityName, @Nullable String aspectName);
+      @Nonnull OperationContext opContext,
+      @Nullable String entityName,
+      @Nullable String aspectName);
 
   /** Batch apply retention to all records within the start, end count */
   public abstract BulkApplyRetentionResult batchApplyRetentionEntities(

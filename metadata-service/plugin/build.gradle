@@ -37,9 +37,10 @@ test {
   systemProperty 'datahub.gms.home', file("$projectDir").absolutePath
   systemProperty 'java.security.policy', file("../war/src/main/resources/security.policy").absolutePath
   systemProperty 'datahub.project.root.dir', "$rootDir" // used in security.policy
-  // Required for Java 17+ where System.setSecurityManager() is deprecated
-  // and disabled by default in Java 18+
-  jvmArgs '-Djava.security.manager=allow'
+  // JDK 24 (JEP 486) permanently disabled the Security Manager: passing
+  // -Djava.security.manager=allow is now a fatal launcher error that kills the test worker
+  // before it starts. The SecurityManager-dependent test paths are already no-op'd for Java
+  // 21+ (see TestIsolatedClassLoader / TestAuthenticator), so the flag is obsolete. Removed.
 }
 
 processTestResources.dependsOn(":metadata-service:plugin:src:test:sample-test-plugins:copyJar")

@@ -28,11 +28,16 @@ from tests.privileges.utils import (
     set_view_dataset_sensitive_info_policy_status,
     set_view_entity_profile_privileges_policy_status,
 )
+from tests.utilities.domains import Domain
 from tests.utils import get_frontend_session, get_frontend_url, login_as
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [
+    pytest.mark.no_cypress_suite1,
+    pytest.mark.global_policy_mutator,
+    pytest.mark.domain(Domain.CATALOG),
+]
 
 # ---------------------------------------------------------------------------
 # Constants — unique per test run so the test is idempotent
@@ -71,8 +76,15 @@ query getTimeline($input: GetTimelineInput!) {
 # ---------------------------------------------------------------------------
 # Module fixture: create entities, lock down policies, create restricted user
 # ---------------------------------------------------------------------------
+TIMELINE_AUTH_POLICY_PREFIX = "Timeline auth test"
+
+
 @pytest.fixture(scope="module", autouse=True)
 def auth_test_setup(graph_client, auth_session):
+    yield from _timeline_auth_test_setup_impl(graph_client, auth_session)
+
+
+def _timeline_auth_test_setup_impl(graph_client, auth_session):
     """
     Setup:
       1. Create test Dataset + Domain via the graph client (as admin).
@@ -102,20 +114,20 @@ def auth_test_setup(graph_client, auth_session):
             ),
         )
     )
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mcp_only=True)
 
     # Need a fresh admin session (not the shared auth_session fixture) so
     # cookie state is isolated from policy mutations.
     admin_session = get_frontend_session()
 
     logger.info("auth_test_setup: clearing leftover test policies")
-    clear_polices(admin_session)
+    clear_polices(admin_session, name_prefix=TIMELINE_AUTH_POLICY_PREFIX)
 
     logger.info("auth_test_setup: disabling All-Users default policies")
     set_base_platform_privileges_policy_status("INACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("INACTIVE", admin_session)
     set_view_entity_profile_privileges_policy_status("INACTIVE", admin_session)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     logger.info(f"auth_test_setup: creating restricted user {TEST_USER_EMAIL}")
     admin_session = create_user(admin_session, TEST_USER_EMAIL, TEST_USER_PASSWORD)
@@ -124,12 +136,12 @@ def auth_test_setup(graph_client, auth_session):
 
     logger.info("auth_test_setup: teardown — restoring policies and cleaning up")
     remove_user(admin_session, TEST_USER_URN)
-    clear_polices(admin_session)
+    clear_polices(admin_session, name_prefix=TIMELINE_AUTH_POLICY_PREFIX)
 
     set_base_platform_privileges_policy_status("ACTIVE", admin_session)
     set_view_dataset_sensitive_info_policy_status("ACTIVE", admin_session)
     set_view_entity_profile_privileges_policy_status("ACTIVE", admin_session)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     for urn in [TEST_DATASET_URN, TEST_DOMAIN_URN]:
         try:
@@ -172,6 +184,9 @@ def _graphql_as_user(email: str, password: str, urn: str) -> dict:
         (TEST_DATASET_URN, "Dataset"),
         (TEST_DOMAIN_URN, "Domain"),
     ],
+    # Stable ids required for pytest-xdist: module-level uuid makes URNs differ
+    # per worker at collection time, which otherwise fails the collected-set check.
+    ids=["Dataset", "Domain"],
 )
 def test_get_timeline_unauthorized_user_is_denied(urn, entity_label):
     """Unauthorized user must receive an authorization error from getTimeline."""

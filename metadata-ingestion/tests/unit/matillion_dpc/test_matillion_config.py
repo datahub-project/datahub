@@ -21,6 +21,11 @@ from datahub.ingestion.source.matillion_dpc.config import (
             "https://us1.api.matillion.com/dpc",
             id="us1_region",
         ),
+        pytest.param(
+            MatillionRegion.AU1,
+            "https://au1.api.matillion.com/dpc",
+            id="au1_region",
+        ),
     ],
 )
 def test_api_config_regions(region: MatillionRegion, expected_url: str) -> None:

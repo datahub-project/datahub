@@ -1,4 +1,5 @@
 import { EditOutlined } from '@ant-design/icons';
+import { Text } from '@components';
 import { Button, Collapse, Form, Input, Modal, Select, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
@@ -233,9 +234,9 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                     <Collapse ghost>
                         <Collapse.Panel
                             header={
-                                <Typography.Text type="secondary">
+                                <Text type="span" color="textSecondary">
                                     {t('businessAttribute.advancedSection')}
-                                </Typography.Text>
+                                </Text>
                             }
                             key="1"
                         >

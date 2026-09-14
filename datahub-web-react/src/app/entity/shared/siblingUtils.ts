@@ -1,4 +1,5 @@
 import merge from 'deepmerge';
+import i18next from 'i18next';
 import { keyBy, unionBy, uniqWith, values } from 'lodash';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router-dom';
@@ -181,32 +182,32 @@ const mergeHealthMessage = (type: HealthStatusType, mergedStatus: HealthStatus):
     if (mergedStatus === HealthStatus.Fail) {
         switch (type) {
             case HealthStatusType.Assertions:
-                return 'See failing assertions →';
+                return i18next.t('shared.health:failAssertions');
             case HealthStatusType.Incidents:
-                return 'See active incidents →';
+                return i18next.t('shared.health:failIncidents');
             default:
-                return 'See failed checks →';
+                return i18next.t('shared.health:failChecks');
         }
     }
     if (mergedStatus === HealthStatus.Warn) {
         switch (type) {
             case HealthStatusType.Assertions:
-                return 'Some assertions have problems.';
+                return i18next.t('shared.health:warnAssertions');
             default:
-                return 'Some checks have problems.';
+                return i18next.t('shared.health:warnChecks');
         }
     }
     if (mergedStatus === HealthStatus.Pass) {
         switch (type) {
             case HealthStatusType.Assertions:
-                return 'All assertions are passing';
+                return i18next.t('shared.health:passAssertions');
             case HealthStatusType.Incidents:
-                return 'No active incidents';
+                return i18next.t('shared.health:passIncidents');
             default:
-                return 'All checks are passing';
+                return i18next.t('shared.health:passChecks');
         }
     }
-    return 'All checks are passing';
+    return i18next.t('shared.health:passChecks');
 };
 
 // Merge entity health across siblings.

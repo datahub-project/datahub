@@ -8,8 +8,6 @@ import static com.linkedin.metadata.datahubusage.DataHubUsageEventType.LOG_IN_EV
 import static com.linkedin.metadata.datahubusage.DataHubUsageEventType.UPDATE_POLICY_EVENT;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -18,8 +16,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.config.UsageExportConfiguration;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
-import com.linkedin.metadata.event.UsageEventPublisher;
+import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants;
+import io.datahubproject.metadata.context.kafka.SpanProducerRecordResolver;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
@@ -28,13 +27,14 @@ import io.opentelemetry.sdk.trace.data.EventData;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import java.util.*;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class DataHubUsageSpanExporterTest {
 
-  private UsageEventPublisher mockPublisher;
+  private GenericProducer<String> mockProducer;
   private UsageExportConfiguration config;
   private DataHubUsageSpanExporter exporter;
   private final String TEST_TOPIC = "test-usage-topic";
@@ -42,14 +42,16 @@ public class DataHubUsageSpanExporterTest {
 
   @BeforeMethod
   public void setup() {
-    mockPublisher = mock(UsageEventPublisher.class);
+    mockProducer = mock(GenericProducer.class);
     config = new UsageExportConfiguration();
     config.setUsageEventTypes(
         StringUtils.join(
             new String[] {LOG_IN_EVENT.getType(), UPDATE_POLICY_EVENT.getType()}, ","));
     config.setAspectTypes("aspect1,aspect2");
     config.setUserFilters("urn:li:corpuser:blacklisted");
-    exporter = new DataHubUsageSpanExporter(mockPublisher, TEST_TOPIC, config);
+    exporter =
+        new DataHubUsageSpanExporter(
+            mockProducer, TEST_TOPIC, config, new SpanProducerRecordResolver(List.of()));
   }
 
   @Test
@@ -77,11 +79,11 @@ public class DataHubUsageSpanExporterTest {
     CompletableResultCode result = exporter.export(Collections.singletonList(spanData));
     assertTrue(result.isSuccess());
 
-    ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
-    verify(mockPublisher).publish(eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
+    ArgumentCaptor<ProducerRecord<String, String>> payloadCaptor = producerRecordCaptor();
+    verify(mockProducer).send(payloadCaptor.capture(), isNull());
 
     try {
-      JsonNode eventJson = OBJECT_MAPPER.readTree(payloadCaptor.getValue());
+      JsonNode eventJson = OBJECT_MAPPER.readTree(payloadCaptor.getValue().value());
       assertEquals(denialReason, eventJson.get(LOGIN_DENIAL_REASON).asText());
       assertEquals(
           DataHubUsageEventType.FAILED_LOGIN_EVENT.getType(), eventJson.get(TYPE).asText());
@@ -112,12 +114,12 @@ public class DataHubUsageSpanExporterTest {
     // Verify result is successful
     assertTrue(result.isSuccess());
 
-    ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
-    verify(mockPublisher).publish(eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
+    ArgumentCaptor<ProducerRecord<String, String>> payloadCaptor = producerRecordCaptor();
+    verify(mockProducer).send(payloadCaptor.capture(), isNull());
 
     // Verify event payload
     try {
-      JsonNode eventJson = OBJECT_MAPPER.readTree(payloadCaptor.getValue());
+      JsonNode eventJson = OBJECT_MAPPER.readTree(payloadCaptor.getValue().value());
       assertEquals(userId, eventJson.get(ACTOR_URN).asText());
       assertEquals(DataHubUsageEventType.LOG_IN_EVENT.getType(), eventJson.get(TYPE).asText());
       assertTrue(eventJson.has(TIMESTAMP));
@@ -157,12 +159,12 @@ public class DataHubUsageSpanExporterTest {
     // Verify result is successful
     assertTrue(result.isSuccess());
 
-    ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
-    verify(mockPublisher).publish(eq(TEST_TOPIC), eq(userId), payloadCaptor.capture());
+    ArgumentCaptor<ProducerRecord<String, String>> payloadCaptor = producerRecordCaptor();
+    verify(mockProducer).send(payloadCaptor.capture(), isNull());
 
     // Verify event payload
     try {
-      JsonNode eventJson = OBJECT_MAPPER.readTree(payloadCaptor.getValue());
+      JsonNode eventJson = OBJECT_MAPPER.readTree(payloadCaptor.getValue().value());
       assertEquals(userId, eventJson.get(ACTOR_URN).asText());
       assertEquals(
           DataHubUsageEventType.UPDATE_ASPECT_EVENT.getType(), eventJson.get(TYPE).asText());
@@ -210,7 +212,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify event was published
-    verify(mockPublisher).publish(eq(TEST_TOPIC), eq(userId), anyString());
+    verify(mockProducer).send(any(ProducerRecord.class), isNull());
   }
 
   @Test
@@ -236,7 +238,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify no event was published due to user filter
-    verify(mockPublisher, never()).publish(anyString(), any(), anyString());
+    verify(mockProducer, never()).send(any(ProducerRecord.class), any());
   }
 
   @Test
@@ -262,7 +264,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify no event was published due to aspect filter
-    verify(mockPublisher, never()).publish(anyString(), any(), anyString());
+    verify(mockProducer, never()).send(any(ProducerRecord.class), any());
   }
 
   @Test
@@ -297,7 +299,7 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify event was published
-    verify(mockPublisher).publish(eq(TEST_TOPIC), eq(userId), anyString());
+    verify(mockProducer).send(any(ProducerRecord.class), isNull());
   }
 
   @Test
@@ -329,21 +331,26 @@ public class DataHubUsageSpanExporterTest {
     assertTrue(result.isSuccess());
 
     // Verify two events were published (login and update, but not the non-matching one)
-    verify(mockPublisher, times(2)).publish(eq(TEST_TOPIC), any(), anyString());
+    verify(mockProducer, times(2)).send(any(ProducerRecord.class), isNull());
   }
 
   @Test
   public void testFlush() {
     CompletableResultCode result = exporter.flush();
     assertTrue(result.isSuccess());
-    verify(mockPublisher).flush();
+    verify(mockProducer).flush();
   }
 
   @Test
   public void testShutdown() {
     CompletableResultCode result = exporter.shutdown();
     assertTrue(result.isSuccess());
-    verify(mockPublisher).flush();
+    verify(mockProducer).flush();
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private static ArgumentCaptor<ProducerRecord<String, String>> producerRecordCaptor() {
+    return (ArgumentCaptor) ArgumentCaptor.forClass(ProducerRecord.class);
   }
 
   // Helper methods to create test events

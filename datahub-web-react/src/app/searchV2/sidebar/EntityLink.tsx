@@ -1,6 +1,7 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
 import { Tooltip } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -36,6 +37,7 @@ const EmptySpace = styled.span`
 `;
 
 const EntityLink = ({ entity, targetNode }: Props) => {
+    const { t } = useTranslation('search');
     const registry = useEntityRegistry();
     const isBrowsePathSelected = useIsBrowsePathSelected();
     const displayName = useBrowseDisplayName();
@@ -49,7 +51,7 @@ const EntityLink = ({ entity, targetNode }: Props) => {
     if (!entityUrl) return null;
 
     return (
-        <Tooltip placement="top" title={`View ${displayName} profile`} mouseEnterDelay={1}>
+        <Tooltip placement="top" title={t('sidebar.viewEntityProfile', { name: displayName })} mouseEnterDelay={1}>
             <Link to={entityUrl}>
                 <ExpandableNode.StaticButton
                     icon={<Linkicon $isSelected={isBrowsePathSelected} component={ExternalLink} />}

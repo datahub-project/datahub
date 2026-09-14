@@ -9,16 +9,22 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -64,10 +70,8 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     mockClient = mock(SearchClientShim.class);
     IndexConvention indexConvention =
         new IndexConventionImpl(
-            IndexConventionImpl.IndexConventionConfig.builder()
-                .prefix("es_browse_dao_test")
-                .hashIdAlgo("MD5")
-                .build(),
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new ConfiguredIndexPrefixResolver("es_browse_dao_test"),
             SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
     opContext =
@@ -101,7 +105,8 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     // Test when there is no search hit for getBrowsePaths
     when(mockSearchHits.getHits()).thenReturn(new SearchHit[0]);
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
-    when(mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
+    when(mockClient.search(any(), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockSearchResponse);
     assertEquals(browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn).size(), 0);
 
     // Test the case of single search hit & browsePaths field doesn't exist
@@ -109,7 +114,8 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     when(mockSearchHit.getSourceAsMap()).thenReturn(sourceMap);
     when(mockSearchHits.getHits()).thenReturn(new SearchHit[] {mockSearchHit});
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
-    when(mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
+    when(mockClient.search(any(), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockSearchResponse);
     assertEquals(browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn).size(), 0);
 
     // Test the case of single search hit & browsePaths field exists
@@ -117,7 +123,8 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     when(mockSearchHit.getSourceAsMap()).thenReturn(sourceMap);
     when(mockSearchHits.getHits()).thenReturn(new SearchHit[] {mockSearchHit});
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
-    when(mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
+    when(mockClient.search(any(), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockSearchResponse);
     List<String> browsePaths = browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn);
     assertEquals(browsePaths.size(), 1);
     assertEquals(browsePaths.get(0), "foo");
@@ -127,7 +134,8 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     when(mockSearchHit.getSourceAsMap()).thenReturn(sourceMap);
     when(mockSearchHits.getHits()).thenReturn(new SearchHit[] {mockSearchHit});
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
-    when(mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
+    when(mockClient.search(any(), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockSearchResponse);
     List<String> nullBrowsePaths = browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn);
     assertEquals(nullBrowsePaths.size(), 0);
   }
@@ -158,7 +166,8 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
                 null));
 
     // Configure client to return our mock responses
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockGroupsResponse)
         .thenReturn(mockEntitiesResponse);
 
@@ -184,7 +193,8 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
 
     // Verify the client was called with the correct limited size
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
-    verify(mockClient, times(2)).search(requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    verify(mockClient, times(2))
+        .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
 
     // The second request should be the entities search request with limited size
     List<SearchRequest> capturedRequests = requestCaptor.getAllValues();
@@ -208,7 +218,8 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     when(mockGroupsResponse.getAggregations()).thenReturn(mockAggs);
 
     // Configure client to return our mock response
-    when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
         .thenReturn(mockGroupsResponse);
 
     // Configure search configuration with specific limits
@@ -237,10 +248,93 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
 
     // Verify the search request captured by the mock client
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
-    verify(mockClient).search(requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    verify(mockClient)
+        .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
 
     // This method doesn't directly use the size parameter in the captured request,
     // but we can still verify the page size in the result
     assertEquals(result.getPageSize(), 25);
+  }
+
+  @Test
+  public void testLegacyBrowseStaysOnV2WhenKeywordReadEnabled() throws Exception {
+    SearchResponse mockGroupsResponse = mock(SearchResponse.class);
+    SearchHits mockGroupsHits = mock(SearchHits.class);
+    when(mockGroupsResponse.getHits()).thenReturn(mockGroupsHits);
+    when(mockGroupsHits.getTotalHits()).thenReturn(new TotalHits(0L, TotalHits.Relation.EQUAL_TO));
+    Aggregations mockAggs = mock(Aggregations.class);
+    when(mockAggs.get("groups")).thenReturn(new ParsedStringTerms());
+    when(mockGroupsResponse.getAggregations()).thenReturn(mockAggs);
+
+    SearchResponse mockEntitiesResponse = mock(SearchResponse.class);
+    SearchHits mockEntitiesHits = mock(SearchHits.class);
+    when(mockEntitiesResponse.getHits()).thenReturn(mockEntitiesHits);
+    when(mockEntitiesHits.getTotalHits())
+        .thenReturn(new TotalHits(0L, TotalHits.Relation.EQUAL_TO));
+    when(mockEntitiesHits.getHits()).thenReturn(new SearchHit[] {});
+
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockGroupsResponse)
+        .thenReturn(mockEntitiesResponse);
+
+    ESBrowseDAO v3ReadBrowseDao =
+        new ESBrowseDAO(
+            mockClient,
+            v3KeywordReadConfig(),
+            customSearchConfiguration,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    v3ReadBrowseDao.browse(opContext, "dataset", "/test/path", null, 0, 10);
+
+    ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockClient, times(2))
+        .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    for (SearchRequest request : requestCaptor.getAllValues()) {
+      assertEquals(request.indices().length, 1);
+      assertTrue(request.indices()[0].endsWith("datasetindex_v2"), request.indices()[0]);
+    }
+  }
+
+  @Test
+  public void testGetBrowsePathsStaysOnV2WhenKeywordReadEnabled() throws Exception {
+    SearchResponse mockSearchResponse = mock(SearchResponse.class);
+    SearchHits mockSearchHits = mock(SearchHits.class);
+    when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
+    when(mockSearchHits.getHits()).thenReturn(new SearchHit[] {});
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockSearchResponse);
+
+    ESBrowseDAO v3ReadBrowseDao =
+        new ESBrowseDAO(
+            mockClient,
+            v3KeywordReadConfig(),
+            customSearchConfiguration,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    v3ReadBrowseDao.getBrowsePaths(opContext, "dataset", makeUrn(0));
+
+    ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockClient)
+        .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    assertTrue(
+        requestCaptor.getValue().indices()[0].endsWith("datasetindex_v2"),
+        requestCaptor.getValue().indices()[0]);
+    assertFalse(requestCaptor.getValue().source().query().toString().contains("_entityType"));
+  }
+
+  private static ElasticSearchConfiguration v3KeywordReadConfig() {
+    return TEST_OS_SEARCH_CONFIG.toBuilder()
+        .entityIndex(
+            EntityIndexConfiguration.builder()
+                .v2(EntityIndexVersionConfiguration.builder().enabled(true).build())
+                .v3(
+                    EntityIndexVersionConfiguration.builder()
+                        .enabled(true)
+                        .keywordReadEnabled(true)
+                        .build())
+                .build())
+        .build();
   }
 }

@@ -17,6 +17,9 @@ import { useAddGroupMembersMutation, useCreateGroupMutation } from '@graphql/gro
 import { useAddOwnerMutation } from '@graphql/mutations.generated';
 import { CorpGroup, EntityType, OwnerEntityType } from '@types';
 
+// Must match groupName maxLength in li-utils/.../CorpGroupUrn.pdl
+const MAX_GROUP_NAME_LENGTH = 250;
+
 type Props = {
     onClose: () => void;
     onCreate: (group: CorpGroup) => void;
@@ -43,7 +46,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
             setNameError(t('groups.createModal.name.validationError.empty'));
             return false;
         }
-        if (value.length > 50) {
+        if (value.length > MAX_GROUP_NAME_LENGTH) {
             setNameError(t('groups.createModal.name.validationError.tooLong'));
             return false;
         }
@@ -177,7 +180,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         validateName(val);
                     }}
                     error={nameError}
-                    maxLength={50}
+                    maxLength={MAX_GROUP_NAME_LENGTH}
                 />
             </FormSection>
             <FormSection>

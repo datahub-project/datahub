@@ -86,6 +86,7 @@ export enum FilterOperatorType {
     LESS_THAN,
     LESS_THAN_OR_EQUALS,
     ALL_EQUALS, // used for splitting criterion values into multiple AND criterions
+    WITHIN, // hierarchical: selected URN + nested descendants (DESCENDANTS_INCL)
 }
 
 export enum FrontendFilterOperator {

@@ -24,6 +24,7 @@ export function getQuickFilterDetails(quickFilter: QuickFilter, entityRegistry: 
         const genericProps = entityRegistry.getGenericEntityProperties(EntityType.DataPlatform, quickFilter.entity);
         const logoUrl = genericProps?.platform?.properties?.logoUrl || '';
         if (logoUrl) {
+            // eslint-disable-next-line i18next/no-literal-string
             icon = <StyledIcon alt="icon" src={logoUrl} />;
         } else {
             icon = entityRegistry.getIcon(EntityType.DataPlatform, 14, IconStyleType.ACCENT, 'black');

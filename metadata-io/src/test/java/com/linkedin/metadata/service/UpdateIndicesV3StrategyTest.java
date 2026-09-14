@@ -14,6 +14,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
@@ -32,6 +33,9 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -47,6 +51,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -110,8 +116,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false, // v2Enabled = false
             null);
   }
 
@@ -155,13 +159,15 @@ public class UpdateIndicesV3StrategyTest {
     // Execute
     strategy.processBatch(operationContext, groupedEvents, true);
 
-    // Verify
+    String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<String> docIdCaptor = ArgumentCaptor.forClass(String.class);
     verify(elasticSearchService)
         .upsertDocumentBySearchGroup(
-            eq(operationContext),
-            anyString(), // search group
-            anyString(), // document
-            anyString()); // doc id
+            eq(operationContext), anyString(), documentCaptor.capture(), docIdCaptor.capture());
+    assertEquals(docIdCaptor.getValue(), expectedDocId);
+    assertTrue(documentCaptor.getValue().contains("\"urn\":\"" + testUrn + "\""));
+    assertFalse(docIdCaptor.getValue().contains("urn:li:"));
   }
 
   @Test
@@ -182,11 +188,179 @@ public class UpdateIndicesV3StrategyTest {
 
     strategy.processBatch(operationContext, groupedEvents, true);
 
+    String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
     verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString(), anyString());
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq("dataset"), anyString(), eq(expectedDocId));
     verify(elasticSearchService)
         .appendRunIdBySearchGroup(
-            eq(operationContext), eq("dataset"), anyString(), eq(testUrn), eq("run-456"));
+            eq(operationContext), eq("dataset"), eq(expectedDocId), eq(testUrn), eq("run-456"));
+  }
+
+  @Test
+  public void testProcessBatch_ReplacementHasherChangesDocId() throws Exception {
+    EntityDocumentIdHasher replacement =
+        (operation, urn) -> DigestUtils.sha256Hex("extra|" + urn.toString());
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            replacement,
+            List.of());
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    String defaultId = new Sha256UrnEntityDocumentIdHasher().documentId(operationContext, testUrn);
+    String replacedId = replacement.documentId(operationContext, testUrn);
+    ArgumentCaptor<String> docIdCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), anyString(), anyString(), docIdCaptor.capture());
+    assertEquals(docIdCaptor.getValue(), replacedId);
+    assertFalse(docIdCaptor.getValue().equals(defaultId));
+  }
+
+  @Test
+  public void testProcessBatch_DocumentContributorAddsRootField() throws Exception {
+    V3SearchDocumentContributor contributor =
+        (operation, urn, document) -> document.put("_ext", "1");
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(contributor));
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), anyString(), documentCaptor.capture(), anyString());
+    assertTrue(documentCaptor.getValue().contains("\"_ext\":\"1\""));
+  }
+
+  @Test
+  public void testProcessBatch_DocumentContributorCannotOverwriteUrn() throws Exception {
+    V3SearchDocumentContributor contributor =
+        (operation, urn, document) -> document.put("urn", "overwritten");
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(contributor));
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    expectThrows(
+        IllegalStateException.class,
+        () ->
+            strategy.processBatch(
+                operationContext,
+                Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+                true));
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testProcessBatch_DocumentContributorOverwriteDoesNotFailDualWrite() throws Exception {
+    V3SearchDocumentContributor contributor =
+        (operation, urn, document) -> document.put("urn", "overwritten");
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(contributor),
+            true);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+        true);
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testProcessBatch_DocumentContributorCannotOverwriteRunId() throws Exception {
+    V3SearchDocumentContributor contributor =
+        (operation, urn, document) -> document.put("runId", "stolen");
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(contributor));
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    expectThrows(
+        IllegalStateException.class,
+        () ->
+            strategy.processBatch(
+                operationContext,
+                Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+                true));
   }
 
   // Note: Key aspect deletion test is complex due to static method calls
@@ -247,33 +421,6 @@ public class UpdateIndicesV3StrategyTest {
             anyString(), // search group
             anyString(), // document
             anyString()); // doc id
-  }
-
-  @Test
-  public void testUpdateIndexMappings_V2Enabled_SkipsProcessing() {
-    // Create strategy with V2 enabled
-    UpdateIndicesV3Strategy v2EnabledStrategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            "MD5",
-            true, // v2Enabled = true
-            null);
-
-    // Setup for structured property
-    when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
-    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
-
-    // Execute
-    v2EnabledStrategy.updateIndexMappings(
-        operationContext, testUrn, mockEntitySpec, mockAspectSpec, mockAspect, null);
-
-    // Verify no processing occurred (V2 handles it)
-    verify(elasticSearchService, never())
-        .buildReindexConfigsWithNewStructProp(
-            any(OperationContext.class), any(Urn.class), any(StructuredPropertyDefinition.class));
   }
 
   @Test
@@ -355,8 +502,6 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
-                    "MD5",
-                    false,
                     null));
 
     // Verify the exception message and cause
@@ -380,8 +525,6 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
-                    "MD5",
-                    false,
                     null));
 
     // Verify the exception message and cause
@@ -404,8 +547,6 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
-                    "MD5",
-                    false,
                     null));
 
     // Verify the exception message and cause
@@ -427,8 +568,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false,
             null);
 
     // Verify strategy was created successfully
@@ -447,8 +586,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false,
             null);
 
     // Verify strategy was created successfully
@@ -467,8 +604,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false,
             null);
 
     // Verify strategy was created successfully
@@ -496,14 +631,15 @@ public class UpdateIndicesV3StrategyTest {
     // Mock applyMappings to throw IOException
     doThrow(new IOException("Elasticsearch communication error"))
         .when(mockIndexBuilder)
-        .applyMappings(any(ReindexConfig.class), anyBoolean());
+        .applyMappings(any(OperationContext.class), any(ReindexConfig.class), anyBoolean());
 
     // Execute - the method catches the RuntimeException and logs it, so no exception is thrown
     strategy.updateIndexMappings(
         operationContext, testUrn, mockEntitySpec, mockAspectSpec, mockAspect, null);
 
     // Verify that applyMappings was called (which would have thrown the IOException)
-    verify(mockIndexBuilder).applyMappings(any(ReindexConfig.class), eq(false));
+    verify(mockIndexBuilder)
+        .applyMappings(any(OperationContext.class), any(ReindexConfig.class), eq(false));
   }
 
   @Test
@@ -576,12 +712,11 @@ public class UpdateIndicesV3StrategyTest {
           .thenReturn(Pair.of(mockEntitySpec, mockAspectSpec));
       mockedStatic.when(() -> UpdateIndicesUtil.isDeletingKey(any(Pair.class))).thenReturn(true);
 
-      // Execute - should handle null search group gracefully
       strategy.processBatch(operationContext, groupedEvents, true);
 
-      // Verify that no delete operation was performed due to null search group
-      verify(elasticSearchService, never())
-          .deleteDocumentBySearchGroup(any(), anyString(), anyString());
+      // Unset searchGroup uses the entity type as the V3 index key
+      verify(elasticSearchService)
+          .deleteDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString());
     }
   }
 
@@ -629,9 +764,8 @@ public class UpdateIndicesV3StrategyTest {
     // Execute - should handle null search group gracefully
     strategy.processBatch(operationContext, groupedEvents, true);
 
-    // Verify that no upsert operation was performed due to null search group
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString(), anyString());
   }
 
   @Test
@@ -720,8 +854,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
@@ -761,8 +893,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
@@ -800,8 +930,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
@@ -838,8 +966,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");

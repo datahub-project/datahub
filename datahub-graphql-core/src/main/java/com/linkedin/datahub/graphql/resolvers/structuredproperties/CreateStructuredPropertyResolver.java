@@ -167,6 +167,9 @@ public class CreateStructuredPropertyResolver
     if (input.getCardinality() != null) {
       builder.setCardinality(PropertyCardinality.valueOf(input.getCardinality().toString()));
     }
+    if (input.getAllowedPlatforms() != null) {
+      input.getAllowedPlatforms().forEach(builder::addAllowedPlatform);
+    }
     builder.setCreated(context.getOperationContext().getAuditStamp());
     builder.setLastModified(context.getOperationContext().getAuditStamp());
 
@@ -198,7 +201,7 @@ public class CreateStructuredPropertyResolver
                 primitiveValue.setString(allowedValueInput.getStringValue());
               }
               if (allowedValueInput.getNumberValue() != null) {
-                primitiveValue.setDouble(allowedValueInput.getNumberValue().doubleValue());
+                primitiveValue.setDouble(allowedValueInput.getNumberValue());
               }
               value.setValue(primitiveValue);
               value.setDescription(allowedValueInput.getDescription(), SetMode.IGNORE_NULL);

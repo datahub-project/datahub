@@ -46,6 +46,18 @@ public class ElasticSearchBulkProcessorFactory {
   @Value("${elasticsearch.bulkProcessor.slowByQueryOperationTimeoutSeconds}")
   private int slowByQueryOperationTimeoutSeconds;
 
+  @Value("#{new Boolean('${elasticsearch.bulkProcessor.itemRequeueEnabled:true}')}")
+  private boolean itemRequeueEnabled;
+
+  @Value("${elasticsearch.bulkProcessor.itemRequeueMaxAttempts:3}")
+  private Integer itemRequeueMaxAttempts;
+
+  @Value("#{new Boolean('${elasticsearch.bulkProcessor.ackAfterTransfer:false}')}")
+  private boolean ackAfterTransfer;
+
+  @Value("${elasticsearch.bulkProcessor.ackAfterTransferTimeoutSeconds:60}")
+  private Integer ackAfterTransferTimeoutSeconds;
+
   @Bean(name = "elasticSearchBulkProcessor")
   @Nonnull
   protected ESBulkProcessor getInstance(MetricUtils metricUtils) {
@@ -58,6 +70,10 @@ public class ElasticSearchBulkProcessorFactory {
         .numRetries(numRetries)
         .threadCount(threadCount)
         .batchDelete(enableBatchDelete)
+        .itemRequeueEnabled(itemRequeueEnabled)
+        .itemRequeueMaxAttempts(itemRequeueMaxAttempts)
+        .ackAfterTransfer(ackAfterTransfer)
+        .ackAfterTransferTimeoutSeconds(ackAfterTransferTimeoutSeconds)
         .byQueryRequestOptions(byQueryOpts)
         .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.valueOf(refreshPolicy))
         .build();

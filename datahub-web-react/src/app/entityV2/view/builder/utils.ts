@@ -3,7 +3,7 @@ import { ViewFilter } from '@app/entityV2/view/builder/types';
 import { ViewBuilderState } from '@app/entityV2/view/types';
 import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
-import { FacetFilter, FilterOperator, LogicalOperator } from '@types';
+import { EntityType, FacetFilter, FilterOperator, LogicalOperator } from '@types';
 
 /** Non-nullable shorthand for the definition property of ViewBuilderState. */
 type ViewDefinition = NonNullable<ViewBuilderState['definition']>;
@@ -17,6 +17,7 @@ export function mapUiOperatorToCondition(operator: string | undefined): FilterOp
     const map: Record<string, FilterOperator> = {
         equals: FilterOperator.Equal,
         exists: FilterOperator.Exists,
+        within: FilterOperator.DescendantsIncl,
         contains_str: FilterOperator.Contain,
         contains_any: FilterOperator.Contain,
         starts_with: FilterOperator.StartWith,
@@ -46,6 +47,7 @@ export function mapConditionToUiOperator(condition: FilterOperator | null | unde
     const map: Record<string, string> = {
         [FilterOperator.Equal]: 'equals',
         [FilterOperator.Exists]: 'exists',
+        [FilterOperator.DescendantsIncl]: 'within',
         [FilterOperator.Contain]: 'contains_str',
         [FilterOperator.StartWith]: 'starts_with',
         [FilterOperator.GreaterThan]: 'greater_than',
@@ -186,12 +188,19 @@ export function getInitialTabKey(filters: ViewFilter[]): string {
 
 /**
  * Builds a view definition object compatible with ViewBuilderState.
+ * A View's entity-type scope lives in its own top-level `entityTypes` field rather
+ * than in the filter list, and this builder edits filters only — so the caller's
+ * existing scope is threaded through unchanged instead of being rebuilt here.
  * ViewFilter is structurally compatible with FacetFilter; the cast bridges
  * the generated __typename field that ViewFilter intentionally omits.
  */
-export function buildViewDefinition(operator: LogicalOperator, filters: ViewFilter[]): ViewDefinition {
+export function buildViewDefinition(
+    operator: LogicalOperator,
+    filters: ViewFilter[],
+    entityTypes: EntityType[],
+): ViewDefinition {
     return {
-        entityTypes: [],
+        entityTypes,
         filter: {
             operator,
             filters: filters as FacetFilter[],

@@ -1,4 +1,4 @@
-from typing import Dict, List, Set
+from typing import Callable, Dict, List, Set
 
 import pytest
 
@@ -52,6 +52,12 @@ def _cll_map(result: SqlParsingResult) -> Dict[str, Dict[str, List[str]]]:
         )
         out.setdefault(ds_table, {})[ds_col] = ups
     return out
+
+
+def _table_name_in(*names: str) -> Callable[[str], bool]:
+    """Predicate matching a qualified name whose leaf (table) is in names."""
+    wanted = set(names)
+    return lambda name: name.split(".")[-1] in wanted
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -762,3 +768,119 @@ class TestEdgeCasePatterns:
         assert _table_short_names(result.out_tables) == {"target"}
         # source2 should be the upstream (latest definition)
         assert "source2" in {_urn_to_table_name(u) for u in result.in_tables}
+
+
+class TestIsTempTablePredicate:
+    """The is_temp_table predicate lets callers mark intermediates as temporary
+    even when the dialect's own syntax does not (e.g. Teradata CREATE VOLATILE
+    TABLE parsed under another dialect). Marked tables are collapsed so lineage
+    flows through to the real base tables, exactly like a native TEMP table.
+    Without the predicate the same plain CREATE TABLE stays persistent (see
+    TestPersistentTableLineage)."""
+
+    def test_predicate_collapses_plain_create_table(self) -> None:
+        result = _parse(
+            [
+                "CREATE TABLE staging AS SELECT id, name FROM source",
+                "INSERT INTO target SELECT id, name FROM staging",
+            ],
+            is_temp_table=_table_name_in("staging"),
+        )
+        assert _table_short_names(result.in_tables) == {"source"}
+        assert _table_short_names(result.out_tables) == {"target"}
+
+    def test_predicate_collapses_column_lineage_through_marked_table(self) -> None:
+        result = _parse(
+            [
+                "CREATE TABLE staging AS SELECT id, 2 * val AS doubled FROM source",
+                "INSERT INTO target SELECT id, doubled FROM staging",
+            ],
+            is_temp_table=_table_name_in("staging"),
+        )
+        cll = _cll_map(result)
+        assert set(cll["target"]["id"]) == {"source.id"}
+        assert set(cll["target"]["doubled"]) == {"source.val"}
+        # The collapsed table must not leak a phantom downstream CLL entry.
+        assert "staging" not in cll
+
+    def test_predicate_is_selective(self) -> None:
+        # Only 'tmp' is marked temp; 'staging' stays a persistent intermediate.
+        result = _parse(
+            [
+                "CREATE TABLE staging AS SELECT id, amount FROM source1",
+                "CREATE TABLE tmp AS SELECT id, label FROM source2",
+                "INSERT INTO target SELECT staging.id, staging.amount, tmp.label "
+                "FROM staging JOIN tmp ON staging.id = tmp.id",
+            ],
+            is_temp_table=_table_name_in("tmp"),
+        )
+        in_names = _table_short_names(result.in_tables)
+        out_names = _table_short_names(result.out_tables)
+        assert "staging" in in_names and "staging" in out_names
+        assert "tmp" not in in_names and "tmp" not in out_names
+        assert "source2" in in_names
+
+    def test_predicate_receives_qualified_name(self) -> None:
+        seen: List[str] = []
+
+        def predicate(name: str) -> bool:
+            seen.append(name)
+            return name.split(".")[-1] == "staging"
+
+        _parse(
+            [
+                "CREATE TABLE staging AS SELECT id FROM source",
+                "INSERT INTO target SELECT id FROM staging",
+            ],
+            is_temp_table=predicate,
+        )
+        # The predicate is invoked with the fully qualified dataset name.
+        assert "dev.public.staging" in seen
+
+    def test_predicate_returning_false_preserves_persistent_table(self) -> None:
+        result = _parse(
+            [
+                "CREATE TABLE staging AS SELECT id FROM source",
+                "INSERT INTO target SELECT id FROM staging",
+            ],
+            is_temp_table=lambda name: False,
+        )
+        # Equivalent to passing no predicate: staging stays persistent.
+        assert "staging" in _table_short_names(result.in_tables)
+        assert "staging" in _table_short_names(result.out_tables)
+
+    def test_predicate_none_preserves_persistent_table(self) -> None:
+        # None takes the no-predicate fast path (distinct from a False-returning
+        # callable, even though the resulting lineage is identical).
+        result = _parse(
+            [
+                "CREATE TABLE staging AS SELECT id FROM source",
+                "INSERT INTO target SELECT id FROM staging",
+            ],
+            is_temp_table=None,
+        )
+        assert "staging" in _table_short_names(result.in_tables)
+        assert "staging" in _table_short_names(result.out_tables)
+
+    def test_predicate_receives_name_without_platform_instance(self) -> None:
+        # With a platform_instance set, the aggregator strips the instance prefix
+        # before calling the predicate, so it still sees db.schema.table (not
+        # my_instance.db.schema.table) and the marked table is still collapsed.
+        seen: List[str] = []
+
+        def predicate(name: str) -> bool:
+            seen.append(name)
+            return name.split(".")[-1] == "staging"
+
+        result = _parse(
+            [
+                "CREATE TABLE staging AS SELECT id FROM source",
+                "INSERT INTO target SELECT id FROM staging",
+            ],
+            platform_instance="my_instance",
+            is_temp_table=predicate,
+        )
+        assert "dev.public.staging" in seen
+        assert not any(name.startswith("my_instance") for name in seen)
+        assert _table_short_names(result.in_tables) == {"source"}
+        assert _table_short_names(result.out_tables) == {"target"}

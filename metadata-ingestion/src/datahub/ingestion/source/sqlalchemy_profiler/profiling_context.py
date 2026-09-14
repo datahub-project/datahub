@@ -30,6 +30,11 @@ class ProfilingContext:
     pretty_name: str
     table: str
     schema: Optional[str] = None
+    # PARTIALLY DEPRECATED: custom_sql should eventually be removed.
+    # It exists because some sources (e.g. BigQuery partitions) tweak the GE profiler
+    # directly, bypassing the adapter layer. New adapters should centralize this
+    # logic in setup_profiling instead.
+    # Blocked on GE profiler removal — once gone, migrating to adapters will be straightforward.
     custom_sql: Optional[str] = None
     partition: Optional[str] = None
 

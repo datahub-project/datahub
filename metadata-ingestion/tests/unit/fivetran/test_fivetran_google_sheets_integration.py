@@ -168,8 +168,13 @@ class TestFivetranGoogleSheetsIntegration:
             mock_connection_details
         )
 
-        datajob = Mock()
-        lineage_properties = self.source._extend_lineage(connector, datajob)
+        source_details = self.source._resolve_source_details(connector)
+        destination_details = self.source.resolve_destination_details(
+            connector.destination_id
+        )
+        lineage_properties = self.source._compose_lineage_properties(
+            source_details, destination_details
+        )
 
         assert "source.platform" in lineage_properties
         assert (
@@ -368,12 +373,10 @@ class TestFivetranGoogleSheetsIntegration:
             mock_connection_details
         )
 
-        datajob = Mock()
-        self.source._extend_lineage(connector, datajob)
-
-        # Verify that set_inlets was called with an empty list for Google Sheets
-        # (no valid input_dataset_urn was created)
-        datajob.set_inlets.assert_called()
-        inlets = datajob.set_inlets.call_args[0][0]
-        # All inlets should be empty since the only lineage is from invalid GSheets
-        assert len(inlets) == 0
+        # For Google Sheets with an unparseable sheet_id, the input dataset
+        # URN can't be built, so no inlet is produced for the pair.
+        source_details = self.source._resolve_source_details(connector)
+        input_urn = self.source._build_input_dataset_urn(
+            connector, connector.lineage[0], source_details
+        )
+        assert input_urn is None

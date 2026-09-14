@@ -5,7 +5,7 @@ import { useGetDomainsYouOwn } from '@app/homeV2/reference/sections/domains/useG
 import { OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { useGetSearchResultsForMultipleCardsQuery } from '@graphql/search.generated';
 import { CorpUser, EntityType } from '@types';
 
 function mockCorpUser(urn: string): CorpUser {
@@ -18,7 +18,7 @@ function mockCorpUser(urn: string): CorpUser {
 }
 
 vi.mock('@graphql/search.generated', () => ({
-    useGetSearchResultsForMultipleQuery: vi.fn(),
+    useGetSearchResultsForMultipleCardsQuery: vi.fn(),
 }));
 
 vi.mock('@app/useEntityRegistry', () => ({
@@ -26,7 +26,7 @@ vi.mock('@app/useEntityRegistry', () => ({
 }));
 
 describe('useGetDomainsYouOwn', () => {
-    const queryMock = useGetSearchResultsForMultipleQuery as unknown as Mock;
+    const queryMock = useGetSearchResultsForMultipleCardsQuery as unknown as Mock;
     const registryMock = useEntityRegistry as unknown as Mock;
 
     beforeEach(() => {
@@ -50,7 +50,7 @@ describe('useGetDomainsYouOwn', () => {
         );
     });
 
-    it('searches domains owned by the user using values-only owner filter', () => {
+    it('uses the cards search query for domains owned by the user', () => {
         const user = mockCorpUser('urn:li:corpuser:alice');
         renderHook(() => useGetDomainsYouOwn(user));
 

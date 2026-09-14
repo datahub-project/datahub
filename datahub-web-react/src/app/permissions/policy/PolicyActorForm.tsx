@@ -1,13 +1,18 @@
-import { Avatar, Text } from '@components';
-import { Form, Select, Switch, Tag, Typography } from 'antd';
+import { Avatar, Switch, Text } from '@components';
+import { Form } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
-import ActorPill from '@app/sharedV2/owners/ActorPill';
+import GroupsSelect from '@app/permissions/policy/PolicyActorForm/GroupsSelect';
+import OwnershipTypesSelect from '@app/permissions/policy/PolicyActorForm/OwnershipTypesSelect';
+import UsersSelect from '@app/permissions/policy/PolicyActorForm/UsersSelect';
+import useDebouncedCallback from '@app/shared/hooks/useDebouncedCallback';
+import { useGetRecommendations } from '@app/shared/recommendation';
+import { addUserFiltersToMultiEntitySearchInput } from '@app/shared/userSearchUtils';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -34,7 +39,7 @@ const ActorForm = styled(Form)`
 `;
 
 const ActorFormHeader = styled.div`
-    margin-bottom: 28px;
+    margin-bottom: 16px;
 `;
 
 const SearchResultContent = styled.div`
@@ -44,24 +49,14 @@ const SearchResultContent = styled.div`
     gap: 3px;
 `;
 
-const ActorWrapper = styled.div`
-    margin-top: 2px;
-    margin-right: 2px;
+const SwitchWrapper = styled.div`
+    margin-top: 8px;
+    margin-bottom: 8px;
 `;
 
 const OwnershipWrapper = styled.div`
     margin-top: 12px;
 `;
-
-const StyledTag = styled(Tag)`
-    padding: 0px 7px 0px 7px;
-    margin-right: 3px;
-    display: flex;
-    justify-content: start;
-    align-items: center;
-`;
-
-const ALL_ACTORS_VALUE = 'All';
 
 /**
  * Component used to construct the "actors" portion of a DataHub
@@ -71,20 +66,35 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     const { t } = useTranslation('settings.permissions');
     const entityRegistry = useEntityRegistry();
 
+    // Track search input state
+    const [userSearchInput, setUserSearchInput] = useState('');
+    const [groupSearchInput, setGroupSearchInput] = useState('');
+
     // Search for actors while building policy.
     const [userSearch, { data: userSearchData }] = useGetSearchResultsForMultipleLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsForMultipleLazyQuery();
+
+    // Get recommended users and groups
+    const { recommendedData: recommendedUsers } = useGetRecommendations([EntityType.CorpUser]);
+    const { recommendedData: recommendedGroups } = useGetRecommendations([EntityType.CorpGroup]);
+
     const { data: ownershipData } = useOwnershipTypes();
     const ownershipTypes =
         ownershipData?.listOwnershipTypes?.ownershipTypes?.filter((type) => type.urn !== 'urn:li:ownershipType:none') ||
         [];
-    const ownershipTypesMap = Object.fromEntries(ownershipTypes.map((type) => [type.urn, type.info?.name]));
+    // Covers stored types missing from the filtered list, which would otherwise show an urn.
+    const ownershipTypesMap = Object.fromEntries(
+        [...(ownershipData?.listOwnershipTypes?.ownershipTypes || []), ...(actors.resolvedOwnershipTypes || [])].map(
+            (type) => [type.urn, type.info?.name],
+        ),
+    );
     // Toggle the "Owners" switch
-    const onToggleAppliesToOwners = (value: boolean) => {
+    const onToggleAppliesToOwners = () => {
+        const newValue = !actors.resourceOwners;
         setActors({
             ...actors,
-            resourceOwners: value,
-            resourceOwnersTypes: value ? actors.resourceOwnersTypes : null,
+            resourceOwners: newValue,
+            resourceOwnersTypes: newValue ? actors.resourceOwnersTypes : null,
         });
     };
 
@@ -105,8 +115,15 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     };
 
     // User and group dropdown search results!
-    const userSearchResults = userSearchData?.searchAcrossEntities?.searchResults;
-    const groupSearchResults = groupSearchData?.searchAcrossEntities?.searchResults;
+    // Show recommendations when no search input, otherwise show search results
+    const userSearchResults: Array<{ entity: CorpUser }> | undefined =
+        !userSearchInput || userSearchInput.length === 0
+            ? recommendedUsers?.map((user) => ({ entity: user as CorpUser }))
+            : (userSearchData?.searchAcrossEntities?.searchResults as Array<{ entity: CorpUser }> | undefined);
+    const groupSearchResults: Array<{ entity: CorpGroup }> | undefined =
+        !groupSearchInput || groupSearchInput.length === 0
+            ? recommendedGroups?.map((group) => ({ entity: group as CorpGroup }))
+            : (groupSearchData?.searchAcrossEntities?.searchResults as Array<{ entity: CorpGroup }> | undefined);
 
     // When a user search result is selected, add the urn to the ActorFilter
     const onSelectUserActor = (newUser: string) => {
@@ -116,17 +133,25 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 allUsers: true,
             });
         } else {
-            const newUserActors = [...(actors.users || []), newUser];
+            // If "All Users" was previously selected, clear it and start fresh
+            const existingUsers = actors.allUsers ? [] : actors.users || [];
+            // Avoid duplicates by checking if user already exists
+            if (existingUsers.includes(newUser)) {
+                return;
+            }
+            const newUserActors = [...existingUsers, newUser];
 
             // Find the selected user entity from search results and add it to resolved users
             const selectedUserEntity = userSearchResults?.find((result) => result.entity.urn === newUser)
                 ?.entity as CorpUser;
+            const existingResolvedUsers = actors.allUsers ? [] : actors.resolvedUsers || [];
             const newResolvedUsers = selectedUserEntity
-                ? [...(actors.resolvedUsers || []), selectedUserEntity]
-                : actors.resolvedUsers;
+                ? [...existingResolvedUsers, selectedUserEntity]
+                : existingResolvedUsers;
 
             setActors({
                 ...actors,
+                allUsers: false,
                 users: newUserActors,
                 resolvedUsers: newResolvedUsers,
             });
@@ -141,10 +166,11 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 allUsers: false,
             });
         } else {
-            const newUserActors = actors.users?.filter((u) => u !== user);
+            // resolvedUsers drives the rendered pills, so it must be filtered too.
             setActors({
                 ...actors,
-                users: newUserActors,
+                users: actors.users?.filter((u) => u !== user),
+                resolvedUsers: actors.resolvedUsers?.filter((u) => u.urn !== user),
             });
         }
     };
@@ -157,17 +183,25 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 allGroups: true,
             });
         } else {
-            const newGroupActors = [...(actors.groups || []), newGroup];
+            // If "All Groups" was previously selected, clear it and start fresh
+            const existingGroups = actors.allGroups ? [] : actors.groups || [];
+            // Avoid duplicates by checking if group already exists
+            if (existingGroups.includes(newGroup)) {
+                return;
+            }
+            const newGroupActors = [...existingGroups, newGroup];
 
             // Find the selected group entity from search results and add it to resolved groups
             const selectedGroupEntity = groupSearchResults?.find((result) => result.entity.urn === newGroup)
                 ?.entity as CorpGroup;
+            const existingResolvedGroups = actors.allGroups ? [] : actors.resolvedGroups || [];
             const newResolvedGroups = selectedGroupEntity
-                ? [...(actors.resolvedGroups || []), selectedGroupEntity]
-                : actors.resolvedGroups;
+                ? [...existingResolvedGroups, selectedGroupEntity]
+                : existingResolvedGroups;
 
             setActors({
                 ...actors,
+                allGroups: false,
                 groups: newGroupActors,
                 resolvedGroups: newResolvedGroups,
             });
@@ -182,36 +216,82 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 allGroups: false,
             });
         } else {
-            const newGroupActors = actors.groups?.filter((g) => g !== group);
+            // resolvedGroups drives the rendered pills, so it must be filtered too.
             setActors({
                 ...actors,
-                groups: newGroupActors,
+                groups: actors.groups?.filter((g) => g !== group),
+                resolvedGroups: actors.resolvedGroups?.filter((g) => g.urn !== group),
             });
         }
     };
 
+    // Clear all users
+    const onClearAllUsers = () => {
+        setActors({
+            ...actors,
+            allUsers: false,
+            users: undefined,
+            resolvedUsers: undefined,
+        });
+    };
+
+    // Clear all groups
+    const onClearAllGroups = () => {
+        setActors({
+            ...actors,
+            allGroups: false,
+            groups: undefined,
+            resolvedGroups: undefined,
+        });
+    };
+
+    // Clear all ownership types
+    const onClearAllOwnershipTypes = () => {
+        setActors({
+            ...actors,
+            resourceOwnersTypes: undefined,
+        });
+    };
+
     // Invokes the search API as the user types
     const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
+        const input = addUserFiltersToMultiEntitySearchInput(
+            {
+                types: [type],
+                query: text,
+                start: 0,
+                count: 10,
+            },
+            [type],
+        );
+
         searchQuery({
             variables: {
-                input: {
-                    types: [type],
-                    query: text,
-                    start: 0,
-                    count: 10,
-                },
+                input,
             },
         });
     };
 
+    // Users and groups get their own debouncer so typing in one select can't cancel
+    // the other's pending search. Only the network call is debounced — the input state
+    // updates synchronously so the UI tracks what the user types.
+    const debouncedUserSearch = useDebouncedCallback((text: string) => {
+        handleSearch(EntityType.CorpUser, text, userSearch);
+    });
+    const debouncedGroupSearch = useDebouncedCallback((text: string) => {
+        handleSearch(EntityType.CorpGroup, text, groupSearch);
+    });
+
     // Invokes the user search API as the user types
     const handleUserSearch = (text: string) => {
-        return handleSearch(EntityType.CorpUser, text, userSearch);
+        setUserSearchInput(text);
+        debouncedUserSearch(text);
     };
 
     // Invokes the group search API as the user types
     const handleGroupSearch = (text: string) => {
-        return handleSearch(EntityType.CorpGroup, text, groupSearch);
+        setGroupSearchInput(text);
+        debouncedGroupSearch(text);
     };
 
     // Renders a search result in the select dropdown.
@@ -255,131 +335,68 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     return (
         <ActorForm layout="vertical">
             <ActorFormHeader>
-                <Typography.Title level={4}>{t('actorForm.title')}</Typography.Title>
-                <Typography.Paragraph>{t('actorForm.description')}</Typography.Paragraph>
+                <Text size="lg">{t('actorForm.title')}</Text>
+                <Text color="textSecondary">{t('actorForm.description')}</Text>
             </ActorFormHeader>
             {showAppliesToOwners && (
-                <Form.Item
-                    label={<Typography.Text strong>{t('actorForm.ownersLabel')}</Typography.Text>}
-                    labelAlign="right"
-                >
-                    <Typography.Paragraph>{t('actorForm.ownersDescription')}</Typography.Paragraph>
-                    <Switch size="small" checked={actors.resourceOwners} onChange={onToggleAppliesToOwners} />
+                <Form.Item label={<Text>{t('actorForm.ownersLabel')}</Text>} labelAlign="right">
+                    <Text color="textSecondary">{t('actorForm.ownersDescription')}</Text>
+                    <SwitchWrapper>
+                        <Switch
+                            label=""
+                            labelPosition="right"
+                            isChecked={actors.resourceOwners}
+                            onChange={onToggleAppliesToOwners}
+                        />
+                    </SwitchWrapper>
                     {actors.resourceOwners && (
                         <OwnershipWrapper>
-                            <Typography.Paragraph>{t('actorForm.ownershipTypesDescription')}</Typography.Paragraph>
-                            <Select
-                                value={ownershipTypesSelectValue}
-                                mode="multiple"
+                            <Text color="textSecondary">{t('actorForm.ownershipTypesDescription')}</Text>
+                            <OwnershipTypesSelect
+                                ownershipTypes={ownershipTypes}
+                                ownershipTypesSelectValue={ownershipTypesSelectValue}
+                                ownershipTypesMap={ownershipTypesMap}
+                                onSelectOwnershipTypeActor={onSelectOwnershipTypeActor}
+                                onDeselectOwnershipTypeActor={onDeselectOwnershipTypeActor}
+                                onClearAll={onClearAllOwnershipTypes}
+                                onPreventMouseDown={onPreventMouseDown}
                                 placeholder={t('actorForm.ownershipTypesPlaceholder')}
-                                onSelect={(asset: any) => onSelectOwnershipTypeActor(asset)}
-                                onDeselect={(asset: any) => onDeselectOwnershipTypeActor(asset)}
-                                tagRender={(tagProps) => {
-                                    return (
-                                        <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                                            {ownershipTypesMap[tagProps.value.toString()]}
-                                        </Tag>
-                                    );
-                                }}
-                            >
-                                {ownershipTypes.map((resOwnershipType) => {
-                                    return (
-                                        <Select.Option value={resOwnershipType.urn}>
-                                            {resOwnershipType?.info?.name}
-                                        </Select.Option>
-                                    );
-                                })}
-                            </Select>
+                            />
                         </OwnershipWrapper>
                     )}
                 </Form.Item>
             )}
-            <Form.Item label={<Typography.Text strong>{t('actorForm.usersLabel')}</Typography.Text>}>
-                <Typography.Paragraph>{t('actorForm.usersDescription')}</Typography.Paragraph>
-                <Select
-                    data-testid="users"
-                    value={usersSelectUrns}
-                    mode="multiple"
-                    filterOption={false}
+            <Form.Item label={<Text>{t('actorForm.usersLabel')}</Text>}>
+                <Text color="textSecondary">{t('actorForm.usersDescription')}</Text>
+                <UsersSelect
+                    userSearchResults={userSearchResults}
+                    usersSelectUrns={usersSelectUrns}
+                    usersSelectValues={usersSelectValues}
+                    handleUserSearch={handleUserSearch}
+                    onSelectUserActor={onSelectUserActor}
+                    onDeselectUserActor={onDeselectUserActor}
+                    onClearAll={onClearAllUsers}
+                    renderSearchResult={renderSearchResult}
+                    onPreventMouseDown={onPreventMouseDown}
                     placeholder={t('actorForm.usersPlaceholder')}
-                    onSelect={(asset: any) => onSelectUserActor(asset)}
-                    onDeselect={(asset: any) => onDeselectUserActor(asset)}
-                    onSearch={handleUserSearch}
-                    tagRender={(tagProps) => {
-                        const { closable, onClose, value } = tagProps;
-
-                        const handleClose = (event) => {
-                            onPreventMouseDown(event);
-                            onClose();
-                        };
-
-                        if (value === 'All') {
-                            return (
-                                <StyledTag closable={closable} onClose={handleClose} onMouseDown={onPreventMouseDown}>
-                                    {t('allUsers')}
-                                </StyledTag>
-                            );
-                        }
-
-                        const selectedItem: CorpUser | undefined = usersSelectValues?.find((u) => u?.urn === value);
-                        return (
-                            <ActorWrapper onMouseDown={onPreventMouseDown}>
-                                <ActorPill actor={selectedItem} isProposed={false} hideLink onClose={handleClose} />
-                            </ActorWrapper>
-                        );
-                    }}
-                >
-                    {userSearchResults?.map((result) => (
-                        <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                    ))}
-                    <Select.Option data-testid="option-all-users" value={ALL_ACTORS_VALUE}>
-                        {t('allUsers')}
-                    </Select.Option>
-                </Select>
+                    t={t}
+                />
             </Form.Item>
-            <Form.Item label={<Typography.Text strong>{t('groupsLabel')}</Typography.Text>}>
-                <Typography.Paragraph>{t('actorForm.groupsDescription')}</Typography.Paragraph>
-                <Select
-                    data-testid="groups"
-                    value={groupsSelectUrns}
-                    mode="multiple"
+            <Form.Item label={<Text>{t('groupsLabel')}</Text>}>
+                <Text color="textSecondary">{t('actorForm.groupsDescription')}</Text>
+                <GroupsSelect
+                    groupSearchResults={groupSearchResults}
+                    groupsSelectUrns={groupsSelectUrns}
+                    groupsSelectValues={groupsSelectValues}
+                    handleGroupSearch={handleGroupSearch}
+                    onSelectGroupActor={onSelectGroupActor}
+                    onDeselectGroupActor={onDeselectGroupActor}
+                    onClearAll={onClearAllGroups}
+                    renderSearchResult={renderSearchResult}
+                    onPreventMouseDown={onPreventMouseDown}
                     placeholder={t('actorForm.groupsPlaceholder')}
-                    onSelect={(asset: any) => onSelectGroupActor(asset)}
-                    onDeselect={(asset: any) => onDeselectGroupActor(asset)}
-                    onSearch={handleGroupSearch}
-                    filterOption={false}
-                    tagRender={(tagProps) => {
-                        const { closable, onClose, value } = tagProps;
-
-                        const handleClose = (event) => {
-                            onPreventMouseDown(event);
-                            onClose();
-                        };
-
-                        if (value === 'All') {
-                            return (
-                                <StyledTag closable={closable} onClose={handleClose} onMouseDown={onPreventMouseDown}>
-                                    {t('allGroups')}
-                                </StyledTag>
-                            );
-                        }
-
-                        const selectedItem: CorpGroup | undefined = groupsSelectValues?.find((g) => g?.urn === value);
-                        return (
-                            <ActorWrapper onMouseDown={onPreventMouseDown}>
-                                <ActorPill actor={selectedItem} isProposed={false} hideLink onClose={handleClose} />
-                            </ActorWrapper>
-                        );
-                    }}
-                >
-                    {groupSearchResults?.map((result) => (
-                        <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                    ))}
-                    {/* eslint-disable-next-line i18next/no-literal-string */}
-                    <Select.Option data-testid="option-all-groups" value="All">
-                        {t('allGroups')}
-                    </Select.Option>
-                </Select>
+                    t={t}
+                />
             </Form.Item>
         </ActorForm>
     );

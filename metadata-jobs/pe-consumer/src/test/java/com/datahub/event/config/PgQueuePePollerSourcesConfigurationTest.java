@@ -13,6 +13,7 @@ import com.datahub.event.PlatformEventProcessor;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.PeConsumerConfiguration;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
+import com.linkedin.metadata.kafka.InboundMetadataEnvelope;
 import com.linkedin.metadata.pgqueue.PgQueuePollContext;
 import com.linkedin.metadata.pgqueue.PgQueuePollerRegistration;
 import com.linkedin.metadata.pgqueue.PgQueuePollerSource;
@@ -41,6 +42,7 @@ public class PgQueuePePollerSourcesConfigurationTest {
     configurationProvider = mock(ConfigurationProvider.class);
     PeConsumerConfiguration.PgQueuePoll poll = new PeConsumerConfiguration.PgQueuePoll();
     poll.setPlatformEventMaxBatch(50);
+    poll.setPlatformEventEmptyPollSleepMillis(5000L);
     PeConsumerConfiguration peConsumer = new PeConsumerConfiguration();
     peConsumer.setPgQueue(poll);
     when(configurationProvider.getPeConsumer()).thenReturn(peConsumer);
@@ -48,7 +50,7 @@ public class PgQueuePePollerSourcesConfigurationTest {
     PostgresSqlSetupProperties postgresSqlSetupProperties = new PostgresSqlSetupProperties();
     PostgresSqlSetupProperties.PgQueue.ConsumerPoll consumerPoll =
         new PostgresSqlSetupProperties.PgQueue.ConsumerPoll();
-    consumerPoll.setEmptyPollSleepMillis(100L);
+    consumerPoll.setEmptyPollSleepMinMillis(1000L);
     consumerPoll.setMissingTopicSleepMillis(500L);
     consumerPoll.setErrorRecoverySleepMillis(1000L);
     postgresSqlSetupProperties.getPgQueue().setConsumerPoll(consumerPoll);
@@ -102,7 +104,7 @@ public class PgQueuePePollerSourcesConfigurationTest {
         new PgQueuePollContext(store, "pe-group", Duration.ofSeconds(30), deserializer);
     reg.handler().handleBatch("PlatformEvent_v1", List.of(msg), ctx);
 
-    verify(processor).consumeEnvelope(any());
+    verify(processor).consumeEnvelope(any(InboundMetadataEnvelope.class));
     verify(store).commitForGroup(eq("pe-group"), eq(List.of(handle)), eq(true));
   }
 }

@@ -186,7 +186,7 @@ export default function SchemaTable({
 }: Props): JSX.Element {
     const { t } = useTranslation('entity.profile.schema');
     const { t: tc } = useTranslation('common.labels');
-    const { urn: entityUrn } = useEntityData();
+    const { urn: entityUrn, entityData } = useEntityData();
     const location = useLocation();
 
     // Reset expandedDrawerFieldPath when URL pathname changes (ignoring query params) to close drawer on a tab change
@@ -231,7 +231,7 @@ export default function SchemaTable({
     const schemaTypeRenderer = useSchemaTypeRenderer();
     const businessAttributesFlag = useBusinessAttributesFlag();
 
-    const tableColumnStructuredProps = useGetTableColumnProperties();
+    const tableColumnStructuredProps = useGetTableColumnProperties(entityData?.platform?.urn);
     const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps);
 
     const fieldColumn = useMemo(
@@ -402,7 +402,7 @@ export default function SchemaTable({
 
             if (tableRef.current) {
                 const tableBody = tableRef.current.querySelector('.ant-table-body');
-                const row = tableBody?.querySelector(`[data-row-key="${expandedDrawerFieldPath}"]`);
+                const row = tableBody?.querySelector(`[data-row-key="${CSS.escape(expandedDrawerFieldPath)}"]`);
                 if (row) {
                     row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                 }
@@ -531,24 +531,23 @@ export default function SchemaTable({
                 ref={tableRef}
                 isSearchActive={isSearchActive}
                 hasRowWithDepth={hasSomeRowsWithDepthGreaterThanZero}
+                data-testid="schema-table-container"
             >
                 <ResizeObserver onResize={(dimensions) => setTableHeight(dimensions.height - TABLE_HEADER_HEIGHT)}>
                     <StyledTable
+                        data-testid="schema-table"
                         onChange={handleTableChange}
                         rowClassName={rowClassName}
                         columns={finalColumns}
                         dataSource={dataSource}
-                        // rowKey={(record) => `column-${record.fieldPath}`}
                         rowKey="fieldPath"
                         scroll={{ x: SCROLL_X, y: tableHeight }}
                         components={VT}
                         expandable={{
                             expandedRowKeys: [...Array.from(expandedRows)],
                             defaultExpandAllRows: false,
-
                             expandRowByClick: false,
                             expandIcon: (props) => <ExpandIcon {...props} />,
-
                             onExpand: (expanded, record) => {
                                 if (expanded) {
                                     setExpandedRows((previousRows) => new Set(previousRows.add(record.fieldPath)));
@@ -572,6 +571,7 @@ export default function SchemaTable({
                                 );
                             },
                             id: `column-${record.fieldPath}`,
+                            'data-testid': `schema-field-${record.fieldPath}`,
                         })}
                         showSorterTooltip={false}
                     />

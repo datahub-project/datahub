@@ -155,6 +155,18 @@ def create_mock_entry_with_schema(
     return entry
 
 
+def _make_data_aspect(fields: Dict[str, str]) -> Mock:
+    """Mock a Dataplex aspect whose ``.data`` maps field keys to string values.
+
+    Used to attach non-schema aspects (a DataHub-authored ``datahub-*`` aspect
+    and a native harvested one) onto an entry, mirroring how ``.data.items()`` is
+    consumed by ``extract_aspects_to_custom_properties``.
+    """
+    aspect = Mock()
+    aspect.data = dict(fields)
+    return aspect
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 @patch("google.auth.default")
 @patch("google.cloud.dataplex_v1.CatalogServiceClient")
@@ -359,6 +371,97 @@ def test_dataplex_empty_catalog(
 
     # Output file should exist but be empty or contain minimal data
     assert mcp_output_path.exists()
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@patch("google.auth.default")
+@patch("google.cloud.dataplex_v1.CatalogServiceClient")
+@patch("google.cloud.datacatalog_lineage.LineageClient")
+def test_dataplex_native_description_round_trips_but_datahub_aspect_is_guarded(
+    mock_lineage_client_class,
+    mock_catalog_client_class,
+    mock_google_auth,
+    tmp_path,
+):
+    """Round-trip contrast for the 'ingest BigQuery via Dataplex + both sync-backs' setup.
+
+    The BigQuery description-sync action writes DataHub descriptions onto *native*
+    BigQuery columns, which Dataplex harvests into the schema aspect. Those are not
+    ``datahub-*`` aspects, so the loop guard does not cover them and they re-enter
+    DataHub on the next crawl. A Dataplex sync-back aspect (``datahub-*``) is
+    namespaced and must be suppressed by the default ``aspect_type_pattern`` deny.
+    """
+    mock_credentials = Mock()
+    mock_google_auth.return_value = (mock_credentials, "test-project")
+
+    mock_catalog_client = Mock()
+    mock_catalog_client_class.return_value = mock_catalog_client
+    mock_lineage_client = Mock()
+    mock_lineage_client_class.return_value = mock_lineage_client
+
+    mock_entry_group = create_mock_entry_group("test-project", "us", "@bigquery")
+
+    entry = create_mock_entry(
+        project_id="test-project",
+        location="us",
+        entry_group_id="@bigquery",
+        entry_id="customers",
+        fqn="bigquery:test-project.analytics.customers",
+        description="Customer master data table",
+    )
+    # Native schema aspect: the 'email' column description stands in for text the
+    # BigQuery description-sync action wrote onto the native column, which Dataplex
+    # harvests into the schema aspect (real 'dataplex-types.global.schema' key).
+    schema_aspect = Mock()
+    schema_aspect.data = {
+        "fields": [
+            {"name": "email", "type": "STRING", "description": "Synced from DataHub"}
+        ]
+    }
+    entry.aspects = {
+        "dataplex-types.global.schema": schema_aspect,
+        # A Dataplex sync-back aspect (datahub-*) alongside a native harvested aspect
+        # as a control that the guard is selective, not a blanket drop.
+        "test-project.global.datahub-tags": _make_data_aspect(
+            {"pii": "urn:li:tag:pii"}
+        ),
+        "test-project.global.overview": _make_data_aspect(
+            {"note": "harvested-by-dataplex"}
+        ),
+    }
+
+    mock_catalog_client.list_entry_groups.return_value = [mock_entry_group]
+    mock_catalog_client.list_entries.return_value = [entry]
+    mock_catalog_client.get_entry.side_effect = lambda request: entry
+
+    mcp_output_path = tmp_path / "dataplex_roundtrip_mces.json"
+    pipeline = run_and_get_pipeline(dataplex_entries_recipe(str(mcp_output_path)))
+    assert pipeline.source.get_report().failures == []
+
+    with open(mcp_output_path) as f:
+        mcps = json.load(f)
+
+    # 1. Native description round-trips: it lands on the schemaMetadata field,
+    #    proving the guard does not (and cannot) suppress a native harvested field.
+    email_fields = [
+        field
+        for mcp in mcps
+        if mcp.get("aspectName") == "schemaMetadata"
+        for field in mcp["aspect"]["json"]["fields"]
+        if field["fieldPath"] == "email"
+    ]
+    assert email_fields, "expected the 'email' schema field to be emitted"
+    assert email_fields[0]["description"] == "Synced from DataHub"
+
+    # 2. Dataplex sync-back aspect is guarded: no datahub-* aspect leaks into the
+    #    dataset custom properties, while the native 'overview' aspect passes through.
+    props_aspects = [m for m in mcps if m.get("aspectName") == "datasetProperties"]
+    assert props_aspects, "expected a datasetProperties aspect"
+    custom_props = props_aspects[0]["aspect"]["json"]["customProperties"]
+    assert not any("datahub-" in key for key in custom_props), (
+        f"datahub-* aspect leaked into custom properties: {sorted(custom_props)}"
+    )
+    assert "dataplex_aspect_overview" in custom_props
 
 
 def dataplex_lineage_recipe(

@@ -1,5 +1,6 @@
 import asyncio
 import pathlib
+from datetime import datetime, timezone
 from functools import partial
 from unittest.mock import Mock, patch
 
@@ -15,7 +16,7 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
-FROZEN_TIME = "2020-04-14 07:00:00"
+FROZEN_TIME = datetime(2020, 4, 14, 7, 0, tzinfo=timezone.utc)
 USER_ID_NOT_IN_GROUPS = "5"
 
 GMS_PORT = 8080

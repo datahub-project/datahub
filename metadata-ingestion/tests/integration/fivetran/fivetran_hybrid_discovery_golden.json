@@ -10,7 +10,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744515,
+        "lastObserved": 1784184891321,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -28,7 +28,24 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744516,
+        "lastObserved": 1784184891322,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891322,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -44,7 +61,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744516,
+        "lastObserved": 1784184891322,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -77,7 +94,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744516,
+        "lastObserved": 1784184891322,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -103,7 +120,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744517,
+        "lastObserved": 1784184891323,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -112,16 +129,112 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
     "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "calendar_elected",
+                    "urn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891323,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected.public.employee_to_postgres_public.employee)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891323,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected.public.employee_to_postgres_public.employee)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "connector_id": "calendar_elected",
+                "connector_type": "postgres",
+                "paused": "False",
+                "sync_frequency": "1440",
+                "destination_id": "snowflake_dest",
+                "source.platform": "postgres",
+                "source.env": "PROD",
+                "destination.platform": "snowflake",
+                "destination.env": "PROD",
+                "destination.database": "ANALYTICS_DB",
+                "source_table": "public.employee",
+                "destination_table": "postgres_public.employee"
+            },
+            "name": "public.employee \u2192 postgres_public.employee",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891324,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected.public.employee_to_postgres_public.employee)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:abc.xyz@email.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891324,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected.public.employee_to_postgres_public.employee)",
+    "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.company,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.employee,PROD)"
             ],
             "fineGrainedLineages": [
                 {
@@ -145,7 +258,128 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.employee,PROD),name)"
                     ],
                     "confidenceScore": 1.0
-                },
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891324,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected.public.employee_to_postgres_public.employee)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "calendar_elected",
+                    "urn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891324,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected.public.company_to_postgres_public.company)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891325,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected.public.company_to_postgres_public.company)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "connector_id": "calendar_elected",
+                "connector_type": "postgres",
+                "paused": "False",
+                "sync_frequency": "1440",
+                "destination_id": "snowflake_dest",
+                "source.platform": "postgres",
+                "source.env": "PROD",
+                "destination.platform": "snowflake",
+                "destination.env": "PROD",
+                "destination.database": "ANALYTICS_DB",
+                "source_table": "public.company",
+                "destination_table": "postgres_public.company"
+            },
+            "name": "public.company \u2192 postgres_public.company",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891325,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected.public.company_to_postgres_public.company)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:abc.xyz@email.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891325,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected.public.company_to_postgres_public.company)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.company,PROD)"
+            ],
+            "fineGrainedLineages": [
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
@@ -172,14 +406,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744517,
+        "lastObserved": 1784184891325,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected.public.company_to_postgres_public.company)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -193,7 +427,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744517,
+        "lastObserved": 1784184891326,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -209,13 +443,13 @@
             "name": "4c9a03d6-eded-4422-a46a-163266e58243",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1695184653000,
+                "time": 1695172053000,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744518,
+        "lastObserved": 1784184891326,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -232,45 +466,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744518,
-        "runId": "fivetran-hybrid-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceInput",
-    "aspect": {
-        "json": {
-            "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1777462744518,
-        "runId": "fivetran-hybrid-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceOutput",
-    "aspect": {
-        "json": {
-            "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.company,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1777462744518,
+        "lastObserved": 1784184891326,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -282,7 +478,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1695184653000,
+            "timestampMillis": 1695172053000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -291,7 +487,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744518,
+        "lastObserved": 1784184891326,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -303,7 +499,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1695184685000,
+            "timestampMillis": 1695172085000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -316,7 +512,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744519,
+        "lastObserved": 1784184891326,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -332,13 +528,13 @@
             "name": "f773d1e9-c791-48f4-894f-8cf9b3dfc834",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1696336530000,
+                "time": 1696323930000,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744519,
+        "lastObserved": 1784184891327,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -355,45 +551,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744519,
-        "runId": "fivetran-hybrid-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:be36f55c13ec4e313c7510770e50784a",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceInput",
-    "aspect": {
-        "json": {
-            "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1777462744519,
-        "runId": "fivetran-hybrid-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:be36f55c13ec4e313c7510770e50784a",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceOutput",
-    "aspect": {
-        "json": {
-            "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.company,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1777462744519,
+        "lastObserved": 1784184891327,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -405,7 +563,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696336530000,
+            "timestampMillis": 1696323930000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -414,7 +572,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744519,
+        "lastObserved": 1784184891327,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -426,7 +584,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696336532000,
+            "timestampMillis": 1696323932000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -439,7 +597,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744520,
+        "lastObserved": 1784184891327,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -455,13 +613,13 @@
             "name": "63c2fc85-600b-455f-9ba0-f576522465be",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1696336555000,
+                "time": 1696323955000,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744520,
+        "lastObserved": 1784184891328,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -478,45 +636,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744520,
-        "runId": "fivetran-hybrid-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceInput",
-    "aspect": {
-        "json": {
-            "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.company,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1777462744520,
-        "runId": "fivetran-hybrid-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceOutput",
-    "aspect": {
-        "json": {
-            "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.employee,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics_db.postgres_public.company,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1777462744521,
+        "lastObserved": 1784184891328,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -528,7 +648,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696336555000,
+            "timestampMillis": 1696323955000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -537,7 +657,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744521,
+        "lastObserved": 1784184891328,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -549,7 +669,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696336590000,
+            "timestampMillis": 1696323990000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -562,7 +682,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744521,
+        "lastObserved": 1784184891328,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -578,7 +698,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744521,
+        "lastObserved": 1784184891329,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -596,7 +716,24 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744521,
+        "lastObserved": 1784184891329,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891329,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -612,7 +749,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744522,
+        "lastObserved": 1784184891329,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -644,7 +781,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744522,
+        "lastObserved": 1784184891330,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -670,29 +807,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744522,
-        "runId": "fivetran-hybrid-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:confluent_cloud,confluent_cloud.my-source-topic,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,confluent_cloud.my-destination-topic,PROD)"
-            ],
-            "fineGrainedLineages": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1777462744522,
+        "lastObserved": 1784184891330,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -713,7 +828,126 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744523,
+        "lastObserved": 1784184891330,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id.confluent_cloud.my-source-topic_to_confluent_cloud.my-destination-topic)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891330,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id.confluent_cloud.my-source-topic_to_confluent_cloud.my-destination-topic)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "connector_id": "my_confluent_cloud_connector_id",
+                "connector_type": "confluent_cloud",
+                "paused": "False",
+                "sync_frequency": "1440",
+                "destination_id": "mdl_dest",
+                "source.platform": "confluent_cloud",
+                "source.env": "PROD",
+                "destination.platform": "iceberg",
+                "destination.env": "PROD",
+                "source_table": "confluent_cloud.my-source-topic",
+                "destination_table": "confluent_cloud.my-destination-topic"
+            },
+            "name": "confluent_cloud.my-source-topic \u2192 confluent_cloud.my-destination-topic",
+            "type": {
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891331,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id.confluent_cloud.my-source-topic_to_confluent_cloud.my-destination-topic)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:abc.xyz@email.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891331,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id.confluent_cloud.my-source-topic_to_confluent_cloud.my-destination-topic)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:confluent_cloud,confluent_cloud.my-source-topic,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,confluent_cloud.my-destination-topic,PROD)"
+            ],
+            "fineGrainedLineages": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891331,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id.confluent_cloud.my-source-topic_to_confluent_cloud.my-destination-topic)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "my_confluent_cloud_connector_id",
+                    "urn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891331,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -729,13 +963,13 @@
             "name": "d9a03d6-eded-4422-a46a-163266e58244",
             "type": "BATCH_SCHEDULED",
             "created": {
-                "time": 1695184653000,
+                "time": 1695172053000,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744523,
+        "lastObserved": 1784184891331,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -752,43 +986,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744523,
-        "runId": "fivetran-hybrid-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:08bddbc8007d76bfbbb8e231d1c65290",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceInput",
-    "aspect": {
-        "json": {
-            "inputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:confluent_cloud,confluent_cloud.my-source-topic,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1777462744523,
-        "runId": "fivetran-hybrid-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:08bddbc8007d76bfbbb8e231d1c65290",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceOutput",
-    "aspect": {
-        "json": {
-            "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:iceberg,confluent_cloud.my-destination-topic,PROD)"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1777462744523,
+        "lastObserved": 1784184891332,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -800,7 +998,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1695184653000,
+            "timestampMillis": 1695172053000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -809,7 +1007,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744523,
+        "lastObserved": 1784184891332,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -821,7 +1019,7 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1695184685000,
+            "timestampMillis": 1695172085000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -834,7 +1032,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744524,
+        "lastObserved": 1784184891332,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -850,7 +1048,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744524,
+        "lastObserved": 1784184891332,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -866,7 +1064,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744524,
+        "lastObserved": 1784184891332,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -882,7 +1080,39 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744524,
+        "lastObserved": 1784184891333,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected.public.company_to_postgres_public.company)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891333,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected.public.employee_to_postgres_public.employee)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891333,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -898,7 +1128,23 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744524,
+        "lastObserved": 1784184891333,
+        "runId": "fivetran-hybrid-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id.confluent_cloud.my-source-topic_to_confluent_cloud.my-destination-topic)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1784184891333,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -914,7 +1160,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744525,
+        "lastObserved": 1784184891333,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -930,7 +1176,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744525,
+        "lastObserved": 1784184891334,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -946,7 +1192,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744525,
+        "lastObserved": 1784184891334,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -962,7 +1208,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1777462744525,
+        "lastObserved": 1784184891334,
         "runId": "fivetran-hybrid-test",
         "lastRunId": "no-run-id-provided"
     }

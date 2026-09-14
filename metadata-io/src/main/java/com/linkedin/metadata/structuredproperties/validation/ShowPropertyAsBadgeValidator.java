@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
+import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.entity.Aspect;
@@ -51,9 +52,11 @@ public class ShowPropertyAsBadgeValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     return validateSettingsUpserts(
+        operationContext,
         mcpItems.stream()
             .filter(i -> STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME.equals(i.getAspectName()))
             .collect(Collectors.toList()),
@@ -62,12 +65,15 @@ public class ShowPropertyAsBadgeValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 
   @VisibleForTesting
   public static Stream<AspectValidationException> validateSettingsUpserts(
+      OperationFingerprint operationFingerprint,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
@@ -110,6 +116,7 @@ public class ShowPropertyAsBadgeValidator extends AspectPayloadValidator {
               Optional<Aspect> propertySettings =
                   Optional.ofNullable(
                       aspectRetriever.getLatestAspectObject(
+                          operationFingerprint,
                           otherBadgeEntities.get(0).getEntity(),
                           STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME));
               if (propertySettings.isPresent()) {

@@ -1,0 +1,11 @@
+{
+    "boundary.onPremActionMessage": "Ilmoita selaimesi virheilmoitukset DataHub-pääkäyttäjällesi",
+    "bulkEditUnauthorized": "Massamuokkausvalintaasi sisältyi kohteita, joita sinulla ei ole oikeutta päivittää. Suoritettavaa massamuokkausta ei tallenneta.",
+    "fallback.defaultMessage": "Tiimimme on saanut ilmoituksen tästä odottamattomasta virheestä ja työskentelee ratkaisun parissa.",
+    "fallback.subtitle": "Jokin ei mennyt suunnitellusti.",
+    "fallback.title": "Hups!",
+    "section.description": "Odottamaton virhe tapahtui. Yritä myöhemmin uudelleen tai ota yhteyttä pääkäyttäjääsi",
+    "section.needSupport": "<bold>Tarvitsetko tukea?</bold> Tutustu näihin resursseihin:",
+    "section.title": "Jokin meni pieleen.",
+    "unauthorized": "Ei käyttöoikeutta. Ota yhteyttä DataHub-pääkäyttäjääsi."
+}

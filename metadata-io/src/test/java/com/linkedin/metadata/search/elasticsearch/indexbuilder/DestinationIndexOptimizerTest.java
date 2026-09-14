@@ -6,6 +6,8 @@ import static org.testng.Assert.*;
 
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReindexIOException;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,6 +19,9 @@ import org.testng.annotations.Test;
 
 /** Test cases for DestinationIndexOptimizer transactional settings management. */
 public class DestinationIndexOptimizerTest {
+
+  private static final OperationContext OP_CONTEXT =
+      TestOperationContexts.systemContextNoSearchAuthorization();
 
   @Mock private ESIndexBuilder mockIndexBuilder;
   @Mock private OpenSearchJvmInfo mockJvmInfo;
@@ -40,21 +45,23 @@ public class DestinationIndexOptimizerTest {
     settingsMap.put("index.translog.flush_threshold_size", null);
 
     when(mockIndexBuilder.getIndexSettings(
-            "test_index_v1",
-            "index.refresh_interval",
-            "index.number_of_replicas",
-            "index.translog.durability",
-            "index.translog.flush_threshold_size",
-            "index.translog.sync_interval"))
+            any(OperationContext.class),
+            eq("test_index_v1"),
+            eq("index.refresh_interval"),
+            eq("index.number_of_replicas"),
+            eq("index.translog.durability"),
+            eq("index.translog.flush_threshold_size"),
+            eq("index.translog.sync_interval")))
         .thenReturn(settingsMap);
 
     // Mock the JVM info to return large enough heap to avoid flush threshold optimization
-    when(mockJvmInfo.getDataNodeHeapSizeStats())
+    when(mockJvmInfo.getDataNodeHeapSizeStats(any(OperationContext.class)))
         .thenThrow(new IOException("Skip flush optimization"));
 
     // Execute optimization
     DestinationIndexOptimizer.OriginalSettings original =
         optimizer.optimizeForReindex(
+            OP_CONTEXT,
             "test_index_v1",
             CircuitBreakerState.HealthState.GREEN,
             BuildIndicesConfiguration.builder()
@@ -79,7 +86,8 @@ public class DestinationIndexOptimizerTest {
     assertEquals(original.getNumberOfReplicas(), "2", "Original replicas should be captured");
 
     // Verify optimizations were applied
-    verify(mockIndexBuilder).updateIndexSettings(eq("test_index_v1"), any(Settings.class));
+    verify(mockIndexBuilder)
+        .updateIndexSettings(any(OperationContext.class), eq("test_index_v1"), any(Settings.class));
   }
 
   @Test
@@ -93,16 +101,23 @@ public class DestinationIndexOptimizerTest {
     settingsMap.put("index.translog.flush_threshold_size", null);
 
     when(mockIndexBuilder.getIndexSettings(
-            anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+            any(OperationContext.class),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString()))
         .thenReturn(settingsMap);
 
     // Mock the JVM info to avoid flush threshold optimization
-    when(mockJvmInfo.getDataNodeHeapSizeStats())
+    when(mockJvmInfo.getDataNodeHeapSizeStats(any(OperationContext.class)))
         .thenThrow(new IOException("Skip flush optimization"));
 
     // Execute optimization
     DestinationIndexOptimizer.OriginalSettings original =
         optimizer.optimizeForReindex(
+            OP_CONTEXT,
             "test_index_v1",
             CircuitBreakerState.HealthState.GREEN,
             BuildIndicesConfiguration.builder()
@@ -125,7 +140,8 @@ public class DestinationIndexOptimizerTest {
     assertNull(original.getRefreshInterval(), "Null settings should be preserved");
     assertNull(original.getNumberOfReplicas(), "Null settings should be preserved");
 
-    verify(mockIndexBuilder).updateIndexSettings(eq("test_index_v1"), any(Settings.class));
+    verify(mockIndexBuilder)
+        .updateIndexSettings(any(OperationContext.class), eq("test_index_v1"), any(Settings.class));
   }
 
   @Test(expectedExceptions = ReindexIOException.class)
@@ -139,20 +155,27 @@ public class DestinationIndexOptimizerTest {
     settingsMap.put("index.translog.flush_threshold_size", null);
 
     when(mockIndexBuilder.getIndexSettings(
-            anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+            any(OperationContext.class),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString()))
         .thenReturn(settingsMap);
 
     // Mock JVM info
-    when(mockJvmInfo.getDataNodeHeapSizeStats())
+    when(mockJvmInfo.getDataNodeHeapSizeStats(any(OperationContext.class)))
         .thenThrow(new IOException("Skip flush optimization"));
 
     // Setup mock to fail on optimization
     doThrow(new IOException("Optimization failed"))
         .when(mockIndexBuilder)
-        .updateIndexSettings(eq("test_index_v1"), any(Settings.class));
+        .updateIndexSettings(any(OperationContext.class), eq("test_index_v1"), any(Settings.class));
 
     // Execute optimization - exception will be thrown and caught by TestNG
     optimizer.optimizeForReindex(
+        OP_CONTEXT,
         "test_index_v1",
         CircuitBreakerState.HealthState.GREEN,
         BuildIndicesConfiguration.builder()
@@ -171,7 +194,7 @@ public class DestinationIndexOptimizerTest {
             .build());
     // Verify that restoration was attempted
     verify(mockIndexBuilder, times(2))
-        .updateIndexSettings(eq("test_index_v1"), any(Settings.class));
+        .updateIndexSettings(any(OperationContext.class), eq("test_index_v1"), any(Settings.class));
   }
 
   @Test
@@ -183,11 +206,12 @@ public class DestinationIndexOptimizerTest {
             .build();
 
     // Execute restoration
-    optimizer.restoreOriginalSettings("test_index_v1", original);
+    optimizer.restoreOriginalSettings(OP_CONTEXT, "test_index_v1", original);
 
     // Verify all settings were restored
     // Verify all settings were restored via batch update with Settings object
-    verify(mockIndexBuilder).updateIndexSettings(eq("test_index_v1"), any(Settings.class));
+    verify(mockIndexBuilder)
+        .updateIndexSettings(any(OperationContext.class), eq("test_index_v1"), any(Settings.class));
   }
 
   @Test
@@ -199,19 +223,21 @@ public class DestinationIndexOptimizerTest {
             .build();
 
     // Execute restoration
-    optimizer.restoreOriginalSettings("test_index_v1", original);
+    optimizer.restoreOriginalSettings(OP_CONTEXT, "test_index_v1", original);
 
     // Verify that batch update was called with Settings object
-    verify(mockIndexBuilder).updateIndexSettings(eq("test_index_v1"), any(Settings.class));
+    verify(mockIndexBuilder)
+        .updateIndexSettings(any(OperationContext.class), eq("test_index_v1"), any(Settings.class));
   }
 
   @Test
   public void testRestoreOriginalSettings_HandlesNullOriginalSettings() throws IOException {
     // Execute restoration with null original settings
-    optimizer.restoreOriginalSettings("test_index_v1", null);
+    optimizer.restoreOriginalSettings(OP_CONTEXT, "test_index_v1", null);
 
     // Verify no attempts to restore were made
-    verify(mockIndexBuilder, never()).updateIndexSettings(anyString(), any(Settings.class));
+    verify(mockIndexBuilder, never())
+        .updateIndexSettings(any(OperationContext.class), anyString(), any(Settings.class));
   }
 
   @Test
@@ -255,15 +281,22 @@ public class DestinationIndexOptimizerTest {
     settingsMap.put("index.translog.flush_threshold_size", null);
 
     when(mockIndexBuilder.getIndexSettings(
-            anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
+            any(OperationContext.class),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString()))
         .thenReturn(settingsMap);
 
     // Mock JVM info
-    when(mockJvmInfo.getDataNodeHeapSizeStats())
+    when(mockJvmInfo.getDataNodeHeapSizeStats(any(OperationContext.class)))
         .thenThrow(new IOException("Skip flush optimization"));
 
     DestinationIndexOptimizer.OriginalSettings original =
         optimizer.optimizeForReindex(
+            OP_CONTEXT,
             "test_index",
             CircuitBreakerState.HealthState.GREEN,
             BuildIndicesConfiguration.builder()
@@ -285,6 +318,7 @@ public class DestinationIndexOptimizerTest {
     assertEquals(original.getRefreshInterval(), "1");
 
     // Verify optimization applied expected values
-    verify(mockIndexBuilder).updateIndexSettings(eq("test_index"), any(Settings.class));
+    verify(mockIndexBuilder)
+        .updateIndexSettings(any(OperationContext.class), eq("test_index"), any(Settings.class));
   }
 }

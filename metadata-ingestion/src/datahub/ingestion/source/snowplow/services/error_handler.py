@@ -54,9 +54,9 @@ class ErrorHandler:
         if context:
             error_context += f" ({context})"
 
-        self.report.report_failure(
-            title=f"API Error: {operation}",
-            message=f"Failed to {operation}: {str(error)}",
+        self.report.failure(
+            title="API Error",
+            message="Failed to complete API operation",
             context=error_context,
             exc=error,
         )
@@ -87,9 +87,9 @@ class ErrorHandler:
         if field:
             error_context += f", field: {field}"
 
-        self.report.report_failure(
-            title=f"Validation Error: {entity_type}",
-            message=f"Validation failed for {entity_type} '{entity_id}': {str(error)}",
+        self.report.failure(
+            title="Validation Error",
+            message="Validation failed for entity",
             context=error_context,
             exc=error,
         )
@@ -119,9 +119,9 @@ class ErrorHandler:
         """
         error_context = f"{operation} for {entity_type}: {entity_id}"
 
-        self.report.report_failure(
-            title=f"Processing Error: {operation}",
-            message=f"Failed to {operation} for {entity_type} '{entity_id}': {str(error)}",
+        self.report.failure(
+            title="Processing Error",
+            message="Failed to process entity",
             context=error_context,
             exc=error,
         )
@@ -148,14 +148,14 @@ class ErrorHandler:
             operation: What operation requires the dependency
             suggestion: Optional suggestion for resolving the issue
         """
-        message = f"Missing dependency '{dependency}' required for {operation}"
+        context_str = f"dependency={dependency}, operation={operation}"
         if suggestion:
-            message += f". {suggestion}"
+            context_str += f", suggestion={suggestion}"
 
-        self.report.report_failure(
-            title=f"Missing Dependency: {dependency}",
-            message=message,
-            context=f"operation={operation}",
+        self.report.failure(
+            title="Missing Dependency",
+            message="Missing dependency required for operation",
+            context=context_str,
         )
 
         logger.error(

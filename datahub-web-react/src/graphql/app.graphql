@@ -24,6 +24,8 @@ query appConfig {
         }
         authConfig {
             tokenAuthEnabled
+            allowNoExpiry
+            allowedAccessTokenDurations
         }
         identityManagementConfig {
             enabled
@@ -94,7 +96,7 @@ query appConfig {
             themeV2Enabled
             themeV2Default
             themeV2Toggleable
-            lineageGraphV2
+            themeDarkModeEnabled
             showSeparateSiblings
             showManageStructuredProperties
             schemaFieldCLLEnabled
@@ -109,23 +111,27 @@ query appConfig {
             showIntroducePage
             showIngestionPageRedesign
             showLineageExpandMore
+            showLineageFilterNodes
             showStatsTabRedesign
             showHomePageRedesign
             showDefaultExternalLinks
             showProductUpdates
-            lineageGraphV3
             logicalModelsEnabled
             showHomepageUserRole
             assetSummaryPageV1
             datasetSummaryPageV1
+            metricsEnabled
             ingestionOnboardingRedesignV1
             documentationFileUploadV1
             contextDocumentsEnabled
             hideLineageInSearchCards
+            dataProductLineageEnabled
             glossaryBasedPoliciesEnabled
             multipleDataProductsPerAsset
             showTestsInHealthIcon
             i18nEnabled
+            browserTracingEnabled
+            browserWebVitalsEnabled
         }
         chromeExtensionConfig {
             enabled
@@ -190,10 +196,11 @@ mutation updateApplicationsSettings($input: UpdateApplicationsSettingsInput!) {
     updateApplicationsSettings(input: $input)
 }
 
-query getLatestProductUpdate {
-    latestProductUpdate {
+query getLatestProductUpdate($locale: String) {
+    latestProductUpdate(locale: $locale) {
         enabled
         id
+        releaseMonth
         title
         header
         requiredVersion

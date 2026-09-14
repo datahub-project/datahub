@@ -1,0 +1,21 @@
+{
+    "cloudLabel": "DataHub Cloud",
+    "docPropagation.assetLevelDescription": "Levitä uutta dokumentaatiota ylävirran kohteista alavirran kohteisiin Lineage-suhteiden perusteella.",
+    "docPropagation.assetLevelTitle": "Kohdetason levitys",
+    "docPropagation.backfillButton": "Alusta",
+    "docPropagation.backfillTitle": "Olemassa olevan dokumentaation takautuva täyttö ylävirran sarakkeista/kohteista alavirran sarakkeisiin/kohteisiin",
+    "docPropagation.columnLevelDescription": "Levitä uutta dokumentaatiota ylävirran sarakkeista alavirran sarakkeisiin sarakekohtaisten Lineage-suhteiden perusteella.",
+    "docPropagation.columnLevelTitle": "Saraketason levitys",
+    "docPropagation.comingSoon": "Tulossa pian!",
+    "docPropagation.description": "Levitä dokumentaatio automaattisesti ylävirran sarakkeista ja kohteista alavirran sarakkeisiin ja kohteisiin.",
+    "docPropagation.rollbackButton": "Kumoa",
+    "docPropagation.rollbackTitle": "Levitysmuutosten kumoaminen",
+    "docPropagation.title": "Dokumentaation levitys",
+    "docPropagation.updateError": "Dokumentaation levitysasetusten päivittäminen epäonnistui",
+    "docPropagation.updateSuccess": "Dokumentaation levitysasetukset päivitetty",
+    "learnMore": "Lue lisää",
+    "newLabel": "Uutta!",
+    "onlyOnCloud": "Saatavilla vain DataHub Cloudissa",
+    "pageSubTitle": "Tutustu tiettyihin ominaisuuksiin ja määritä niitä",
+    "pageTitle": "Ominaisuudet"
+}

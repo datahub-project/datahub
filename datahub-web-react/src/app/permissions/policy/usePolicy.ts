@@ -1,6 +1,7 @@
 import { useApolloClient } from '@apollo/client';
 import { toast } from '@components';
 import { Modal } from 'antd';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import {
@@ -36,6 +37,8 @@ export function usePolicy(
     onCancelViewPolicy,
     onClosePolicyBuilder,
 ) {
+    const { t } = useTranslation('settings.permissions');
+    const { t: tc } = useTranslation('common.actions');
     const client = useApolloClient();
 
     // Construct privileges
@@ -125,8 +128,8 @@ export function usePolicy(
     // On Delete Policy handler
     const onRemovePolicy = (policy: Policy) => {
         Modal.confirm({
-            title: `Delete ${policy?.name}`,
-            content: `Are you sure you want to remove policy?`,
+            title: t('deletePolicyTitle', { name: policy?.name }),
+            content: t('deletePolicyText'),
             onOk() {
                 deletePolicy({ variables: { urn: policy?.urn as string } }).then(() => {
                     // There must be a focus policy urn.
@@ -135,7 +138,7 @@ export function usePolicy(
                         entityUrn: policy?.urn,
                         entityType: EntityType.DatahubPolicy,
                     });
-                    toast.success('Successfully removed policy.');
+                    toast.success(t('removePolicySuccess'));
                     removeFromListPoliciesCache(client, policy?.urn, DEFAULT_PAGE_SIZE);
                     setTimeout(() => {
                         policiesRefetch();
@@ -144,7 +147,7 @@ export function usePolicy(
                 });
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: tc('yes'),
             maskClosable: true,
             closable: true,
         });
@@ -168,7 +171,7 @@ export function usePolicy(
                 __typename: 'ListPoliciesResult',
             };
             updateListPoliciesCache(client, updatePolicies, DEFAULT_PAGE_SIZE);
-            toast.success(`Successfully ${newState === PolicyState.Active ? 'activated' : 'deactivated'} policy.`);
+            toast.success(newState === PolicyState.Active ? t('activatePolicySuccess') : t('deactivatePolicySuccess'));
             setTimeout(() => {
                 policiesRefetch();
             }, 4000);
@@ -192,7 +195,7 @@ export function usePolicy(
                     type: EventType.UpdatePolicyEvent,
                     policyUrn: focusPolicyUrn,
                 });
-                toast.success('Successfully saved policy.');
+                toast.success(t('savePolicySuccess'));
                 updateListPoliciesCache(client, newPolicy, DEFAULT_PAGE_SIZE);
                 setTimeout(() => {
                     policiesRefetch();
@@ -213,7 +216,7 @@ export function usePolicy(
                 analytics.event({
                     type: EventType.CreatePolicyEvent,
                 });
-                toast.success('Successfully saved policy.');
+                toast.success(t('savePolicySuccess'));
                 setTimeout(() => {
                     policiesRefetch();
                 }, 1000);

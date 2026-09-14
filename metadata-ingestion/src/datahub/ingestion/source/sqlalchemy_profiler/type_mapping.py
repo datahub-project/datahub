@@ -147,8 +147,27 @@ def _get_column_types_to_ignore(dialect_name: str) -> list[str]:
     Returns uppercase type names for case-insensitive matching.
     """
     dialect_lower = dialect_name.lower()
-    if dialect_lower == "postgresql":
-        return ["JSON"]
+    # PostgresSource.get_platform() reports "postgres" while the SQLAlchemy
+    # dialect is named "postgresql". The postgres ischema_names registrations
+    # are process-global on PGDialect, so they also reach the postgres-family
+    # sources that reflect through it but report their own platform names
+    # (TimescaleDB, CockroachDB) — match all of them, otherwise these
+    # exclusions never fire.
+    if dialect_lower in ("postgres", "postgresql", "timescaledb", "cockroachdb"):
+        # The built-in geometric types and xml have no default equality
+        # operator, so COUNT(DISTINCT col) fails with "could not identify an
+        # equality operator for type ..." during field profiling.
+        return [
+            "JSON",
+            "XML",
+            "POINT",
+            "LINE",
+            "LSEG",
+            "BOX",
+            "PATH",
+            "POLYGON",
+            "CIRCLE",
+        ]
     elif dialect_lower == "bigquery":
         # GEOGRAPHY doesn't support aggregate functions like APPROX_COUNT_DISTINCT
         return ["ARRAY", "STRUCT", "GEOGRAPHY", "JSON", "INTERVAL"]

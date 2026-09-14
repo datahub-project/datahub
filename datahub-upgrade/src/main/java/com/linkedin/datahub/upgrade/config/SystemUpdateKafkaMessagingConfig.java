@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade.config;
 
+import static com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory.createProducerWithRetry;
+
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
@@ -8,11 +10,11 @@ import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.messaging.KafkaMessagingEnabledCondition;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
+import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolver;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.TopicConvention;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.IndexedRecord;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -34,6 +36,8 @@ public class SystemUpdateKafkaMessagingConfig {
 
   @Autowired private KafkaHealthChecker kafkaHealthChecker;
 
+  @Autowired private OutboundContextResolver outboundContextResolver;
+
   @Bean(name = "duheKafkaEventProducer")
   protected KafkaEventProducer duheKafkaEventProducer(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
@@ -43,10 +47,12 @@ public class SystemUpdateKafkaMessagingConfig {
       MetricUtils metricUtils) {
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Producer<String, IndexedRecord> producer =
-        new KafkaProducer<>(
+        createProducerWithRetry(
             DataHubKafkaProducerFactory.buildProducerProperties(
-                duheSchemaRegistryConfig, kafkaConfiguration, properties));
-    return new KafkaEventProducer(producer, topicConvention, kafkaHealthChecker, metricUtils);
+                duheSchemaRegistryConfig, kafkaConfiguration, properties),
+            kafkaConfiguration.getProducer());
+    return new KafkaEventProducer(
+        producer, topicConvention, kafkaHealthChecker, metricUtils, outboundContextResolver);
   }
 
   /**

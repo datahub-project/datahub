@@ -155,10 +155,16 @@ fragment documentSidebarFields on Document {
     urn
     type
     subType
+    platform {
+        ...platformFields
+    }
     info {
         title
         status {
             state
+        }
+        source {
+            sourceType
         }
         created {
             time
@@ -283,8 +289,30 @@ fragment relatedDocumentsFields on RelatedDocumentsResult {
     documents {
         urn
         type
+        platform {
+            ...platformFields
+        }
         info {
             title
+            status {
+                state
+            }
+            source {
+                sourceType
+            }
+            # URN-only related lists — used by the entity's Resources section to
+            # "unlink" this document via the full-list-replace updateDocumentRelatedEntities
+            # mutation. Kept URN-only to avoid pulling the full entityPreview per row.
+            relatedAssets {
+                asset {
+                    urn
+                }
+            }
+            relatedDocuments {
+                document {
+                    urn
+                }
+            }
             lastModified {
                 time
                 actor {
@@ -384,5 +412,15 @@ query getRelatedDocuments($urn: String!, $input: RelatedDocumentsInput!) {
                 ...relatedDocumentsFields
             }
         }
+    }
+}
+
+mutation importDocumentsFromFiles($input: ImportDocumentsFromFilesInput!) {
+    importDocumentsFromFiles(input: $input) {
+        createdCount
+        updatedCount
+        failedCount
+        errors
+        documentUrns
     }
 }

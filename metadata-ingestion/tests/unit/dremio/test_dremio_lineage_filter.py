@@ -136,14 +136,17 @@ class TestDremioSourceLineageFilter:
         assert not source._is_allowed_table("_accelerator_.reflection_id.some_view")
         assert source.report.lineage_dropped_filtered == before + 1
 
-    def test_process_query_drops_filtered_upstream(self, source):
+    def test_process_query_registers_observed_query(self, source):
+        # process_query hands the raw query to the aggregator, which extracts
+        # both upstreams and the affected/downstream table via sqlglot and gates
+        # rediscovered URNs through is_allowed_table at emission time. The
+        # connector no longer derives or filters lineage edges itself.
         query = Mock(spec=DremioQuery)
         query.job_id = "job1"
         query.query = (
             "SELECT * FROM other_space.folder.filtered "
             "UNION ALL SELECT * FROM myspace.folder.allowed_table"
         )
-        query.affected_dataset = "myspace.folder.result"
         query.queried_datasets = [
             "other_space.folder.filtered",
             "myspace.folder.allowed_table",
@@ -151,35 +154,11 @@ class TestDremioSourceLineageFilter:
         query.username = "u"
         query.submitted_ts = datetime(2024, 1, 1, 12, 0, 0)
 
-        before_dropped = source.report.lineage_dropped_filtered
         source.process_query(query)
 
-        source.sql_parsing_aggregator.add_known_query_lineage.assert_called_once()
-        info = source.sql_parsing_aggregator.add_known_query_lineage.call_args[0][0]
-        assert len(info.upstreams) == 1
-        assert "myspace.folder.allowed_table" in info.upstreams[0]
-        assert "other_space.folder.filtered" not in info.upstreams[0]
-
-        # Observed query always registers; aggregator gates usage via is_allowed_table.
         source.sql_parsing_aggregator.add_observed_query.assert_called_once()
-
-        assert source.report.lineage_dropped_filtered == before_dropped + 1
-
-    def test_process_query_skips_known_lineage_when_downstream_filtered(self, source):
-        query = Mock(spec=DremioQuery)
-        query.job_id = "job2"
-        query.query = (
-            "INSERT INTO other_space.result SELECT * FROM myspace.folder.allowed_table"
-        )
-        query.affected_dataset = "other_space.result"
-        query.queried_datasets = ["myspace.folder.allowed_table"]
-        query.username = "u"
-        query.submitted_ts = datetime(2024, 1, 1, 12, 0, 0)
-
-        source.process_query(query)
-
-        source.sql_parsing_aggregator.add_known_query_lineage.assert_not_called()
-        source.sql_parsing_aggregator.add_observed_query.assert_called_once()
+        observed = source.sql_parsing_aggregator.add_observed_query.call_args[0][0]
+        assert observed.query == query.query
 
     def test_generate_view_lineage_filters_parents(self, source):
         dataset_urn = (

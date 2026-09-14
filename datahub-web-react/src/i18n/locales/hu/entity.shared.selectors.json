@@ -1,0 +1,10 @@
+{
+    "actorsSearch.placeholder": "Felhasználók vagy csoportok keresése",
+    "domainSelector.label": "Tartományok",
+    "domainSelector.placeholder": "Tartományok kiválasztása",
+    "domainSelector.searchPlaceholder": "Keresés az összes tartományban...",
+    "entitySearch.noEntitiesFound": "Nem található entitás",
+    "entitySearch.placeholder": "Entitások keresése...",
+    "groupBy.displayValue": "Csoportosítás {{label}} szerint",
+    "groupBy.group": "Csoportosítás"
+}

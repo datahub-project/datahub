@@ -5,6 +5,7 @@ import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.assertion.AssertionRunSummary;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionType;
@@ -16,6 +17,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.AssertionRunSummaryPatchBuilder;
+import com.linkedin.metadata.aspect.utils.AssertionUtils;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.AssertionKey;
@@ -36,7 +39,7 @@ public class AssertionService extends BaseService {
 
   private final GraphClient _graphClient;
 
-  private static final String ASSERTS_RELATIONSHIP_NAME = "Asserts";
+  private static final String MONITOR_EVALUATES_RELATIONSHIP_NAME = "Evaluates";
 
   public AssertionService(
       @Nonnull SystemEntityClient entityClient, @Nonnull GraphClient graphClient) {
@@ -53,6 +56,39 @@ public class AssertionService extends BaseService {
   }
 
   /**
+   * Retrieves AssertionInfo for the given assertion urn, or null if it does not exist.
+   *
+   * @param opContext the operation context
+   * @param assertionUrn the urn of the assertion
+   * @return AssertionInfo associated with the assertion, or null if missing
+   */
+  @Nullable
+  public AssertionInfo getAssertionInfo(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(opContext, "opContext must not be null");
+    try {
+      final EntityResponse response =
+          this.entityClient.getV2(
+              opContext,
+              Constants.ASSERTION_ENTITY_NAME,
+              assertionUrn,
+              ImmutableSet.of(Constants.ASSERTION_INFO_ASPECT_NAME),
+              false);
+      if (response == null
+          || !response.getAspects().containsKey(Constants.ASSERTION_INFO_ASPECT_NAME)) {
+        return null;
+      }
+      return new AssertionInfo(
+          response.getAspects().get(Constants.ASSERTION_INFO_ASPECT_NAME).getValue().data());
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve AssertionInfo for assertion with urn %s", assertionUrn),
+          e);
+    }
+  }
+
+  /**
    * Retrieves the entity associated with the assertion
    *
    * @param opContext the operation context
@@ -62,24 +98,77 @@ public class AssertionService extends BaseService {
   public @Nullable Urn getEntityUrnForAssertion(
       @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
     try {
-      // Fetch the entity associated with the assertion from the Graph
-      final EntityRelationships relationships =
-          _graphClient.getRelatedEntities(
-              assertionUrn.toString(),
-              ImmutableSet.of(ASSERTS_RELATIONSHIP_NAME),
-              RelationshipDirection.OUTGOING,
-              0,
-              1,
-              opContext.getActorContext().getActorUrn().toString());
-
-      if (relationships.hasRelationships() && !relationships.getRelationships().isEmpty()) {
-        return relationships.getRelationships().get(0).getEntity();
+      // Get AssertionInfo and extract entity URN directly to avoid issues with graph relationships
+      // For custom assertions with fields, graph relationships can return the field URN instead of
+      // the dataset URN, which breaks notifications and other features that expect the dataset URN.
+      final AssertionInfo assertionInfo = getAssertionInfo(opContext, assertionUrn);
+      if (assertionInfo != null) {
+        // Prefer the denormalized entityUrn when present; fall back to deriving it from the
+        // type-specific sub-property for assertions written before AssertionInfoMutator / backfill.
+        return assertionInfo.hasEntityUrn()
+            ? assertionInfo.getEntityUrn()
+            : AssertionUtils.getEntityFromAssertionInfo(assertionInfo);
       }
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve entity for assertion with urn %s", assertionUrn), e);
     }
     return null;
+  }
+
+  /** Retrieves the monitor that evaluates an assertion, if one exists. */
+  public @Nullable Urn getMonitorUrnForAssertion(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
+    try {
+      final EntityRelationships relationships =
+          _graphClient.getRelatedEntities(
+              assertionUrn.toString(),
+              ImmutableSet.of(MONITOR_EVALUATES_RELATIONSHIP_NAME),
+              RelationshipDirection.INCOMING,
+              0,
+              1,
+              opContext.getActorContext().getActorUrn().toString());
+      if (relationships.hasRelationships() && !relationships.getRelationships().isEmpty()) {
+        return relationships.getRelationships().get(0).getEntity();
+      }
+      return null;
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve monitor for assertion with urn %s", assertionUrn), e);
+    }
+  }
+
+  /** Retrieves the indexed run summary for an assertion, if one exists. */
+  @Nullable
+  public AssertionRunSummary getAssertionRunSummary(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
+    try {
+      final EntityResponse response =
+          this.entityClient.getV2(
+              opContext,
+              Constants.ASSERTION_ENTITY_NAME,
+              assertionUrn,
+              ImmutableSet.of(Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME),
+              false);
+      if (response == null
+          || !response.getAspects().containsKey(Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME)) {
+        return null;
+      }
+      return new AssertionRunSummary(
+          response.getAspects().get(Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME).getValue().data());
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve run summary for assertion with urn %s", assertionUrn),
+          e);
+    }
+  }
+
+  /** Applies a partial update to an assertion run summary. */
+  public void patchAssertionRunSummary(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final AssertionRunSummaryPatchBuilder patchBuilder)
+      throws Exception {
+    this.entityClient.ingestProposal(opContext, patchBuilder.build(), false);
   }
 
   /**
@@ -101,9 +190,11 @@ public class AssertionService extends BaseService {
           assertionUrn,
           ImmutableSet.of(
               Constants.ASSERTION_INFO_ASPECT_NAME,
+              Constants.ASSERTION_NOTE_ASPECT_NAME,
               Constants.ASSERTION_ACTIONS_ASPECT_NAME,
               Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-              Constants.GLOBAL_TAGS_ASPECT_NAME));
+              Constants.GLOBAL_TAGS_ASPECT_NAME),
+          false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Assertion with urn %s", assertionUrn), e);

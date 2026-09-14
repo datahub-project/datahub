@@ -3,6 +3,8 @@ import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { Table } from '@phosphor-icons/react/dist/csr/Table';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -26,6 +28,7 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
@@ -33,7 +36,11 @@ import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useGetMlFeatureTableQuery } from '@graphql/mlFeatureTable.generated';
 import { EntityType, MlFeatureTable, SearchResult } from '@types';
 
-const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.ANNOUNCE]);
+const headerDropdownItems = new Set([
+    EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.RAISE_INCIDENT,
+    EntityMenuItems.ANNOUNCE,
+]);
 
 /**
  * Definition of the DataHub MLFeatureTable entity.
@@ -64,9 +71,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     getPathName = () => 'featureTables';
 
-    getEntityName = () => 'Feature Table';
+    getEntityName = () => i18next.t('entity.types:mlFeatureTable.name');
 
-    getCollectionName = () => 'Feature Tables';
+    getCollectionName = () => i18next.t('entity.types:mlFeatureTable.namePlural');
 
     getOverridePropertiesFromEntity = (_?: MlFeatureTable | null): GenericEntityProperties => {
         return {};
@@ -84,24 +91,32 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Features',
+                    name: i18next.t('entity.types:mlFeature.namePlural'),
                     component: MlFeatureTableFeatures,
                     icon: Table,
                 },
                 {
-                    name: 'Sources',
+                    name: i18next.t('entity.types:mlFeatureTable.sourcesTab'),
                     component: Sources,
                     icon: Database,
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
                     component: PropertiesTab,
                     icon: ListBullets,
+                },
+                {
+                    name: i18next.t('entity.types:tab.incidents'),
+                    icon: WarningCircle,
+                    component: IncidentTab,
+                    getCount: (_, mlFeatureTable) => {
+                        return mlFeatureTable?.mlFeatureTable?.activeIncidents?.total;
+                    },
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
@@ -147,9 +162,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
 
     getSidebarTabs = () => [
         {
-            name: 'Properties',
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
             icon: ListBullets,
         },
     ];

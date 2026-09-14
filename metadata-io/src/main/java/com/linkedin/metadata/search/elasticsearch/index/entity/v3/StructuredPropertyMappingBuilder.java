@@ -8,11 +8,14 @@ import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.LogicalValueType;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -33,32 +36,33 @@ public class StructuredPropertyMappingBuilder {
       @Nonnull EntitySpec entitySpec,
       @Nullable Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
 
-    Map<String, Object> mappings = new HashMap<>();
-
     if (structuredProperties == null || structuredProperties.isEmpty()) {
-      return mappings;
+      return Map.of();
     }
 
     // Filter structured properties for this entity type
     String entityType = entitySpec.getEntityAnnotation().getName();
-    structuredProperties.stream()
-        .filter(
-            pair -> {
-              StructuredPropertyDefinition definition = pair.getValue();
-              return definition.getEntityTypes() != null
-                  && definition.getEntityTypes().stream()
-                      .anyMatch(entityTypeUrn -> entityTypeMatches(entityTypeUrn, entityType));
-            })
-        .forEach(
-            pair -> {
-              Urn propertyUrn = pair.getKey();
-              StructuredPropertyDefinition definition = pair.getValue();
-              String fieldName = toElasticsearchFieldName(propertyUrn, definition);
-              Map<String, Object> fieldMapping = getMappingsForStructuredProperty(definition);
-              mappings.put(fieldName, fieldMapping);
-            });
+    List<StructuredPropertyUtils.StructuredPropertyFieldMapping> entries =
+        structuredProperties.stream()
+            .filter(
+                pair -> {
+                  StructuredPropertyDefinition definition = pair.getValue();
+                  return definition.getEntityTypes() != null
+                      && definition.getEntityTypes().stream()
+                          .anyMatch(entityTypeUrn -> entityTypeMatches(entityTypeUrn, entityType));
+                })
+            .map(
+                pair -> {
+                  Urn propertyUrn = pair.getKey();
+                  StructuredPropertyDefinition definition = pair.getValue();
+                  String fieldName = toElasticsearchFieldName(propertyUrn, definition);
+                  Map<String, Object> fieldMapping = getMappingsForStructuredProperty(definition);
+                  return new StructuredPropertyUtils.StructuredPropertyFieldMapping(
+                      fieldName, propertyUrn, fieldMapping);
+                })
+            .collect(Collectors.toList());
 
-    return mappings;
+    return StructuredPropertyUtils.resolveStructuredPropertyMappingCollisions(entries);
   }
 
   /**

@@ -1,156 +1,12 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "schemaMetadata",
-    "aspect": {
-        "json": {
-            "schemaName": "key_topic",
-            "platform": "urn:li:dataPlatform:kafka",
-            "version": 0,
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "hash": "44fd7a7b325d6fdd4275b1f02a79c1a8",
-            "platformSchema": {
-                "com.linkedin.schema.KafkaSchema": {
-                    "documentSchema": "",
-                    "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}",
-                    "keySchemaType": "AVRO"
-                }
-            },
-            "fields": [
-                {
-                    "fieldPath": "[version=2.0].[key=True].[type=UserKey].[type=long].id",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "id",
-                    "recursive": false,
-                    "isPartOfKey": true
-                },
-                {
-                    "fieldPath": "[version=2.0].[key=True].[type=UserKey].[type=string].namespace",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "namespace",
-                    "recursive": false,
-                    "isPartOfKey": true
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:kafka"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "prod"
-                },
-                {
-                    "id": "kafka"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "Partitions": "1",
-                "Replication Factor": "1",
-                "min.insync.replicas": "1",
-                "retention.bytes": "-1",
-                "retention.ms": "604800000",
-                "cleanup.policy": "delete",
-                "max.message.bytes": "1048588",
-                "unclean.leader.election.enable": "false"
-            },
-            "name": "key_topic",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Topic"
-            ]
         }
     },
     "systemMetadata": {
@@ -167,6 +23,77 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "numeric_topic",
+            "platform": "urn:li:dataPlatform:kafka",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "973979bc63e694ba38d9e5c30223c00b",
+            "platformSchema": {
+                "com.linkedin.schema.KafkaSchema": {
+                    "documentSchema": "{\"type\":\"record\",\"name\":\"NumericData\",\"namespace\":\"io.test.numeric\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"value\",\"type\":\"double\"},{\"name\":\"count\",\"type\":\"long\"}]}",
+                    "documentSchemaType": "AVRO"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=NumericData].[type=long].id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "id",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=NumericData].[type=double].value",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "value",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=NumericData].[type=long].count",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "count",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -193,10 +120,10 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             },
-            "hash": "a79a2fe3adab60b21d272a9cc3e93595",
+            "hash": "53a353d9ee0d3f53ae2713e13df02495",
             "platformSchema": {
                 "com.linkedin.schema.KafkaSchema": {
-                    "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\",\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":\"string\",\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
+                    "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":[\"null\",\"string\"],\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
                     "documentSchemaType": "AVRO",
                     "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}",
                     "keySchemaType": "AVRO"
@@ -229,13 +156,13 @@
                 },
                 {
                     "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
-                    "nullable": false,
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "email",
+                    "nativeDataType": "string",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -269,13 +196,13 @@
                 },
                 {
                     "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].lastName",
-                    "nullable": false,
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "lastName",
+                    "nativeDataType": "string",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -288,6 +215,50 @@
                     "jsonProps": "{\"tags\": [\"Name\"]}"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "Partitions": "1",
+                "Replication Factor": "1",
+                "min.insync.replicas": "1",
+                "retention.bytes": "-1",
+                "retention.ms": "604800000",
+                "cleanup.policy": "delete",
+                "max.message.bytes": "1048588",
+                "unclean.leader.election.enable": "false",
+                "Schema Name": "numeric_topic-value"
+            },
+            "name": "numeric_topic",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:kafka"
         }
     },
     "systemMetadata": {
@@ -327,6 +298,47 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:kafka"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Topic"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "prod"
+                },
+                {
+                    "id": "kafka"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -454,37 +466,23 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             },
-            "hash": "62c7c400ec5760797a59c45e59c2f2dc",
+            "hash": "836ceb4fb0bc28881ec8b5991190dd02",
             "platformSchema": {
                 "com.linkedin.schema.KafkaSchema": {
-                    "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\",\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":\"string\",\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
-                    "documentSchemaType": "AVRO",
-                    "keySchema": "\"string\"",
-                    "keySchemaType": "AVRO"
+                    "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":[\"null\",\"string\"],\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
+                    "documentSchemaType": "AVRO"
                 }
             },
             "fields": [
                 {
-                    "fieldPath": "[version=2.0].[key=True].[type=string]",
-                    "nullable": false,
+                    "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
                         }
                     },
                     "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": true
-                },
-                {
-                    "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "email",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -518,13 +516,13 @@
                 },
                 {
                     "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].lastName",
-                    "nullable": false,
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "lastName",
+                    "nativeDataType": "string",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -642,183 +640,6 @@
         "json": {
             "typeNames": [
                 "Topic"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic-key,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic-key,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "schemaMetadata",
-    "aspect": {
-        "json": {
-            "schemaName": "key_topic-key",
-            "platform": "urn:li:dataPlatform:kafka",
-            "version": 0,
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "hash": "5e468f7aa532c2f2ed9686ff3ec943ec",
-            "platformSchema": {
-                "com.linkedin.schema.KafkaSchema": {
-                    "documentSchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}",
-                    "documentSchemaType": "AVRO",
-                    "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}",
-                    "keySchemaType": "AVRO"
-                }
-            },
-            "fields": [
-                {
-                    "fieldPath": "[version=2.0].[key=True].[type=UserKey].[type=long].id",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "id",
-                    "recursive": false,
-                    "isPartOfKey": true
-                },
-                {
-                    "fieldPath": "[version=2.0].[key=True].[type=UserKey].[type=string].namespace",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "namespace",
-                    "recursive": false,
-                    "isPartOfKey": true
-                },
-                {
-                    "fieldPath": "[version=2.0].[type=UserKey].[type=long].id",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "id",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "[version=2.0].[type=UserKey].[type=string].namespace",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "namespace",
-                    "recursive": false,
-                    "isPartOfKey": false
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic-key,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "prod"
-                },
-                {
-                    "id": "kafka"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic-key,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "key_topic-key",
-            "description": "Key schema for kafka topic",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic-key,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:kafka"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic-key,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Schema"
             ]
         }
     },
@@ -1057,25 +878,25 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             },
-            "hash": "c9b692583e304b9cb703ffa748a9f37d",
+            "hash": "17f8139c67dcb1e1a104224f5a8e7da8",
             "platformSchema": {
                 "com.linkedin.schema.KafkaSchema": {
-                    "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\",\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":\"string\",\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
+                    "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":[\"null\",\"string\"],\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
                     "documentSchemaType": "AVRO",
-                    "keySchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\",\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":\"string\",\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
+                    "keySchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":[\"null\",\"string\"],\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
                     "keySchemaType": "AVRO"
                 }
             },
             "fields": [
                 {
                     "fieldPath": "[version=2.0].[key=True].[type=CreateUserRequest].[type=string].email",
-                    "nullable": false,
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "email",
+                    "nativeDataType": "string",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1109,13 +930,13 @@
                 },
                 {
                     "fieldPath": "[version=2.0].[key=True].[type=CreateUserRequest].[type=string].lastName",
-                    "nullable": false,
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "lastName",
+                    "nativeDataType": "string",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1129,13 +950,13 @@
                 },
                 {
                     "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
-                    "nullable": false,
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "email",
+                    "nativeDataType": "string",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1169,13 +990,13 @@
                 },
                 {
                     "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].lastName",
-                    "nullable": false,
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "lastName",
+                    "nativeDataType": "string",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1312,132 +1133,12 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic-key,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic-value,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic-key,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "schemaMetadata",
-    "aspect": {
-        "json": {
-            "schemaName": "value_topic-key",
-            "platform": "urn:li:dataPlatform:kafka",
-            "version": 0,
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "hash": "c088cd2eb2de57e32c00b32d4871ec72",
-            "platformSchema": {
-                "com.linkedin.schema.KafkaSchema": {
-                    "documentSchema": "\"string\"",
-                    "documentSchemaType": "AVRO",
-                    "keySchema": "\"string\"",
-                    "keySchemaType": "AVRO"
-                }
-            },
-            "fields": [
-                {
-                    "fieldPath": "[version=2.0].[key=True].[type=string]",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": true
-                },
-                {
-                    "fieldPath": "[version=2.0].[type=string]",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic-key,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "prod"
-                },
-                {
-                    "id": "kafka"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic-key,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "value_topic-key",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic-key,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Schema"
-            ]
         }
     },
     "systemMetadata": {
@@ -1454,6 +1155,115 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic-value,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "numeric_topic-value",
+            "platform": "urn:li:dataPlatform:kafka",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "0f55b609811017672dd7bc2702a86e2b",
+            "platformSchema": {
+                "com.linkedin.schema.KafkaSchema": {
+                    "documentSchema": "{\"type\":\"record\",\"name\":\"NumericData\",\"namespace\":\"io.test.numeric\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"value\",\"type\":\"double\"},{\"name\":\"count\",\"type\":\"long\"}]}",
+                    "documentSchemaType": "AVRO",
+                    "keySchema": "{\"type\":\"record\",\"name\":\"NumericData\",\"namespace\":\"io.test.numeric\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"value\",\"type\":\"double\"},{\"name\":\"count\",\"type\":\"long\"}]}",
+                    "keySchemaType": "AVRO"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[key=True].[type=NumericData].[type=long].id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "id",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "[version=2.0].[key=True].[type=NumericData].[type=double].value",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "value",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "[version=2.0].[key=True].[type=NumericData].[type=long].count",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "count",
+                    "recursive": false,
+                    "isPartOfKey": true
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=NumericData].[type=long].id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "id",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=NumericData].[type=double].value",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "value",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=NumericData].[type=long].count",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "count",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1480,25 +1290,25 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             },
-            "hash": "c9b692583e304b9cb703ffa748a9f37d",
+            "hash": "17f8139c67dcb1e1a104224f5a8e7da8",
             "platformSchema": {
                 "com.linkedin.schema.KafkaSchema": {
-                    "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\",\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":\"string\",\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
+                    "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":[\"null\",\"string\"],\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
                     "documentSchemaType": "AVRO",
-                    "keySchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\",\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":\"string\",\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
+                    "keySchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":[\"null\",\"string\"],\"tags\":[\"Email\"]},{\"name\":\"firstName\",\"type\":\"string\",\"tags\":[\"Name\"]},{\"name\":\"lastName\",\"type\":[\"null\",\"string\"],\"tags\":[\"Name\"]}],\"tags\":[\"PII\"]}",
                     "keySchemaType": "AVRO"
                 }
             },
             "fields": [
                 {
                     "fieldPath": "[version=2.0].[key=True].[type=CreateUserRequest].[type=string].email",
-                    "nullable": false,
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "email",
+                    "nativeDataType": "string",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1532,13 +1342,13 @@
                 },
                 {
                     "fieldPath": "[version=2.0].[key=True].[type=CreateUserRequest].[type=string].lastName",
-                    "nullable": false,
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "lastName",
+                    "nativeDataType": "string",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1552,13 +1362,13 @@
                 },
                 {
                     "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
-                    "nullable": false,
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "email",
+                    "nativeDataType": "string",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1592,13 +1402,13 @@
                 },
                 {
                     "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].lastName",
-                    "nullable": false,
+                    "nullable": true,
                     "type": {
                         "type": {
                             "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "lastName",
+                    "nativeDataType": "string",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
@@ -1611,6 +1421,40 @@
                     "jsonProps": "{\"tags\": [\"Name\"]}"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic-value,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "numeric_topic-value",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic-value,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:kafka"
         }
     },
     "systemMetadata": {
@@ -1644,12 +1488,16 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic-key,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic-value,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "globalTags",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:kafka"
+            "tags": [
+                {
+                    "tag": "urn:li:tag:PII"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1660,14 +1508,35 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic-value,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic-value,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "globalTags",
+    "aspectName": "subTypes",
     "aspect": {
         "json": {
-            "tags": [
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,numeric_topic-value,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
                 {
-                    "tag": "urn:li:tag:PII"
+                    "id": "prod"
+                },
+                {
+                    "id": "kafka"
                 }
             ]
         }

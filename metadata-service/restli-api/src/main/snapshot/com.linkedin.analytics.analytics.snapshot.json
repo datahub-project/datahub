@@ -175,6 +175,21 @@
             "type" : "string",
             "doc" : "Optional specified time zone to take into account when grouping by date",
             "optional" : true
+          }, {
+            "name" : "size",
+            "type" : "int",
+            "doc" : "Maximum number of buckets to return for STRING_GROUPING_BUCKET. Defaults to MAX_TERM_BUCKETS",
+            "optional" : true
+          }, {
+            "name" : "orderByMetric",
+            "type" : "boolean",
+            "doc" : "When true, STRING_GROUPING_BUCKET buckets are ordered by the value of the first\naggregation spec rather than _key. Use with ascending=false for top-N by metric.",
+            "optional" : true
+          }, {
+            "name" : "ascending",
+            "type" : "boolean",
+            "doc" : "Sort direction for bucket ordering. Defaults to true (ascending).\nApplies to STRING_GROUPING_BUCKET (_key order or metric order) and\nDATE_GROUPING_BUCKET (chronological order).",
+            "optional" : true
           } ]
         }
       },

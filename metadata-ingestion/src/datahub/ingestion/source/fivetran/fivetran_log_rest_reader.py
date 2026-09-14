@@ -455,7 +455,9 @@ class FivetranLogRestReader:
             with self._report_lock:
                 self._report.warning(
                     title="Fivetran connector column lineage truncated",
-                    message="Connector has more columns than max_column_lineage_per_connector. Increase the limit if you need full coverage.",
+                    message="Connector has more columns than max_column_lineage_per_connector. "
+                    "Table-level lineage is still emitted for every table; only column-level "
+                    "lineage is capped. Increase the limit if you need full column coverage.",
                     context=connector_id,
                 )
 
@@ -490,7 +492,7 @@ class FivetranLogRestReader:
         column_truncated = False
 
         for schema_name, schema in schemas.schemas.items():
-            if table_truncated or column_truncated:
+            if table_truncated:
                 break
             if not schema.enabled:
                 continue
@@ -502,32 +504,38 @@ class FivetranLogRestReader:
                     table_truncated = True
                     break
 
-                # The bulk schemas endpoint only includes columns the
-                # user has explicitly modified. Fetch the full column
-                # set per-table so column lineage is complete by default.
-                # Falls back to the inline (often empty) `table.columns`
-                # if the per-table call fails — caller still gets table
-                # lineage, just no columns for that one table.
-                columns = self._fetch_table_columns(
-                    connector_id, schema_name, table_name
-                )
-                if columns is None:
-                    columns = table.columns
-
+                # The column budget must not stop table-lineage emission:
+                # once it's exhausted we keep emitting table-level lineage for
+                # the remaining tables and only skip column collection (and the
+                # per-table columns API call). Otherwise tables late in the
+                # schema order silently lose all Fivetran lineage.
                 column_lineage: List[ColumnLineage] = []
-                for col_name, col in columns.items():
-                    if not col.enabled:
-                        continue
-                    if column_total >= self._max_column_lineage_per_connector:
-                        column_truncated = True
-                        break
-                    column_lineage.append(
-                        ColumnLineage(
-                            source_column=col_name,
-                            destination_column=col.name_in_destination,
-                        )
+                if not column_truncated:
+                    # The bulk schemas endpoint only includes columns the
+                    # user has explicitly modified. Fetch the full column
+                    # set per-table so column lineage is complete by default.
+                    # Falls back to the inline (often empty) `table.columns`
+                    # if the per-table call fails — caller still gets table
+                    # lineage, just no columns for that one table.
+                    columns = self._fetch_table_columns(
+                        connector_id, schema_name, table_name
                     )
-                    column_total += 1
+                    if columns is None:
+                        columns = table.columns
+
+                    for col_name, col in columns.items():
+                        if not col.enabled:
+                            continue
+                        if column_total >= self._max_column_lineage_per_connector:
+                            column_truncated = True
+                            break
+                        column_lineage.append(
+                            ColumnLineage(
+                                source_column=col_name,
+                                destination_column=col.name_in_destination,
+                            )
+                        )
+                        column_total += 1
                 result.append(
                     TableLineage(
                         source_table=f"{schema_name}.{table_name}",
@@ -537,8 +545,6 @@ class FivetranLogRestReader:
                         column_lineage=column_lineage,
                     )
                 )
-                if column_truncated:
-                    break
 
         self._emit_truncation_warnings(table_truncated, column_truncated, connector_id)
         return result

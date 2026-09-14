@@ -22,6 +22,7 @@ interface Props {
     entity: Entity;
     moduleType: DataHubPageModuleType;
     customDetailsRenderer?: (entity: Entity) => React.ReactNode;
+    customIconRenderer?: () => React.ReactNode;
     navigateOnlyOnNameClick?: boolean;
     dragIconRenderer?: () => React.ReactNode;
     hideSubtitle?: boolean;
@@ -37,6 +38,7 @@ export default function EntityItem({
     entity,
     moduleType,
     customDetailsRenderer,
+    customIconRenderer,
     navigateOnlyOnNameClick = false,
     dragIconRenderer,
     hideSubtitle,
@@ -67,6 +69,7 @@ export default function EntityItem({
         hideMatches,
         padding,
         customDetailsRenderer,
+        customIconRenderer,
         dragIconRenderer,
         customHoverEntityName,
         navigateOnlyOnNameClick,

@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import LineageGraph from '@app/lineageV2/LineageGraph';
+import LineageGraph from '@app/lineageV3/LineageGraph';
 import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
 
 const VisualizationWrapper = styled.div`

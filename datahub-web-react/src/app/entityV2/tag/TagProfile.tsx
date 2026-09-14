@@ -1,4 +1,5 @@
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import CompactTagProfile from '@app/entityV2/tag/CompactTagProfile';
@@ -26,6 +27,7 @@ interface Props {
  * Responsible for displaying metadata about a tag
  */
 export default function TagProfile({ urn }: Props) {
+    const { t: tf } = useTranslation('common.feedback');
     const { loading } = useGetTagQuery({ variables: { urn } });
     const isCompact = useContext(CompactContext);
 
@@ -35,7 +37,7 @@ export default function TagProfile({ urn }: Props) {
 
     return (
         <PageContainer>
-            {loading && <LoadingMessage type="loading" content="Loading..." />}
+            {loading && <LoadingMessage type="loading" content={tf('loading')} />}
             <TagStyleEntity urn={urn} />
         </PageContainer>
     );

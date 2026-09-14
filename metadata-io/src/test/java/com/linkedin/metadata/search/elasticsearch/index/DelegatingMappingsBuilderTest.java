@@ -4,12 +4,16 @@ import static io.datahubproject.test.search.SearchTestUtils.V2_V3_ENABLED_ENTITY
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
+import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
@@ -1183,6 +1187,78 @@ public class DelegatingMappingsBuilderTest {
   }
 
   // Tests for getMappingsForStructuredProperty exception handling
+
+  @Test
+  public void testCollidingStructuredPropertiesPassDelegatingConsistencyCheck() {
+    // V2 and V3 produce different STRING mapping payloads (pre-existing), so real dual builders
+    // cannot pass mapsEqual. This test uses mocks that share identical post-dedupe maps to
+    // verify DelegatingMappingsBuilder accepts colliding input when builders agree on keys+values.
+    DelegatingMappingsBuilder builder = createBuilderWithMockMappingsBuilders();
+
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    Map<String, Object> keywordMapping = Map.of("type", "keyword");
+    Map<String, Object> resolved =
+        StructuredPropertyUtils.resolveStructuredPropertyMappingCollisions(
+            List.of(
+                new StructuredPropertyUtils.StructuredPropertyFieldMapping(
+                    "certification_status", urnUnderscore, keywordMapping),
+                new StructuredPropertyUtils.StructuredPropertyFieldMapping(
+                    "certification_status", urnDot, keywordMapping)));
+
+    assertEquals(resolved.size(), 1, "Collision dedupe should keep a single field");
+    assertTrue(resolved.containsKey("certification_status"));
+
+    MappingsBuilder mockBuilder1 = mock(MappingsBuilder.class);
+    MappingsBuilder mockBuilder2 = mock(MappingsBuilder.class);
+    // Identical maps from both builders (simulating shared dedupe semantics)
+    when(mockBuilder1.getIndexMappingsForStructuredProperty(any()))
+        .thenReturn(new HashMap<>(resolved));
+    when(mockBuilder2.getIndexMappingsForStructuredProperty(any()))
+        .thenReturn(new HashMap<>(resolved));
+
+    injectMockBuilders(builder, mockBuilder1, mockBuilder2);
+
+    Map<String, Object> result =
+        builder.getIndexMappingsForStructuredProperty(Collections.emptyList());
+
+    assertNotNull(result);
+    assertEquals(result.size(), 1);
+    assertTrue(result.containsKey("certification_status"));
+    verify(mockBuilder1, times(1)).getIndexMappingsForStructuredProperty(any());
+    verify(mockBuilder2, times(1)).getIndexMappingsForStructuredProperty(any());
+  }
+
+  @Test
+  public void testV2AndV3CollisionDedupeAgreeOnFieldKeys() throws Exception {
+    // Real builders: after collision fix they must select the same ES field key even though
+    // STRING mapping payloads differ between V2 and V3.
+    V2MappingsBuilder v2 =
+        new V2MappingsBuilder(
+            entityIndexConfiguration, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
+    MultiEntityMappingsBuilder v3 = new MultiEntityMappingsBuilder(entityIndexConfiguration);
+
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition defDot =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("certification.status")
+            .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"));
+    StructuredPropertyDefinition defUnderscore =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("certification_status")
+            .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.string"));
+    List<com.linkedin.util.Pair<Urn, StructuredPropertyDefinition>> properties =
+        List.of(
+            com.linkedin.util.Pair.of(urnUnderscore, defUnderscore),
+            com.linkedin.util.Pair.of(urnDot, defDot));
+
+    Map<String, Object> v2Mappings = v2.getIndexMappingsForStructuredProperty(properties);
+    Map<String, Object> v3Mappings = v3.getIndexMappingsForStructuredProperty(properties);
+
+    assertEquals(v2Mappings.keySet(), v3Mappings.keySet());
+    assertEquals(v2Mappings.keySet(), Set.of("certification_status"));
+  }
 
   @Test(expectedExceptions = RuntimeException.class)
   public void testGetMappingsForStructuredPropertyWithInconsistentIndexIndexMappings() {

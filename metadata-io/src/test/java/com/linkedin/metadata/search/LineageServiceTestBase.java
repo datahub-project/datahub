@@ -67,6 +67,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -138,10 +139,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   public void setup() throws RemoteInvocationException, URISyntaxException {
     IndexConvention indexConvention =
         new IndexConventionImpl(
-            IndexConventionImpl.IndexConventionConfig.builder()
-                .prefix("lineage_search_service_test")
-                .hashIdAlgo("MD5")
-                .build(),
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new ConfiguredIndexPrefixResolver("lineage_search_service_test"),
             SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
     operationContext =
@@ -152,7 +151,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention mockIndexConvention = mock(IndexConvention.class);
-    when(mockIndexConvention.isV2EntityIndex(anyString())).thenReturn(true);
+    when(mockIndexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention);
     elasticSearchService = buildEntitySearchService();
     elasticSearchService.reindexAll(operationContext, Collections.emptySet());
@@ -190,7 +189,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     appConfig
         .getMetadataChangeProposal()
         .getSideEffects()
-        .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
+        .setSchemaField(new MetadataChangeProposalConfig.SchemaFieldSideEffectsConfig());
     appConfig.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(false);
     appConfig.setElasticSearch(getElasticSearchConfiguration());
     appConfig.setGraphService(TEST_GRAPH_SERVICE_CONFIG);
@@ -363,7 +362,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     // Verify that highlighting was turned off in the query
     ArgumentCaptor<SearchRequest> searchRequestCaptor =
         ArgumentCaptor.forClass(SearchRequest.class);
-    Mockito.verify(searchClientSpy, times(1)).search(searchRequestCaptor.capture(), any());
+    Mockito.verify(searchClientSpy, times(1))
+        .search(any(OperationContext.class), searchRequestCaptor.capture(), any());
     SearchRequest capturedRequest = searchRequestCaptor.getValue();
     assertNull(capturedRequest.source().highlighter());
     clearCache(false);
@@ -614,6 +614,95 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     assertEquals(scrollResult.getNumEntities().intValue(), 0);
     assertNull(scrollResult.getScrollId());
+  }
+
+  @Test
+  public void testScrollAcrossLineageClampsExcessiveMaxHops() throws Exception {
+    // scrollAcrossLineage must clamp a caller-supplied maxHops the same way searchAcrossLineage
+    // does. Previously the scroll path defaulted to 1000 without clamping, so a caller could
+    // request an unbounded deep traversal.
+    when(graphService.getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
+        .thenReturn(mockResult(Collections.emptyList()));
+
+    lineageSearchService.scrollAcrossLineage(
+        getOperationContext()
+            .withSearchFlags(flags -> flags.setSkipCache(true))
+            .withLineageFlags(
+                flags ->
+                    flags
+                        .setStartTimeMillis(null, SetMode.REMOVE_IF_NULL)
+                        .setEndTimeMillis(null, SetMode.REMOVE_IF_NULL)),
+        TEST_URN,
+        LineageDirection.DOWNSTREAM,
+        ImmutableList.of(),
+        TEST1,
+        Integer.MAX_VALUE,
+        null,
+        null,
+        null,
+        "5m",
+        10);
+
+    ArgumentCaptor<Integer> maxHopsCaptor = ArgumentCaptor.forClass(Integer.class);
+    Mockito.verify(graphService)
+        .getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            maxHopsCaptor.capture());
+    // Integer.MAX_VALUE must have been clamped down to the exact configured impact hop limit.
+    assertEquals(
+        maxHopsCaptor.getValue().intValue(),
+        getElasticSearchConfiguration().getSearch().getGraph().getImpact().getMaxHops());
+    clearCache(false);
+  }
+
+  @Test
+  public void testScrollAcrossLineageDefaultsNullMaxHopsToConfiguredLimit() throws Exception {
+    // A null maxHops must resolve to the finite configured impact hop limit, not pass through as an
+    // unbounded (or null) deep traversal.
+    when(graphService.getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
+        .thenReturn(mockResult(Collections.emptyList()));
+
+    lineageSearchService.scrollAcrossLineage(
+        getOperationContext()
+            .withSearchFlags(flags -> flags.setSkipCache(true))
+            .withLineageFlags(
+                flags ->
+                    flags
+                        .setStartTimeMillis(null, SetMode.REMOVE_IF_NULL)
+                        .setEndTimeMillis(null, SetMode.REMOVE_IF_NULL)),
+        TEST_URN,
+        LineageDirection.DOWNSTREAM,
+        ImmutableList.of(),
+        TEST1,
+        null,
+        null,
+        null,
+        null,
+        "5m",
+        10);
+
+    ArgumentCaptor<Integer> maxHopsCaptor = ArgumentCaptor.forClass(Integer.class);
+    Mockito.verify(graphService)
+        .getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            maxHopsCaptor.capture());
+    // null must resolve to the exact configured impact hop limit, not pass through.
+    assertEquals(
+        maxHopsCaptor.getValue().intValue(),
+        getElasticSearchConfiguration().getSearch().getGraph().getImpact().getMaxHops());
+    clearCache(false);
   }
 
   @Test
@@ -1074,16 +1163,13 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             .get(),
         Long.valueOf(200));
 
-    // Set up filters
+    // Test AND filter
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
     Criterion platform1Crit = buildCriterion("platform", Condition.EQUAL, kafkaPlatform);
-
-    CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit));
-    conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
     Criterion originCrit = buildCriterion("origin", Condition.EQUAL, "DEV");
 
-    conCritArr.add(
-        new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(originCrit))));
+    CriterionArray critArr = new CriterionArray(ImmutableList.of(platform1Crit, originCrit));
+    conCritArr.add(new ConjunctiveCriterion().setAnd(critArr));
 
     from = 500;
     size = 10;
@@ -1106,6 +1192,32 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             .filter(x -> x.getName().equals("origin") && x.getAggregations().containsKey("PROD"))
             .collect(Collectors.toList())
             .isEmpty());
+
+    // Test OR filter
+    ConjunctiveCriterionArray orCritArr = new ConjunctiveCriterionArray();
+    orCritArr.add(
+        new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(platform1Crit))));
+    orCritArr.add(
+        new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(originCrit))));
+
+    lineageSearchResult =
+        lineageSearchService.getLightningSearchResult(
+            lineageRelationships, new Filter().setOr(orCritArr), from, size, entityNames);
+
+    assertEquals(
+        lineageSearchResult.getMetadata().getAggregations().stream()
+            .filter(x -> x.getName().equals("origin"))
+            .map(x -> x.getAggregations().get("DEV"))
+            .findFirst()
+            .get(),
+        Long.valueOf(450));
+    assertEquals(
+        lineageSearchResult.getMetadata().getAggregations().stream()
+            .filter(x -> x.getName().equals("origin"))
+            .map(x -> x.getAggregations().get("PROD"))
+            .findFirst()
+            .get(),
+        Long.valueOf(200));
   }
 
   @Test
@@ -1286,7 +1398,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     int size = 10;
     Set<String> entityNames = Collections.emptySet();
 
-    Assert.assertTrue(lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null));
+    Assert.assertTrue(
+        lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null, false));
 
     // Set up filters
     ConjunctiveCriterionArray conCritArr = new ConjunctiveCriterionArray();
@@ -1305,7 +1418,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     from = 500;
     size = 10;
     filter = new Filter().setOr(conCritArr);
-    Assert.assertTrue(lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null));
+    Assert.assertTrue(
+        lineageSearchService.canDoLightning(lineageRelationships, "*", filter, null, false));
   }
 
   @Test

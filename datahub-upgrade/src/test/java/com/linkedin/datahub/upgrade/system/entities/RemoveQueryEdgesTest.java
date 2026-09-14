@@ -57,7 +57,8 @@ public class RemoveQueryEdgesTest {
     // Setup mock chain for index name resolution
     when(mockOpContext.getSearchContext()).thenReturn(mockSearchContext);
     when(mockSearchContext.getIndexConvention()).thenReturn(mockIndexConvention);
-    when(mockIndexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME))
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext), eq(ElasticSearchGraphService.INDEX_NAME)))
         .thenReturn("test_graph_index");
 
     when(mockUpgradeContext.opContext()).thenReturn(mockOpContext);
@@ -163,7 +164,10 @@ public class RemoveQueryEdgesTest {
             .build();
 
     when(mockEsWriteDAO.deleteByQuerySync(
-            any(String.class), any(QueryBuilder.class), eq(deleteConfig)))
+            any(OperationContext.class),
+            any(String.class),
+            any(QueryBuilder.class),
+            eq(deleteConfig)))
         .thenReturn(mockResult);
 
     // Execute the step
@@ -178,7 +182,11 @@ public class RemoveQueryEdgesTest {
     ArgumentCaptor<QueryBuilder> queryCaptor = ArgumentCaptor.forClass(QueryBuilder.class);
 
     verify(mockEsWriteDAO)
-        .deleteByQuerySync(indexCaptor.capture(), queryCaptor.capture(), eq(deleteConfig));
+        .deleteByQuerySync(
+            any(OperationContext.class),
+            indexCaptor.capture(),
+            queryCaptor.capture(),
+            eq(deleteConfig));
 
     assertEquals(indexCaptor.getValue(), "test_graph_index");
 
@@ -232,7 +240,10 @@ public class RemoveQueryEdgesTest {
             .build();
 
     when(mockEsWriteDAO.deleteByQuerySync(
-            any(String.class), any(QueryBuilder.class), eq(deleteConfig)))
+            any(OperationContext.class),
+            any(String.class),
+            any(QueryBuilder.class),
+            eq(deleteConfig)))
         .thenReturn(mockResult);
 
     // Execute the step - it should still succeed since the step is optional
@@ -254,7 +265,10 @@ public class RemoveQueryEdgesTest {
 
     // Mock exception during delete
     when(mockEsWriteDAO.deleteByQuerySync(
-            any(String.class), any(QueryBuilder.class), eq(deleteConfig)))
+            any(OperationContext.class),
+            any(String.class),
+            any(QueryBuilder.class),
+            eq(deleteConfig)))
         .thenThrow(new RuntimeException("Elasticsearch connection failed"));
 
     UpgradeStepResult result = removeQueryEdgesStep.executable().apply(mockUpgradeContext);

@@ -355,6 +355,63 @@ public class EntityAssertionsResolverTest {
         .exists(Mockito.any(), Mockito.any(Urn.class), Mockito.any());
   }
 
+  /**
+   * Hard-deleted assertions can leave a stale {@code Asserts} graph edge while {@code batchGetV2}
+   * returns only key/timeseries aspects (no {@code assertionInfo}). Those entries must not appear
+   * in {@code dataset.assertions}.
+   */
+  @Test
+  public void testHardDeletedAssertionWithoutInfoFilteredOut() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    GraphClient graphClient = Mockito.mock(GraphClient.class);
+
+    Urn datasetUrn = Urn.createFromString("urn:li:dataset:(test,test,test)");
+    Urn liveAssertionUrn = Urn.createFromString("urn:li:assertion:live");
+    Urn hardDeletedAssertionUrn = Urn.createFromString("urn:li:assertion:hard-deleted");
+
+    Mockito.when(
+            graphClient.getRelatedEntities(
+                Mockito.eq(datasetUrn.toString()),
+                Mockito.eq(ImmutableSet.of("Asserts")),
+                Mockito.eq(RelationshipDirection.INCOMING),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any()))
+        .thenReturn(
+            new EntityRelationships()
+                .setStart(0)
+                .setCount(2)
+                .setTotal(2)
+                .setRelationships(
+                    new EntityRelationshipArray(
+                        ImmutableList.of(
+                            new EntityRelationship().setEntity(liveAssertionUrn).setType("Asserts"),
+                            new EntityRelationship()
+                                .setEntity(hardDeletedAssertionUrn)
+                                .setType("Asserts")))));
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(),
+                Mockito.eq(Constants.ASSERTION_ENTITY_NAME),
+                Mockito.eq(ImmutableSet.of(liveAssertionUrn, hardDeletedAssertionUrn)),
+                Mockito.eq(null)))
+        .thenReturn(
+            ImmutableMap.of(
+                liveAssertionUrn,
+                assertionResponse(liveAssertionUrn, datasetUrn, "live-guid", false),
+                hardDeletedAssertionUrn,
+                hardDeletedAssertionResponse(hardDeletedAssertionUrn, "hard-deleted-guid")));
+
+    EntityAssertionsResolver resolver = new EntityAssertionsResolver(mockClient, graphClient);
+
+    EntityAssertionsResult result =
+        resolver.get(mockEnv(datasetUrn, false /* includeSoftDeleted */)).get();
+
+    assertEquals(result.getAssertions().size(), 1);
+    assertEquals(result.getAssertions().get(0).getUrn(), liveAssertionUrn.toString());
+  }
+
   // ---------- Helpers ----------
 
   private static DataFetchingEnvironment mockEnv(Urn datasetUrn, boolean includeSoftDeleted) {
@@ -397,6 +454,20 @@ public class EntityAssertionsResolverTest {
         Constants.STATUS_ASPECT_NAME,
         new com.linkedin.entity.EnvelopedAspect()
             .setValue(new Aspect(new com.linkedin.common.Status().setRemoved(removed).data())));
+    return new EntityResponse()
+        .setEntityName(Constants.ASSERTION_ENTITY_NAME)
+        .setUrn(assertionUrn)
+        .setAspects(new EnvelopedAspectMap(aspects));
+  }
+
+  private static EntityResponse hardDeletedAssertionResponse(Urn assertionUrn, String guid)
+      throws Exception {
+    Map<String, com.linkedin.entity.EnvelopedAspect> aspects = new HashMap<>();
+    aspects.put(
+        Constants.ASSERTION_KEY_ASPECT_NAME,
+        new com.linkedin.entity.EnvelopedAspect()
+            .setValue(new Aspect(new AssertionKey().setAssertionId(guid).data())));
+    // Intentionally no assertionInfo aspect — simulates hard delete with stale graph edge.
     return new EntityResponse()
         .setEntityName(Constants.ASSERTION_ENTITY_NAME)
         .setUrn(assertionUrn)

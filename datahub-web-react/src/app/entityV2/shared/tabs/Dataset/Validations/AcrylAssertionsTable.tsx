@@ -9,7 +9,7 @@ import {
     DetailsColumn,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTableColumns';
 import { getEntityUrnForAssertion, getSiblingWithUrn } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
-import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
+import { useOpenAssertionDetailModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 import { AssertionProfileDrawer } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileDrawer';
 
 import { Assertion, AssertionRunStatus, DataContract } from '@types';
@@ -37,7 +37,7 @@ const BaseStyledTable = styled(Table)<StyledTableProps>`
         > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
             [colspan]
         )::before {
-        border: 1px solid ${(props) => props.theme.colors.bgHover};
+        border: 1px solid ${(props) => props.theme.colors.border};
     }
     && {
         .ant-table-tbody > tr > td {
@@ -143,8 +143,6 @@ export const AcrylAssertionsTable = ({
             assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
             assertion.runEvents.runEvents[0].result?.externalUrl,
         assertion,
-        monitor:
-            (assertion as any).monitor?.relationships?.length && (assertion as any).monitor?.relationships[0]?.entity,
     }));
 
     const assertionsTableCols = [

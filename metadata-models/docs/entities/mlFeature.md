@@ -335,6 +335,10 @@ Features are accessible through DataHub's GraphQL API via the `MLFeatureType` cl
 - Batch loading of feature metadata
 - Filtering features by properties and relationships
 
+### Incidents
+
+ML Features participate in the shared incidents subsystem. Incidents can be raised on a feature via the `raiseIncident` GraphQL mutation (or the Python SDK), listed back through the `incidents` field on the `MLFeature` GraphQL type, and the feature carries a rolled-up `incidentsSummary` aspect that is maintained automatically as incidents are raised and resolved.
+
 ## Notable Exceptions
 
 ### Feature Namespace vs Feature Table

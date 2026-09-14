@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+<suite name="metadata-io-mysql" parallel="false">
+    <test name="mysql-optimistic-locking">
+        <classes>
+            <class name="com.linkedin.metadata.entity.ebean.optimistic.EbeanOptimisticLockingMysqlIT"/>
+        </classes>
+    </test>
+    <test name="mysql-conditional-batch">
+        <classes>
+            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoConditionalBatchIT">
+                <methods>
+                    <include name="mysql"/>
+                    <include name="rewriteBatchedStatementsLatchesBatchingOff"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+</suite>

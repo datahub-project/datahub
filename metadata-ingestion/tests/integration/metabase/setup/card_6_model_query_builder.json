@@ -1,0 +1,103 @@
+{
+  "description": "Query builder model that references table 21",
+  "archived": false,
+  "collection_position": null,
+  "table_id": 21,
+  "type": "model",
+  "dataset": true,
+  "result_metadata": [{
+    "name": "rating",
+    "display_name": "Film Rating",
+    "base_type": "type/PostgresEnum",
+    "effective_type": "type/*",
+    "semantic_type": "type/Category",
+    "field_ref": ["field", 131, null]
+  }, {
+    "name": "film_count",
+    "display_name": "Number of Films",
+    "base_type": "type/BigInteger",
+    "effective_type": "type/BigInteger",
+    "semantic_type": "type/Quantity",
+    "field_ref": ["aggregation", 0]
+  }, {
+    "name": "avg_rental_rate",
+    "display_name": "Average Rental Rate",
+    "base_type": "type/Decimal",
+    "effective_type": "type/Decimal",
+    "semantic_type": "type/Currency",
+    "field_ref": ["aggregation", 1]
+  }],
+  "creator": {
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_login": "2021-12-14T11:00:00.000",
+    "is_qbnewb": false,
+    "is_superuser": true,
+    "id": 1,
+    "last_name": "LastName",
+    "date_joined": "2021-12-13T07:34:21.806",
+    "common_name": "FirstName LastName"
+  },
+  "can_write": true,
+  "database_id": 2,
+  "enable_embedding": false,
+  "collection_id": 150,
+  "query_type": "query",
+  "name": "Film Statistics by Rating Model",
+  "last_query_start": "2021-12-14T11:15:00.000Z",
+  "dashboard_count": 1,
+  "average_query_time": 180,
+  "creator_id": 1,
+  "moderation_reviews": [],
+  "updated_at": "2021-12-14T11:15:45.200",
+  "made_public_by_id": null,
+  "embedding_params": null,
+  "cache_ttl": null,
+  "dataset_query": {
+    "query": {
+      "source-table": 21,
+      "breakout": [
+        ["field", 131, null]
+      ],
+      "aggregation": [
+        ["count"],
+        ["avg", ["field", 132, null]]
+      ],
+      "order-by": [
+        ["desc", ["aggregation", 0]]
+      ]
+    },
+    "database": 2,
+    "type": "query"
+  },
+  "id": 6,
+  "display": "bar",
+  "last-edit-info": {
+    "id": 1,
+    "email": "admin@metabase.com",
+    "first_name": "FirstName",
+    "last_name": "LastName",
+    "timestamp": "2021-12-14T11:15:45.150"
+  },
+  "visualization_settings": {
+    "graph.dimensions": ["rating"],
+    "graph.metrics": ["film_count", "avg_rental_rate"]
+  },
+  "collection": {
+    "authority_level": null,
+    "description": "Personal analytics collection",
+    "archived": false,
+    "slug": "john_doe_personal_collection",
+    "name": "John Doe",
+    "personal_owner_id": 14,
+    "type": null,
+    "id": 150,
+    "location": "/",
+    "namespace": null,
+    "is_personal": true,
+    "created_at": "2024-01-12T11:51:24.394309Z"
+  },
+  "created_at": "2021-12-14T11:10:00.000",
+  "public_uuid": null
+}
+

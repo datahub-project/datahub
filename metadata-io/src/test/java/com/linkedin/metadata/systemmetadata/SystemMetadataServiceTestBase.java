@@ -11,6 +11,7 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -46,10 +47,8 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
 
   private final IndexConvention _indexConvention =
       new IndexConventionImpl(
-          IndexConventionImpl.IndexConventionConfig.builder()
-              .prefix("es_system_metadata_service_test")
-              .hashIdAlgo("MD5")
-              .build(),
+          IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+          new ConfiguredIndexPrefixResolver("es_system_metadata_service_test"),
           SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
   private ElasticSearchSystemMetadataService _client;
@@ -64,7 +63,7 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
   @BeforeMethod
   public void wipe() throws Exception {
     syncAfterWrite(getBulkProcessor());
-    _client.clear();
+    _client.clear(operationContext);
     syncAfterWrite(getBulkProcessor());
   }
 
@@ -96,16 +95,16 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     metadata2.setRunId("abc-456");
     metadata2.setLastObserved(Long.valueOf(240));
 
-    _client.insert(metadata1, "urn:li:chart:1", "chartKey");
-    _client.insert(metadata1, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata1, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "chartKey");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:2", "chartKey");
-    _client.insert(metadata2, "urn:li:chart:2", "Ownership");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "chartKey");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "Ownership");
 
     syncAfterWrite(getBulkProcessor());
 
-    List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
+    List<IngestionRunSummary> runs = _client.listRuns(operationContext, 0, 20, false);
 
     assertEquals(runs.size(), 2);
     assertEquals(runs.get(0).getRows(), Long.valueOf(2));
@@ -122,19 +121,19 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     metadata2.setRunId("abc-456");
     metadata2.setLastObserved(Long.valueOf(240));
 
-    _client.insert(metadata1, "urn:li:chart:1", "chartKey");
-    _client.insert(metadata1, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata1, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "chartKey");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata2, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata2, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata2, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:2", "chartKey");
-    _client.insert(metadata2, "urn:li:chart:2", "Ownership");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "chartKey");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "Ownership");
 
     syncAfterWrite(getBulkProcessor());
 
-    List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
+    List<IngestionRunSummary> runs = _client.listRuns(operationContext, 0, 20, false);
 
     assertEquals(runs.size(), 2);
     assertEquals(runs.get(0).getRows(), Long.valueOf(4));
@@ -151,19 +150,19 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     metadata2.setRunId("abc-456");
     metadata2.setLastObserved(Long.valueOf(240L));
 
-    _client.insert(metadata1, "urn:li:chart:1", "chartKey");
-    _client.insert(metadata1, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata1, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "chartKey");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata2, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata2, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata2, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:2", "chartKey");
-    _client.insert(metadata2, "urn:li:chart:2", "Ownership");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "chartKey");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "Ownership");
 
     syncAfterWrite(getBulkProcessor());
 
-    List<AspectRowSummary> rows = _client.findByRunId("abc-456", false, 0, null);
+    List<AspectRowSummary> rows = _client.findByRunId(operationContext, "abc-456", false, 0, null);
 
     assertEquals(rows.size(), 4);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));
@@ -179,23 +178,23 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     metadata2.setRunId("abc-456");
     metadata2.setLastObserved(Long.valueOf(240L));
 
-    _client.insert(metadata1, "urn:li:chart:1", "chartKey");
-    _client.insert(metadata1, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata1, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "chartKey");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata2, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata2, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata2, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:2", "chartKey");
-    _client.insert(metadata2, "urn:li:chart:2", "Ownership");
-
-    syncAfterWrite(getBulkProcessor());
-
-    _client.deleteUrn("urn:li:chart:1");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "chartKey");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "Ownership");
 
     syncAfterWrite(getBulkProcessor());
 
-    List<AspectRowSummary> rows = _client.findByRunId("abc-456", false, 0, null);
+    _client.deleteUrn(operationContext, "urn:li:chart:1");
+
+    syncAfterWrite(getBulkProcessor());
+
+    List<AspectRowSummary> rows = _client.findByRunId(operationContext, "abc-456", false, 0, null);
 
     assertEquals(rows.size(), 2);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));
@@ -203,11 +202,11 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
 
   @Test
   public void testInsertNullData() throws Exception {
-    _client.insert(null, "urn:li:chart:1", "chartKey");
+    _client.insert(operationContext, null, "urn:li:chart:1", "chartKey");
 
     syncAfterWrite(getBulkProcessor());
 
-    List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
+    List<IngestionRunSummary> runs = _client.listRuns(operationContext, 0, 20, false);
 
     assertEquals(runs.size(), 0);
   }
@@ -228,15 +227,15 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     metadata2.setRegistryVersion("2.0.0");
 
     // Insert test data
-    _client.insert(metadata1, "urn:li:chart:1", "chartKey");
-    _client.insert(metadata1, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata1, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "chartKey");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:2", "chartKey");
-    _client.insert(metadata2, "urn:li:chart:2", "ChartInfo");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "chartKey");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "ChartInfo");
 
-    _client.insert(metadata1, "urn:li:dataset:3", "DatasetKey");
-    _client.insert(metadata1, "urn:li:dataset:3", "DatasetProperties");
+    _client.insert(operationContext, metadata1, "urn:li:dataset:3", "DatasetKey");
+    _client.insert(operationContext, metadata1, "urn:li:dataset:3", "DatasetProperties");
 
     syncAfterWrite(getBulkProcessor());
 

@@ -39,7 +39,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
@@ -76,20 +76,6 @@ jobs:
           source metadata-ingestion/venv/bin/activate
           datahub docker check
 
-      - name: Smoke test
-        if: false
-        env:
-          RUN_QUICKSTART: false
-          DATAHUB_VERSION: quickstart
-          CLEANUP_DATA: "false"
-          TEST_STRATEGY: cypress
-          BATCH_COUNT: 30
-          BATCH_NUMBER: 2
-        run: |
-          echo "$DATAHUB_VERSION"
-          ./gradlew --stop
-          ./smoke-test/smoke.sh
-
       - name: Run quickstart check
         run: |
           source metadata-ingestion/venv/bin/activate
@@ -109,7 +95,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: install older datahub cli
         run: |
           pip install acryl-datahub==1.0
@@ -192,7 +178,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: install datahub cli
         run: |
           pip install acryl-datahub
@@ -234,7 +220,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: install datahub cli
         run: |
           pip install acryl-datahub
@@ -267,7 +253,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: install datahub cli
         run: |
           pip install acryl-datahub==${{ matrix.datahub_version }}
@@ -405,7 +391,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |

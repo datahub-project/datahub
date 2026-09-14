@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { EntityList } from '@app/entityV2/shared/tabs/Entity/components/EntityList';
@@ -10,10 +11,11 @@ import { EntityType } from '@types';
 export const FeatureTableTab = () => {
     const entity = useBaseEntity() as GetMlFeatureQuery;
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.profile.tabs');
 
     const feature = entity && entity.mlFeature;
     const featureTables = feature?.featureTables?.relationships?.map((relationship) => relationship.entity);
 
-    const title = `Part of ${entityRegistry.getEntityName(EntityType.MlfeatureTable)}`;
+    const title = t('entity.partOf', { entityName: entityRegistry.getEntityName(EntityType.MlfeatureTable) });
     return <EntityList title={title} type={EntityType.MlfeatureTable} entities={featureTables || []} />;
 };

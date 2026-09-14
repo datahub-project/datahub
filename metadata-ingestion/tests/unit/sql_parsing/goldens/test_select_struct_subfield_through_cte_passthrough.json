@@ -1,0 +1,56 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "2e73e8fe63d77ead1674ce4aba07caadc30831b0349c81d1d1778d6abbaec4c2",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "post_id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "NUMERIC"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)",
+                    "column": "post_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`abcde_transformed`.`post_id` AS `post_id`"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "asset_id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)",
+                    "column": "widget"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "`cte`.`widget`.`asset`.`id` AS `asset_id`"
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "WITH cte AS (SELECT post_id, widget FROM data_reporting.abcde_transformed) SELECT post_id, widget.asset.id AS asset_id FROM cte"
+    }
+}

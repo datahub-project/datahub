@@ -83,6 +83,69 @@ public class OwnershipTemplateTest {
   }
 
   @Test
+  public void testAddDeepPathReinjectsCompoundKey() throws Exception {
+    // Deep-path add with an empty value: owner and type come only from the path, so rebase must
+    // re-inject both compound-key levels. Pre-fix the keys were dropped and the Owner was empty.
+    Ownership initial = new Ownership();
+    initial.setOwners(new OwnerArray());
+
+    JsonPatch patch =
+        Json.createPatch(
+            Json.createArrayBuilder()
+                .add(
+                    Json.createObjectBuilder()
+                        .add("op", "add")
+                        .add("path", "/owners/urn:li:corpuser:userA/DATAOWNER")
+                        .add("value", Json.createObjectBuilder()))
+                .build());
+
+    Ownership result = TEMPLATE.applyPatch(initial, patch);
+
+    Assert.assertNotNull(result.getOwners());
+    Assert.assertEquals(result.getOwners().size(), 1);
+    Owner owner = result.getOwners().get(0);
+    Assert.assertEquals(owner.getOwner().toString(), "urn:li:corpuser:userA");
+    Assert.assertEquals(owner.getType(), OwnershipType.DATAOWNER);
+  }
+
+  @Test
+  public void testAddArrayAtIntermediateCompoundKeyLevelIsNotDropped() throws Exception {
+    // An array set at the intermediate owner level hits the value-only fallback and must still be
+    // expanded on rebase, not dropped (guards the ObjectNode-vs-else split, not re-injection).
+    Ownership initial = new Ownership();
+    initial.setOwners(new OwnerArray());
+
+    JsonPatch patch =
+        Json.createPatch(
+            Json.createArrayBuilder()
+                .add(
+                    Json.createObjectBuilder()
+                        .add("op", "add")
+                        .add("path", "/owners/urn:li:corpuser:userA")
+                        .add(
+                            "value",
+                            Json.createArrayBuilder()
+                                .add(
+                                    Json.createObjectBuilder()
+                                        .add("owner", "urn:li:corpuser:userA")
+                                        .add("type", "DATAOWNER"))
+                                .add(
+                                    Json.createObjectBuilder()
+                                        .add("owner", "urn:li:corpuser:userA")
+                                        .add("type", "PRODUCER"))))
+                .build());
+
+    Ownership result = TEMPLATE.applyPatch(initial, patch);
+
+    Assert.assertNotNull(result.getOwners());
+    Assert.assertEquals(result.getOwners().size(), 2);
+    List<String> types =
+        result.getOwners().stream().map(o -> o.getType().toString()).collect(Collectors.toList());
+    Assert.assertTrue(types.contains("DATAOWNER"));
+    Assert.assertTrue(types.contains("PRODUCER"));
+  }
+
+  @Test
   public void testRemoveOneOfTwoEntries() throws Exception {
     Ownership initial = new Ownership();
     initial.setOwners(

@@ -9,6 +9,7 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -60,7 +61,8 @@ public class LineageRegistryController {
     OperationContext opContext =
         systemOperationContext.asSession(
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getLineageSpecs", Collections.emptyList()),
+                .buildOpenapi(actorUrnStr, request, "getLineageSpecs", Collections.emptyList())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication);
 
@@ -94,7 +96,8 @@ public class LineageRegistryController {
     OperationContext opContext =
         systemOperationContext.asSession(
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getLineageSpec", Collections.emptyList()),
+                .buildOpenapi(actorUrnStr, request, "getLineageSpec", Collections.emptyList())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication);
 
@@ -129,7 +132,8 @@ public class LineageRegistryController {
     OperationContext opContext =
         systemOperationContext.asSession(
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, "getLineageEdges", Collections.emptyList()),
+                .buildOpenapi(actorUrnStr, request, "getLineageEdges", Collections.emptyList())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication);
 
@@ -177,7 +181,8 @@ public class LineageRegistryController {
         systemOperationContext.asSession(
             RequestContext.builder()
                 .buildOpenapi(
-                    actorUrnStr, request, "getLineageDirectedEdges", Collections.emptyList()),
+                    actorUrnStr, request, "getLineageDirectedEdges", Collections.emptyList())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication);
 

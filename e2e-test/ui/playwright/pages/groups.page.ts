@@ -9,13 +9,11 @@ export class GroupsPage extends BasePage {
   readonly advancedToggle: Locator;
   readonly groupIdInput: Locator;
   readonly submitCreateGroupButton: Locator;
-  readonly createdGroupToast: Locator;
   readonly addMemberButton: Locator;
   readonly addMembersSelect: Locator;
   readonly addMembersSelectBase: Locator;
   readonly memberDropdownSearchInput: Locator;
   readonly addMembersSelectDropdown: Locator;
-  readonly membersAddedToast: Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -25,13 +23,11 @@ export class GroupsPage extends BasePage {
     this.advancedToggle = page.getByText('Advanced');
     this.groupIdInput = page.getByLabel('Group Id');
     this.submitCreateGroupButton = page.getByRole('button', { name: 'Create' });
-    this.createdGroupToast = page.getByText('Created group!');
     this.addMemberButton = page.getByText('Add Member');
     this.addMembersSelect = page.getByTestId('add-members-select');
     this.addMembersSelectBase = page.getByTestId('add-members-select-base');
     this.memberDropdownSearchInput = page.getByTestId('dropdown-search-input');
     this.addMembersSelectDropdown = page.getByTestId('add-members-select-dropdown');
-    this.membersAddedToast = page.getByText('Group members added!');
   }
 
   async navigateToGroups(): Promise<void> {
@@ -48,7 +44,7 @@ export class GroupsPage extends BasePage {
     await expect(this.page.getByText('Group Id')).toBeVisible();
     await this.groupIdInput.fill(groupId);
     await this.submitCreateGroupButton.click();
-    await expect(this.createdGroupToast).toBeVisible({ timeout: 15000 });
+    await this.toast.expectVisible('Created group!', { timeout: 15000 });
     await expect(this.page.getByText(name)).toBeVisible();
   }
 
@@ -63,7 +59,7 @@ export class GroupsPage extends BasePage {
     await this.memberDropdownSearchInput.fill(memberName);
     await this.addMembersSelectDropdown.getByText(memberName).click({ force: true });
     await this.page.getByRole('dialog').getByRole('button', { name: 'Add' }).click({ force: true });
-    await expect(this.membersAddedToast).toBeVisible({ timeout: 15000 });
+    await this.toast.expectVisible('Group members added!', { timeout: 15000 });
     await expect(this.page.getByText(memberName)).toBeVisible({ timeout: 10000 });
   }
 }

@@ -20,6 +20,9 @@ import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
 
 import { useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
 
+// Title for the hidden placeholder chart (visible={false}) — never rendered to users.
+const PLACEHOLDER_CHART_TITLE = 'Placeholder';
+
 // TODO: Reuse stat sections.
 const StatSection = styled.div`
     border-bottom: 1px solid ${(props) => props.theme.colors.border};
@@ -144,7 +147,7 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
 
     const placeholderChart = (
         <StatChart
-            title="Placeholder"
+            title={PLACEHOLDER_CHART_TITLE}
             tickInterval={graphTickInterval}
             dateRange={{ start: '', end: '' }}
             values={[]}

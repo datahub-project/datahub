@@ -28,6 +28,24 @@ def is_mock_api_up(port: int) -> bool:
 
 
 @pytest.fixture(scope="module")
+def hex_mock_api_enterprise_runner(docker_compose_runner, test_resources_dir):
+    """Starts mock server with ENTERPRISE_MODE=1 so queriedTables returns real data."""
+    docker_dir = test_resources_dir / "docker"
+
+    with docker_compose_runner(
+        docker_dir / "docker-compose.enterprise.yml", "hex-mock-ent", parallel=1
+    ) as docker_services:
+        wait_for_port(
+            docker_services,
+            "hex-mock-api-ent",
+            8001,
+            timeout=30,
+            checker=lambda: is_mock_api_up(8001),
+        )
+        yield docker_services
+
+
+@pytest.fixture(scope="module")
 def hex_mock_api_runner(docker_compose_runner, test_resources_dir):
     docker_dir = test_resources_dir / "docker"
 
@@ -71,6 +89,7 @@ def test_hex_ingestion(pytestconfig, hex_mock_api_runner, test_resources_dir, tm
                     "base_url": "http://localhost:8000/api/v1",  # Mock Hex API URL
                     "platform_instance": "hex_test",
                     "include_lineage": False,
+                    "include_context_documents": True,
                 },
             },
             "sink": {
@@ -108,18 +127,15 @@ def test_hex_ingestion_with_lineage(
     pipeline = Pipeline.create(
         {
             "pipeline_name": "test-hex-with-lineage",
-            "datahub_api": {
-                "server": "http://localhost:8010",  # Mock DataHub API URL
-            },
             "source": {
                 "type": "hex",
                 "config": {
-                    "workspace_name": "some-hex-workspace",
+                    "workspace_name": "test-workspace",
                     "token": "test-token",
-                    "base_url": "http://localhost:8000/api/v1",  # Mock Hex API URL
+                    "base_url": "http://localhost:8000/api/v1",
                     "platform_instance": "hex_test",
                     "include_lineage": True,
-                    "datahub_page_size": 1,  # Force pagination
+                    "include_context_documents": True,
                     "stateful_ingestion": {
                         "enabled": False,
                     },
@@ -139,6 +155,54 @@ def test_hex_ingestion_with_lineage(
     pipeline.raise_from_status()
 
     # Check against golden file
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/hex_mces.json",
+        golden_path=golden_path,
+        ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_hex_ingestion_enterprise(
+    pytestconfig, hex_mock_api_enterprise_runner, test_resources_dir, tmp_path
+):
+    """ENTERPRISE tier: queriedTables returns data, dataset lineage comes from there
+    while column lineage is cross-validated against the queriedTables result set."""
+    golden_dir = test_resources_dir / "golden"
+    golden_path = golden_dir / "hex_mce_golden_enterprise.json"
+
+    pipeline = Pipeline.create(
+        {
+            "pipeline_name": "test-hex-enterprise",
+            "source": {
+                "type": "hex",
+                "config": {
+                    "workspace_name": "test-workspace",
+                    "token": "test-token",
+                    "base_url": "http://localhost:8001/api/v1",
+                    "platform_instance": "hex_test",
+                    "include_lineage": True,
+                    "use_queried_tables_lineage": True,
+                    "include_context_documents": False,
+                    "stateful_ingestion": {
+                        "enabled": False,
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/hex_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=f"{tmp_path}/hex_mces.json",

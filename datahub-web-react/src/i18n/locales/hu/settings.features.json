@@ -1,0 +1,21 @@
+{
+    "cloudLabel": "DataHub Cloud",
+    "docPropagation.assetLevelDescription": "Új dokumentáció terjesztése a forrásoldali eszközökről a céloldali eszközökre a Lineage-kapcsolatok alapján.",
+    "docPropagation.assetLevelTitle": "Eszközszintű terjesztés",
+    "docPropagation.backfillButton": "Inicializálás",
+    "docPropagation.backfillTitle": "Meglévő dokumentáció visszatöltése a forrásoldali oszlopokról/eszközökről a céloldali oszlopokra/eszközökre",
+    "docPropagation.columnLevelDescription": "Új dokumentáció terjesztése a forrásoldali oszlopokról a céloldali oszlopokra az oszlopszintű Lineage-kapcsolatok alapján.",
+    "docPropagation.columnLevelTitle": "Oszlopszintű terjesztés",
+    "docPropagation.comingSoon": "Hamarosan!",
+    "docPropagation.description": "Dokumentáció automatikus terjesztése a forrásoldali oszlopokról és eszközökről a céloldali oszlopokra és eszközökre.",
+    "docPropagation.rollbackButton": "Visszavonás",
+    "docPropagation.rollbackTitle": "Terjesztési módosítások visszavonása",
+    "docPropagation.title": "Dokumentáció terjesztése",
+    "docPropagation.updateError": "Nem sikerült frissíteni a dokumentációterjesztési beállításokat",
+    "docPropagation.updateSuccess": "A dokumentációterjesztési beállítások sikeresen frissítve",
+    "learnMore": "További információ",
+    "newLabel": "Új!",
+    "onlyOnCloud": "Csak a DataHub Cloudban érhető el",
+    "pageSubTitle": "Konkrét funkciók felfedezése és konfigurálása",
+    "pageTitle": "Funkciók"
+}

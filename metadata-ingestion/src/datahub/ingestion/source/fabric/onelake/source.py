@@ -30,22 +30,20 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
-    GenericContainerSubTypes,
 )
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
-from datahub.ingestion.source.fabric.common.models import WorkspaceKey
+from datahub.ingestion.source.fabric.common.models import FabricWorkspace, WorkspaceKey
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_lakehouse_name,
     make_schema_name,
     make_table_name,
     make_warehouse_name,
-    make_workspace_name,
 )
+from datahub.ingestion.source.fabric.common.utils import build_workspace_container
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceConfig
 from datahub.ingestion.source.fabric.onelake.constants import (
@@ -57,7 +55,6 @@ from datahub.ingestion.source.fabric.onelake.models import (
     FabricTable,
     FabricView,
     FabricWarehouse,
-    FabricWorkspace,
 )
 from datahub.ingestion.source.fabric.onelake.report import (
     FabricOneLakeClientReport,
@@ -66,9 +63,6 @@ from datahub.ingestion.source.fabric.onelake.report import (
 from datahub.ingestion.source.fabric.onelake.usage import FabricUsageExtractor
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -141,7 +135,7 @@ class WarehouseSchemaKey(WarehouseKey):
 
 @platform_name("Fabric OneLake")
 @config_class(FabricOneLakeSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -241,14 +235,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # names keep their original case for the UI.
         return name.lower() if self.config.convert_urns_to_lowercase else name
 
-    def get_workunit_processors(self) -> list[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_report(self) -> FabricOneLakeSourceReport:
         """Return the ingestion report."""
         return self.report
@@ -297,22 +283,26 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 logger.info(f"Processing workspace: {workspace.name} ({workspace.id})")
 
                 try:
-                    # Create workspace container
-                    yield from self._create_workspace_container(workspace)
+                    yield from build_workspace_container(
+                        workspace=workspace,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
 
                     # Process items (lakehouses and warehouses)
                     yield from self._process_workspace_items(workspace)
 
                 except Exception as e:
-                    self.report.report_warning(
+                    self.report.warning(
                         title="Failed to Process Workspace",
                         message="Error processing workspace. Skipping to next.",
                         context=f"workspace={workspace.name}",
                         exc=e,
+                        log=False,
                     )
 
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to List Workspaces",
                 message="Unable to retrieve workspaces from Fabric.",
                 context="",
@@ -335,7 +325,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             aggregator_drain_succeeded = True
             logger.info(f"SQL aggregator drained: emitted {emitted} MCPs")
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to Generate Lineage / Usage",
                 message="Error draining SQL aggregator for lineage and usage.",
                 context=f"mcps_emitted_before_failure={emitted}",
@@ -350,27 +340,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             and not self.report.usage_run_skipped
         ):
             self.usage_extractor.update_state_on_success()
-
-    def _create_workspace_container(
-        self, workspace: FabricWorkspace
-    ) -> Iterable[Container]:
-        """Create a workspace container."""
-        container_key = WorkspaceKey(
-            instance=self.config.platform_instance,
-            env=self.config.env,
-            workspace_id=workspace.id,
-        )
-
-        container = Container(
-            container_key=container_key,
-            display_name=workspace.name,
-            description=workspace.description,
-            subtype=GenericContainerSubTypes.FABRIC_WORKSPACE,
-            parent_container=None,  # Workspace is root container
-            qualified_name=make_workspace_name(workspace.id),
-        )
-
-        yield container
 
     def _process_workspace_items(
         self, workspace: FabricWorkspace
@@ -391,11 +360,12 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     )
                     yield from self._process_lakehouse(workspace, lakehouse)
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to List Lakehouses",
                     message="Unable to retrieve lakehouses from workspace.",
                     context=f"workspace={workspace.name}",
                     exc=e,
+                    log=False,
                 )
 
         # Process warehouses
@@ -413,11 +383,12 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     )
                     yield from self._process_warehouse(workspace, warehouse)
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to List Warehouses",
                     message="Unable to retrieve warehouses from workspace.",
                     context=f"workspace={workspace.name}",
                     exc=e,
+                    log=False,
                 )
 
     def _process_lakehouse(
@@ -602,6 +573,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     else FABRIC_SQL_DEFAULT_SCHEMA
                 )
 
+                # Filter schemas
+                if not self.config.schema_pattern.allowed(normalized_schema):
+                    self.report.report_schema_filtered(normalized_schema)
+                    continue
+
                 # Filter tables
                 table_full_name = f"{normalized_schema}.{table.name}"
 
@@ -651,11 +627,12 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     )
 
         except Exception as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to Process Tables",
                 message="Unable to retrieve tables from item.",
                 context=f"item_id={item_id}, item_type={item_type}",
                 exc=e,
+                log=False,
             )
 
     def _get_columns(
@@ -785,7 +762,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 "usage statistics will be skipped for this item.",
                 exc_info=True,
             )
-            self.report.report_warning(
+            self.report.warning(
                 title="SQL Analytics Endpoint Initialization Failed",
                 message=(
                     "Failed to initialize the SQL Analytics Endpoint client. "
@@ -794,6 +771,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 ),
                 context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
                 exc=e,
+                log=False,
             )
             return None
 
@@ -822,7 +800,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 "Tables and views will be emitted without column-level schema.",
                 exc_info=True,
             )
-            self.report.report_warning(
+            self.report.warning(
                 title="Column Metadata Extraction Failed",
                 message=(
                     "Failed to query INFORMATION_SCHEMA.COLUMNS. Tables and views "
@@ -830,6 +808,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 ),
                 context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
                 exc=e,
+                log=False,
             )
             return {}
 
@@ -889,13 +868,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 "Views will be missing for this item.",
                 exc_info=True,
             )
-            self.report.report_warning(
+            self.report.warning(
                 title="View Discovery Failed",
                 message=(
                     "Failed to query INFORMATION_SCHEMA.VIEWS. Views will be missing for this item."
                 ),
                 context=f"item_id={item_id}, item_type={item_type}",
                 exc=e,
+                log=False,
             )
             return
 
@@ -908,6 +888,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             normalized_schema = (
                 view.schema_name if view.schema_name else FABRIC_SQL_DEFAULT_SCHEMA
             )
+
+            # Filter schemas
+            if not self.config.schema_pattern.allowed(normalized_schema):
+                self.report.report_schema_filtered(normalized_schema)
+                continue
 
             view_full_name = f"{normalized_schema}.{view.name}"
             if not self.config.view_pattern.allowed(view_full_name):

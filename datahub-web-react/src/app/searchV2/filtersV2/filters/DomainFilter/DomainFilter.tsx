@@ -1,5 +1,6 @@
 import { debounce } from 'lodash';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { EntityIconWithName } from '@app/searchV2/filtersV2/filters/BaseEntityFilter/components/EntityIconWithName';
 import useDomainsFromAggregations from '@app/searchV2/filtersV2/filters/DomainFilter/hooks/useDomainsFromAggregations';
@@ -14,6 +15,7 @@ import { NestedSelectOption } from '@src/alchemy-components/components/Select/Ne
 import { Domain, EntityType, FilterOperator } from '@src/types.generated';
 
 export default function DomainFilter({ fieldName, facetState, appliedFilters, onUpdate }: FilterComponentProps) {
+    const { t } = useTranslation('search');
     const [entities, setEntities] = useState<Domain[]>([]);
     const [query, setQuery] = useState<string>('');
     const values = useValues(appliedFilters);
@@ -61,7 +63,7 @@ export default function DomainFilter({ fieldName, facetState, appliedFilters, on
             showClear
             shouldDisplayConfirmationFooter
             shouldAlwaysSyncParentValues
-            selectLabelProps={{ variant: 'labeled', label: 'Domains' }}
+            selectLabelProps={{ variant: 'labeled', label: t('filtersV2.domainFilter.label') }}
         />
     );
 }

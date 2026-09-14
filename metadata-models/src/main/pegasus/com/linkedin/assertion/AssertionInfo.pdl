@@ -3,13 +3,14 @@ namespace com.linkedin.assertion
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
 import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
 
 /**
  * Information about an assertion
  */
 @Aspect = {
   "name": "assertionInfo",
-  "schemaVersion": 3
+  "schemaVersion": 6
 }
 record AssertionInfo includes CustomProperties, ExternalReference {
     /**
@@ -17,13 +18,16 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     */
     @Searchable = {
       "fieldName": "assertionType",
-      "fieldType": "KEYWORD"
+      "fieldType": "KEYWORD",
+      "addToFilters": true
     }
     type: AssertionType
 
     /**
-    * A Dataset Assertion definition. This field is populated when the type is DATASET.
+    * @deprecated A Dataset Assertion definition. This field is populated when the type is DATASET.
+    * Prefer customAssertion with AssertionType.CUSTOM for external assertions.
     */
+    @deprecated = "Use customAssertion with AssertionType.CUSTOM for external assertions."
     datasetAssertion: optional DatasetAssertionInfo
 
     /**
@@ -90,8 +94,21 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     description: optional string
 
     /**
+    * @deprecated Use the assertionNote aspect instead. This field is retained for backward
+    * compatibility during migration and will be removed in a future release.
+    *
     * An optional note to give technical owners more context about the assertion, and how to troubleshoot it.
     * The UI will render this in markdown format.
     */
+    @deprecated = "Use the assertionNote aspect instead."
     note: optional AssertionNote
+
+    /**
+    * The entity targeted by this assertion. Automatically populated from the type-specific assertion definition.
+    */
+    @Searchable = {
+      "fieldType": "URN",
+      "fieldName": "entity"
+    }
+    entityUrn: optional Urn
 }

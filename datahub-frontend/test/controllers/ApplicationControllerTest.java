@@ -358,8 +358,27 @@ public class ApplicationControllerTest {
   }
 
   @Test
+  void mapPath_apiV2Graphql_preservesOperationNameQuery() throws Exception {
+    assertEquals(
+        "/api/graphql?operationName=appConfig",
+        invokeMapPath("/api/v2/graphql?operationName=appConfig"));
+  }
+
+  @Test
+  void mapPath_apiV2Graphql_dropsMalformedQueryButStillMapsPath() throws Exception {
+    // Unencoded space / braces are illegal in URI.create; drop query, keep GraphQL rewrite.
+    assertEquals("/api/graphql", invokeMapPath("/api/v2/graphql?operationName=app Config"));
+    assertEquals("/api/graphql", invokeMapPath("/api/v2/graphql?filter={}"));
+  }
+
+  @Test
   void mapPath_apiGmsPrefix_stripsGmsPrefix() throws Exception {
     assertEquals("/entities", invokeMapPath("/api/gms/entities"));
+  }
+
+  @Test
+  void mapPath_apiGmsPrefix_preservesQueryString() throws Exception {
+    assertEquals("/entities?aspects=List", invokeMapPath("/api/gms/entities?aspects=List"));
   }
 
   @Test
@@ -391,6 +410,33 @@ public class ApplicationControllerTest {
             configWithBasePath,
             mock(GracefulShutdownModule.class));
     assertEquals("/api/graphql", invokeMapPath(appWithBasePath, "/datahub/api/graphql"));
+  }
+
+  @Test
+  void mapPath_withBasePath_preservesGraphqlOperationNameQuery() throws Exception {
+    Map<String, Object> configMap = new HashMap<>();
+    configMap.put("datahub.basePath", "/datahub");
+    configMap.put("proxy.streamingPathPrefixes", "");
+    Config configWithBasePath = ConfigFactory.parseMap(configMap);
+    Application appWithBasePath =
+        new Application(
+            mock(HttpClient.class),
+            mock(Environment.class),
+            configWithBasePath,
+            mock(GracefulShutdownModule.class));
+    assertEquals(
+        "/api/graphql?operationName=appConfig",
+        invokeMapPath(appWithBasePath, "/datahub/api/v2/graphql?operationName=appConfig"));
+  }
+
+  @Test
+  void proxy_malformedPath_returnsBadRequestWithoutCallingUpstream() throws Exception {
+    Http.Request request = mockProxyRequest("/api/gms/foo bar", Optional.empty());
+
+    Result result = application.proxy("foo bar", request).get();
+
+    assertEquals(400, result.status());
+    verify(mockHttpClient, never()).sendAsync(any(), any());
   }
 
   private Http.Request mockProxyRequest(String uri, Optional<String> contentType) {

@@ -1,0 +1,14 @@
+source:
+  type: informix
+  config:
+    host_port: "localhost:9088"
+    server: "informix"
+    database: "testdb"
+    username: "informix"
+    password: "in4mix"
+    accept_ibm_jdbc_license: true
+
+sink:
+  type: file
+  config:
+    filename: "./informix_mces.json"

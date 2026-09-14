@@ -20,6 +20,11 @@ DialectOrStr = Union[sqlglot.Dialect, str]
 SQL_PARSE_CACHE_SIZE = get_sql_parse_cache_size()
 FORMAT_QUERY_CACHE_SIZE = get_sql_parse_cache_size()
 
+# No-op delimiter node types that sqlglot emits inside Block/multi-statement
+# results but carry no semantic content. Semicolon appears when a trailing ";"
+# has an attached comment; EndStatement appears for T-SQL BEGIN/END wrappers.
+_NOOP_EXPRESSION_TYPES = (sqlglot.exp.Semicolon, sqlglot.exp.EndStatement)
+
 # Snowflake governance DDL syntax that sqlglot does not support. When sqlglot
 # encounters any of these it silently falls back to parsing the whole statement
 # as a Command node, causing DataHub to lose all lineage for that statement.
@@ -58,6 +63,36 @@ def _sanitize_snowflake_ddl(sql: str) -> str:
     return sql
 
 
+# T-SQL temp tables whose name begins with a digit after the `#`/`##` prefix
+# (e.g. `#63114Actual`, `##2025Totals`). sqlglot's tokenizer lexes the leading
+# digit run as a NUMBER, so the parser sees `# NUMBER ...`, raises "Expected table
+# name but got NUMBER", and the ENTIRE statement's lineage is lost (including the
+# real FROM source). Wrapping the name in `[...]` (a T-SQL delimited identifier)
+# makes sqlglot read it as one identifier; the normalized name still starts with
+# `#`, so downstream temp-table detection (startswith("#")) is unaffected.
+#
+# The first alternative matches (and passes through unchanged) string literals and
+# comments, so a `#<digit>` that is data inside a string/comment is never bracketed.
+# Letter-leading names (`#temp`) already parse and are left alone.
+_TSQL_DIGIT_TEMP_TABLE = re.compile(
+    r"""
+      (?P<skip>'(?:[^']|'')*' | --[^\n]* | /\*.*?\*/)   # string / line / block comment
+    | (?<![\w$@#\[])(?P<temp>\#\#?\d[\w$@#]*)           # #<digit>... not mid-token / pre-bracketed
+    """,
+    re.VERBOSE | re.DOTALL,
+)
+
+
+def _sanitize_tsql_temp_tables(sql: str) -> str:
+    """Bracket T-SQL `#`/`##` temp-table names that start with a digit (see pattern above)."""
+
+    def _bracket(m: re.Match) -> str:
+        temp = m.group("temp")
+        return f"[{temp}]" if temp else m.group(0)
+
+    return _TSQL_DIGIT_TEMP_TABLE.sub(_bracket, sql)
+
+
 def get_dialect(platform: DialectOrStr) -> sqlglot.Dialect:
     if isinstance(platform, sqlglot.Dialect):
         return platform
@@ -90,33 +125,38 @@ def _parse_statement(
         )
 
     # Handle Block statements from sqlglot v29+
-    # Sqlglot parses SQL with double semicolons (e.g., "CREATE VIEW ...;\n;") as
-    # Block([stmt1, None, ...]) where None represents empty statements between semicolons.
-    # We only process the non None statement, if there is 1 and only 1.
+    # Sqlglot wraps multi-expression results as Block([stmt, ...]). Several
+    # cases produce no-op delimiter nodes we must discard:
+    #  1. Double semicolons ("CREATE VIEW ...;\n;") → Block([Create, None])
+    #  2. Semicolons with attached comments ("...;\n-- comment") → Block([stmt, Semicolon])
+    #  3. T-SQL BEGIN/END wrappers → Block([stmt, EndStatement])
+    # We filter all three and proceed only when exactly one real statement remains.
     if isinstance(statement, sqlglot.exp.Block):
         if not statement.expressions:
             raise sqlglot.errors.ParseError(
                 "Block statement must have at least one expression"
             )
 
-        # Filter out None expressions (empty statements from double semicolons)
-        non_none_expressions = [e for e in statement.expressions if e is not None]
+        real_expressions = [
+            e
+            for e in statement.expressions
+            if e is not None and not isinstance(e, _NOOP_EXPRESSION_TYPES)
+        ]
 
-        if not non_none_expressions:
+        if not real_expressions:
             raise sqlglot.errors.ParseError(
-                "Block contains only None expressions - no valid SQL statement found"
+                "Block contains no executable statements - no valid SQL found"
             )
 
-        if len(non_none_expressions) > 1:
+        if len(real_expressions) > 1:
             # parse_statement expects a single statement, not multiple
             raise sqlglot.errors.ParseError(
-                f"Block contains {len(non_none_expressions)} statements: "
-                f"{[type(e).__name__ for e in non_none_expressions]}. "
+                f"Block contains {len(real_expressions)} statements: "
+                f"{[type(e).__name__ for e in real_expressions]}. "
                 f"Use parse_statements_and_pick() for multi-statement SQL."
             )
 
-        # Return the single non-None statement
-        statement = non_none_expressions[0]
+        statement = real_expressions[0]
 
     return statement
 
@@ -133,6 +173,11 @@ def parse_statement(
         if sanitized != sql:
             logger.debug("Sanitized Snowflake DDL: %s -> %s", sql, sanitized)
         sql = sanitized
+    if isinstance(sql, str) and is_dialect_instance(dialect, "tsql"):
+        sanitized = _sanitize_tsql_temp_tables(sql)
+        if sanitized != sql:
+            logger.debug("Sanitized T-SQL temp tables: %s -> %s", sql, sanitized)
+        sql = sanitized
     return _parse_statement(sql, dialect).copy()
 
 
@@ -143,8 +188,14 @@ def parse_statements_and_pick(sql: str, platform: DialectOrStr) -> sqlglot.exp.E
     logger.debug("Parsing SQL query: %s", sql)
 
     dialect = get_dialect(platform)
+    # Filter no-op delimiter nodes (Semicolon, EndStatement) that sqlglot
+    # produces for trailing semicolons with attached comments or T-SQL
+    # BEGIN/END wrappers. Without this, a stray Semicolon could be silently
+    # picked as the "main query" via statements[-1].
     statements = [
-        expression for expression in sqlglot.parse(sql, dialect=dialect) if expression
+        expression
+        for expression in sqlglot.parse(sql, dialect=dialect)
+        if expression and not isinstance(expression, _NOOP_EXPRESSION_TYPES)
     ]
     if not statements:
         raise ValueError(f"No statements found in query: {sql}")
@@ -307,6 +358,20 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
         if isinstance(node, (sqlglot.exp.In, sqlglot.exp.Values)):
             _simplify_node_expressions(node)
         elif isinstance(node, sqlglot.exp.Literal):
+            # A Redshift `COPY ... CREDENTIALS '<secret>'` parses the credentials
+            # as a Literal directly under a Credentials node. sqlglot's
+            # credentials_sql generator dispatches on isinstance(child, Literal)
+            # to choose the Redshift scalar form over the Snowflake key=value
+            # list; a Placeholder there routes into the list path that iterates
+            # the node and raises "TypeError: 'Placeholder' object is not
+            # iterable". Redact to a constant literal instead: serialization
+            # stays on the scalar path, the secret never lands in the generalized
+            # query text, and fingerprints stay independent of the credentials.
+            if (
+                isinstance(node.parent, sqlglot.exp.Credentials)
+                and node.arg_key == "credentials"
+            ):
+                return sqlglot.exp.Literal.string("**REDACTED**")
             return sqlglot.exp.Placeholder()
 
         return node
@@ -332,7 +397,11 @@ def get_query_fingerprint_debug(
             )
         else:
             expression_sql = generalize_query_fast(expression, dialect=platform)
-    except (ValueError, sqlglot.errors.SqlglotError) as e:
+    except (ValueError, TypeError, sqlglot.errors.SqlglotError) as e:
+        # TypeError guards against sqlglot generator bugs that fail to serialize
+        # an otherwise-parseable statement (e.g. exotic COPY / credentials
+        # forms). Fingerprinting is best-effort with a raw-text fallback, so it
+        # must never propagate and abort ingestion.
         if not isinstance(expression, str):
             raise
 

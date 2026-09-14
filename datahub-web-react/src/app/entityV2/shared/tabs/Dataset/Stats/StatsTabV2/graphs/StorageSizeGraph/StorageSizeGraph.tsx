@@ -22,6 +22,10 @@ import { formatBytes, formatNumberWithoutAbbreviation } from '@src/app/shared/fo
 import { TimeRange } from '@src/types.generated';
 import dayjs from '@utils/dayjs';
 
+// dayjs format tokens (localized date strings), not user-visible text.
+const AXIS_TICK_FORMAT = 'DD MMM';
+const POPOVER_HEADER_FORMAT = 'dddd. MMM. D ’YY';
+
 export default function StorageSizeGraph() {
     const { t } = useTranslation('entity.profile.stats');
     const {
@@ -86,12 +90,12 @@ export default function StorageSizeGraph() {
                 <LineChart
                     dataTestId="storage-size-chart"
                     data={data}
-                    bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
+                    bottomAxisProps={{ tickFormat: (x) => dayjs(x).format(AXIS_TICK_FORMAT) }}
                     leftAxisProps={{ hideZero: true, tickFormat: bytesFormatter }}
                     margin={{ left: 50 }}
                     popoverRenderer={(datum: StorageSizeData) => (
                         <GraphPopover
-                            header={dayjs(datum.x).format('dddd. MMM. D ’YY')}
+                            header={dayjs(datum.x).format(POPOVER_HEADER_FORMAT)}
                             value={bytesFormatter(datum.y)}
                             pills={<MonthOverMonthPill value={datum.mom} />}
                         />

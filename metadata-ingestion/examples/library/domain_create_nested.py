@@ -9,7 +9,7 @@ from datahub.metadata.schema_classes import DomainPropertiesClass
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-domain_urn = make_domain_urn("marketing")
+domain_urn = make_domain_urn("verticals")
 domain_properties_aspect = DomainPropertiesClass(
     name="Verticals",
     description="Entities related to the verticals sub-domain",

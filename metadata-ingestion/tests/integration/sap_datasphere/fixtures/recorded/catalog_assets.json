@@ -1,0 +1,60 @@
+{
+  "@odata.context": "https://RECORDED_TENANT/api/v1/dwc/catalog/$metadata#assets",
+  "value": [
+    {
+      "name": "SAP.TIME.VIEW_DIMENSION_DAY",
+      "label": "Time Dimension - Day",
+      "spaceName": "DEMO_SPACE",
+      "assetRelationalMetadataUrl": "https://RECORDED_TENANT/api/v1/dwc/consumption/relational/DEMO_SPACE/SAP.TIME.VIEW_DIMENSION_DAY/$metadata",
+      "assetRelationalDataUrl": "https://RECORDED_TENANT/api/v1/dwc/consumption/relational/DEMO_SPACE/SAP.TIME.VIEW_DIMENSION_DAY/",
+      "assetAnalyticalMetadataUrl": null,
+      "assetAnalyticalDataUrl": null,
+      "supportsAnalyticalQueries": false,
+      "hasParameters": false
+    },
+    {
+      "name": "SAP.TIME.VIEW_DIMENSION_MONTH",
+      "label": "Time Dimension - Month",
+      "spaceName": "DEMO_SPACE",
+      "assetRelationalMetadataUrl": "https://RECORDED_TENANT/api/v1/dwc/consumption/relational/DEMO_SPACE/SAP.TIME.VIEW_DIMENSION_MONTH/$metadata",
+      "assetRelationalDataUrl": "https://RECORDED_TENANT/api/v1/dwc/consumption/relational/DEMO_SPACE/SAP.TIME.VIEW_DIMENSION_MONTH/",
+      "assetAnalyticalMetadataUrl": null,
+      "assetAnalyticalDataUrl": null,
+      "supportsAnalyticalQueries": false,
+      "hasParameters": false
+    },
+    {
+      "name": "SAP.TIME.VIEW_DIMENSION_QUARTER",
+      "label": "Time Dimension - Quarter",
+      "spaceName": "DEMO_SPACE",
+      "assetRelationalMetadataUrl": "https://RECORDED_TENANT/api/v1/dwc/consumption/relational/DEMO_SPACE/SAP.TIME.VIEW_DIMENSION_QUARTER/$metadata",
+      "assetRelationalDataUrl": "https://RECORDED_TENANT/api/v1/dwc/consumption/relational/DEMO_SPACE/SAP.TIME.VIEW_DIMENSION_QUARTER/",
+      "assetAnalyticalMetadataUrl": null,
+      "assetAnalyticalDataUrl": null,
+      "supportsAnalyticalQueries": false,
+      "hasParameters": false
+    },
+    {
+      "name": "SAP.TIME.VIEW_DIMENSION_YEAR",
+      "label": "Time Dimension - Year",
+      "spaceName": "DEMO_SPACE",
+      "assetRelationalMetadataUrl": "https://RECORDED_TENANT/api/v1/dwc/consumption/relational/DEMO_SPACE/SAP.TIME.VIEW_DIMENSION_YEAR/$metadata",
+      "assetRelationalDataUrl": "https://RECORDED_TENANT/api/v1/dwc/consumption/relational/DEMO_SPACE/SAP.TIME.VIEW_DIMENSION_YEAR/",
+      "assetAnalyticalMetadataUrl": null,
+      "assetAnalyticalDataUrl": null,
+      "supportsAnalyticalQueries": false,
+      "hasParameters": false
+    },
+    {
+      "name": "Test_Analytic_Model",
+      "label": "Test Analytic Model",
+      "spaceName": "DEMO_SPACE",
+      "assetRelationalMetadataUrl": null,
+      "assetRelationalDataUrl": null,
+      "assetAnalyticalMetadataUrl": "https://RECORDED_TENANT/api/v1/datasphere/consumption/analytical/DEMO_SPACE/Test_Analytic_Model/$metadata",
+      "assetAnalyticalDataUrl": "https://RECORDED_TENANT/api/v1/datasphere/consumption/analytical/DEMO_SPACE/Test_Analytic_Model/",
+      "supportsAnalyticalQueries": true,
+      "hasParameters": false
+    }
+  ]
+}

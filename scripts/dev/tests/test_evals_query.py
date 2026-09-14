@@ -23,7 +23,6 @@ from _eval_lib import (
     _bash,
     _fmt,
     _read,
-    _text,
     make_main,
 )
 

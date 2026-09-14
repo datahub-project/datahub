@@ -27,8 +27,8 @@ class TestUserResolverLoadUsers:
         assert len(resolver._user_cache) == 2
         assert resolver._user_cache["u1"].email == "alice@example.com"
         assert resolver._user_cache["u2"].email == "bob@example.com"
-        mock_report.report_warning.assert_not_called()
-        mock_report.report_failure.assert_not_called()
+        mock_report.warning.assert_not_called()
+        mock_report.failure.assert_not_called()
 
     def test_load_users_no_client(self):
         """Test that load_users does nothing when no client is provided."""
@@ -47,9 +47,10 @@ class TestUserResolverLoadUsers:
         resolver.load_users()
 
         assert len(resolver._user_cache) == 0
-        mock_report.report_warning.assert_called_once()
-        assert "user_loading" in mock_report.report_warning.call_args[0]
-        assert "API" in mock_report.report_warning.call_args[0][1]
+        mock_report.warning.assert_called_once()
+        call_kwargs = mock_report.warning.call_args.kwargs
+        assert call_kwargs["context"] == "user_loading"
+        assert "API" in call_kwargs["message"]
 
     def test_load_users_unexpected_error_reports_failure(self):
         """Test that unexpected errors are reported as failures."""
@@ -61,9 +62,10 @@ class TestUserResolverLoadUsers:
         resolver.load_users()
 
         assert len(resolver._user_cache) == 0
-        mock_report.report_failure.assert_called_once()
-        assert "user_loading" in mock_report.report_failure.call_args[0]
-        assert "Unexpected" in mock_report.report_failure.call_args[0][1]
+        mock_report.failure.assert_called_once()
+        call_kwargs = mock_report.failure.call_args.kwargs
+        assert call_kwargs["context"] == "user_loading"
+        assert "Unexpected" in call_kwargs["message"]
 
     def test_load_users_caches_by_name_and_display_name(self):
         """Test that users are cached by both name and display_name."""

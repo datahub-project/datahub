@@ -3,6 +3,8 @@ import React from 'react';
 
 import '@conf/monaco';
 
+const EDITOR_LANGUAGE = 'yaml';
+
 type Props = {
     initialText: string;
     onChange: (change: any) => void;
@@ -19,7 +21,7 @@ export const YamlEditor = ({ initialText, onChange }: Props) => {
                 },
             }}
             height="55vh"
-            defaultLanguage="yaml"
+            defaultLanguage={EDITOR_LANGUAGE}
             value={initialText}
             onChange={onChange}
         />

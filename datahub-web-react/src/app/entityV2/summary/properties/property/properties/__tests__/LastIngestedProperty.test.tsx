@@ -17,30 +17,30 @@ vi.mock('@app/entityV2/summary/properties/property/properties/BaseProperty', () 
 
 const PROP = { type: SummaryElementType.LastIngested, name: 'Last Synced' };
 
-const makeContext = (document: Partial<Document> & { lastIngested?: number | null }) => ({
+const makeContext = (entityType: EntityType, entityData: Partial<Document> & { lastIngested?: number | null }) => ({
     urn: 'urn:li:document:test',
-    entityType: EntityType.Document,
-    entityData: document as unknown as GenericEntityProperties,
+    entityType,
+    entityData: entityData as unknown as GenericEntityProperties,
     loading: false,
-    baseEntity: document as unknown as GenericEntityProperties,
+    baseEntity: entityData as unknown as GenericEntityProperties,
     dataNotCombinedWithSiblings: undefined,
     routeToTab: () => {},
     refetch: async () => ({}),
     lineage: undefined,
 });
 
-const renderProp = (document: Partial<Document> & { lastIngested?: number | null }) =>
+const renderProp = (entityType: EntityType, entityData: Partial<Document> & { lastIngested?: number | null }) =>
     render(
         <CustomThemeProvider>
-            <EntityContext.Provider value={makeContext(document)}>
+            <EntityContext.Provider value={makeContext(entityType, entityData)}>
                 <LastIngestedProperty property={PROP} position={0} />
             </EntityContext.Provider>
         </CustomThemeProvider>,
     );
 
-describe('LastIngestedProperty — external-only gate', () => {
+describe('LastIngestedProperty', () => {
     it('shows lastIngested for external documents', () => {
-        renderProp({
+        renderProp(EntityType.Document, {
             type: EntityType.Document,
             lastIngested: 1716000000000,
             info: {
@@ -53,7 +53,7 @@ describe('LastIngestedProperty — external-only gate', () => {
     });
 
     it('hides lastIngested for native documents even when value is present', () => {
-        renderProp({
+        renderProp(EntityType.Document, {
             type: EntityType.Document,
             lastIngested: 1716000000000,
             info: {
@@ -65,8 +65,8 @@ describe('LastIngestedProperty — external-only gate', () => {
         expect(screen.getByTestId('base-property').textContent).toBe('empty');
     });
 
-    it('hides lastIngested when source type is not set', () => {
-        renderProp({
+    it('hides lastIngested when document source type is not set', () => {
+        renderProp(EntityType.Document, {
             type: EntityType.Document,
             lastIngested: 1716000000000,
             info: { title: 'Doc', contents: { text: '' } } as any,
@@ -75,7 +75,7 @@ describe('LastIngestedProperty — external-only gate', () => {
     });
 
     it('hides lastIngested for external documents when value is null', () => {
-        renderProp({
+        renderProp(EntityType.Document, {
             type: EntityType.Document,
             lastIngested: null,
             info: {
@@ -85,5 +85,12 @@ describe('LastIngestedProperty — external-only gate', () => {
             } as any,
         });
         expect(screen.getByTestId('base-property').textContent).toBe('empty');
+    });
+
+    it('shows lastIngested for non-document entities when value is present', () => {
+        renderProp(EntityType.SemanticModel, {
+            lastIngested: 1716000000000,
+        });
+        expect(screen.getByTestId('base-property').textContent).toBe('has-value');
     });
 });

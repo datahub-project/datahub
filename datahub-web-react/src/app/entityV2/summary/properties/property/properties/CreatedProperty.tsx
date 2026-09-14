@@ -10,6 +10,9 @@ import { Popover } from '@src/alchemy-components';
 
 import { Document, DocumentSourceType, EntityType } from '@types';
 
+const DATE_TIME_FORMAT = 'll LTS';
+const DATE_FORMAT = 'll';
+
 const DateWithTooltip = styled.span`
     cursor: help;
     &:hover {
@@ -41,9 +44,9 @@ export default function CreatedProperty(props: PropertyComponentProps) {
 
     const renderCreated = (timestamp: number) => {
         return (
-            <Popover content={formatTimestamp(timestamp, 'll LTS')} placement="top">
+            <Popover content={formatTimestamp(timestamp, DATE_TIME_FORMAT)} placement="top">
                 <DateWithTooltip>
-                    <Text>{formatTimestamp(timestamp, 'll')}</Text>
+                    <Text>{formatTimestamp(timestamp, DATE_FORMAT)}</Text>
                 </DateWithTooltip>
             </Popover>
         );

@@ -140,12 +140,15 @@ public class EbeanPostgresMetadataQueueStore implements MetadataQueueStore {
 
   @Override
   public long ensureTopic(@Nonnull String topicName, @Nonnull QueueTopicDefaults defaults) {
+    Map<String, Short> txContentTypes = new HashMap<>();
     try (Transaction tx = database.beginTransaction(TxScope.requiresNew())) {
       Connection conn = tx.connection();
       try {
-        insertTopicIfMissing(conn, topicName, resolveEffectiveDefaults(topicName, defaults));
+        insertTopicIfMissing(
+            conn, topicName, resolveEffectiveDefaults(topicName, defaults), txContentTypes);
         long id = getTopicMeta(conn, topicName).id();
         tx.commit();
+        publishContentTypeCache(txContentTypes);
         return id;
       } catch (SQLException e) {
         tx.rollback();
@@ -165,11 +168,12 @@ public class EbeanPostgresMetadataQueueStore implements MetadataQueueStore {
       @Nonnull Optional<String> contentType,
       @Nonnull List<QueueMessageHeader> headers,
       @Nonnull PgQueuePayloadCompression payloadCompression) {
+    Map<String, Short> txContentTypes = new HashMap<>();
     try (Transaction tx = database.beginTransaction(TxScope.requiresNew())) {
       Connection conn = tx.connection();
       try {
         QueueTopicDefaults effective = resolveEffectiveDefaults(topicName, defaults);
-        insertTopicIfMissing(conn, topicName, effective);
+        insertTopicIfMissing(conn, topicName, effective, txContentTypes);
         QueueMessageHandle handle =
             enqueueInOpenTransaction(
                 conn,
@@ -179,8 +183,10 @@ public class EbeanPostgresMetadataQueueStore implements MetadataQueueStore {
                 payload,
                 contentType,
                 payloadCompression,
-                headers);
+                headers,
+                txContentTypes);
         tx.commit();
+        publishContentTypeCache(txContentTypes);
         return handle;
       } catch (SQLException e) {
         tx.rollback();
@@ -196,6 +202,7 @@ public class EbeanPostgresMetadataQueueStore implements MetadataQueueStore {
     if (items.isEmpty()) {
       return List.of();
     }
+    Map<String, Short> txContentTypes = new HashMap<>();
     try (Transaction tx = database.beginTransaction(TxScope.requiresNew())) {
       Connection conn = tx.connection();
       try {
@@ -209,7 +216,7 @@ public class EbeanPostgresMetadataQueueStore implements MetadataQueueStore {
                     try {
                       QueueTopicDefaults effectiveForTopic =
                           resolveEffectiveDefaults(topic, defaults);
-                      insertTopicIfMissing(conn, topic, effectiveForTopic);
+                      insertTopicIfMissing(conn, topic, effectiveForTopic, txContentTypes);
                       return getTopicMeta(conn, topic);
                     } catch (SQLException e) {
                       throw new IllegalStateException(
@@ -225,9 +232,11 @@ public class EbeanPostgresMetadataQueueStore implements MetadataQueueStore {
                   it.payload(),
                   it.contentType(),
                   it.payloadCompression(),
-                  it.headers()));
+                  it.headers(),
+                  txContentTypes));
         }
         tx.commit();
+        publishContentTypeCache(txContentTypes);
         return out;
       } catch (SQLException e) {
         tx.rollback();
@@ -479,13 +488,17 @@ public class EbeanPostgresMetadataQueueStore implements MetadataQueueStore {
    * below the prior catalog value or below {@code MAX(partition_id)+1} for existing message rows
    * (avoids consumers polling fewer partitions than enqueued data).
    */
-  private void insertTopicIfMissing(Connection conn, String topicName, QueueTopicDefaults defaults)
+  private void insertTopicIfMissing(
+      Connection conn,
+      String topicName,
+      QueueTopicDefaults defaults,
+      Map<String, Short> txContentTypes)
       throws SQLException {
     String mime = defaults.defaultContentTypeMime();
     if (mime == null || mime.isBlank()) {
       mime = "application/avro";
     }
-    short defaultCtId = ensureContentTypeRegistered(conn, mime);
+    short defaultCtId = ensureContentTypeRegistered(conn, mime, txContentTypes);
     String sql =
         "INSERT INTO "
             + tableNames.qualifiedTopic()
@@ -550,19 +563,29 @@ public class EbeanPostgresMetadataQueueStore implements MetadataQueueStore {
   }
 
   /**
-   * Resolves {@code mime} to a catalog id without burning the {@code smallint} identity when the
-   * MIME already exists. Lookup first; {@code INSERT … ON CONFLICT DO NOTHING} avoids identity burn
-   * and keeps the transaction valid under concurrent registration (plain INSERT + catch would leave
-   * Postgres in an aborted-transaction state).
+   * Resolves {@code mime} to a catalog id. Lookup first so the common existing-MIME path does not
+   * touch the {@code smallint} identity. {@code INSERT … ON CONFLICT DO NOTHING} keeps the
+   * transaction valid under concurrent registration (plain INSERT + catch would leave Postgres in
+   * an aborted-transaction state). Concurrent first-time inserts of a new MIME may still advance
+   * the identity sequence.
+   *
+   * <p>IDs resolved from the DB are stored only in {@code txContentTypes} until the surrounding
+   * transaction commits. Publishing to the process-wide {@link #contentTypeIdByMime} cache earlier
+   * would let concurrent transactions use an uncommitted FK target.
    */
-  private short ensureContentTypeRegistered(Connection conn, String mime) throws SQLException {
+  private short ensureContentTypeRegistered(
+      Connection conn, String mime, Map<String, Short> txContentTypes) throws SQLException {
     Short cached = contentTypeIdByMime.get(mime);
     if (cached != null) {
       return cached;
     }
+    Short txCached = txContentTypes.get(mime);
+    if (txCached != null) {
+      return txCached;
+    }
     Short existing = lookupContentTypeId(conn, mime);
     if (existing != null) {
-      contentTypeIdByMime.put(mime, existing);
+      txContentTypes.put(mime, existing);
       return existing;
     }
     try (PreparedStatement ins =
@@ -577,8 +600,14 @@ public class EbeanPostgresMetadataQueueStore implements MetadataQueueStore {
     if (inserted == null) {
       throw new IllegalStateException("content_type missing after insert: " + mime);
     }
-    contentTypeIdByMime.put(mime, inserted);
+    txContentTypes.put(mime, inserted);
     return inserted;
+  }
+
+  private void publishContentTypeCache(Map<String, Short> txContentTypes) {
+    if (!txContentTypes.isEmpty()) {
+      contentTypeIdByMime.putAll(txContentTypes);
+    }
   }
 
   @Nullable
@@ -602,12 +631,16 @@ public class EbeanPostgresMetadataQueueStore implements MetadataQueueStore {
    */
   @Nullable
   private Integer computeStoredContentTypeId(
-      Connection conn, QueueTopicMetadata meta, Optional<String> contentType) throws SQLException {
+      Connection conn,
+      QueueTopicMetadata meta,
+      Optional<String> contentType,
+      Map<String, Short> txContentTypes)
+      throws SQLException {
     Optional<Integer> topicDefault = meta.defaultContentTypeId();
     if (contentType.isEmpty()) {
       return null;
     }
-    short id = ensureContentTypeRegistered(conn, contentType.get());
+    short id = ensureContentTypeRegistered(conn, contentType.get(), txContentTypes);
     if (topicDefault.isPresent() && topicDefault.get() == (int) id) {
       return null;
     }
@@ -630,10 +663,12 @@ public class EbeanPostgresMetadataQueueStore implements MetadataQueueStore {
       byte[] payload,
       Optional<String> contentType,
       PgQueuePayloadCompression payloadCompression,
-      List<QueueMessageHeader> headers)
+      List<QueueMessageHeader> headers,
+      Map<String, Short> txContentTypes)
       throws SQLException {
     QueueTopicMetadata.validatePriority(priority);
-    Integer storedContentTypeId = computeStoredContentTypeId(conn, meta, contentType);
+    Integer storedContentTypeId =
+        computeStoredContentTypeId(conn, meta, contentType, txContentTypes);
     int partitionId = MetadataQueueRouting.stablePartitionId(routingKey, meta.partitionCount());
     long topicPk = meta.id();
     long lockKey = MetadataQueueRouting.advisoryLockKey(topicPk, partitionId);

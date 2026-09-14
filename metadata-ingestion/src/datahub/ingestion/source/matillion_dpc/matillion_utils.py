@@ -1,13 +1,10 @@
 import logging
-from typing import Dict, Optional
+from datetime import datetime
+from typing import Dict, List
 
 from datahub.emitter.mce_builder import (
     datahub_guid,
-    make_container_urn,
-    make_data_flow_urn,
-    make_data_job_urn_with_flow,
     make_data_process_instance_urn,
-    make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.ingestion.source.matillion_dpc.config import MatillionSourceConfig
@@ -16,7 +13,6 @@ from datahub.ingestion.source.matillion_dpc.constants import (
 )
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionDatasetInfo,
-    MatillionEnvironment,
     MatillionPipeline,
     MatillionProject,
 )
@@ -28,6 +24,31 @@ PIPELINE_FILE_SUFFIXES = [".orch.yaml", ".tran.yaml", ".yaml", ".yml"]
 
 
 # Standalone utility functions
+
+
+def parse_iso_timestamp(timestamp_str: str) -> datetime:
+    """Parse an ISO timestamp, tolerating Matillion's non-standard microsecond precision.
+
+    The Matillion API sometimes returns timestamps with fewer than 6 microsecond
+    digits (e.g. "2026-02-02T22:53:51.41235+00:00"), which `fromisoformat` rejects,
+    so the fractional part is padded/truncated to exactly 6 digits first.
+    """
+    normalized = timestamp_str.replace("Z", "+00:00")
+
+    if "." in normalized and "+" in normalized:
+        parts = normalized.split(".")
+        if len(parts) == 2:
+            microseconds_and_tz = parts[1]
+            if "+" in microseconds_and_tz:
+                microseconds, tz = microseconds_and_tz.split("+")
+                microseconds = microseconds.ljust(6, "0")[:6]
+                normalized = f"{parts[0]}.{microseconds}+{tz}"
+            elif "-" in microseconds_and_tz:
+                microseconds, tz = microseconds_and_tz.rsplit("-", 1)
+                microseconds = microseconds.ljust(6, "0")[:6]
+                normalized = f"{parts[0]}.{microseconds}-{tz}"
+
+    return datetime.fromisoformat(normalized)
 
 
 def extract_base_pipeline_name(job_name: str) -> str:
@@ -47,6 +68,27 @@ def extract_base_pipeline_name(job_name: str) -> str:
         if base_name.endswith(suffix):
             return base_name[: -len(suffix)]
     return base_name
+
+
+def extract_pipeline_file_name(job_name: str) -> str:
+    """Return the leaf file name, dropping any folder path.
+
+    The console observability search matches the file name, not the folder path.
+    """
+    return job_name.split("/")[-1]
+
+
+def extract_folder_segments(job_name: str) -> List[str]:
+    """Return the folder path segments that precede the pipeline file name.
+
+    Examples:
+        "ingest/staging/orders/load.orch.yaml" ->
+            ["ingest", "staging", "orders"]
+        "pipeline.orch.yaml" -> []
+    """
+    if "/" not in job_name:
+        return []
+    return [segment for segment in job_name.split("/")[:-1] if segment]
 
 
 def normalize_pipeline_name(pipeline_name: str) -> str:
@@ -120,6 +162,26 @@ def make_step_dpi_urn(
     return make_data_process_instance_urn(dpi_id)
 
 
+def make_execution_dpi_urn(
+    config: MatillionSourceConfig,
+    project_id: str,
+    pipeline_name: str,
+    execution_id: str,
+) -> str:
+    dpi_id = datahub_guid(
+        {
+            "platform": MATILLION_PLATFORM,
+            "instance": config.platform_instance,
+            "env": config.env,
+            "project_id": project_id,
+            "pipeline_name": pipeline_name,
+            "execution_id": execution_id,
+            "entity": "execution",
+        }
+    )
+    return make_data_process_instance_urn(dpi_id)
+
+
 def build_data_job_custom_properties(
     pipeline: MatillionPipeline, project: MatillionProject
 ) -> Dict[str, str]:
@@ -127,9 +189,7 @@ def build_data_job_custom_properties(
         "project_id": project.id,
     }
 
-    if hasattr(pipeline, "id") and pipeline.id:
-        custom_properties["pipeline_id"] = pipeline.id
-    if hasattr(pipeline, "published_time") and pipeline.published_time:
+    if pipeline.published_time:
         custom_properties["published_time"] = pipeline.published_time.isoformat()
 
     return custom_properties
@@ -142,67 +202,3 @@ def make_dataset_urn_from_matillion_dataset(dataset: MatillionDatasetInfo) -> st
         env=dataset.env,
         platform_instance=dataset.platform_instance,
     )
-
-
-class MatillionUrnBuilder:
-    def __init__(self, config: MatillionSourceConfig):
-        self.config = config
-
-    def make_project_container_urn(self, project: MatillionProject) -> str:
-        return make_container_urn(
-            guid=project.id,
-        )
-
-    def make_environment_container_urn(
-        self, environment: MatillionEnvironment, project: MatillionProject
-    ) -> str:
-        return make_container_urn(
-            guid=f"{project.id}.{environment.name}",
-        )
-
-    def make_pipeline_urn(
-        self, pipeline: MatillionPipeline, project: MatillionProject
-    ) -> str:
-        # Use GUID to ensure URN safety with special characters in pipeline names
-        flow_id = datahub_guid(
-            {
-                "platform": MATILLION_PLATFORM,
-                "instance": self.config.platform_instance,
-                "env": self.config.env,
-                "project_id": project.id,
-                "pipeline_name": pipeline.name,
-            }
-        )
-        return make_data_flow_urn(
-            orchestrator=MATILLION_PLATFORM,
-            flow_id=flow_id,
-            cluster=self.config.env,
-            platform_instance=self.config.platform_instance or project.name,
-        )
-
-    def make_data_job_urn(
-        self, pipeline: MatillionPipeline, project: MatillionProject
-    ) -> str:
-        flow_urn = self.make_pipeline_urn(pipeline, project)
-
-        # Use GUID to ensure URN safety with special characters in pipeline names
-        job_id = datahub_guid(
-            {
-                "platform": MATILLION_PLATFORM,
-                "instance": self.config.platform_instance,
-                "env": self.config.env,
-                "project_id": project.id,
-                "pipeline_name": pipeline.name,
-                "entity_type": "job",  # Distinguish from flow_id
-            }
-        )
-
-        return make_data_job_urn_with_flow(flow_urn, job_id)
-
-    def make_platform_instance_urn(self) -> Optional[str]:
-        if self.config.platform_instance:
-            return make_dataplatform_instance_urn(
-                platform=MATILLION_PLATFORM,
-                instance=self.config.platform_instance,
-            )
-        return None

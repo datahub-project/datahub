@@ -2,6 +2,7 @@ package com.linkedin.metadata.aspect.plugins.hooks;
 
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.datahub.test.TestEntityProfile;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.events.metadata.ChangeType;
@@ -71,13 +72,17 @@ public class MCPSideEffectTest {
 
     @Override
     protected Stream<ChangeMCP> applyMCPSideEffect(
-        Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        Collection<ChangeMCP> changeMCPS,
+        @Nonnull RetrieverContext retrieverContext) {
       return changeMCPS.stream();
     }
 
     @Override
     protected Stream<MCPItem> postMCPSideEffect(
-        Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        Collection<MCLItem> mclItems,
+        @Nonnull RetrieverContext retrieverContext) {
       return Stream.of();
     }
   }

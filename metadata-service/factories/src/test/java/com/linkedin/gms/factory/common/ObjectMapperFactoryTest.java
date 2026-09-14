@@ -51,4 +51,22 @@ public class ObjectMapperFactoryTest {
         ObjectMapperFactory.API_SANITIZING_MAPPER.getFactory(),
         "Mappers must use separate JsonFactory instances");
   }
+
+  @Test
+  public void testPrimaryMapperAcceptsPropertyNameBeyondJacksonDefault() throws Exception {
+    // Regression: a JSON property name longer than Jackson's default maxNameLength (50,000) must
+    // parse rather than throwing StreamConstraintsException — e.g. deeply-nested dbt struct field
+    // paths carried as keys in upstreamLineage patches. maxNameLength is now raised on this mapper.
+    ObjectMapper mapper = new ObjectMapperFactory().objectMapper();
+    String longName = "f".repeat(60_000);
+    var node = mapper.readTree("{\"" + longName + "\":\"v\"}");
+    assertTrue(node.has(longName), "Property name beyond the default limit must parse");
+  }
+
+  @Test
+  public void testApiSanitizingMapperAcceptsPropertyNameBeyondJacksonDefault() throws Exception {
+    String longName = "f".repeat(60_000);
+    var node = ObjectMapperFactory.API_SANITIZING_MAPPER.readTree("{\"" + longName + "\":\"v\"}");
+    assertTrue(node.has(longName), "Property name beyond the default limit must parse");
+  }
 }

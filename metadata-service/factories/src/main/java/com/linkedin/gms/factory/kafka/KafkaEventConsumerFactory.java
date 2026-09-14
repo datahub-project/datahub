@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.kafka;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.DEFAULT_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCL_BATCH_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCL_EVENT_CONSUMER_NAME;
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCP_BATCH_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCP_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.PE_EVENT_CONSUMER_NAME;
 
@@ -192,6 +193,20 @@ public class KafkaEventConsumerFactory {
         kafkaConsumerFactory,
         configurationProvider.getKafka().getConsumer().isStopOnDeserializationError(),
         configurationProvider.getKafka().getConsumer().getMcp());
+  }
+
+  @Bean(name = MCP_BATCH_EVENT_CONSUMER_NAME)
+  protected KafkaListenerContainerFactory<?> mcpBatchEventConsumer(
+      @Qualifier("kafkaConsumerFactory")
+          DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
+      @Qualifier("configurationProvider") ConfigurationProvider configurationProvider) {
+
+    return buildDefaultKafkaListenerContainerFactory(
+        MCP_BATCH_EVENT_CONSUMER_NAME,
+        kafkaConsumerFactory,
+        configurationProvider.getKafka().getConsumer().isStopOnDeserializationError(),
+        configurationProvider.getKafka().getConsumer().getMcp(),
+        true);
   }
 
   @Bean(name = MCL_EVENT_CONSUMER_NAME)

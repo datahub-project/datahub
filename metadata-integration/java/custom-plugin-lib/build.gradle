@@ -61,8 +61,7 @@ shadowJar {
 
 publishing {
   publications {
-    shadow(MavenPublication) { publication ->
-      project.shadow.component(publication)
+    shadow(MavenPublication) { from components.shadow
       pom {
         name = 'DataHub Custom Plugin Dependency'
         group = 'io.acryl'

@@ -3,6 +3,7 @@ import { Modal } from '@components';
 import { Form, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import { useLocation } from 'react-router-dom';
 
@@ -23,6 +24,7 @@ export default function SignUpModal() {
     const location = useLocation();
 
     const [form] = Form.useForm();
+    const { t } = useTranslation('auth');
 
     const [loading, setLoading] = useState(false);
     const { refreshContext } = useAppConfig();
@@ -63,7 +65,7 @@ export default function SignUpModal() {
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Accepted invite!`,
+                        content: t('signup.acceptedInvite'),
                         duration: 2,
                     });
                 }
@@ -71,7 +73,7 @@ export default function SignUpModal() {
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to accept invite: \n ${e.message || ''}`,
+                    content: t('signup.acceptInviteFailed', { error: e.message || '' }),
                     duration: 3,
                 });
             });
@@ -118,19 +120,19 @@ export default function SignUpModal() {
                     return Promise.resolve();
                 })
                 .catch((_) => {
-                    message.error(`Failed to log in! An unexpected error occurred.`);
+                    message.error(t('signup.loginFailed'));
                 })
                 .finally(() => setLoading(false));
         },
-        [refreshContext, inviteToken],
+        [refreshContext, inviteToken, t],
     );
 
     return (
         <Modal
-            title={<ModalHeader subHeading="Before we get started we just have a few questions" />}
+            title={<ModalHeader subHeading={t('signup.subHeading')} />}
             buttons={[
                 {
-                    text: 'Get Started',
+                    text: t('signup.submitButton'),
                     onClick: () => form.submit(),
                     disabled: isSubmitDisabled,
                     buttonDataTestId: 'sign-up',

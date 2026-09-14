@@ -84,7 +84,7 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
           opContext
               .getSearchContext()
               .getIndexConvention()
-              .getIndexName(ElasticSearchGraphService.INDEX_NAME);
+              .getIndexName(opContext, ElasticSearchGraphService.INDEX_NAME);
 
       return (context) -> {
         BoolQueryBuilder deleteQuery = QueryBuilders.boolQuery();
@@ -92,7 +92,7 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
         deleteQuery.filter(QueryBuilders.termQuery("source.entityType", QUERY_ENTITY_NAME));
 
         try {
-          esWriteDAO.deleteByQuerySync(indexName, deleteQuery, deleteConfig);
+          esWriteDAO.deleteByQuerySync(opContext, indexName, deleteQuery, deleteConfig);
           BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         } catch (Exception e) {

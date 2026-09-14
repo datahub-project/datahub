@@ -19,8 +19,6 @@ test.describe('Entity-level Structured Properties', () => {
     structuredPropertiesPage = new StructuredPropertiesPage(page, logger, logDir);
     datasetPage = new DatasetPage(page, logger, logDir);
 
-    await page.goto('/');
-    await page.waitForLoadState('networkidle');
     await structuredPropertiesPage.navigate();
   });
 

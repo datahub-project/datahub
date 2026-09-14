@@ -1,0 +1,168 @@
+{
+  "definitions": {
+    "SAP.TIME.M_TIME_DIMENSION": {
+      "kind": "entity",
+      "@readonly": true,
+      "elements": {
+        "MONTH": {
+          "type": "cds.String",
+          "@EndUserText.label": "Month",
+          "length": 2
+        },
+        "MONTH_INT": {
+          "type": "cds.hana.TINYINT",
+          "@EndUserText.label": "Month (Number)"
+        },
+        "MONTH_LAST_DAY": {
+          "type": "cds.hana.TINYINT",
+          "@EndUserText.label": "Month Last Day"
+        },
+        "QUARTER": {
+          "type": "cds.String",
+          "@EndUserText.label": "Quarter",
+          "length": 2
+        },
+        "QUARTER_INT": {
+          "type": "cds.hana.TINYINT",
+          "@EndUserText.label": "Quarter (Number)"
+        },
+        "SECOND": {
+          "type": "cds.String",
+          "@EndUserText.label": "Second",
+          "length": 2
+        },
+        "SECOND_INT": {
+          "type": "cds.hana.TINYINT",
+          "@EndUserText.label": "Second (Number)"
+        },
+        "TZNTSTMPL": {
+          "type": "cds.Decimal",
+          "@EndUserText.label": "UTC Timestamp (long form)",
+          "precision": 21,
+          "scale": 7
+        },
+        "TZNTSTMPS": {
+          "type": "cds.Decimal",
+          "@EndUserText.label": "UTC Timestamp (short form)",
+          "precision": 15,
+          "scale": 0
+        },
+        "WEEK": {
+          "type": "cds.String",
+          "@EndUserText.label": "Week",
+          "length": 2
+        },
+        "WEEK_INT": {
+          "type": "cds.hana.TINYINT",
+          "@EndUserText.label": "Week (Number)"
+        },
+        "WEEK_YEAR": {
+          "type": "cds.String",
+          "@EndUserText.label": "Week Year",
+          "length": 4
+        },
+        "WEEK_YEAR_INT": {
+          "type": "cds.Integer",
+          "@EndUserText.label": "Week Year (Number)"
+        },
+        "YEAR": {
+          "type": "cds.String",
+          "@EndUserText.label": "Year",
+          "length": 4
+        },
+        "YEAR_INT": {
+          "type": "cds.Integer",
+          "@EndUserText.label": "Year (Number)"
+        },
+        "MINUTE_INT": {
+          "type": "cds.hana.TINYINT",
+          "@EndUserText.label": "Minute (Number)"
+        },
+        "MINUTE": {
+          "type": "cds.String",
+          "length": 2,
+          "@EndUserText.label": "Minute"
+        },
+        "HOUR_INT": {
+          "type": "cds.hana.TINYINT",
+          "@EndUserText.label": "Hour (Number)"
+        },
+        "HOUR": {
+          "type": "cds.String",
+          "length": 2,
+          "@EndUserText.label": "Hour"
+        },
+        "DAY_OF_WEEK_INT": {
+          "type": "cds.hana.TINYINT",
+          "@EndUserText.label": "Day of Week (Number)"
+        },
+        "DAY_OF_WEEK": {
+          "type": "cds.String",
+          "@EndUserText.label": "Day of Week",
+          "length": 2
+        },
+        "DAY_INT": {
+          "type": "cds.hana.TINYINT",
+          "@EndUserText.label": "Day (Number)"
+        },
+        "DAY": {
+          "type": "cds.String",
+          "@EndUserText.label": "Day",
+          "length": 2
+        },
+        "DATE_SQL": {
+          "type": "cds.Date",
+          "@EndUserText.label": "Date"
+        },
+        "DATE_SAP": {
+          "type": "cds.String",
+          "@EndUserText.label": "Date (String)",
+          "length": 8
+        },
+        "DATETIME_SAP": {
+          "type": "cds.String",
+          "@EndUserText.label": "Timestamp (String)",
+          "length": 14
+        },
+        "DATETIMESTAMP": {
+          "type": "cds.Timestamp",
+          "@EndUserText.label": "Timestamp",
+          "key": true
+        },
+        "CALWEEK": {
+          "type": "cds.String",
+          "@EndUserText.label": "Calendar Week",
+          "length": 6
+        },
+        "CALQUARTER": {
+          "type": "cds.String",
+          "@EndUserText.label": "Calendar Quarter",
+          "length": 5
+        },
+        "CALMONTH": {
+          "type": "cds.String",
+          "@EndUserText.label": "Calendar Month",
+          "length": 6
+        }
+      },
+      "@EndUserText.label": "Time Table",
+      "@cds.persistence.exists": true,
+      "@DataWarehouse.pinToMemory": true
+    }
+  },
+  "timeDimensionSetting": {
+    "SAP.TIME.M_TIME_DIMENSION": {
+      "timesettings": {
+        "from": "2015",
+        "to": "2030",
+        "calendarType": "gregorian",
+        "granularity": "day",
+        "status": "COMPLETED"
+      },
+      "timeDataTable": {
+        "business": "Time Table",
+        "technical": "SAP.TIME.M_TIME_DIMENSION"
+      }
+    }
+  }
+}

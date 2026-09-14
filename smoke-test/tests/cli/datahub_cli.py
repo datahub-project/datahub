@@ -45,7 +45,9 @@ def test_setup(auth_session, graph_client):
     # Clean up
     rollback_url = f"{gms_host}/runs?action=rollback"
 
-    auth_session.post(
+    # Only the combined state after both rollbacks matters (checked below), so
+    # skip the automatic sync wait on the first call and let the second pay it once.
+    auth_session.raw_post(
         rollback_url,
         data=json.dumps(
             {"runId": ingested_editable_run_id, "dryRun": False, "hardDelete": True}

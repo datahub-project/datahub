@@ -21,6 +21,7 @@ import com.linkedin.metadata.config.kafka.ConsumerConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import com.linkedin.metadata.kafka.DataHubUsageEventsProcessor;
+import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.pgqueue.PgQueueBatchPolicy;
 import com.linkedin.metadata.pgqueue.PgQueuePollContext;
@@ -35,6 +36,7 @@ import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -54,7 +56,9 @@ public class PgQueueMaePollerSourcesConfigurationTest {
     configurationProvider = mock(ConfigurationProvider.class);
     MaeConsumerConfiguration.PgQueuePoll poll = new MaeConsumerConfiguration.PgQueuePoll();
     poll.setUsageEventsMaxBatch(200);
+    poll.setUsageEventsEmptyPollSleepMillis(5000L);
     poll.setMetadataChangeLogMaxBatch(50);
+    poll.setMetadataChangeLogEmptyPollSleepMillis(5000L);
     MaeConsumerConfiguration maeConsumer = new MaeConsumerConfiguration();
     maeConsumer.setPgQueue(poll);
     when(configurationProvider.getMaeConsumer()).thenReturn(maeConsumer);
@@ -96,6 +100,7 @@ public class PgQueueMaePollerSourcesConfigurationTest {
             List.of(hook),
             new ObjectMapper(),
             operationContext,
+            new InboundContextResolver(Collections.emptyList()),
             "mae-group",
             Topics.METADATA_CHANGE_LOG_VERSIONED,
             Topics.METADATA_CHANGE_LOG_TIMESERIES);
@@ -135,6 +140,7 @@ public class PgQueueMaePollerSourcesConfigurationTest {
             List.of(hook),
             new ObjectMapper(),
             mock(OperationContext.class),
+            new InboundContextResolver(Collections.emptyList()),
             "generic-mae",
             "mcl-versioned",
             "mcl-timeseries");
@@ -177,6 +183,7 @@ public class PgQueueMaePollerSourcesConfigurationTest {
                 List.of(hook),
                 new ObjectMapper(),
                 mock(OperationContext.class),
+                new InboundContextResolver(Collections.emptyList()),
                 "mae-batch",
                 Topics.METADATA_CHANGE_LOG_VERSIONED,
                 Topics.METADATA_CHANGE_LOG_TIMESERIES)
@@ -194,7 +201,7 @@ public class PgQueueMaePollerSourcesConfigurationTest {
       reg.flushHandler().flush(Topics.METADATA_CHANGE_LOG_VERSIONED, List.of(msg), ctx);
     }
 
-    verify(hook).invokeBatch(any());
+    verify(hook).invokeBatch(any(OperationContext.class), any());
     verify(store).commitForGroup(eq("mae-batch"), eq(List.of(msg.handle())), eq(true));
   }
 
@@ -246,6 +253,7 @@ public class PgQueueMaePollerSourcesConfigurationTest {
                 List.of(hook),
                 new ObjectMapper(),
                 mock(OperationContext.class),
+                new InboundContextResolver(Collections.emptyList()),
                 "mae-group",
                 Topics.METADATA_CHANGE_LOG_VERSIONED,
                 Topics.METADATA_CHANGE_LOG_TIMESERIES)
@@ -332,8 +340,7 @@ public class PgQueueMaePollerSourcesConfigurationTest {
     PostgresSqlSetupProperties properties = new PostgresSqlSetupProperties();
     PostgresSqlSetupProperties.PgQueue.ConsumerPoll consumerPoll =
         new PostgresSqlSetupProperties.PgQueue.ConsumerPoll();
-    consumerPoll.setEmptyPollSleepMillis(100L);
-    consumerPoll.setMclEmptyPollSleepMillis(25L);
+    consumerPoll.setEmptyPollSleepMinMillis(1000L);
     consumerPoll.setMissingTopicSleepMillis(500L);
     consumerPoll.setErrorRecoverySleepMillis(1000L);
     properties.getPgQueue().setConsumerPoll(consumerPoll);

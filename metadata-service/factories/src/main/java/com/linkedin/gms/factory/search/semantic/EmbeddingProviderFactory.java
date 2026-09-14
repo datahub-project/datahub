@@ -1,23 +1,33 @@
 package com.linkedin.gms.factory.search.semantic;
 
 import com.google.auth.oauth2.GoogleCredentials;
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.CohereEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.LocalEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
+import com.linkedin.metadata.search.embedding.OnnxEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.OpenAIEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.VertexAiEmbeddingProvider;
+import jakarta.annotation.PreDestroy;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Map;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 /**
  * Factory for creating embedding providers used in semantic search.
@@ -30,26 +40,31 @@ import org.springframework.context.annotation.Configuration;
  *   <li><b>cohere</b>: Cohere Embed API with embed-english-v3.0/multilingual-v3.0 models
  *   <li><b>local</b>: Any locally-running OpenAI-compatible server (Ollama, LM Studio, etc.)
  *   <li><b>vertex_ai</b>: Google Vertex AI Embeddings API with Gemini embedding models
+ *   <li><b>onnx</b>: In-process ONNX Runtime inference (no external server required)
  * </ul>
  *
  * <p>The provider is conditionally created only when semantic search is enabled in the
  * configuration.
  *
- * <p>AWS Bedrock credentials are resolved automatically using the default AWS credential provider
- * chain:
- *
- * <ul>
- *   <li>Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
- *   <li>AWS_PROFILE environment variable (reads from ~/.aws/credentials)
- *   <li>EC2 instance profile credentials (for production deployments)
- *   <li>Container credentials (ECS tasks)
- * </ul>
+ * <p>AWS Bedrock uses the shared {@code defaultAwsCredentialsProvider} bean from {@link
+ * AwsClientFactory}. The Bedrock Runtime client region comes from {@code
+ * embeddingProvider.bedrock.awsRegion} and may differ from the pod {@code AWS_REGION} for
+ * cross-region model access.
  */
 @Slf4j
 @Configuration
+@Import(AwsClientFactory.class)
 public class EmbeddingProviderFactory {
 
   @Autowired private ConfigurationProvider configurationProvider;
+
+  @Autowired(required = false)
+  @Qualifier("defaultAwsCredentialsProvider")
+  private AwsCredentialsProvider defaultAwsCredentialsProvider;
+
+  @Nullable private AwsBedrockEmbeddingProvider managedBedrockProvider;
+
+  @Nullable private OnnxEmbeddingProvider managedOnnxProvider;
 
   /**
    * Creates an EmbeddingProvider bean for generating query embeddings.
@@ -57,9 +72,13 @@ public class EmbeddingProviderFactory {
    * <p>Returns a no-op provider if semantic search is not enabled, allowing the system to start
    * without requiring embedding configuration.
    *
+   * <p>{@code destroyMethod} is disabled so this factory's {@link PreDestroy} is the sole closer of
+   * the Bedrock Runtime client (avoids double-close with Spring's inferred {@code Closeable}
+   * destroy).
+   *
    * @return EmbeddingProvider instance configured based on application.yaml settings
    */
-  @Bean(name = "embeddingProvider")
+  @Bean(name = "embeddingProvider", destroyMethod = "")
   @Nonnull
   protected EmbeddingProvider getInstance() {
     SemanticSearchConfiguration semanticSearchConfig =
@@ -81,24 +100,70 @@ public class EmbeddingProviderFactory {
       case "cohere" -> createCohereProvider(config);
       case "local" -> createLocalProvider(config);
       case "vertex_ai" -> createVertexAiProvider(config);
-      default -> throw new IllegalStateException(
-          String.format(
-              "Unsupported embedding provider type: %s. Supported types: aws-bedrock, openai, cohere, local, vertex_ai",
-              providerType));
+      case "onnx" -> createOnnxProvider(config, semanticSearchConfig);
+      default ->
+          throw new IllegalStateException(
+              String.format(
+                  "Unsupported embedding provider type: %s. Supported types: aws-bedrock, openai, cohere, local, vertex_ai, onnx",
+                  providerType));
     };
   }
 
   private EmbeddingProvider createAwsBedrockProvider(EmbeddingProviderConfiguration config) {
+    if (defaultAwsCredentialsProvider == null) {
+      throw new IllegalStateException(
+          "Shared DefaultCredentialsProvider is required when using the aws-bedrock embedding provider. "
+              + "Configure AWS_REGION/aws.region/AWS_ENDPOINT_URL on the pod, or enable aws-bedrock with bedrock.awsRegion set.");
+    }
+
     EmbeddingProviderConfiguration.BedrockConfig bedrockConfig = config.getBedrock();
+    String bedrockRegion = bedrockConfig.getAwsRegion();
+    if (bedrockRegion == null || bedrockRegion.trim().isEmpty()) {
+      throw new IllegalStateException(
+          "embeddingProvider.bedrock.awsRegion is required when using the aws-bedrock embedding provider");
+    }
+    bedrockRegion = bedrockRegion.trim();
+
+    String podRegion = System.getenv("AWS_REGION");
+    if (podRegion == null || podRegion.isBlank()) {
+      podRegion = System.getProperty("AWS_REGION");
+    }
+    if (podRegion != null
+        && !podRegion.isBlank()
+        && !podRegion.trim().equalsIgnoreCase(bedrockRegion)) {
+      log.info(
+          "Bedrock embedding region {} differs from pod AWS_REGION {}; using shared credentials with cross-region Bedrock client",
+          bedrockRegion,
+          podRegion.trim());
+    }
 
     log.info(
-        "Configuring AWS Bedrock embedding provider: region={}, model={}, maxCharLength={}",
-        bedrockConfig.getAwsRegion(),
+        "Configuring AWS Bedrock embedding provider: bedrockRegion={}, model={}, maxCharLength={}",
+        bedrockRegion,
         bedrockConfig.getModel(),
         config.getMaxCharacterLength());
 
-    return new AwsBedrockEmbeddingProvider(
-        bedrockConfig.getAwsRegion(), bedrockConfig.getModel(), config.getMaxCharacterLength());
+    managedBedrockProvider =
+        new AwsBedrockEmbeddingProvider(
+            bedrockRegion,
+            bedrockConfig.getModel(),
+            config.getMaxCharacterLength(),
+            defaultAwsCredentialsProvider);
+    return managedBedrockProvider;
+  }
+
+  @PreDestroy
+  public void shutdown() {
+    if (managedBedrockProvider != null) {
+      managedBedrockProvider.close();
+      managedBedrockProvider = null;
+    }
+    // ONNX holds native OrtSession + tokenizer allocations. destroyMethod is disabled on the bean,
+    // so Spring will not auto-close it — release here on context shutdown to avoid a native leak.
+    if (managedOnnxProvider != null) {
+      managedOnnxProvider.close();
+      managedOnnxProvider = null;
+    }
   }
 
   private EmbeddingProvider createOpenAIProvider(EmbeddingProviderConfiguration config) {
@@ -146,6 +211,105 @@ public class EmbeddingProviderFactory {
         localConfig.getModel());
 
     return new LocalEmbeddingProvider(localConfig.getEndpoint(), localConfig.getModel());
+  }
+
+  private EmbeddingProvider createOnnxProvider(
+      EmbeddingProviderConfiguration config, SemanticSearchConfiguration semanticSearchConfig) {
+    EmbeddingProviderConfiguration.OnnxConfig onnxConfig = config.getOnnx();
+    if (onnxConfig == null) {
+      throw new IllegalStateException(
+          "ONNX configuration block is missing. "
+              + "Configure embeddingProvider.onnx in application.yaml with modelName and modelDir.");
+    }
+
+    if (onnxConfig.getModelName() == null || onnxConfig.getModelName().isBlank()) {
+      throw new IllegalStateException(
+          "ONNX model name is required when using 'onnx' embedding provider. "
+              + "Set the ONNX_EMBEDDING_MODEL_NAME environment variable or configure "
+              + "embeddingProvider.onnx.modelName in application.yaml. "
+              + "This must match a key in semanticSearch.models (e.g., 'snowflake_arctic_embed_s').");
+    }
+
+    if (onnxConfig.getModelDir() == null || onnxConfig.getModelDir().isBlank()) {
+      throw new IllegalStateException(
+          "ONNX model directory is required when using 'onnx' embedding provider. "
+              + "Set the ONNX_EMBEDDING_MODEL_DIR environment variable or configure "
+              + "embeddingProvider.onnx.modelDir in application.yaml");
+    }
+
+    String modelName = onnxConfig.getModelName();
+
+    // Validate that the model name matches a key in the models map
+    Map<String, ModelEmbeddingConfig> models = semanticSearchConfig.getModels();
+    if (models == null || !models.containsKey(modelName)) {
+      String available = models != null ? models.keySet().toString() : "none";
+      throw new IllegalStateException(
+          String.format(
+              "ONNX model name '%s' does not match any entry in semanticSearch.models. "
+                  + "Available keys: %s. Add an entry for '%s' with the correct vectorDimension "
+                  + "in application.yaml or set the corresponding environment variables.",
+              modelName, available, modelName));
+    }
+
+    Path modelDir = Path.of(onnxConfig.getModelDir());
+    log.info(
+        "Configuring ONNX embedding provider: modelName={}, modelDir={}, intraOpThreads={}",
+        modelName,
+        modelDir,
+        onnxConfig.getIntraOpThreads());
+
+    OnnxEmbeddingProvider provider =
+        new OnnxEmbeddingProvider(
+            modelDir,
+            onnxConfig.getIntraOpThreads(),
+            config.getMaxCharacterLength(),
+            onnxConfig.getPooling(),
+            onnxConfig.getQueryInstruction());
+
+    EmbeddingProvider validated = validateOnnxProviderDimension(provider, models, modelName);
+    // Track only after validation passes; on mismatch validateOnnxProviderDimension has already
+    // closed the provider and thrown, so managedOnnxProvider must stay null (no double-close).
+    managedOnnxProvider = provider;
+    return validated;
+  }
+
+  /**
+   * Validates the loaded ONNX model's actual output dimension against the configured {@code
+   * vectorDimension} and returns the provider on match. On mismatch (or any failure) the provider
+   * is closed to release native resources before the exception propagates. Package-private so the
+   * dimension-check logic can be unit-tested with a mocked provider (real model loading requires a
+   * model file on disk).
+   */
+  EmbeddingProvider validateOnnxProviderDimension(
+      OnnxEmbeddingProvider provider, Map<String, ModelEmbeddingConfig> models, String modelName) {
+    try {
+      int actualDim = provider.getOutputDimension();
+      int configuredDim = models.get(modelName).getVectorDimension();
+      if (actualDim != configuredDim) {
+        throw new IllegalStateException(
+            String.format(
+                "ONNX model output dimension (%d) does not match the configured vectorDimension (%d) "
+                    + "for model '%s' in semanticSearch.models. Either change the model or set "
+                    + "semanticSearch.models.%s.vectorDimension=%d in application.yaml (requires reindexing if changed).",
+                actualDim, configuredDim, modelName, modelName, actualDim));
+      }
+
+      log.info(
+          "ONNX dimension validation passed: model '{}' produces {}-dim embeddings, "
+              + "matching configured vectorDimension={}",
+          modelName,
+          actualDim,
+          configuredDim);
+
+      return provider;
+    } catch (Exception e) {
+      try {
+        provider.close();
+      } catch (Exception closeEx) {
+        e.addSuppressed(closeEx);
+      }
+      throw e;
+    }
   }
 
   EmbeddingProvider createVertexAiProvider(EmbeddingProviderConfiguration config) {

@@ -12,6 +12,8 @@ import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,9 @@ import java.util.Set;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AlterConfigOp;
+import org.apache.kafka.clients.admin.Config;
+import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.CreatePartitionsResult;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
@@ -26,6 +31,7 @@ import org.apache.kafka.clients.admin.ListTopicsResult;
 import org.apache.kafka.clients.admin.NewPartitions;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
+import org.apache.kafka.common.config.ConfigResource;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.kafka.config.TopicBuilder;
 
@@ -109,6 +115,8 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
         // Collect topics to create and partitions to increase
         List<NewTopic> topicsToCreate = new ArrayList<>();
         Map<String, NewPartitions> partitionsToIncrease = new HashMap<>();
+        Map<ConfigResource, Map<String, String>> declaredByTopic = new HashMap<>();
+        boolean reconcileConfigs = kafkaConfiguration.getSetup().isReconcileExistingTopicConfigs();
         List<String> failedTopics = new ArrayList<>();
 
         // Batch fetch partition counts for existing topics
@@ -166,6 +174,19 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
                   "Checking kafka topic {}: Skipping partition count check (auto-increase disabled)",
                   topicName);
             }
+            // Reconcile configProperties on existing topic when explicitly enabled.
+            // Declared properties are collected here and aligned against the broker
+            // below via incrementalAlterConfigs (additive SET — only declared keys
+            // are touched). Closes the gap where broker auto-created topics keep
+            // broker-default retention (notably DataHubUpgradeHistory_v1 which
+            // needs retention.ms=-1).
+            if (reconcileConfigs
+                && topicConfig.getConfigProperties() != null
+                && !topicConfig.getConfigProperties().isEmpty()) {
+              declaredByTopic.put(
+                  new ConfigResource(ConfigResource.Type.TOPIC, topicName),
+                  topicConfig.getConfigProperties());
+            }
             continue;
           }
 
@@ -209,7 +230,14 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
           log.info("Successfully increased partitions for {} topics", partitionsToIncrease.size());
         }
 
-        if (topicsToCreate.isEmpty() && partitionsToIncrease.isEmpty()) {
+        // Reconcile configProperties on existing topics if enabled
+        if (!declaredByTopic.isEmpty()) {
+          reconcileTopicConfigs(adminClient, declaredByTopic);
+        }
+
+        if (topicsToCreate.isEmpty()
+            && partitionsToIncrease.isEmpty()
+            && declaredByTopic.isEmpty()) {
           log.info(
               "All configured topics already exist with correct configuration - no changes needed");
         }
@@ -233,6 +261,95 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
       }
     };
   }
+
+  /**
+   * Reconcile declared topic configProperties against the broker, applying only the keys whose
+   * current value differs from what is declared in {@code application.yaml}.
+   */
+  private static void reconcileTopicConfigs(
+      AdminClient adminClient, Map<ConfigResource, Map<String, String>> declaredByTopic)
+      throws Exception {
+    log.info(
+        "Reconciling configProperties on {} existing topics: {}",
+        declaredByTopic.size(),
+        declaredByTopic.keySet().stream().map(ConfigResource::name).sorted().toList());
+
+    Map<ConfigResource, Map<String, String>> currentByTopic =
+        fetchCurrentTopicConfigs(adminClient, declaredByTopic.keySet());
+
+    Map<ConfigResource, Collection<AlterConfigOp>> toApply = new HashMap<>();
+    int totalAdded = 0;
+    int totalChanged = 0;
+    for (Map.Entry<ConfigResource, Map<String, String>> entry : declaredByTopic.entrySet()) {
+      ConfigResource topic = entry.getKey();
+      TopicConfigDiff diff =
+          diffConfigs(entry.getValue(), currentByTopic.getOrDefault(topic, Map.of()));
+      if (diff.ops().isEmpty()) {
+        log.info(
+            "Topic {}: declared properties already match broker - nothing to alter", topic.name());
+      } else {
+        log.info("Topic {}: added={} changed={}", topic.name(), diff.added(), diff.changed());
+        toApply.put(topic, diff.ops());
+        totalAdded += diff.added().size();
+        totalChanged += diff.changed().size();
+      }
+    }
+
+    if (toApply.isEmpty()) {
+      log.info(
+          "All declared properties already aligned with broker - no AlterConfigs request issued");
+      return;
+    }
+    adminClient.incrementalAlterConfigs(toApply).all().get();
+    log.info(
+        "Successfully applied configProperty changes on {} topics ({} added, {} changed)",
+        toApply.size(),
+        totalAdded,
+        totalChanged);
+  }
+
+  /**
+   * Read current broker-side topic configs for the given resources, as a flat key->value map per
+   * topic.
+   */
+  private static Map<ConfigResource, Map<String, String>> fetchCurrentTopicConfigs(
+      AdminClient adminClient, Collection<ConfigResource> resources) throws Exception {
+    Map<ConfigResource, Config> raw = adminClient.describeConfigs(resources).all().get();
+    Map<ConfigResource, Map<String, String>> out = new HashMap<>(raw.size());
+    raw.forEach(
+        (res, cfg) -> {
+          Map<String, String> entries = new HashMap<>();
+          cfg.entries().forEach(ce -> entries.put(ce.name(), ce.value()));
+          out.put(res, entries);
+        });
+    return out;
+  }
+
+  /** Compute the diff between declared (yaml) and current (broker) topic config maps. */
+  private static TopicConfigDiff diffConfigs(
+      Map<String, String> declared, Map<String, String> current) {
+    List<String> added = new ArrayList<>();
+    List<String> changed = new ArrayList<>();
+    List<AlterConfigOp> ops = new ArrayList<>();
+    declared.forEach(
+        (key, desired) -> {
+          String live = current.get(key);
+          if (live == null) {
+            added.add("+ " + key + "=" + desired);
+          } else if (live.equals(desired)) {
+            return;
+          } else {
+            changed.add("~ " + key + ": " + live + " -> " + desired);
+          }
+          ops.add(new AlterConfigOp(new ConfigEntry(key, desired), AlterConfigOp.OpType.SET));
+        });
+    Collections.sort(added);
+    Collections.sort(changed);
+    return new TopicConfigDiff(added, changed, ops);
+  }
+
+  private record TopicConfigDiff(
+      List<String> added, List<String> changed, List<AlterConfigOp> ops) {}
 
   /** Get the set of existing topic names from Kafka */
   private Set<String> getExistingTopics(AdminClient adminClient) throws Exception {

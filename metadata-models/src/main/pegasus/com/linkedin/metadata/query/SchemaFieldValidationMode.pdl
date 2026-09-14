@@ -1,0 +1,27 @@
+namespace com.linkedin.metadata.query
+
+/**
+ * Whether to check that schema fields read off the lineage graph still exist, by reading the
+ * schemaMetadata of the datasets holding them. The graph keeps its edges long after a column is
+ * removed from a schema or its dataset is deleted, so results read off it include columns that are
+ * no longer there.
+ */
+enum SchemaFieldValidationMode {
+
+  /**
+   * Do not check. Results may include columns their parent no longer declares.
+   */
+  NONE
+
+  /**
+   * Check when it is cheap to, which is nearly always: the read is batched per parent dataset and
+   * columns share parents heavily, so a walk over very many columns is usually few reads. Skipped
+   * when a walk fans out over more parent datasets than are worth fetching.
+   */
+  AUTO
+
+  /**
+   * Check however many parent datasets it takes.
+   */
+  ALWAYS
+}

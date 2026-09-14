@@ -158,7 +158,7 @@ def test_extract_dataset_info(
     expected_name: str,
 ) -> None:
     p = parser_with_mappings if "prod-account" in dataset_dict["namespace"] else parser
-    dataset_info = p._extract_dataset_info(dataset_dict, "input")
+    dataset_info = p.extract_dataset_info(dataset_dict, "input")
 
     assert dataset_info is not None
     assert dataset_info.platform == expected_platform
@@ -183,7 +183,7 @@ def test_extract_dataset_info(
 def test_extract_dataset_info_invalid(
     parser: OpenLineageParser, dataset_dict: dict, should_be_none: bool
 ) -> None:
-    dataset_info = parser._extract_dataset_info(dataset_dict, "input")
+    dataset_info = parser.extract_dataset_info(dataset_dict, "input")
     assert (dataset_info is None) == should_be_none
 
 
@@ -557,7 +557,7 @@ def test_convert_urns_to_lowercase(
         "name": name,
         "facets": {},
     }
-    dataset_info = parser._extract_dataset_info(dataset_dict, "input")
+    dataset_info = parser.extract_dataset_info(dataset_dict, "input")
     assert dataset_info is not None
     assert dataset_info.name == expected_name
 
@@ -581,7 +581,7 @@ def test_normalize_name_with_namespace_mapping():
         "name": "my_table",
         "facets": {},
     }
-    dataset_info = parser._extract_dataset_info(dataset_dict, "input")
+    dataset_info = parser.extract_dataset_info(dataset_dict, "input")
     assert dataset_info is not None
     assert dataset_info.name == "PUBLIC.my_table"
 
@@ -590,7 +590,7 @@ def test_normalize_name_with_namespace_mapping():
         "name": "my_table",
         "facets": {},
     }
-    dataset_info = parser._extract_dataset_info(dataset_dict, "input")
+    dataset_info = parser.extract_dataset_info(dataset_dict, "input")
     assert dataset_info is not None
     assert dataset_info.name == "my_table"
 

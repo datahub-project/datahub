@@ -6,7 +6,7 @@ import random
 import string
 from typing import Dict, List, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig, HiddenFromDocs
 from datahub.configuration.env_vars import (
@@ -17,9 +17,12 @@ from datahub.configuration.env_vars import (
     get_report_info_sample_size,
     get_report_warning_sample_size,
 )
+from datahub.configuration.source_common import EnvConfigMixin
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.recording.config import RecordingConfig
 from datahub.ingestion.sink.file import FileSinkConfig
+from datahub.metadata.urns import DataPlatformUrn
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +50,124 @@ class FailureLoggingConfig(ConfigModel):
     log_config: Optional[FileSinkConfig] = None
 
 
+class UpstreamPlatformCasing(EnvConfigMixin):
+    """An upstream warehouse platform whose asset casing lineage references should
+    be reconciled against.
+
+    ``EnvConfigMixin`` is inherited for its validator, but ``env``'s description is
+    overridden and ``platform_instance`` declared here rather than taken from
+    ``PlatformInstanceConfigMixin``: both mixins describe assets a recipe produces, not a
+    scoped read of assets already in DataHub. See docs/dev_guides/lineage_urn_casing.md.
+    """
+
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance of the upstream platform whose catalog to "
+        "preload. This narrows the read through DataHub's search filter, which matches "
+        "the `dataPlatformInstance` aspect rather than the URN, so a connector that puts "
+        "the instance in the URN without emitting that aspect preloads nothing. It "
+        "scopes the preload only: a reference into an instance you did not list is still "
+        "reconciled, by asking DataHub.",
+    )
+
+    env: str = Field(
+        default=DEFAULT_ENV,
+        description="Environment of the upstream platform whose catalog to preload. "
+        "Scopes the preload only, like `platform_instance`: a reference into another "
+        "environment is still reconciled, by asking DataHub.",
+    )
+
+    platform: str = Field(
+        description="Upstream data platform whose assets are referenced by this "
+        "source's lineage (e.g. `snowflake`). References to this platform's assets "
+        "are reconciled against the casing stored in DataHub.",
+    )
+
+    @field_validator("platform")
+    @classmethod
+    def _normalize_platform(cls, v: str) -> str:
+        # Accept either a bare platform name ("snowflake") or a full data-platform URN
+        # ("urn:li:dataPlatform:snowflake") and store the bare name, so downstream
+        # matching against the platform parsed from dataset URNs is like-for-like.
+        return DataPlatformUrn(v).platform_name
+
+
+class AutoResolveLineageUrnsConfig(ConfigModel):
+    """Configuration for the auto-resolve lineage URNs work unit processor.
+
+    Intended to be enabled on BI-tool / cross-platform ingestions that reference
+    warehouse assets — NOT on the warehouse ingestion itself, whose reported casing
+    and identity must be respected.
+    """
+
+    enabled: bool = Field(
+        default=False,
+        description="Whether to reconcile the casing of upstream warehouse URN "
+        "references in lineage against the casing stored in DataHub. Requires the "
+        "SQL-parser dependency (`sqlglot`) — install `acryl-datahub[sql-parser]` or a "
+        "connector extra that bundles it. Every intended BI/dashboard connector already "
+        "does, so the target use case needs no extra install.",
+    )
+    upstream_platforms: List[UpstreamPlatformCasing] = Field(
+        default_factory=list,
+        description="The upstream warehouse platform(s) this source references heavily. "
+        "Their catalogs are read from DataHub once at startup, which is worth it when a "
+        "source names the same warehouse across many dashboards or models. By default "
+        "these are also the only platforms reconciled — set `resolve_all_platforms` to "
+        "cover the rest.",
+    )
+    resolve_all_platforms: bool = Field(
+        default=False,
+        description="Also reconcile references to platforms not listed in "
+        "`upstream_platforms`, looking each one up in DataHub as it is encountered. Use "
+        "it when this source references several warehouses but only one or two are "
+        "referenced often enough to be worth reading in full, or — with no "
+        "`upstream_platforms` at all — when it references only a handful of warehouse "
+        "tables, or a warehouse too large to read. Keep the platforms this source "
+        "references heavily in `upstream_platforms`: a catalog read once beats looking "
+        "the same tables up over and over.",
+    )
+
+    @model_validator(mode="after")
+    def _require_platforms_or_resolve_all_when_enabled(
+        self,
+    ) -> "AutoResolveLineageUrnsConfig":
+        # Enabled with nothing preloaded and scope not widened has nothing to reconcile
+        # against — every reference would no-op. Fail fast rather than silently doing
+        # nothing.
+        if (
+            self.enabled
+            and not self.upstream_platforms
+            and not self.resolve_all_platforms
+        ):
+            raise ValueError(
+                "auto_resolve_lineage_urns is enabled but no upstream_platforms are "
+                "configured and resolve_all_platforms is false; there is nothing to "
+                "reconcile. List the upstream warehouse platform(s) this source "
+                "references, or set resolve_all_platforms: true to reconcile every "
+                "platform a reference points at, or set enabled: false."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _require_sql_parser_when_enabled(self) -> "AutoResolveLineageUrnsConfig":
+        # Fail fast at config parse (only when enabled) if the SQL parser is missing,
+        # rather than deep in the processor at run time. Resolution reuses the
+        # SchemaResolver, which depends on sqlglot; sqlglot is not in the ingestion core,
+        # so a source whose extra doesn't bundle it would otherwise fail mid-run.
+        if self.enabled:
+            try:
+                import sqlglot  # noqa: F401
+            except ImportError as e:
+                raise ValueError(
+                    "auto_resolve_lineage_urns is enabled but the SQL parser it relies "
+                    "on is not installed. Install it with "
+                    "`pip install acryl-datahub[sql-parser]` (or a connector extra that "
+                    "bundles it), or set enabled: false."
+                ) from e
+        return self
+
+
 class FlagsConfig(ConfigModel):
     """Experimental flags for the ingestion pipeline.
 
@@ -71,6 +192,25 @@ class FlagsConfig(ConfigModel):
         default=None,
         description=(
             "Generate memray memory dumps for ingestion process by providing a path to write the dump file in."
+        ),
+    )
+
+    auto_resolve_lineage_urns: AutoResolveLineageUrnsConfig = Field(
+        default_factory=AutoResolveLineageUrnsConfig,
+        description=(
+            "Experimental: before emitting lineage, reconcile the casing of upstream "
+            "warehouse URN references (table- and column-level) against the casing "
+            "stored in DataHub, so casing mismatches between sources (e.g. a "
+            "lowercase-stored warehouse table referenced in a different casing by a BI "
+            "tool) don't produce two disconnected lineage nodes. Unlike "
+            "`convert_urns_to_lowercase`, "
+            "which lowercases every URN, this resolves references to the casing of the "
+            "entity that already exists, preserving the warehouse's original casing. "
+            "Requires a DataHub backend connection (no-op for offline/file-only "
+            "ingestion), the server's dataset aliases backfill to have succeeded, and "
+            "either the upstream platform(s) to be configured or "
+            "`resolve_all_platforms`. Enable on BI-tool ingestions, not on the "
+            "warehouse ingestion itself."
         ),
     )
 

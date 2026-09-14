@@ -12,7 +12,7 @@ import {
     updateActiveIncidentInCache,
 } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
-import { Editor } from '@src/app/entity/shared/tabs/Documentation/components/editor/Editor';
+import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 import { useRaiseIncidentMutation } from '@graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState, IncidentType } from '@types';

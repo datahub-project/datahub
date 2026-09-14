@@ -9,6 +9,7 @@ import com.linkedin.gms.factory.kafka.schemaregistry.KafkaSchemaRegistryFactory;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
+import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolverFactory;
 import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.lang.reflect.Field;
@@ -37,6 +38,10 @@ import org.testng.annotations.Test;
       ConfigurationProvider.class,
       TopicConventionFactory.class,
       DataHubKafkaEventProducerFactory.class,
+      // Provides the OutboundContextResolver bean that DataHubKafkaEventProducerFactory now
+      // depends on. OSS registers no enrichers, so the resolver composes an empty chain and is
+      // effectively a no-op — but Spring still needs the bean to satisfy the @Autowired field.
+      OutboundContextResolverFactory.class,
       UsageEventPublisherFactory.class
     })
 public class DataHubKafkaProducerFactoryTest extends AbstractTestNGSpringContextTests {

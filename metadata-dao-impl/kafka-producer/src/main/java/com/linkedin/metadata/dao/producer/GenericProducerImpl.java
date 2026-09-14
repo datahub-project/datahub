@@ -19,15 +19,18 @@ public class GenericProducerImpl<T> implements GenericProducer<T> {
   private final Producer<String, T> producer;
   private final KafkaHealthChecker kafkaHealthChecker;
   private final MetricUtils metricUtils;
+  private final String metricEventType;
   private boolean canWrite = true;
 
   public GenericProducerImpl(
       Producer<String, T> producer,
       KafkaHealthChecker kafkaHealthChecker,
-      MetricUtils metricUtils) {
+      MetricUtils metricUtils,
+      String metricEventType) {
     this.producer = producer;
     this.kafkaHealthChecker = kafkaHealthChecker;
     this.metricUtils = metricUtils;
+    this.metricEventType = metricEventType;
   }
 
   @Override
@@ -46,7 +49,7 @@ public class GenericProducerImpl<T> implements GenericProducer<T> {
       finalCallback =
           kafkaHealthChecker.getKafkaCallBack(
               metricUtils,
-              "GENERIC",
+              metricEventType,
               producerRecord.key() != null ? producerRecord.key() : StringUtils.EMPTY);
     } else {
       finalCallback = callback;

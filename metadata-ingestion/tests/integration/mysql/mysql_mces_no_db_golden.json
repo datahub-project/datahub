@@ -198,17 +198,6 @@
                                 },
                                 "nativeDataType": "ENUM('M','F')",
                                 "recursive": false,
-                                "glossaryTerms": {
-                                    "terms": [
-                                        {
-                                            "urn": "urn:li:glossaryTerm:Gender"
-                                        }
-                                    ],
-                                    "auditStamp": {
-                                        "time": 1586847600000,
-                                        "actor": "urn:li:corpuser:datahub"
-                                    }
-                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -1336,17 +1325,6 @@
                                 },
                                 "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
-                                "glossaryTerms": {
-                                    "terms": [
-                                        {
-                                            "urn": "urn:li:glossaryTerm:Email_Address"
-                                        }
-                                    ],
-                                    "auditStamp": {
-                                        "time": 1586847600000,
-                                        "actor": "urn:li:corpuser:datahub"
-                                    }
-                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -2270,38 +2248,6 @@
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "mysql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Email_Address",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Email_Address"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "mysql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Gender",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Gender"
         }
     },
     "systemMetadata": {

@@ -15,14 +15,14 @@ import { DragIcon } from '@app/homeV3/module/components/SmallModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import { FloatingRightHeaderSection } from '@app/homeV3/styledComponents';
 
-const ModuleHeader = styled.div`
+export const ModuleHeader = styled.div`
     position: relative;
     display: flex;
     flex-direction: column;
     gap: 2px;
     border-radius: ${radius.lg} ${radius.lg} 0 0;
     padding: ${spacing.sm} ${spacing.lg} ${spacing.sm} ${spacing.md};
-    border-bottom: ${borders['1px']} ${(props) => props.theme.colors.bg};
+    border-bottom: ${borders['1px']} transparent;
     user-select: none;
 
     /* Optimize for smooth dragging */
@@ -133,7 +133,7 @@ function LargeModule({
             <Content $hasViewAll={hasViewAll} data-testid="module-content">
                 {loading ? (
                     <LoaderContainer>
-                        <Loader />
+                        <Loader alignItems="center" />
                     </LoaderContainer>
                 ) : (
                     children

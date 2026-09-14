@@ -110,6 +110,19 @@ source:
 
 When this is configured, dataset URNs produced by the Glue connector will include the same `platform_instance` and `env` as the target platform's connector, ensuring entities merge correctly in DataHub. If the target platform connector does not use a `platform_instance`, no configuration is needed — URNs will match by default.
 
+#### Incremental Dataset Properties (PATCH Mode)
+
+When `incremental_properties: true` is set, the Glue connector emits dataset properties as incremental PATCH operations rather than full overwrites. This means custom properties added to a dataset via the DataHub API, SDK, or other ingestion sources are preserved across Glue ingestion runs.
+
+This is useful when you enrich datasets with additional metadata (e.g., ownership annotations, data quality scores, or business context) outside of the Glue catalog and want those properties to survive re-ingestion.
+
+```yaml
+source:
+  type: glue
+  config:
+    incremental_properties: true
+```
+
 #### Column Parameters as Structured Properties
 
 When `extract_column_parameters` is enabled, column-level `Parameters` from the Glue catalog are

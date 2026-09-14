@@ -1,5 +1,6 @@
 import { ApolloError } from '@apollo/client';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -144,6 +145,7 @@ export const EmbeddedListSearch = ({
     isViewAllMode = false,
     handleViewAllClickWarning,
 }: Props) => {
+    const { t } = useTranslation('entityV1.shared.components');
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
     // Adjust query based on props
     const finalQuery: string = addFixedQuery(query as string, fixedQuery as string, emptySearchQuery as string);
@@ -309,7 +311,7 @@ export const EmbeddedListSearch = ({
         onChangeFilters(defaultFilters);
     };
 
-    const ErrorMessage = () => <Message type="error" content="Failed to load results! An unexpected error occurred." />;
+    const ErrorMessage = () => <Message type="error" content={t('embeddedListSearch.loadError')} />;
 
     return (
         <Container>

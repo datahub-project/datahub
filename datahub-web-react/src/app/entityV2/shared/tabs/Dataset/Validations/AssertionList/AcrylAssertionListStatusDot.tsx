@@ -26,6 +26,14 @@ const AcrylAssertionListStatusDot = ({ run, disabled, size = 12 }: Props) => {
             backgroundColor: theme.colors.iconError,
             outerColor: theme.colors.bgSurfaceError,
         },
+        error: {
+            backgroundColor: theme.colors.iconWarning,
+            outerColor: theme.colors.bgSurfaceWarning,
+        },
+        init: {
+            backgroundColor: theme.colors.iconInformation,
+            outerColor: theme.colors.bgSurfaceInfo,
+        },
         gray: {
             backgroundColor: theme.colors.border,
             outerColor: theme.colors.bgSurface,

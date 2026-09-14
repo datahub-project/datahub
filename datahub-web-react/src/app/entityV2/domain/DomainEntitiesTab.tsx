@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
@@ -8,6 +9,7 @@ import { UnionType } from '@app/search/utils/constants';
 import { EntityType } from '@types';
 
 export const DomainEntitiesTab = () => {
+    const { t } = useTranslation('entity.types');
     const { urn, entityType } = useEntityData();
 
     let fixedFilter;
@@ -29,7 +31,7 @@ export const DomainEntitiesTab = () => {
                     filters: [excludeFromFilter, fixedFilter],
                 }}
                 emptySearchQuery="*"
-                placeholderText="Filter domain entities..."
+                placeholderText={t('domain.filterEntitiesPlaceholder')}
                 skipCache
                 applyView
             />

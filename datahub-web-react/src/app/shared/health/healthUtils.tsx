@@ -1,13 +1,15 @@
 import { CheckCircleOutlined, ExclamationCircleOutlined, ExclamationCircleTwoTone } from '@ant-design/icons';
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
 
-const UnhealthyIconFilled = styled(ExclamationCircleTwoTone)<{ fontSize: number }>`
+const UnhealthyIconFilled = styled(ExclamationCircleTwoTone).attrs((props) => ({
+    twoToneColor: props.theme.colors.iconError,
+}))<{ fontSize: number }>`
     && {
         font-size: ${(props) => props.fontSize}px;
     }
@@ -15,6 +17,13 @@ const UnhealthyIconFilled = styled(ExclamationCircleTwoTone)<{ fontSize: number 
 
 const UnhealthyIconOutlined = styled(ExclamationCircleOutlined)<{ fontSize: number }>`
     color: ${(props) => props.theme.colors.iconError};
+    && {
+        font-size: ${(props) => props.fontSize}px;
+    }
+`;
+
+const HealthyIconOutlined = styled(CheckCircleOutlined)<{ fontSize: number }>`
+    color: ${(props) => props.theme.colors.iconSuccess};
     && {
         font-size: ${(props) => props.fontSize}px;
     }
@@ -60,7 +69,7 @@ export const getHealthSummaryIcon = (
     if (unhealthy) {
         const iconComponent =
             type === HealthSummaryIconType.FILLED ? (
-                <UnhealthyIconFilled twoToneColor={FAILURE_COLOR_HEX} fontSize={fontSize} />
+                <UnhealthyIconFilled fontSize={fontSize} />
             ) : (
                 <UnhealthyIconOutlined fontSize={fontSize} />
             );
@@ -68,7 +77,7 @@ export const getHealthSummaryIcon = (
     }
 
     if (healthy) {
-        return <CheckCircleOutlined style={{ color: SUCCESS_COLOR_HEX, fontSize }} />;
+        return <HealthyIconOutlined fontSize={fontSize} />;
     }
 
     return undefined;
@@ -76,7 +85,7 @@ export const getHealthSummaryIcon = (
 
 export const getHealthSummaryMessage = (healths: Health[]) => {
     const unhealthy = isUnhealthy(healths);
-    return unhealthy ? 'This asset may be unhealthy' : 'This asset is healthy';
+    return unhealthy ? i18next.t('shared.health:summaryUnhealthy') : i18next.t('shared.health:summaryHealthy');
 };
 
 export const getHealthRedirectPath = (type: HealthStatusType) => {
@@ -98,13 +107,13 @@ export const getHealthRedirectPath = (type: HealthStatusType) => {
 export const getHealthTypeName = (type: HealthStatusType) => {
     switch (type) {
         case HealthStatusType.Assertions: {
-            return 'Assertions';
+            return i18next.t('shared.health:typeAssertions');
         }
         case HealthStatusType.Incidents: {
-            return 'Incidents';
+            return i18next.t('shared.health:typeIncidents');
         }
         case HealthStatusType.Tests: {
-            return 'Tests';
+            return i18next.t('shared.health:typeTests');
         }
         default:
             throw new Error(`Unrecognized Health Status Type ${type} provided`);

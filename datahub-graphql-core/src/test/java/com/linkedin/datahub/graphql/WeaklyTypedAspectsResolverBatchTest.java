@@ -14,6 +14,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver.AspectsKey;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AspectParams;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -38,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderRegistry;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -63,6 +65,7 @@ public class WeaklyTypedAspectsResolverBatchTest {
   private static final Urn DATASET_URN_3 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,db.t3,PROD)");
   private static final Urn CHART_URN_1 = UrnUtils.getUrn("urn:li:chart:(looker,chart1)");
+  private static final Urn DOCUMENT_URN = UrnUtils.getUrn("urn:li:document:restricted");
 
   // ---------- Helpers ----------
 
@@ -116,6 +119,28 @@ public class WeaklyTypedAspectsResolverBatchTest {
   }
 
   // ---------- Tests ----------
+
+  @Test
+  public void testUnauthorizedDocumentDoesNotLoadRawAspects() {
+    final DataFetchingEnvironment environment = Mockito.mock(DataFetchingEnvironment.class);
+    final Entity document = Mockito.mock(Entity.class);
+    final QueryContext context = mockQueryContext();
+    final OperationContext opContext = context.getOperationContext();
+    Mockito.when(document.getUrn()).thenReturn(DOCUMENT_URN.toString());
+    Mockito.when(document.getType()).thenReturn(EntityType.DOCUMENT);
+    Mockito.when(environment.getSource()).thenReturn(document);
+    Mockito.when(environment.getContext()).thenReturn(context);
+
+    try (MockedStatic<AuthorizationUtils> authorizationUtils =
+        Mockito.mockStatic(AuthorizationUtils.class)) {
+      authorizationUtils
+          .when(() -> AuthorizationUtils.canView(opContext, DOCUMENT_URN))
+          .thenReturn(false);
+
+      assertTrue(new WeaklyTypedAspectsResolver().get(environment).join().isEmpty());
+      Mockito.verify(environment, Mockito.never()).getDataLoaderRegistry();
+    }
+  }
 
   @Test
   public void testSameGroupSingleBatchGetCall() throws Exception {

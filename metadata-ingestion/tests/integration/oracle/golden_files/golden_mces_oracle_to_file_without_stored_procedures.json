@@ -89,6 +89,260 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:90a6c50ec133ae13336e707375afe9b2",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:90a6c50ec133ae13336e707375afe9b2",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "oracle",
+                "env": "PROD",
+                "database": "xepdb1",
+                "schema": "casing_schema"
+            },
+            "name": "casing_schema",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:90a6c50ec133ae13336e707375afe9b2",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:90a6c50ec133ae13336e707375afe9b2",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:oracle"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:90a6c50ec133ae13336e707375afe9b2",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:90a6c50ec133ae13336e707375afe9b2",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                    "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,casing_schema.case_sensitive_columns,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:90a6c50ec133ae13336e707375afe9b2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:oracle,casing_schema.case_sensitive_columns,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "case_sensitive_columns",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "casing_schema.case_sensitive_columns",
+                        "platform": "urn:li:dataPlatform:oracle",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMBER(4, 0)",
+                                "recursive": false,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "MixedCol",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(20 CHAR)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "mixedcol",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "NUMBER(6, 0)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,casing_schema.case_sensitive_columns,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,casing_schema.case_sensitive_columns,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                    "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                },
+                {
+                    "id": "urn:li:container:90a6c50ec133ae13336e707375afe9b2",
+                    "urn": "urn:li:container:90a6c50ec133ae13336e707375afe9b2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:95eca163199143e2636cac2685c9d809",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -970,6 +1224,397 @@
 {
     "entityType": "query",
     "entityUrn": "urn:li:query:view_9d7185c0fe08265d75d6d2f7d806bc4de61b3b9f89d2c086c0920093b6b95a3d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,casing_schema.case_sensitive_columns,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643871600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 3,
+            "columnCount": 4,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "3",
+                    "mean": "2.0",
+                    "median": "2",
+                    "stdev": "1",
+                    "sampleValues": [
+                        "1",
+                        "2",
+                        "3"
+                    ]
+                },
+                {
+                    "fieldPath": "MixedCol",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "alpha",
+                        "beta",
+                        "gamma"
+                    ]
+                },
+                {
+                    "fieldPath": "mixedcol",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "10",
+                    "max": "30",
+                    "mean": "20.0",
+                    "median": "20",
+                    "stdev": "10",
+                    "sampleValues": [
+                        "10",
+                        "20",
+                        "30"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.departments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643871600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 4,
+            "columnCount": 4,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "department_id",
+                    "uniqueCount": 4,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "10",
+                    "max": "60",
+                    "mean": "35.0",
+                    "median": "35.0",
+                    "stdev": "23.804761428476166",
+                    "sampleValues": [
+                        "10",
+                        "20",
+                        "50",
+                        "60"
+                    ]
+                },
+                {
+                    "fieldPath": "department_name",
+                    "uniqueCount": 4,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Administration",
+                        "Marketing",
+                        "Shipping",
+                        "IT"
+                    ]
+                },
+                {
+                    "fieldPath": "manager_id",
+                    "uniqueCount": 4,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "103",
+                    "max": "201",
+                    "mean": "156.25",
+                    "median": "160.5",
+                    "stdev": "51.62283086645546",
+                    "sampleValues": [
+                        "200",
+                        "201",
+                        "121",
+                        "103"
+                    ]
+                },
+                {
+                    "fieldPath": "location_id",
+                    "uniqueCount": 4,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1400",
+                    "max": "1800",
+                    "mean": "1600.0",
+                    "median": "1600.0",
+                    "stdev": "182.57418583505537",
+                    "sampleValues": [
+                        "1700",
+                        "1800",
+                        "1500",
+                        "1400"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643871600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 4,
+            "columnCount": 11,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "employee_id",
+                    "uniqueCount": 4,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "100",
+                    "max": "103",
+                    "mean": "101.5",
+                    "median": "101.5",
+                    "stdev": "1.2909944487358056",
+                    "sampleValues": [
+                        "100",
+                        "101",
+                        "102",
+                        "103"
+                    ]
+                },
+                {
+                    "fieldPath": "first_name",
+                    "uniqueCount": 4,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Steven",
+                        "Neena",
+                        "Lex",
+                        "Alexander"
+                    ]
+                },
+                {
+                    "fieldPath": "last_name",
+                    "uniqueCount": 4,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "King",
+                        "Kochhar",
+                        "De Haan",
+                        "Hunold"
+                    ]
+                },
+                {
+                    "fieldPath": "email",
+                    "uniqueCount": 4,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "SKING",
+                        "NKOCHHAR",
+                        "LDEHAAN",
+                        "AHUNOLD"
+                    ]
+                },
+                {
+                    "fieldPath": "phone_number",
+                    "uniqueCount": 4,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "515.123.4567",
+                        "515.123.4568",
+                        "515.123.4569",
+                        "590.423.4567"
+                    ]
+                },
+                {
+                    "fieldPath": "hire_date",
+                    "uniqueCount": 4,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "2001-01-13T00:00:00",
+                    "max": "2006-01-03T00:00:00",
+                    "sampleValues": [
+                        "2003-06-17 00:00:00",
+                        "2005-09-21 00:00:00",
+                        "2001-01-13 00:00:00",
+                        "2006-01-03 00:00:00"
+                    ]
+                },
+                {
+                    "fieldPath": "job_id",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 0.75,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "AD_PRES",
+                        "AD_VP",
+                        "AD_VP",
+                        "IT_PROG"
+                    ]
+                },
+                {
+                    "fieldPath": "salary",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 0.75,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "9000",
+                    "max": "24000",
+                    "mean": "16750.0",
+                    "median": "17000.0",
+                    "stdev": "6130.52471924984",
+                    "sampleValues": [
+                        "24000.0",
+                        "17000.0",
+                        "17000.0",
+                        "9000.0"
+                    ]
+                },
+                {
+                    "fieldPath": "commission_pct",
+                    "uniqueCount": 0,
+                    "nullCount": 4,
+                    "nullProportion": 1,
+                    "sampleValues": []
+                },
+                {
+                    "fieldPath": "manager_id",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 0.6666666666666666,
+                    "nullCount": 1,
+                    "nullProportion": 0.25,
+                    "min": "100",
+                    "max": "102",
+                    "mean": "100.66666666666667",
+                    "median": "100",
+                    "stdev": "1.1547005383792515",
+                    "sampleValues": [
+                        "100",
+                        "100",
+                        "102"
+                    ]
+                },
+                {
+                    "fieldPath": "department_id",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 0.5,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "10",
+                    "max": "60",
+                    "mean": "22.5",
+                    "median": "10.0",
+                    "stdev": "25",
+                    "sampleValues": [
+                        "10",
+                        "10",
+                        "10",
+                        "60"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,casing_schema.case_sensitive_columns,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.departments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-no-procedures-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,hr_schema.employees,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

@@ -48,8 +48,10 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
   @Override
   public Map<String, Object> getSettings(
       @Nonnull IndexConfiguration indexConfiguration, @Nonnull String indexName) {
-    // For v3, only apply settings to indices that match the v3 entity naming pattern
-    if (!indexConvention.isV3EntityIndex(indexName)) {
+    // For v3, only apply settings to indices that match the v3 entity naming pattern. Prefix-
+    // INDEPENDENT type check: the index name is already fully resolved (may carry a per-operation
+    // prefix); this bootstrap path only needs its type, not a prefix-scoped match.
+    if (!indexConvention.isV3EntityIndexType(indexName)) {
       // Return empty settings if this is not a v3 entity index
       return new HashMap<>();
     }

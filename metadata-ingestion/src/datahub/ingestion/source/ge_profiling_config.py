@@ -4,36 +4,41 @@ import os
 from typing import Annotated, Any, Dict, List, Optional
 
 import pydantic
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
-from typing_extensions import Literal
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, SupportedSources
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    SupportedSources,
+)
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.source_config.operation_config import OperationConfig
+from datahub.utilities.str_enum import StrEnum
 
 _PROFILING_FLAGS_TO_REPORT = {
     "turn_off_expensive_profiling_metrics",
     "profile_table_level_only",
     "query_combiner_enabled",
+    "query_combiner_flatten_enabled",
     # all include_field_ flags are reported.
 }
 
 logger = logging.getLogger(__name__)
 
 
-class ProfilingMethodConfig(ConfigModel):
-    """Base class for profiling configs that support method selection."""
+class ProfilingIsolationLevel(StrEnum):
+    AUTOCOMMIT = "AUTOCOMMIT"
+    READ_COMMITTED = "READ COMMITTED"
+    REPEATABLE_READ = "REPEATABLE READ"
+    SERIALIZABLE = "SERIALIZABLE"
 
-    method: Literal["ge", "sqlalchemy"] = Field(
-        default="sqlalchemy",
-        description=(
-            "Profiling method to use. "
-            "`sqlalchemy` (default) runs profiling queries directly against your "
-            "source's existing SQLAlchemy connection. "
-            "`ge` selects the legacy Great Expectations profiler, which is "
-            "deprecated and requires `pip install 'acryl-datahub[profiling-ge]'`."
-        ),
-    )
+
+class ProfilingMethodConfig(ConfigModel):
+    # `method` used to select between the SQLAlchemy and the (now removed) Great
+    # Expectations profiler. SQLAlchemy is the only SQL profiler, so the field is
+    # gone; recipes that still set it are ignored with a deprecation warning.
+    _method_removed = pydantic_removed_field("method", month="August", year=2026)
 
 
 class GEProfilingBaseConfig(ProfilingMethodConfig):
@@ -152,12 +157,15 @@ class GEProfilingConfig(GEProfilingBaseConfig):
 
     profile_table_size_limit: Annotated[
         Optional[int],
-        SupportedSources(["snowflake", "bigquery", "unity-catalog", "oracle"]),
+        SupportedSources(
+            ["snowflake", "bigquery", "unity-catalog", "oracle", "teradata"]
+        ),
     ] = Field(
         default=5,
         description="Profile tables only if their size is less than specified GBs. If set to `null`, "
-        "no limit on the size of tables to profile. Supported only in `Snowflake`, `BigQuery` and "
-        "`Databricks`. Supported for `Oracle` based on calculated size from gathered stats.",
+        "no limit on the size of tables to profile. Supported in `Snowflake`, `BigQuery`, "
+        "`Databricks`, `Oracle`, and `Teradata`. `Oracle` uses calculated size from gathered stats. "
+        "`Teradata` uses DBC space accounting.",
     )
 
     profile_table_row_limit: Annotated[
@@ -184,8 +192,64 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="*This feature is still experimental and can be disabled if it causes issues.* Reduces the total number of queries issued and speeds up profiling by dynamically combining SQL queries where possible.",
     )
 
+    # Merges same-table aggregates into one flat SELECT instead of one CTE
+    # each, turning N table scans into one. Requires query_combiner_enabled.
+    query_combiner_flatten_enabled: bool = Field(
+        default=False,
+        description="Flattens same-shape aggregate queries into one flat SELECT per FROM group to reduce full table scans on row stores (e.g. MySQL). Requires `query_combiner_enabled`; has no effect on its own. Off by default. COUNT(DISTINCT) columns are capped per statement to bound server memory.",
+    )
+
+    # Duplicated from DEFAULT_MAX_DISTINCT_PER_STATEMENT rather than imported,
+    # because kafka / cassandra / excel configs import this module without
+    # sqlalchemy. A drift test keeps the two in lockstep.
+    max_distinct_per_statement: pydantic.PositiveInt = Field(
+        default=5,
+        description="Only used when `query_combiner_flatten_enabled` is on. "
+        "Maximum COUNT(DISTINCT) columns allowed in one flattened statement. Each one "
+        "builds a distinct-value tree in server memory, so merging too many trades a "
+        "scan problem for a memory problem. The default is a starting point, not a "
+        "measured optimum — raise it if your server has headroom and unique counts "
+        "dominate profiling time, lower it if profiling causes memory pressure.",
+    )
+
     # Hidden option - used for debugging purposes.
     catch_exceptions: bool = Field(default=True, description="")
+
+    # Isolation level applied to the profiling connection. None (the default)
+    # sets nothing, so the connection keeps the driver default and the whole
+    # table profile runs under one transaction. AUTOCOMMIT makes each profiling
+    # SELECT self-contained, at the cost of cross-statement snapshot consistency.
+    profiling_isolation_level: Annotated[
+        Optional[ProfilingIsolationLevel], SupportedSources(["mysql", "postgres"])
+    ] = Field(
+        default=None,
+        description=(
+            "Isolation level for the profiling connection. Defaults to unset, so "
+            "the connection keeps the driver default and one transaction spans the "
+            "whole table profile. Set AUTOCOMMIT if profiling is holding Postgres "
+            "idle-in-transaction (blocking VACUUM) or pinning an InnoDB read view "
+            "and growing the undo log on MySQL; each profiling SELECT then runs on "
+            "its own. Under AUTOCOMMIT or READ_COMMITTED, metrics come from "
+            "different snapshots, so a profile can be internally inconsistent on a "
+            "concurrently-written table (e.g. uniqueCount > rowCount). On MySQL "
+            "InnoDB, REPEATABLE_READ keeps a consistent snapshot; on Postgres, "
+            "READ COMMITTED already takes a fresh snapshot per statement, so "
+            "AUTOCOMMIT loses no consistency there."
+        ),
+    )
+
+    @field_validator("profiling_isolation_level", mode="before")
+    @classmethod
+    def _normalize_profiling_isolation_level(cls, value: Any) -> Any:
+        # Accept case/underscore variants (read_committed → READ COMMITTED) so the
+        # enum rejects typos at config-parse time while still matching the SQL
+        # standard names with spaces. Empty/whitespace → None (leave unset).
+        if value is None or isinstance(value, ProfilingIsolationLevel):
+            return value
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip().upper().replace("_", " ")
+        return normalized or None
 
     partition_profiling_enabled: Annotated[
         bool, SupportedSources(["athena", "bigquery"])
@@ -223,7 +287,8 @@ class GEProfilingConfig(GEProfilingBaseConfig):
     tags_to_ignore_sampling: Optional[List[str]] = pydantic.Field(
         default=None,
         description=(
-            "Fixed list of tags to ignore sampling."
+            "Fixed list of tags to ignore sampling. Each entry may be a full tag URN"
+            " (e.g. `urn:li:tag:my_tag`) or just the tag name (e.g. `my_tag`)."
             " If not specified, tables will be sampled based on `use_sampling`."
         ),
     )
@@ -232,6 +297,26 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         default=False,
         description="Whether to profile complex types like structs, arrays and maps. ",
     )
+
+    nested_field_max_depth: pydantic.PositiveInt = Field(
+        default=10,
+        description="Maximum recursion depth when flattening nested JSON structures during profiling. "
+        "Lower values prevent recursion errors but may truncate deeply nested data. "
+        "Applies to connectors that process dynamic JSON content (e.g., Kafka, MongoDB, Elasticsearch).",
+    )
+
+    @model_validator(mode="after")
+    def warn_if_flatten_without_query_combiner(self) -> "GEProfilingConfig":
+        # Warn rather than raise: disabling the combiner is a legitimate way to
+        # troubleshoot a profiling run, and that should not start failing just
+        # because the flatten flag was left on.
+        if self.query_combiner_flatten_enabled and not self.query_combiner_enabled:
+            logger.warning(
+                "query_combiner_flatten_enabled has no effect while "
+                "query_combiner_enabled is false: the combiner short-circuits "
+                "before the flatten path runs, so no queries will be flattened."
+            )
+        return self
 
     @model_validator(mode="before")
     @classmethod

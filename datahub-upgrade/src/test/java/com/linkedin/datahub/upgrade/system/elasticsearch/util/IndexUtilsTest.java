@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
@@ -86,15 +87,19 @@ public class IndexUtilsTest {
   public void testPerformGetRequest_Success() throws IOException {
     // Arrange
     String endpoint = "/_cluster/health";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
 
     // Act
-    RawResponse result = IndexUtils.performGetRequest(esComponents, endpoint);
+    RawResponse result = IndexUtils.performGetRequest(operationContext, esComponents, endpoint);
 
     // Assert
     Assert.assertNotNull(result);
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -102,15 +107,20 @@ public class IndexUtilsTest {
     // Arrange
     String endpoint = "/_index_template/test";
     String jsonBody = "{\"template\": {\"mappings\": {}}}";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
 
     // Act
-    RawResponse result = IndexUtils.performPutRequest(esComponents, endpoint, jsonBody);
+    RawResponse result =
+        IndexUtils.performPutRequest(operationContext, esComponents, endpoint, jsonBody);
 
     // Assert
     Assert.assertNotNull(result);
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -118,15 +128,20 @@ public class IndexUtilsTest {
     // Arrange
     String endpoint = "/_bulk";
     String jsonBody = "{\"index\": {}}";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
 
     // Act
-    RawResponse result = IndexUtils.performPostRequest(esComponents, endpoint, jsonBody);
+    RawResponse result =
+        IndexUtils.performPostRequest(operationContext, esComponents, endpoint, jsonBody);
 
     // Assert
     Assert.assertNotNull(result);
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -135,16 +150,21 @@ public class IndexUtilsTest {
     String endpoint = "/_index_template/test";
     String queryParams = "create=true";
     String jsonBody = "{\"template\": {\"mappings\": {}}}";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
 
     // Act
     RawResponse result =
-        IndexUtils.performPutRequestWithParams(esComponents, endpoint, queryParams, jsonBody);
+        IndexUtils.performPutRequestWithParams(
+            operationContext, esComponents, endpoint, queryParams, jsonBody);
 
     // Assert
     Assert.assertNotNull(result);
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test

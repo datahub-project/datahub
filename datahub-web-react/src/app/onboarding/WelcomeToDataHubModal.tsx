@@ -1,9 +1,11 @@
 import { Button, Carousel, LoadedImage, Modal } from '@components';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ANT_NOTIFICATION_Z_INDEX } from '@app/shared/constants';
+import { checkShouldSkipWelcomeModal, setSkipWelcomeModal } from '@app/shared/localStorageUtils';
 import {
     LoadingContainer,
     SlideContainer,
@@ -18,8 +20,6 @@ import welcomeModalHomeScreenshot from '@images/welcome-modal-home-screenshot.pn
 
 const SLIDE_DURATION_MS = 10000;
 const DATAHUB_DOCS_URL = 'https://docs.datahub.com/docs/category/features';
-const WELCOME_TO_DATAHUB_MODAL_TITLE = 'Welcome to DataHub';
-const SKIP_WELCOME_MODAL_KEY = 'skipWelcomeModal';
 
 interface VideoSources {
     search: string;
@@ -28,15 +28,12 @@ interface VideoSources {
     aiDocs?: string;
 }
 
-function checkShouldSkipWelcomeModal() {
-    return localStorage.getItem(SKIP_WELCOME_MODAL_KEY) === 'true';
-}
-
 export const WelcomeToDataHubModal = () => {
+    const { t } = useTranslation('onboarding');
+    const { t: tf } = useTranslation('common.feedback');
     const [shouldShow, setShouldShow] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
     const [videoSources, setVideoSources] = useState<VideoSources | null>(null);
-    const [videoLoading, setVideoLoading] = useState(false);
     const [videosReady, setVideosReady] = useState<{ [key in keyof VideoSources]?: boolean }>({});
     const hasTrackedView = useRef(false);
     const carouselRef = useRef<any>(null);
@@ -76,7 +73,6 @@ export const WelcomeToDataHubModal = () => {
                 aiDocs: undefined,
             };
             setVideoSources(emptyVideoSources);
-            setVideoLoading(false);
 
             // Load all videos in parallel, update each as it completes
             const loadVideo = async (videoKey: keyof VideoSources, importPromise: Promise<{ default: string }>) => {
@@ -175,23 +171,23 @@ export const WelcomeToDataHubModal = () => {
             closeModalTour();
         } else {
             // Only set localStorage for automatic first-time tours, not manual triggers
-            localStorage.setItem(SKIP_WELCOME_MODAL_KEY, 'true');
+            setSkipWelcomeModal(true);
         }
     }
 
     if (!shouldShow) return null;
 
     // Show loading state while videos are being loaded
-    if (videoLoading || !videoSources) {
+    if (!videoSources) {
         return (
             <Modal
-                title={WELCOME_TO_DATAHUB_MODAL_TITLE}
+                title={t('welcome.modalTitle')}
                 width={MODAL_WIDTH}
                 onCancel={() => closeTour('close_button')}
                 keyboard={false}
                 buttons={[
                     {
-                        text: 'Get Started',
+                        text: t('welcome.getStarted'),
                         variant: 'filled',
                         onClick: () => closeTour('get_started_button'),
                     },
@@ -200,7 +196,7 @@ export const WelcomeToDataHubModal = () => {
                 <SlideContainer>
                     <SlideTitle>&nbsp;</SlideTitle>
                     <VideoContainer>
-                        <LoadingContainer width={MODAL_IMAGE_WIDTH}>Loading...</LoadingContainer>
+                        <LoadingContainer width={MODAL_IMAGE_WIDTH}>{tf('loading')}</LoadingContainer>
                     </VideoContainer>
                 </SlideContainer>
             </Modal>
@@ -216,7 +212,7 @@ export const WelcomeToDataHubModal = () => {
 
     return (
         <Modal
-            title={WELCOME_TO_DATAHUB_MODAL_TITLE}
+            title={t('welcome.modalTitle')}
             width={MODAL_WIDTH}
             onCancel={() => closeTour('close_button')}
             keyboard={false}
@@ -240,7 +236,7 @@ export const WelcomeToDataHubModal = () => {
                                 trackExternalLinkClick(DATAHUB_DOCS_URL);
                             }}
                         >
-                            DataHub Docs
+                            {t('welcome.docsLink')}
                         </StyledDocsLink>
                     ) : undefined
                 }
@@ -251,17 +247,15 @@ export const WelcomeToDataHubModal = () => {
                             variant="filled"
                             onClick={() => closeTour('get_started_button')}
                         >
-                            Get started
+                            {t('welcome.getStarted')}
                         </Button>
                     ) : undefined
                 }
                 infinite={false}
             >
                 <SlideContainer>
-                    <SlideTitle>Find Any Asset, Anywhere</SlideTitle>
-                    <SlideDescription>
-                        Search datasets, models, dashboards, and more across your entire stack
-                    </SlideDescription>
+                    <SlideTitle>{t('welcome.slideFindTitle')}</SlideTitle>
+                    <SlideDescription>{t('welcome.slideFindDescription')}</SlideDescription>
                     <VideoContainer>
                         <VideoSlide
                             videoSrc={videoSources?.search}
@@ -272,8 +266,8 @@ export const WelcomeToDataHubModal = () => {
                     </VideoContainer>
                 </SlideContainer>
                 <SlideContainer>
-                    <SlideTitle>Understand Your Data&apos;s Origin</SlideTitle>
-                    <SlideDescription>See the full story of how your data was created and transformed</SlideDescription>
+                    <SlideTitle>{t('welcome.slideLineageTitle')}</SlideTitle>
+                    <SlideDescription>{t('welcome.slideLineageDescription')}</SlideDescription>
                     <VideoContainer>
                         <VideoSlide
                             videoSrc={videoSources?.lineage}
@@ -284,8 +278,8 @@ export const WelcomeToDataHubModal = () => {
                     </VideoContainer>
                 </SlideContainer>
                 <SlideContainer>
-                    <SlideTitle>Manage Breaking Changes Confidently</SlideTitle>
-                    <SlideDescription>Preview the full impact of schema and column changes</SlideDescription>
+                    <SlideTitle>{t('welcome.slideImpactTitle')}</SlideTitle>
+                    <SlideDescription>{t('welcome.slideImpactDescription')}</SlideDescription>
                     <VideoContainer>
                         <VideoSlide
                             videoSrc={videoSources?.impact}
@@ -297,8 +291,8 @@ export const WelcomeToDataHubModal = () => {
                 </SlideContainer>
                 {videoSources.aiDocs && (
                     <SlideContainer>
-                        <SlideTitle>Documentation Without the Work</SlideTitle>
-                        <SlideDescription>Save hours of manual work while improving discoverability</SlideDescription>
+                        <SlideTitle>{t('welcome.slideDocsTitle')}</SlideTitle>
+                        <SlideDescription>{t('welcome.slideDocsDescription')}</SlideDescription>
                         <VideoContainer>
                             <VideoSlide
                                 videoSrc={videoSources?.aiDocs}
@@ -310,13 +304,11 @@ export const WelcomeToDataHubModal = () => {
                     </SlideContainer>
                 )}
                 <SlideContainer>
-                    <SlideTitle>Ready to Get Started?</SlideTitle>
-                    <SlideDescription>
-                        Explore our comprehensive documentation or jump right in and start discovering your data
-                    </SlideDescription>
+                    <SlideTitle>{t('welcome.slideReadyTitle')}</SlideTitle>
+                    <SlideDescription>{t('welcome.slideReadyDescription')}</SlideDescription>
                     <LoadedImage
                         src={welcomeModalHomeScreenshot}
-                        alt={WELCOME_TO_DATAHUB_MODAL_TITLE}
+                        alt={t('welcome.modalTitle')}
                         width={MODAL_IMAGE_WIDTH}
                     />
                 </SlideContainer>

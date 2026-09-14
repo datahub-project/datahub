@@ -1,0 +1,13 @@
+services:
+  testmariadb:
+    image: mariadb:11.4
+    container_name: testmariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: password
+      MARIADB_DATABASE: test_db
+    ports:
+      # Ephemeral: only the host needs to reach this port (for ingestion); Docker
+      # picks a free one so a leaked container from a prior run can't hold it.
+      - "3306"
+    volumes:
+      - ./setup:/docker-entrypoint-initdb.d

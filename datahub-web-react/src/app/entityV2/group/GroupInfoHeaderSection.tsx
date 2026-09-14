@@ -2,6 +2,7 @@ import { LockOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { MemberCount } from '@app/entityV2/group/GroupSidebar';
@@ -61,6 +62,7 @@ export const GroupInfoHeaderSection = ({
     isExternalGroup,
     groupName,
 }: Props) => {
+    const { t } = useTranslation('entity.types');
     const groupMemberRelationshipsTotal = groupMemberRelationships?.total || 0;
     return (
         <GroupHeader>
@@ -76,7 +78,9 @@ export const GroupInfoHeaderSection = ({
                     </Tooltip>
                 )}
             </NameRow>
-            {groupMemberRelationshipsTotal > 0 && <MemberCount>{groupMemberRelationshipsTotal} members</MemberCount>}
+            {groupMemberRelationshipsTotal > 0 && (
+                <MemberCount>{t('shared.membersCount', { count: groupMemberRelationshipsTotal })}</MemberCount>
+            )}
         </GroupHeader>
     );
 };

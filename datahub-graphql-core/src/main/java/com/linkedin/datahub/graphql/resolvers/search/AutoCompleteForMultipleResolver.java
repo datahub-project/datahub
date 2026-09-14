@@ -79,9 +79,10 @@ public class AutoCompleteForMultipleResolver
           maybeResolvedView);
     }
 
-    // By default, autocomplete only against the Default Set of Autocomplete entities
+    // By default, autocomplete only against the configured autocomplete entity types
     return AutocompleteUtils.batchGetAutocompleteResults(
-        AUTO_COMPLETE_ENTITY_TYPES.stream()
+        SearchUtils.getAutocompleteEntityNames(context.getOperationContext()).stream()
+            .map(EntityTypeMapper::getType)
             .map(_typeToEntity::get)
             .filter(Objects::nonNull)
             .collect(Collectors.toList()),
