@@ -285,6 +285,21 @@ class TestClassicalEmbeddingProvider:
             f"(model={CLASSICAL_EMBEDDING_MODEL})"
         )
 
+        # The rank assertions in Step 4 are lexical: every query word is in the second
+        # document's title and none is in the other two. Guard the shared fixture
+        # (owned by the neural suites) so an edit there fails here with a clear
+        # message instead of a silent rank flip.
+        test_query = "data access request process"
+        query_words = set(test_query.split())
+        assert query_words <= set(SAMPLE_DOCUMENTS[1]["title"].lower().split()), (
+            f"SAMPLE_DOCUMENTS[1] title no longer carries the query words {query_words}"
+        )
+        for other in (SAMPLE_DOCUMENTS[0], SAMPLE_DOCUMENTS[2]):
+            assert not (query_words & set(other["title"].lower().split())), (
+                f"'{other['title']}' shares words with the lexical query; the rank "
+                "assertions below assume it does not"
+            )
+
         # Step 1: Create all 3 sample documents
         created_docs = create_documents_with_sdk(auth_session, SAMPLE_DOCUMENTS)
         for _doc_id, urn in created_docs:
@@ -303,7 +318,6 @@ class TestClassicalEmbeddingProvider:
         # document it must match is visible (or the deadline passes), then verify
         # aspects. The other two documents share no words with the query and are only
         # asserted to rank below it, which "not returned" satisfies.
-        test_query = "data access request process"
         result = _wait_for_semantic_index(
             auth_session, test_query, [f"urn:li:document:{doc_ids[1]}"]
         )

@@ -264,7 +264,8 @@ Compute deterministic lexical vectors in-process with no external service. This 
 ```bash
 # Required
 EMBEDDING_PROVIDER_TYPE=classical
-# Required opt-in: GMS refuses the provider without it and logs a warning while it is active.
+# Required opt-in on every process that builds the provider (GMS, system-update, the MAE
+# consumer): each refuses to start without it and logs a warning while it is active.
 CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true
 
 # Optional - default shown. Format hash-v1-<dims>; the width must match the

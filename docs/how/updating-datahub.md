@@ -173,7 +173,7 @@ Requirements:
 
 - #18924 **(Ingestion / SDK)** DataJobs emitted through the Python SDK now set the parent DataFlow's browse-path entry `id` to the DataFlow URN instead of the raw flow id. This lets Browse (V2) resolve and show the flow's display name rather than an opaque id — most visibly, Airbyte connections that previously appeared as UUID folders now show their connection name. This affects every connector that emits DataJobs via the SDK (for example Airbyte, Fivetran, Azure Data Factory, Flink, Informatica, dlt). The change is to emitted metadata only; there is no model change and no reindex is required. **Action:** none is strictly required, but re-ingest the affected pipelines to refresh their browse paths and pick up the improved navigation.
 
-- **(GMS / Semantic search)** The GraphQL `semanticSearch` and `semanticSearchAcrossEntities` resolvers no longer escape `/` in the query text. The semantic query only feeds the embedding provider for kNN (it never reaches an Elasticsearch `query_string` clause), so the escape changed the embedded text for queries containing paths or URLs and could lower recall. Keyword search resolvers are unchanged. **Action:** none.
+- **(GMS / Semantic search)** The GraphQL `semanticSearch` and `semanticSearchAcrossEntities` resolvers no longer escape `/` in the query text. The semantic query only feeds the embedding provider for kNN (it never reaches an Elasticsearch `query_string` clause), so the escape changed the embedded text for queries containing paths or URLs and could lower recall. The same resolvers now reject a blank query with a `BAD_REQUEST` error instead of embedding empty text. Keyword search resolvers are unchanged. **Action:** none.
 
 ### Environment Variables
 
