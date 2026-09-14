@@ -333,6 +333,17 @@ public class EmbeddingProviderFactory {
               + "Set the CLASSICAL_EMBEDDING_MODEL environment variable or configure "
               + "embeddingProvider.classical.model in application.yaml (e.g. 'hash-v1-2048').");
     }
+    // Hard gate: the provider ranks by hashed lexical overlap, not meaning, and exists for CI,
+    // smoke tests and quickstarts. Document vectors are only searchable through a GMS running
+    // the same provider, so refusing here scopes the whole pipeline, not just the query side.
+    if (!classicalConfig.isAcknowledgeLexicalOnly()) {
+      throw new IllegalStateException(
+          "The classical embedding provider ranks by hashed lexical overlap, not meaning, and is "
+              + "meant for CI, smoke tests and quickstarts, not for deployments that need semantic "
+              + "search. To run it anyway set CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true "
+              + "(embeddingProvider.classical.acknowledgeLexicalOnly). For a local neural provider "
+              + "without an API key use EMBEDDING_PROVIDER_TYPE=onnx.");
+    }
 
     ClassicalEmbeddingProvider provider;
     try {
@@ -381,8 +392,10 @@ public class EmbeddingProviderFactory {
               modelKey, spaceType));
     }
 
-    log.info(
-        "Configuring classical embedding provider: model={}, modelKey={}, dimensions={}",
+    log.warn(
+        "Classical embedding provider active (model={}, modelKey={}, dimensions={}): ranking is "
+            + "lexical (hashed words and character n-grams), not semantic. Intended for CI, smoke "
+            + "tests and quickstarts; use a neural provider such as onnx for real deployments.",
         model,
         modelKey,
         provider.getDimensions());

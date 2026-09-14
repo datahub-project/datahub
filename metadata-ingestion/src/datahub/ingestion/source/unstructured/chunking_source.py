@@ -260,10 +260,17 @@ class DocumentChunkingSource(Source):
                 "Set embedding.model in your recipe."
             )
 
-        # Otherwise a malformed name only surfaces inside the first embed call and
-        # is reported as a per-document embedding failure on every document.
-        if provider == "classical" and embedding_config.model:
-            parse_classical_dimensions(embedding_config.model)
+        if provider == "classical":
+            # GMS refuses this provider without an explicit opt-in; say what it is
+            # here too, since a recipe can pin it without going through the server.
+            logger.warning(
+                "Embedding provider 'classical' ranks by hashed lexical overlap, not "
+                "meaning; it is meant for CI, smoke tests and quickstarts."
+            )
+            # Otherwise a malformed name only surfaces inside the first embed call
+            # and is reported as a per-document embedding failure on every document.
+            if embedding_config.model:
+                parse_classical_dimensions(embedding_config.model)
 
         if (
             provider == "cohere"

@@ -729,6 +729,7 @@ public class EmbeddingProviderFactoryTest {
     EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
     config.setType("classical");
     config.getClassical().setModel(model);
+    config.getClassical().setAcknowledgeLexicalOnly(true);
     return config;
   }
 
@@ -752,6 +753,20 @@ public class EmbeddingProviderFactoryTest {
         provider instanceof ClassicalEmbeddingProvider,
         "expected ClassicalEmbeddingProvider, got: " + provider.getClass().getName());
     assertEquals(provider.embed("id", null).length, 2048);
+  }
+
+  /** The provider is lexical, not semantic: startup refuses it without the explicit opt-in. */
+  @Test
+  public void rejectsClassicalWithoutLexicalOnlyAcknowledgement() throws Exception {
+    EmbeddingProviderConfiguration config = configWithClassical("hash-v1-2048");
+    config.getClassical().setAcknowledgeLexicalOnly(false);
+    TestableFactory factory =
+        factoryWithOnnxConfig(config, modelsWith("hash_v1_2048", 2048, "cosinesimil"));
+
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY"),
+        "expected opt-in hint, got: " + ex.getMessage());
   }
 
   /** Elasticsearch names the metric "cosine"; OpenSearch "cosinesimil". Both are accepted. */

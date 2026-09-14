@@ -10,17 +10,22 @@ the semantic search path on a quickstart.
 Gate: CLASSICAL_EMBEDDING_PROVIDER_TESTS=true
 Requires: a DataHub instance whose GMS runs with
           ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true,
-          SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true and
-          EMBEDDING_PROVIDER_TYPE=classical.
+          SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true,
+          EMBEDDING_PROVIDER_TYPE=classical and
+          CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true (the provider is a
+          CI/smoke-test provider, lexical not semantic; GMS refuses it otherwise).
 
 Usage — quickstart:
     # GMS (and system-update, which builds the semantic index) must run with
     #   EMBEDDING_PROVIDER_TYPE=classical
+    #   CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true  (opt-in, see above)
     #   ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true   (index + embed on write)
     #   SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true  (semanticSearchAcrossEntities)
     # set on the service environment, e.g. through a compose override like
     # docker/profiles/docker-compose.onnx-override.yml with the ONNX settings
-    # replaced by the three variables above (classical needs no model files).
+    # replaced by the four variables above (classical needs no model files).
+    # CI runs exactly this through the classical leg of
+    # .github/workflows/docker-quickstart-ai.yml.
 
     CLASSICAL_EMBEDDING_PROVIDER_TESTS=true \\
         pytest tests/semantic/test_classical_embedding_provider.py -v

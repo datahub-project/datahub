@@ -891,6 +891,9 @@ elasticsearch:
         # (hash_v1_2048 above). Switching models requires recreating the semantic index.
         classical:
           model: ${CLASSICAL_EMBEDDING_MODEL:hash-v1-2048}
+          # Lexical hashing, not semantic search: meant for CI, smoke tests and quickstarts. GMS
+          # refuses type=classical until this is true, and logs a warning while it is active.
+          acknowledgeLexicalOnly: ${CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY:false}
 
         # Google Vertex AI configuration (used when type is "vertex_ai")
         vertexai:

@@ -89,7 +89,7 @@ When a user performs a semantic search:
 ### Prerequisites
 
 - DataHub running with semantic search enabled
-- OpenAI API key (default), or AWS credentials (for Bedrock), or Cohere API key, or no external service at all with the `classical` provider (deterministic lexical hashing; set `EMBEDDING_PROVIDER_TYPE=classical`)
+- OpenAI API key (default), or AWS credentials (for Bedrock), or Cohere API key, or a local ONNX model (`onnx`). The `classical` provider (deterministic lexical hashing; `EMBEDDING_PROVIDER_TYPE=classical` plus `CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true`) needs nothing, but it is for CI and smoke tests, not semantic search
 
 ### 1. Enable Semantic Search
 

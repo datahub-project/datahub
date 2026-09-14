@@ -364,11 +364,15 @@ embedding:
   model, pooling, and truncation length at startup; compare those log lines across
   GMS and the executor when recall looks wrong.
 
-**Classical (deterministic hashing, no external service):**
+**Classical (deterministic hashing; CI and smoke tests only):**
 
-Server-side configuration is all that is needed: set `EMBEDDING_PROVIDER_TYPE=classical`
-on GMS and leave the recipe's `embedding` section empty (it is loaded from the server).
-To pin it explicitly in the recipe instead:
+Not semantic search: a testing provider that ranks by hashed lexical overlap, for
+CI, smoke tests and quickstarts that need the full pipeline with zero external
+dependencies. Server-side configuration is all that is needed: set
+`EMBEDDING_PROVIDER_TYPE=classical` and `CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true`
+on GMS (it refuses the provider without the opt-in and logs a warning while it is
+active) and leave the recipe's `embedding` section empty (it is loaded from the
+server). To pin it explicitly in the recipe instead:
 
 ```yaml
 embedding:
@@ -389,8 +393,9 @@ embedding:
   the server.
 - Quality is lexical, not semantic: results rank by shared words and character
   fragments (`user_id` scores against `customer_id` through the fragments they
-  share, and no query matches by meaning). Use it where no neural provider is
-  available, or as a deterministic baseline.
+  share, and no query matches by meaning). Use it for CI, smoke tests and
+  deterministic baselines; a deployment that needs semantic quality without a
+  cloud dependency should use the in-process `onnx` provider above.
 - The model name encodes the algorithm version and vector width
   (`hash-v1-<dimensions>`), and the storage key is derived from it
   (`hash_v1_2048`). GMS requires a `semanticSearch.models` entry for that key with

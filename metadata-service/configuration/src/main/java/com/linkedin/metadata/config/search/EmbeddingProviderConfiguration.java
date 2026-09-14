@@ -282,5 +282,12 @@ public class EmbeddingProviderConfiguration {
      * match. Defaults to "hash-v1-2048".
      */
     private String model = "hash-v1-2048";
+
+    /**
+     * The provider ranks by hashed lexical overlap, not meaning, and exists for CI, smoke tests and
+     * quickstarts. Startup refuses {@code type: classical} unless this is true, so a deployment
+     * cannot land on it without reading what it is. Defaults to false.
+     */
+    private boolean acknowledgeLexicalOnly = false;
   }
 }
