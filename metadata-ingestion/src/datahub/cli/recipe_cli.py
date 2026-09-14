@@ -424,8 +424,11 @@ def _parse_extra_params(tokens: Tuple[str, ...]) -> Dict[str, object]:
 @probe_group.command(name="methods")
 @click.option("--recipe", "recipe_path", required=True)
 def probe_methods_cmd(recipe_path: str) -> None:
-    # Connection-free: lists each command, its params, and its docstring (the
-    # help the agent reads to decide which method to call).
+    """List what this source can be asked about, and how to ask it.
+
+    Connection-free: reports each command, its params, and its description --
+    the help the agent reads to decide which method to call.
+    """
     secret_values: Set[str] = set()
     with _exit_codes(secret_values, fallback=EXIT_INTERNAL):
         source_type, _resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
@@ -530,6 +533,12 @@ def probe_run_cmd(
     params: Tuple[str, ...],
     report_to: Optional[str],
 ) -> None:
+    """Run one of the source's listing commands against the live source.
+
+    The connecting half of the probe: `probe methods` names the available
+    commands and the params each takes, and this calls one of them. Params go
+    as `--<name> <value>`, repeatable.
+    """
     secret_values: Set[str] = set()
     with _exit_codes(secret_values, fallback=EXIT_CONNECTION):
         source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
