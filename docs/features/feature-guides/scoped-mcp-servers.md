@@ -68,18 +68,24 @@ The shared entry point `https://mcp.datahub.com/mcp` always resolves to your ten
 Copy the Connection URL from the server's detail page rather than assembling it by hand, then follow the steps for your client below.
 
 <details>
-  <summary>Claude (web, desktop, mobile)</summary>
+  <summary>Claude (web and desktop)</summary>
 
 Scoped servers are added as a **custom connector**, exactly like the default server — only the URL differs.
 
-1. In claude.ai or Claude Desktop, open **Settings → Connectors** (Team/Enterprise: **Organization settings → Connectors**).
-2. Click **Add custom connector**.
+1. In claude.ai or Claude Desktop, open **Customize → Connectors**.
+2. Click **+**, then **Add custom connector**.
 3. **Name**: something that identifies the scope, e.g. `DataHub — Finance`. Using the scope in the name matters because you may end up with several DataHub connectors side by side.
 4. **Remote MCP server URL**: paste the scoped **Connection URL**, e.g. `https://<tenant>.acryl.io/mcp/finance`.
 5. Leave **Advanced settings** (OAuth Client ID / Secret) empty — DataHub registers the client automatically via DCR.
 6. Click **Add**, then **Connect**, and complete the DataHub sign-in in the browser window Claude opens.
 
 Because the URL already identifies the tenant, Claude will not prompt you for a DataHub domain the way `mcp.datahub.com` does.
+
+On **Team and Enterprise** plans, an owner adds the connector org-wide under **Organization settings → Connectors → Add → Custom**; each member then connects it individually from **Customize → Connectors** to authenticate as themselves.
+
+:::note Mobile
+Custom connectors cannot be added from the Claude mobile app. Add the scoped server on claude.ai or Claude Desktop and it becomes available on mobile for the same account.
+:::
 
 </details>
 
@@ -143,7 +149,13 @@ See [Service Accounts for Agentic Workflows](./mcp.md#service-accounts-for-agent
 
 A scoped server shapes **what an agent sees by default** — it is a signal-to-noise tool, not an access control boundary. The attached View narrows search and lookups for that endpoint, but it does not revoke the user's underlying access: the same person can query outside the scope through the default MCP server, the UI, or the API.
 
-If users of a scoped server must be genuinely prevented from reading data outside its scope, enforce that with [Policies](../../authorization/policies.md) on the users or groups involved, and treat the scoped server as an ergonomics layer on top.
+If users of a scoped server must be genuinely prevented from reading data outside its scope, note that [Policies](../../authorization/policies.md) alone are not sufficient either — without [Search Access Controls](./search-access-controls.md) enabled, no policy-based filtering is applied to search at all and every user can see every entity in results. To make the boundary real:
+
+1. **Enable [Search Access Controls](./search-access-controls.md)**, which switches search to a default-deny model where entities are returned only if a policy grants **View Entity**.
+2. **Audit existing broad `View Entity` grants** — a platform-wide grant left in place will re-expose everything you just scoped.
+3. **Check the entity types that bypass view checks.** Types flagged `viewUnrestricted: true` in the entity registry stay visible without a grant; confirm the types you care about are not among them.
+
+Only then does the scoped server sit on top of a real boundary rather than in place of one.
 
 ## Keeping Agents Inside Their Scope
 
