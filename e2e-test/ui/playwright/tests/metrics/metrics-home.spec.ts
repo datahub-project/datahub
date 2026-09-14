@@ -33,9 +33,13 @@ test.describe('Metrics home and sidebar', () => {
   test('hides Metrics nav and route when flag is off', async ({ page, apiMock }) => {
     await apiMock.setFeatureFlags(METRICS_FEATURE_FLAGS_OFF);
     await page.goto('/');
+    // Wait for the app shell before toBeHidden checks; otherwise absent Metrics
+    // chrome can pass vacuously before the SPA mounts.
+    await expect(page.getByTestId('search-input')).toBeVisible({ timeout: TIMEOUTS.LONG });
     await expect(metricsPage.navMetricsItem).toBeHidden({ timeout: TIMEOUTS.MEDIUM });
 
     await page.goto('/metrics');
+    await expect(page.getByTestId('search-input')).toBeVisible({ timeout: TIMEOUTS.LONG });
     await expect(metricsPage.metricsPage).toBeHidden({ timeout: TIMEOUTS.MEDIUM });
     await expect(metricsPage.sidebar).toBeHidden({ timeout: TIMEOUTS.MEDIUM });
   });

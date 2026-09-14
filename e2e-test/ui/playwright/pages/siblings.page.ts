@@ -110,13 +110,16 @@ export class SiblingsPage extends BasePage {
   }
 
   async verifySingleSearchResult(datasetName: string, platforms: string[]): Promise<void> {
-    // Assert combining on the target card rather than a global result count, so
-    // unrelated hits for a short query cannot fail the siblings assertion.
-    const result = this.searchResults.filter({ hasText: datasetName });
+    // Match the result title (not any card text) so incidental mentions do not
+    // inflate the count. Search cards render logos as <img alt="...">, not
+    // entity-profile platform-icon-* test ids.
+    const result = this.searchResults.filter({
+      has: this.page.getByTestId('entity-title').getByText(datasetName, { exact: true }),
+    });
     await expect(result).toHaveCount(1, { timeout: TIMEOUTS.LONG });
 
     for (const platform of platforms) {
-      await expect(result.getByTestId(`platform-icon-${platform.toLowerCase()}`)).toBeVisible({
+      await expect(result.getByRole('img', { name: new RegExp(platform, 'i') })).toBeVisible({
         timeout: TIMEOUTS.MEDIUM,
       });
     }
