@@ -381,8 +381,9 @@ embedding:
   No API key, endpoint, or model download, and nothing extra to install. GMS
   computes query vectors with the identical algorithm.
 - Quality is lexical, not semantic: results rank by shared words and character
-  fragments (`user_id` matches `id`), not by meaning. Use it where no neural
-  provider is available, or as a deterministic baseline.
+  fragments (`user_id` scores against `customer_id` through the fragments they
+  share, and no query matches by meaning). Use it where no neural provider is
+  available, or as a deterministic baseline.
 - The model name encodes the algorithm version and vector width
   (`hash-v1-<dimensions>`), and the storage key is derived from it
   (`hash_v1_2048`). GMS requires a `semanticSearch.models` entry for that key with

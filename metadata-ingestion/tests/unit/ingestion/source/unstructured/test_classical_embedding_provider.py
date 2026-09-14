@@ -7,8 +7,11 @@ components. Both suites must hard-code the same values for the same literals, so
 a change to either implementation that breaks query/document parity fails here.
 """
 
+import codecs
 import hashlib
+import re
 import struct
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -158,6 +161,40 @@ def test_rejects_input_over_max_code_points() -> None:
     assert len(_embed("a" * 16384)) == DIMS
     with pytest.raises(ValueError, match="16384"):
         _embed("a" * 16385)
+
+
+_JAVA_GOLDEN_TEST = (
+    Path(__file__).resolve().parents[6]
+    / "metadata-io/src/test/java/com/linkedin/metadata/search/embedding"
+    / "ClassicalEmbeddingProviderTest.java"
+)
+
+
+def _java_golden_rows() -> list[tuple[str, str]]:
+    """The (text, digest) rows of the Java data provider, with Java escapes decoded
+    and UTF-16 surrogate pairs recombined so they compare against Python strings."""
+    source = _JAVA_GOLDEN_TEST.read_text(encoding="utf-8")
+    body = source.split("Object[][] golden()", 1)[1].split("};", 1)[0]
+    literals = [
+        codecs.decode(token[1:-1], "unicode_escape")
+        .encode("utf-16", "surrogatepass")
+        .decode("utf-16", "surrogatepass")
+        for token in re.findall(r'"(?:[^"\\]|\\.)*"|//[^\n]*', body)
+        if token.startswith('"')
+    ]
+    assert len(literals) % 2 == 0, "Java golden rows must be (text, digest) pairs"
+    return list(zip(literals[0::2], literals[1::2], strict=True))
+
+
+@pytest.mark.skipif(
+    not _JAVA_GOLDEN_TEST.exists(), reason="Java golden table not in this checkout"
+)
+def test_golden_table_matches_java_suite() -> None:
+    """The two hand-maintained golden tables are the parity contract; editing one
+    without the other must fail here, not pass both suites silently."""
+    assert sorted(_java_golden_rows()) == sorted(
+        (text, digest) for _, text, digest in GOLDEN
+    )
 
 
 @pytest.mark.parametrize("text", ["", "   \t\n"])
