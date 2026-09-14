@@ -2057,10 +2057,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         csn_def: JsonDict,
         fields: List[SchemaFieldClass],
     ) -> None:
-        # Append each calculated column's expression to its description as a
-        # ``formula:`` line. The renderer is defensively guarded, so surface an
-        # escaping exception as a warning (with the traceback) rather than
-        # swallowing it — it points at a renderer bug, not just malformed CSN.
+        # The renderer is defensively guarded, so an escaping exception is a
+        # renderer bug, not malformed CSN — warn (with traceback), don't swallow.
         try:
             formulas = extract_calculated_column_formulas(csn_def)
         except Exception as e:

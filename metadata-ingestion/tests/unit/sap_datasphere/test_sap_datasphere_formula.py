@@ -188,8 +188,8 @@ def test_extract_union_three_branches_with_extra_trailing_column():
             }
         }
     }
-    # The branch-1 calc maps to branch-0's first output name (``A``); the branch-2
-    # trailing calc has no branch-0 name, so it falls back to its own alias.
+    # Branch-1 calc takes branch-0's positional name; branch-2's extra column,
+    # having no branch-0 name, falls back to its own alias.
     assert extract_calculated_column_formulas(csn_def) == {
         "A": "A + 1",
         "EXTRA": "C * 2",

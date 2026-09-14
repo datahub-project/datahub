@@ -51,7 +51,7 @@ def render_cqn_expression(node: object) -> str:
     if isinstance(node, str):
         # A bare string inside an ``xpr`` is an operator/keyword (``+``, ``case``, ...).
         return node
-    # ``bool`` is a subclass of ``int``; _render_literal handles it internally.
+    # bool is an int subclass; _render_literal formats it.
     if isinstance(node, (int, float)):
         return _render_literal(node)
     if not isinstance(node, dict):
