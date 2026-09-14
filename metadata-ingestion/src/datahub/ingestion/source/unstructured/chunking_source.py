@@ -878,6 +878,15 @@ class DocumentChunkingSource(Source):
                 embeddings.extend(result.embeddings)
                 logger.debug(f"Generated {len(result.embeddings)} embeddings for batch")
 
+            # Raised inside the try so both callers record it as an embedding failure
+            # (no semanticContent is written, the document is retried) instead of
+            # counting a success and then emitting a misaligned aspect.
+            if len(embeddings) != len(texts):
+                raise ValueError(
+                    f"Embedding provider returned {len(embeddings)} vectors for "
+                    f"{len(texts)} chunks"
+                )
+
             logger.info(
                 f"Generated {len(embeddings)} embeddings using {self.embedding_model}"
             )
@@ -971,16 +980,9 @@ class DocumentChunkingSource(Source):
             for chunk, offset in zip(chunks, offsets, strict=True)
             if _has_embeddable_text(chunk)
         ]
-        # A provider that returns the wrong number of vectors would otherwise be
-        # emitted as a shorter chunk list under a totalChunks that claims them all.
-        if len(embeddings) != len(embeddable):
-            raise ValueError(
-                f"Embedding provider returned {len(embeddings)} vectors for "
-                f"{len(embeddable)} embeddable chunks of {document_urn}; refusing to "
-                "emit a misaligned semanticContent"
-            )
-
-        # Build embedding chunks
+        # Build embedding chunks. _generate_embeddings already rejected a vector count
+        # that differs from the embeddable chunk count; strict=True keeps that
+        # invariant from silently degrading into a shorter chunk list here.
         embedding_chunks = []
 
         for i, ((chunk, offset), embedding) in enumerate(

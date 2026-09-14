@@ -1380,7 +1380,7 @@ class TestSkipMarkersAndEmbedAccounting:
 
         with (
             patch.object(source, "_chunk_elements", return_value=chunks),
-            pytest.raises(ValueError, match="1 vectors for 2 embeddable chunks"),
+            pytest.raises(ValueError, match="1 vectors for 2 chunks"),
         ):
             list(
                 source.process_elements_inline(
@@ -1388,6 +1388,9 @@ class TestSkipMarkersAndEmbedAccounting:
                     [{"type": "NarrativeText", "text": "alpha gamma"}],
                 )
             )
+        # Recorded as an embedding failure, never as a success.
+        assert source.report.num_embedding_failures == 1
+        assert "1 vectors for 2 chunks" in source.report.embedding_failures[0]
 
     def test_provider_returning_no_vectors_is_failure_not_success(
         self, pipeline_context, chunking_config
