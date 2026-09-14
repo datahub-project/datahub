@@ -12,6 +12,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -20,6 +21,8 @@ import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -64,7 +67,7 @@ import org.testng.annotations.Test;
 
 public class ESWriteDAOTest {
 
-  private static final String TEST_DELETE_INDEX = "test_index";
+  private static final String TEST_DELETE_INDEX = "test_index_v2";
   private static final String TEST_NODE_ID = "node1";
   private static final long TEST_TASK_ID = 12345L;
   private static final String TEST_TASK_STRING = TEST_NODE_ID + ":" + TEST_TASK_ID;
@@ -77,13 +80,16 @@ public class ESWriteDAOTest {
 
   @Mock private SearchClientShim<?> mockSearchClient;
   @Mock private ESBulkProcessor mockBulkProcessor;
-  private final OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+  private OperationContext opContext;
 
   private ESWriteDAO esWriteDAO;
 
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
+    opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoValidate(), mockSearchClient);
 
     esWriteDAO = new ESWriteDAO(searchConfig(true), mockSearchClient, mockBulkProcessor);
   }
@@ -133,6 +139,23 @@ public class ESWriteDAOTest {
     // Verify the document content
     Map<String, Object> sourceMap = capturedRequest.doc().sourceAsMap();
     assertEquals(sourceMap.get("field"), "value");
+  }
+
+  @Test
+  public void testUpsertDocumentAndSearchGroupHitDifferentBulkProcessors() {
+    ESBulkProcessor v2Bulk = mock(ESBulkProcessor.class);
+    ESBulkProcessor v3Bulk = mock(ESBulkProcessor.class);
+    SearchWriteAccess writeAccess =
+        component -> component == SearchComponent.SEARCH_V3 ? v3Bulk : v2Bulk;
+    ESWriteDAO dao = new ESWriteDAO(searchConfig(true), mockSearchClient, v2Bulk, writeAccess);
+
+    dao.upsertDocument(opContext, TEST_ENTITY, "{\"field\":\"v2\"}", TEST_DOC_ID);
+    verify(v2Bulk).add(any(OperationContext.class), eq(TEST_DOC_ID), any(UpdateRequest.class));
+    verify(v3Bulk, never())
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+
+    dao.upsertDocumentBySearchGroup(opContext, "dataset", "{\"field\":\"v3\"}", TEST_DOC_ID);
+    verify(v3Bulk).add(any(OperationContext.class), eq(TEST_DOC_ID), any(UpdateRequest.class));
   }
 
   @Test
@@ -213,7 +236,7 @@ public class ESWriteDAOTest {
 
   @Test
   public void testClear() throws IOException {
-    String[] indices = new String[] {"index1", "index2"};
+    String[] indices = new String[] {"datasetindex_v2", "chartindex_v2"};
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     when(mockResponse.getIndices()).thenReturn(indices);
     when(mockSearchClient.getIndex(
@@ -261,8 +284,8 @@ public class ESWriteDAOTest {
 
     // Verify indices were deleted
     assertEquals(deletedIndices.size(), 2);
-    assertTrue(deletedIndices.contains("index1"));
-    assertTrue(deletedIndices.contains("index2"));
+    assertTrue(deletedIndices.contains("datasetindex_v2"));
+    assertTrue(deletedIndices.contains("chartindex_v2"));
 
     // Verify deleteIndex was called for each index
     ArgumentCaptor<DeleteIndexRequest> deleteRequestCaptor =
@@ -1045,7 +1068,7 @@ public class ESWriteDAOTest {
     // Set writability
     esWriteDAO.setWritable(canWrite);
 
-    String indexName = "test_index_" + description;
+    String indexName = "test_index_v2_" + description;
     String document = "{\"data\":\"" + description + "\"}";
     String docId = "doc_" + description;
 
@@ -1083,7 +1106,7 @@ public class ESWriteDAOTest {
     // Set writability
     esWriteDAO.setWritable(canWrite);
 
-    String indexName = "test_index_" + description;
+    String indexName = "test_index_v2_" + description;
     String docId = "doc_" + description;
 
     esWriteDAO.deleteDocumentByIndexName(opContext, indexName, docId);
@@ -1160,7 +1183,7 @@ public class ESWriteDAOTest {
   public void testClearWithWritability(boolean canWrite, String description) throws IOException {
     esWriteDAO.setWritable(canWrite);
 
-    String[] indices = new String[] {"index1", "index2"};
+    String[] indices = new String[] {"datasetindex_v2", "chartindex_v2"};
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     when(mockResponse.getIndices()).thenReturn(indices);
     when(mockSearchClient.getIndex(
@@ -1199,8 +1222,8 @@ public class ESWriteDAOTest {
     if (canWrite) {
       // Verify indices were deleted
       assertEquals(deletedIndices.size(), 2);
-      assertTrue(deletedIndices.contains("index1"));
-      assertTrue(deletedIndices.contains("index2"));
+      assertTrue(deletedIndices.contains("datasetindex_v2"));
+      assertTrue(deletedIndices.contains("chartindex_v2"));
       // Verify deleteIndex was called for each index
       verify(mockSearchClient, times(2))
           .deleteIndex(
@@ -1328,7 +1351,7 @@ public class ESWriteDAOTest {
         .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
 
     // 2. upsertDocumentByIndexName
-    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index", document, "doc2");
+    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index_v2", document, "doc2");
     verify(mockBulkProcessor, never())
         .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
 
@@ -1338,7 +1361,7 @@ public class ESWriteDAOTest {
         .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
 
     // 4. deleteDocumentByIndexName
-    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index", "doc4");
+    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index_v2", "doc4");
     verify(mockBulkProcessor, never())
         .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
 
@@ -1399,15 +1422,16 @@ public class ESWriteDAOTest {
 
     // All write operations should be blocked
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, "migrationDoc1");
-    esWriteDAO.upsertDocumentByIndexName(opContext, "migration_index", document, "migrationDoc2");
+    esWriteDAO.upsertDocumentByIndexName(
+        opContext, "migration_index_v2", document, "migrationDoc2");
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, "migrationDoc3");
-    esWriteDAO.deleteDocumentByIndexName(opContext, "migration_index", "migrationDoc4");
+    esWriteDAO.deleteDocumentByIndexName(opContext, "migration_index_v2", "migrationDoc4");
     esWriteDAO.upsertDocumentBySearchGroup(opContext, "migration_group", document, "migrationDoc5");
     esWriteDAO.deleteDocumentBySearchGroup(opContext, "migration_group", "migrationDoc6");
     esWriteDAO.applyScriptUpdate(
         opContext, TEST_ENTITY, "migrationDoc7", "script", new HashMap<>(), new HashMap<>());
 
-    String[] indices = new String[] {"migration_index"};
+    String[] indices = new String[] {"migration_index_v2"};
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     when(mockResponse.getIndices()).thenReturn(indices);
     when(mockSearchClient.getIndex(
@@ -1419,13 +1443,13 @@ public class ESWriteDAOTest {
 
     CompletableFuture<String> asyncResult =
         esWriteDAO.deleteByQueryAsync(
-            opContext, "migration_index", QueryBuilders.matchAllQuery(), null);
+            opContext, "migration_index_v2", QueryBuilders.matchAllQuery(), null);
     String asyncTaskId = asyncResult.get();
     assertEquals(asyncTaskId, "");
 
     ESWriteDAO.DeleteByQueryResult syncResult =
         esWriteDAO.deleteByQuerySync(
-            opContext, "migration_index", QueryBuilders.matchAllQuery(), null);
+            opContext, "migration_index_v2", QueryBuilders.matchAllQuery(), null);
     assertNotNull(syncResult);
     assertFalse(syncResult.isSuccess());
 
@@ -1450,7 +1474,7 @@ public class ESWriteDAOTest {
     String document = "{\"seq\":\"test\"}";
 
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, "seq1");
-    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index", document, "seq2");
+    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index_v2", document, "seq2");
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, "seq3");
 
     verify(mockBulkProcessor, times(2))
@@ -1563,7 +1587,7 @@ public class ESWriteDAOTest {
     String docId = "testDoc";
 
     // Both methods should behave the same way when not writable
-    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index", document, docId);
+    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index_v2", document, docId);
     esWriteDAO.upsertDocumentBySearchGroup(opContext, "test_group", document, docId);
 
     verify(mockBulkProcessor, never())
@@ -1571,7 +1595,7 @@ public class ESWriteDAOTest {
 
     esWriteDAO.setWritable(true);
 
-    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index", document, docId);
+    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index_v2", document, docId);
     esWriteDAO.upsertDocumentBySearchGroup(opContext, "test_group", document, docId);
 
     verify(mockBulkProcessor, times(2))
@@ -1585,7 +1609,7 @@ public class ESWriteDAOTest {
     String docId = "testDoc";
 
     // Both methods should behave the same way when not writable
-    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index", docId);
+    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index_v2", docId);
     esWriteDAO.deleteDocumentBySearchGroup(opContext, "test_group", docId);
 
     verify(mockBulkProcessor, never())
@@ -1593,7 +1617,7 @@ public class ESWriteDAOTest {
 
     esWriteDAO.setWritable(true);
 
-    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index", docId);
+    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index_v2", docId);
     esWriteDAO.deleteDocumentBySearchGroup(opContext, "test_group", docId);
 
     verify(mockBulkProcessor, times(2))
@@ -1638,5 +1662,14 @@ public class ESWriteDAOTest {
 
     // Should not even try to get indices when not writable
     verify(mockSearchClient, never()).getIndex(any(), any(), any());
+  }
+
+  @Test
+  public void testUnrecognizedIndexNameIsAnError() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            esWriteDAO.upsertDocumentByIndexName(
+                opContext, "graph_service_v1", "{\"field\":\"value\"}", TEST_DOC_ID));
   }
 }

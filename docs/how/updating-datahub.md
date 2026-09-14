@@ -113,6 +113,8 @@ Requirements:
 
 - **(GMS / Java services)** Spring Framework **7.0.9**, Spring Boot **4.0.8**, and Spring Security **7.0.7** (current 7.0 / 4.0 patches). The temporary JDK 25 ClassFile-reader classpath shim is removed; the OOM fix shipped upstream in 7.0.9. **Action:** none for operators; rebuild/redeploy picks up the new JARs. Custom GMS plugins compiled against 7.0.8 remain binary-compatible.
 
+- **(GMS / Split search clusters)** You can optionally send Search V2, Search V3, semantic, graph, timeseries, system-metadata, and usage traffic to named Elasticsearch/OpenSearch clusters. Routing defaults to `primary`; unknown cluster names fail at startup. Each cluster's shim auto-detect / `engineType` is independent of primary. Existing ES health routes (`/check/ready`, `/check/elastic`, `/debug/elastic`, `/health/detailed`) now require **all unique** configured clusters to be non-RED; probes are still cached (`HEALTH_CHECK_CACHE_DURATION_SECONDS`, default 5s). `/health` is unchanged (bootstrap only). Single-cluster deploys need no new config. See the cluster and `ELASTICSEARCH_COMPONENT_CLUSTER_*` tables in [environment variables](../deploy/environment-vars.md).
+
 - **(View authorization)** `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD` and
   `VIEW_UNRESTRICTED_ENTITY_TYPES_REMOVE` now mutate the complete effective default list instead of
   replacing it. Operators can add or remove one entity type without restating every default

@@ -108,6 +108,18 @@ Run everything except for the `frontend` component. Useful for running just a lo
 
 Runs everything except for the GMS. Useful for running just a local (non-docker) GMS instance.
 
+### `debug-opensearch3`
+
+Same application set as `debug`, but the search backend is **OpenSearch 3.7**
+(`opensearchproject/opensearch:3.7.0`; override with `DATAHUB_OS3_SEARCH_IMAGE` /
+`DATAHUB_OS3_SEARCH_TAG`). GMS pins `ELASTICSEARCH_SHIM_ENGINE_TYPE=OPENSEARCH_3` and enables
+schema-field document-id hashing because 3.x enforces the 512-byte `_id` limit. Uses a separate
+volume from OpenSearch 2.x (`os3data`).
+
+```bash
+./gradlew quickstartOS3Debug
+```
+
 ### Development Profiles Table
 
 | Profile Name             | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch | Elasticsearch | Localstack (AWS) |
@@ -121,6 +133,7 @@ Runs everything except for the GMS. Useful for running just a local (non-docker)
 | debug-consumers          | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |               |                  |
 | debug-neo4j              | X     |          |           | X     | X        | X   | X       | X            |     |     | X     | X          |               |                  |
 | debug-elasticsearch      | X     |          |           |       | X        | X   | X       | X            |     |     | X     |            | X             |                  |
+| debug-opensearch3        | X     |          |           |       | X        | X   | X       | X            |     |     | X     | 3.x        |               |                  |
 | debug-backend-aws        | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               | X                |
 
 ## Advanced Setups

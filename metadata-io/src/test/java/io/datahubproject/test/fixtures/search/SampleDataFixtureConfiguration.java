@@ -221,7 +221,6 @@ public class SampleDataFixtureConfiguration {
         new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            _searchClient,
             false,
             TEST_OS_SEARCH_CONFIG,
             _customSearchConfiguration,
@@ -230,7 +229,6 @@ public class SampleDataFixtureConfiguration {
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            _searchClient,
             TEST_OS_SEARCH_CONFIG,
             _customSearchConfiguration,
             queryFilterRewriteChain,

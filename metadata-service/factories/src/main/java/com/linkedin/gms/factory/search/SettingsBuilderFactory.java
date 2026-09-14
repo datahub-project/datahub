@@ -6,6 +6,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
@@ -42,9 +43,13 @@ public class SettingsBuilderFactory {
   @Nonnull
   protected SettingsBuilder createLegacySettingsBuilder(
       ConfigurationProvider configProvider,
-      @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention) {
+      @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
+      SearchClusterRegistry searchClusterRegistry) {
     IndexConfiguration indexConfig = configProvider.getElasticSearch().getIndex();
-    log.info("Creating LegacySettingsBuilder bean");
+    SearchClientShim<?> v2Client = searchClusterRegistry.clientFor(SearchComponent.SEARCH_V2);
+    log.info(
+        "Creating LegacySettingsBuilder bean (engineType={} is diagnostic only; V2 settings are engine-agnostic)",
+        v2Client.getEngineType());
     return new V2LegacySettingsBuilder(indexConfig, indexConvention);
   }
 
@@ -53,9 +58,13 @@ public class SettingsBuilderFactory {
   @Nonnull
   protected SettingsBuilder createMultiEntitySettingsBuilder(
       ConfigurationProvider configProvider,
-      @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention) {
+      @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
+      SearchClusterRegistry searchClusterRegistry) {
     EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
-    log.info("Creating MultiEntitySettingsBuilder bean");
+    SearchClientShim<?> v3Client = searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3);
+    log.info(
+        "Creating MultiEntitySettingsBuilder bean (engineType={} is diagnostic only; V3 settings are engine-agnostic)",
+        v3Client.getEngineType());
     try {
       return new MultiEntitySettingsBuilder(entityIndexConfig, indexConvention);
     } catch (IOException e) {
@@ -73,7 +82,7 @@ public class SettingsBuilderFactory {
       ConfigurationProvider configProvider,
       @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       @Qualifier("legacySettingsBuilder") @Nullable SettingsBuilder v2SettingsBuilder,
-      SearchClientShim<?> searchClientShim) {
+      SearchClusterRegistry searchClusterRegistry) {
     EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
     SemanticSearchConfiguration semanticConfig = entityIndexConfig.getSemanticSearch();
 
@@ -83,12 +92,12 @@ public class SettingsBuilderFactory {
               + "Please set elasticsearch.entityIndex.v2.enabled=true");
     }
 
+    SearchClientShim<?> semanticClient = searchClusterRegistry.clientFor(SearchComponent.SEMANTIC);
     log.info(
         "Creating SemanticSearchSettingsBuilder bean for entities: {} engine: {}",
         semanticConfig.getEnabledEntities(),
-        searchClientShim.getEngineType());
-    return new V2SemanticSearchSettingsBuilder(
-        indexConvention, v2SettingsBuilder, searchClientShim);
+        semanticClient.getEngineType());
+    return new V2SemanticSearchSettingsBuilder(indexConvention, v2SettingsBuilder, semanticClient);
   }
 
   @Bean("settingsBuilder")

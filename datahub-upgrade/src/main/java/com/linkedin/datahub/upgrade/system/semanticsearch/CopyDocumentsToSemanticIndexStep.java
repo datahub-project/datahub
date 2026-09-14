@@ -6,20 +6,32 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.boot.BootstrapStep;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
 import java.util.Optional;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchScrollRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.reindex.ReindexRequest;
+import org.opensearch.search.Scroll;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.TaskInfo;
 
 /**
@@ -35,23 +47,22 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
   private static final long TASK_POLL_INTERVAL_MS = 5000; // 5 seconds
   private static final long TASK_TIMEOUT_MS = 3600000; // 1 hour
 
+  private static final int CROSS_CLUSTER_SCROLL_SIZE = 500;
+
   private final OperationContext opContext;
   private final String entityName;
   private final String upgradeId;
   private final Urn upgradeIdUrn;
-  private final SearchClientShim<?> searchClient;
   private final EntityService<?> entityService;
   private final IndexConvention indexConvention;
 
   public CopyDocumentsToSemanticIndexStep(
       OperationContext opContext,
       String entityName,
-      SearchClientShim<?> searchClient,
       EntityService<?> entityService,
       IndexConvention indexConvention) {
     this.opContext = opContext;
     this.entityName = entityName;
-    this.searchClient = searchClient;
     this.entityService = entityService;
     this.indexConvention = indexConvention;
 
@@ -74,29 +85,22 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
           baseIndexName,
           semanticIndexName);
 
-      // Check if semantic index exists
+      SearchClusterAccess access = opContext.getSearchContext().requireSearchClusterAccess();
+      SearchClientShim<?> sourceClient = access.clientFor(SearchComponent.SEARCH_V2);
+      SearchClientShim<?> destClient = access.clientFor(SearchComponent.SEMANTIC);
+
       GetIndexRequest getIndexRequest = new GetIndexRequest(semanticIndexName);
-      if (!searchClient.indexExists(opContext, getIndexRequest, RequestOptions.DEFAULT)) {
+      if (!destClient.indexExists(opContext, getIndexRequest, RequestOptions.DEFAULT)) {
         log.error("Semantic index '{}' does not exist. Skipping.", semanticIndexName);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
 
-      // Submit reindex task
-      ReindexRequest reindexRequest =
-          new ReindexRequest()
-              .setSourceIndices(baseIndexName)
-              .setDestIndex(semanticIndexName)
-              .setMaxRetries(3)
-              .setAbortOnVersionConflict(false);
-
-      String taskId =
-          searchClient.submitReindexTask(opContext, reindexRequest, RequestOptions.DEFAULT);
-      log.info("Document copy task submitted for entity '{}'. Task ID: {}", entityName, taskId);
-
-      // Wait for the reindex task to complete
-      if (!waitForTaskCompletion(taskId)) {
-        log.error("Reindex task {} failed or timed out for entity '{}'", taskId, entityName);
-        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+      if (sourceClient == destClient) {
+        if (!copySameCluster(sourceClient, baseIndexName, semanticIndexName)) {
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+        }
+      } else {
+        copyAcrossClusters(sourceClient, destClient, baseIndexName, semanticIndexName);
       }
 
       log.info("Document copy completed successfully for entity '{}'", entityName);
@@ -108,13 +112,71 @@ public class CopyDocumentsToSemanticIndexStep implements UpgradeStep {
     }
   }
 
+  private boolean copySameCluster(
+      SearchClientShim<?> searchClient, String baseIndexName, String semanticIndexName)
+      throws IOException {
+    ReindexRequest reindexRequest =
+        new ReindexRequest()
+            .setSourceIndices(baseIndexName)
+            .setDestIndex(semanticIndexName)
+            .setMaxRetries(3)
+            .setAbortOnVersionConflict(false);
+
+    String taskId =
+        searchClient.submitReindexTask(opContext, reindexRequest, RequestOptions.DEFAULT);
+    log.info("Document copy task submitted for entity '{}'. Task ID: {}", entityName, taskId);
+
+    if (!waitForTaskCompletion(searchClient, taskId)) {
+      log.error("Reindex task {} failed or timed out for entity '{}'", taskId, entityName);
+      return false;
+    }
+    return true;
+  }
+
+  private void copyAcrossClusters(
+      SearchClientShim<?> sourceClient,
+      SearchClientShim<?> destClient,
+      String baseIndexName,
+      String semanticIndexName)
+      throws IOException {
+    Scroll scroll = new Scroll(TimeValue.timeValueMinutes(5L));
+    SearchRequest searchRequest = new SearchRequest(baseIndexName);
+    searchRequest.scroll(scroll);
+    SearchSourceBuilder source = new SearchSourceBuilder();
+    source.query(org.opensearch.index.query.QueryBuilders.matchAllQuery());
+    source.size(CROSS_CLUSTER_SCROLL_SIZE);
+    searchRequest.source(source);
+
+    SearchResponse searchResponse =
+        sourceClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
+    String scrollId = searchResponse.getScrollId();
+    SearchHit[] hits = searchResponse.getHits().getHits();
+    while (hits.length > 0) {
+      for (SearchHit hit : hits) {
+        IndexRequest indexRequest =
+            new IndexRequest(semanticIndexName)
+                .id(hit.getId())
+                .source(hit.getSourceAsString(), XContentType.JSON);
+        destClient.indexDocument(opContext, indexRequest, RequestOptions.DEFAULT);
+      }
+      if (scrollId == null) {
+        break;
+      }
+      SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId);
+      scrollRequest.scroll(scroll);
+      searchResponse = sourceClient.scroll(opContext, scrollRequest, RequestOptions.DEFAULT);
+      scrollId = searchResponse.getScrollId();
+      hits = searchResponse.getHits().getHits();
+    }
+  }
+
   /**
    * Wait for an OpenSearch task to complete.
    *
    * @param taskId The task ID in format "nodeId:taskId"
    * @return true if task completed successfully, false otherwise
    */
-  private boolean waitForTaskCompletion(String taskId) {
+  private boolean waitForTaskCompletion(SearchClientShim<?> searchClient, String taskId) {
     String[] parts = taskId.split(":");
     if (parts.length != 2) {
       log.error("Invalid task ID format: {}", taskId);

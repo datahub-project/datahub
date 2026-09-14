@@ -5,15 +5,18 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
+import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.*;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -96,53 +99,73 @@ public class BuildIndicesStep implements UpgradeStep {
 
   private UpgradeStepResult executeParallelReindex(
       UpgradeContext context, BuildIndicesConfiguration config) throws Exception {
-    // Collect all reindex configs from all services
-    List<ReindexConfig> allConfigs = new ArrayList<>();
-    for (ElasticSearchIndexed service : services) {
-      List<ReindexConfig> serviceConfigs =
-          service.buildReindexConfigs(context.opContext(), structuredProperties);
-      allConfigs.addAll(serviceConfigs);
-    }
+    List<ReindexConfig> allConfigs =
+        IndexUtils.getAllReindexConfigs(context.opContext(), services, structuredProperties);
 
     log.info(
         "Collected {} total reindex configs across {} services",
         allConfigs.size(),
         services.size());
-    // Use the first service's index builder (they all use the same ES cluster)
-    if (services.isEmpty() || allConfigs.isEmpty()) {
+    if (allConfigs.isEmpty()) {
       log.info("No services or configs to reindex");
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     }
 
-    // IMPORTANT: Process non-reindex configs first (new indices, settings-only changes)
-    // to ensure all indices exist before parallel reindexing starts
+    IdentityHashMap<SearchClientShim<?>, ClusterBatch> byCluster = new IdentityHashMap<>();
+    for (ReindexConfig indexConfig : allConfigs) {
+      ESIndexBuilder builder = IndexUtils.requireIndexBuilder(indexConfig.name());
+      byCluster
+          .computeIfAbsent(builder.getSearchClient(), ignored -> new ClusterBatch(builder))
+          .configs
+          .add(indexConfig);
+    }
+
+    Map<String, ReindexResult> results = new HashMap<>();
+    for (ClusterBatch batch : byCluster.values()) {
+      results.putAll(reindexClusterBatch(context, config, batch));
+    }
+
+    Map<String, ReindexResult> failures =
+        results.entrySet().stream()
+            .filter((key) -> key.getValue().isFailure())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    if (!failures.isEmpty()) {
+      log.error(
+          "Parallel reindex completed with {} failures out of {} indices",
+          failures.size(),
+          results.size());
+      failures.forEach((key, value) -> log.error("Failure index alias {} reason :{}", key, value));
+      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+    }
+    log.info("Parallel reindex completed successfully for {} indices", results.size());
+    return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+  }
+
+  private Map<String, ReindexResult> reindexClusterBatch(
+      UpgradeContext context, BuildIndicesConfiguration config, ClusterBatch batch)
+      throws Exception {
     List<ReindexConfig> nonReindexConfigs =
-        allConfigs.stream().filter(c -> !c.requiresReindex()).toList();
+        batch.configs.stream().filter(c -> !c.requiresReindex()).toList();
     List<ReindexConfig> reindexConfigs =
-        allConfigs.stream().filter(ReindexConfig::requiresReindex).toList();
+        batch.configs.stream().filter(ReindexConfig::requiresReindex).toList();
 
     log.info(
-        "Processing {} non-reindex configs (new indices, settings changes)",
-        nonReindexConfigs.size());
+        "Cluster {}: {} non-reindex configs, {} reindex configs",
+        batch.builder.getSearchClient(),
+        nonReindexConfigs.size(),
+        reindexConfigs.size());
+
     Map<String, ReindexResult> results = new HashMap<>();
     for (ReindexConfig nonReindexConfig : nonReindexConfigs) {
       results.put(
-          nonReindexConfig.name(),
-          services.get(0).getIndexBuilder().buildIndex(context.opContext(), nonReindexConfig));
+          nonReindexConfig.name(), batch.builder.buildIndex(context.opContext(), nonReindexConfig));
     }
 
-    // Only use parallel orchestrator for configs that actually need reindexing
     if (reindexConfigs.isEmpty()) {
-      log.info("No indices require reindexing");
-      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+      return results;
     }
 
-    log.info("Starting parallel reindex for {} indices", reindexConfigs.size());
-
-    // Create shared circuit breaker state for both large and normal indices
     CircuitBreakerState circuitBreakerState = new CircuitBreakerState(config);
-    // Start HealthCheckPoller using ScheduledExecutorService to continuously monitor cluster health
-    // This daemon thread updates CircuitBreakerState, which is shared by all reindex operations
     ScheduledExecutorService healthCheckExecutor =
         Executors.newScheduledThreadPool(
             1,
@@ -154,41 +177,21 @@ public class BuildIndicesStep implements UpgradeStep {
     HealthCheckPoller healthPoller =
         new HealthCheckPoller(
             context.opContext(),
-            services.get(0).getIndexBuilder(),
+            batch.builder,
             circuitBreakerState,
             config.getClusterHeapThresholdPercent(),
             config.getClusterHeapYellowThresholdPercent(),
             config.getWriteRejectionRedThreshold());
-    // Schedule health polling at fixed intervals
     healthCheckExecutor.scheduleAtFixedRate(
         healthPoller::poll, 0, config.getClusterHealthCheckIntervalSeconds(), TimeUnit.SECONDS);
-    log.info(
-        "HealthCheckPoller scheduled with {} second interval",
-        config.getClusterHealthCheckIntervalSeconds());
     ParallelReindexOrchestrator orchestrator = null;
     try {
       orchestrator =
           new ParallelReindexOrchestrator(
-              context.opContext(), services.get(0).getIndexBuilder(), config, circuitBreakerState);
+              context.opContext(), batch.builder, config, circuitBreakerState);
       results.putAll(orchestrator.reindexAll(reindexConfigs));
-      // Check results for any failures (explicit failure statuses only)
-      Map<String, ReindexResult> failures =
-          results.entrySet().stream()
-              .filter((key) -> key.getValue().isFailure())
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-      if (!failures.isEmpty()) {
-        log.error(
-            "Parallel reindex completed with {} failures out of {} indices",
-            failures.size(),
-            results.size());
-        failures.forEach(
-            (key, value) -> log.error("Failure index alias {} reason :{}", key, value));
-        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
-      }
-      log.info("Parallel reindex completed successfully for {} indices", results.size());
-      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+      return results;
     } finally {
-      // Shutdown the health check executor gracefully
       log.info("Shutting down HealthCheckPoller executor");
       try {
         healthCheckExecutor.shutdown();
@@ -205,6 +208,15 @@ public class BuildIndicesStep implements UpgradeStep {
       if (orchestrator != null) {
         orchestrator.shutdown();
       }
+    }
+  }
+
+  private static final class ClusterBatch {
+    private final ESIndexBuilder builder;
+    private final List<ReindexConfig> configs = new ArrayList<>();
+
+    private ClusterBatch(ESIndexBuilder builder) {
+      this.builder = builder;
     }
   }
 }

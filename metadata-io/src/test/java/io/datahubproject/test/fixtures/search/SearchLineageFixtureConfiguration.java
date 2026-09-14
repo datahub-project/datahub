@@ -156,7 +156,6 @@ public abstract class SearchLineageFixtureConfiguration {
     when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            searchClient,
             false,
             getElasticSearchConfiguration(),
             customSearchConfiguration,
@@ -164,7 +163,6 @@ public abstract class SearchLineageFixtureConfiguration {
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            searchClient,
             getElasticSearchConfiguration(),
             customSearchConfiguration,
             queryFilterRewriteChain,

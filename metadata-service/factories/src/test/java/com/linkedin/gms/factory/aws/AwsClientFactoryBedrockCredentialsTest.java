@@ -11,7 +11,9 @@ import com.linkedin.metadata.config.ObjectStorageConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import java.util.Map;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
@@ -93,9 +95,17 @@ public class AwsClientFactoryBedrockCredentialsTest {
 
   @Test
   public void openSearchIamAuthRequiresSharedCredentialsEvenWithoutPodRegion() {
-    ElasticSearchConfiguration esConfig = new ElasticSearchConfiguration();
-    esConfig.setOpensearchUseAwsIamAuth(true);
-    esConfig.setRegion("us-east-1");
+    ElasticSearchConfiguration esConfig =
+        ElasticSearchConfiguration.builder()
+            .clusters(
+                Map.of(
+                    "primary",
+                    SearchClusterSettings.builder()
+                        .uri("http://search:9200")
+                        .opensearchUseAwsIamAuth(true)
+                        .region("us-east-1")
+                        .build()))
+            .build();
     when(configurationProvider.getElasticSearch()).thenReturn(esConfig);
 
     assertTrue(awsClientFactory.isOpenSearchIamAuthConfigured());

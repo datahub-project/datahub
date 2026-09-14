@@ -164,4 +164,78 @@ public interface IndexConvention {
     return indexName.endsWith("index_v2_semantic")
         && indexName.length() > "index_v2_semantic".length();
   }
+
+  /**
+   * True if {@code indexName} is a V2 entity index or one of its zero-downtime-update backing
+   * indices ({@code datasetindex_v2_1712345678}).
+   *
+   * <p>Use this — not {@link #isV2EntityIndexType} — when deciding which cluster owns an index. The
+   * plain type check only matches the alias, so during a ZDU rebuild the timestamped backing index
+   * would fall through and be sent to the wrong cluster. The numeric suffix is required so that
+   * {@code index_v2_semantic} is not mistaken for a backing index.
+   */
+  default boolean isV2EntityIndexOrBackingType(@Nonnull String indexName) {
+    return isV2EntityIndexType(indexName) || matchesBackingIndex(indexName, "index_v2");
+  }
+
+  /**
+   * True if {@code indexName} is a V3 entity index or one of its zero-downtime-update backing
+   * indices ({@code datasetindex_v3_1712345678}).
+   */
+  default boolean isV3EntityIndexOrBackingType(@Nonnull String indexName) {
+    return isV3EntityIndexType(indexName) || matchesBackingIndex(indexName, "index_v3");
+  }
+
+  /**
+   * True if {@code indexNameOrPattern} is a semantic entity index, including ES wildcards such as
+   * {@code *index_v2_semantic*}. Check this before {@link #matchesV2EntityIndexFamily} because
+   * semantic names share the {@code index_v2} marker.
+   */
+  static boolean matchesSemanticEntityIndexFamily(@Nonnull String indexNameOrPattern) {
+    return stripIndexWildcards(indexNameOrPattern).endsWith("index_v2_semantic");
+  }
+
+  /**
+   * True if {@code indexNameOrPattern} is a V3 entity index, a ZDU backing index, or a wildcard
+   * that still carries the V3 marker ({@code *index_v3*}).
+   */
+  static boolean matchesV3EntityIndexFamily(@Nonnull String indexNameOrPattern) {
+    String name = stripIndexWildcards(indexNameOrPattern);
+    return name.endsWith("index_v3") || matchesBackingIndex(name, "index_v3");
+  }
+
+  /**
+   * True if {@code indexNameOrPattern} is a V2 entity index, a ZDU backing index, or a wildcard
+   * that still carries the V2 marker ({@code *index_v2*}). Semantic names are excluded.
+   */
+  static boolean matchesV2EntityIndexFamily(@Nonnull String indexNameOrPattern) {
+    if (matchesSemanticEntityIndexFamily(indexNameOrPattern)) {
+      return false;
+    }
+    String name = stripIndexWildcards(indexNameOrPattern);
+    return name.endsWith("index_v2") || matchesBackingIndex(name, "index_v2");
+  }
+
+  /** Strips Elasticsearch {@code *} wildcards so family markers can be matched on the remainder. */
+  static String stripIndexWildcards(@Nonnull String indexNameOrPattern) {
+    return indexNameOrPattern.replace("*", "");
+  }
+
+  /** Matches {@code <prefix><marker>_<digits>}, the ZDU backing index naming scheme. */
+  private static boolean matchesBackingIndex(@Nonnull String indexName, @Nonnull String marker) {
+    int markerAt = indexName.lastIndexOf(marker + "_");
+    if (markerAt <= 0) {
+      return false;
+    }
+    String suffix = indexName.substring(markerAt + marker.length() + 1);
+    if (suffix.isEmpty()) {
+      return false;
+    }
+    for (int i = 0; i < suffix.length(); i++) {
+      if (!Character.isDigit(suffix.charAt(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
 }

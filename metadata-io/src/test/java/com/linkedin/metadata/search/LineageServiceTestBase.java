@@ -229,7 +229,6 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
     searchClientSpy = spy(getSearchClient());
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            searchClientSpy,
             false,
             getElasticSearchConfiguration(),
             null,
@@ -237,7 +236,6 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            searchClientSpy,
             getElasticSearchConfiguration(),
             null,
             QueryFilterRewriteChain.EMPTY,

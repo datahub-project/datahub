@@ -79,7 +79,6 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
             SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build());
     browseDAO =
         new ESBrowseDAO(
-            mockClient,
             TEST_OS_SEARCH_CONFIG,
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
@@ -175,7 +174,6 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     // Create a new browse DAO with our test configuration
     ESBrowseDAO testBrowseDAO =
         new ESBrowseDAO(
-            mockClient,
             TEST_OS_SEARCH_CONFIG,
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
@@ -234,7 +232,6 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     // Create a new browse DAO with our test configuration
     ESBrowseDAO testBrowseDAO =
         new ESBrowseDAO(
-            mockClient,
             TEST_OS_SEARCH_CONFIG,
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
@@ -280,7 +277,6 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
 
     ESBrowseDAO v3ReadBrowseDao =
         new ESBrowseDAO(
-            mockClient,
             v3KeywordReadConfig(),
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
@@ -308,7 +304,6 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
 
     ESBrowseDAO v3ReadBrowseDao =
         new ESBrowseDAO(
-            mockClient,
             v3KeywordReadConfig(),
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,

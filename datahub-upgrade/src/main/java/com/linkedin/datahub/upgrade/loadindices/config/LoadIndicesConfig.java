@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.loadindices.config;
 import com.linkedin.datahub.upgrade.loadindices.LoadIndices;
 import com.linkedin.datahub.upgrade.loadindices.LoadIndicesIndexManager;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -32,10 +33,14 @@ public class LoadIndicesConfig {
       @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
       @Qualifier("searchClientShim") SearchClientShim<?> searchClient,
       @Qualifier("elasticSearchIndexBuilder")
-          final com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder indexBuilder)
+          final com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder indexBuilder,
+      SearchClusterRegistry searchClusterRegistry)
       throws Exception {
     return new LoadIndicesIndexManager(
-        searchClient, systemOperationContext.getSearchContext().getIndexConvention(), indexBuilder);
+        searchClient,
+        systemOperationContext.getSearchContext().getIndexConvention(),
+        indexBuilder,
+        searchClusterRegistry);
   }
 
   @Bean(name = "loadIndices")

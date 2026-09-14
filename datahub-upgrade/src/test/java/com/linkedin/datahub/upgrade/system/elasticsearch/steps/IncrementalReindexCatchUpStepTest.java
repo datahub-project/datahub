@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
@@ -817,6 +818,7 @@ public class IncrementalReindexCatchUpStepTest {
     when(config.targetSettings()).thenReturn(Map.of("index", Map.of("number_of_shards", 1)));
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(config));
     when(indexedService.getIndexBuilder()).thenReturn(indexBuilder);
+    when(indexedService.getIndexBuilder(anyString())).thenReturn(indexBuilder);
     when(indexBuilder.submitFilteredReindex(any(), any(), any(), any(QueryBuilder.class), anyInt()))
         .thenThrow(new RuntimeException("index_not_found_exception: no such index"));
 
@@ -870,6 +872,7 @@ public class IncrementalReindexCatchUpStepTest {
     when(config.targetSettings()).thenReturn(Map.of("index", Map.of("number_of_shards", 1)));
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(config));
     when(indexedService.getIndexBuilder()).thenReturn(indexBuilder);
+    when(indexedService.getIndexBuilder(anyString())).thenReturn(indexBuilder);
     doReturn("task-1")
         .when(indexBuilder)
         .submitFilteredReindex(any(), any(), any(), any(QueryBuilder.class), anyInt());

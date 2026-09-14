@@ -29,7 +29,8 @@ acryldata/datahub-upgrade                       debug              322377a7a21d 
 At this point it is possible to view the DataHub UI at `http://localhost:9002` as you normally would with quickstart.
 
 Like `quickstartDebug`, there are a few other tasks that bring up a different set of containers, for example
-`quickstartDebugConsumers` will also bring up mce-consumer and mae-consumer.
+`quickstartDebugConsumers` will also bring up mce-consumer and mae-consumer, `quickstartPgDebug` uses Postgres,
+and `quickstartOS3Debug` uses OpenSearch 3.x.
 
 ## Reloading
 

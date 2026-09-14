@@ -10,6 +10,7 @@ import static org.testng.Assert.expectThrows;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es7CompatibilitySearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
@@ -66,24 +67,32 @@ public class SearchClientShimFactorySemanticGateTest {
 
   @Test
   public void factoryRejectsOpenSearchIamAuthWithoutSharedCredentials() {
-    ElasticSearchConfiguration esConfig = new ElasticSearchConfiguration();
-    esConfig.setOpensearchUseAwsIamAuth(true);
-    esConfig.setRegion("us-east-1");
+    SearchClusterSettings cluster =
+        SearchClusterSettings.builder()
+            .uri("http://search:9200")
+            .opensearchUseAwsIamAuth(true)
+            .region("us-east-1")
+            .build();
 
     IllegalStateException ex =
         expectThrows(
             IllegalStateException.class,
-            () -> SearchClientShimFactory.assertIamAuthHasSharedCredentials(esConfig, null));
+            () ->
+                SearchClientShimFactory.assertIamAuthHasSharedCredentials(
+                    "primary", cluster, null));
     assertTrue(ex.getMessage().contains("DefaultCredentialsProvider"));
   }
 
   @Test
   public void factoryAllowsOpenSearchIamAuthWithSharedCredentials() {
-    ElasticSearchConfiguration esConfig = new ElasticSearchConfiguration();
-    esConfig.setOpensearchUseAwsIamAuth(true);
-    esConfig.setRegion("us-east-1");
+    SearchClusterSettings cluster =
+        SearchClusterSettings.builder()
+            .uri("http://search:9200")
+            .opensearchUseAwsIamAuth(true)
+            .region("us-east-1")
+            .build();
     SearchClientShimFactory.assertIamAuthHasSharedCredentials(
-        esConfig, mock(AwsCredentialsProvider.class));
+        "primary", cluster, mock(AwsCredentialsProvider.class));
   }
 
   @Test

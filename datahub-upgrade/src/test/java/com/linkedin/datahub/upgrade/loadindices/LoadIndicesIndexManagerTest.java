@@ -4,6 +4,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
@@ -431,5 +433,101 @@ public class LoadIndicesIndexManagerTest {
         .setIndexRefreshInterval(mockOpContext, "datahub_dashboard_v2", "10s");
     verify(mockIndexBuilder, times(1))
         .setIndexReplicaCount(mockOpContext, "datahub_dashboard_v2", 0);
+  }
+
+  @Test
+  public void testDiscoverUsesOwningClusterClients() throws IOException {
+    SearchClientShim<?> v2Client = mock(SearchClientShim.class);
+    SearchClientShim<?> graphClient = mock(SearchClientShim.class);
+    ESIndexBuilder v2Builder = mock(ESIndexBuilder.class);
+    ESIndexBuilder graphBuilder = mock(ESIndexBuilder.class);
+    doReturn(v2Client).when(v2Builder).getSearchClient();
+    doReturn(graphClient).when(graphBuilder).getSearchClient();
+
+    SearchClusterRegistry registry = mock(SearchClusterRegistry.class);
+    when(registry.indexBuilderFor(SearchComponent.SEARCH_V2)).thenReturn(v2Builder);
+    when(registry.indexBuilderFor(SearchComponent.GRAPH)).thenReturn(graphBuilder);
+    when(registry.indexBuilderFor(SearchComponent.SYSTEM_METADATA)).thenReturn(mockIndexBuilder);
+    doReturn(mockSearchClient).when(mockIndexBuilder).getSearchClient();
+
+    GetIndexResponse entityResponse = mock(GetIndexResponse.class);
+    when(entityResponse.getIndices()).thenReturn(new String[] {"datahub_datasetindex_v2"});
+    when(v2Client.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(entityResponse);
+
+    GetIndexResponse graphResponse = mock(GetIndexResponse.class);
+    when(graphResponse.getIndices()).thenReturn(new String[] {"datahub_graph_service_v1"});
+    when(graphClient.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(graphResponse);
+
+    GetIndexResponse systemMetadataResponse = mock(GetIndexResponse.class);
+    when(systemMetadataResponse.getIndices()).thenReturn(new String[] {});
+    when(mockSearchClient.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(systemMetadataResponse);
+
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
+        .thenReturn(List.of("datahub_*index_v2"));
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext), eq(ElasticSearchGraphService.INDEX_NAME)))
+        .thenReturn("datahub_graph_service_v1");
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext), eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
+        .thenReturn("datahub_system_metadata_service_v1");
+
+    ReindexConfig entityConfig = mock(ReindexConfig.class);
+    ReindexConfig graphConfig = mock(ReindexConfig.class);
+    when(v2Builder.buildReindexState(
+            any(OperationContext.class), eq("datahub_datasetindex_v2"), any(), any()))
+        .thenReturn(entityConfig);
+    when(graphBuilder.buildReindexState(
+            any(OperationContext.class), eq("datahub_graph_service_v1"), any(), any()))
+        .thenReturn(graphConfig);
+
+    LoadIndicesIndexManager splitManager =
+        new LoadIndicesIndexManager(
+            mockSearchClient, mockIndexConvention, mockIndexBuilder, registry);
+
+    List<ReindexConfig> configs = splitManager.discoverDataHubIndexConfigs(mockOpContext);
+    assertEquals(configs.size(), 2);
+    verify(v2Client)
+        .getIndex(eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class));
+    verify(graphClient)
+        .getIndex(eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class));
+    verify(v2Builder)
+        .buildReindexState(
+            any(OperationContext.class), eq("datahub_datasetindex_v2"), any(), any());
+    verify(graphBuilder)
+        .buildReindexState(
+            any(OperationContext.class), eq("datahub_graph_service_v1"), any(), any());
+  }
+
+  @Test
+  public void testUnrecognizedDiscoveredIndexIsAnError() throws IOException {
+    SearchClientShim<?> v2Client = mock(SearchClientShim.class);
+    ESIndexBuilder v2Builder = mock(ESIndexBuilder.class);
+    doReturn(v2Client).when(v2Builder).getSearchClient();
+
+    SearchClusterRegistry registry = mock(SearchClusterRegistry.class);
+    when(registry.indexBuilderFor(SearchComponent.SEARCH_V2)).thenReturn(v2Builder);
+
+    GetIndexResponse entityResponse = mock(GetIndexResponse.class);
+    when(entityResponse.getIndices()).thenReturn(new String[] {"mystery_index"});
+    when(v2Client.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(entityResponse);
+
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
+        .thenReturn(List.of("datahub_*index_v2"));
+
+    LoadIndicesIndexManager splitManager =
+        new LoadIndicesIndexManager(
+            mockSearchClient, mockIndexConvention, mockIndexBuilder, registry);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> splitManager.discoverDataHubIndexConfigs(mockOpContext));
   }
 }

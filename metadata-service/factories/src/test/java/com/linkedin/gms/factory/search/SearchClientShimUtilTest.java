@@ -33,8 +33,8 @@ import org.testng.annotations.Test;
       "elasticsearch.pathPrefix=",
       "elasticsearch.opensearchUseAwsIamAuth=false",
       "elasticsearch.region=",
-      "elasticsearch.shim.engineType=ELASTICSEARCH_7",
-      "elasticsearch.shim.autoDetectEngine=false"
+      "elasticsearch.clusters.primary.shim.engineType=ELASTICSEARCH_7",
+      "elasticsearch.clusters.primary.shim.autoDetectEngine=false"
     })
 @SpringBootTest(classes = {SearchClientShimFactory.class, ObjectMapperFactory.class})
 @EnableConfigurationProperties(ConfigurationProvider.class)
@@ -68,7 +68,7 @@ public class SearchClientShimUtilTest extends AbstractTestNGSpringContextTests {
     // Attempting to create a shim without a live cluster should fail
     // but the factory should be properly configured
     try {
-      shimFactory.createSearchClientShim(new ObjectMapper());
+      shimFactory.createSearchClientShims(new ObjectMapper());
       fail("Expected shim creation to fail without live cluster");
     } catch (Exception e) {
       log.info("Expected failure when creating shim without live cluster: {}", e.getMessage());
@@ -87,7 +87,8 @@ public class SearchClientShimUtilTest extends AbstractTestNGSpringContextTests {
       SearchEngineType.ELASTICSEARCH_7,
       SearchEngineType.ELASTICSEARCH_8,
       SearchEngineType.ELASTICSEARCH_9,
-      SearchEngineType.OPENSEARCH_2
+      SearchEngineType.OPENSEARCH_2,
+      SearchEngineType.OPENSEARCH_3
     };
 
     for (SearchEngineType engineType : supportedTypes) {

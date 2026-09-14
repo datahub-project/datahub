@@ -4,11 +4,16 @@ import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.gms.factory.search.SearchClientShims;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
 import com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactory;
 import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.EventSchemaData;
+import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -16,6 +21,8 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.mxe.TopicConventionImpl;
 import io.datahubproject.metadata.context.OperationContext;
@@ -24,6 +31,7 @@ import io.ebean.Database;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.Nonnull;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.producer.Producer;
@@ -77,6 +85,37 @@ public class UpgradeCliApplicationTestConfiguration {
     SearchClientShim<?> shim = Mockito.mock(SearchClientShim.class);
     Mockito.when(shim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     return shim;
+  }
+
+  /**
+   * Keep {@link SearchClusterRegistryFactory} from building a live {@code searchClientShims} bean
+   * against localhost:9200. Tests already stub {@code searchClientShim}; wrap that mock as the only
+   * cluster.
+   */
+  @Bean(name = "searchClientShims")
+  @Primary
+  public SearchClientShims searchClientShims(SearchClientShim<?> searchClientShim) {
+    return new SearchClientShims(
+        Map.of(ElasticSearchConfiguration.PRIMARY_CLUSTER, searchClientShim));
+  }
+
+  @Bean(name = "searchClusterRegistry")
+  @Primary
+  public SearchClusterRegistry searchClusterRegistry(SearchClientShim<?> searchClientShim) {
+    SearchClusterRegistry registry = Mockito.mock(SearchClusterRegistry.class);
+    ESBulkProcessor bulkProcessor = Mockito.mock(ESBulkProcessor.class);
+    ESIndexBuilder indexBuilder = Mockito.mock(ESIndexBuilder.class);
+    ElasticSearchConfiguration config = Mockito.mock(ElasticSearchConfiguration.class);
+    BulkProcessorConfiguration bulkConfig = Mockito.mock(BulkProcessorConfiguration.class);
+    Mockito.when(bulkConfig.getNumRetries()).thenReturn(1);
+    Mockito.when(config.getBulkProcessor()).thenReturn(bulkConfig);
+    Mockito.doReturn(searchClientShim).when(registry).clientFor(Mockito.any(SearchComponent.class));
+    Mockito.when(registry.bulkProcessorFor(Mockito.any(SearchComponent.class)))
+        .thenReturn(bulkProcessor);
+    Mockito.when(registry.indexBuilderFor(Mockito.any(SearchComponent.class)))
+        .thenReturn(indexBuilder);
+    Mockito.when(registry.configFor(Mockito.any(SearchComponent.class))).thenReturn(config);
+    return registry;
   }
 
   /** Use real EntityRegistry from TestOperationContexts for proper annotation-based validation. */

@@ -226,6 +226,7 @@ services:
     - debug-consumers-cdc
     - debug-neo4j
     - debug-elasticsearch
+    - debug-opensearch3
     - debug-backend-aws
     - debug-aws
     command:
@@ -303,6 +304,7 @@ services:
     - debug-consumers-cdc
     - debug-neo4j
     - debug-elasticsearch
+    - debug-opensearch3
     - debug-backend-aws
     - debug-aws
     command:

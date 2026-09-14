@@ -10,9 +10,12 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.upgrade.DataHubUpgradeState;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -50,6 +53,11 @@ public class DeleteElasticsearchIndicesStepTest {
 
     when(esComponents.getSearchClient()).thenReturn(searchClient);
     when(esComponents.getIndexConvention()).thenReturn(indexConvention);
+
+    OperationContext opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoValidate(), searchClient);
+    when(mockContext.opContext()).thenReturn(opContext);
 
     // IndexConvention returns DataHub-specific patterns and names
     when(indexConvention.getAllEntityIndicesPatterns(any(OperationFingerprint.class)))
@@ -207,6 +215,34 @@ public class DeleteElasticsearchIndicesStepTest {
         new DeleteElasticsearchIndicesStep(esComponents).executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testDeletesOnEachUniqueClusterClient() throws Exception {
+    SearchClientShim<?> secondary = mock(SearchClientShim.class);
+    when(searchClient.getEngineType())
+        .thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
+    when(secondary.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
+    doThrow(responseException).when(secondary).getIndex(any(), any(), any());
+    when(secondary.performLowLevelRequest(any(), any())).thenReturn(rawResponse);
+
+    SearchClusterAccess access =
+        component ->
+            component == com.linkedin.metadata.config.search.SearchComponent.USAGE
+                ? secondary
+                : searchClient;
+    OperationContext opContext =
+        TestOperationContexts.withSearchClusterAccess(
+            TestOperationContexts.systemContextNoValidate(), access);
+    when(mockContext.opContext()).thenReturn(opContext);
+
+    UpgradeStepResult result =
+        new DeleteElasticsearchIndicesStep(esComponents).executable().apply(mockContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(searchClient, atLeastOnce()).performLowLevelRequest(any(), any());
+    verify(secondary, atLeastOnce()).performLowLevelRequest(any(), any());
   }
 
   private StatusLine createStatusLine(int statusCode, String reasonPhrase) {

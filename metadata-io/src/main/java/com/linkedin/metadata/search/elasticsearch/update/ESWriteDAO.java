@@ -8,8 +8,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
+import com.linkedin.metadata.search.elasticsearch.SearchClients;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexDeletionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
@@ -51,15 +55,73 @@ public class ESWriteDAO {
   private final ElasticSearchConfiguration config;
   private final SearchClientShim<?> searchClient;
   @Getter private final ESBulkProcessor bulkProcessor;
+  @Nullable private final SearchWriteAccess writeAccess;
   private boolean canWrite = true;
 
+  /**
+   * Single-cluster constructor for tests. Production wiring passes {@link SearchWriteAccess} from
+   * the cluster registry.
+   *
+   * @deprecated use {@link #ESWriteDAO(ElasticSearchConfiguration, SearchClientShim,
+   *     ESBulkProcessor, SearchWriteAccess)}
+   */
+  @Deprecated
   public ESWriteDAO(
       ElasticSearchConfiguration config,
       SearchClientShim<?> searchClient,
       ESBulkProcessor bulkProcessor) {
+    this(config, searchClient, bulkProcessor, SearchWriteAccess.fixed(bulkProcessor));
+  }
+
+  public ESWriteDAO(
+      ElasticSearchConfiguration config,
+      SearchClientShim<?> searchClient,
+      ESBulkProcessor bulkProcessor,
+      @Nullable SearchWriteAccess writeAccess) {
     this.config = config;
     this.searchClient = searchClient;
     this.bulkProcessor = bulkProcessor;
+    this.writeAccess = writeAccess != null ? writeAccess : SearchWriteAccess.fixed(bulkProcessor);
+  }
+
+  @Nonnull
+  private ESBulkProcessor bulkProcessorFor(
+      @Nonnull OperationContext opContext, @Nonnull SearchComponent component) {
+    return writeAccess.bulkProcessorFor(component);
+  }
+
+  @Nonnull
+  private ESBulkProcessor bulkProcessorForIndex(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) {
+    return writeAccess.bulkProcessorForIndex(
+        opContext.getSearchContext().getIndexConvention(), indexName);
+  }
+
+  @Nonnull
+  private SearchClientShim<?> clientForIndex(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) {
+    return SearchClients.forEntityIndices(opContext, config, indexName);
+  }
+
+  /**
+   * Cleanup patterns are wildcards ({@code *index_v3*}), not always aliases. Resolve the family
+   * from the marker so V3 patterns are not sent to the V2 client.
+   */
+  @Nonnull
+  private SearchClientShim<?> clientForPattern(
+      @Nonnull OperationContext opContext, @Nonnull String pattern) {
+    SearchClusterAccess access = opContext.getSearchContext().requireSearchClusterAccess();
+    SearchComponent component =
+        SearchClusterAccess.tryComponentForEntityIndex(
+            opContext.getSearchContext().getIndexConvention(), pattern);
+    if (component == null) {
+      throw new IllegalArgumentException(
+          "Index pattern '"
+              + pattern
+              + "' is not a Search V2, V3, or semantic entity family. Unrecognized names are a"
+              + " setup error; do not route them to the keyword cluster.");
+    }
+    return access.clientFor(component);
   }
 
   public void setWritable(boolean writable) {
@@ -114,12 +176,11 @@ public class ESWriteDAO {
     // land on the same bulk processor thread. Without this, concurrent same-URN updates
     // race on OpenSearch's seqNo and retryOnConflict cannot converge — partial updates
     // are silently dropped and the indexed doc ends up with only bootstrap fields.
-    bulkProcessor.add(opContext, docId, updateRequest);
+    bulkProcessorFor(opContext, SearchComponent.SEARCH_V2).add(opContext, docId, updateRequest);
   }
 
   /**
-   * Updates or inserts the given search document in the specified index. This method works directly
-   * with index names, useful for V3 multi-entity indices.
+   * Updates or inserts the given search document in a named index.
    *
    * @param indexName name of the index
    * @param document the document to update / insert
@@ -141,7 +202,7 @@ public class ESWriteDAO {
             .doc(document, XContentType.JSON)
             .retryOnConflict(config.getBulkProcessor().getNumRetries());
 
-    bulkProcessor.add(opContext, docId, updateRequest);
+    bulkProcessorForIndex(opContext, indexName).add(opContext, docId, updateRequest);
   }
 
   /**
@@ -156,8 +217,8 @@ public class ESWriteDAO {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    bulkProcessor.add(
-        opContext, docId, new DeleteRequest(toIndexName(opContext, entityName)).id(docId));
+    bulkProcessorFor(opContext, SearchComponent.SEARCH_V2)
+        .add(opContext, docId, new DeleteRequest(toIndexName(opContext, entityName)).id(docId));
   }
 
   /**
@@ -173,7 +234,8 @@ public class ESWriteDAO {
       log.warn(READ_ONLY_LOG);
       return;
     }
-    bulkProcessor.add(opContext, docId, new DeleteRequest(indexName).id(docId));
+    bulkProcessorForIndex(opContext, indexName)
+        .add(opContext, docId, new DeleteRequest(indexName).id(docId));
   }
 
   /**
@@ -184,8 +246,8 @@ public class ESWriteDAO {
    */
   public boolean indexExists(@Nonnull OperationContext opContext, @Nonnull String indexName) {
     try {
-      return searchClient.indexExists(
-          opContext, new GetIndexRequest(indexName), RequestOptions.DEFAULT);
+      return clientForIndex(opContext, indexName)
+          .indexExists(opContext, new GetIndexRequest(indexName), RequestOptions.DEFAULT);
     } catch (IOException e) {
       log.warn("Error checking if index {} exists: {}", indexName, e.getMessage());
       return false;
@@ -223,7 +285,7 @@ public class ESWriteDAO {
 
     // using it as the routing key serializes concurrent aspect writes for the same entity
     // on one bulk processor thread (preventing version_conflict_engine_exception).
-    bulkProcessor.add(opContext, docId, updateRequest);
+    bulkProcessorFor(opContext, SearchComponent.SEARCH_V3).add(opContext, docId, updateRequest);
   }
 
   /**
@@ -245,8 +307,8 @@ public class ESWriteDAO {
       return;
     }
     // Stable-id routing — see upsertDocumentBySearchGroup above.
-    bulkProcessor.add(
-        opContext, docId, new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
+    bulkProcessorFor(opContext, SearchComponent.SEARCH_V3)
+        .add(opContext, docId, new DeleteRequest(toIndexNameV3(opContext, searchGroup)).id(docId));
   }
 
   /** Applies a script to a particular document */
@@ -298,7 +360,7 @@ public class ESWriteDAO {
             .script(script)
             .upsert(upsert);
     // Stable-id routing via docId — see upsertDocumentBySearchGroup above.
-    bulkProcessor.add(opContext, docId, updateRequest);
+    bulkProcessorForIndex(opContext, indexName).add(opContext, docId, updateRequest);
   }
 
   /**
@@ -359,7 +421,9 @@ public class ESWriteDAO {
     // Instead of deleting all documents (inefficient), delete the indices themselves
     for (String indexName : allIndices) {
       try {
-        String nameToTrack = IndexDeletionUtils.deleteIndex(searchClient, opContext, indexName);
+        String nameToTrack =
+            IndexDeletionUtils.deleteIndex(
+                clientForIndex(opContext, indexName), opContext, indexName);
         if (nameToTrack != null) {
           deletedIndexNames.add(nameToTrack);
         }
@@ -382,7 +446,8 @@ public class ESWriteDAO {
   private String[] getIndices(@Nonnull OperationContext opContext, String pattern) {
     try {
       GetIndexResponse response =
-          searchClient.getIndex(opContext, new GetIndexRequest(pattern), RequestOptions.DEFAULT);
+          clientForPattern(opContext, pattern)
+              .getIndex(opContext, new GetIndexRequest(pattern), RequestOptions.DEFAULT);
       return response.getIndices();
     } catch (IOException e) {
       // Only treat index_not_found_exception as "no indices"
@@ -431,7 +496,8 @@ public class ESWriteDAO {
 
             // Submit the task asynchronously
             String taskId =
-                searchClient.submitDeleteByQueryTask(opContext, request, RequestOptions.DEFAULT);
+                clientForIndex(opContext, indexName)
+                    .submitDeleteByQueryTask(opContext, request, RequestOptions.DEFAULT);
 
             log.info("Started async delete by query task: {} for index: {}", taskId, indexName);
 
@@ -490,7 +556,8 @@ public class ESWriteDAO {
         DeleteByQueryRequest request = buildDeleteByQueryRequest(indexName, query, finalConfig);
 
         String taskSubmission =
-            searchClient.submitDeleteByQueryTask(opContext, request, RequestOptions.DEFAULT);
+            clientForIndex(opContext, indexName)
+                .submitDeleteByQueryTask(opContext, request, RequestOptions.DEFAULT);
         TaskId taskId = parseTaskId(taskSubmission);
         lastTaskId = taskId;
 
@@ -602,7 +669,7 @@ public class ESWriteDAO {
       getTaskRequest.setTimeout(TimeValue.timeValueMillis(finalTimeout.toMillis()));
 
       Optional<GetTaskResponse> taskResponse =
-          searchClient.getTask(getTaskRequest, RequestOptions.DEFAULT);
+          clientForIndex(opContext, indexName).getTask(getTaskRequest, RequestOptions.DEFAULT);
 
       if (taskResponse.isEmpty() || !taskResponse.get().isCompleted()) {
         // Count remaining documents to determine if any progress was made
@@ -707,7 +774,7 @@ public class ESWriteDAO {
     CountRequest countRequest = new CountRequest(indexName);
     countRequest.query(query);
     CountResponse countResponse =
-        searchClient.count(opContext, countRequest, RequestOptions.DEFAULT);
+        clientForIndex(opContext, indexName).count(opContext, countRequest, RequestOptions.DEFAULT);
     return countResponse.getCount();
   }
 

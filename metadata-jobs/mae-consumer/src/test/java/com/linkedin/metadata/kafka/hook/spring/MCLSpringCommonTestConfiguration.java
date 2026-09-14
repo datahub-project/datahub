@@ -7,7 +7,10 @@ import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
+import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -15,6 +18,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.FormService;
@@ -208,6 +212,23 @@ public class MCLSpringCommonTestConfiguration {
   @Primary
   public ESBulkProcessor elasticSearchBulkProcessor() {
     return Mockito.mock(ESBulkProcessor.class);
+  }
+
+  @Bean(name = "searchClusterRegistry")
+  @Primary
+  public SearchClusterRegistry searchClusterRegistry(
+      ESBulkProcessor elasticSearchBulkProcessor, SearchClientShim<?> searchClientShim) {
+    SearchClusterRegistry registry = Mockito.mock(SearchClusterRegistry.class);
+    ElasticSearchConfiguration config = Mockito.mock(ElasticSearchConfiguration.class);
+    BulkProcessorConfiguration bulk = Mockito.mock(BulkProcessorConfiguration.class);
+    Mockito.when(bulk.getNumRetries()).thenReturn(1);
+    Mockito.when(config.getBulkProcessor()).thenReturn(bulk);
+    Mockito.when(registry.bulkProcessorFor(Mockito.any())).thenReturn(elasticSearchBulkProcessor);
+    Mockito.when(registry.configFor(Mockito.any())).thenReturn(config);
+    Mockito.doReturn(searchClientShim).when(registry).clientFor(Mockito.any());
+    Mockito.when(registry.indexBuilderFor(Mockito.any()))
+        .thenReturn(Mockito.mock(ESIndexBuilder.class));
+    return registry;
   }
 
   @Bean(name = "legacyMappingsBuilder")

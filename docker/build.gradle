@@ -149,6 +149,14 @@ ext {
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                     ]
             ],
+            'quickstartOS3Debug': [
+                    profile: 'debug-opensearch3',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
             'quickstartDebugAi': [
                     // Activate both 'debug' (core services) and 'debug-ai' (Ollama) profiles.
                     profiles: ['debug', 'debug-ai'],

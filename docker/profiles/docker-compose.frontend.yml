@@ -178,3 +178,10 @@ services:
     depends_on:
       system-update-debug-elasticsearch:
         condition: service_completed_successfully
+  frontend-debug-opensearch3:
+    <<: *datahub-frontend-service-dev
+    profiles:
+      - debug-opensearch3
+    depends_on:
+      system-update-debug-opensearch3:
+        condition: service_completed_successfully

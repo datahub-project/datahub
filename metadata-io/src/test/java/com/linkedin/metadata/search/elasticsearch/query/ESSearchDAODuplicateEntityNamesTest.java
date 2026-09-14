@@ -44,7 +44,6 @@ public class ESSearchDAODuplicateEntityNamesTest {
     // Create ESSearchDAO with mocked client
     esSearchDAO =
         new ESSearchDAO(
-            mockClient,
             false,
             TEST_OS_SEARCH_CONFIG,
             null,

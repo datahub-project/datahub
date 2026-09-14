@@ -82,6 +82,7 @@ public class BuildIndicesIncrementalStepTest {
     ReindexConfig reindexConfig = mockReindexConfig(INDEX_NAME, true);
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(reindexConfig));
     when(indexedService.getIndexBuilder()).thenReturn(indexBuilder);
+    when(indexedService.getIndexBuilder(anyString())).thenReturn(indexBuilder);
     when(indexBuilder.getBackingIndices(any(OperationContext.class), anyString()))
         .thenReturn(Set.of("datasetindex_v2_old"));
     when(indexBuilder.validateAndSwapAlias(
@@ -522,6 +523,7 @@ public class BuildIndicesIncrementalStepTest {
     // Return a reindex config for an index that no service provides a builder for
     ReindexConfig unknownConfig = mockReindexConfig("unknown_index", true);
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(unknownConfig));
+    when(indexedService.getIndexBuilder(anyString())).thenReturn(null);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 

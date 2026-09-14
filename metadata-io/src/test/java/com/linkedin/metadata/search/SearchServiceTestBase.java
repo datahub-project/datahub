@@ -179,19 +179,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
         TEST_OS_SEARCH_CONFIG.toBuilder().search(searchConfiguration).build();
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            getSearchClient(),
             esConfig.getSearch().isPointInTimeCreationEnabled(),
             esConfig,
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(
-            getSearchClient(),
-            esConfig,
-            null,
-            QueryFilterRewriteChain.EMPTY,
-            TEST_SEARCH_SERVICE_CONFIG);
+        new ESBrowseDAO(esConfig, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG);
     ESWriteDAO writeDAO = new ESWriteDAO(esConfig, getSearchClient(), getBulkProcessor());
     ElasticSearchService searchService =
         new ElasticSearchService(
@@ -216,19 +210,13 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            getSearchClient(),
             esConfig.getSearch().isPointInTimeCreationEnabled(),
             esConfig,
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(
-            getSearchClient(),
-            esConfig,
-            null,
-            QueryFilterRewriteChain.EMPTY,
-            TEST_SEARCH_SERVICE_CONFIG);
+        new ESBrowseDAO(esConfig, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG);
     ESWriteDAO writeDAO = new ESWriteDAO(esConfig, getSearchClient(), getBulkProcessor());
     ElasticSearchService searchService =
         new ElasticSearchService(

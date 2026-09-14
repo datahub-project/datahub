@@ -100,7 +100,6 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
   private ElasticSearchService buildService() {
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            getSearchClient(),
             false,
             getElasticSearchConfiguration(),
             null,
@@ -108,7 +107,6 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            getSearchClient(),
             getElasticSearchConfiguration(),
             null,
             QueryFilterRewriteChain.EMPTY,

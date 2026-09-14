@@ -596,7 +596,8 @@ To refresh any of the running system started by `./gradlew quickstartDebug`, run
 ```
 
 This will build any changed components and restart those containers that had changes.
-There are a few other quickstart\* variants, like quickstartDebugMin, quickstartDebugConsumers
+There are a few other quickstart\* variants, like quickstartDebugMin, quickstartDebugConsumers,
+quickstartPgDebug, and quickstartOS3Debug (OpenSearch 3.x).
 
 For each of those variants, there is a corresponding reloadTask.
 

@@ -457,6 +457,22 @@ services:
         condition: service_healthy
       kafka-broker:
         condition: service_healthy
+  system-update-debug-opensearch3:
+    <<: *datahub-system-update-service-dev
+    profiles:
+      - debug-opensearch3
+    environment:
+      <<: *datahub-system-update-dev-env
+      ELASTICSEARCH_SHIM_ENGINE_TYPE: OPENSEARCH_3
+      ELASTICSEARCH_SHIM_AUTO_DETECT: 'false'
+      ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED: 'true'
+    depends_on:
+      mysql:
+        condition: service_healthy
+      opensearch3:
+        condition: service_healthy
+      kafka-broker:
+        condition: service_healthy
   system-update-debug-postgres:
     <<: *datahub-system-update-service-dev
     profiles:
@@ -720,6 +736,18 @@ services:
       ELASTICSEARCH_IMPLEMENTATION: elasticsearch
     depends_on:
       system-update-debug-elasticsearch:
+        condition: service_completed_successfully
+  datahub-gms-debug-opensearch3:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-opensearch3
+    environment:
+      <<: *datahub-gms-dev-env
+      ELASTICSEARCH_SHIM_ENGINE_TYPE: OPENSEARCH_3
+      ELASTICSEARCH_SHIM_AUTO_DETECT: 'false'
+      ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED: 'true'
+    depends_on:
+      system-update-debug-opensearch3:
         condition: service_completed_successfully
   #################################
   # MAE Consumer
