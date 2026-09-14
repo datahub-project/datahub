@@ -1280,6 +1280,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[List[SchemaFieldClass]]:
         # Prefer the relational EDMX schema; fall back to the CSN elements map for
         # analytic models, which expose no relational metadata URL for EDMX.
+        fields: Optional[List[SchemaFieldClass]]
         if parse_result is not None and parse_result.fields:
             self.report.assets_schema_fetched += 1
             fields = self._decorate_fields(parse_result)
@@ -1289,7 +1290,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return None
         # Formulas live in the CSN even when the schema came from EDMX, so decorate
         # on both paths. The field list is already column_pattern-filtered here.
-        if fields and csn_def is not None:
+        # Skip SQL-editor views: their body is raw SQL, not a CQN tree to render.
+        if fields and csn_def is not None and not csn_def.get(CSN_KEY_SQL_EDITOR_QUERY):
             self._apply_calculated_column_formulas(
                 space_name, asset_name, csn_def, fields
             )
@@ -2056,7 +2058,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         fields: List[SchemaFieldClass],
     ) -> None:
         # Append each calculated column's expression to its description as a
-        # ``formula:`` line, as the Tableau connector does for CalculatedFields.
+        # ``formula:`` line.
         try:
             formulas = extract_calculated_column_formulas(csn_def)
         except Exception as e:

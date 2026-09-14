@@ -144,15 +144,30 @@ def _iter_selects(query: object) -> List[dict]:
     return selects
 
 
+def _select_output_names(select: dict) -> List[Optional[str]]:
+    columns = select.get(CSN_COLUMNS)
+    if not isinstance(columns, list):
+        return []
+    return [_output_name(c) if isinstance(c, dict) else None for c in columns]
+
+
 def _formulas_from_query_columns(csn_def: dict, out: Dict[str, str]) -> None:
-    for select in _iter_selects(csn_def.get(CSN_KEY_QUERY)):
+    selects = _iter_selects(csn_def.get(CSN_KEY_QUERY))
+    if not selects:
+        return
+    # A UNION's output columns take their names from the first branch, by position;
+    # later branches may rename or omit aliases, so map every branch by index.
+    output_names = _select_output_names(selects[0])
+    for select in selects:
         columns = select.get(CSN_COLUMNS)
         if not isinstance(columns, list):
             continue
-        for col in columns:
+        for index, col in enumerate(columns):
             if not isinstance(col, dict) or not _is_calculated_column(col):
                 continue
-            name = _output_name(col)
+            name = output_names[index] if index < len(output_names) else None
+            if name is None:
+                name = _output_name(col)
             if name is None:
                 continue
             formula = render_cqn_expression(col)
@@ -191,7 +206,7 @@ def make_description_with_formula(
     description: Optional[str], formula: Optional[str]
 ) -> Optional[str]:
     """Combine a column label with its calculation: label first, then a
-    ``formula: <expr>`` line (as the Tableau connector does)."""
+    ``formula: <expr>`` line."""
     parts: List[str] = []
     if description:
         parts.append(description)

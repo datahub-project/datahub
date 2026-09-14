@@ -1047,6 +1047,7 @@
                 {
                     "fieldPath": "total_amount",
                     "nullable": true,
+                    "description": "formula: SUM(AMOUNT)",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NumberType": {}

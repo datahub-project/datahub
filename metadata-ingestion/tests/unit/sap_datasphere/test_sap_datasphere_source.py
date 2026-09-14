@@ -6317,3 +6317,31 @@ def test_edmx_schema_path_appends_calculated_formula():
     assert by_path["TOTAL"].description == "Total\n\nformula: PRICE * QTY"
     assert by_path["QTY"].description == "Quantity"
     assert source.report.calculated_column_formulas_emitted == 1
+
+
+def test_sql_editor_view_skips_formula_decoration():
+    """A SQL-editor view's body is raw SQL, not a CQN tree, so formulas from any
+    incidental ``query`` block must not be applied."""
+    cfg = SapDatasphereConfig.model_validate(
+        {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
+    )
+    source = SapDatasphereSource(PipelineContext(run_id="sql-editor-skip"), cfg)
+    parse_result = EdmxParseResult(fields=[_string_field("TOTAL", "Total")])
+    csn_def = {
+        "@DataWarehouse.sqlEditor.query": "SELECT price * qty AS total FROM base",
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"xpr": [{"ref": ["PRICE"]}, "*", {"ref": ["QTY"]}], "as": "TOTAL"},
+                ],
+            }
+        },
+    }
+
+    fields = source._resolve_asset_schema_fields(
+        "S1", "SQL_VIEW", parse_result, csn_def
+    )
+    assert fields is not None
+    assert {f.fieldPath: f.description for f in fields} == {"TOTAL": "Total"}
+    assert source.report.calculated_column_formulas_emitted == 0

@@ -126,6 +126,38 @@ def test_extract_formula_from_union_branches():
     assert extract_calculated_column_formulas(csn_def) == {"TOTAL": "P * Q"}
 
 
+def test_extract_union_branch_maps_to_first_branch_output_name():
+    # The calculated column lives in the second branch under a different alias; it
+    # must surface under the first branch's positional output name.
+    csn_def = {
+        "query": {
+            "SET": {
+                "op": "union",
+                "args": [
+                    {
+                        "SELECT": {
+                            "from": {"ref": ["A"]},
+                            "columns": [{"ref": ["AMOUNT"], "as": "TOTAL"}],
+                        }
+                    },
+                    {
+                        "SELECT": {
+                            "from": {"ref": ["B"]},
+                            "columns": [
+                                {
+                                    "xpr": [{"ref": ["P"]}, "*", {"ref": ["Q"]}],
+                                    "as": "BRANCH2_ALIAS",
+                                },
+                            ],
+                        }
+                    },
+                ],
+            }
+        }
+    }
+    assert extract_calculated_column_formulas(csn_def) == {"TOTAL": "P * Q"}
+
+
 def test_extract_formula_from_element_value():
     csn_def = {
         "elements": {
