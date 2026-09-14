@@ -269,8 +269,9 @@ class DocumentChunkingSource(Source):
             )
             # Otherwise a malformed name only surfaces inside the first embed call
             # and is reported as a per-document embedding failure on every document.
-            if embedding_config.model:
-                parse_classical_dimensions(embedding_config.model)
+            # The guard above already rejected a missing model; this only narrows the type.
+            assert embedding_config.model is not None
+            parse_classical_dimensions(embedding_config.model)
 
         if (
             provider == "cohere"
