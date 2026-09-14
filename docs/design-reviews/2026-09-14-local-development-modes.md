@@ -12,13 +12,13 @@ modes, records what is actually hot-reloaded, and separates one-time setup from 
 
 ## Mode Overview
 
-| Mode                   | Runs on the host          | Runs in Docker                                         | Edit feedback                                      | Current status                    |
-| ---------------------- | ------------------------- | ------------------------------------------------------ | -------------------------------------------------- | --------------------------------- |
-| Full Docker debug      | Gradle build              | GMS, Play frontend, consumers, Actions, infrastructure | Rebuild artifact and restart service               | Supported default                 |
-| Docker plus Vite       | React/Vite                | Play frontend, GMS, consumers, Actions, infrastructure | React HMR; backend rebuild and restart             | Supported frontend workflow       |
-| Host Spring            | A selected Spring service | Infrastructure and remaining services                  | Manual restart; no repository-provided live reload | Possible manually, not integrated |
-| Host Play              | Play frontend             | GMS and infrastructure                                 | Play can recompile and reload                      | Configured, but currently broken  |
-| Production-like Docker | Nothing                   | Everything                                             | Rebuild images and containers                      | Validation, not an inner loop     |
+| Mode                   | Runs on the host | Runs in Docker                                         | Edit feedback                                | Current status                   |
+| ---------------------- | ---------------- | ------------------------------------------------------ | -------------------------------------------- | -------------------------------- |
+| Full Docker debug      | Gradle build     | GMS, Play frontend, consumers, Actions, infrastructure | Rebuild artifact and restart service         | Supported default                |
+| Docker plus Vite       | React/Vite       | Play frontend, GMS, consumers, Actions, infrastructure | React HMR; backend rebuild and restart       | Supported frontend workflow      |
+| Host Spring            | GMS              | Infrastructure and remaining services                  | Continuous compile; DevTools context restart | Supported for default debug mode |
+| Host Play              | Play frontend    | GMS and infrastructure                                 | Automatic server-side compile/reload         | Supported for default debug mode |
+| Production-like Docker | Nothing          | Everything                                             | Rebuild images and containers                | Validation, not an inner loop    |
 
 "Debug" in the Docker mode means development-oriented images, mounted build artifacts, and debugger
 ports. It does not mean source-level hot reload.
@@ -78,35 +78,48 @@ edit. This is currently the fastest supported frontend loop.
 
 ## 3. Host Spring Development
 
-Spring Boot tasks such as `:metadata-service:war:bootRun` exist, so an individual Java service can be
-started manually on the host while its infrastructure dependencies remain in Docker. This is not a
-complete supported mode yet because the repository does not provide:
+Start the Docker environment, then replace its GMS container with the host server:
 
-- `spring-boot-devtools` restart support;
-- a continuous Gradle compiler feeding the running process;
-- a `datahub-dev` command to orchestrate the hybrid topology;
-- automatic translation from Docker service hostnames to host ports; or
-- integrated conflict handling, readiness, and shutdown lifecycle.
+```bash
+scripts/dev/datahub-dev.sh start
+scripts/dev/datahub-dev.sh gms
+```
 
-Plain `bootRun` does not automatically reload application changes. A useful Spring development mode
-would combine Docker infrastructure, a host JVM, continuous compilation, and Spring Boot DevTools.
-That would remove boot-archive packaging and Docker restart time from the loop, although changes that
-restart the Spring application context would still pay most of the roughly 18-second context startup.
+The command precompiles GMS before stopping the healthy container, translates the container's MySQL,
+OpenSearch, Kafka, Neo4j, schema-registry, port, and entity-registry settings to host endpoints, and
+runs `bootRun` with Spring Boot DevTools. Once the host service is healthy, a separate continuous
+Gradle `classes` build watches GMS and its project dependencies. Changed class output causes DevTools
+to restart the application context without rebuilding a boot archive or restarting Docker. Ctrl-C,
+startup failure, and compiler failure terminate both process groups and restore the Docker GMS.
+
+Host development disables Fabric8 Kubernetes auto-configuration. Otherwise a developer's local
+kubeconfig credential command may run during Spring initialization even though this mode is not
+running in Kubernetes. This override is scoped to the host-dev `bootRun` invocation.
+
+The context itself remains large. This mode removes packaging and container lifecycle work, but a
+structural change still pays Spring's context restart cost. Its steady-state improvement must be
+measured separately from the initial compile and initial application startup.
 
 ## 4. Host Play Development
 
-The repository defines `:datahub-frontend:playRun` on port 9001. The Play Gradle plugin contains the
-expected change detection and reload compilation machinery, so this mode can support server-side
-Java/Scala/routes reload without staging a production distribution.
+Start the Docker environment, then replace its staged frontend with Play development mode:
 
-It is not usable on the current baseline. Even a dry run fails during Gradle configuration with:
-
-```text
-Project#afterEvaluate(Action) on project ':datahub-web-react' cannot be executed in current context
+```bash
+scripts/dev/datahub-dev.sh start
+scripts/dev/datahub-dev.sh play
 ```
 
-The task also needs to be separated cleanly from the production React distribution and exposed through
-the development wrapper. Fixing this path is the clearest route to a fast Play server-side loop.
+The wrapper uses the worktree's assigned frontend port, translates the Docker frontend environment to
+host endpoints, stops the Docker frontend only after a successful precompile, and restores it on
+exit. Play watches Java, Scala, and route inputs and performs reload compilation without staging a
+production distribution. React remains a separate Vite process via `datahub-dev frontend`; the
+development Play graph deliberately excludes the production React asset project.
+
+The Play Gradle plugin is incompatible with this build's configuration-on-demand mode while resolving
+its runtime project graph, so only this command disables configuration on demand. The reload
+classloader also drops the Rest.li API project's custom generated-client artifact; the development
+graph supplies that jar explicitly. The production Play distribution and normal Gradle defaults are
+unchanged.
 
 ## 5. Production-Like Docker
 

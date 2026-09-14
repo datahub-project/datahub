@@ -150,10 +150,10 @@ consumer containers do not use Spring Boot DevTools. The Play container starts a
 with `ProdServerStart`, not Play development mode. The Actions container mounts source without a file
 watcher.
 
-The host Vite workflow is the exception and provides real React HMR. A `playRun` task also exists and
-the Play plugin supports change detection/reload compilation, but the task currently fails during
-configuration with an `afterEvaluate` error involving `:datahub-web-react`. Host Spring `bootRun`
-tasks exist but are not orchestrated with Docker infrastructure or automatic compilation/restart.
+The host Vite workflow provides real React HMR. The investigation branch now also exposes Play's
+reload compiler and a host GMS mode combining `bootRun`, continuous compilation, and Spring Boot
+DevTools. Both commands temporarily replace only their corresponding Docker service and reuse the
+remaining Docker infrastructure.
 
 ## Measurements
 
@@ -221,6 +221,24 @@ That last behavior is intentional. A Git-only "nothing changed" short circuit is
 a source file to HEAD can leave an artifact containing the previous edited version, and only Gradle's
 input/output model can detect and repair it.
 
+### Host Java development servers
+
+- Adds `datahub-dev play`, with a preflight compile, worktree-aware port and environment translation,
+  Play reload compilation, and automatic restoration of the Docker frontend.
+- Keeps React out of the Play development graph so Vite remains the React HMR server and no
+  production React distribution is built.
+- Works around the Play plugin's configuration-on-demand incompatibility only for `playRun` and
+  explicitly supplies the generated Rest.li client jar missing from Play's reload classpath.
+- Adds `datahub-dev gms`, Spring Boot DevTools, direct source-resource use, worktree-aware dependency
+  translation, a health-gated continuous compiler, and automatic restoration of Docker GMS.
+- Disables Fabric8 Kubernetes auto-configuration only in host GMS mode so local kubeconfig credential
+  helpers cannot block Spring startup.
+- Runs both new Gradle entry points through the repository's mise-managed Java 25 toolchain.
+
+Functional validation reached HTTP 200 on Play `/admin` and GMS `/health`. A temporary GMS source
+edit was detected by the continuous compiler, caused a DevTools restart, and returned to HTTP 200.
+These are correctness checks, not a controlled performance benchmark.
+
 ## Conclusions by Scenario
 
 ### Warm unchanged environment start
@@ -231,16 +249,15 @@ Further changes here should be justified by repeated measurements.
 
 ### Java edit/reload loop
 
-Module narrowing helped, but packaging and container restart remain intrinsic costs. The highest-value
-next experiment is a hybrid mode with Docker infrastructure and host Spring services using continuous
-compilation plus DevTools. Measure method-body and structural changes separately, because they can
-trigger different restart behavior.
+Module narrowing helped the Docker path, and the new hybrid host GMS mode removes boot-archive
+packaging and Docker restart from the inner loop. It still needs controlled measurements for an
+ordinary method-body edit and a structural edit, split into compiler and DevTools restart phases.
 
 ### Play server edit/reload loop
 
-Repairing and exposing `playRun` is likely the easiest unimplemented development-server win. It avoids
-`installDist`/stage and production-server restart for server-side Play changes. It should be tested
-independently from the already-supported Vite HMR path.
+`datahub-dev play` now avoids `installDist`/stage and production-server restart for server-side Play
+changes. Its Java/Scala and route edit latency should be measured independently from the
+already-supported Vite HMR path.
 
 ### Fresh frontend setup
 
@@ -267,10 +284,9 @@ root Gradle invocation while retaining path scoping and all existing checks.
 
 The order depends on the latency being optimized. For everyday edit/reload latency:
 
-1. Repair `playRun`, decouple it from production React packaging, expose it through `datahub-dev`, and
-   measure Play source and route edits.
-2. Prototype Docker infrastructure plus host GMS `bootRun`, continuous compilation, and Spring Boot
-   DevTools; measure compile, restart, and ready phases separately.
+1. Measure Play source and route edits in the implemented `datahub-dev play` mode.
+2. Measure method-body and structural GMS edits in the implemented `datahub-dev gms` mode, separating
+   continuous compilation, DevTools restart, and readiness.
 3. Measure hook scenarios, then consolidate Java Spotless invocations only if repeated Gradle launches
    are material.
 4. Benchmark Gradle worker/memory profiles on representative GMS rebuilds.

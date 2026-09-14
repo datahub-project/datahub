@@ -47,6 +47,8 @@ dependencies {
   implementation externalDependency.springBootElasticsearch
   implementation(externalDependency.springBootStarterValidation)
 
+  developmentOnly externalDependency.springBootDevtools
+
   implementation externalDependency.jettyJmx
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBootAutoconfigure
@@ -100,8 +102,12 @@ bootJar {
 }
 
 bootRun {
+  sourceResources sourceSets.main
   environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
-  environment "KAFKA_SCHEMAREGISTRY_URL", "http://localhost:8080/schema-registry/api"
+  environment "KAFKA_SCHEMAREGISTRY_URL", System.getenv("KAFKA_SCHEMAREGISTRY_URL") ?: "http://localhost:8080/schema-registry/api"
+  if (project.hasProperty('hostDev')) {
+    jvmArgs '-Dkubernetes.disable.autoConfig=true'
+  }
   jvmArgs(
       '--add-modules', 'java.se',
       '--add-exports', 'java.base/jdk.internal.ref=ALL-UNNAMED',
