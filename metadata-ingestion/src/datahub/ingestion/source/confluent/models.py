@@ -1,5 +1,6 @@
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 from typing import (
     Annotated,
     Dict,
@@ -61,6 +62,10 @@ class CatalogEntity(CatalogModel):
     owner: Optional[str] = None
     owner_email: Optional[str] = Field(default=None, alias="ownerEmail")
     description: Optional[str] = None
+    # Source-platform timestamps, which is what DatasetProperties.created and
+    # .lastModified document - "created in the source Data Platform, not on DataHub".
+    create_time: Optional[datetime] = Field(default=None, alias="createTime")
+    update_time: Optional[datetime] = Field(default=None, alias="updateTime")
     tags: NullAsEmptyList[str] = Field(default_factory=list)
     business_metadata: NullAsEmptyList[CatalogBusinessMetadataAttribute] = Field(
         default_factory=list

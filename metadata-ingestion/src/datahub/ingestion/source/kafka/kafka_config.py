@@ -97,6 +97,11 @@ class KafkaConfluentCatalogConfig(ConfluentStreamCatalogConfig):
         "for topics whose schema does not supply one. A description parsed from the Avro "
         "schema's `doc` field takes precedence, so enabling this only fills gaps.",
     )
+    include_timestamps: bool = Field(
+        default=True,
+        description="Emit the Stream Catalog topic's creation and last-modified times as "
+        "the dataset's source-platform timestamps.",
+    )
 
 
 class KafkaSourceConfig(

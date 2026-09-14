@@ -623,3 +623,86 @@ class TestCatalogOwnersAndDescriptions:
         )
         assert source.report.catalog_topics_with_owners == 0
         assert source.report.catalog_topics_with_descriptions == 0
+
+    def test_catalog_timestamps_become_source_platform_times(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [
+                CatalogKafkaTopic(
+                    name=TOPIC,
+                    createTime="2024-12-05T12:28:00Z",
+                    updateTime="2025-08-21T16:22:00Z",
+                )
+            ],
+        )
+
+        with change_default_attribution(KnownAttribution.INGESTION):
+            workunits = list(source.get_workunits())
+
+        properties = aspects_of(workunits, "datasetProperties")
+        assert any(
+            isinstance(aspect, DatasetPropertiesClass)
+            and aspect.created is not None
+            and aspect.created.time == 1733401680000
+            and aspect.lastModified is not None
+            and aspect.lastModified.time == 1755793320000
+            for aspect in properties
+        )
+        assert source.report.catalog_topics_with_timestamps == 1
+
+    def test_include_timestamps_toggle_suppresses_them(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        source = self.build_source(
+            mock_kafka,
+            [CatalogKafkaTopic(name=TOPIC, createTime="2024-12-05T12:28:00Z")],
+            include_timestamps=False,
+        )
+
+        with change_default_attribution(KnownAttribution.INGESTION):
+            workunits = list(source.get_workunits())
+
+        properties = aspects_of(workunits, "datasetProperties")
+        assert all(
+            not isinstance(aspect, DatasetPropertiesClass) or aspect.created is None
+            for aspect in properties
+        )
+        assert source.report.catalog_topics_with_timestamps == 0
+
+
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+class TestNonConfluentKafkaIsUnaffected:
+    """Plain Kafka - self-managed, MSK, Redpanda - has no Stream Catalog.
+
+    `confluent_catalog` is off by default, so these sources must emit exactly what
+    they emitted before the catalog fields existed: no ownership aspect, and no
+    catalog-derived description or timestamps.
+    """
+
+    def test_catalog_disabled_emits_no_catalog_derived_aspects(
+        self, mock_kafka: Mock, mock_admin_client: Mock
+    ) -> None:
+        cluster_metadata = MagicMock()
+        cluster_metadata.topics = {TOPIC: None}
+        mock_kafka.return_value.list_topics.return_value = cluster_metadata
+
+        source = KafkaSource(
+            make_source_config(schema_registry_url=SCHEMA_REGISTRY_URL),
+            PipelineContext(run_id="test"),
+        )
+        assert source.topic_catalog is None
+
+        with change_default_attribution(KnownAttribution.INGESTION):
+            workunits = list(source.get_workunits())
+
+        assert not aspects_of(workunits, "ownership")
+        for aspect in aspects_of(workunits, "datasetProperties"):
+            assert isinstance(aspect, DatasetPropertiesClass)
+            assert aspect.created is None
+            assert aspect.lastModified is None
+        assert source.report.catalog_topics_with_owners == 0
+        assert source.report.catalog_topics_with_descriptions == 0
+        assert source.report.catalog_topics_with_timestamps == 0
+        assert source.report.catalog_owners_without_email == 0

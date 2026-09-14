@@ -39,6 +39,8 @@ CATALOG_TOPICS = [
         "owner": "Ada Lovelace",
         "ownerEmail": "ada@example.com",
         "description": "Curated in the Stream Catalog",
+        "createTime": "2024-12-05T12:28:00Z",
+        "updateTime": "2025-08-21T16:22:00Z",
         "tags": ["PII", "Tier1"],
         "business_metadata": [
             {"name": "owning_team", "value": "payments"},
@@ -97,6 +99,8 @@ TOPIC_QUERY_KNOWN_FIELDS = frozenset(
         "owner",
         "ownerEmail",
         "description",
+        "createTime",
+        "updateTime",
         "tags",
         "business_metadata",
         "value",

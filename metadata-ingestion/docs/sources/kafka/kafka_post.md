@@ -98,9 +98,15 @@ source:
 ```
 
 Confluent tags become DataHub tags, business metadata attributes become custom properties, the
-topic owner becomes a DataHub technical owner, and the topic description fills the dataset
-description. Each is independently switchable via `include_tags`, `include_business_metadata`,
-`include_owners` and `include_descriptions`.
+topic owner becomes a DataHub technical owner, the topic description fills the dataset
+description, and the topic's creation and last-modified times become the dataset's
+source-platform timestamps. Each is independently switchable via `include_tags`,
+`include_business_metadata`, `include_owners`, `include_descriptions` and `include_timestamps`.
+
+Only fields the Stream Catalog defines on a topic are read - `owner`, `ownerEmail`,
+`description`, `createTime`, `updateTime` and `tags`. Business metadata attributes are
+organisation-specific, so they continue to arrive as custom properties under whatever names your
+Stream Governance setup uses; nothing here depends on a particular attribute being present.
 
 Two details worth knowing about the last two:
 

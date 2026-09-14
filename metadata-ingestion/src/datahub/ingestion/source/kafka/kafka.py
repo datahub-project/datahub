@@ -6,6 +6,7 @@ import random
 import threading
 import warnings
 from concurrent.futures import Future, ThreadPoolExecutor
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from functools import partial
 from typing import (
@@ -254,6 +255,21 @@ def validate_kafka_connectivity(connection: KafkaConsumerConnectionConfig) -> No
     finally:
         # Always close the consumer, even on the error/timeout paths.
         consumer.close()
+
+
+@dataclass
+class _CatalogTopicMetadata:
+    """What the Stream Catalog contributes to a topic, beyond tags and properties.
+
+    Tags and custom properties are merged in place because they combine with values
+    from other sources; these four replace or fill dataset-level fields, so they come
+    back for the caller to apply against what the schema already supplied.
+    """
+
+    owners: List[str] = field(default_factory=list)
+    description: Optional[str] = None
+    created: Optional[datetime] = None
+    last_modified: Optional[datetime] = None
 
 
 class KafkaConnectionTest:
@@ -1283,15 +1299,13 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         for tag_association in meta_tags_aspect.tags
                     ]
 
-        catalog_owners: List[str] = []
+        catalog = _CatalogTopicMetadata()
         if not is_subject:
-            catalog_description = self._apply_catalog_metadata(
-                topic, all_tags, custom_props, catalog_owners
-            )
+            catalog = self._apply_catalog_metadata(topic, all_tags, custom_props)
             # The schema's own doc is the more specific description, so only fall back
             # to the catalog's when the schema did not supply one.
-            if catalog_description and not description:
-                description = catalog_description
+            if catalog.description and not description:
+                description = catalog.description
                 self.report.catalog_topics_with_descriptions += 1
 
         if self.source_config.external_url_base:
@@ -1322,23 +1336,22 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             tags=tag_urns,
             owners=[
                 OwnerClass(owner=owner_urn, type=OwnershipTypeClass.TECHNICAL_OWNER)
-                for owner_urn in catalog_owners
+                for owner_urn in catalog.owners
             ]
-            if catalog_owners
+            if catalog.owners
             else None,
+            created=catalog.created,
+            last_modified=catalog.last_modified,
             domain=domain_urn,
             extra_aspects=extra_aspects,
         )
 
     def _apply_catalog_metadata(
-        self,
-        topic: str,
-        all_tags: List[str],
-        custom_props: Dict[str, str],
-        catalog_owners: List[str],
-    ) -> Optional[str]:
+        self, topic: str, all_tags: List[str], custom_props: Dict[str, str]
+    ) -> _CatalogTopicMetadata:
+        result = _CatalogTopicMetadata()
         if self.topic_catalog is None:
-            return None
+            return result
 
         config = self.source_config.confluent_catalog
         # Only a partial read that actually applies replacement metadata can drop a
@@ -1358,7 +1371,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         catalog_topic = self.topic_catalog.get_topic(topic)
         if catalog_topic is None:
-            return None
+            return result
 
         if config.include_tags and catalog_topic.tags:
             all_tags.extend(
@@ -1383,14 +1396,23 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 owner_id = catalog_topic.owner_email
                 if self.source_config.strip_user_ids_from_email:
                     owner_id = owner_id.split("@", 1)[0]
-                catalog_owners.append(make_user_urn(owner_id))
+                result.owners.append(make_user_urn(owner_id))
                 self.report.catalog_topics_with_owners += 1
             elif catalog_topic.owner:
                 # A display name cannot be resolved to a user, so the owner is dropped
                 # rather than guessed at. Counted so the gap is visible in the report.
                 self.report.catalog_owners_without_email += 1
 
-        return catalog_topic.description if config.include_descriptions else None
+        if config.include_descriptions:
+            result.description = catalog_topic.description
+
+        if config.include_timestamps:
+            result.created = catalog_topic.create_time
+            result.last_modified = catalog_topic.update_time
+            if result.created or result.last_modified:
+                self.report.catalog_topics_with_timestamps += 1
+
+        return result
 
     def build_custom_properties(
         self,

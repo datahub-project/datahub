@@ -14,6 +14,8 @@ TOPIC_CATALOG_QUERY: Final[str] = """
     owner
     ownerEmail
     description
+    createTime
+    updateTime
     tags
     business_metadata {
       name
