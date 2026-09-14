@@ -49,9 +49,10 @@ def test_render_function_call():
 
 def test_render_rejects_expression_with_unrenderable_child():
     assert (
-        render_cqn_expression({"func": "COALESCE", "args": [{"ref": ["A"]}, {}]}) == ""
+        render_cqn_expression({"func": "COALESCE", "args": [{"ref": ["A"]}, {}]})
+        is None
     )
-    assert render_cqn_expression({"xpr": [{"ref": ["A"]}, "+", {"mystery": 1}]}) == ""
+    assert render_cqn_expression({"xpr": [{"ref": ["A"]}, "+", {"mystery": 1}]}) is None
 
 
 def test_render_infix_expression():
@@ -75,9 +76,9 @@ def test_render_in_list():
     assert render_cqn_expression(node) == "IN(C, (1, 2))"
 
 
-def test_render_unknown_shape_is_empty():
-    assert render_cqn_expression({"mystery": 1}) == ""
-    assert render_cqn_expression(None) == ""
+def test_render_unknown_shape_is_none():
+    assert render_cqn_expression({"mystery": 1}) is None
+    assert render_cqn_expression(None) is None
 
 
 def test_extract_formula_from_query_column():

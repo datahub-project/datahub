@@ -43,22 +43,23 @@ def _render_literal(value: object) -> str:
     return str(value)
 
 
-def render_cqn_expression(node: object) -> str:
+def render_cqn_expression(node: object) -> Optional[str]:
     """Serialize a CQN expression node into a readable SQL-like formula string.
 
-    Unrecognized shapes render to an empty string so the caller can skip them.
+    Returns ``None`` for a node that can't be fully rendered, so a partial or
+    misleading formula is never surfaced (distinct from a rendered value).
     """
     if isinstance(node, str):
         # A bare string inside an ``xpr`` is an operator/keyword (``+``, ``case``, ...).
-        return node
+        return node or None
     # bool is an int subclass; _render_literal formats it.
     if isinstance(node, (int, float)):
         return _render_literal(node)
     if not isinstance(node, dict):
-        return ""
+        return None
     ref = node.get(CSN_REF)
     if isinstance(ref, list):
-        return _render_ref(ref)
+        return _render_ref(ref) or None
     if CSN_VAL in node:
         return _render_literal(node[CSN_VAL])
     func = node.get(CSN_FUNC)
@@ -68,19 +69,19 @@ def render_cqn_expression(node: object) -> str:
             return f"{func}()"
         rendered_args = _render_operands(args)
         if rendered_args is None:
-            return ""
+            return None
         return f"{func}({', '.join(rendered_args)})"
     xpr = node.get(CSN_XPR)
     if isinstance(xpr, list):
         return _render_xpr(xpr)
     items = node.get(CSN_LIST)
     if isinstance(items, list):
-        # An empty list is degenerate — render nothing, consistent with an empty xpr.
+        # An empty list is degenerate — unrenderable, like an empty xpr.
         rendered_items = _render_operands(items) if items else None
         if rendered_items is None:
-            return ""
+            return None
         return "(" + ", ".join(rendered_items) + ")"
-    return ""
+    return None
 
 
 def _render_operands(items: List[object]) -> Optional[List[str]]:
@@ -88,24 +89,24 @@ def _render_operands(items: List[object]) -> Optional[List[str]]:
     rendered: List[str] = []
     for item in items:
         text = render_cqn_expression(item)
-        if not text:
+        if text is None:
             return None
         rendered.append(text)
     return rendered
 
 
-def _render_xpr(items: List[object]) -> str:
+def _render_xpr(items: List[object]) -> Optional[str]:
     rendered: List[str] = []
     for item in items:
         text = render_cqn_expression(item)
-        if not text:
+        if text is None:
             # Reject rather than emit a dangling operator (``A +``).
-            return ""
+            return None
         # Parenthesize a nested infix expression to keep precedence unambiguous.
         if isinstance(item, dict) and isinstance(item.get(CSN_XPR), list):
             text = f"({text})"
         rendered.append(text)
-    return " ".join(rendered)
+    return " ".join(rendered) if rendered else None
 
 
 def _is_calculated_column(col: Dict[str, object]) -> bool:
@@ -113,7 +114,7 @@ def _is_calculated_column(col: Dict[str, object]) -> bool:
 
 
 def _is_meaningful_formula(formula: str) -> bool:
-    # Skip empty renders and bare-``NULL`` placeholder columns.
+    # Skip bare-``NULL`` placeholder columns (unrenderable nodes are already None).
     return bool(formula) and formula != _SQL_NULL
 
 
@@ -153,7 +154,7 @@ def _select_output_names(select: Dict[str, object]) -> List[Optional[str]]:
 
 def _record_formula(out: Dict[str, str], name: str, node: object) -> None:
     formula = render_cqn_expression(node)
-    if _is_meaningful_formula(formula):
+    if formula is not None and _is_meaningful_formula(formula):
         out.setdefault(name, formula)
 
 
