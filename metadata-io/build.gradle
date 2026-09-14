@@ -487,6 +487,35 @@ task testSqlOpt(type: Test) {
   description = 'Runs only the testng-sql-opt.xml test suite'
 }
 
+// Gradle 9 no longer wires testClassesDirs/classpath conventions onto custom Test tasks; without
+// this every suite task above silently runs zero tests (NO-SOURCE), and the global
+// failOnNoDiscoveredTests=false in the root build masks it as a green build.
+tasks.withType(Test).configureEach {
+  testClassesDirs = sourceSets.test.output.classesDirs
+  classpath = sourceSets.test.runtimeClasspath
+  // Re-tighten the guard the root build.gradle relaxes globally: a wired suite that executes
+  // but discovers zero tests (bad suite XML path, filter excluding everything) must fail, not
+  // pass. Note this does NOT cover the convention-loss failure mode above (an unwired task is
+  // NO-SOURCE and skips before discovery), which is what the task-graph check below is for.
+  failOnNoDiscoveredTests = true
+}
+
+// Guard against the Gradle-9 dead-suite bug recurring: convention loss leaves testClassesDirs
+// empty, which makes the task NO-SOURCE (skipped before test discovery), so
+// failOnNoDiscoveredTests never evaluates and the suite goes green running nothing. Catch it at
+// task-graph time instead.
+gradle.taskGraph.whenReady { graph ->
+  graph.allTasks.each { t ->
+    if (t instanceof Test
+        && t.project.path == project.path
+        && t.testClassesDirs.isEmpty()) {
+      throw new GradleException(
+          "${t.path} has empty testClassesDirs and would silently run zero tests. " +
+          "See the Gradle-9 wiring block in metadata-io/build.gradle.")
+    }
+  }
+}
+
 // Per-suite coverage: a matrix leg (metadata-io.yml) runs ONE suite task, so each must emit its
 // own jacoco XML from its `.exec`. Legs share the Codecov `metadata-io` flag, which merges the
 // partials — no separate merge job. classDirectories excludes generated code, matching the base
