@@ -1,4 +1,5 @@
 import builtins
+import json
 import logging
 import sys
 from typing import Any, Dict, Iterator, List, Tuple
@@ -414,7 +415,10 @@ def test_get_metric_model_failure_warns_and_degrades() -> None:
 
     assert source._get_metric_model("project-1", "metric-x") == {}
     assert source.report.metric_expression_api_failures == 1
-    assert "metric-x" in source.report.failed_metric_model_ids
+    assert any(
+        sample.startswith("metric-x")
+        for sample in source.report.failed_metric_model_ids
+    )
     # Surfaced once so operators notice cross-project / access-limited metrics.
     assert len(source.report.warnings) == 1
 
@@ -1671,6 +1675,173 @@ def test_model_definition_empty_counts_and_logs_payload_shape(
     for line in debug_lines:
         assert "Region Number" not in line
         assert "A-REGION" not in line
+
+
+class _ModelEmbeddedClient(_ReportDerivedClient):
+    """The live Modeling report definition shape: grid column elements with
+    the plain "metric" subtype, report-level derived metrics marked
+    isEmbedded, no expression anywhere; the metric model endpoint can then
+    answer (or refuse) for the embedded metric's id."""
+
+    def __init__(self, metric_model_fails: bool = False) -> None:
+        super().__init__()
+        self.metric_model_fails = metric_model_fails
+        self.metric_model_calls: List[str] = []
+
+    def get_model_report(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.model_calls.append(report_id)
+        return {
+            "information": {"objectId": report_id, "name": "Retail Sales Yesterday"},
+            "sourceType": "normal",
+            "dataSource": {
+                "dataTemplate": {
+                    "units": [
+                        {
+                            "id": "A-REGION",
+                            "name": "Region Number",
+                            "type": "attribute",
+                        },
+                        {
+                            "type": "metrics",
+                            "elements": [
+                                {
+                                    "id": "M-NET",
+                                    "name": "Net Sales Retail Amt",
+                                    "subType": "metric",
+                                    "evaluationOrder": 0,
+                                },
+                                {
+                                    "id": "D-RTL",
+                                    "name": "New Metric",
+                                    "subType": "metric",
+                                    "evaluationOrder": 1,
+                                },
+                            ],
+                        },
+                    ]
+                }
+            },
+            "grid": {
+                "viewTemplate": {
+                    "columns": {
+                        "units": [
+                            {
+                                "type": "metrics",
+                                "elements": [
+                                    {
+                                        "id": "M-NET",
+                                        "name": "Net Sales Retail Amt",
+                                        "subType": "metric",
+                                        "isEmbedded": False,
+                                        "alias": "Net Sales Retail Amt",
+                                    },
+                                    {
+                                        "id": "D-RTL",
+                                        "name": "New Metric",
+                                        "subType": "metric",
+                                        "isEmbedded": True,
+                                        "alias": "RTL PLN",
+                                    },
+                                ],
+                            }
+                        ],
+                        "hiddenMetrics": [],
+                    }
+                }
+            },
+        }
+
+    def get_metric_model(self, project_id: str, metric_id: str) -> Dict[str, Any]:
+        self.metric_model_calls.append(metric_id)
+        if self.metric_model_fails:
+            raise MicroStrategyAPIError("404 Not Found", status_code=404, url="x")
+        return {
+            "information": {"objectId": metric_id, "name": "New Metric"},
+            "expression": {
+                "text": "([Net Sales Retail Amt]/[Salon Merch OPR Net Sales Retail Amt])-1",
+                "tokens": [
+                    {
+                        "type": "object_reference",
+                        "value": "Net Sales Retail Amt",
+                        "target": {
+                            "objectId": "M-NET",
+                            "name": "Net Sales Retail Amt",
+                            "type": "metric",
+                        },
+                    },
+                ],
+            },
+        }
+
+
+def _embedded_metric_source() -> MicroStrategySource:
+    return _source(
+        {
+            "extract_warehouse_lineage": False,
+            "extract_visualization_details": False,
+            "extract_dashboard_dependencies": False,
+            "extract_metric_expressions": True,
+            "extract_model_lineage": False,
+        }
+    )
+
+
+def test_embedded_report_metric_formula_comes_from_metric_model() -> None:
+    source = _embedded_metric_source()
+    client = _ModelEmbeddedClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    # The Modeling definition named the embedded metric, so v2 was not needed,
+    # and only the embedded (formula-less) metric went to the model endpoint.
+    assert client.model_calls == ["ds-shared"]
+    assert client.v2_calls == []
+    # M-NET is the dataset's catalog metric, enriched as before; the embedded
+    # metric is looked up exactly once on top of that.
+    assert client.metric_model_calls == ["M-NET", "D-RTL"]
+    assert source.report.report_model_definitions_empty == 0
+    assert source.report.report_derived_metric_models_resolved == 1
+    assert source.report.metric_expression_api_failures == 0
+    rtl = _derived_field(workunits, "RTL PLN")
+    assert rtl is not None
+    assert "([Net Sales Retail Amt]/[Salon Merch OPR Net Sales Retail Amt])-1" in (
+        rtl.description or ""
+    )
+    props = json.loads(rtl.jsonProps or "{}")
+    assert props["microstrategyDerivedMetricSource"] == "report"
+    assert "microstrategyMetricExpressionText" in props
+    # Displayed under the grid alias, with the stored object name kept.
+    assert props["microstrategyObjectName"] == "New Metric"
+
+
+def test_embedded_report_metric_without_model_keeps_name_and_counts_failure() -> None:
+    source = _embedded_metric_source()
+    client = _ModelEmbeddedClient(metric_model_fails=True)
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    assert client.metric_model_calls == ["M-NET", "D-RTL"]
+    assert source.report.report_derived_metric_models_resolved == 0
+    assert source.report.metric_expression_api_failures == 2
+    assert any(
+        sample.startswith("D-RTL (HTTP 404)")
+        for sample in source.report.failed_metric_model_ids
+    )
+    rtl = _derived_field(workunits, "RTL PLN")
+    assert rtl is not None
+    assert "Formula not present in the Modeling API report definition" in (
+        rtl.description or ""
+    )
 
 
 def test_report_derived_metrics_keep_grid_provenance_when_definitions_fail() -> None:

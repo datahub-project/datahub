@@ -74,6 +74,9 @@ MSTR_OBJECT_TYPE_CONSOLIDATION = 47
 # say which endpoint answered.
 MSTR_DEFINITION_ENDPOINT_MODEL = "model"
 MSTR_DEFINITION_ENDPOINT_V2 = "v2"
+# The formula came from GET /api/model/metrics/{id} for a metric the report
+# definition only named (an embedded, report-level derived metric).
+MSTR_DEFINITION_ENDPOINT_METRIC_MODEL = "metric_model"
 # Fixed prefix on the DEBUG-level payload-shape lines emitted while resolving
 # report derived metric definitions, so they can be grepped out of an
 # executor debug log.

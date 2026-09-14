@@ -295,9 +295,11 @@ class MicroStrategyMapper:
                     expression_tokens=definition.expression_tokens,
                     definition_source=definition.source,
                     definition_endpoint=definition.endpoint,
+                    object_name=definition.object_name,
                 )
                 continue
             spec.name = definition.name
+            spec.object_name = definition.object_name
             spec.data_type = spec.data_type or definition.data_type
             if definition.has_expression:
                 spec.expression_text = definition.expression_text
@@ -853,6 +855,12 @@ class MicroStrategyMapper:
                         for key, value in {
                             "microstrategyObjectId": derived.id,
                             "microstrategyObjectType": "derivedMetric",
+                            "microstrategyObjectName": (
+                                derived.object_name
+                                if derived.object_name
+                                and derived.object_name != derived.name
+                                else None
+                            ),
                             "microstrategyDerivedMetricSource": (
                                 derived.definition_source or "visualization"
                             ),
