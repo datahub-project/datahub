@@ -11,11 +11,17 @@ import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jwt.SignedJWT;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
+import com.nimbusds.oauth2.sdk.AuthorizationGrant;
+import com.nimbusds.oauth2.sdk.RefreshTokenGrant;
+import com.nimbusds.oauth2.sdk.Scope;
 import com.nimbusds.oauth2.sdk.TokenRequest;
 import com.nimbusds.oauth2.sdk.auth.ClientAuthenticationMethod;
 import com.nimbusds.oauth2.sdk.auth.ClientSecretBasic;
 import com.nimbusds.oauth2.sdk.auth.ClientSecretPost;
 import com.nimbusds.oauth2.sdk.auth.PrivateKeyJWT;
+import com.nimbusds.oauth2.sdk.auth.Secret;
+import com.nimbusds.oauth2.sdk.id.ClientID;
+import com.nimbusds.oauth2.sdk.token.RefreshToken;
 import com.nimbusds.openid.connect.sdk.op.OIDCProviderMetadata;
 import java.net.URI;
 import java.security.cert.X509Certificate;
@@ -132,7 +138,6 @@ public class CustomOidcAuthenticatorTest {
     CustomOidcAuthenticator auth = newPkjAuthenticator(Optional.empty(), "RS256");
 
     SignedJWT first = signedAssertion(auth.createTokenRequest(GRANT));
-    Thread.sleep(5); // ensure iat/jti differ deterministically
     SignedJWT second = signedAssertion(auth.createTokenRequest(GRANT));
 
     assertNotEquals(first.serialize(), second.serialize());
@@ -178,21 +183,59 @@ public class CustomOidcAuthenticatorTest {
   }
 
   @Test
-  void existingClientAuthenticationMethodsKeepTheirRequestShapes() {
-    assertTrue(
-        newAuthenticator(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                .createTokenRequest(GRANT)
-                .getClientAuthentication()
-            instanceof ClientSecretBasic);
-    assertTrue(
-        newAuthenticator(ClientAuthenticationMethod.CLIENT_SECRET_POST)
-                .createTokenRequest(GRANT)
-                .getClientAuthentication()
-            instanceof ClientSecretPost);
-    assertNull(
-        newAuthenticator(ClientAuthenticationMethod.NONE)
-            .createTokenRequest(GRANT)
-            .getClientAuthentication());
+  void existingMethodsPreserveAuthenticationAndScopesForCodeAndRefreshRequests() {
+    for (ClientAuthenticationMethod method :
+        List.of(
+            ClientAuthenticationMethod.CLIENT_SECRET_BASIC,
+            ClientAuthenticationMethod.CLIENT_SECRET_POST,
+            ClientAuthenticationMethod.NONE)) {
+      CustomOidcAuthenticator auth = newAuthenticator(method);
+      for (AuthorizationGrant grant :
+          List.of(GRANT, new RefreshTokenGrant(new RefreshToken("test-refresh-token")))) {
+        TokenRequest request = auth.createTokenRequest(grant);
+        assertEquals(new Scope("openid", "profile", "email"), request.getScope());
+        if (ClientAuthenticationMethod.NONE.equals(method)) {
+          assertNull(request.getClientAuthentication());
+        } else {
+          assertEquals(method, request.getClientAuthentication().getMethod());
+        }
+      }
+    }
+  }
+
+  @Test
+  void privateKeyJwtRequestsFollowRefreshedEndpointAndAudience() throws Exception {
+    when(configuration.getClientAuthenticationMethod())
+        .thenReturn(ClientAuthenticationMethod.PRIVATE_KEY_JWT);
+    when(providerMetadata.getTokenEndpointAuthMethods())
+        .thenReturn(List.of(ClientAuthenticationMethod.PRIVATE_KEY_JWT));
+    when(providerMetadata.getTokenEndpointURI()).thenReturn(TOKEN_ENDPOINT);
+    when(oidcConfigs.getPrivateKeyFilePath())
+        .thenReturn(Optional.of(TestKeyMaterial.PRIVATE_KEY_PATH));
+    when(oidcConfigs.getCertificateFilePath())
+        .thenReturn(Optional.of(TestKeyMaterial.CERTIFICATE_PATH));
+    when(oidcConfigs.getPrivateKeyJwtAlgorithm()).thenReturn("RS256");
+    CustomOidcAuthenticator auth = new CustomOidcAuthenticator(client, oidcConfigs);
+
+    TokenRequest initialRequest = auth.createTokenRequest(GRANT);
+    assertEquals(TOKEN_ENDPOINT, initialRequest.getEndpointURI());
+    assertEquals(
+        List.of(TOKEN_ENDPOINT.toString()),
+        signedAssertion(initialRequest).getJWTClaimsSet().getAudience());
+
+    URI updatedEndpoint = URI.create("https://example.com/new-token");
+    OIDCProviderMetadata refreshedMetadata = mock(OIDCProviderMetadata.class);
+    when(refreshedMetadata.getTokenEndpointURI()).thenReturn(updatedEndpoint);
+    when(metadataResolver.load()).thenReturn(refreshedMetadata);
+
+    for (AuthorizationGrant grant :
+        List.of(GRANT, new RefreshTokenGrant(new RefreshToken("test-refresh-token")))) {
+      TokenRequest request = auth.createTokenRequest(grant);
+      assertEquals(updatedEndpoint, request.getEndpointURI());
+      assertEquals(
+          List.of(updatedEndpoint.toString()),
+          signedAssertion(request).getJWTClaimsSet().getAudience());
+    }
   }
 
   @Test
@@ -273,8 +316,18 @@ public class CustomOidcAuthenticatorTest {
     when(configuration.getClientId()).thenReturn("test-client-id");
     when(configuration.getSecret()).thenReturn("test-secret");
     when(configuration.getClientAuthenticationMethod()).thenReturn(method);
+    when(configuration.getScope()).thenReturn("openid profile email");
     when(configuration.getOpMetadataResolver()).thenReturn(resolver);
     when(resolver.load()).thenReturn(metadata);
+    if (ClientAuthenticationMethod.CLIENT_SECRET_BASIC.equals(method)) {
+      when(resolver.getClientAuthenticationTokenEndpoint())
+          .thenReturn(
+              new ClientSecretBasic(new ClientID("test-client-id"), new Secret("test-secret")));
+    } else if (ClientAuthenticationMethod.CLIENT_SECRET_POST.equals(method)) {
+      when(resolver.getClientAuthenticationTokenEndpoint())
+          .thenReturn(
+              new ClientSecretPost(new ClientID("test-client-id"), new Secret("test-secret")));
+    }
     when(metadata.getTokenEndpointAuthMethods()).thenReturn(List.of(method));
     when(metadata.getTokenEndpointURI()).thenReturn(TOKEN_ENDPOINT);
     return new CustomOidcAuthenticator(client, configs);

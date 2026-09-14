@@ -18,11 +18,8 @@ import com.nimbusds.oauth2.sdk.TokenRequest;
 import com.nimbusds.oauth2.sdk.TokenResponse;
 import com.nimbusds.oauth2.sdk.auth.ClientAuthentication;
 import com.nimbusds.oauth2.sdk.auth.ClientAuthenticationMethod;
-import com.nimbusds.oauth2.sdk.auth.ClientSecretBasic;
-import com.nimbusds.oauth2.sdk.auth.ClientSecretPost;
 import com.nimbusds.oauth2.sdk.auth.JWTAuthenticationClaimsSet;
 import com.nimbusds.oauth2.sdk.auth.PrivateKeyJWT;
-import com.nimbusds.oauth2.sdk.auth.Secret;
 import com.nimbusds.oauth2.sdk.http.HTTPRequest;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
 import com.nimbusds.oauth2.sdk.id.Audience;
@@ -76,7 +73,6 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
   private final OidcConfigs oidcConfigs;
   private final ClientAuthenticationMethod chosenMethod;
   private final ClientID clientID;
-  private final URI tokenEndpoint;
 
   /** Pre-parsed signing material; {@code null} unless {@link #chosenMethod} is private_key_jwt. */
   @Nullable private final PrivateKeyJwtMaterial pkjMaterial;
@@ -124,9 +120,6 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
     }
 
     this.clientID = new ClientID(configuration.getClientId());
-    // Cached at startup: token endpoint rollovers are rare and require operator action anyway,
-    // so the restart-to-refresh trade-off avoids a metadata-resolver hit per login.
-    this.tokenEndpoint = providerMetadata.getTokenEndpointURI();
     this.pkjMaterial =
         ClientAuthenticationMethod.PRIVATE_KEY_JWT.equals(chosenMethod)
             ? loadPrivateKeyJwtMaterial(oidcConfigs)
@@ -159,39 +152,21 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
   }
 
   /**
-   * Builds a fresh {@link TokenRequest} per call. A new {@link ClientAuthentication} is constructed
-   * every time so that {@code private_key_jwt} assertions always have a future {@code exp} claim —
-   * caching would let them go stale within minutes of uptime.
+   * Signs a fresh assertion for each private_key_jwt request, including retries and refreshes, so
+   * assertions cannot expire in a cache or reuse a replay identifier.
    */
   @Override
   protected TokenRequest createTokenRequest(AuthorizationGrant grant) {
+    if (!ClientAuthenticationMethod.PRIVATE_KEY_JWT.equals(chosenMethod)) {
+      return super.createTokenRequest(grant);
+    }
+
+    URI tokenEndpoint = configuration.getOpMetadataResolver().load().getTokenEndpointURI();
     try {
-      final ClientAuthentication clientAuth = buildClientAuthentication();
-      // Do not attach authorization scopes to the token request. Pac4j's parent
-      // implementation omitted them; some IdPs reject a scope parameter on /token.
-      return clientAuth == null
-          ? new TokenRequest(tokenEndpoint, clientID, grant)
-          : new TokenRequest(tokenEndpoint, clientAuth, grant);
+      return new TokenRequest(tokenEndpoint, signFreshPrivateKeyJwt(tokenEndpoint), grant);
     } catch (JOSEException e) {
       throw new TechnicalException("Failed to sign private_key_jwt client assertion", e);
     }
-  }
-
-  @Nullable
-  private ClientAuthentication buildClientAuthentication() throws JOSEException {
-    if (ClientAuthenticationMethod.CLIENT_SECRET_POST.equals(chosenMethod)) {
-      return new ClientSecretPost(clientID, new Secret(configuration.getSecret()));
-    }
-    if (ClientAuthenticationMethod.CLIENT_SECRET_BASIC.equals(chosenMethod)) {
-      return new ClientSecretBasic(clientID, new Secret(configuration.getSecret()));
-    }
-    if (ClientAuthenticationMethod.PRIVATE_KEY_JWT.equals(chosenMethod)) {
-      return signFreshPrivateKeyJwt();
-    }
-    if (ClientAuthenticationMethod.NONE.equals(chosenMethod)) {
-      return null;
-    }
-    throw new TechnicalException("Unsupported client authentication method: " + chosenMethod);
   }
 
   /**
@@ -200,7 +175,7 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
    * key-identification field it prefers; {@link JWTAuthenticationClaimsSet} generates a fresh
    * {@code jti}, {@code iat} and {@code exp} on every invocation.
    */
-  private ClientAuthentication signFreshPrivateKeyJwt() throws JOSEException {
+  private ClientAuthentication signFreshPrivateKeyJwt(URI tokenEndpoint) throws JOSEException {
     JWSHeader header =
         new JWSHeader.Builder(pkjMaterial.algorithm())
             .keyID(pkjMaterial.kid())
@@ -306,7 +281,7 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
   }
 
   // Simple retry with exponential backoff
-  protected OIDCProviderMetadata loadWithRetry() {
+  public OIDCProviderMetadata loadWithRetry() {
     int maxAttempts = 3;
     long initialDelay = 1000; // 1 second
 

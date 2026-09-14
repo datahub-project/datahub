@@ -8,7 +8,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
-import java.security.Security;
+import java.security.Provider;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
@@ -26,6 +26,7 @@ import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMDecryptorProvider;
 import org.bouncycastle.openssl.PEMEncryptedKeyPair;
+import org.bouncycastle.openssl.PEMException;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
@@ -47,11 +48,7 @@ public final class PrivateKeyJwtUtils {
 
   private static final int MINIMUM_RSA_KEY_SIZE_BITS = 2048;
 
-  static {
-    if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-      Security.addProvider(new BouncyCastleProvider());
-    }
-  }
+  private static final Provider CRYPTO_PROVIDER = new BouncyCastleProvider();
 
   private PrivateKeyJwtUtils() {}
 
@@ -70,14 +67,16 @@ public final class PrivateKeyJwtUtils {
         throw new IllegalArgumentException("No PEM object found in file: " + filePath);
       }
 
-      JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
+      JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider(CRYPTO_PROVIDER);
       PrivateKeyInfo privateKeyInfo;
 
       if (pemObject instanceof PEMEncryptedKeyPair encrypted) {
         // BEGIN RSA PRIVATE KEY with DEK-Info header
         requirePassword(password);
         PEMDecryptorProvider decryptor =
-            new JcePEMDecryptorProviderBuilder().build(password.toCharArray());
+            new JcePEMDecryptorProviderBuilder()
+                .setProvider(CRYPTO_PROVIDER)
+                .build(password.toCharArray());
         privateKeyInfo = encrypted.decryptKeyPair(decryptor).getPrivateKeyInfo();
       } else if (pemObject instanceof PEMKeyPair keyPair) {
         // BEGIN RSA PRIVATE KEY
@@ -89,39 +88,39 @@ public final class PrivateKeyJwtUtils {
         // BEGIN ENCRYPTED PRIVATE KEY (PKCS#8)
         requirePassword(password);
         InputDecryptorProvider decryptor =
-            new JceOpenSSLPKCS8DecryptorProviderBuilder().build(password.toCharArray());
+            new JceOpenSSLPKCS8DecryptorProviderBuilder()
+                .setProvider(CRYPTO_PROVIDER)
+                .build(password.toCharArray());
         privateKeyInfo = encrypted.decryptPrivateKeyInfo(decryptor);
       } else {
         throw new IllegalArgumentException(
             "Unsupported PEM object type: " + pemObject.getClass().getName());
       }
 
+      PrivateKey privateKey;
       try {
-        PrivateKey privateKey = converter.getPrivateKey(privateKeyInfo);
-        if (!(privateKey instanceof RSAPrivateKey rsaPrivateKey)) {
-          throw new IllegalArgumentException(
-              "Private key must be RSA for private_key_jwt, got "
-                  + privateKey.getAlgorithm()
-                  + " in file: "
-                  + filePath);
-        }
-        if (rsaPrivateKey.getModulus().bitLength() < MINIMUM_RSA_KEY_SIZE_BITS) {
-          throw new IllegalArgumentException(
-              "Private key must be at least "
-                  + MINIMUM_RSA_KEY_SIZE_BITS
-                  + " bits for private_key_jwt, got "
-                  + rsaPrivateKey.getModulus().bitLength()
-                  + " bits in file: "
-                  + filePath);
-        }
-        return rsaPrivateKey;
-      } catch (IllegalArgumentException e) {
-        throw e;
-      } catch (Exception e) {
+        privateKey = converter.getPrivateKey(privateKeyInfo);
+      } catch (PEMException e) {
         throw new IllegalArgumentException(
             "Failed to load RSA private key from file: " + filePath, e);
       }
-
+      if (!(privateKey instanceof RSAPrivateKey rsaPrivateKey)) {
+        throw new IllegalArgumentException(
+            "Private key must be RSA for private_key_jwt, got "
+                + privateKey.getAlgorithm()
+                + " in file: "
+                + filePath);
+      }
+      if (rsaPrivateKey.getModulus().bitLength() < MINIMUM_RSA_KEY_SIZE_BITS) {
+        throw new IllegalArgumentException(
+            "Private key must be at least "
+                + MINIMUM_RSA_KEY_SIZE_BITS
+                + " bits for private_key_jwt, got "
+                + rsaPrivateKey.getModulus().bitLength()
+                + " bits in file: "
+                + filePath);
+      }
+      return rsaPrivateKey;
     } catch (OperatorCreationException | PKCSException e) {
       throw new IllegalArgumentException("Failed to decrypt private key: " + e.getMessage(), e);
     }
