@@ -812,3 +812,80 @@ def test_no_sql_source_falls_back_to_the_bare_fqn():
         "targets are worse than what ingestion matches on:\n  "
         + "\n  ".join(f"{k}: {v}" for k, v in degraded.items())
     )
+
+
+def test_methods_declares_every_recipe_dependent_kind_that_run_reports():
+    """`probe methods` must not say null where `probe run` says a kind.
+
+    `containers` returns Schemas on a three-tier source and Databases on a
+    two-tier one, so its kind comes from the recipe rather than the
+    decorator. That override lived on the provider *instance*, which only
+    the run path builds -- so `probe methods` advertised kind=null and an
+    agent could not learn what `probe filter --kind` to pass without first
+    running the command and reading the kind back.
+
+    Found by running it: against a live MySQL, `probe methods` reported
+    containers kind=null while `probe run containers` reported Database.
+
+    The fix moved the mapping to a connection-free classmethod both paths
+    call, so this asserts the two agree for every SQL source rather than
+    hardcoding Database -- postgres must still say Schema.
+    """
+    from datahub.ingestion.agent.probe_methods import (
+        _provider_class,
+        list_probe_methods,
+    )
+
+    common = {
+        "host_port": "host:1234",
+        "username": "u",
+        "password": "p",
+        "database": "DB",
+        "scheme": "postgresql",
+    }
+
+    found = _sql_source_types()
+    assert len(found) > 20, f"only {len(found)} SQL sources discovered; the scan broke"
+
+    disagreed = {}
+    skipped = []
+    checked = 0
+    for source_type, config_cls in found.items():
+        provider_cls = _provider_class(source_type)
+        overrides_for = getattr(provider_cls, "probe_kind_overrides", None)
+        if not callable(overrides_for):
+            continue
+        fields = set(getattr(config_cls, "model_fields", {}))
+        config_dict = {k: v for k, v in common.items() if k in fields}
+        try:
+            config = config_cls.model_validate(config_dict)
+            # What the run path would report.
+            expected = {k: str(v) for k, v in (overrides_for(config) or {}).items()}
+            # What the discovery path reports.
+            declared = {
+                spec.command: spec.kind
+                for spec in list_probe_methods(source_type, config_dict)
+            }
+        except Exception:
+            # This generic dict is not a valid recipe for every connector
+            # (athena wants aws_region, a work group and a result location).
+            # That is about the fixture, not about kind agreement -- skip it
+            # rather than report a disagreement that is not one.
+            skipped.append(source_type)
+            continue
+        checked += 1
+        for command, kind in expected.items():
+            if command not in declared:
+                continue
+            if declared[command] != kind:
+                disagreed[source_type] = (
+                    f"{command}: methods says {declared[command]!r}, "
+                    f"run would say {kind!r}"
+                )
+
+    assert checked > 5, f"only {checked} sources declared kind overrides; scan broke"
+    assert not disagreed, (
+        "probe methods and probe run disagree about a command's kind, so an "
+        "agent reading methods cannot pick the right --kind:\n  "
+        + "\n  ".join(f"{k}: {v}" for k, v in disagreed.items())
+    )

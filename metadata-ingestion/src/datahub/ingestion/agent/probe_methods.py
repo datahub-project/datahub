@@ -1,10 +1,11 @@
 import inspect
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import (
     Any,
     Callable,
     Dict,
     List,
+    Mapping,
     Optional,
     Protocol,
     Set,
@@ -391,9 +392,37 @@ def _iter_specs(provider_cls: type) -> List[Tuple[str, ProbeMethodSpec]]:
     return sorted(found.items())
 
 
-def list_probe_methods(source_type: str) -> List[ProbeMethodSpec]:
+def list_probe_methods(
+    source_type: str, config_dict: Optional[Mapping[str, object]] = None
+) -> List[ProbeMethodSpec]:
+    """Every command this source offers.
+
+    `config_dict` is the recipe's source config. Pass it wherever you have it:
+    a command whose kind depends on the recipe rather than the class (see
+    probe_kind_overrides) can only be reported correctly with it, and a caller
+    reading a null kind here would otherwise have to run the command to learn
+    what `probe filter --kind` to pass. Still connection-free -- the override
+    is a classmethod on the config.
+    """
     provider_cls = _provider_class(source_type)
-    return [spec for _, spec in _iter_specs(provider_cls)] if provider_cls else []
+    if provider_cls is None:
+        return []
+    specs = [spec for _, spec in _iter_specs(provider_cls)]
+    if config_dict is None:
+        return specs
+    overrides_for = getattr(provider_cls, "probe_kind_overrides", None)
+    if not callable(overrides_for):
+        return specs
+    config_cls = config_class_for(source_type)
+    if config_cls is None:
+        return specs
+    overrides = overrides_for(config_cls.model_validate(config_dict)) or {}
+    return [
+        replace(spec, kind=str(overrides[spec.command]))
+        if spec.command in overrides
+        else spec
+        for spec in specs
+    ]
 
 
 class _BareFlag:

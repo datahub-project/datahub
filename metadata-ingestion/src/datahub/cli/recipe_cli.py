@@ -423,7 +423,13 @@ def _parse_extra_params(tokens: Tuple[str, ...]) -> Dict[str, object]:
 
 @probe_group.command(name="methods")
 @click.option("--recipe", "recipe_path", required=True)
-def probe_methods_cmd(recipe_path: str) -> None:
+@click.option(
+    "--report-to",
+    "report_to",
+    default=None,
+    help="Also write the JSON payload to this file.",
+)
+def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
     """List what this source can be asked about, and how to ask it.
 
     Connection-free: reports each command, its params, and its description --
@@ -431,11 +437,16 @@ def probe_methods_cmd(recipe_path: str) -> None:
     """
     secret_values: Set[str] = set()
     with _exit_codes(secret_values, fallback=EXIT_INTERNAL):
-        source_type, _resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
+        source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
         secret_values.update(found)
         _ping_probe("methods", source_type)
-        specs = list_probe_methods(source_type)
-        _emit({"source_type": source_type, "methods": [s.to_dict() for s in specs]})
+        specs = list_probe_methods(source_type, resolved)
+        payload = {
+            "source_type": source_type,
+            "methods": [s.to_dict() for s in specs],
+        }
+        _write_report(report_to, payload)
+        _emit(payload)
 
 
 @probe_group.command(name="filter")

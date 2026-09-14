@@ -96,7 +96,9 @@ def test_probe_methods_lists(monkeypatch, tmp_path):
     monkeypatch.setattr(
         rc,
         "list_probe_methods",
-        lambda st: [
+        # list_probe_methods also takes the recipe config, so a
+        # recipe-dependent kind can be reported without running the command.
+        lambda st, config_dict=None: [
             ProbeMethodSpec("foreign_keys", [ProbeParam("table", "str", True)], "FKs.")
         ],
     )
@@ -118,7 +120,7 @@ def test_probe_methods_redacts_error(monkeypatch, tmp_path):
         rc, "_resolve_for_probe", lambda r: ("kafka", {}, {"topsecret"})
     )
 
-    def fake_list(st):
+    def fake_list(st, config_dict=None):
         raise ValueError("boom topsecret")
 
     monkeypatch.setattr(rc, "list_probe_methods", fake_list)

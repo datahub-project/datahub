@@ -90,7 +90,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         # class attribute here -- it comes from the connector's own config, which is
         # per dialect.
         probe.catalog_scope = config.probe_catalog_scope()
-        probe.kind_overrides = {"containers": str(config.probe_container_kind())}
+        probe.kind_overrides = cls.probe_kind_overrides(config)
         # Two-tier only: on a three-tier source `database` names the database
         # the connection opens on, not a filter over the schemas `containers`
         # returns, so narrowing to it there would hide every other schema in
@@ -124,6 +124,19 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
             return CatalogRows(
                 columns=list(result.keys()), rows=[list(row) for row in rows]
             )
+
+    @classmethod
+    def probe_kind_overrides(cls, config: SQLCommonConfig) -> Dict[str, str]:
+        """Kinds this provider cannot declare on the class, keyed by command.
+
+        `containers` returns Schemas on a three-tier source and Databases on a
+        two-tier one, and one provider class serves both -- so the kind comes
+        from the recipe, not the decorator. Connection-free: it reads a
+        classmethod on the config, which is why `probe methods` can apply it
+        too rather than reporting null and leaving the caller to find out by
+        running the command.
+        """
+        return {"containers": str(config.probe_container_kind())}
 
     @probe_method(row_limit_param="limit")
     def containers(self, limit: int = 200) -> List[str]:
