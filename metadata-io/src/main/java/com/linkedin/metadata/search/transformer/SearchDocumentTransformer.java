@@ -42,6 +42,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -53,14 +54,12 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Class that provides a utility function that transforms the snapshot object into a search document
  */
 @Slf4j
-@Setter
 @RequiredArgsConstructor
 public class SearchDocumentTransformer {
   // Number of elements to index for a given array.
@@ -71,6 +70,18 @@ public class SearchDocumentTransformer {
 
   // Maximum customProperties value length
   private final int maxValueLength;
+
+  /**
+   * When true, omit string-backed structured property values whose UTF-8 length exceeds {@link
+   * #keywordMaxLength} from the search document (they remain in primary storage).
+   */
+  private final boolean dropOversizedKeywordValuesFromIndex;
+
+  /**
+   * UTF-8 byte threshold for omitting string-backed structured properties from the search document.
+   * Callers pass {@link ESUtils#KEYWORD_MAXLENGTH} unless a different configured limit is in use.
+   */
+  private final int keywordMaxLength;
 
   /**
    * Aspects that contain semantic/embedding data for vector search. These aspects are transformed
@@ -558,6 +569,7 @@ public class SearchDocumentTransformer {
                 searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
               } else {
                 ArrayNode arrayNode = JsonNodeFactory.instance.arrayNode();
+                int[] omittedOversized = new int[] {0};
 
                 propertyEntry
                     .getValue()
@@ -584,18 +596,40 @@ public class SearchDocumentTransformer {
                                                   JsonNodeFactory.instance.numberNode(doubleValue));
                                           break;
                                         default:
-                                          searchValue =
-                                              propertyValue.getString().isEmpty()
-                                                  ? Optional.empty()
-                                                  : Optional.of(
-                                                      JsonNodeFactory.instance.textNode(
-                                                          propertyValue.getString()));
+                                          if (propertyValue.getString() == null
+                                              || propertyValue.getString().isEmpty()) {
+                                            searchValue = Optional.empty();
+                                          } else if (dropOversizedKeywordValuesFromIndex
+                                              && ESUtils.exceedsKeywordMaxBytes(
+                                                  propertyValue.getString(), keywordMaxLength)) {
+                                            omittedOversized[0]++;
+                                            log.warn(
+                                                "Omitting structured property {} from the search"
+                                                    + " document: value is {} UTF-8 bytes, exceeding"
+                                                    + " keywordMaxLength {}",
+                                                propertyEntry.getKey(),
+                                                propertyValue
+                                                    .getString()
+                                                    .getBytes(StandardCharsets.UTF_8)
+                                                    .length,
+                                                keywordMaxLength);
+                                            searchValue = Optional.empty();
+                                          } else {
+                                            searchValue =
+                                                Optional.of(
+                                                    JsonNodeFactory.instance.textNode(
+                                                        propertyValue.getString()));
+                                          }
                                           break;
                                       }
                                       searchValue.ifPresent(arrayNode::add);
                                     }));
 
-                searchDocument.set(fieldName, arrayNode);
+                if (arrayNode.isEmpty() && omittedOversized[0] > 0) {
+                  searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
+                } else {
+                  searchDocument.set(fieldName, arrayNode);
+                }
               }
             });
   }

@@ -10,6 +10,18 @@ export type RelatedItem =
     | { type: 'link'; data: InstitutionalMemoryMetadata; sortLabel: string }
     | { type: 'document'; data: Document; sortLabel: string };
 
+const RESOURCE_PREVIEW_COUNT = 5;
+
+export function getResourcePreview(items: RelatedItem[]): {
+    previewItems: RelatedItem[];
+    remainingCount: number;
+} {
+    return {
+        previewItems: items.slice(0, RESOURCE_PREVIEW_COUNT),
+        remainingCount: Math.max(0, items.length - RESOURCE_PREVIEW_COUNT),
+    };
+}
+
 /**
  * Extracts the user-visible label for a link — mirrors the label shown by
  * `ResourceLinkPill` so sort order matches on-screen order.

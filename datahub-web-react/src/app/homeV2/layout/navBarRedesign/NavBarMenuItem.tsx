@@ -116,7 +116,7 @@ const PillDot = styled.div<{ $isSelected?: boolean }>`
     height: 10px;
     background: ${(props) => props.theme.colors.buttonFillBrand};
     border-radius: 6px;
-    border: 2px solid ${(props) => props.theme.colors.bgSurfaceNewNav};
+    border: 2px solid ${(props) => props.theme.colors.borderWhite};
     top: 6px;
     left: 22px;
 `;
