@@ -22,6 +22,11 @@ from datahub.ingestion.source.sap_datasphere.constants import (
 # where the field's ``formula`` is surfaced on the column description.
 _CALCULATION_KEYS = frozenset({CSN_XPR, CSN_FUNC, CSN_VAL})
 
+# SQL literal for a CQN null ({"val": null}). A column whose whole formula is
+# just this is a placeholder measure with no real calculation, so it is skipped
+# rather than surfaced as a noisy ``formula: NULL``.
+_SQL_NULL = "NULL"
+
 
 def _render_ref(segments: List[object]) -> str:
     parts = [str(seg) for seg in segments if isinstance(seg, (str, int))]
@@ -33,6 +38,8 @@ def _render_ref(segments: List[object]) -> str:
 
 
 def _render_literal(value: object) -> str:
+    if value is None:
+        return _SQL_NULL
     if isinstance(value, str):
         return f"'{value}'"
     if isinstance(value, bool):
@@ -99,6 +106,12 @@ def _is_calculated_column(col: Dict[str, object]) -> bool:
     return any(key in col for key in _CALCULATION_KEYS)
 
 
+def _is_meaningful_formula(formula: str) -> bool:
+    # Skip an empty render (unrecognized shape) and a bare NULL placeholder — a
+    # column that is only ``NULL`` carries no calculation worth describing.
+    return bool(formula) and formula != _SQL_NULL
+
+
 def _output_name(col: Dict[str, object]) -> Optional[str]:
     alias = col.get(CSN_AS)
     if isinstance(alias, str) and alias:
@@ -126,7 +139,7 @@ def _formulas_from_query_columns(csn_def: dict, out: Dict[str, str]) -> None:
         if name is None:
             continue
         formula = render_cqn_expression(col)
-        if formula:
+        if _is_meaningful_formula(formula):
             out.setdefault(name, formula)
 
 
@@ -141,7 +154,7 @@ def _formulas_from_elements(csn_def: dict, out: Dict[str, str]) -> None:
         if not isinstance(value, dict):
             continue
         formula = render_cqn_expression(value)
-        if formula:
+        if _is_meaningful_formula(formula):
             out.setdefault(name, formula)
 
 

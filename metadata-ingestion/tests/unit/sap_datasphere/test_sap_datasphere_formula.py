@@ -18,6 +18,24 @@ def test_render_literals():
     assert render_cqn_expression({"val": 42}) == "42"
     assert render_cqn_expression({"val": "X"}) == "'X'"
     assert render_cqn_expression({"val": True}) == "TRUE"
+    # A JSON null literal renders as SQL NULL, not the Python "None".
+    assert render_cqn_expression({"val": None}) == "NULL"
+
+
+def test_render_null_inside_case_expression():
+    node = {
+        "xpr": [
+            "case",
+            "when",
+            {"ref": ["X"]},
+            "then",
+            {"val": None},
+            "else",
+            {"ref": ["Y"]},
+            "end",
+        ]
+    }
+    assert render_cqn_expression(node) == "case when X then NULL else Y end"
 
 
 def test_render_function_call():
@@ -78,6 +96,22 @@ def test_extract_formula_from_element_value():
         }
     }
     assert extract_calculated_column_formulas(csn_def) == {"GROSS": "NET + TAX"}
+
+
+def test_extract_skips_pure_null_placeholder_column():
+    csn_def = {
+        "query": {
+            "SELECT": {
+                "from": {"ref": ["BASE"]},
+                "columns": [
+                    {"val": None, "as": "PLACEHOLDER"},
+                    {"xpr": [{"ref": ["A"]}, "+", {"ref": ["B"]}], "as": "REAL"},
+                ],
+            }
+        }
+    }
+    # The bare-NULL column is noise; only the real calculation is surfaced.
+    assert extract_calculated_column_formulas(csn_def) == {"REAL": "A + B"}
 
 
 def test_extract_ignores_plain_and_unnamed_columns():
