@@ -44,6 +44,7 @@ from datahub.ingestion.source.unstructured.embedding_providers.classical import 
     parse_dimensions as parse_classical_dimensions,
 )
 from datahub.ingestion.source.unstructured.embedding_providers.factory import (
+    IN_PROCESS_PROVIDERS,
     create_embedding_provider,
     derive_model_id,
 )
@@ -211,8 +212,8 @@ class DocumentChunkingSource(Source):
                 )
 
         # Initialize rate limiter for embedding calls. The limiter protects an
-        # external embedding API; the classical provider runs in-process, so
-        # throttling it would only slow the backfill.
+        # external embedding API; in-process providers have none, so throttling
+        # them would only slow the backfill.
         self.rate_limiter: Optional[RateLimiter] = (
             RateLimiter(
                 max_calls=config.embedding.documents_per_minute,
@@ -220,7 +221,7 @@ class DocumentChunkingSource(Source):
             )
             if self.embedding_model
             and config.embedding.rate_limit
-            and config.embedding.provider != "classical"
+            and config.embedding.provider not in IN_PROCESS_PROVIDERS
             else None
         )
 

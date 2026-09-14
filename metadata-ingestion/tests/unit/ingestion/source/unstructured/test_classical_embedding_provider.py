@@ -1,15 +1,14 @@
 """Tests for the classical (deterministic hashed-feature) embedding provider.
 
-The GMS query side implements the same algorithm in Java. The golden digests in
-``GOLDEN`` are shared with ``ClassicalEmbeddingProviderTest.java``: each is the
-lowercase hex SHA-256 over the vector serialized as big-endian IEEE-754 binary32
-components. Both suites must hard-code the same values for the same literals, so
-a change to either implementation that breaks query/document parity fails here.
+The GMS query side implements the same algorithm in Java. Both suites assert the
+golden digests in ``GOLDEN_FIXTURE`` (the Java test loads it from its classpath):
+each is the lowercase hex SHA-256 over the vector serialized as big-endian IEEE-754
+binary32 components, so a change to either implementation that breaks
+query/document parity fails on that side.
 """
 
-import codecs
 import hashlib
-import re
+import json
 import struct
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -34,86 +33,26 @@ from datahub.ingestion.source.unstructured.embedding_providers.factory import (
 MODEL = "hash-v1-2048"
 DIMS = 2048
 
-# (id, input text, expected digest). Non-ASCII is spelled with escapes so the code
-# points are unambiguous regardless of source-file normalization; the human-readable
-# form is in the id. Must match ClassicalEmbeddingProviderTest.java literal for literal.
-GOLDEN: list[tuple[str, str, str]] = [
-    (
-        "hello_world",
-        "Hello, World!",
-        "bec441fc81b6a708326c70ddfd5229c197bc315c450ac4cda1bfeb63826ce9ab",
-    ),
-    (
-        "hello_world_lowercase",  # same digest as hello_world: A-Z fold
-        "hello, world!",
-        "bec441fc81b6a708326c70ddfd5229c197bc315c450ac4cda1bfeb63826ce9ab",
-    ),
-    (
-        "user_id_customer_id",
-        "user_id customer_id",
-        "0a803a46b7b0db404eeeb79344d9d56effcb6d81cdbce71a4e488e5978c78ec6",
-    ),
-    (
-        "id",
-        "id",
-        "91d865d24040d06fb4298bb4d51ecb47a60d919a74c11a97364aeb5ecaf6b2f3",
-    ),
-    (
-        "gruesse_tokyo_data",  # "Grüße 東京 data"
-        "Gr\u00fc\u00dfe \u6771\u4eac data",
-        "97777de6cfe5a291c9711b1be592479ea6867b80aca515d950a2018835b2dd74",
-    ),
-    (
-        "naive_cafe",  # "naïve café"
-        "na\u00efve caf\u00e9",
-        "a8291f6e6798ef926025c47b85202c2734e66d025fa22b4bda60428104ae998e",
-    ),
-    (
-        "e_acute_precomposed",  # "é" as U+00E9
-        "\u00e9",
-        "3376ecfc87f89b3d3d673b2ec8ce2645713dbcd47bd73b1c1af41d793c70cfbf",
-    ),
-    (
-        "e_acute_combining",  # "e" + U+0301 combining acute
-        "e\u0301",
-        "26e0cf186ad15cc6a307f215cd94ffd41d2115b7b021cbd21a56be33a8ae4c5e",
-    ),
-    (
-        "nbsp_one_word",  # "a" NBSP "b": NBSP is not a separator
-        "a\u00a0b",
-        "6f3c34bb96eb1114f09ab6f8965df17a170225eecd2e1cd9b9636c213300151e",
-    ),
-    (
-        "x_space_y",
-        "x y",
-        "7e9211ae1d54571d56bcda55c2b4b3595dcc7aa2b6aa4984943e6c12a9f90144",
-    ),
-    (
-        "emoji",  # U+1F600 followed by " emoji"
-        "\U0001f600 emoji",
-        "c8fd64833ba1b40ec97efb673c00e92218750f1f748da766f32355bc6e10e766",
-    ),
-    (
-        "lone_surrogate",  # unpaired U+D800 followed by "x"
-        "\ud800x",
-        "3b34bccb1a43951ed6567c13bc809713f7082688395f8504b41537147a59b9bc",
-    ),
-    (
-        "slash_path",
-        "a/b path",
-        "cf00b52f191ebca9ac7dc94947f568176d943258f60275abbfe4edc9ab628de7",
-    ),
-    (
-        "empty",
-        "",
-        "4fb362b7ae0cc6e8c1ee2ed26b3245c89937fa655d37f269ff3b1eb40db67033",
-    ),
-    (
-        "whitespace_only",
-        "   \t\n",
-        "4fb362b7ae0cc6e8c1ee2ed26b3245c89937fa655d37f269ff3b1eb40db67033",
-    ),
-]
+# Shared with ClassicalEmbeddingProviderTest.java, which reads the same file from its
+# test classpath. Non-ASCII is spelled with JSON escapes so the code points are
+# unambiguous; the human-readable form is in each row's id/note.
+GOLDEN_FIXTURE = (
+    Path(__file__).resolve().parents[6]
+    / "metadata-io/src/test/resources/embedding/classical_hash_v1_2048_golden.json"
+)
+
+
+def _load_golden() -> list[tuple[str, str, str]]:
+    assert GOLDEN_FIXTURE.is_file(), (
+        f"shared golden fixture not found at {GOLDEN_FIXTURE}; run from a repo checkout"
+    )
+    rows = json.loads(GOLDEN_FIXTURE.read_text(encoding="utf-8"))
+    assert rows, "shared golden fixture is empty"
+    return [(row["id"], row["text"], row["sha256"]) for row in rows]
+
+
+# (id, input text, expected digest)
+GOLDEN: list[tuple[str, str, str]] = _load_golden()
 
 
 def _embed(text: str, model: str = MODEL) -> list[float]:
@@ -161,40 +100,6 @@ def test_rejects_input_over_max_code_points() -> None:
     assert len(_embed("a" * 16384)) == DIMS
     with pytest.raises(ValueError, match="16384"):
         _embed("a" * 16385)
-
-
-_JAVA_GOLDEN_TEST = (
-    Path(__file__).resolve().parents[6]
-    / "metadata-io/src/test/java/com/linkedin/metadata/search/embedding"
-    / "ClassicalEmbeddingProviderTest.java"
-)
-
-
-def _java_golden_rows() -> list[tuple[str, str]]:
-    """The (text, digest) rows of the Java data provider, with Java escapes decoded
-    and UTF-16 surrogate pairs recombined so they compare against Python strings."""
-    source = _JAVA_GOLDEN_TEST.read_text(encoding="utf-8")
-    body = source.split("Object[][] golden()", 1)[1].split("};", 1)[0]
-    literals = [
-        codecs.decode(token[1:-1], "unicode_escape")
-        .encode("utf-16", "surrogatepass")
-        .decode("utf-16", "surrogatepass")
-        for token in re.findall(r'"(?:[^"\\]|\\.)*"|//[^\n]*', body)
-        if token.startswith('"')
-    ]
-    assert len(literals) % 2 == 0, "Java golden rows must be (text, digest) pairs"
-    return list(zip(literals[0::2], literals[1::2], strict=True))
-
-
-@pytest.mark.skipif(
-    not _JAVA_GOLDEN_TEST.exists(), reason="Java golden table not in this checkout"
-)
-def test_golden_table_matches_java_suite() -> None:
-    """The two hand-maintained golden tables are the parity contract; editing one
-    without the other must fail here, not pass both suites silently."""
-    assert sorted(_java_golden_rows()) == sorted(
-        (text, digest) for _, text, digest in GOLDEN
-    )
 
 
 @pytest.mark.parametrize("text", ["", "   \t\n"])
