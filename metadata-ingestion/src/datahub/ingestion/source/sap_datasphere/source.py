@@ -1287,11 +1287,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             fields = self._schema_fields_from_csn(space_name, asset_name, csn_def)
         else:
             return None
-        # Decorate calculated columns with their formula on either schema path: a
-        # graphical view can expose a relational EDMX schema yet still carry
-        # calculated columns whose expressions only live in the CSN. Runs on the
-        # already-filtered field list (both paths apply column_pattern first) so
-        # excluded columns are neither decorated nor counted.
+        # Formulas live in the CSN even when the schema came from EDMX, so decorate
+        # on both paths. The field list is already column_pattern-filtered here.
         if fields and csn_def is not None:
             self._apply_calculated_column_formulas(
                 space_name, asset_name, csn_def, fields
@@ -2058,9 +2055,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         csn_def: JsonDict,
         fields: List[SchemaFieldClass],
     ) -> None:
-        # Surface each calculated column's expression on its description, the way
-        # the Tableau connector appends a CalculatedField's formula. The CSN label
-        # (if any) stays first; the formula is appended as a `formula:` line.
+        # Append each calculated column's expression to its description as a
+        # ``formula:`` line, as the Tableau connector does for CalculatedFields.
         try:
             formulas = extract_calculated_column_formulas(csn_def)
         except Exception as e:

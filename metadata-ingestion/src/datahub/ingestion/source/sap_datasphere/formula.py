@@ -17,22 +17,16 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     PROJECTION_ALIAS,
 )
 
-# A projected column is *calculated* (as opposed to a plain projection/rename of
-# a source column) when it carries one of these expression keys rather than a
-# bare ``ref``. Mirrors the calculated-field handling in the Tableau connector,
-# where the field's ``formula`` is surfaced on the column description.
+# A projected column is calculated (vs. a plain projection/rename) when it carries
+# one of these expression keys rather than a bare ``ref``.
 _CALCULATION_KEYS = frozenset({CSN_XPR, CSN_FUNC, CSN_VAL})
 
-# SQL literal for a CQN null ({"val": null}). A column whose whole formula is
-# just this is a placeholder measure with no real calculation, so it is skipped
-# rather than surfaced as a noisy ``formula: NULL``.
 _SQL_NULL = "NULL"
 
 
 def _render_ref(segments: List[object]) -> str:
     parts = [str(seg) for seg in segments if isinstance(seg, (str, int))]
-    # A ``$projection.<col>`` ref points at a sibling output column; the alias is
-    # an internal CDS detail, so show just the column for a readable formula.
+    # ``$projection.<col>`` points at a sibling output column; drop the internal alias.
     if len(parts) >= 2 and parts[0] == PROJECTION_ALIAS:
         parts = parts[1:]
     return ".".join(parts)
@@ -42,8 +36,7 @@ def _render_literal(value: object) -> str:
     if value is None:
         return _SQL_NULL
     if isinstance(value, str):
-        # Double any embedded single quote so an apostrophe (``O'Reilly``) yields
-        # valid SQL-like quoting rather than a broken ``'O'Reilly'``.
+        # Double embedded single quotes to keep the SQL-like quoting valid.
         return "'" + value.replace("'", "''") + "'"
     if isinstance(value, bool):
         return "TRUE" if value else "FALSE"
@@ -53,14 +46,10 @@ def _render_literal(value: object) -> str:
 def render_cqn_expression(node: object) -> str:
     """Serialize a CQN expression node into a readable SQL-like formula string.
 
-    Handles the node shapes SAP Datasphere emits in ``query.SELECT.columns`` and
-    in a calculated element's inline ``value``: column refs, literals, function
-    calls, infix expressions, and IN-lists. Unrecognized shapes render to an
-    empty string so the caller can skip them rather than surface noise.
+    Unrecognized shapes render to an empty string so the caller can skip them.
     """
     if isinstance(node, str):
-        # A bare string inside an ``xpr`` list is an operator or SQL keyword
-        # (``+``, ``>``, ``case``, ``then``, ``end``, ...).
+        # A bare string inside an ``xpr`` is an operator/keyword (``+``, ``case``, ...).
         return node
     if isinstance(node, bool):
         return _render_literal(node)
@@ -95,8 +84,7 @@ def render_cqn_expression(node: object) -> str:
 
 
 def _render_operands(items: List[object]) -> Optional[List[str]]:
-    # Reject the whole expression if any operand is unrenderable: a partial render
-    # such as ``COALESCE(A, )`` is misleading metadata, worse than none.
+    # None if any operand is unrenderable: a partial ``COALESCE(A, )`` misleads.
     rendered: List[str] = []
     for item in items:
         text = render_cqn_expression(item)
@@ -111,10 +99,9 @@ def _render_xpr(items: List[object]) -> str:
     for item in items:
         text = render_cqn_expression(item)
         if not text:
-            # A dangling operator (``A +``) is worse than omitting the formula.
+            # Reject rather than emit a dangling operator (``A +``).
             return ""
-        # Parenthesize a nested infix expression so operator precedence stays
-        # visually unambiguous once flattened into one line.
+        # Parenthesize a nested infix expression to keep precedence unambiguous.
         if isinstance(item, dict) and isinstance(item.get(CSN_XPR), list):
             text = f"({text})"
         rendered.append(text)
@@ -126,8 +113,7 @@ def _is_calculated_column(col: Dict[str, object]) -> bool:
 
 
 def _is_meaningful_formula(formula: str) -> bool:
-    # Skip an empty render (unrecognized shape) and a bare NULL placeholder — a
-    # column that is only ``NULL`` carries no calculation worth describing.
+    # Skip empty renders and bare-``NULL`` placeholder columns.
     return bool(formula) and formula != _SQL_NULL
 
 
@@ -142,9 +128,7 @@ def _output_name(col: Dict[str, object]) -> Optional[str]:
 
 
 def _iter_selects(query: object) -> List[dict]:
-    # A view body is either a single ``SELECT`` or a ``SET`` (UNION/INTERSECT/
-    # EXCEPT) whose ``args`` are themselves query bodies. Flatten both so a
-    # calculated column in any branch is reached, mirroring lineage extraction.
+    # Flatten a ``SET`` (UNION/INTERSECT/EXCEPT) body so branch columns are reached.
     if not isinstance(query, dict):
         return []
     selects: List[dict] = []
@@ -173,7 +157,6 @@ def _formulas_from_query_columns(csn_def: dict, out: Dict[str, str]) -> None:
                 continue
             formula = render_cqn_expression(col)
             if _is_meaningful_formula(formula):
-                # First branch wins; UNION branches align by output column name.
                 out.setdefault(name, formula)
 
 
@@ -195,10 +178,8 @@ def _formulas_from_elements(csn_def: dict, out: Dict[str, str]) -> None:
 def extract_calculated_column_formulas(csn_def: dict) -> Dict[str, str]:
     """Map each calculated output column (by name) to its rendered formula.
 
-    Reads the top-level ``query.SELECT.columns`` projection (graphical views and
-    analytic models) and any calculated element carrying an inline ``value``
-    expression. Plain column projections/renames are omitted — they carry no
-    calculation to describe.
+    Reads the ``query`` projection columns and any calculated element carrying an
+    inline ``value`` expression; plain projections/renames are omitted.
     """
     formulas: Dict[str, str] = {}
     _formulas_from_query_columns(csn_def, formulas)
@@ -209,9 +190,8 @@ def extract_calculated_column_formulas(csn_def: dict) -> Dict[str, str]:
 def make_description_with_formula(
     description: Optional[str], formula: Optional[str]
 ) -> Optional[str]:
-    """Combine an existing column label with its calculation, mirroring the
-    Tableau connector's ``make_description_from_params``: the label first, then a
-    ``formula: <expr>`` line."""
+    """Combine a column label with its calculation: label first, then a
+    ``formula: <expr>`` line (as the Tableau connector does)."""
     parts: List[str] = []
     if description:
         parts.append(description)

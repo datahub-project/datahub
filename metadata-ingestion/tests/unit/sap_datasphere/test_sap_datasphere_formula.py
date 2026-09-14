@@ -18,7 +18,7 @@ def test_render_literals():
     assert render_cqn_expression({"val": 42}) == "42"
     assert render_cqn_expression({"val": "X"}) == "'X'"
     assert render_cqn_expression({"val": True}) == "TRUE"
-    # A JSON null literal renders as SQL NULL, not the Python "None".
+    # A JSON null renders as SQL NULL, not the Python "None".
     assert render_cqn_expression({"val": None}) == "NULL"
 
 
@@ -39,7 +39,6 @@ def test_render_null_inside_case_expression():
 
 
 def test_render_escapes_embedded_apostrophe():
-    # An apostrophe must be doubled so the literal stays valid SQL-like quoting.
     assert render_cqn_expression({"val": "O'Reilly"}) == "'O''Reilly'"
 
 
@@ -49,8 +48,6 @@ def test_render_function_call():
 
 
 def test_render_rejects_expression_with_unrenderable_child():
-    # A function or infix expression with an unsupported operand renders empty
-    # rather than surfacing a truncated ``COALESCE(A, )`` / ``A +``.
     assert (
         render_cqn_expression({"func": "COALESCE", "args": [{"ref": ["A"]}, {}]}) == ""
     )
@@ -96,12 +93,10 @@ def test_extract_formula_from_query_column():
         }
     }
     formulas = extract_calculated_column_formulas(csn_def)
-    # Plain projections carry no formula; only the calculated column does.
     assert formulas == {"TOTAL": "PRICE * QTY"}
 
 
 def test_extract_formula_from_union_branches():
-    # UNION/INTERSECT/EXCEPT bodies live under query.SET.args, not query.SELECT.
     csn_def = {
         "query": {
             "SET": {
@@ -155,7 +150,6 @@ def test_extract_skips_pure_null_placeholder_column():
             }
         }
     }
-    # The bare-NULL column is noise; only the real calculation is surfaced.
     assert extract_calculated_column_formulas(csn_def) == {"REAL": "A + B"}
 
 
@@ -171,7 +165,6 @@ def test_extract_ignores_plain_and_unnamed_columns():
             }
         }
     }
-    # A rename is not a calculation; an unnamed aggregate has no column to attach to.
     assert extract_calculated_column_formulas(csn_def) == {}
 
 

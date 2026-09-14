@@ -6272,9 +6272,7 @@ def test_schema_fields_from_csn_appends_calculated_formula():
     fields = source._resolve_asset_schema_fields("S1", "MY_VIEW", None, csn_def)
     assert fields is not None
     by_path = {f.fieldPath: f for f in fields}
-    # The calculated column carries its label plus the rendered formula.
     assert by_path["TOTAL"].description == "Total\n\nformula: PRICE * QTY"
-    # A plain projected column keeps its label untouched.
     assert by_path["QTY"].description == "Quantity"
     assert source.report.calculated_column_formulas_emitted == 1
 
@@ -6289,9 +6287,8 @@ def _string_field(field_path: str, description: Optional[str]) -> SchemaFieldCla
 
 
 def test_edmx_schema_path_appends_calculated_formula():
-    """A graphical view can expose a relational EDMX schema yet still carry
-    calculated columns whose expressions only live in the CSN. The formula must be
-    decorated on the EDMX field list too, not only the CSN fallback."""
+    """Formulas live only in the CSN, so they must decorate the EDMX field list
+    too, not just the CSN fallback path."""
     cfg = SapDatasphereConfig.model_validate(
         {"base_url": "https://myco.eu10.hcs.cloud.sap", "token": "tok"}
     )
