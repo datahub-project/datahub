@@ -2,12 +2,19 @@ package com.linkedin.gms;
 
 import static org.testng.AssertJUnit.assertNotNull;
 
+import com.linkedin.gms.factory.search.SearchClientShims;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
 import com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactory;
 import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.metadata.boot.BootstrapManager;
+import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -16,7 +23,8 @@ import io.ebean.Database;
 import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import org.mockito.Answers;
+import java.util.Map;
+import org.mockito.Mockito;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -47,9 +55,6 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
 
   @MockitoBean private MetricUtils metricUtils;
 
-  @MockitoBean(name = "searchClientShim", answers = Answers.RETURNS_MOCKS)
-  SearchClientShim<?> searchClientShim;
-
   // Mock semantic search factories to avoid needing full configuration
   @MockitoBean private EmbeddingProviderFactory embeddingProviderFactory;
 
@@ -67,8 +72,18 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
   public static class TestBeans {
 
     @Bean
-    public OperationContext systemOperationContext() {
-      return TestOperationContexts.systemContextNoSearchAuthorization();
+    @Primary
+    @SuppressWarnings("unchecked")
+    public SearchClientShim<?> searchClientShim() {
+      SearchClientShim<?> shim = Mockito.mock(SearchClientShim.class);
+      Mockito.when(shim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+      return shim;
+    }
+
+    @Bean
+    public OperationContext systemOperationContext(SearchClientShim<?> searchClientShim) {
+      return TestOperationContexts.withFixedSearchClient(
+          TestOperationContexts.systemContextNoSearchAuthorization(), searchClientShim);
     }
 
     @Primary
@@ -81,6 +96,34 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
     @Bean
     public MeterRegistry meterRegistry() {
       return new SimpleMeterRegistry();
+    }
+
+    @Bean(name = "searchClientShims")
+    @Primary
+    public SearchClientShims searchClientShims(SearchClientShim<?> searchClientShim) {
+      return new SearchClientShims(
+          Map.of(ElasticSearchConfiguration.PRIMARY_CLUSTER, searchClientShim));
+    }
+
+    @Bean(name = "searchClusterRegistry")
+    @Primary
+    public SearchClusterRegistry searchClusterRegistry(SearchClientShim<?> searchClientShim) {
+      SearchClusterRegistry registry = Mockito.mock(SearchClusterRegistry.class);
+      ESBulkProcessor bulkProcessor = Mockito.mock(ESBulkProcessor.class);
+      ESIndexBuilder indexBuilder = Mockito.mock(ESIndexBuilder.class);
+      ElasticSearchConfiguration config = Mockito.mock(ElasticSearchConfiguration.class);
+      BulkProcessorConfiguration bulkConfig = Mockito.mock(BulkProcessorConfiguration.class);
+      Mockito.when(bulkConfig.getNumRetries()).thenReturn(1);
+      Mockito.when(config.getBulkProcessor()).thenReturn(bulkConfig);
+      Mockito.doReturn(searchClientShim)
+          .when(registry)
+          .clientFor(Mockito.any(SearchComponent.class));
+      Mockito.when(registry.bulkProcessorFor(Mockito.any(SearchComponent.class)))
+          .thenReturn(bulkProcessor);
+      Mockito.when(registry.indexBuilderFor(Mockito.any(SearchComponent.class)))
+          .thenReturn(indexBuilder);
+      Mockito.when(registry.configFor(Mockito.any(SearchComponent.class))).thenReturn(config);
+      return registry;
     }
   }
 }

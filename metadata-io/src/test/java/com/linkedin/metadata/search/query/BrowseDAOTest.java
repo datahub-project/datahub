@@ -75,8 +75,10 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
             SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
     opContext =
-        TestOperationContexts.systemContextNoSearchAuthorization(
-            SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build());
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization(
+                SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build()),
+            mockClient);
     browseDAO =
         new ESBrowseDAO(
             TEST_OS_SEARCH_CONFIG,

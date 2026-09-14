@@ -170,6 +170,7 @@ x-datahub-gms-service: &datahub-gms-service
     SHOW_HOME_PAGE_REDESIGN: ${SHOW_HOME_PAGE_REDESIGN:-true}
     MCL_CONSUMER_BATCH_ENABLED: ${MCL_CONSUMER_BATCH_ENABLED:-true}
     MCP_CONSUMER_BATCH_ENABLED: ${MCP_CONSUMER_BATCH_ENABLED:-true}
+    DEV_TOOLING_ENABLED: ${DEV_TOOLING_ENABLED:-false}
     # Optional log shipping to a Loki-push-compatible aggregator (dormant when empty)
     LOG_AGGREGATOR_ENDPOINT: ${LOG_AGGREGATOR_ENDPOINT:-}
   healthcheck:

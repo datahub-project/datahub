@@ -7,6 +7,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.context.SystemOperationContextFactory;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.gms.factory.search.MappingsBuilderFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
@@ -180,5 +181,13 @@ public class ExecutionIngestionAuthTestConfiguration {
     SearchClientShim<?> mock = Mockito.mock(SearchClientShim.class);
     Mockito.when(mock.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
     return mock;
+  }
+
+  @Bean(name = "searchClusterRegistry")
+  @Primary
+  public SearchClusterRegistry searchClusterRegistry(SearchClientShim<?> searchClientShim) {
+    SearchClusterRegistry registry = Mockito.mock(SearchClusterRegistry.class);
+    Mockito.doReturn(searchClientShim).when(registry).clientFor(Mockito.any());
+    return registry;
   }
 }

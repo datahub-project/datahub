@@ -1068,11 +1068,10 @@ public class ESWriteDAOTest {
     // Set writability
     esWriteDAO.setWritable(canWrite);
 
-    String indexName = "test_index_v2_" + description;
     String document = "{\"data\":\"" + description + "\"}";
     String docId = "doc_" + description;
 
-    esWriteDAO.upsertDocumentByIndexName(opContext, indexName, document, docId);
+    esWriteDAO.upsertDocumentByIndexName(opContext, TEST_INDEX, document, docId);
 
     if (canWrite) {
       verify(mockBulkProcessor, times(1))
@@ -1106,10 +1105,9 @@ public class ESWriteDAOTest {
     // Set writability
     esWriteDAO.setWritable(canWrite);
 
-    String indexName = "test_index_v2_" + description;
     String docId = "doc_" + description;
 
-    esWriteDAO.deleteDocumentByIndexName(opContext, indexName, docId);
+    esWriteDAO.deleteDocumentByIndexName(opContext, TEST_INDEX, docId);
 
     if (canWrite) {
       verify(mockBulkProcessor, times(1))

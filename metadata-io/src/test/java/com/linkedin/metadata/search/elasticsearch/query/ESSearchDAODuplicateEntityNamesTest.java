@@ -39,7 +39,9 @@ public class ESSearchDAODuplicateEntityNamesTest {
   public void setUp() {
     // Setup mocks
     mockClient = Mockito.mock(SearchClientShim.class);
-    opContext = TestOperationContexts.systemContextNoValidate();
+    opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoValidate(), mockClient);
 
     // Create ESSearchDAO with mocked client
     esSearchDAO =
