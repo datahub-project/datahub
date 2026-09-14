@@ -69,6 +69,13 @@ services:
     depends_on:
       datahub-gms-quickstart:
         condition: service_healthy
+  datahub-actions-quickstart-opensearch3:
+    <<: *datahub-actions-quickstart-service
+    profiles:
+      - quickstart-opensearch3
+    depends_on:
+      datahub-gms-quickstart-opensearch3:
+        condition: service_healthy
   datahub-actions-quickstart-cassandra:
     <<: *datahub-actions-quickstart-service
     profiles:

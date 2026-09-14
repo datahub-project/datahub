@@ -12,6 +12,7 @@ x-mysql-profiles-quickstart: &mysql-profiles-quickstart
   - quickstart-frontend
   - quickstart-storage
   - quickstart-consumers
+  - quickstart-opensearch3
 
 x-mysql-profiles: &mysql-profiles
   - quickstart
@@ -32,6 +33,7 @@ x-mysql-profiles: &mysql-profiles
   - debug-opensearch3
   - debug-backend-aws
   - debug-aws
+  - quickstart-opensearch3
 x-mysql-profiles-cdc: &mysql-profiles-cdc
   - quickstart-consumers-cdc
   - debug-consumers-cdc
@@ -62,6 +64,7 @@ x-elasticsearch-profiles: &elasticsearch-profiles
   - debug-elasticsearch
 x-opensearch3-profiles: &opensearch3-profiles
   - debug-opensearch3
+  - quickstart-opensearch3
 
 x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart
@@ -127,6 +130,7 @@ x-kafka-broker-profiles: &kafka-broker-profiles
   - debug-opensearch3
   - debug-backend-aws
   - debug-aws
+  - quickstart-opensearch3
 
 # AWS Infra profiles
 x-profiles-aws: &aws-profiles
@@ -146,6 +150,7 @@ x-profiles-quickstart: &profiles-quickstart
   - quickstart-postgres-cdc
   - quickstart-consumers
   - quickstart-consumers-cdc
+  - quickstart-opensearch3
 x-profiles-dev: &profiles-dev
   - debug
   - debug-min

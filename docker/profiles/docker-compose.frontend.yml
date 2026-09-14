@@ -51,6 +51,13 @@ services:
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
+  frontend-quickstart-opensearch3:
+    <<: *datahub-frontend-service
+    profiles:
+      - quickstart-opensearch3
+    depends_on:
+      system-update-quickstart-opensearch3:
+        condition: service_completed_successfully
   frontend-quickstart-cassandra:
     <<: *datahub-frontend-service
     profiles:

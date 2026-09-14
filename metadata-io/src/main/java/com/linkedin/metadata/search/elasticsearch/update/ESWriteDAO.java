@@ -510,6 +510,42 @@ public class ESWriteDAO {
   }
 
   /**
+   * Async delete-by-query for a non-entity index family (graph, timeseries, system-metadata).
+   * Entity indices should use {@link #deleteByQueryAsync(OperationContext, String, QueryBuilder,
+   * BulkDeleteConfiguration)}.
+   */
+  @Nonnull
+  public CompletableFuture<String> deleteByQueryAsync(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchComponent component,
+      @Nonnull String indexName,
+      @Nonnull QueryBuilder query,
+      @Nullable BulkDeleteConfiguration overrideConfig) {
+    if (!canWrite) {
+      log.warn(READ_ONLY_LOG);
+      return CompletableFuture.completedFuture(StringUtils.EMPTY);
+    }
+
+    final BulkDeleteConfiguration finalConfig =
+        overrideConfig != null ? overrideConfig : config.getBulkDelete();
+
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            DeleteByQueryRequest request = buildDeleteByQueryRequest(indexName, query, finalConfig);
+            String taskId =
+                SearchClients.forComponent(opContext, component)
+                    .submitDeleteByQueryTask(opContext, request, RequestOptions.DEFAULT);
+            log.info("Started async delete by query task: {} for index: {}", taskId, indexName);
+            return taskId;
+          } catch (IOException e) {
+            log.error("Failed to start async delete by query for index: {}", indexName, e);
+            throw new RuntimeException("Failed to start async delete by query", e);
+          }
+        });
+  }
+
+  /**
    * Performs asynchronous delete by query operation with monitoring Blocks until completion and
    * retries if documents remain
    */

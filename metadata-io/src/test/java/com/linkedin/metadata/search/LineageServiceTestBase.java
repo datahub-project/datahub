@@ -144,9 +144,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
     operationContext =
-        TestOperationContexts.systemContextNoSearchAuthorization(
-                new SnapshotEntityRegistry(new Snapshot()),
-                SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build())
+        TestOperationContexts.withFixedSearchClient(
+                TestOperationContexts.systemContextNoSearchAuthorization(
+                    new SnapshotEntityRegistry(new Snapshot()),
+                    SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build()),
+                getSearchClient())
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
@@ -227,6 +229,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   @Nonnull
   private ElasticSearchService buildEntitySearchService() {
     searchClientSpy = spy(getSearchClient());
+    operationContext =
+        TestOperationContexts.withFixedSearchClient(operationContext, searchClientSpy);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             false,

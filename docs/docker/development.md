@@ -30,7 +30,8 @@ At this point it is possible to view the DataHub UI at `http://localhost:9002` a
 
 Like `quickstartDebug`, there are a few other tasks that bring up a different set of containers, for example
 `quickstartDebugConsumers` will also bring up mce-consumer and mae-consumer, `quickstartPgDebug` uses Postgres,
-and `quickstartOS3Debug` uses OpenSearch 3.x.
+and `quickstartOS3Debug` uses OpenSearch 3.x with debug bind-mounts. For CI or image-based
+OpenSearch 3.x, use `./gradlew quickstartOS3` (`quickstart-opensearch3` profile).
 
 ## Reloading
 

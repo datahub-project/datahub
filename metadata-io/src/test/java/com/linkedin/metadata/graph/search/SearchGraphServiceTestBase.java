@@ -89,7 +89,9 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
 
   @BeforeClass
   public void setup() {
-    operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    operationContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization(), getSearchClient());
     _client = buildService(getElasticSearchConfiguration(), TEST_GRAPH_SERVICE_CONFIG);
     _client.reindexAll(operationContext, Collections.emptySet());
   }

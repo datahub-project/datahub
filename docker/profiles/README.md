@@ -62,6 +62,20 @@ This configuration is identical to `quickstart` how it runs standalone consumers
 
 Like `quickstart` with Postgres instead of MySQL. Uses pgQueue instead of Kafka for messaging (`DATAHUB_MESSAGING_TRANSPORT=pgqueue`). OpenSearch is still used for search/graph/timeseries.
 
+### `quickstart-opensearch3`
+
+Same application set as `quickstart` (MySQL, Kafka, frontend, GMS, actions), but the search
+backend is **OpenSearch 3.7** (`opensearchproject/opensearch:3.7.0`; override with
+`DATAHUB_OS3_SEARCH_IMAGE` / `DATAHUB_OS3_SEARCH_TAG`). GMS pins
+`ELASTICSEARCH_SHIM_ENGINE_TYPE=OPENSEARCH_3` and enables schema-field document-id hashing
+because 3.x enforces the 512-byte `_id` limit. Uses a separate volume from OpenSearch 2.x
+(`os3data`). This is the image-based profile for CI (`./gradlew quickstartOS3`). For local
+bind-mount development, use `debug-opensearch3` / `./gradlew quickstartOS3Debug`.
+
+```bash
+./gradlew quickstartOS3
+```
+
 ### `quickstart-cassandra`
 
 Uses Cassandra as the primary data store along with Neo4j as the graph database.
@@ -73,15 +87,16 @@ of docker.
 
 ### Quickstart Profiles Table
 
-| Profile Name         | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch |
-| -------------------- | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- |
-| quickstart           | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |
-| quickstart-frontend  | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |
-| quickstart-backend   | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |
-| quickstart-postgres  |       | X        |           |       | X        | X   | X       | X            |     |     |       | X          |
-| quickstart-cassandra |       |          | X         | X     | X        | X   | X       | X            |     |     | X     | X          |
-| quickstart-consumers | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |
-| quickstart-storage   | X     |          |           |       |          |     |         |              |     |     | X     | X          |
+| Profile Name           | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch |
+| ---------------------- | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- |
+| quickstart             | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |
+| quickstart-frontend    | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |
+| quickstart-backend     | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |
+| quickstart-postgres    |       | X        |           |       | X        | X   | X       | X            |     |     |       | X          |
+| quickstart-opensearch3 | X     |          |           |       | X        | X   | X       | X            |     |     | X     | 3.x        |
+| quickstart-cassandra   |       |          | X         | X     | X        | X   | X       | X            |     |     | X     | X          |
+| quickstart-consumers   | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |
+| quickstart-storage     | X     |          |           |       |          |     |         |              |     |     | X     | X          |
 
 ## Development Profiles
 
@@ -114,7 +129,9 @@ Same application set as `debug`, but the search backend is **OpenSearch 3.7**
 (`opensearchproject/opensearch:3.7.0`; override with `DATAHUB_OS3_SEARCH_IMAGE` /
 `DATAHUB_OS3_SEARCH_TAG`). GMS pins `ELASTICSEARCH_SHIM_ENGINE_TYPE=OPENSEARCH_3` and enables
 schema-field document-id hashing because 3.x enforces the 512-byte `_id` limit. Uses a separate
-volume from OpenSearch 2.x (`os3data`).
+volume from OpenSearch 2.x (`os3data`). Prefer this for local development; CI should use
+`quickstart-opensearch3` / `./gradlew quickstartOS3` so system-update runs from the image JAR
+instead of a host bind-mount.
 
 ```bash
 ./gradlew quickstartOS3Debug

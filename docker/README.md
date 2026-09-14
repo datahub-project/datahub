@@ -185,6 +185,7 @@ Every quickstart configuration automatically gets a nuke task for targeted clean
 - **`quickstartPgNuke`** - Removes containers and volumes for the quickstart-postgres configuration (`datahub`)
 - **`quickstartPgConsumersNuke`** - Removes containers and volumes for the quickstart-postgres-consumers configuration (`datahub`)
 - **`quickstartPgDebugNuke`** - Removes containers and volumes for the debug-postgres configuration (`datahub`)
+- **`quickstartOS3Nuke`** - Removes containers and volumes for the quickstart-opensearch3 configuration (`datahub`)
 - **`quickstartOS3DebugNuke`** - Removes containers and volumes for the debug-opensearch3 configuration (`datahub`)
 - **`quickstartSlimNuke`** - Removes containers and volumes for the backend configuration (`datahub`)
 - **`quickstartSparkNuke`** - Removes containers and volumes for the spark configuration (`datahub`)

@@ -77,9 +77,11 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
     opContext =
-        TestOperationContexts.systemContextNoSearchAuthorization(
-            new SnapshotEntityRegistry(new Snapshot()),
-            SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build());
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization(
+                new SnapshotEntityRegistry(new Snapshot()),
+                SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build()),
+            getSearchClient());
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention mockIndexConvention = mock(IndexConvention.class);
