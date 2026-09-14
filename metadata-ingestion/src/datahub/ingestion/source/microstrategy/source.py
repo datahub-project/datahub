@@ -29,6 +29,7 @@ from datahub.ingestion.source.microstrategy.config import MicroStrategyConfig
 from datahub.ingestion.source.microstrategy.constants import (
     MICROSTRATEGY_PLATFORM,
     MSTR_CUBE_SUBTYPES,
+    MSTR_DEFINITION_ENDPOINT_METRIC_MODEL,
     MSTR_DEFINITION_ENDPOINT_MODEL,
     MSTR_DEFINITION_ENDPOINT_V2,
     MSTR_DERIVED_DEBUG_LOG_PREFIX,
@@ -889,6 +890,9 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 if definitions:
                     self._debug_v2_definition_payload(project_id, report_id, v2_payload)
 
+        if definitions and self.config.extract_metric_expressions:
+            self._resolve_embedded_metric_formulas(project_id, definitions)
+
         result: Optional[List[ReportDerivedMetric]] = definitions
         if model_error is not None and v2_error is not None:
             result = None
@@ -909,6 +913,31 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             self.report.report_report_derived_metrics_extracted(len(definitions))
         self._report_derived_metric_cache[cache_key] = result
         return result
+
+    def _resolve_embedded_metric_formulas(
+        self,
+        project_id: str,
+        definitions: List[ReportDerivedMetric],
+    ) -> None:
+        """The report definition endpoints name a report-level derived metric
+        (Modeling marks it isEmbedded, v2 lists it) but carry no formula. The
+        metric has a real object id, so ask the metric model endpoint for it,
+        exactly as catalog metrics are enriched; the fetch is cached per
+        metric and a refusal is aggregated into the existing metric-model
+        warning and failed_metric_model_ids, never fatal."""
+        for definition in definitions:
+            if definition.has_expression:
+                continue
+            model = self._get_metric_model(project_id, definition.id)
+            if not model:
+                continue
+            enrichment = _metric_expression_summary(model)
+            if enrichment is None:
+                continue
+            definition.expression_text = enrichment.expression_text
+            definition.expression_tokens = enrichment.expression_tokens
+            definition.endpoint = MSTR_DEFINITION_ENDPOINT_METRIC_MODEL
+            self.report.report_report_derived_metric_model_resolved()
 
     def _record_model_definition_failure(
         self,
@@ -1517,9 +1546,11 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             return model
         try:
             model = self.client.get_metric_model(project_id, metric_id)
-        except MicroStrategyAPIError:
+        except MicroStrategyAPIError as error:
             self.report.report_metric_expression_api_failure()
-            self.report.report_failed_metric_model(metric_id)
+            self.report.report_failed_metric_model(
+                f"{metric_id} (HTTP {getattr(error, 'status_code', None)})"
+            )
             # Aggregated under one title (log=False avoids one line per metric) so
             # operators see that some metric models were skipped -- most often
             # because the metric lives in another project or the principal lacks

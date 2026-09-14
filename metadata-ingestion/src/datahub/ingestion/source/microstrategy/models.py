@@ -249,6 +249,8 @@ class DerivedMetricSpec(MicroStrategyBaseModel):
     # a formula-less field can say whether the Modeling API was unavailable or
     # answered without an expression.
     definition_endpoint: Optional[str] = None
+    # Metadata object name when `name` is the report's display alias.
+    object_name: Optional[str] = None
 
 
 class ReportDerivedMetric(MicroStrategyBaseModel):
@@ -264,6 +266,10 @@ class ReportDerivedMetric(MicroStrategyBaseModel):
     expression_tokens: Optional[str] = None
     source: str = "report"
     endpoint: Optional[str] = None
+    # The metadata object name when `name` is the report's display alias
+    # (an embedded derived metric is often stored as "New Metric" and shown
+    # under the alias the Metric Editor calls its display name).
+    object_name: Optional[str] = None
 
     @property
     def has_expression(self) -> bool:
@@ -1117,7 +1123,7 @@ def _is_metric_definition_node(
         return True
     if any(word in parent_key.lower() for word in MSTR_METRIC_DEFINITION_TYPE_WORDS):
         return True
-    return bool(node.get("derived") or node.get("isDerived"))
+    return bool(node.get("derived") or node.get("isDerived") or node.get("isEmbedded"))
 
 
 def _definition_identity(
@@ -1153,7 +1159,14 @@ def extract_embedded_metric_definitions(
         object_id = _first_str(identity, MSTR_KEYS_ID)
         if not object_id or object_id == MSTR_NULL_OBJECT_ID:
             return
-        name = _first_str(identity, MSTR_KEYS_NAME) or _first_str(node, MSTR_KEYS_NAME)
+        object_name = _first_str(identity, MSTR_KEYS_NAME) or _first_str(
+            node, MSTR_KEYS_NAME
+        )
+        # A grid element's alias is what the report displays (the Metric
+        # Editor's "display name"); the object itself is often still called
+        # "New Metric". Prefer the alias and keep the object name alongside.
+        alias = node.get("alias")
+        name = alias if isinstance(alias, str) and alias.strip() else object_name
         if not name:
             return
         enrichment = metric_enrichment_from_expression(
@@ -1161,11 +1174,20 @@ def extract_embedded_metric_definitions(
         )
         key = normalize_object_id(object_id)
         existing = found.get(key)
-        if existing is not None and (existing.expression_text or enrichment is None):
+        if existing is not None:
+            # The same metric appears in the template units (object name only)
+            # and in the grid (alias): keep one entry, upgraded with whichever
+            # occurrence adds the alias or the expression.
+            if alias and existing.name == existing.object_name:
+                existing.name = name
+            if enrichment is not None and not existing.has_expression:
+                existing.expression_text = enrichment.expression_text
+                existing.expression_tokens = enrichment.expression_tokens
             return
         found[key] = ReportDerivedMetric(
             id=object_id,
             name=name,
+            object_name=object_name,
             data_type=_first_str(identity, ("dataType",))
             or _first_str(node, ("dataType",)),
             expression_text=enrichment.expression_text if enrichment else None,
@@ -1181,7 +1203,14 @@ def extract_embedded_metric_definitions(
             has_expression = isinstance(value.get("expression"), (dict, str)) or (
                 isinstance(value.get("formula"), str)
             )
-            flagged_derived = bool(value.get("derived") or value.get("isDerived"))
+            # The Modeling report definition marks report-level derived metrics
+            # with isEmbedded (their definition lives inside the report, not
+            # the metadata catalog) and gives them the plain "metric" subtype.
+            flagged_derived = bool(
+                value.get("derived")
+                or value.get("isDerived")
+                or value.get("isEmbedded")
+            )
             if has_expression or flagged_derived:
                 identity = _definition_identity(value, parent)
                 if identity is not None and _is_metric_definition_node(
