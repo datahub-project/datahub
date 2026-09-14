@@ -1,7 +1,7 @@
 import builtins
 import logging
 import sys
-from typing import Any, Dict, Iterator, List
+from typing import Any, Dict, Iterator, List, Tuple
 from unittest import mock
 
 import pytest
@@ -32,6 +32,7 @@ from datahub.ingestion.source.microstrategy.source import (
 )
 from datahub.metadata.schema_classes import (
     ContainerClass,
+    ContainerPropertiesClass,
     DatasetPropertiesClass,
     SchemaMetadataClass,
 )
@@ -1855,3 +1856,281 @@ def test_all_failed_warning_is_silent_when_any_sql_view_parses(
     source._warn_if_every_sql_view_failed()
 
     assert not any(entry.title == _ALL_FAILED_TITLE for entry in source.report.warnings)
+
+
+_PERSONAL_ANCESTORS = [
+    {"id": "project-root-id", "name": "Sales Analytics"},
+    {"id": "profiles-id", "name": "Profiles"},
+    {"id": "user-id", "name": "jdoe"},
+    {"id": "my-reports-id", "name": "My Reports"},
+]
+_SHARED_ANCESTORS = [
+    {"id": "project-root-id", "name": "Sales Analytics"},
+    {"id": "public-objects-id", "name": "Public Objects"},
+    {"id": "reports-folder-id", "name": "Reports"},
+]
+_PERSONAL_ROOT_TITLE = "Personal folder root not resolved"
+
+
+def _personal_folder_source(extra_config: dict | None = None) -> MicroStrategySource:
+    config = {
+        "extract_warehouse_lineage": False,
+        "extract_visualization_details": False,
+        "extract_dashboard_dependencies": False,
+        "extract_metric_expressions": False,
+        "extract_model_lineage": False,
+        "extract_derived_metrics": False,
+    }
+    config.update(extra_config or {})
+    return _source(config)
+
+
+class _PersonalFolderClient:
+    """A personal copy of a dossier beside the shared original. The shared
+    dossier embeds a dataset that is itself filed under a personal folder."""
+
+    def __init__(
+        self, resolve_by_id: bool = True, personal_call_fails: bool = False
+    ) -> None:
+        self.resolve_by_id = resolve_by_id
+        self.personal_call_fails = personal_call_fails
+        self.predefined_calls: List[List[int]] = []
+        self.definition_calls: List[str] = []
+        self.object_info_calls: List[Tuple[str, int]] = []
+
+    def search_dashboards(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter(
+            [
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": "dash-personal",
+                        "name": "Copy of Sales",
+                        "ancestors": _PERSONAL_ANCESTORS,
+                    }
+                ),
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": "dash-shared",
+                        "name": "Sales",
+                        "ancestors": _SHARED_ANCESTORS,
+                    }
+                ),
+            ]
+        )
+
+    def get_predefined_folders(
+        self, project_id: str, folder_types: List[int]
+    ) -> List[PredefinedFolder]:
+        self.predefined_calls.append(list(folder_types))
+        if folder_types == [19, 20]:
+            if self.personal_call_fails:
+                raise MicroStrategyAPIError("forbidden", status_code=403)
+            if not self.resolve_by_id:
+                return []
+            return [
+                PredefinedFolder.model_validate(
+                    {"id": "user-id", "name": "jdoe", "folderType": 19}
+                ),
+                PredefinedFolder.model_validate(
+                    {"id": "my-reports-id", "name": "My Reports", "folderType": 20}
+                ),
+            ]
+        return [
+            PredefinedFolder.model_validate(
+                {"id": "project-root-id", "name": "Sales Analytics", "folderType": 39}
+            ),
+            PredefinedFolder.model_validate(
+                {"id": "public-objects-id", "name": "Public Objects", "folderType": 1}
+            ),
+            PredefinedFolder.model_validate(
+                {"id": "reports-folder-id", "name": "Reports", "folderType": 7}
+            ),
+        ]
+
+    def get_object_info(
+        self, project_id: str, object_id: str, object_type: int
+    ) -> MicroStrategyObject:
+        self.object_info_calls.append((object_id, object_type))
+        if object_type == 8:
+            # The principal's own profile folder: its parent is Profiles.
+            return MicroStrategyObject.model_validate(
+                {
+                    "id": object_id,
+                    "name": "jdoe",
+                    "type": "8",
+                    "ancestors": _PERSONAL_ANCESTORS[:2],
+                }
+            )
+        return MicroStrategyObject.model_validate(
+            {
+                "id": object_id,
+                "name": "Personal Dataset",
+                "type": "3",
+                "subtype": "768",
+                "ancestors": _PERSONAL_ANCESTORS,
+            }
+        )
+
+    def get_dossier_definition(
+        self, project_id: str, dossier_id: str
+    ) -> Dict[str, Any]:
+        self.definition_calls.append(dossier_id)
+        return {
+            "result": {
+                "definition": {
+                    "datasets": [{"id": "ds-personal", "name": "Personal Dataset"}],
+                    "chapters": [],
+                }
+            }
+        }
+
+
+def _container_names(workunits: List[Any]) -> set:
+    names = set()
+    for workunit in workunits:
+        properties = workunit.get_aspect_of_type(ContainerPropertiesClass)
+        if properties is not None:
+            names.add(properties.name)
+    return names
+
+
+def _run_dashboards(source: MicroStrategySource) -> List[Any]:
+    return list(
+        source._process_project_dashboards(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+
+def test_personal_folder_objects_skipped_by_resolved_profiles_root_id() -> None:
+    source = _personal_folder_source()
+    client = _PersonalFolderClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = _run_dashboards(source)
+
+    # Resolution: one extra predefined call plus the profile folder's object
+    # info; the Profiles root is that folder's parent.
+    assert [19, 20] in client.predefined_calls
+    assert ("user-id", 8) in client.object_info_calls
+    assert source._personal_folders("project-1").root_ids == {
+        "PROFILES-ID",
+        "USER-ID",
+        "MY-REPORTS-ID",
+    }
+    assert source.report.personal_folder_roots_resolved == 1
+    # The personal copy is dropped before its definition is fetched.
+    assert client.definition_calls == ["dash-shared"]
+    assert source.report.personal_folder_objects_skipped == 1
+    assert list(source.report.personal_folder_objects_skipped_samples) == [
+        "Copy of Sales"
+    ]
+    urns = {workunit.get_urn() for workunit in workunits}
+    assert source.mapper.dashboard_urn("project-1", "dash-shared") in urns
+    assert source.mapper.dashboard_urn("project-1", "dash-personal") not in urns
+    # No container under the Profiles tree, even for the personally filed
+    # dataset the shared dossier embeds; that dataset is kept and parented
+    # under the dossier's own folder instead.
+    assert _container_names(workunits) == {"Shared Reports"}
+    parents = _dataset_container_parents(workunits)
+    assert set(parents.values()) == {
+        source.mapper.folder_key("project-1", "Shared Reports").as_urn()
+    }
+
+
+def test_personal_folder_objects_skipped_by_name_when_root_unresolved() -> None:
+    source = _personal_folder_source()
+    client = _PersonalFolderClient(resolve_by_id=False)
+    source.client = client  # type: ignore[assignment]
+
+    workunits = _run_dashboards(source)
+
+    assert source._personal_folders("project-1").by_name
+    assert source.report.personal_folder_roots_resolved == 0
+    assert ("user-id", 8) not in client.object_info_calls
+    assert client.definition_calls == ["dash-shared"]
+    assert source.report.personal_folder_objects_skipped == 1
+    assert _container_names(workunits) == {"Shared Reports"}
+
+
+def test_personal_folder_resolution_failure_falls_back_to_names_once() -> None:
+    source = _personal_folder_source()
+    client = _PersonalFolderClient(personal_call_fails=True)
+    source.client = client  # type: ignore[assignment]
+
+    _run_dashboards(source)
+
+    assert client.predefined_calls.count([19, 20]) == 1
+    assert source.report.personal_folder_objects_skipped == 1
+    infos = [i for i in source.report.infos if i.title == _PERSONAL_ROOT_TITLE]
+    assert len(infos) == 1
+
+
+def test_include_personal_folders_keeps_everything_and_skips_resolution() -> None:
+    source = _personal_folder_source({"include_personal_folders": True})
+    client = _PersonalFolderClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = _run_dashboards(source)
+
+    assert [19, 20] not in client.predefined_calls
+    assert client.definition_calls == ["dash-personal", "dash-shared"]
+    assert source.report.personal_folder_objects_skipped == 0
+    urns = {workunit.get_urn() for workunit in workunits}
+    assert source.mapper.dashboard_urn("project-1", "dash-personal") in urns
+    assert {"Profiles", "jdoe", "My Reports", "Shared Reports"} <= _container_names(
+        workunits
+    )
+
+
+class _PersonalReportClient(_ReportSearchClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.definition_calls: List[str] = []
+
+    def search_reports(self, project_id: str) -> Iterator[MicroStrategyObject]:
+        return iter(
+            [
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": "REPORT-PERSONAL",
+                        "name": "My Copy",
+                        "type": "3",
+                        "ancestors": _PERSONAL_ANCESTORS,
+                    }
+                ),
+                MicroStrategyObject.model_validate(
+                    {
+                        "id": "REPORT-SHARED",
+                        "name": "Shared",
+                        "type": "3",
+                        "ancestors": _SHARED_ANCESTORS,
+                    }
+                ),
+            ]
+        )
+
+    def get_report_definition(self, project_id: str, report_id: str) -> Dict[str, Any]:
+        self.definition_calls.append(report_id)
+        return {}
+
+
+def test_personal_folder_reports_skipped_before_definition_fetch() -> None:
+    source = _report_scope_source(
+        {"extract_independent_reports": True, "extract_report_definitions": True}
+    )
+    client = _PersonalReportClient()
+    source.client = client  # type: ignore[assignment]
+
+    workunits = list(
+        source._process_project_reports(
+            "project-1", _LazyProjectLineage(source, "project-1", [])
+        )
+    )
+
+    # _ReportSearchClient resolves no predefined folders: name fallback.
+    assert client.definition_calls == ["REPORT-SHARED"]
+    assert source.report.personal_folder_objects_skipped == 1
+    urns = {workunit.get_urn() for workunit in workunits}
+    assert source.mapper.report_urn("project-1", "REPORT-SHARED") in urns
+    assert source.mapper.report_urn("project-1", "REPORT-PERSONAL") not in urns

@@ -32,8 +32,13 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_DEFINITION_ENDPOINT_MODEL,
     MSTR_DEFINITION_ENDPOINT_V2,
     MSTR_DERIVED_DEBUG_LOG_PREFIX,
+    MSTR_FOLDER_TYPE_PROFILE_OBJECTS,
+    MSTR_FOLDER_TYPE_PROFILE_REPORTS,
     MSTR_OBJECT_SUBTYPE_DOCUMENT,
+    MSTR_OBJECT_TYPE_FOLDER,
     MSTR_OBJECT_TYPE_REPORT,
+    MSTR_PERSONAL_FOLDER_NAMES,
+    MSTR_PERSONAL_FOLDER_TYPES,
     MSTR_PREDEFINED_FOLDER_LABELS,
     MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES,
     USAGE_TARGET_CHART,
@@ -65,6 +70,7 @@ from datahub.ingestion.source.microstrategy.models import (
     Datasource,
     MetricEnrichment,
     MicroStrategyObject,
+    PersonalFolderResolution,
     PredefinedFolderResolution,
     Project,
     ProjectKey,
@@ -72,7 +78,9 @@ from datahub.ingestion.source.microstrategy.models import (
     ReportDerivedMetric,
     Visualization,
     extract_embedded_metric_definitions,
+    extract_folder_parts,
     first_derived_node_skeleton,
+    is_personal_folder_object,
     metric_enrichment_from_expression,
     normalize_object_id,
     payload_key_skeleton,
@@ -145,6 +153,7 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         self._metric_model_cache: Dict[str, Dict[str, object]] = {}
         self._model_document_unavailable_projects: Set[str] = set()
         self._predefined_folder_cache: Dict[str, PredefinedFolderResolution] = {}
+        self._personal_folder_cache: Dict[str, PersonalFolderResolution] = {}
         # (project id, dataset object id) -> object info, or None once a lookup
         # failed so the same dataset is never re-fetched for another dossier.
         self._dataset_object_cache: Dict[
@@ -508,6 +517,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if not self.config.dashboard_pattern.allowed(dashboard_object.name):
                 self.report.filtered_dashboards.append(dashboard_object.name)
                 continue
+            if self._skip_personal_object(project_id, dashboard_object):
+                continue
             # Progress before the expensive per-dashboard work so the log never goes silent.
             logger.info(
                 "Processing dashboard %r (%s) in project %s",
@@ -598,6 +609,112 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
         resolution = PredefinedFolderResolution(labels=labels, hidden_ids=hidden_ids)
         self._predefined_folder_cache[project_id] = resolution
         return resolution
+
+    def _personal_folders(self, project_id: str) -> PersonalFolderResolution:
+        """How to recognise personal (per-user profile) content in a project,
+        resolved once per project. By id when possible: the predefined-folder
+        call names the logged-in principal's own profile folder (type 19) and
+        My Reports (type 20); the profile folder's immediate parent is the
+        project's Profiles system folder, under which every user's profile
+        folder lives. Any failure falls back to matching ancestor folder
+        names, which is exact but breaks on localized or renamed folders."""
+        if project_id in self._personal_folder_cache:
+            return self._personal_folder_cache[project_id]
+
+        root_ids: Set[str] = set()
+        names: Set[str] = set(MSTR_PERSONAL_FOLDER_NAMES)
+        try:
+            folders = self.client.get_predefined_folders(
+                project_id, list(MSTR_PERSONAL_FOLDER_TYPES)
+            )
+            for folder in folders:
+                if folder.folder_type not in MSTR_PERSONAL_FOLDER_TYPES:
+                    continue
+                root_ids.add(normalize_object_id(folder.id))
+                if folder.folder_type == MSTR_FOLDER_TYPE_PROFILE_REPORTS:
+                    names.add(folder.name.strip().lower())
+                if folder.folder_type == MSTR_FOLDER_TYPE_PROFILE_OBJECTS:
+                    root_ids.update(self._profiles_root_ids(project_id, folder.id))
+        except MicroStrategyAuthError:
+            raise
+        except Exception as error:
+            root_ids.clear()
+            self.report.info(
+                title="Personal folder root not resolved",
+                message=(
+                    "Could not resolve the project's Profiles folder by id; "
+                    "personal folders are recognised by ancestor folder name "
+                    "('Profiles' / 'My Reports', case-insensitive) instead."
+                ),
+                context=f"project_id={project_id}",
+                exc=error,
+            )
+        if root_ids:
+            self.report.report_personal_folder_root_resolved()
+        resolution = PersonalFolderResolution(root_ids=root_ids, names=names)
+        self._personal_folder_cache[project_id] = resolution
+        return resolution
+
+    def _profiles_root_ids(self, project_id: str, profile_folder_id: str) -> Set[str]:
+        """The Profiles system folder: the immediate parent of the principal's
+        own profile folder, read from that folder's ancestors. System
+        containers hidden from the browse hierarchy (project root, Public
+        Objects) are never it, so a profile folder parented directly under
+        one of those yields nothing rather than a wrong root."""
+        profile_folder = self.client.get_object_info(
+            project_id, profile_folder_id, MSTR_OBJECT_TYPE_FOLDER
+        )
+        if profile_folder is None:
+            return set()
+        hidden_ids = self._predefined_folders(project_id).hidden_ids
+        parents = [
+            normalize_object_id(part.id)
+            for part in extract_folder_parts(profile_folder.model_dump())
+            if part.id
+        ]
+        if not parents or parents[-1] in hidden_ids:
+            return set()
+        return {parents[-1]}
+
+    def _is_personal_object(
+        self, project_id: str, mstr_object: MicroStrategyObject
+    ) -> bool:
+        if self.config.include_personal_folders:
+            return False
+        return is_personal_folder_object(
+            mstr_object.model_dump(), self._personal_folders(project_id)
+        )
+
+    def _skip_personal_object(
+        self, project_id: str, mstr_object: MicroStrategyObject
+    ) -> bool:
+        """Decide before any definition is fetched, so a skipped personal
+        object costs no further API calls. Stateful ingestion soft-deletes
+        previously ingested personal content on its own."""
+        if not self._is_personal_object(project_id, mstr_object):
+            return False
+        self.report.report_personal_folder_object_skipped(mstr_object.name)
+        logger.debug(
+            "Skipping %r (%s) in project %s: filed under a personal folder",
+            mstr_object.name,
+            mstr_object.id,
+            project_id,
+        )
+        return True
+
+    def _folder_object(
+        self, project_id: str, dataset_object: Optional[MicroStrategyObject]
+    ) -> Optional[MicroStrategyObject]:
+        """The object whose folder ancestry a dataset is filed under: its own,
+        unless that ancestry is personal -- then None, so no container under
+        Profiles is emitted and the dataset falls back to the folder of the
+        dossier/report that embeds it (the same degradation as a failed
+        object lookup)."""
+        if dataset_object is None or not self._is_personal_object(
+            project_id, dataset_object
+        ):
+            return dataset_object
+        return None
 
     def _process_dashboard_object(
         self,
@@ -943,6 +1060,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
             if not self.config.report_pattern.allowed(report_object.name):
                 self.report.filtered_reports.append(report_object.name)
                 continue
+            if self._skip_personal_object(project_id, report_object):
+                continue
             yield from self._process_report_with_boundary(
                 project_id,
                 report_object,
@@ -976,6 +1095,8 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 continue
             if not self.config.report_pattern.allowed(report_object.name):
                 self.report.filtered_reports.append(report_object.name)
+                continue
+            if self._skip_personal_object(project_id, report_object):
                 continue
             yield from self._process_report_with_boundary(
                 project_id,
@@ -1065,16 +1186,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                     model_lineage_index,
                 )
             dataset_object = self._dataset_object_info(project_id, source_dataset.id)
-            if dataset_object is not None:
+            folder_object = self._folder_object(project_id, dataset_object)
+            if folder_object is not None:
                 yield from self.mapper.gen_folder_containers(
-                    project_id, dataset_object, predefined_folders
+                    project_id, folder_object, predefined_folders
                 )
             yield from self.mapper.gen_report_source_dataset_workunits(
                 project_id,
                 report_object,
                 source_dataset,
                 self.mapper.dataset_folder_parent_key(
-                    project_id, dataset_object, parent_key, predefined_folders
+                    project_id, folder_object, parent_key, predefined_folders
                 ),
                 dataset_object=dataset_object,
             )
@@ -1788,16 +1910,17 @@ class MicroStrategySource(StatefulIngestionSourceBase, TestableSource):
                 # A dataset is its own catalog object (report or cube) with its
                 # own folder, which is usually not the dossier's folder.
                 dataset_object = self._dataset_object_info(project_id, dataset.id)
-                if dataset_object is not None:
+                folder_object = self._folder_object(project_id, dataset_object)
+                if folder_object is not None:
                     yield from self.mapper.gen_folder_containers(
-                        project_id, dataset_object, predefined_folders
+                        project_id, folder_object, predefined_folders
                     )
                 yield from self.mapper.gen_dataset_workunits(
                     project_id,
                     dashboard,
                     dataset,
                     self.mapper.dataset_folder_parent_key(
-                        project_id, dataset_object, parent_key, predefined_folders
+                        project_id, folder_object, parent_key, predefined_folders
                     ),
                     dataset_object=dataset_object,
                 )

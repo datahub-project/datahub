@@ -65,6 +65,14 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
     )
     warehouse_upstreams_pruned_by_field_evidence: int = 0
     predefined_folder_labels_resolved: int = 0
+    # Personal (per-user profile) folder handling: how many projects resolved
+    # the Profiles root by id (else name fallback), and the dashboards,
+    # documents and reports skipped because they live under it.
+    personal_folder_roots_resolved: int = 0
+    personal_folder_objects_skipped: int = 0
+    personal_folder_objects_skipped_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
     dataset_object_lookups: int = 0
     dataset_object_lookup_failures: int = 0
     api_errors: int = 0
@@ -225,6 +233,13 @@ class MicroStrategyReport(StaleEntityRemovalSourceReport):
 
     def report_predefined_folder_labels_resolved(self, count: int) -> None:
         self.predefined_folder_labels_resolved += count
+
+    def report_personal_folder_root_resolved(self) -> None:
+        self.personal_folder_roots_resolved += 1
+
+    def report_personal_folder_object_skipped(self, context: str) -> None:
+        self.personal_folder_objects_skipped += 1
+        self.personal_folder_objects_skipped_samples.append(context)
 
     def report_dataset_object_lookup(self) -> None:
         self.dataset_object_lookups += 1
