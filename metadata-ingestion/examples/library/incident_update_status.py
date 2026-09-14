@@ -1,5 +1,4 @@
 # metadata-ingestion/examples/library/incident_update_status.py
-import logging
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
@@ -7,9 +6,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.urns import IncidentUrn
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 # Configuration
 gms_endpoint = "http://localhost:8080"
@@ -67,11 +63,9 @@ metadata_change_proposal = MetadataChangeProposalWrapper(
 )
 
 emitter.emit(metadata_change_proposal)
-log.info(
-    f"Updated incident {incident_urn} status to {current_incident_info.status.state}"
-)
-log.info(
+print(f"Updated incident {incident_urn} status to {current_incident_info.status.state}")
+print(
     f"Status details: stage={current_incident_info.status.stage}, message={current_incident_info.status.message}"
 )
-log.info(f"Priority updated to {current_incident_info.priority}")
-log.info(f"Assigned to {len(current_incident_info.assignees)} team members")
+print(f"Priority updated to {current_incident_info.priority}")
+print(f"Assigned to {len(current_incident_info.assignees)} team members")
