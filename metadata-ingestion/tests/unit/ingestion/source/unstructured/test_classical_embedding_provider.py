@@ -34,8 +34,9 @@ MODEL = "hash-v1-2048"
 DIMS = 2048
 
 # Shared with ClassicalEmbeddingProviderTest.java, which reads the same file from its
-# test classpath. Non-ASCII is spelled with JSON escapes so the code points are
-# unambiguous; the human-readable form is in each row's id/note.
+# test classpath. Both suites read the same UTF-8 file, so the text is spelled with
+# literal code points, escaped only where a code unit cannot be written literally
+# (the lone surrogate row).
 GOLDEN_FIXTURE = (
     Path(__file__).resolve().parents[6]
     / "metadata-io/src/test/resources/embedding/classical_hash_v1_2048_golden.json"

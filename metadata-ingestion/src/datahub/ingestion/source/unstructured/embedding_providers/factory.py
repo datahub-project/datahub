@@ -21,9 +21,10 @@ SUPPORTED_PROVIDERS: tuple[str, ...] = (
     "classical",
 )
 
-# Providers that embed in-process with no external API behind them. Callers use this
-# to skip API protections such as the documents-per-minute limiter.
-IN_PROCESS_PROVIDERS: frozenset[str] = frozenset({"classical"})
+# Providers that embed in-process with no external API behind them ("local" is not one:
+# it calls an OpenAI-compatible server over HTTP). Callers use this to skip API
+# protections such as the documents-per-minute limiter.
+IN_PROCESS_PROVIDERS: frozenset[str] = frozenset({"classical", "onnx"})
 
 
 def resolve_local_base_url(endpoint: Optional[str]) -> str:
