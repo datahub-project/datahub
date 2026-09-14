@@ -68,8 +68,9 @@ public class SemanticSearchAcrossEntitiesResolver
     final List<String> entityNames =
         getSearchEntityNames(context.getOperationContext(), input.getTypes());
 
-    // escape forward slash since it is a reserved character in Elasticsearch
-    final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
+    // The query text only feeds the embedding provider (kNN); it never reaches a query_string
+    // clause, so it is passed as typed. Escaping "/" would change the embedded text.
+    final String query = input.getQuery();
 
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
@@ -129,7 +130,7 @@ public class SemanticSearchAcrossEntitiesResolver
                 _semanticSearchService.semanticSearchAcrossEntities(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     finalEntities,
-                    sanitizedQuery,
+                    query,
                     finalFilter,
                     sortCriteria,
                     start,

@@ -69,8 +69,9 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
     final QueryContext context = environment.getContext();
     final SearchInput input = bindArgument(environment.getArgument("input"), SearchInput.class);
     final String entityName = EntityTypeMapper.getName(input.getType());
-    // escape forward slash since it is a reserved character in Elasticsearch
-    final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
+    // The query text only feeds the embedding provider (kNN); it never reaches a query_string
+    // clause, so it is passed as typed. Escaping "/" would change the embedded text.
+    final String query = input.getQuery();
 
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
@@ -79,7 +80,7 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
     if (inputFlags != null) {
       searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
     } else {
-      searchFlags = applyDefaultSearchFlags(null, sanitizedQuery, SEARCH_RESOLVER_DEFAULTS);
+      searchFlags = applyDefaultSearchFlags(null, query, SEARCH_RESOLVER_DEFAULTS);
     }
 
     return GraphQLConcurrencyUtils.supplyAsync(
@@ -100,7 +101,7 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
                 _semanticSearchService.semanticSearch(
                     context.getOperationContext().withSearchFlags(flags -> searchFlags),
                     List.of(entityName),
-                    sanitizedQuery,
+                    query,
                     ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters()),
                     Collections.emptyList(),
                     start,

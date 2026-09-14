@@ -371,8 +371,9 @@ public class SemanticSearchAcrossEntitiesResolverTest {
   }
 
   @Test
-  public void testQuerySanitization() throws Exception {
-    // Given: Search input with forward slashes (should be escaped)
+  public void testQueryIsPassedUnescaped() throws Exception {
+    // Given: Search input with forward slashes. Keyword resolvers escape "/" for query_string, but
+    // the semantic query is only embedded, so it must reach the service exactly as typed.
     SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
     input.setTypes(Collections.singletonList(EntityType.DATASET));
     input.setQuery("path/to/data");
@@ -405,12 +406,12 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     CompletableFuture<SearchResults> resultFuture = resolver.get(mockEnvironment);
     resultFuture.get();
 
-    // Then: Query should be sanitized (forward slashes escaped)
+    // Then: Query reaches the service unescaped
     verify(mockSemanticSearchService, times(1))
         .semanticSearchAcrossEntities(
             any(OperationContext.class),
             anyList(),
-            eq("path\\/to\\/data"), // Forward slashes should be escaped
+            eq("path/to/data"),
             any(),
             anyList(),
             eq(0),

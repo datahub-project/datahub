@@ -120,6 +120,48 @@ public class SemanticSearchResolverTest {
   }
 
   @Test
+  public void testQueryIsPassedUnescaped() throws Exception {
+    // Given: a query containing "/". Keyword resolvers escape it for query_string, but the
+    // semantic query is only embedded, so it must reach the service exactly as typed.
+    SearchInput input = new SearchInput();
+    input.setType(EntityType.DATASET);
+    input.setQuery("path/to/data");
+    input.setStart(0);
+    input.setCount(10);
+
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockSemanticSearchService.semanticSearch(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(),
+            anyList(),
+            anyInt(),
+            anyInt()))
+        .thenReturn(
+            new SearchResult()
+                .setEntities(new SearchEntityArray())
+                .setFrom(0)
+                .setPageSize(10)
+                .setNumEntities(0)
+                .setMetadata(new SearchResultMetadata()));
+
+    // When
+    resolver.get(mockEnvironment).get();
+
+    // Then: Query reaches the service unescaped
+    verify(mockSemanticSearchService, times(1))
+        .semanticSearch(
+            any(OperationContext.class),
+            eq(Collections.singletonList(DATASET_ENTITY_NAME)),
+            eq("path/to/data"),
+            any(),
+            eq(Collections.emptyList()),
+            eq(0),
+            eq(10));
+  }
+
+  @Test
   public void testSemanticSearchWithFilters() throws Exception {
     // Given: Semantic search input with filters
     SearchInput input = new SearchInput();
