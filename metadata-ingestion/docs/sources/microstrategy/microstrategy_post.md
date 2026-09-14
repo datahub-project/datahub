@@ -72,15 +72,11 @@ The connector builds its browse hierarchy by walking each object's MicroStrategy
 
 Datasets embedded in a dossier (and report source datasets) are catalog objects in their own right -- reports or cubes with their own folder, which is frequently not the dossier's folder. The connector looks each dataset object up once per project (`GET /api/objects/{id}?type=3`) and places the dataset under its own folder ancestry, relabelled and pruned exactly like the dossier's path, so the breadcrumb matches where Strategy Web files the object. The dataset's "View in MicroStrategy" link opens the dataset object itself in Library when Library can render it (reports); intelligent and super cubes have no Library viewer, so they keep linking to the dossier or report that embeds them. If the object lookup fails, the dataset falls back to the dossier's folder and URL and the `dataset_object_lookup_failures` report counter is incremented.
 
-To exclude personal folders from ingestion (MicroStrategy's per-user "My Reports", nested under each user's own profile folder), use `folder_pattern`:
+Personal folders -- each user's profile folder tree under the project's "Profiles" system folder, holding that user's "My Reports", "My Objects" and similar folders -- are excluded by default (`include_personal_folders: false`). Dashboards, documents and reports filed there are skipped before any definition is fetched, so they cost no further API calls; the skips are counted in `personal_folder_objects_skipped` (with names sampled in `personal_folder_objects_skipped_samples`) and no folder container under the Profiles tree is emitted. A dataset that lives in a personal folder but is embedded by a public dossier or report is still ingested (it is part of that dossier's lineage) and is parented under the embedding dossier's folder rather than the personal one. With stateful ingestion, personal content ingested by an earlier run is soft-deleted on the next run like any other object that disappeared. Set `include_personal_folders: true` to ingest personal folders.
 
-```yaml
-folder_pattern:
-  deny:
-    - "^My Reports$"
-```
+Personal content is identified by folder id where possible. `GET /api/folders/preDefined` with EnumDSSXMLFolderNames types 19 (the logged-in principal's profile folder) and 20 (its "My Reports") returns the principal's own folders; the profile folder's immediate parent -- read from `GET /api/objects/{id}?type=8` -- is the project's Profiles system folder, and any object whose ancestor chain passes through that folder is personal, whichever user owns it. This is one extra predefined-folder call and one object lookup per project (`personal_folder_roots_resolved` counts the projects where it succeeded). When that resolution fails (an older server, a principal without a profile folder, insufficient privilege), the connector reports an info entry and falls back to ancestor folder names: an ancestor named "Profiles" or "My Reports" (case-insensitive, plus the type-20 folder's label when it was returned) marks an object as personal. The fallback is exact on default-language installations but cannot recognise renamed or localized folders, and would also match a public folder that happens to carry one of those names.
 
-Every user's personal folder carries that same literal name, so this excludes them all without needing per-user configuration.
+Note that `folder_pattern` cannot exclude content: a denied folder re-parents its children to the nearest allowed ancestor, so a `deny: ["^My Reports$"]` rule removes the folder container but still ingests everything in it under the user's folder.
 
 #### Metric and Attribute Tags
 

@@ -1,12 +1,15 @@
 import json
+from typing import Any, Dict
 
 from datahub.ingestion.source.microstrategy.models import (
     DashboardDefinition,
     DatasetObject,
     Datasource,
     DatasourceConnection,
+    PersonalFolderResolution,
     ReportDefinition,
     first_derived_node_skeleton,
+    is_personal_folder_object,
     payload_key_skeleton,
     payload_type_vocabulary,
 )
@@ -548,3 +551,58 @@ def test_first_derived_node_skeleton_uses_parent_identity_and_handles_absence() 
         "parent_keys": ["definition", "id", "name"],
     }
     assert first_derived_node_skeleton({"metrics": [{"id": "M-1"}]}) is None
+
+
+def _personal_report(*ancestors: Dict[str, str]) -> Dict[str, Any]:
+    return {"id": "R-1", "name": "Copy of Dossier", "ancestors": list(ancestors)}
+
+
+def test_personal_folder_object_by_id_ignores_names() -> None:
+    resolution = PersonalFolderResolution(root_ids={"PROFILES-ID"}, names={"profiles"})
+    assert not resolution.by_name
+
+    under_profiles = _personal_report(
+        {"id": "root", "name": "Analytics"},
+        {"id": "profiles-id", "name": "Perfiles"},
+        {"id": "u-1", "name": "jdoe"},
+        {"id": "mr-1", "name": "Mis informes"},
+    )
+    assert is_personal_folder_object(under_profiles, resolution)
+    # A public folder that merely carries the name is not personal by id.
+    named_profiles = _personal_report(
+        {"id": "root", "name": "Analytics"},
+        {"id": "shared", "name": "Shared Reports"},
+        {"id": "f-9", "name": "Profiles"},
+    )
+    assert not is_personal_folder_object(named_profiles, resolution)
+
+
+def test_personal_folder_object_by_name_fallback_is_case_insensitive() -> None:
+    resolution = PersonalFolderResolution(names={"profiles", "my reports"})
+    assert resolution.by_name
+
+    assert is_personal_folder_object(
+        _personal_report(
+            {"id": "root", "name": "Analytics"},
+            {"id": "p", "name": "PROFILES"},
+            {"id": "u", "name": "jdoe"},
+        ),
+        resolution,
+    )
+    assert is_personal_folder_object(
+        {"id": "R-2", "name": "R", "folder": {"path": "/Analytics/jdoe/My Reports"}},
+        resolution,
+    )
+    # Exact-name matching: "My Reports Archive" under Shared Reports stays.
+    assert not is_personal_folder_object(
+        _personal_report(
+            {"id": "shared", "name": "Shared Reports"},
+            {"id": "f", "name": "My Reports Archive"},
+        ),
+        resolution,
+    )
+    assert not is_personal_folder_object({"id": "R-3", "name": "No folder"}, resolution)
+    assert not is_personal_folder_object(
+        _personal_report({"id": "p", "name": "Profiles"}),
+        PersonalFolderResolution.empty(),
+    )

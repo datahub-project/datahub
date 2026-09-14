@@ -46,3 +46,17 @@ def test_emit_semantic_model_entities_can_be_enabled() -> None:
     )
 
     assert config.emit_semantic_model_entities is True
+
+
+def test_personal_folders_excluded_by_default() -> None:
+    config = MicroStrategyConfig.model_validate(
+        {"base_url": "https://mstr.example.com/MicroStrategyLibrary"}
+    )
+
+    assert config.include_personal_folders is False
+    assert MicroStrategyConfig.model_validate(
+        {
+            "base_url": "https://mstr.example.com/MicroStrategyLibrary",
+            "include_personal_folders": True,
+        }
+    ).include_personal_folders

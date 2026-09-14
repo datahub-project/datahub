@@ -120,10 +120,25 @@ class MicroStrategyConfig(
         description=(
             "Regex patterns to filter folder containers by name. When an "
             "intermediate folder is denied, its children re-parent to the "
-            "nearest allowed ancestor rather than being dropped. To exclude "
-            "personal folders (MicroStrategy's per-user 'My Reports'), use "
-            '`deny: ["^My Reports$"]` -- every user\'s personal folder carries '
-            "that same literal name."
+            "nearest allowed ancestor rather than being dropped, so this "
+            "cannot exclude content; personal folders are excluded by "
+            "`include_personal_folders` instead."
+        ),
+    )
+    include_personal_folders: bool = Field(
+        default=False,
+        description=(
+            "Whether to ingest personal folders: each user's profile folder "
+            "tree under the project's 'Profiles' system folder, holding that "
+            "user's 'My Reports', 'My Objects' and similar folders. Excluded by "
+            "default: dashboards, documents and reports filed there are skipped "
+            "before any definition is fetched (counted in "
+            "`personal_folder_objects_skipped`) and their folder containers are "
+            "not emitted. The Profiles root is resolved by id via "
+            "GET /api/folders/preDefined (EnumDSSXMLFolderNames 19/20) plus the "
+            "profile folder's own ancestors; when that fails, an ancestor folder "
+            "named 'Profiles' or 'My Reports' (case-insensitive) identifies "
+            "personal content instead. Set true to ingest them."
         ),
     )
     use_predefined_folder_names: bool = Field(

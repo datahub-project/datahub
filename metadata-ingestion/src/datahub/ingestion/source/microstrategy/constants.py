@@ -34,6 +34,26 @@ MSTR_FOLDER_TYPE_PROJECT_ROOT = 39
 MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES = frozenset(
     {MSTR_FOLDER_TYPE_PUBLIC_OBJECTS, MSTR_FOLDER_TYPE_PROJECT_ROOT}
 )
+# EnumDSSXMLFolderNames profile folder types. Both resolve to the LOGGED-IN
+# principal's own folders: 19 is its profile folder (the per-user tree that
+# holds "My Reports", "My Objects", "My Answers", ...), 20 is its "My Reports".
+# The enum has no value for the "Profiles" system folder that holds every
+# user's profile folder, so that root is resolved as the type-19 folder's
+# parent (via GET /api/objects/{id}?type=8 ancestors); any object with that
+# ancestor is personal, whichever user owns it.
+MSTR_FOLDER_TYPE_PROFILE_OBJECTS = 19
+MSTR_FOLDER_TYPE_PROFILE_REPORTS = 20
+MSTR_PERSONAL_FOLDER_TYPES = (
+    MSTR_FOLDER_TYPE_PROFILE_OBJECTS,
+    MSTR_FOLDER_TYPE_PROFILE_REPORTS,
+)
+# EnumDSSXMLObjectTypes: Folder.
+MSTR_OBJECT_TYPE_FOLDER = 8
+# Fallback when the Profiles root id cannot be resolved (older server, no
+# privilege): an ancestor folder whose name equals one of these
+# (case-insensitive) marks an object as personal. The resolved label of the
+# type-20 folder is added when available.
+MSTR_PERSONAL_FOLDER_NAMES = frozenset({"profiles", "my reports"})
 
 MSTR_LOGIN_MODE_STANDARD = 1
 MSTR_LOGIN_MODE_GUEST = 8

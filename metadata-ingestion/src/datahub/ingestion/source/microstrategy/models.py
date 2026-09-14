@@ -1,7 +1,7 @@
 import hashlib
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import (
     Any,
     Dict,
@@ -292,6 +292,44 @@ class PredefinedFolder(MicroStrategyBaseModel):
     id: str
     name: str
     folder_type: Optional[int] = Field(default=None, alias="folderType")
+
+
+@dataclass(frozen=True)
+class PersonalFolderResolution:
+    """How personal (per-user profile) folders are recognised in one project.
+    `root_ids` holds normalized ids of folders whose descendants are all
+    personal -- the project's "Profiles" system folder when it could be
+    resolved, plus the logged-in principal's own profile folders. When it is
+    empty the connector falls back to `names`: an ancestor folder whose
+    lower-cased name is in the set marks the object as personal."""
+
+    root_ids: Set[str] = field(default_factory=set)
+    names: Set[str] = field(default_factory=set)
+
+    @property
+    def by_name(self) -> bool:
+        return not self.root_ids
+
+    @staticmethod
+    def empty() -> "PersonalFolderResolution":
+        return PersonalFolderResolution()
+
+
+def is_personal_folder_object(
+    raw_object: MicroStrategyDict, resolution: PersonalFolderResolution
+) -> bool:
+    """True when the object's folder ancestry passes through a personal folder:
+    by id when a Profiles root was resolved (robust to localized or renamed
+    folders), otherwise by ancestor name (case-insensitive)."""
+    parts = extract_folder_parts(raw_object)
+    if not parts:
+        return False
+    if not resolution.by_name:
+        return any(
+            part.id and normalize_object_id(part.id) in resolution.root_ids
+            for part in parts
+        )
+    return any(part.name.strip().lower() in resolution.names for part in parts)
 
 
 class ModelTablesResponse(MicroStrategyBaseModel):

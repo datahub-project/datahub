@@ -7,6 +7,7 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.microstrategy.client import MicroStrategyClient
 from datahub.ingestion.source.microstrategy.constants import (
     MSTR_FOLDER_TYPE_SHARED_REPORTS,
+    MSTR_PERSONAL_FOLDER_TYPES,
     MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES,
 )
 from datahub.ingestion.source.microstrategy.models import (
@@ -594,6 +595,10 @@ def _shared_reports_predefined_folder(
     _project_id: str,
     folder_types: List[int],
 ) -> List[PredefinedFolder]:
+    if folder_types == list(MSTR_PERSONAL_FOLDER_TYPES):
+        # Personal-folder root resolution is a separate call; nothing to
+        # resolve in this fixture, so it falls back to folder names.
+        return []
     assert folder_types == sorted(
         {MSTR_FOLDER_TYPE_SHARED_REPORTS} | MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES
     )
