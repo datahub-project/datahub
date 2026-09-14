@@ -48,6 +48,11 @@ and their configuration please see the table at the end of each section.
 Quickstart profiles are primarily a way to test drive DataHub features before committing to a production ready deployment.
 A couple of these profiles are also used in our continuous integration (CI) tests.
 
+**Search engine names:** Unversioned profiles (`quickstart`, `debug`) always use the **current
+default** OpenSearch (today **2.x**). Versioned Gradle keys pin an engine across a future default
+change: `./gradlew quickstartOS2` / `quickstartOS2Debug` stay on 2.x; `quickstartOS3` /
+`quickstartOS3Debug` stay on 3.x. Do not treat `quickstart` as an alias of `quickstartOS3`.
+
 Note: Quickstart profiles use docker images with the coordinated `quickstart` tag (updated together after smoke tests on `master`). This can be overridden to use a stable release tag by prefixing commands with `DATAHUB_VERSION=v0.12.1`, or to pin a specific build with `DATAHUB_VERSION=sha-<short_sha>`.
 
 ### `quickstart`
@@ -61,6 +66,17 @@ This configuration is identical to `quickstart` how it runs standalone consumers
 ### `quickstart-postgres`
 
 Like `quickstart` with Postgres instead of MySQL. Uses pgQueue instead of Kafka for messaging (`DATAHUB_MESSAGING_TRANSPORT=pgqueue`). OpenSearch is still used for search/graph/timeseries.
+
+### `quickstart-opensearch2`
+
+Same application set as image-based `quickstart` (MySQL, Kafka, frontend, GMS, actions) with
+**OpenSearch 2.x** explicitly pinned (`opensearchproject/opensearch:2.19.3`, volume `osdata`).
+Unversioned `quickstart` uses this engine today; use `./gradlew quickstartOS2` when you must stay
+on 2.x after the default flips to 3.x.
+
+```bash
+./gradlew quickstartOS2
+```
 
 ### `quickstart-opensearch3`
 
@@ -93,6 +109,7 @@ of docker.
 | quickstart-frontend    | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |
 | quickstart-backend     | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |
 | quickstart-postgres    |       | X        |           |       | X        | X   | X       | X            |     |     |       | X          |
+| quickstart-opensearch2 | X     |          |           |       | X        | X   | X       | X            |     |     | X     | 2.x        |
 | quickstart-opensearch3 | X     |          |           |       | X        | X   | X       | X            |     |     | X     | 3.x        |
 | quickstart-cassandra   |       |          | X         | X     | X        | X   | X       | X            |     |     | X     | X          |
 | quickstart-consumers   | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |
@@ -123,6 +140,16 @@ Run everything except for the `frontend` component. Useful for running just a lo
 
 Runs everything except for the GMS. Useful for running just a local (non-docker) GMS instance.
 
+### `debug-opensearch2`
+
+Same application set as `debug`, with OpenSearch **2.x** pinned. Use
+`./gradlew quickstartOS2Debug` to keep a bind-mount stack on 2.x after unversioned `debug` moves to
+3.x.
+
+```bash
+./gradlew quickstartOS2Debug
+```
+
 ### `debug-opensearch3`
 
 Same application set as `debug`, but the search backend is **OpenSearch 3.7**
@@ -150,6 +177,7 @@ instead of a host bind-mount.
 | debug-consumers          | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |               |                  |
 | debug-neo4j              | X     |          |           | X     | X        | X   | X       | X            |     |     | X     | X          |               |                  |
 | debug-elasticsearch      | X     |          |           |       | X        | X   | X       | X            |     |     | X     |            | X             |                  |
+| debug-opensearch2        | X     |          |           |       | X        | X   | X       | X            |     |     | X     | 2.x        |               |                  |
 | debug-opensearch3        | X     |          |           |       | X        | X   | X       | X            |     |     | X     | 3.x        |               |                  |
 | debug-backend-aws        | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               | X                |
 

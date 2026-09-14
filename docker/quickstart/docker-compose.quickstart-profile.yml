@@ -5,6 +5,7 @@ services:
     profiles:
     - quickstart
     - quickstart-backend
+    - quickstart-opensearch2
     depends_on:
       datahub-gms-quickstart:
         condition: service_healthy
@@ -47,6 +48,7 @@ services:
     profiles:
     - quickstart
     - quickstart-backend
+    - quickstart-opensearch2
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
@@ -161,6 +163,7 @@ services:
     profiles:
     - quickstart
     - quickstart-frontend
+    - quickstart-opensearch2
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
@@ -226,9 +229,11 @@ services:
     - debug-consumers-cdc
     - debug-neo4j
     - debug-elasticsearch
+    - debug-opensearch2
     - debug-opensearch3
     - debug-backend-aws
     - debug-aws
+    - quickstart-opensearch2
     - quickstart-opensearch3
     command:
     - /bin/bash
@@ -305,9 +310,11 @@ services:
     - debug-consumers-cdc
     - debug-neo4j
     - debug-elasticsearch
+    - debug-opensearch2
     - debug-opensearch3
     - debug-backend-aws
     - debug-aws
+    - quickstart-opensearch2
     - quickstart-opensearch3
     command:
     - --character-set-server=utf8mb4
@@ -369,6 +376,8 @@ services:
     - debug-neo4j
     - debug-backend-aws
     - debug-aws
+    - debug-opensearch2
+    - quickstart-opensearch2
     environment:
       DISABLE_SECURITY_PLUGIN: 'true'
       ES_JAVA_OPTS: -Xms256m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
@@ -403,6 +412,7 @@ services:
     - quickstart-consumers
     - quickstart-frontend
     - quickstart-backend
+    - quickstart-opensearch2
     command:
     - -u
     - SystemUpdate

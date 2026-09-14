@@ -149,6 +149,18 @@ ext {
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                     ]
             ],
+            'quickstartOS2': [
+                    profile: 'quickstart-opensearch2',
+                    modules: backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+            ],
+            'quickstartOS2Debug': [
+                    profile: 'debug-opensearch2',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
             'quickstartOS3': [
                     profile: 'quickstart-opensearch3',
                     modules: backend_profile_modules + [':datahub-frontend', ':datahub-actions'],

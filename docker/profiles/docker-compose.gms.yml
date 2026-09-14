@@ -309,6 +309,7 @@ services:
       - quickstart-consumers
       - quickstart-frontend
       - quickstart-backend
+      - quickstart-opensearch2
     environment:
       <<: *datahub-system-update-env
       DATAHUB_SQL_SETUP_ENABLED: 'true'
@@ -420,6 +421,7 @@ services:
       - debug-min
       - debug-backend
       - debug-backend-aws
+      - debug-opensearch2
     depends_on:
       mysql:
         condition: service_healthy
@@ -557,6 +559,7 @@ services:
     profiles:
       - quickstart
       - quickstart-backend
+      - quickstart-opensearch2
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
@@ -654,6 +657,7 @@ services:
     profiles:
       - debug
       - debug-backend
+      - debug-opensearch2
     depends_on:
       system-update-debug:
         condition: service_completed_successfully

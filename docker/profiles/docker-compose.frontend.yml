@@ -48,6 +48,7 @@ services:
     profiles:
       - quickstart
       - quickstart-frontend
+      - quickstart-opensearch2
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
@@ -104,6 +105,7 @@ services:
     <<: *datahub-frontend-service-dev
     profiles:
       - debug
+      - debug-opensearch2
     depends_on:
       system-update-debug:
         condition: service_completed_successfully
