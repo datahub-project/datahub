@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -230,6 +231,7 @@ public class LineageRegistryTest {
   @Test
   public void testGetEntitiesWithLineageToSchemaField() {
     // schemaField's LineageSpec is empty; discovery must still include hardcoded consumers
+    // without BFS into those consumers' entity-level graphs (dataset/dataJob).
     Set<String> entitiesWithLineage =
         lineageRegistry.getEntitiesWithLineageToEntityType(Constants.SCHEMA_FIELD_ENTITY_NAME);
 
@@ -237,6 +239,8 @@ public class LineageRegistryTest {
     assertTrue(entitiesWithLineage.contains(Constants.METRIC_ENTITY_NAME));
     assertTrue(entitiesWithLineage.contains(Constants.CHART_ENTITY_NAME));
     assertTrue(entitiesWithLineage.contains(Constants.DASHBOARD_ENTITY_NAME));
+    assertFalse(entitiesWithLineage.contains(Constants.DATASET_ENTITY_NAME));
+    assertFalse(entitiesWithLineage.contains(Constants.DATA_JOB_ENTITY_NAME));
   }
 
   @Test

@@ -73,6 +73,8 @@ public class LineageGraphFiltersTest {
     assertTrue(filters.getAllowedEntityTypes().contains("metric"));
     assertTrue(filters.getAllowedEntityTypes().contains("chart"));
     assertTrue(filters.getAllowedEntityTypes().contains("dashboard"));
+    assertFalse(filters.getAllowedEntityTypes().contains("dataJob"));
+    assertFalse(filters.getAllowedEntityTypes().contains("dataset"));
 
     Set<LineageRegistry.EdgeInfo> edges = filters.getEdgeInfo(lineageRegistry, "schemaField");
     assertTrue(

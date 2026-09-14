@@ -122,7 +122,26 @@ public class LineageRegistry {
   }
 
   public Set<String> getEntitiesWithLineageToEntityType(String entityType) {
-    Map<String, EntitySpec> specs = _entityRegistry.getEntitySpecs();
+    if (SCHEMA_FIELD_ENTITY_NAME.equalsIgnoreCase(entityType)) {
+      return getSchemaFieldLineageEntityTypes();
+    }
+    return discoverLineageEntityTypesBfs(entityType);
+  }
+
+  /**
+   * Column walks only need the hardcoded first-hop consumers in the allowed set. BFS through
+   * metric/chart/dashboard would pull in dataset/dataJob and mix table-level edges into schemaField
+   * impact / searchAcrossLineage.
+   */
+  private Set<String> getSchemaFieldLineageEntityTypes() {
+    String lookupName = resolveEntityName(SCHEMA_FIELD_ENTITY_NAME);
+    Set<String> schemaFieldTypes = new HashSet<>();
+    schemaFieldTypes.add(lookupName);
+    opposingEntityTypes(lookupName).forEach(schemaFieldTypes::add);
+    return schemaFieldTypes;
+  }
+
+  private Set<String> discoverLineageEntityTypesBfs(String entityType) {
     Set<String> discoveredTypes = new HashSet<>();
     Set<String> typesToProcess = new HashSet<>();
 
@@ -132,26 +151,33 @@ public class LineageRegistry {
 
       for (String currentType : typesToProcess) {
         if (discoveredTypes.add(currentType)) {
-          EntitySpec currentSpec = specs.get(currentType.toLowerCase());
-          String lookupName = currentSpec != null ? currentSpec.getName() : currentType;
-          Stream.concat(
-                  getLineageRelationships(lookupName, LineageDirection.UPSTREAM).stream(),
-                  getLineageRelationships(lookupName, LineageDirection.DOWNSTREAM).stream())
-              .map(EdgeInfo::getOpposingEntityType)
-              .map(
-                  entity -> {
-                    EntitySpec opposingSpec = specs.get(entity.toLowerCase());
-                    // Hardcoded schemaField edges may name types absent from a partial
-                    // test registry; keep the annotated name so discovery still works.
-                    return opposingSpec != null ? opposingSpec.getName() : entity;
-                  })
-              .forEach(nextBatch::add);
+          opposingEntityTypes(resolveEntityName(currentType)).forEach(nextBatch::add);
         }
       }
       typesToProcess = nextBatch;
     }
 
     return discoveredTypes;
+  }
+
+  private String resolveEntityName(String entityType) {
+    EntitySpec spec = _entityRegistry.getEntitySpecs().get(entityType.toLowerCase());
+    return spec != null ? spec.getName() : entityType;
+  }
+
+  private Stream<String> opposingEntityTypes(String lookupName) {
+    Map<String, EntitySpec> specs = _entityRegistry.getEntitySpecs();
+    return Stream.concat(
+            getLineageRelationships(lookupName, LineageDirection.UPSTREAM).stream(),
+            getLineageRelationships(lookupName, LineageDirection.DOWNSTREAM).stream())
+        .map(EdgeInfo::getOpposingEntityType)
+        .map(
+            entity -> {
+              EntitySpec opposingSpec = specs.get(entity.toLowerCase());
+              // Hardcoded schemaField edges may name types absent from a partial
+              // test registry; keep the annotated name so discovery still works.
+              return opposingSpec != null ? opposingSpec.getName() : entity;
+            });
   }
 
   public List<EdgeInfo> getLineageRelationships(String entityName, LineageDirection direction) {
