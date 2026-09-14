@@ -35,7 +35,7 @@
     "freshness.popoverContent": "{{updateType}} {{lastUpdatedAgo}}",
     "health.assertionsPassing": "Alla kontroller är godkända",
     "health.noActiveIncidents": "Inga aktiva incidents",
-    "health.testsPassing": "Alla test är godkända",
+    "health.noFailingGovernanceTests": "Inga misslyckade styrningstester",
     "lineage.downstreamCount_one": "{{count}} downstream",
     "lineage.downstreamCount_other": "{{count}} downstream",
     "lineage.upstreamCount_one": "{{count}} upstream",

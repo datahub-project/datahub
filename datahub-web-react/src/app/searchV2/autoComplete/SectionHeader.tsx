@@ -12,7 +12,7 @@ export const EntityTypeLabel = styled.div<{ showBorder?: boolean }>`
     ${(props) =>
         props.showBorder &&
         `
-        border-bottom: 1px solid ${props.theme.colors.bgSurface};
+        border-bottom: 1px solid ${props.theme.colors.border};
         padding-bottom: 2px;
         `}
 `;
