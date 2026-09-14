@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -162,6 +163,22 @@ public class SemanticSearchResolverTest {
   }
 
   @Test
+  public void testBlankQueryIsRejectedBeforeSearch() {
+    // Given: a whitespace-only query. Under the classical provider it would embed to the
+    // empty-text sentinel vector and kNN would return arbitrary neighbours.
+    SearchInput input = new SearchInput();
+    input.setType(EntityType.DATASET);
+    input.setQuery("   ");
+
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+
+    // When/Then: rejected as bad input without reaching the service
+    org.testng.Assert.expectThrows(
+        IllegalArgumentException.class, () -> resolver.get(mockEnvironment));
+    verifyNoInteractions(mockSemanticSearchService);
+  }
+
+  @Test
   public void testSemanticSearchWithFilters() throws Exception {
     // Given: Semantic search input with filters
     SearchInput input = new SearchInput();
@@ -242,56 +259,6 @@ public class SemanticSearchResolverTest {
     assertTrue(ex.getCause() instanceof DataHubGraphQLException);
     assertEquals(
         ((DataHubGraphQLException) ex.getCause()).errorCode(), DataHubGraphQLErrorCode.BAD_REQUEST);
-  }
-
-  @Test
-  public void testHandlesEmptyQuery() throws Exception {
-    // Given: Empty query
-    SearchInput input = new SearchInput();
-    input.setType(EntityType.DATASET);
-    input.setQuery("");
-    input.setStart(0);
-    input.setCount(10);
-
-    when(mockEnvironment.getArgument("input")).thenReturn(input);
-
-    // Mock service response for empty query
-    SearchResult mockSearchResult =
-        new SearchResult()
-            .setEntities(new SearchEntityArray())
-            .setFrom(0)
-            .setPageSize(10)
-            .setNumEntities(0)
-            .setMetadata(new SearchResultMetadata());
-
-    when(mockSemanticSearchService.semanticSearch(
-            any(OperationContext.class),
-            anyList(),
-            anyString(),
-            any(),
-            anyList(),
-            anyInt(),
-            anyInt()))
-        .thenReturn(mockSearchResult);
-
-    // When: Resolver processes the request
-    CompletableFuture<SearchResults> resultFuture = resolver.get(mockEnvironment);
-    SearchResults result = resultFuture.get();
-
-    // Then: Should handle gracefully
-    assertNotNull(result);
-    assertEquals(result.getTotal(), 0);
-
-    // Verify service was called with sanitized empty string
-    verify(mockSemanticSearchService, times(1))
-        .semanticSearch(
-            any(OperationContext.class),
-            anyList(),
-            eq(""), // Empty string should be passed through
-            any(),
-            anyList(),
-            eq(0),
-            eq(10));
   }
 
   @Test

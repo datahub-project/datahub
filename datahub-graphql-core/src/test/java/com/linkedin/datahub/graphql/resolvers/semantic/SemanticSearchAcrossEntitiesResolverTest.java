@@ -11,6 +11,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -417,6 +418,22 @@ public class SemanticSearchAcrossEntitiesResolverTest {
             eq(0),
             eq(10),
             anyList());
+  }
+
+  @Test
+  public void testBlankQueryIsRejectedBeforeSearch() {
+    // Given: a whitespace-only query. Under the classical provider it would embed to the
+    // empty-text sentinel vector and kNN would return arbitrary neighbours.
+    SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DATASET));
+    input.setQuery("   ");
+
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+
+    // When/Then: rejected as bad input before view resolution or any service call
+    org.testng.Assert.expectThrows(
+        IllegalArgumentException.class, () -> resolver.get(mockEnvironment));
+    verifyNoInteractions(mockSemanticSearchService, mockViewService, mockEntityClient);
   }
 
   @Test

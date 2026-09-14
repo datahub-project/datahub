@@ -9,6 +9,7 @@ package com.linkedin.datahub.graphql.resolvers.semantic;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
+import static org.apache.commons.lang3.StringUtils.isBlank;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
@@ -71,6 +72,11 @@ public class SemanticSearchAcrossEntitiesResolver
     // The query text only feeds the embedding provider (kNN); it never reaches a query_string
     // clause, so it is passed as typed. Escaping "/" would change the embedded text.
     final String query = input.getQuery();
+    // A blank query embeds to a fixed sentinel vector under the classical provider, so kNN would
+    // return arbitrary nearest documents instead of failing. Reject it before any service call.
+    if (isBlank(query)) {
+      throw new IllegalArgumentException("Semantic search requires a non-empty query");
+    }
 
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
